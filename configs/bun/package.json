@@ -1,0 +1,13 @@
+{
+  "name": "@config/bun",
+  "type": "module",
+  "private": true,
+  "exports": {
+    "./server": "./src/server.ts"
+  },
+  "devDependencies": {
+    "@config/eslint": "workspace:^",
+    "@config/typescript": "workspace:^",
+    "typescript": "catalog:"
+  }
+}

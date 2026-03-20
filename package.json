@@ -1,12 +1,44 @@
 {
   "name": "omni-craft",
   "private": true,
+  "scripts": {
+    "prepare": "test -d node_modules/husky && husky"
+  },
   "workspaces": [
     "apps/*",
-    "packages/*"
+    "packages/*",
+    "configs/*"
   ],
   "devDependencies": {
-    "@types/bun": "latest",
-    "typescript": "^5"
+    "@commitlint/cli": "^20.2.0",
+    "@commitlint/config-conventional": "^20.2.0",
+    "@types/bun": "catalog:",
+    "eslint": "catalog:",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.2.7",
+    "prettier": "^3.7.4",
+    "typescript": "catalog:"
+  },
+  "prettier": {
+    "singleQuote": true,
+    "jsxSingleQuote": true,
+    "bracketSpacing": false,
+    "tabWidth": 2
+  },
+  "commitlint": {
+    "extends": [
+      "@commitlint/config-conventional"
+    ]
+  },
+  "catalog": {
+    "@types/bun": "^1.2.14",
+    "@types/node": "^24.10.3",
+    "@types/react": "^19.2.7",
+    "@types/react-dom": "^19.2.3",
+    "eslint": "^10.0.2",
+    "react": "^19.2.3",
+    "react-dom": "^19.2.3",
+    "typescript": "^5.9.3",
+    "vite": "^7.2.7"
   }
 }
