@@ -1,0 +1,10 @@
+{
+  "extends": "@config/typescript/node",
+  "compilerOptions": {
+    "rootDir": "./src",
+    "outDir": "./dist",
+    "paths": {
+      "@/*": ["./src/*"]
+    }
+  }
+}

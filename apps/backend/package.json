@@ -1,0 +1,30 @@
+{
+  "name": "@omnicraft/backend",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "bun --hot src/index.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@config/eslint": "workspace:^",
+    "@config/typescript": "workspace:^",
+    "@types/koa": "^3.0.1",
+    "@types/koa-compose": "^3.2.9",
+    "@types/koa-pino-logger": "^3.0.5",
+    "@types/koa__cors": "^5.0.1",
+    "@types/node": "catalog:",
+    "typescript": "catalog:"
+  },
+  "dependencies": {
+    "@koa/bodyparser": "^6.1.0",
+    "@koa/cors": "^5.0.0",
+    "@koa/router": "^15.1.0",
+    "http-status-codes": "^2.3.0",
+    "koa": "^3.1.1",
+    "koa-compose": "^4.1.0",
+    "koa-pino-logger": "^5.0.0",
+    "pino": "^10.3.1",
+    "pino-pretty": "^13.1.3"
+  }
+}
