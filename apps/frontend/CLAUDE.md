@@ -17,7 +17,7 @@ Calendar/
   | components/             // Subcomponents
   | hooks/                  // Hooks as view models.
   | index.ts                // For exporting the component. No TSX should be in this file.
-  | Calendar.tsx            // Optional. Connect view models with view.
+  | Calendar.tsx            // Optional. Connect view models with view. No state should be in this file. Put states in hooks.
   | CalendarView.tsx        // Stateless view component. Get all information with props.
   | styles.module.css       // Part of view
 ```
