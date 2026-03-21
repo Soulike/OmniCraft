@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "bun --hot src/index.ts",
+    "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
@@ -14,7 +15,8 @@
     "@types/koa-pino-logger": "^3.0.5",
     "@types/koa__cors": "^5.0.1",
     "@types/node": "^24.12.0",
-    "typescript": "catalog:"
+    "typescript": "catalog:",
+    "vitest": "^4.1.0"
   },
   "dependencies": {
     "@koa/bodyparser": "^6.1.0",
