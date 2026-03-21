@@ -19,6 +19,10 @@ Before starting any task, you must first confirm:
 
 - When adding a new npm package, always install it via the package manager (e.g., `bun add <package>`). Never manually write a version number in package.json.
 
+## Runtime APIs
+
+- Bun is used only as the package manager and runtime. In code, always use Node.js APIs (e.g., `node:fs/promises`, `node:path`). Do not use Bun-specific APIs (e.g., `Bun.file()`, `Bun.write()`).
+
 ---
 
 ## Projects
@@ -39,6 +43,7 @@ Follow Google TypeScript guide unless specified. Detail: <https://google.github.
 
 - Add comments when code cannot explain itself.
 - Consider making the code more self-descriptive when you want to add comments.
+- Add JSDoc to all public methods and classes.
 
 ### File Naming
 
