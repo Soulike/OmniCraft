@@ -32,7 +32,7 @@ export class SettingsManager {
   private static instance: SettingsManager | null = null;
 
   private readonly filePath: string;
-  private readonly writeQueue = new AsyncQueue();
+  private readonly ioQueue = new AsyncQueue();
 
   private constructor(filePath: string) {
     this.filePath = filePath;
@@ -148,7 +148,7 @@ export class SettingsManager {
       `Invalid leaf path: [${keyPath.join(', ')}]`,
     );
 
-    return this.writeQueue.enqueue(async () => {
+    return this.ioQueue.enqueue(async () => {
       const settings = await this.load();
       let current: unknown = settings;
       for (const key of keyPath) {
@@ -179,7 +179,7 @@ export class SettingsManager {
       'Value must be a scalar, not an object',
     );
 
-    await this.writeQueue.enqueue(async () => {
+    await this.ioQueue.enqueue(async () => {
       const settings = await this.load();
       let current: Record<string, unknown> = settings;
 
@@ -199,7 +199,7 @@ export class SettingsManager {
 
   /** Returns the complete settings object with all defaults applied. */
   async getAll(): Promise<Settings> {
-    return this.writeQueue.enqueue(() => this.load());
+    return this.ioQueue.enqueue(() => this.load());
   }
 
   /** Returns the Zod schema describing the settings structure. */
