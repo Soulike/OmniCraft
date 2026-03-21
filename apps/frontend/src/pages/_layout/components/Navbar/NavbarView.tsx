@@ -1,5 +1,6 @@
 import {Tabs} from '@heroui/react';
 
+import {ThemeToggle} from '../ThemeToggle/index.js';
 import styles from './styles.module.css';
 import type {NavTab} from './types.js';
 
@@ -40,7 +41,9 @@ export function NavbarView({
           </Tabs.ListContainer>
         </Tabs>
       </div>
-      <div className={styles.right} />
+      <div className={styles.right}>
+        <ThemeToggle />
+      </div>
     </nav>
   );
 }
