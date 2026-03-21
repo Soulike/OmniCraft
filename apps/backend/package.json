@@ -3,7 +3,7 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "dev": "bun --hot src/index.ts",
+    "dev": "NODE_ENV=development bun --hot src/index.ts",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },
