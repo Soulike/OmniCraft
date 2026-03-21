@@ -9,6 +9,7 @@ Shared Zod schemas for OmniCraft settings. Used by both frontend and backend.
 - Nesting stops at scalar values (leaf nodes).
 - Only `settingsSchema` (the root) is exported. Sub-schemas are accessed via `.shape` (e.g., `settingsSchema.shape.llm`).
 - Every leaf field has a `.describe()` for runtime introspection and a `.default()` for fallback values.
+- The schema must be convertible to JSON Schema via `z.toJSONSchema()`. Only use Zod types that support this (no `z.function()`, `z.transform()`, etc.). A test enforces this.
 
 ## Adding a New Section
 
