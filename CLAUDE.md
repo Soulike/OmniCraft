@@ -45,7 +45,6 @@ Follow Google TypeScript guide unless specified. Detail: <https://google.github.
 
 - Add comments when code cannot explain itself.
 - Consider making the code more self-descriptive when you want to add comments.
-- Add JSDoc to all public methods and classes.
 
 ### File Naming
 

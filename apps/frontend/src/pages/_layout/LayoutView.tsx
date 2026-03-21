@@ -1,12 +1,17 @@
 import {type ReactNode} from 'react';
 
+import {Navbar} from './components/Navbar/index.js';
 import styles from './styles.module.css';
 
 interface LayoutViewProps {
   children: ReactNode;
 }
 
-/** Root layout view. Renders the application shell. */
 export function LayoutView({children}: LayoutViewProps) {
-  return <div className={styles.layout}>{children}</div>;
+  return (
+    <div className={styles.layout}>
+      <Navbar />
+      <main className={styles.content}>{children}</main>
+    </div>
+  );
 }
