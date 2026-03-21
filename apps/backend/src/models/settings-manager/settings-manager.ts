@@ -45,6 +45,11 @@ export class SettingsManager {
     return SettingsManager.instance;
   }
 
+  /** Resets the singleton instance. Only for use in tests. */
+  static resetInstanceForTesting(): void {
+    SettingsManager.instance = null;
+  }
+
   /**
    * Checks whether the given key path is a valid leaf (scalar) node in the schema.
    * @param keyPath - Path segments to check (e.g., `['llm', 'apiKey']`).

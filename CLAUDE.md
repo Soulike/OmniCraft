@@ -39,6 +39,8 @@ Before starting any task, you must first confirm:
 
 Follow Google TypeScript guide unless specified. Detail: <https://google.github.io/styleguide/tsguide.html>.
 
+- Never use `any`. Use `unknown` and narrow with type guards or assertions.
+
 ### Comments
 
 - Add comments when code cannot explain itself.
