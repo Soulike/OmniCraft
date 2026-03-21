@@ -1,4 +1,11 @@
+import type {ZodType} from 'zod';
+
 export type SettingFieldValues = Record<string, unknown>;
+
+export interface FieldConfig {
+  path: string;
+  schema: ZodType;
+}
 
 export interface SettingSectionRenderProps {
   values: SettingFieldValues;

@@ -15,9 +15,9 @@ All React components follow MVVM structure, take a component named `Calendar` fo
 Calendar/
   | assets/                 // Static assets needed
   | components/             // Subcomponents
-  | hooks/                  // Hooks as view models.
+  | hooks/                  // Hooks as view models. Each hook manages a single concern.
   | index.ts                // For exporting the component. No TSX should be in this file.
-  | Calendar.tsx            // Optional. Connect view models with view. No state should be in this file. Put states in hooks.
+  | Calendar.tsx            // Optional. Connect view models with view. No state should be in this file. States go in hooks. This file only composes hooks and passes their results to the view.
   | CalendarView.tsx        // Stateless view component. Get all information with props.
   | styles.module.css       // Part of view
 ```
