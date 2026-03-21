@@ -4,12 +4,17 @@
   z-index: 100;
   display: flex;
   align-items: center;
-  gap: 32px;
   padding: 0 24px;
   height: 64px;
   background: var(--surface);
   border-bottom: 1px solid var(--border);
   box-shadow: var(--surface-shadow);
+}
+
+.left {
+  flex: 1;
+  display: flex;
+  align-items: center;
 }
 
 .brand {
@@ -28,15 +33,16 @@
   opacity: 1;
 }
 
-.tabs {
-  flex: 1;
+.center {
   display: flex;
-  align-items: stretch;
+  align-items: center;
+  justify-content: center;
 }
 
 .right {
+  flex: 1;
   display: flex;
   align-items: center;
+  justify-content: flex-end;
   gap: 8px;
-  flex-shrink: 0;
 }

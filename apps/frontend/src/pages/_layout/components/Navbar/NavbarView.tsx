@@ -19,10 +19,12 @@ export function NavbarView({
 }: NavbarViewProps) {
   return (
     <nav className={styles.navbar}>
-      <a className={styles.brand} onClick={onBrandClick}>
-        OmniCraft
-      </a>
-      <div className={styles.tabs}>
+      <div className={styles.left}>
+        <a className={styles.brand} onClick={onBrandClick}>
+          OmniCraft
+        </a>
+      </div>
+      <div className={styles.center}>
         <Tabs
           selectedKey={selectedTab}
           onSelectionChange={(key) => {

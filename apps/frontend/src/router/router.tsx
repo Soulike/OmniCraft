@@ -12,11 +12,19 @@ export const router = createBrowserRouter([
     children: [
       {
         index: true,
-        element: <Navigate to={ROUTES.chat()} replace />,
+        element: <Navigate to={ROUTES.dashboard()} replace />,
+      },
+      {
+        path: ROUTES.dashboard(),
+        element: null,
       },
       {
         path: ROUTES.chat(),
         element: <ChatPage />,
+      },
+      {
+        path: ROUTES.tasks(),
+        element: null,
       },
       {
         path: ROUTES.settings(),

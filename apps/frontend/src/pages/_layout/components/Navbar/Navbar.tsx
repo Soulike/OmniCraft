@@ -8,7 +8,9 @@ import type {NavTab} from './types.js';
 
 function getTabs(): NavTab[] {
   return [
+    {id: 'dashboard', label: 'Dashboard', path: ROUTES.dashboard()},
     {id: 'chat', label: 'Chat', path: ROUTES.chat()},
+    {id: 'tasks', label: 'Tasks', path: ROUTES.tasks()},
     {id: 'settings', label: 'Settings', path: ROUTES.settings()},
   ];
 }
@@ -35,7 +37,7 @@ export function Navbar() {
         }
       }}
       onBrandClick={() => {
-        void navigate(ROUTES.chat());
+        void navigate(ROUTES.dashboard());
       }}
     />
   );
