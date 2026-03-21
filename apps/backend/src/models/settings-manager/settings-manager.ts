@@ -23,6 +23,9 @@ import {type SettingsManagerCreateResult, SettingsWarning} from './types.js';
  * Manages reading and writing of settings backed by a JSON file.
  * All values are validated against the settings Zod schema.
  *
+ * All read and write operations are serialized through an internal queue
+ * to prevent race conditions from concurrent access to the file.
+ *
  * Use {@link SettingsManager.create} to instantiate.
  */
 export class SettingsManager {
@@ -145,17 +148,19 @@ export class SettingsManager {
       `Invalid leaf path: [${keyPath.join(', ')}]`,
     );
 
-    const settings = await this.load();
-    let current: unknown = settings;
-    for (const key of keyPath) {
-      assert(typeof current === 'object' && current !== null);
-      current = (current as Record<string, unknown>)[key];
-    }
-    assert(
-      typeof current !== 'object' || current === null,
-      'Expected a scalar value',
-    );
-    return current;
+    return this.writeQueue.enqueue(async () => {
+      const settings = await this.load();
+      let current: unknown = settings;
+      for (const key of keyPath) {
+        assert(typeof current === 'object' && current !== null);
+        current = (current as Record<string, unknown>)[key];
+      }
+      assert(
+        typeof current !== 'object' || current === null,
+        'Expected a scalar value',
+      );
+      return current;
+    });
   }
 
   /**
@@ -194,7 +199,7 @@ export class SettingsManager {
 
   /** Returns the complete settings object with all defaults applied. */
   async getAll(): Promise<Settings> {
-    return this.load();
+    return this.writeQueue.enqueue(() => this.load());
   }
 
   /** Returns the Zod schema describing the settings structure. */

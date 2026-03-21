@@ -5,9 +5,21 @@
 export class AsyncQueue {
   private queue: Promise<void> = Promise.resolve();
 
-  /** Enqueues a task. Resolves when the task completes. */
-  enqueue(fn: () => Promise<void>): Promise<void> {
-    this.queue = this.queue.then(fn);
-    return this.queue;
+  /** Enqueues a task. Resolves with the task's return value when it completes. */
+  enqueue<T>(fn: () => Promise<T>): Promise<T> {
+    let resolve: (value: T) => void;
+    let reject: (reason: unknown) => void;
+    const result = new Promise<T>((res, rej) => {
+      resolve = res;
+      reject = rej;
+    });
+    this.queue = this.queue.then(async () => {
+      try {
+        resolve(await fn());
+      } catch (e) {
+        reject(e);
+      }
+    });
+    return result;
   }
 }
