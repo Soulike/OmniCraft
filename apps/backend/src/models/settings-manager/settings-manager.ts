@@ -12,6 +12,7 @@ import path from 'node:path';
 import {type Settings, settingsSchema} from '@omnicraft/settings-schema';
 import type {ZodType} from 'zod';
 
+import {AsyncQueue} from '@/helpers/async-queue.js';
 import {fileExists} from '@/helpers/fs.js';
 import {hasShape, unwrapSchema} from '@/helpers/zod.js';
 import {logger} from '@/logger.js';
@@ -28,6 +29,7 @@ export class SettingsManager {
   private static instance: SettingsManager | null = null;
 
   private readonly filePath: string;
+  private readonly writeQueue = new AsyncQueue();
 
   private constructor(filePath: string) {
     this.filePath = filePath;
@@ -172,20 +174,22 @@ export class SettingsManager {
       'Value must be a scalar, not an object',
     );
 
-    const settings = await this.load();
-    let current: Record<string, unknown> = settings;
+    await this.writeQueue.enqueue(async () => {
+      const settings = await this.load();
+      let current: Record<string, unknown> = settings;
 
-    for (const key of keyPath.slice(0, -1)) {
-      const next = current[key];
-      assert(typeof next === 'object' && next !== null);
-      current = next as Record<string, unknown>;
-    }
+      for (const key of keyPath.slice(0, -1)) {
+        const next = current[key];
+        assert(typeof next === 'object' && next !== null);
+        current = next as Record<string, unknown>;
+      }
 
-    const leafKey = keyPath[keyPath.length - 1];
-    current[leafKey] = value;
+      const leafKey = keyPath[keyPath.length - 1];
+      current[leafKey] = value;
 
-    const validated = settingsSchema.parse(settings);
-    await this.save(validated);
+      const validated = settingsSchema.parse(settings);
+      await this.save(validated);
+    });
   }
 
   /** Returns the complete settings object with all defaults applied. */

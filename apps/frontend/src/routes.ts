@@ -5,5 +5,5 @@ export const ROUTES = defineRoutes({
   dashboard: {},
   chat: {},
   tasks: {},
-  settings: {},
+  settings: {llm: {}},
 });

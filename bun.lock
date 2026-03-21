@@ -48,6 +48,7 @@
       "dependencies": {
         "@heroui/react": "^3.0.0-rc.1",
         "@heroui/styles": "^3.0.0-rc.1",
+        "@omnicraft/settings-schema": "workspace:^",
         "@tailwindcss/vite": "^4.2.2",
         "lucide-react": "^0.577.0",
         "react": "^19.2.4",

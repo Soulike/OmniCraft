@@ -1,0 +1,16 @@
+.page {
+  display: flex;
+  flex: 1;
+}
+
+.sidebar {
+  width: 200px;
+  flex-shrink: 0;
+  padding: 16px 0 16px 16px;
+  border-right: 1px solid var(--border);
+}
+
+.content {
+  flex: 1;
+  padding: 24px 32px;
+}

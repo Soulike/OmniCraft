@@ -1,5 +1,6 @@
 import './index.css';
 
+import {Toast} from '@heroui/react';
 import {StrictMode} from 'react';
 import {createRoot} from 'react-dom/client';
 import {RouterProvider} from 'react-router';
@@ -13,6 +14,7 @@ if (root) {
     <StrictMode>
       <ThemeProvider>
         <RouterProvider router={router} />
+        <Toast.Provider />
       </ThemeProvider>
     </StrictMode>,
   );
