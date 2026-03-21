@@ -60,3 +60,9 @@ import {Component} from 'path/to/Component/index.js';
 
 - If you are importing a public module, for example, shared modules in `@/hooks`, `@/components`, use import alias.
 - If you are importing a component-internal module, for example, subcomponents, use relative imports.
+
+## Styling
+
+- Use CSS Modules (`styles.module.css`) for all custom component styles.
+- Do NOT use Tailwind utility classes in our own components. Tailwind is only present as a dependency for HeroUI.
+- HeroUI (`@heroui/react`) is the UI component library. Use its components directly (e.g., `<Spinner />`, `<Button />`).
