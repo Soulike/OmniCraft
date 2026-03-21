@@ -88,10 +88,22 @@
     "configs/typescript": {
       "name": "@config/typescript",
     },
+    "packages/settings-schema": {
+      "name": "@omnicraft/settings-schema",
+      "dependencies": {
+        "zod": "catalog:",
+      },
+      "devDependencies": {
+        "@config/eslint": "workspace:^",
+        "@config/typescript": "workspace:^",
+        "typescript": "catalog:",
+      },
+    },
   },
   "catalog": {
     "eslint": "^10.0.2",
     "typescript": "~5.9.3",
+    "zod": "^4.3.6",
   },
   "packages": {
     "@babel/code-frame": ["@babel/code-frame@7.29.0", "https://registry.npmmirror.com/@babel/code-frame/-/code-frame-7.29.0.tgz", { "dependencies": { "@babel/helper-validator-identifier": "^7.28.5", "js-tokens": "^4.0.0", "picocolors": "^1.1.1" } }, "sha512-9NhCeYjq9+3uxgdtp20LSiJXJvN0FeCtNGpJxuMFZ1Kv3cWUNb6DOhJwUvcVCzKGR66cw4njwM6hrJLqgOwbcw=="],
@@ -233,6 +245,8 @@
     "@omnicraft/backend": ["@omnicraft/backend@workspace:apps/backend"],
 
     "@omnicraft/frontend": ["@omnicraft/frontend@workspace:apps/frontend"],
+
+    "@omnicraft/settings-schema": ["@omnicraft/settings-schema@workspace:packages/settings-schema"],
 
     "@oxc-project/types": ["@oxc-project/types@0.120.0", "https://registry.npmmirror.com/@oxc-project/types/-/types-0.120.0.tgz", {}, "sha512-k1YNu55DuvAip/MGE1FTsIuU3FUCn6v/ujG9V7Nq5Df/kX2CWb13hhwD0lmJGMGqE+bE1MXvv9SZVnMzEXlWcg=="],
 

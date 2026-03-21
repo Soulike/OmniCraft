@@ -15,6 +15,10 @@ Before starting any task, you must first confirm:
 - Configurations in package.json files, both in project and in workspace.
 - Configurations for other tools, i.e., Vite, Vitest, ESLint, Prettier, etc.
 
+## Dependencies
+
+- When adding a new npm package, always install it via the package manager (e.g., `bun add <package>`). Never manually write a version number in package.json.
+
 ---
 
 ## Projects
