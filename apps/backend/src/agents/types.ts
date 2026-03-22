@@ -1,4 +1,10 @@
+import crypto from 'node:crypto';
+
+import type {LlmConfig} from '@/api/llm/index.js';
+import {eventBus} from '@/events/index.js';
 import type {LlmSessionEvent} from '@/models/llm-session/index.js';
+import {LlmSession} from '@/models/llm-session/index.js';
+import {LlmSessionStore} from '@/models/llm-session-store/index.js';
 
 /**
  * Agent event stream. Currently identical to LlmSessionEvent.
@@ -10,11 +16,39 @@ export type AgentEvent = LlmSessionEvent;
 export type AgentEventStream = AsyncGenerator<AgentEvent, void, undefined>;
 
 /**
- * Agent interface for processing user messages.
+ * Base class for all agents.
  * Implementations can range from a simple LLM passthrough (SimpleAgent)
  * to complex agents with tool calling, multi-step reasoning, and sub-agents.
  */
-export interface Agent {
+export abstract class Agent {
+  /** Unique identifier for this agent session. */
+  readonly id: string;
+
+  /** The id of the LLM session used by this agent. */
+  readonly llmSessionId: string;
+
+  /** Cached LLM session instance, lazily resolved from the store. */
+  private cachedLlmSession: LlmSession | null = null;
+
+  constructor(getConfig: () => Promise<LlmConfig>, systemPrompt = '') {
+    this.id = crypto.randomUUID();
+    const llmSession = new LlmSession(getConfig, systemPrompt);
+    this.llmSessionId = llmSession.id;
+    eventBus.emit('agent-created', this);
+  }
+
+  /** Resolves the LLM session from the store, caching the result. */
+  protected getLlmSession(): LlmSession {
+    if (!this.cachedLlmSession) {
+      const session = LlmSessionStore.getInstance().get(this.llmSessionId);
+      if (!session) {
+        throw new Error(`LLM session not found: ${this.llmSessionId}`);
+      }
+      this.cachedLlmSession = session;
+    }
+    return this.cachedLlmSession;
+  }
+
   /** Handles a user message and streams back response events for one turn. */
-  handleUserMessage(userMessage: string): AgentEventStream;
+  abstract handleUserMessage(userMessage: string): AgentEventStream;
 }

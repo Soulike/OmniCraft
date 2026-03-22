@@ -1,3 +1,5 @@
+import crypto from 'node:crypto';
+
 import type {
   LlmAssistantMessage,
   LlmConfig,
@@ -6,6 +8,7 @@ import type {
   LlmUsage,
 } from '@/api/llm/index.js';
 import {llmApi} from '@/api/llm/index.js';
+import {eventBus} from '@/events/index.js';
 
 import type {LlmSessionEventStream, ToolResult} from './types.js';
 
@@ -20,14 +23,19 @@ import type {LlmSessionEventStream, ToolResult} from './types.js';
  * Can be serialized to disk for persistence in a future version.
  */
 export class LlmSession {
+  /** Unique identifier for this session, usable as a storage key. */
+  readonly id: string;
+
   private readonly messages: LlmMessage[] = [];
   private usage: LlmUsage = {inputTokens: 0, outputTokens: 0};
   private readonly getConfig: () => Promise<LlmConfig>;
   private readonly systemPrompt: string;
 
   constructor(getConfig: () => Promise<LlmConfig>, systemPrompt = '') {
+    this.id = crypto.randomUUID();
     this.getConfig = getConfig;
     this.systemPrompt = systemPrompt;
+    eventBus.emit('llm-session-created', this);
   }
 
   /**
