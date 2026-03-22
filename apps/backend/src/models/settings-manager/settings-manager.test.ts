@@ -303,4 +303,88 @@ describe('SettingsManager', () => {
       expect(typeof schema.parse).toBe('function');
     });
   });
+
+  describe('setBatch', () => {
+    it('updates multiple values atomically', async () => {
+      const filePath = settingsPath();
+      await SettingsManager.create(filePath);
+      const manager = SettingsManager.getInstance();
+
+      await manager.setBatch([
+        {keyPath: ['section', 'name'], value: 'batch-name'},
+        {keyPath: ['section', 'count'], value: 42},
+      ]);
+
+      await expect(manager.get(['section', 'name'])).resolves.toBe(
+        'batch-name',
+      );
+      await expect(manager.get(['section', 'count'])).resolves.toBe(42);
+    });
+
+    it('persists all values to file', async () => {
+      const filePath = settingsPath();
+      await SettingsManager.create(filePath);
+      const manager = SettingsManager.getInstance();
+
+      await manager.setBatch([
+        {keyPath: ['section', 'name'], value: 'persisted'},
+        {keyPath: ['section', 'count'], value: 7},
+      ]);
+
+      SettingsManager.resetInstanceForTesting();
+      const {manager: newManager} = await SettingsManager.create(filePath);
+
+      await expect(newManager.getAll()).resolves.toEqual({
+        section: {name: 'persisted', count: 7},
+      });
+    });
+
+    it('rolls back all changes when validation fails', async () => {
+      const filePath = settingsPath();
+      await SettingsManager.create(filePath);
+      const manager = SettingsManager.getInstance();
+
+      await expect(
+        manager.setBatch([
+          {keyPath: ['section', 'name'], value: 'valid-name'},
+          {keyPath: ['section', 'count'], value: 'not-a-number'},
+        ]),
+      ).rejects.toThrow();
+
+      await expect(manager.get(['section', 'name'])).resolves.toBe(
+        'default-name',
+      );
+      await expect(manager.get(['section', 'count'])).resolves.toBe(0);
+    });
+
+    it('throws for invalid leaf path', async () => {
+      const filePath = settingsPath();
+      await SettingsManager.create(filePath);
+      const manager = SettingsManager.getInstance();
+
+      await expect(
+        manager.setBatch([{keyPath: ['section'], value: 'value'}]),
+      ).rejects.toThrow();
+    });
+
+    it('throws for object value', async () => {
+      const filePath = settingsPath();
+      await SettingsManager.create(filePath);
+      const manager = SettingsManager.getInstance();
+
+      await expect(
+        manager.setBatch([{keyPath: ['section', 'name'], value: {foo: 'bar'}}]),
+      ).rejects.toThrow();
+    });
+
+    it('handles empty updates array', async () => {
+      const filePath = settingsPath();
+      await SettingsManager.create(filePath);
+      const manager = SettingsManager.getInstance();
+
+      await manager.setBatch([]);
+
+      await expect(manager.getAll()).resolves.toEqual(DEFAULTS);
+    });
+  });
 });

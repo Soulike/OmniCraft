@@ -17,7 +17,11 @@ import {fileExists} from '@/helpers/fs.js';
 import {hasShape, unwrapSchema} from '@/helpers/zod.js';
 import {logger} from '@/logger.js';
 
-import {type SettingsManagerCreateResult, SettingsWarning} from './types.js';
+import {
+  type SettingEntry,
+  type SettingsManagerCreateResult,
+  SettingsWarning,
+} from './types.js';
 
 /**
  * Manages reading and writing of settings backed by a JSON file.
@@ -191,6 +195,46 @@ export class SettingsManager {
 
       const leafKey = keyPath[keyPath.length - 1];
       current[leafKey] = value;
+
+      const validated = settingsSchema.parse(settings);
+      await this.save(validated);
+    });
+  }
+
+  /**
+   * Atomically writes multiple scalar values.
+   * All updates are applied in a single I/O operation: if any update
+   * fails validation, none of the changes are persisted.
+   * @param updates - Array of key path and value pairs to set.
+   * @throws If any path is invalid, does not point to a leaf, or a value is not scalar.
+   */
+  async setBatch(updates: SettingEntry[]): Promise<void> {
+    for (const {keyPath, value} of updates) {
+      assert(
+        SettingsManager.isValidLeafPath(keyPath),
+        `Invalid leaf path: [${keyPath.join(', ')}]`,
+      );
+      assert(
+        typeof value !== 'object' || value === null,
+        'Value must be a scalar, not an object',
+      );
+    }
+
+    await this.ioQueue.enqueue(async () => {
+      const settings = await this.load();
+
+      for (const {keyPath, value} of updates) {
+        let current: Record<string, unknown> = settings;
+
+        for (const key of keyPath.slice(0, -1)) {
+          const next = current[key];
+          assert(typeof next === 'object' && next !== null);
+          current = next as Record<string, unknown>;
+        }
+
+        const leafKey = keyPath[keyPath.length - 1];
+        current[leafKey] = value;
+      }
 
       const validated = settingsSchema.parse(settings);
       await this.save(validated);

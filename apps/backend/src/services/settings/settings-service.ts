@@ -33,6 +33,21 @@ export const settingsService = {
   },
 
   /**
+   * Atomically writes multiple scalar values.
+   * Converts slash-separated path strings to key path arrays.
+   * @param entries - Array of `{path, value}` pairs where `path` is slash-separated (e.g., `'llm/apiKey'`).
+   */
+  async setBatch(
+    entries: {path: string; value: unknown}[],
+  ): Promise<void> {
+    const updates = entries.map(({path, value}) => ({
+      keyPath: path.split('/'),
+      value,
+    }));
+    await SettingsManager.getInstance().setBatch(updates);
+  },
+
+  /**
    * Checks whether the given key path is a valid leaf (scalar) node.
    * @param keyPath - Path segments to check.
    */

@@ -1,4 +1,8 @@
-import {getValueResponse, putValueResponse} from './validator.js';
+import {
+  getValueResponse,
+  putBatchResponse,
+  putValueResponse,
+} from './validator.js';
 
 const BASE = '/api/settings';
 
@@ -46,4 +50,22 @@ export async function putSettingValue(
   }
   const body: unknown = await res.json();
   putValueResponse.parse(body);
+}
+
+/** Atomically writes multiple scalar setting values. */
+export async function putSettingValues(
+  entries: {path: string; value: unknown}[],
+): Promise<void> {
+  const res = await fetch(`${BASE}/batch`, {
+    method: 'PUT',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({entries}),
+  });
+  if (!res.ok) {
+    throw new Error(
+      `Failed to batch update settings: ${res.status.toString()}`,
+    );
+  }
+  const body: unknown = await res.json();
+  putBatchResponse.parse(body);
 }

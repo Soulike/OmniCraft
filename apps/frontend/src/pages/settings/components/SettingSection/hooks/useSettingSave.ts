@@ -1,7 +1,7 @@
 import {toast} from '@heroui/react';
 import {useCallback, useState} from 'react';
 
-import {putSettingValue} from '@/api/settings/index.js';
+import {putSettingValues} from '@/api/settings/index.js';
 
 import type {FieldConfig, SettingFieldValues} from '../types.js';
 
@@ -12,9 +12,8 @@ export function useSettingSave(fields: FieldConfig[]) {
     async (values: SettingFieldValues) => {
       setIsSaving(true);
       try {
-        await Promise.all(
-          fields.map(({path}) => putSettingValue(path, values[path])),
-        );
+        const entries = fields.map(({path}) => ({path, value: values[path]}));
+        await putSettingValues(entries);
         toast.success('Settings saved');
       } catch {
         toast.danger('Failed to save settings');

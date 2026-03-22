@@ -1,6 +1,9 @@
 import {z} from 'zod';
 
-import {SettingsManager} from '@/models/settings-manager/index.js';
+import {
+  SettingsManager,
+  settingValueSchema,
+} from '@/models/settings-manager/index.js';
 
 /** Parses a raw path string into a validated leaf key path. */
 export function parseLeafKeyPath(rawPath: string): string[] {
@@ -18,10 +21,18 @@ export function parseLeafKeyPath(rawPath: string): string[] {
 }
 
 /** Schema for the PUT /settings/* request body. */
-export const putSettingsBody = z
-  .object({
-    value: z.unknown(),
-  })
-  .refine((body) => typeof body.value !== 'object' || body.value === null, {
-    message: 'Value must be a scalar, not an object',
-  });
+export const putSettingsBody = z.object({
+  value: settingValueSchema,
+});
+
+/** Schema for the PUT /settings/batch request body. */
+export const putSettingsBatchBody = z.object({
+  entries: z
+    .array(
+      z.object({
+        path: z.string().min(1),
+        value: settingValueSchema,
+      }),
+    )
+    .nonempty(),
+});
