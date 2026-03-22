@@ -5,7 +5,7 @@ on:
     branches: [main]
 
 concurrency:
-  group: ci-${{ github.head_ref }}
+  group: ci-pr-${{ github.event.pull_request.number }}
   cancel-in-progress: true
 
 jobs:
@@ -13,6 +13,7 @@ jobs:
     name: Detect changes
     runs-on: ubuntu-latest
     permissions:
+      contents: read
       pull-requests: read
     outputs:
       backend: ${{ steps.filter.outputs.backend }}
@@ -93,7 +94,7 @@ jobs:
     steps:
       - name: Check results
         run: |
-          if [[ "$BACKEND" == "failure" || "$FRONTEND" == "failure" ]]; then
+          if [[ "$BACKEND" == "failure" || "$BACKEND" == "cancelled" || "$FRONTEND" == "failure" || "$FRONTEND" == "cancelled" ]]; then
             echo "CI failed."
             exit 1
           fi
