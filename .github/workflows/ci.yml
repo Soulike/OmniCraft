@@ -27,12 +27,14 @@ jobs:
               - apps/backend/**
               - packages/**
               - configs/**
+              - .github/workflows/**
               - bun.lock
               - package.json
             frontend:
               - apps/frontend/**
               - packages/**
               - configs/**
+              - .github/workflows/**
               - bun.lock
               - package.json
 
