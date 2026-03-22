@@ -37,13 +37,20 @@ export const settingsService = {
    * Converts slash-separated path strings to key path arrays.
    * @param entries - Array of `{path, value}` pairs where `path` is slash-separated (e.g., `'llm/apiKey'`).
    */
-  async setBatch(
-    entries: {path: string; value: unknown}[],
-  ): Promise<void> {
-    const updates = entries.map(({path, value}) => ({
-      keyPath: path.split('/'),
-      value,
-    }));
+  async setBatch(entries: {path: string; value: unknown}[]): Promise<void> {
+    const updates = entries.map(({path, value}) => {
+      const keyPath = path.split('/');
+      if (!SettingsManager.isValidLeafPath(keyPath)) {
+        throw new z.ZodError([
+          {
+            code: 'custom',
+            path: keyPath,
+            message: `Invalid leaf path: ${path}`,
+          },
+        ]);
+      }
+      return {keyPath, value};
+    });
     await SettingsManager.getInstance().setBatch(updates);
   },
 
