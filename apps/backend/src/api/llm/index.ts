@@ -1,6 +1,7 @@
 export {llmApi} from './llm-api.js';
 export type {
   LlmAssistantMessage,
+  LlmCompletionOptions,
   LlmConfig,
   LlmEvent,
   LlmEventStream,

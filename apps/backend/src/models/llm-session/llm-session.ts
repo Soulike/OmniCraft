@@ -23,9 +23,11 @@ export class LlmSession {
   private readonly messages: LlmMessage[] = [];
   private usage: LlmUsage = {inputTokens: 0, outputTokens: 0};
   private readonly getConfig: () => Promise<LlmConfig>;
+  private readonly systemPrompt: string;
 
-  constructor(getConfig: () => Promise<LlmConfig>) {
+  constructor(getConfig: () => Promise<LlmConfig>, systemPrompt = '') {
     this.getConfig = getConfig;
+    this.systemPrompt = systemPrompt;
   }
 
   /**
@@ -80,7 +82,11 @@ export class LlmSession {
    */
   private async *callLlm(): LlmSessionEventStream {
     const llmConfig = await this.getConfig();
-    const eventStream = llmApi.streamCompletion(llmConfig, [...this.messages]);
+    const eventStream = llmApi.streamCompletion({
+      config: llmConfig,
+      messages: this.messages,
+      systemPrompt: this.systemPrompt || undefined,
+    });
 
     let textContent = '';
     const toolCalls: LlmToolCall[] = [];

@@ -95,3 +95,10 @@ export type LlmEvent =
 
 /** An async generator that yields LLM streaming events. */
 export type LlmEventStream = AsyncGenerator<LlmEvent, void, undefined>;
+
+/** Options for a streaming LLM completion request. */
+export interface LlmCompletionOptions {
+  readonly config: Readonly<LlmConfig>;
+  readonly messages: readonly LlmMessage[];
+  readonly systemPrompt?: string;
+}

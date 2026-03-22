@@ -1,6 +1,6 @@
 import {streamClaude} from './claude-adapter.js';
 import {streamOpenAI} from './openai-adapter.js';
-import type {LlmConfig, LlmEventStream, LlmMessage} from './types.js';
+import type {LlmCompletionOptions, LlmEventStream} from './types.js';
 
 /** External API layer for LLM communication. */
 export const llmApi = {
@@ -8,12 +8,12 @@ export const llmApi = {
    * Streams LLM events from the configured LLM.
    * Dispatches to the appropriate SDK based on `config.apiFormat`.
    */
-  streamCompletion(config: LlmConfig, messages: LlmMessage[]): LlmEventStream {
-    switch (config.apiFormat) {
+  streamCompletion(options: LlmCompletionOptions): LlmEventStream {
+    switch (options.config.apiFormat) {
       case 'claude':
-        return streamClaude(config, messages);
+        return streamClaude(options);
       case 'openai':
-        return streamOpenAI(config, messages);
+        return streamOpenAI(options);
     }
   },
 };

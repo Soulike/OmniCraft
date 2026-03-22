@@ -3,7 +3,11 @@ import assert from 'node:assert';
 import type OpenAI from 'openai';
 import OpenAIClient from 'openai';
 
-import type {LlmConfig, LlmEventStream, LlmMessage} from './types.js';
+import type {
+  LlmCompletionOptions,
+  LlmEventStream,
+  LlmMessage,
+} from './types.js';
 
 type SdkMessageParam = OpenAI.ChatCompletionMessageParam;
 
@@ -38,17 +42,23 @@ function toSdkMessage(message: LlmMessage): SdkMessageParam {
 
 /** Streams LLM events from an OpenAI-compatible API. */
 export async function* streamOpenAI(
-  config: LlmConfig,
-  messages: LlmMessage[],
+  options: LlmCompletionOptions,
 ): LlmEventStream {
+  const {config, messages, systemPrompt} = options;
   const client = new OpenAIClient({
     apiKey: config.apiKey,
     baseURL: config.baseUrl,
   });
 
+  const sdkMessages: OpenAI.ChatCompletionMessageParam[] = [];
+  if (systemPrompt) {
+    sdkMessages.push({role: 'system', content: systemPrompt});
+  }
+  sdkMessages.push(...messages.map(toSdkMessage));
+
   const stream = await client.chat.completions.create({
     model: config.model,
-    messages: messages.map(toSdkMessage),
+    messages: sdkMessages,
     stream: true,
     stream_options: {include_usage: true},
   });

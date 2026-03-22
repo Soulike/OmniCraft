@@ -1,6 +1,11 @@
 import Anthropic from '@anthropic-ai/sdk';
 
-import type {LlmConfig, LlmEventStream, LlmMessage, LlmUsage} from './types.js';
+import type {
+  LlmCompletionOptions,
+  LlmEventStream,
+  LlmMessage,
+  LlmUsage,
+} from './types.js';
 
 type SdkMessageParam = Anthropic.MessageParam;
 
@@ -40,9 +45,9 @@ function toSdkMessage(message: LlmMessage): SdkMessageParam {
 
 /** Streams LLM events from the Anthropic Claude API. */
 export async function* streamClaude(
-  config: LlmConfig,
-  messages: LlmMessage[],
+  options: LlmCompletionOptions,
 ): LlmEventStream {
+  const {config, messages, systemPrompt} = options;
   const client = new Anthropic({
     apiKey: config.apiKey,
     baseURL: config.baseUrl,
@@ -51,6 +56,7 @@ export async function* streamClaude(
   const stream = client.messages.stream({
     model: config.model,
     max_tokens: 4096,
+    system: systemPrompt,
     messages: messages.map(toSdkMessage),
   });
 
