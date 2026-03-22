@@ -2,6 +2,42 @@ import Anthropic from '@anthropic-ai/sdk';
 
 import type {LlmConfig, LlmEventStream, LlmMessage, LlmUsage} from './types.js';
 
+type SdkMessageParam = Anthropic.MessageParam;
+
+/** Converts our unified LlmMessage to the Anthropic SDK message format. */
+function toSdkMessage(message: LlmMessage): SdkMessageParam {
+  switch (message.role) {
+    case 'user':
+      return {role: 'user', content: message.content};
+    case 'assistant': {
+      const content: Anthropic.ContentBlockParam[] = [];
+      if (message.content) {
+        content.push({type: 'text', text: message.content});
+      }
+      for (const tc of message.toolCalls) {
+        content.push({
+          type: 'tool_use',
+          id: tc.callId,
+          name: tc.toolName,
+          input: JSON.parse(tc.arguments) as Record<string, unknown>,
+        });
+      }
+      return {role: 'assistant', content};
+    }
+    case 'tool':
+      return {
+        role: 'user',
+        content: [
+          {
+            type: 'tool_result',
+            tool_use_id: message.callId,
+            content: message.content,
+          },
+        ],
+      };
+  }
+}
+
 /** Streams LLM events from the Anthropic Claude API. */
 export async function* streamClaude(
   config: LlmConfig,
@@ -15,7 +51,7 @@ export async function* streamClaude(
   const stream = client.messages.stream({
     model: config.model,
     max_tokens: 4096,
-    messages: messages.map((m) => ({role: m.role, content: m.content})),
+    messages: messages.map(toSdkMessage),
   });
 
   // Claude uses content block indices; track index → callId mapping.

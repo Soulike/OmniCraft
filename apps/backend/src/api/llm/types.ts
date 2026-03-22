@@ -1,8 +1,35 @@
-/** A single message in the LLM conversation context. */
-export interface LlmMessage {
-  role: 'user' | 'assistant';
+/** A tool call issued by the assistant. */
+export interface LlmToolCall {
+  callId: string;
+  toolName: string;
+  arguments: string;
+}
+
+/** A message from the user. */
+export interface LlmUserMessage {
+  role: 'user';
   content: string;
 }
+
+/** A message from the assistant, optionally containing tool calls. */
+export interface LlmAssistantMessage {
+  role: 'assistant';
+  content: string;
+  toolCalls: LlmToolCall[];
+}
+
+/** A tool execution result, linked to a specific tool call. */
+export interface LlmToolResultMessage {
+  role: 'tool';
+  callId: string;
+  content: string;
+}
+
+/** A single message in the LLM conversation context. */
+export type LlmMessage =
+  | LlmUserMessage
+  | LlmAssistantMessage
+  | LlmToolResultMessage;
 
 /** Configuration needed to call an LLM API. */
 export interface LlmConfig {
