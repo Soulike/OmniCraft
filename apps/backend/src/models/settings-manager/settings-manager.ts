@@ -10,11 +10,11 @@ import {
 import path from 'node:path';
 
 import {type Settings, settingsSchema} from '@omnicraft/settings-schema';
-import type {ZodType} from 'zod';
 
 import {AsyncQueue} from '@/helpers/async-queue.js';
 import {fileExists} from '@/helpers/fs.js';
-import {hasShape, unwrapSchema} from '@/helpers/zod.js';
+import {getParent} from '@/helpers/object.js';
+import {isLeafSchemaPath} from '@/helpers/zod.js';
 import {logger} from '@/logger.js';
 
 import {
@@ -64,19 +64,7 @@ export class SettingsManager {
    * @param keyPath - Path segments to check (e.g., `['llm', 'apiKey']`).
    */
   static isValidLeafPath(keyPath: string[]): boolean {
-    if (!SettingsManager.isValidPath(keyPath)) {
-      return false;
-    }
-
-    let current: ZodType = settingsSchema;
-    for (const key of keyPath) {
-      const unwrapped = unwrapSchema(current);
-      // Safe to assert: isValidPath already confirmed shape exists
-      assert(hasShape(unwrapped));
-      current = unwrapped.shape[key];
-    }
-
-    return !hasShape(unwrapSchema(current));
+    return isLeafSchemaPath(settingsSchema, keyPath);
   }
 
   /**
@@ -154,16 +142,14 @@ export class SettingsManager {
 
     return this.ioQueue.enqueue(async () => {
       const settings = await this.load();
-      let current: unknown = settings;
-      for (const key of keyPath) {
-        assert(typeof current === 'object' && current !== null);
-        current = (current as Record<string, unknown>)[key];
-      }
+      const parent = getParent(settings, keyPath);
+      const leafKey = keyPath[keyPath.length - 1];
+      const value = parent[leafKey];
       assert(
-        typeof current !== 'object' || current === null,
+        typeof value !== 'object' || value === null,
         'Expected a scalar value',
       );
-      return current;
+      return value;
     });
   }
 
@@ -174,31 +160,7 @@ export class SettingsManager {
    * @throws If the path is invalid, does not point to a leaf, or the value is not a scalar.
    */
   async set(keyPath: string[], value: unknown): Promise<void> {
-    assert(
-      SettingsManager.isValidLeafPath(keyPath),
-      `Invalid leaf path: [${keyPath.join(', ')}]`,
-    );
-    assert(
-      typeof value !== 'object' || value === null,
-      'Value must be a scalar, not an object',
-    );
-
-    await this.ioQueue.enqueue(async () => {
-      const settings = await this.load();
-      let current: Record<string, unknown> = settings;
-
-      for (const key of keyPath.slice(0, -1)) {
-        const next = current[key];
-        assert(typeof next === 'object' && next !== null);
-        current = next as Record<string, unknown>;
-      }
-
-      const leafKey = keyPath[keyPath.length - 1];
-      current[leafKey] = value;
-
-      const validated = settingsSchema.parse(settings);
-      await this.save(validated);
-    });
+    await this.setBatch([{keyPath, value}]);
   }
 
   /**
@@ -224,16 +186,9 @@ export class SettingsManager {
       const settings = await this.load();
 
       for (const {keyPath, value} of updates) {
-        let current: Record<string, unknown> = settings;
-
-        for (const key of keyPath.slice(0, -1)) {
-          const next = current[key];
-          assert(typeof next === 'object' && next !== null);
-          current = next as Record<string, unknown>;
-        }
-
+        const parent = getParent(settings, keyPath);
         const leafKey = keyPath[keyPath.length - 1];
-        current[leafKey] = value;
+        parent[leafKey] = value;
       }
 
       const validated = settingsSchema.parse(settings);
@@ -260,24 +215,5 @@ export class SettingsManager {
     const dir = path.dirname(this.filePath);
     await mkdir(dir, {recursive: true});
     await writeFile(this.filePath, JSON.stringify(settings, null, 2) + '\n');
-  }
-
-  private static isValidPath(keyPath: string[]): boolean {
-    if (keyPath.length === 0) {
-      return false;
-    }
-
-    let current: ZodType = settingsSchema;
-    for (const key of keyPath) {
-      const unwrapped = unwrapSchema(current);
-      if (!hasShape(unwrapped)) {
-        return false;
-      }
-      if (!(key in unwrapped.shape)) {
-        return false;
-      }
-      current = unwrapped.shape[key];
-    }
-    return true;
   }
 }
