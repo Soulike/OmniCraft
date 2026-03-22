@@ -1,0 +1,85 @@
+import Anthropic from '@anthropic-ai/sdk';
+
+import type {LlmConfig, LlmEventStream, LlmMessage, LlmUsage} from './types.js';
+
+/** Streams LLM events from the Anthropic Claude API. */
+export async function* streamClaude(
+  config: LlmConfig,
+  messages: LlmMessage[],
+): LlmEventStream {
+  const client = new Anthropic({
+    apiKey: config.apiKey,
+    baseURL: config.baseUrl,
+  });
+
+  const stream = client.messages.stream({
+    model: config.model,
+    max_tokens: 4096,
+    messages: messages.map((m) => ({role: m.role, content: m.content})),
+  });
+
+  // Claude uses content block indices; track index → callId mapping.
+  const blockCallIds = new Map<number, string>();
+
+  // Accumulate usage across events; Claude reports input in message_start
+  // and output in message_delta.
+  let usage: LlmUsage = {inputTokens: 0, outputTokens: 0};
+  let stopReason = '';
+
+  for await (const event of stream) {
+    switch (event.type) {
+      case 'message_start': {
+        usage = {
+          inputTokens: event.message.usage.input_tokens,
+          outputTokens: event.message.usage.output_tokens,
+        };
+        yield {type: 'message-start', messageId: event.message.id};
+        break;
+      }
+      case 'message_delta': {
+        stopReason = event.delta.stop_reason ?? stopReason;
+        usage = {
+          ...usage,
+          outputTokens: event.usage.output_tokens,
+        };
+        break;
+      }
+      case 'message_stop': {
+        yield {type: 'message-end', stopReason, usage};
+        break;
+      }
+      case 'content_block_start': {
+        if (event.content_block.type === 'tool_use') {
+          blockCallIds.set(event.index, event.content_block.id);
+          yield {
+            type: 'tool-call-start',
+            callId: event.content_block.id,
+            toolName: event.content_block.name,
+          };
+        }
+        break;
+      }
+      case 'content_block_delta': {
+        if (event.delta.type === 'text_delta') {
+          yield {type: 'text-delta', content: event.delta.text};
+        } else if (event.delta.type === 'input_json_delta') {
+          const callId = blockCallIds.get(event.index) ?? '';
+          yield {
+            type: 'tool-call-delta',
+            callId,
+            argumentsDelta: event.delta.partial_json,
+          };
+        }
+        break;
+      }
+      case 'content_block_stop': {
+        const callId = blockCallIds.get(event.index);
+        if (callId) {
+          yield {type: 'tool-call-end', callId};
+          blockCallIds.delete(event.index);
+        }
+        break;
+      }
+    }
+  }
+}
