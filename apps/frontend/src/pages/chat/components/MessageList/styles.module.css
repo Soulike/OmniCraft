@@ -1,0 +1,32 @@
+.container {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.userMessage {
+  align-self: flex-end;
+  max-width: 80%;
+}
+
+.assistantMessage {
+  align-self: flex-start;
+  max-width: 80%;
+}
+
+.empty {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.emptyText {
+  color: var(--color-foreground-500);
+}

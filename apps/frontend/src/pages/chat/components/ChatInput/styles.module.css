@@ -1,0 +1,12 @@
+.container {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  padding: 16px;
+  border-top: 1px solid var(--color-border);
+}
+
+.textarea {
+  flex: 1;
+  resize: none;
+}
