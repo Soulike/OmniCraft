@@ -86,18 +86,22 @@ jobs:
       - name: Typecheck & Build
         run: bun run build
 
+      - name: Test
+        run: bun run test
+
   result:
     name: CI Result
     runs-on: ubuntu-latest
     if: always()
-    needs: [backend, frontend]
+    needs: [changes, backend, frontend]
     steps:
       - name: Check results
         run: |
-          if [[ "$BACKEND" == "failure" || "$BACKEND" == "cancelled" || "$FRONTEND" == "failure" || "$FRONTEND" == "cancelled" ]]; then
+          if [[ "$CHANGES" == "failure" || "$CHANGES" == "cancelled" || "$BACKEND" == "failure" || "$BACKEND" == "cancelled" || "$FRONTEND" == "failure" || "$FRONTEND" == "cancelled" ]]; then
             echo "CI failed."
             exit 1
           fi
         env:
+          CHANGES: ${{ needs.changes.result }}
           BACKEND: ${{ needs.backend.result }}
           FRONTEND: ${{ needs.frontend.result }}
