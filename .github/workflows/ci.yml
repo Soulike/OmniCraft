@@ -1,0 +1,87 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  changes:
+    name: Detect changes
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      backend: ${{ steps.filter.outputs.backend }}
+      frontend: ${{ steps.filter.outputs.frontend }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dorny/paths-filter@v4
+        id: filter
+        with:
+          filters: |
+            backend:
+              - apps/backend/**
+              - packages/**
+              - configs/**
+              - .github/**
+              - bun.lock
+              - package.json
+            frontend:
+              - apps/frontend/**
+              - packages/**
+              - configs/**
+              - .github/**
+              - bun.lock
+              - package.json
+
+  backend:
+    name: Backend
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ./.github/actions/setup
+
+      - name: Typecheck
+        run: bun run --filter '@omnicraft/backend' typecheck
+
+      - name: Test
+        run: bun run --filter '@omnicraft/backend' test
+
+  frontend:
+    name: Frontend
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ./.github/actions/setup
+
+      - name: Typecheck & Build
+        run: bun run --filter '@omnicraft/frontend' build
+
+      - name: Test
+        run: bun run --filter '@omnicraft/frontend' test
+
+  result:
+    name: CI Result
+    runs-on: ubuntu-latest
+    if: always()
+    needs: [changes, backend, frontend]
+    steps:
+      - name: Check results
+        run: |
+          if [[ "$CHANGES" == "failure" || "$CHANGES" == "cancelled" || "$BACKEND" == "failure" || "$BACKEND" == "cancelled" || "$FRONTEND" == "failure" || "$FRONTEND" == "cancelled" ]]; then
+            echo "CI failed."
+            exit 1
+          fi
+        env:
+          CHANGES: ${{ needs.changes.result }}
+          BACKEND: ${{ needs.backend.result }}
+          FRONTEND: ${{ needs.frontend.result }}
