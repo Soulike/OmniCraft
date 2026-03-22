@@ -4,13 +4,17 @@ import {Outlet, useLocation, useNavigate} from 'react-router';
 import {Loading} from '@/components/Loading/index.js';
 import {ROUTES} from '@/routes.js';
 
-import {SettingsPageView,type SettingsTab} from './SettingsPageView.js';
+import {SettingsPageView, type SettingsTab} from './SettingsPageView.js';
 
 const TABS: SettingsTab[] = [{id: 'llm', label: 'LLM'}];
 
-const PATH_TO_TAB: Record<string, string> = {
-  [ROUTES.settings.llm()]: 'llm',
+const TAB_TO_PATH: Record<string, string> = {
+  llm: ROUTES.settings.llm(),
 };
+
+const PATH_TO_TAB: Record<string, string> = Object.fromEntries(
+  Object.entries(TAB_TO_PATH).map(([tab, path]) => [path, tab]),
+);
 
 export function SettingsPage() {
   const navigate = useNavigate();
@@ -22,7 +26,10 @@ export function SettingsPage() {
       tabs={TABS}
       selectedTab={currentTab}
       onTabChange={(id) => {
-        void navigate(`${ROUTES.settings()}/${id}`);
+        const path = TAB_TO_PATH[id];
+        if (path) {
+          void navigate(path);
+        }
       }}
     >
       <Suspense fallback={<Loading />}>
