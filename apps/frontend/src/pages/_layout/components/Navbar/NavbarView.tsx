@@ -1,4 +1,5 @@
 import {Tabs} from '@heroui/react';
+import {Link} from 'react-router';
 
 import {ThemeToggle} from '../ThemeToggle/index.js';
 import styles from './styles.module.css';
@@ -8,21 +9,21 @@ interface NavbarViewProps {
   tabs: NavTab[];
   selectedTab: string;
   onTabChange: (id: string) => void;
-  onBrandClick: () => void;
+  brandPath: string;
 }
 
 export function NavbarView({
   tabs,
   selectedTab,
   onTabChange,
-  onBrandClick,
+  brandPath,
 }: NavbarViewProps) {
   return (
     <nav className={styles.navbar}>
       <div className={styles.left}>
-        <a className={styles.brand} onClick={onBrandClick}>
+        <Link className={styles.brand} to={brandPath}>
           OmniCraft
-        </a>
+        </Link>
       </div>
       <div className={styles.center}>
         <Tabs

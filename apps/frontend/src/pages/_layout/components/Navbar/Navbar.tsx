@@ -36,9 +36,7 @@ export function Navbar() {
           void navigate(tab.path);
         }
       }}
-      onBrandClick={() => {
-        void navigate(ROUTES.dashboard());
-      }}
+      brandPath={ROUTES.dashboard()}
     />
   );
 }
