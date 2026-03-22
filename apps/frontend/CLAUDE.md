@@ -9,6 +9,8 @@
 
 ## File Structure
 
+Each file must contain at most one React component. If you need a helper component, extract it as a subcomponent under `components/`.
+
 All React components follow MVVM structure, take a component named `Calendar` for example:
 
 ```text
