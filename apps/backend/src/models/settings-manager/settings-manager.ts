@@ -5,6 +5,7 @@ import {
   copyFile,
   mkdir,
   readFile,
+  rename,
   writeFile,
 } from 'node:fs/promises';
 import path from 'node:path';
@@ -104,7 +105,7 @@ export class SettingsManager {
     await access(filePath, constants.R_OK | constants.W_OK);
 
     const content = await readFile(filePath, 'utf-8');
-    const backupPath = filePath + '.bak';
+    const backupPath = `${filePath}.${Date.now().toString()}.bak`;
 
     let raw: unknown;
     try {
@@ -221,6 +222,8 @@ export class SettingsManager {
   private async save(settings: Settings): Promise<void> {
     const dir = path.dirname(this.filePath);
     await mkdir(dir, {recursive: true});
-    await writeFile(this.filePath, JSON.stringify(settings, null, 2) + '\n');
+    const tmpPath = this.filePath + '.tmp';
+    await writeFile(tmpPath, JSON.stringify(settings, null, 2) + '\n');
+    await rename(tmpPath, this.filePath);
   }
 }

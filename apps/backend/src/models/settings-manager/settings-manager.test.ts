@@ -1,3 +1,4 @@
+import assert from 'node:assert';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -23,6 +24,12 @@ const {SettingsManager} = await import('./settings-manager.js');
 const {SettingsWarning} = await import('./types.js');
 
 const DEFAULTS = {section: {name: 'default-name', count: 0}};
+
+function findBackupFile(dir: string, base: string): string | undefined {
+  return fs
+    .readdirSync(dir)
+    .find((f) => f.startsWith(base) && f.endsWith('.bak'));
+}
 
 describe('SettingsManager', () => {
   let tmpDir: string;
@@ -115,9 +122,13 @@ describe('SettingsManager', () => {
 
       expect(warnings).toContain(SettingsWarning.FILE_CORRUPTED);
 
-      const bakPath = `${filePath}.bak`;
-      expect(fs.existsSync(bakPath)).toBe(true);
-      expect(fs.readFileSync(bakPath, 'utf-8')).toBe(corruptedContent);
+      const dir = path.dirname(filePath);
+      const base = path.basename(filePath);
+      const bakFile = findBackupFile(dir, base);
+      assert(bakFile);
+      expect(fs.readFileSync(path.join(dir, bakFile), 'utf-8')).toBe(
+        corruptedContent,
+      );
 
       const content: unknown = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
       expect(content).toEqual(DEFAULTS);
@@ -132,8 +143,10 @@ describe('SettingsManager', () => {
 
       expect(warnings).toContain(SettingsWarning.SCHEMA_INVALID);
 
-      const bakPath = `${filePath}.bak`;
-      expect(fs.existsSync(bakPath)).toBe(true);
+      const dir = path.dirname(filePath);
+      const base = path.basename(filePath);
+      const bakFile = findBackupFile(dir, base);
+      expect(bakFile).toBeDefined();
 
       const content: unknown = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
       expect(content).toEqual(DEFAULTS);
