@@ -1,6 +1,7 @@
 import {useMemo} from 'react';
 import {useLocation, useNavigate} from 'react-router';
 
+import {useTheme} from '@/hooks/useTheme.js';
 import {ROUTES} from '@/routes.js';
 
 import {NavbarView} from './NavbarView.js';
@@ -9,6 +10,7 @@ import type {NavTab} from './types.js';
 export function Navbar() {
   const navigate = useNavigate();
   const location = useLocation();
+  const {resolvedTheme} = useTheme();
   const tabs: NavTab[] = useMemo(
     () => [
       {id: 'dashboard', label: 'Dashboard', path: ROUTES.dashboard()},
@@ -36,6 +38,7 @@ export function Navbar() {
         }
       }}
       brandPath={ROUTES.dashboard()}
+      theme={resolvedTheme}
     />
   );
 }
