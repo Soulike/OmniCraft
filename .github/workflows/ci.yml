@@ -28,14 +28,14 @@ jobs:
               - apps/backend/**
               - packages/**
               - configs/**
-              - .github/workflows/**
+              - .github/**
               - bun.lock
               - package.json
             frontend:
               - apps/frontend/**
               - packages/**
               - configs/**
-              - .github/workflows/**
+              - .github/**
               - bun.lock
               - package.json
 
@@ -49,14 +49,7 @@ jobs:
         working-directory: apps/backend
     steps:
       - uses: actions/checkout@v6
-
-      - uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
-
-      - name: Install dependencies
-        run: bun install --frozen-lockfile
-        working-directory: .
+      - uses: ./.github/actions/setup
 
       - name: Typecheck
         run: bun run typecheck
@@ -74,14 +67,7 @@ jobs:
         working-directory: apps/frontend
     steps:
       - uses: actions/checkout@v6
-
-      - uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
-
-      - name: Install dependencies
-        run: bun install --frozen-lockfile
-        working-directory: .
+      - uses: ./.github/actions/setup
 
       - name: Typecheck & Build
         run: bun run build
