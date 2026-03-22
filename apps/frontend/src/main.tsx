@@ -1,15 +1,21 @@
 import './index.css';
 
+import {Toast} from '@heroui/react';
 import {StrictMode} from 'react';
 import {createRoot} from 'react-dom/client';
+import {RouterProvider} from 'react-router';
 
-import App from './App.tsx';
+import {ThemeProvider} from '@/contexts/theme/index.js';
+import {router} from '@/router/index.js';
 
 const root = document.getElementById('root');
 if (root) {
   createRoot(root).render(
     <StrictMode>
-      <App />
+      <ThemeProvider>
+        <RouterProvider router={router} />
+        <Toast.Provider />
+      </ThemeProvider>
     </StrictMode>,
   );
 }

@@ -22,4 +22,10 @@ export default defineConfig([
       globals: globals.browser,
     },
   },
+  {
+    rules: {
+      'react-hooks/set-state-in-effect': 'off',
+      'react-hooks/exhaustive-deps': 'error',
+    },
+  },
 ]);

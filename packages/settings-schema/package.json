@@ -1,0 +1,22 @@
+{
+  "name": "@omnicraft/settings-schema",
+  "description": "Zod schemas and types for OmniCraft settings",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@config/eslint": "workspace:^",
+    "@config/typescript": "workspace:^",
+    "typescript": "catalog:",
+    "vitest": "^4.1.0"
+  }
+}

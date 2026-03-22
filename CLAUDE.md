@@ -15,6 +15,14 @@ Before starting any task, you must first confirm:
 - Configurations in package.json files, both in project and in workspace.
 - Configurations for other tools, i.e., Vite, Vitest, ESLint, Prettier, etc.
 
+## Dependencies
+
+- When adding a new npm package, always install it via the package manager (e.g., `bun add <package>`). Never manually write a version number in package.json.
+
+## Runtime APIs
+
+- Bun is used only as the package manager and runtime. In code, always use Node.js APIs (e.g., `node:fs/promises`, `node:path`). Do not use Bun-specific APIs (e.g., `Bun.file()`, `Bun.write()`).
+
 ---
 
 ## Projects
@@ -30,6 +38,8 @@ Before starting any task, you must first confirm:
 ### Overall
 
 Follow Google TypeScript guide unless specified. Detail: <https://google.github.io/styleguide/tsguide.html>.
+
+- Never use `any`. Use `unknown` and narrow with type guards or assertions.
 
 ### Comments
 

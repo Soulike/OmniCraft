@@ -17,6 +17,7 @@ export default [
     },
     rules: {
       '@typescript-eslint/no-extraneous-class': 'off',
+      '@typescript-eslint/no-explicit-any': 'error',
       '@typescript-eslint/restrict-template-expressions': 'off',
       '@typescript-eslint/unified-signatures': 'off',
     },

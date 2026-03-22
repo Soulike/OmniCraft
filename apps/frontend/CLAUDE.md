@@ -9,15 +9,17 @@
 
 ## File Structure
 
+Each file must contain at most one React component. If you need a helper component, extract it as a subcomponent under `components/`.
+
 All React components follow MVVM structure, take a component named `Calendar` for example:
 
 ```text
 Calendar/
   | assets/                 // Static assets needed
   | components/             // Subcomponents
-  | hooks/                  // Hooks as view models.
+  | hooks/                  // Hooks as view models. Each hook manages a single concern.
   | index.ts                // For exporting the component. No TSX should be in this file.
-  | Calendar.tsx            // Optional. Connect view models with view.
+  | Calendar.tsx            // Optional. Connect view models with view. No state should be in this file. States go in hooks. This file only composes hooks and passes their results to the view.
   | CalendarView.tsx        // Stateless view component. Get all information with props.
   | styles.module.css       // Part of view
 ```
@@ -60,3 +62,9 @@ import {Component} from 'path/to/Component/index.js';
 
 - If you are importing a public module, for example, shared modules in `@/hooks`, `@/components`, use import alias.
 - If you are importing a component-internal module, for example, subcomponents, use relative imports.
+
+## Styling
+
+- Use CSS Modules (`styles.module.css`) for all custom component styles.
+- Do NOT use Tailwind utility classes in our own components. Tailwind is only present as a dependency for HeroUI.
+- HeroUI (`@heroui/react`) is the UI component library. Use its components directly (e.g., `<Spinner />`, `<Button />`).
