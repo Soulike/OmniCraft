@@ -35,7 +35,7 @@ export function SettingSectionView({
       ) : (
         <>
           <div className={styles.fields}>{children}</div>
-          <Button isPending={isSaving} isDisabled={isLoading} onPress={onSave}>
+          <Button isPending={isSaving} isDisabled={isSaving} onPress={onSave}>
             {({isPending}) => (
               <>
                 {isPending && <Spinner color='current' size='sm' />}
