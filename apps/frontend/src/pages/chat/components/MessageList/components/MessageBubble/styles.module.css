@@ -1,0 +1,28 @@
+.bubble {
+  padding: 10px 16px;
+  border-radius: 16px;
+  word-wrap: break-word;
+  white-space: pre-wrap;
+}
+
+.user {
+  background: var(--color-accent);
+  color: var(--color-accent-foreground);
+  border-bottom-right-radius: 4px;
+}
+
+.assistant {
+  background: var(--color-surface);
+  color: var(--foreground);
+  border-bottom-left-radius: 4px;
+}
+
+.content {
+  line-height: 1.5;
+}
+
+.skeleton {
+  height: 1em;
+  width: 8em;
+  border-radius: 4px;
+}
