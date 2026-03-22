@@ -1,7 +1,6 @@
 import assert from 'node:assert';
 
 import {bodyParser} from '@koa/bodyparser';
-import cors from '@koa/cors';
 import Koa from 'koa';
 import pinoLogger from 'koa-pino-logger';
 
@@ -22,7 +21,6 @@ app.on('error', (e: unknown) => {
 });
 
 app.use(pinoLogger({logger}));
-app.use(cors());
 app.use(bodyParser());
 app.use(dispatcher());
 

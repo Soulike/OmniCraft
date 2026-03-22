@@ -85,8 +85,15 @@ export class SettingsManager {
       'SettingsManager has already been created',
     );
 
+    const result = await SettingsManager.init(filePath);
+    SettingsManager.instance = result.manager;
+    return result;
+  }
+
+  private static async init(
+    filePath: string,
+  ): Promise<SettingsManagerCreateResult> {
     const manager = new SettingsManager(filePath);
-    SettingsManager.instance = manager;
     const warnings: SettingsWarning[] = [];
 
     if (!(await fileExists(filePath))) {
