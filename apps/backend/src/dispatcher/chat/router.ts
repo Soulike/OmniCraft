@@ -6,7 +6,7 @@ import {ZodError} from 'zod';
 
 import {chatService} from '@/services/chat/index.js';
 
-import {pumpEventStream} from '../helpers/sse.js';
+import {pumpEventStream} from './helpers/sse.js';
 import {CHAT_SESSION, CHAT_SESSION_COMPLETIONS} from './path.js';
 import {chatCompletionsBody} from './validator.js';
 

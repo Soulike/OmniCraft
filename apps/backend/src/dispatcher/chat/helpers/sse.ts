@@ -1,10 +1,16 @@
+import assert from 'node:assert';
 import {PassThrough} from 'node:stream';
+
+import type {SseDoneEvent, SseErrorEvent} from '@omnicraft/sse-events';
+import {sseEventSchema} from '@omnicraft/sse-events';
 
 import {logger} from '@/logger.js';
 
-/** Writes a single SSE event to the stream. */
+/** Writes a single SSE event to the stream. Validates against the shared schema. */
 export function writeSseEvent(stream: PassThrough, data: unknown): void {
-  stream.write(`data: ${JSON.stringify(data)}\n\n`);
+  const result = sseEventSchema.safeParse(data);
+  assert(result.success, `Invalid SSE event: ${JSON.stringify(data)}`);
+  stream.write(`data: ${JSON.stringify(result.data)}\n\n`);
 }
 
 /**
@@ -20,11 +26,13 @@ export async function pumpEventStream(
     for await (const event of eventStream) {
       writeSseEvent(stream, event);
     }
-    writeSseEvent(stream, {type: 'done'});
+    const done: SseDoneEvent = {type: 'done'};
+    writeSseEvent(stream, done);
   } catch (e) {
-    const errorMessage = e instanceof Error ? e.message : 'Unknown error';
+    const message = e instanceof Error ? e.message : 'Unknown error';
     logger.error({err: e}, 'SSE stream error');
-    writeSseEvent(stream, {type: 'error', message: errorMessage});
+    const error: SseErrorEvent = {type: 'error', message};
+    writeSseEvent(stream, error);
   } finally {
     stream.end();
   }
