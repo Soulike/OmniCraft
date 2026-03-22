@@ -44,36 +44,30 @@ jobs:
     needs: changes
     if: needs.changes.outputs.backend == 'true'
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: apps/backend
     steps:
       - uses: actions/checkout@v6
       - uses: ./.github/actions/setup
 
       - name: Typecheck
-        run: bun run typecheck
+        run: bun run --filter '@omnicraft/backend' typecheck
 
       - name: Test
-        run: bun run test
+        run: bun run --filter '@omnicraft/backend' test
 
   frontend:
     name: Frontend
     needs: changes
     if: needs.changes.outputs.frontend == 'true'
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: apps/frontend
     steps:
       - uses: actions/checkout@v6
       - uses: ./.github/actions/setup
 
       - name: Typecheck & Build
-        run: bun run build
+        run: bun run --filter '@omnicraft/frontend' build
 
       - name: Test
-        run: bun run test
+        run: bun run --filter '@omnicraft/frontend' test
 
   result:
     name: CI Result
