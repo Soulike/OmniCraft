@@ -10,5 +10,9 @@ export const llmSettingsSchema = z.object({
     .url()
     .describe('Base URL of the LLM API')
     .default('https://api.anthropic.com'),
-  model: z.string().describe('Model name to use').default(''),
+  model: z
+    .string()
+    .min(1)
+    .describe('Model name to use')
+    .default('claude-sonnet-4-20250514'),
 });
