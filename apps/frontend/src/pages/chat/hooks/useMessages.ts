@@ -31,6 +31,17 @@ export function useMessages() {
     });
   }, []);
 
+  /** Removes the last assistant message if it has no content (empty placeholder). */
+  const removeLastAssistantMessageIfEmpty = useCallback(() => {
+    setMessages((prev) => {
+      const last = prev[prev.length - 1];
+      if (last.role === 'assistant' && last.content === '') {
+        return prev.slice(0, -1);
+      }
+      return prev;
+    });
+  }, []);
+
   /** Clears all messages. */
   const clearMessages = useCallback(() => {
     setMessages([]);
@@ -40,6 +51,7 @@ export function useMessages() {
     messages,
     addUserMessage,
     appendToLastAssistantMessage,
+    removeLastAssistantMessageIfEmpty,
     clearMessages,
   };
 }

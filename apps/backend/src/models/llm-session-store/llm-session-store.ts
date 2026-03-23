@@ -12,6 +12,9 @@ export class LlmSessionStore {
   private static instance: LlmSessionStore | null = null;
 
   private readonly sessions = new Map<string, LlmSession>();
+  private readonly onLlmSessionCreated = (session: LlmSession): void => {
+    this.set(session);
+  };
 
   /** Returns the singleton instance. */
   static getInstance(): LlmSessionStore {
@@ -28,15 +31,20 @@ export class LlmSessionStore {
       LlmSessionStore.instance === null,
       'LlmSessionStore is already initialized.',
     );
-    LlmSessionStore.instance = new LlmSessionStore();
-    eventBus.on('llm-session-created', (session) => {
-      LlmSessionStore.instance?.set(session);
-    });
-    return LlmSessionStore.instance;
+    const store = new LlmSessionStore();
+    LlmSessionStore.instance = store;
+    eventBus.on('llm-session-created', store.onLlmSessionCreated);
+    return store;
   }
 
   /** Resets the singleton instance. Only for use in tests. */
   static resetInstance(): void {
+    if (LlmSessionStore.instance) {
+      eventBus.off(
+        'llm-session-created',
+        LlmSessionStore.instance.onLlmSessionCreated,
+      );
+    }
     LlmSessionStore.instance = null;
   }
 

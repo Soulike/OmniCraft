@@ -11,6 +11,7 @@ interface UseStreamChatOptions {
   sessionId: string | null;
   addUserMessage: MessagesHook['addUserMessage'];
   appendToLastAssistantMessage: MessagesHook['appendToLastAssistantMessage'];
+  removeLastAssistantMessageIfEmpty: MessagesHook['removeLastAssistantMessageIfEmpty'];
 }
 
 /** Orchestrates sending a message and consuming the SSE stream. */
@@ -18,6 +19,7 @@ export function useStreamChat({
   sessionId,
   addUserMessage,
   appendToLastAssistantMessage,
+  removeLastAssistantMessageIfEmpty,
 }: UseStreamChatOptions) {
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -49,12 +51,14 @@ export function useStreamChat({
             case 'done':
               break;
             case 'error':
+              removeLastAssistantMessageIfEmpty();
               setError(event.message);
               break;
           }
         }
       } catch (e) {
         console.error('Chat completion failed', e);
+        removeLastAssistantMessageIfEmpty();
         const message =
           e instanceof Error ? e.message : 'An unexpected error occurred';
         setError(message);
@@ -62,7 +66,13 @@ export function useStreamChat({
         setIsStreaming(false);
       }
     },
-    [isStreaming, sessionId, addUserMessage, appendToLastAssistantMessage],
+    [
+      isStreaming,
+      sessionId,
+      addUserMessage,
+      appendToLastAssistantMessage,
+      removeLastAssistantMessageIfEmpty,
+    ],
   );
 
   const clearError = useCallback(() => {

@@ -9,13 +9,18 @@ import {useStreamChat} from './hooks/useStreamChat.js';
 export function ChatPage() {
   const {sessionId, sessionError} = useSession();
 
-  const {messages, addUserMessage, appendToLastAssistantMessage} =
-    useMessages();
+  const {
+    messages,
+    addUserMessage,
+    appendToLastAssistantMessage,
+    removeLastAssistantMessageIfEmpty,
+  } = useMessages();
 
   const {isStreaming, error, sendMessage, clearError} = useStreamChat({
     sessionId,
     addUserMessage,
     appendToLastAssistantMessage,
+    removeLastAssistantMessageIfEmpty,
   });
 
   const scrollRef = useAutoScroll([messages]);

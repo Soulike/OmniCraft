@@ -12,6 +12,9 @@ export class AgentStore {
   private static instance: AgentStore | null = null;
 
   private readonly agents = new Map<string, Agent>();
+  private readonly onAgentCreated = (agent: Agent): void => {
+    this.set(agent);
+  };
 
   /** Returns the singleton instance. */
   static getInstance(): AgentStore {
@@ -25,15 +28,17 @@ export class AgentStore {
   /** Creates the singleton instance and subscribes to agent events. */
   static create(): AgentStore {
     assert(AgentStore.instance === null, 'AgentStore is already initialized.');
-    AgentStore.instance = new AgentStore();
-    eventBus.on('agent-created', (agent) => {
-      AgentStore.instance?.set(agent);
-    });
-    return AgentStore.instance;
+    const store = new AgentStore();
+    AgentStore.instance = store;
+    eventBus.on('agent-created', store.onAgentCreated);
+    return store;
   }
 
   /** Resets the singleton instance. Only for use in tests. */
   static resetInstance(): void {
+    if (AgentStore.instance) {
+      eventBus.off('agent-created', AgentStore.instance.onAgentCreated);
+    }
     AgentStore.instance = null;
   }
 

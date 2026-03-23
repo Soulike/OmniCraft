@@ -67,6 +67,7 @@ export async function* streamOpenAI(
   // Track index → callId so we can emit tool-call-end with the correct callId.
   const callIdsByIndex = new Map<number, string>();
   let isFirstChunk = true;
+  let lastFinishReason = '';
 
   for await (const chunk of stream) {
     // Emit message-start on the first chunk (OpenAI has no explicit start event).
@@ -83,7 +84,7 @@ export async function* streamOpenAI(
       if (chunk.usage) {
         yield {
           type: 'message-end',
-          stopReason: '',
+          stopReason: lastFinishReason,
           usage: {
             inputTokens: chunk.usage.prompt_tokens,
             outputTokens: chunk.usage.completion_tokens,
@@ -129,6 +130,7 @@ export async function* streamOpenAI(
 
     // OpenAI signals completion via finish_reason.
     if (choice.finish_reason) {
+      lastFinishReason = choice.finish_reason;
       // Emit tool-call-end for any open tool calls.
       for (const callId of callIdsByIndex.values()) {
         yield {type: 'tool-call-end', callId};

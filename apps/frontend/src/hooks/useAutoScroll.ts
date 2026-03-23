@@ -6,7 +6,7 @@ import {useEffect, useRef} from 'react';
  * but only if the user is already near the bottom.
  */
 export function useAutoScroll(deps: unknown[]) {
-  const containerRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     const el = containerRef.current;
