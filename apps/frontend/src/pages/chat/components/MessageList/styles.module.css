@@ -28,5 +28,5 @@
 }
 
 .emptyText {
-  color: var(--color-foreground-500);
+  color: var(--muted);
 }

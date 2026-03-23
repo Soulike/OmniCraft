@@ -6,13 +6,13 @@
 }
 
 .user {
-  background: var(--color-accent);
-  color: var(--color-accent-foreground);
+  background: var(--accent);
+  color: var(--accent-foreground);
   border-bottom-right-radius: 4px;
 }
 
 .assistant {
-  background: var(--color-surface);
+  background: var(--surface);
   color: var(--foreground);
   border-bottom-left-radius: 4px;
 }
