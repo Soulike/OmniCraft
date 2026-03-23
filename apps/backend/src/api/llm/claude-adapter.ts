@@ -1,3 +1,5 @@
+import assert from 'node:assert';
+
 import Anthropic from '@anthropic-ai/sdk';
 
 import type {
@@ -20,11 +22,19 @@ function toSdkMessage(message: LlmMessage): SdkMessageParam {
         content.push({type: 'text', text: message.content});
       }
       for (const tc of message.toolCalls) {
+        let input: Record<string, unknown>;
+        try {
+          input = JSON.parse(tc.arguments) as Record<string, unknown>;
+        } catch {
+          throw new Error(
+            `Malformed tool call arguments for call ${tc.callId}: ${tc.arguments}`,
+          );
+        }
         content.push({
           type: 'tool_use',
           id: tc.callId,
           name: tc.toolName,
-          input: JSON.parse(tc.arguments) as Record<string, unknown>,
+          input,
         });
       }
       return {role: 'assistant', content};
@@ -105,7 +115,11 @@ export async function* streamClaude(
         if (event.delta.type === 'text_delta') {
           yield {type: 'text-delta', content: event.delta.text};
         } else if (event.delta.type === 'input_json_delta') {
-          const callId = blockCallIds.get(event.index) ?? '';
+          const callId = blockCallIds.get(event.index);
+          assert(
+            callId,
+            `Missing callId for content block index ${event.index.toString()}`,
+          );
           yield {
             type: 'tool-call-delta',
             callId,
