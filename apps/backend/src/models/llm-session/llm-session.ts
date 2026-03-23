@@ -9,6 +9,7 @@ import type {
 } from '@/api/llm/index.js';
 import {llmApi} from '@/api/llm/index.js';
 import {eventBus} from '@/events/index.js';
+import {Mutex} from '@/helpers/mutex.js';
 
 import type {LlmSessionEventStream, ToolResult} from './types.js';
 
@@ -30,6 +31,7 @@ export class LlmSession {
   private usage: LlmUsage = {inputTokens: 0, outputTokens: 0};
   private readonly getConfig: () => Promise<LlmConfig>;
   private readonly systemPrompt: string;
+  private readonly mutex = new Mutex();
 
   constructor(getConfig: () => Promise<LlmConfig>, systemPrompt = '') {
     this.id = crypto.randomUUID();
@@ -46,6 +48,7 @@ export class LlmSession {
    * the user message and assistant reply are recorded in the history.
    */
   async *sendMessage(content: string): LlmSessionEventStream {
+    const release = await this.mutex.acquire();
     const rollbackIndex = this.messages.length;
     this.messages.push({role: 'user', content});
     try {
@@ -53,6 +56,8 @@ export class LlmSession {
     } catch (e) {
       this.messages.length = rollbackIndex;
       throw e;
+    } finally {
+      release();
     }
   }
 
@@ -64,6 +69,7 @@ export class LlmSession {
    * as `sendMessage`.
    */
   async *submitToolResults(results: ToolResult[]): LlmSessionEventStream {
+    const release = await this.mutex.acquire();
     const rollbackIndex = this.messages.length;
     for (const result of results) {
       this.messages.push({
@@ -77,6 +83,8 @@ export class LlmSession {
     } catch (e) {
       this.messages.length = rollbackIndex;
       throw e;
+    } finally {
+      release();
     }
   }
 
