@@ -46,8 +46,14 @@ export class LlmSession {
    * the user message and assistant reply are recorded in the history.
    */
   async *sendMessage(content: string): LlmSessionEventStream {
+    const rollbackIndex = this.messages.length;
     this.messages.push({role: 'user', content});
-    yield* this.callLlm();
+    try {
+      yield* this.callLlm();
+    } catch (e) {
+      this.messages.length = rollbackIndex;
+      throw e;
+    }
   }
 
   /**
@@ -58,6 +64,7 @@ export class LlmSession {
    * as `sendMessage`.
    */
   async *submitToolResults(results: ToolResult[]): LlmSessionEventStream {
+    const rollbackIndex = this.messages.length;
     for (const result of results) {
       this.messages.push({
         role: 'tool',
@@ -65,7 +72,12 @@ export class LlmSession {
         content: result.content,
       });
     }
-    yield* this.callLlm();
+    try {
+      yield* this.callLlm();
+    } catch (e) {
+      this.messages.length = rollbackIndex;
+      throw e;
+    }
   }
 
   /** Returns the accumulated token usage across all LLM calls in this session. */

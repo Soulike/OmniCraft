@@ -49,6 +49,7 @@ export function useStreamChat({
               // V1: tool calls are not rendered in the UI yet.
               break;
             case 'done':
+              removeLastAssistantMessageIfEmpty();
               break;
             case 'error':
               removeLastAssistantMessageIfEmpty();
