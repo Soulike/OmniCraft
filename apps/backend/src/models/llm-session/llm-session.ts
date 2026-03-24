@@ -47,20 +47,8 @@ export class LlmSession {
    * events with fully assembled tool calls (if any). Once fully consumed,
    * the user message and assistant reply are recorded in the history.
    */
-  async *sendMessage(content: string): LlmSessionEventStream {
-    const release = await this.mutex.acquire();
-    const rollbackIndex = this.messages.length;
-    this.messages.push({role: 'user', content});
-    let completed = false;
-    try {
-      yield* this.callLlm();
-      completed = true;
-    } finally {
-      if (!completed) {
-        this.messages.length = rollbackIndex;
-      }
-      release();
-    }
+  async *sendUserMessage(content: string): LlmSessionEventStream {
+    yield* this.sendMessages([{role: 'user', content}]);
   }
 
   /**
@@ -71,25 +59,12 @@ export class LlmSession {
    * as `sendMessage`.
    */
   async *submitToolResults(results: ToolResult[]): LlmSessionEventStream {
-    const release = await this.mutex.acquire();
-    const rollbackIndex = this.messages.length;
-    for (const result of results) {
-      this.messages.push({
-        role: 'tool',
-        callId: result.callId,
-        content: result.content,
-      });
-    }
-    let completed = false;
-    try {
-      yield* this.callLlm();
-      completed = true;
-    } finally {
-      if (!completed) {
-        this.messages.length = rollbackIndex;
-      }
-      release();
-    }
+    const toolMessages: LlmMessage[] = results.map((result) => ({
+      role: 'tool' as const,
+      callId: result.callId,
+      content: result.content,
+    }));
+    yield* this.sendMessages(toolMessages);
   }
 
   /** Returns the accumulated token usage across all LLM calls in this session. */
@@ -109,10 +84,31 @@ export class LlmSession {
   }
 
   /**
-   * Calls the LLM with the current message history and yields high-level events.
-   * Assembles the assistant message and records it in the history when done.
+   * Appends messages to history, streams a completion from the LLM, and
+   * rolls back if the stream is cancelled or errors. Serialized via mutex.
    */
-  private async *callLlm(): LlmSessionEventStream {
+  private async *sendMessages(messages: LlmMessage[]): LlmSessionEventStream {
+    const release = await this.mutex.acquire();
+    const rollbackIndex = this.messages.length;
+    this.messages.push(...messages);
+    let completed = false;
+    try {
+      yield* this.streamCompletion();
+      completed = true;
+    } finally {
+      if (!completed) {
+        this.messages.length = rollbackIndex;
+      }
+      release();
+    }
+  }
+
+  /**
+   * Streams a completion from the LLM using the current message history.
+   * Yields text deltas in real-time, then fully assembled tool calls.
+   * Records the assistant message in history when done.
+   */
+  private async *streamCompletion(): LlmSessionEventStream {
     const llmConfig = await this.getConfig();
     const eventStream = llmApi.streamCompletion({
       config: llmConfig,

@@ -13,6 +13,6 @@ export class SimpleAgent extends Agent {
   }
 
   async *handleUserMessage(userMessage: string): AgentEventStream {
-    yield* this.getLlmSession().sendMessage(userMessage);
+    yield* this.getLlmSession().sendUserMessage(userMessage);
   }
 }
