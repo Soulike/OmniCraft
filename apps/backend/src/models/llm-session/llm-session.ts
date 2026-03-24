@@ -51,12 +51,14 @@ export class LlmSession {
     const release = await this.mutex.acquire();
     const rollbackIndex = this.messages.length;
     this.messages.push({role: 'user', content});
+    let completed = false;
     try {
       yield* this.callLlm();
-    } catch (e) {
-      this.messages.length = rollbackIndex;
-      throw e;
+      completed = true;
     } finally {
+      if (!completed) {
+        this.messages.length = rollbackIndex;
+      }
       release();
     }
   }
@@ -78,12 +80,14 @@ export class LlmSession {
         content: result.content,
       });
     }
+    let completed = false;
     try {
       yield* this.callLlm();
-    } catch (e) {
-      this.messages.length = rollbackIndex;
-      throw e;
+      completed = true;
     } finally {
+      if (!completed) {
+        this.messages.length = rollbackIndex;
+      }
       release();
     }
   }
