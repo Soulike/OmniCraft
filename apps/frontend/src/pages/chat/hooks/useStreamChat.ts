@@ -22,7 +22,7 @@ export function useStreamChat({
   removeLastAssistantMessageIfEmpty,
 }: UseStreamChatOptions) {
   const [isStreaming, setIsStreaming] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [streamError, setStreamError] = useState<string | null>(null);
 
   const sendMessage = useCallback(
     async (content: string) => {
@@ -31,7 +31,7 @@ export function useStreamChat({
       const trimmed = content.trim();
       if (!trimmed) return;
 
-      setError(null);
+      setStreamError(null);
       setIsStreaming(true);
 
       const userMessage: ChatMessage = {role: 'user', content: trimmed};
@@ -53,7 +53,7 @@ export function useStreamChat({
               break;
             case 'error':
               removeLastAssistantMessageIfEmpty();
-              setError(event.message);
+              setStreamError(event.message);
               break;
           }
         }
@@ -62,7 +62,7 @@ export function useStreamChat({
         removeLastAssistantMessageIfEmpty();
         const message =
           e instanceof Error ? e.message : 'An unexpected error occurred';
-        setError(message);
+        setStreamError(message);
       } finally {
         setIsStreaming(false);
       }
@@ -76,9 +76,9 @@ export function useStreamChat({
     ],
   );
 
-  const clearError = useCallback(() => {
-    setError(null);
+  const clearStreamError = useCallback(() => {
+    setStreamError(null);
   }, []);
 
-  return {isStreaming, error, sendMessage, clearError};
+  return {isStreaming, streamError, sendMessage, clearStreamError};
 }

@@ -58,7 +58,18 @@ router.post(CHAT_SESSION_COMPLETIONS, (ctx) => {
   const stream = new PassThrough();
   ctx.body = stream;
 
-  void pumpEventStream(stream, eventStream);
+  const onDisconnect = () => {
+    ctx.req.off('close', onDisconnect);
+    if (!stream.destroyed) {
+      stream.destroy();
+    }
+    void eventStream.return();
+  };
+  ctx.req.on('close', onDisconnect);
+
+  void pumpEventStream(stream, eventStream).finally(() => {
+    ctx.req.off('close', onDisconnect);
+  });
 });
 
 export {router};

@@ -1,3 +1,5 @@
+import {useCallback} from 'react';
+
 import {useAutoScroll} from '@/hooks/useAutoScroll.js';
 
 import {ChatPageView} from './ChatPageView.js';
@@ -7,7 +9,7 @@ import {useStreamChat} from './hooks/useStreamChat.js';
 
 /** Chat page container. Composes hooks and passes state to the view. */
 export function ChatPage() {
-  const {sessionId, sessionError} = useSession();
+  const {sessionId, sessionError, clearSessionError} = useSession();
 
   const {
     messages,
@@ -16,16 +18,22 @@ export function ChatPage() {
     removeLastAssistantMessageIfEmpty,
   } = useMessages();
 
-  const {isStreaming, error, sendMessage, clearError} = useStreamChat({
-    sessionId,
-    addUserMessage,
-    appendToLastAssistantMessage,
-    removeLastAssistantMessageIfEmpty,
-  });
+  const {isStreaming, streamError, sendMessage, clearStreamError} =
+    useStreamChat({
+      sessionId,
+      addUserMessage,
+      appendToLastAssistantMessage,
+      removeLastAssistantMessageIfEmpty,
+    });
 
   const scrollRef = useAutoScroll([messages]);
 
-  const displayError = sessionError ?? error;
+  const displayError = sessionError ?? streamError;
+
+  const dismissError = useCallback(() => {
+    clearSessionError();
+    clearStreamError();
+  }, [clearSessionError, clearStreamError]);
 
   return (
     <ChatPageView
@@ -36,7 +44,7 @@ export function ChatPage() {
       onSend={(content) => {
         void sendMessage(content);
       }}
-      onDismissError={clearError}
+      onDismissError={dismissError}
     />
   );
 }

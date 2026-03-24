@@ -8,6 +8,7 @@ import {logger} from '@/logger.js';
 
 /** Writes a single SSE event to the stream. Validates against the shared schema. */
 export function writeSseEvent(stream: PassThrough, data: unknown): void {
+  if (stream.destroyed || stream.writableEnded) return;
   const result = sseEventSchema.safeParse(data);
   assert(result.success, `Invalid SSE event: ${JSON.stringify(data)}`);
   stream.write(`data: ${JSON.stringify(result.data)}\n\n`);
@@ -29,11 +30,15 @@ export async function pumpEventStream(
     const done: SseDoneEvent = {type: 'done'};
     writeSseEvent(stream, done);
   } catch (e) {
-    const message = e instanceof Error ? e.message : 'Unknown error';
     logger.error({err: e}, 'SSE stream error');
-    const error: SseErrorEvent = {type: 'error', message};
+    const error: SseErrorEvent = {
+      type: 'error',
+      message: 'An internal error occurred',
+    };
     writeSseEvent(stream, error);
   } finally {
-    stream.end();
+    if (!stream.destroyed && !stream.writableEnded) {
+      stream.end();
+    }
   }
 }

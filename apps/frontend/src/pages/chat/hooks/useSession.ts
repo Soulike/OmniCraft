@@ -29,5 +29,9 @@ export function useSession() {
     void resetSession();
   }, [resetSession]);
 
-  return {sessionId, sessionError: error, resetSession};
+  const clearSessionError = useCallback(() => {
+    setError(null);
+  }, []);
+
+  return {sessionId, sessionError: error, resetSession, clearSessionError};
 }
