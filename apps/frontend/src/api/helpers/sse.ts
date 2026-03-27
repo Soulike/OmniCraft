@@ -18,15 +18,21 @@ function isSseLineValid(line: string): boolean {
   return VALID_SSE_PREFIXES.some((prefix) => line.startsWith(prefix));
 }
 
+/** Strips only a trailing carriage return (for CRLF line endings). */
+function stripCr(line: string): string {
+  if (line.endsWith('\r')) return line.slice(0, -1);
+  return line;
+}
+
 /**
  * Validates that every non-empty line in a block starts with a known SSE
- * field prefix. Only trailing whitespace is stripped — leading whitespace on
- * a line is genuinely malformed per the SSE spec. Throws if any line is
- * malformed.
+ * field prefix. Leading whitespace on a line is genuinely malformed per the
+ * SSE spec. Only trailing `\r` is stripped (for CRLF compatibility).
+ * Throws if any line is malformed.
  */
 function validateSseBlock(block: string): void {
   for (const line of block.split('\n')) {
-    const cleaned = line.trimEnd();
+    const cleaned = stripCr(line);
     if (cleaned === '') continue;
 
     if (!isSseLineValid(cleaned)) {
@@ -42,13 +48,14 @@ function validateSseBlock(block: string): void {
 /**
  * Extracts and concatenates all `data:` field values from an SSE event block.
  * Per the SSE spec, multiple `data:` lines in a single event are joined with
- * newlines. The space after "data:" is optional.
+ * newlines. The space after "data:" is optional. Trailing whitespace in the
+ * field value is preserved.
  */
 function extractDataFromBlock(block: string): string | undefined {
   const dataValues: string[] = [];
 
   for (const line of block.split('\n')) {
-    const cleaned = line.trimEnd();
+    const cleaned = stripCr(line);
     if (cleaned.startsWith(SSE_DATA_PREFIX)) {
       dataValues.push(cleaned.slice(SSE_DATA_PREFIX.length));
     } else if (cleaned.startsWith('data:')) {
@@ -93,12 +100,11 @@ export async function* parseSseStream(
     buffer = parts.pop() ?? '';
 
     for (const part of parts) {
-      const trimmed = part.trim();
-      if (trimmed === '') continue;
+      if (part.trim() === '') continue;
 
-      validateSseBlock(trimmed);
+      validateSseBlock(part);
 
-      const data = extractDataFromBlock(trimmed);
+      const data = extractDataFromBlock(part);
       if (data === undefined) continue;
 
       yield data;

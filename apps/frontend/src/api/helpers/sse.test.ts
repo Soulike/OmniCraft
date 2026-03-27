@@ -191,6 +191,12 @@ describe('parseSseStream', () => {
       const results = await collectResults(response);
       expect(results).toEqual(['a\nb']);
     });
+
+    it('should preserve trailing spaces in data content', async () => {
+      const response = createMockResponse(['data: hello \n\n']);
+      const results = await collectResults(response);
+      expect(results).toEqual(['hello ']);
+    });
   });
 
   describe('stream with no trailing double newline', () => {
