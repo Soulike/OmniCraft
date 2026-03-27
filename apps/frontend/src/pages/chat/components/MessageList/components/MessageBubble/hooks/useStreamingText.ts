@@ -69,6 +69,9 @@ export function useStreamingText(fullContent: string): UseStreamingTextResult {
     const previousFullContent = previousFullContentRef.current;
 
     if (!fullContent.startsWith(previousFullContent)) {
+      cancelAnimationFrame(animationFrameIdRef.current);
+      isLoopRunningRef.current = false;
+      lastFrameTimeRef.current = 0;
       setDisplayedLength(fullContent.length);
       displayedLengthRef.current = fullContent.length;
       targetLengthRef.current = fullContent.length;
