@@ -5,8 +5,8 @@ const SSE_DATA_PREFIX = 'data: ';
 const SSE_EVENT_DELIMITER = '\n\n';
 
 /**
- * Valid SSE field prefixes per the Server-Sent Events specification.
- * Any non-empty line that doesn't start with one of these is malformed.
+ * Known SSE field prefixes. While the SSE spec ignores unknown field names,
+ * we intentionally reject them to surface server-side bugs early.
  * Note: `data:` without a trailing space is also valid per spec.
  */
 const VALID_SSE_PREFIXES = ['data:', 'event:', 'id:', 'retry:', ':'];
@@ -85,29 +85,33 @@ export async function* parseSseStream(
   const textStream = body.pipeThrough(new TextDecoderStream());
   const lineReader = textStream.getReader();
 
-  // Buffer for incomplete SSE events across read() calls.
-  // A single read() may not align with SSE event boundaries (\n\n),
-  // so we accumulate data and only process complete events.
-  let buffer = '';
+  try {
+    // Buffer for incomplete SSE events across read() calls.
+    // A single read() may not align with SSE event boundaries (\n\n),
+    // so we accumulate data and only process complete events.
+    let buffer = '';
 
-  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-  while (true) {
-    const {done, value} = await lineReader.read();
-    if (done) break;
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+    while (true) {
+      const {done, value} = await lineReader.read();
+      if (done) break;
 
-    buffer += value;
-    const parts = buffer.split(SSE_EVENT_DELIMITER);
-    buffer = parts.pop() ?? '';
+      buffer += value;
+      const parts = buffer.split(SSE_EVENT_DELIMITER);
+      buffer = parts.pop() ?? '';
 
-    for (const part of parts) {
-      if (part.trim() === '') continue;
+      for (const part of parts) {
+        if (part.trim() === '') continue;
 
-      validateSseBlock(part);
+        validateSseBlock(part);
 
-      const data = extractDataFromBlock(part);
-      if (data === undefined) continue;
+        const data = extractDataFromBlock(part);
+        if (data === undefined) continue;
 
-      yield data;
+        yield data;
+      }
     }
+  } finally {
+    lineReader.releaseLock();
   }
 }
