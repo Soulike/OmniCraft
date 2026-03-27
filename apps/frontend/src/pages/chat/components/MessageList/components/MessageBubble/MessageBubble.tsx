@@ -1,24 +1,16 @@
-import {Skeleton} from '@heroui/react';
-import clsx from 'clsx';
-
 import type {ChatMessage} from '../../../../types.js';
-import styles from './styles.module.css';
+import {useStreamingText} from './hooks/useStreamingText.js';
+import {MessageBubbleView} from './MessageBubbleView.js';
 
 interface MessageBubbleProps {
   message: ChatMessage;
 }
 
 export function MessageBubble({message}: MessageBubbleProps) {
-  return (
-    <div
-      className={clsx(styles.bubble, {
-        [styles.user]: message.role === 'user',
-        [styles.assistant]: message.role === 'assistant',
-      })}
-    >
-      <div className={styles.content}>
-        {message.content || <Skeleton className={styles.skeleton} />}
-      </div>
-    </div>
-  );
+  const {displayedContent} = useStreamingText(message.content);
+
+  const content =
+    message.role === 'assistant' ? displayedContent : message.content;
+
+  return <MessageBubbleView role={message.role} content={content} />;
 }
