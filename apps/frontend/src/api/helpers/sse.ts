@@ -5,6 +5,16 @@ const SSE_DATA_PREFIX = 'data: ';
 const SSE_EVENT_DELIMITER = '\n\n';
 
 /**
+ * Valid SSE field prefixes per the Server-Sent Events specification.
+ * Any non-empty line that doesn't start with one of these is malformed.
+ */
+const VALID_SSE_PREFIXES = [SSE_DATA_PREFIX, 'event:', 'id:', 'retry:', ':'];
+
+function isSseFieldValid(line: string): boolean {
+  return VALID_SSE_PREFIXES.some((prefix) => line.startsWith(prefix));
+}
+
+/**
  * Parses an SSE stream from a fetch Response into raw data strings.
  *
  * Handles buffering across chunk boundaries and extracts the string
@@ -38,7 +48,13 @@ export async function* parseSseStream(
 
     for (const part of parts) {
       const trimmed = part.trim();
-      if (trimmed === '' || !trimmed.startsWith(SSE_DATA_PREFIX)) continue;
+      if (trimmed === '') continue;
+
+      if (!isSseFieldValid(trimmed)) {
+        throw new Error(`Malformed SSE event: ${trimmed}`);
+      }
+
+      if (!trimmed.startsWith(SSE_DATA_PREFIX)) continue;
 
       yield trimmed.slice(SSE_DATA_PREFIX.length);
     }
