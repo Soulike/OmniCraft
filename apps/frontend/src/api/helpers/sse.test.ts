@@ -246,6 +246,30 @@ describe('parseSseStream', () => {
     });
   });
 
+  describe('CRLF line endings', () => {
+    it('should handle CRLF event delimiters', async () => {
+      const response = createMockResponse([
+        'data: hello\r\n\r\ndata: world\r\n\r\n',
+      ]);
+      const results = await collectResults(response);
+      expect(results).toEqual(['hello', 'world']);
+    });
+
+    it('should handle CRLF within multi-line blocks', async () => {
+      const response = createMockResponse([
+        'event: message\r\ndata: hello\r\n\r\n',
+      ]);
+      const results = await collectResults(response);
+      expect(results).toEqual(['hello']);
+    });
+
+    it('should handle bare CR as line ending', async () => {
+      const response = createMockResponse(['data: hello\r\r']);
+      const results = await collectResults(response);
+      expect(results).toEqual(['hello']);
+    });
+  });
+
   describe('large messages', () => {
     it('should handle a large payload in a single event', async () => {
       const largePayload = 'x'.repeat(100_000);
