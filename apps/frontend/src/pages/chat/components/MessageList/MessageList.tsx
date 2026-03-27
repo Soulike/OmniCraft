@@ -1,15 +1,12 @@
-import type {RefObject} from 'react';
-
 import type {ChatMessage} from '../../types.js';
 import {MessageBubble} from './components/MessageBubble/index.js';
 import styles from './styles.module.css';
 
 interface MessageListProps {
   messages: ChatMessage[];
-  scrollRef: RefObject<HTMLDivElement | null>;
 }
 
-export function MessageList({messages, scrollRef}: MessageListProps) {
+export function MessageList({messages}: MessageListProps) {
   if (messages.length === 0) {
     return (
       <div className={styles.empty}>
@@ -19,7 +16,7 @@ export function MessageList({messages, scrollRef}: MessageListProps) {
   }
 
   return (
-    <div className={styles.container} ref={scrollRef}>
+    <div className={styles.container}>
       <div className={styles.list}>
         {messages.map((message, index) => (
           <div

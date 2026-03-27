@@ -1,6 +1,12 @@
 .page {
   display: flex;
   flex-direction: column;
+  height: 100%;
+}
+
+.messageListWrapper {
   flex: 1;
   min-height: 0;
+  overflow-y: auto;
+  height: 100%;
 }

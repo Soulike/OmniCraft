@@ -68,3 +68,8 @@ import {Component} from 'path/to/Component/index.js';
 - Use CSS Modules (`styles.module.css`) for all custom component styles.
 - Do NOT use Tailwind utility classes in our own components. Tailwind is only present as a dependency for HeroUI.
 - HeroUI (`@heroui/react`) is the UI component library. Use its components directly (e.g., `<Spinner />`, `<Button />`).
+
+## Layout
+
+- A component must NOT dictate how it is laid out by its parent. Properties like `flex`, `margin`, `grid-column`, `align-self`, etc. that affect the component's placement in the parent's layout must NOT appear in the component's own styles.
+- The parent component is responsible for controlling children's layout. Wrap children in a dedicated element (e.g., `<div className={styles.someWrapper}>`) and apply layout properties there.

@@ -10,7 +10,9 @@ interface LayoutViewProps {
 export function LayoutView({children}: LayoutViewProps) {
   return (
     <div className={styles.layout}>
-      <Navbar />
+      <div className={styles.navbarWrapper}>
+        <Navbar />
+      </div>
       <main className={styles.content}>{children}</main>
     </div>
   );
