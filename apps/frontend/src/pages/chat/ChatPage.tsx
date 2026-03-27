@@ -26,7 +26,7 @@ export function ChatPage() {
       removeLastAssistantMessageIfEmpty,
     });
 
-  const scrollRef = useAutoScroll([messages]);
+  const scrollRef = useAutoScroll();
 
   const displayError = sessionError ?? streamError;
 

@@ -4,41 +4,47 @@ const NEAR_BOTTOM_THRESHOLD = 100;
 
 /**
  * Returns a ref to attach to a scrollable container.
- * Auto-scrolls to the bottom when `deps` change,
- * but only if the user was near the bottom before the update.
+ * Auto-scrolls to the bottom whenever the container's content grows,
+ * but only if the user was already near the bottom.
  *
- * Tracks scroll position via a scroll listener so the decision
- * is based on the pre-render position, not the post-render one.
+ * Uses MutationObserver to detect content changes (including
+ * non-React updates like requestAnimationFrame animations),
+ * so it works with streaming text that grows outside the React
+ * render cycle.
  */
-export function useAutoScroll(deps: unknown[]) {
+export function useAutoScroll() {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const isNearBottomRef = useRef(true);
 
-  const onScroll = useCallback(() => {
+  const updateIsNearBottom = useCallback(() => {
     const el = containerRef.current;
     if (!el) return;
     isNearBottomRef.current =
       el.scrollHeight - el.scrollTop - el.clientHeight < NEAR_BOTTOM_THRESHOLD;
   }, []);
 
-  useEffect(() => {
+  const scrollToBottom = useCallback(() => {
     const el = containerRef.current;
     if (!el) return;
-    el.addEventListener('scroll', onScroll, {passive: true});
-    return () => {
-      el.removeEventListener('scroll', onScroll);
-    };
-  }, [onScroll]);
-
-  useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
-
     if (isNearBottomRef.current) {
       el.scrollTop = el.scrollHeight;
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, deps);
+  }, []);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    el.addEventListener('scroll', updateIsNearBottom, {passive: true});
+
+    const observer = new MutationObserver(scrollToBottom);
+    observer.observe(el, {childList: true, subtree: true, characterData: true});
+
+    return () => {
+      el.removeEventListener('scroll', updateIsNearBottom);
+      observer.disconnect();
+    };
+  }, [updateIsNearBottom, scrollToBottom]);
 
   return containerRef;
 }

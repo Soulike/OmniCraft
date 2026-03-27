@@ -35,8 +35,8 @@ export function ChatPageView({
           <CloseButton onPress={onDismissError} />
         </Alert>
       )}
-      <div className={styles.messageListWrapper}>
-        <MessageList messages={messages} scrollRef={scrollRef} />
+      <div className={styles.messageListWrapper} ref={scrollRef}>
+        <MessageList messages={messages} />
       </div>
       <ChatInput onSend={onSend} isDisabled={isInputDisabled} />
     </div>
