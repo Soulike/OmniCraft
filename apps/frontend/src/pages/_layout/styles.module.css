@@ -1,11 +1,17 @@
 .layout {
-  min-height: 100dvh;
+  height: 100dvh;
   display: flex;
   flex-direction: column;
 }
 
+.navbarWrapper {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  flex: 0;
+}
+
 .content {
-  display: flex;
-  flex-direction: column;
   flex: 1;
+  min-height: 0;
 }
