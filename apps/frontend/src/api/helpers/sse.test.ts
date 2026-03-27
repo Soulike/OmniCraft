@@ -173,6 +173,12 @@ describe('parseSseStream', () => {
       const results = await collectResults(response);
       expect(results).toEqual(['key: value']);
     });
+
+    it('should handle data: without trailing space', async () => {
+      const response = createMockResponse(['data:hello\n\n']);
+      const results = await collectResults(response);
+      expect(results).toEqual(['hello']);
+    });
   });
 
   describe('stream with no trailing double newline', () => {
@@ -198,6 +204,11 @@ describe('parseSseStream', () => {
 
     it('should throw even when malformed event follows valid events', async () => {
       const response = createMockResponse(['data: hello\n\nbad line\n\n']);
+      await expect(collectResults(response)).rejects.toThrow();
+    });
+
+    it('should throw when a later line in a multi-line block is malformed', async () => {
+      const response = createMockResponse(['data: ok\nbad line\n\n']);
       await expect(collectResults(response)).rejects.toThrow();
     });
   });
