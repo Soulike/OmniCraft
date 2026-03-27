@@ -118,6 +118,9 @@ export async function* parseSseStream(
       }
     }
   } finally {
-    await lineReader.cancel();
+    // Best-effort cleanup: catch so a cancel failure doesn't mask the
+    // original error thrown from the try block.
+    // eslint-disable-next-line @typescript-eslint/no-empty-function
+    await lineReader.cancel().catch(() => {});
   }
 }
