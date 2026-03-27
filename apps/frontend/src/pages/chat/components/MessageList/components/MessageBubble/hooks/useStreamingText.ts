@@ -1,4 +1,4 @@
-import {useEffect, useRef, useState} from 'react';
+import {useCallback, useEffect, useRef, useState} from 'react';
 
 /** Target reveal speed in characters per second, independent of refresh rate. */
 const CHARS_PER_SECOND = 120;
@@ -18,7 +18,9 @@ interface UseStreamingTextResult {
 export function useStreamingText(fullContent: string): UseStreamingTextResult {
   const [displayedLength, setDisplayedLength] = useState(fullContent.length);
   const displayedLengthRef = useRef(displayedLength);
+  const targetLengthRef = useRef(fullContent.length);
   const animationFrameIdRef = useRef(0);
+  const isLoopRunningRef = useRef(false);
   const previousFullContentRef = useRef(fullContent);
   const lastFrameTimeRef = useRef(0);
 
@@ -26,22 +28,12 @@ export function useStreamingText(fullContent: string): UseStreamingTextResult {
     displayedLengthRef.current = displayedLength;
   }, [displayedLength]);
 
-  // Reset displayedLength when content is replaced rather than appended.
-  useEffect(() => {
-    const previousFullContent = previousFullContentRef.current;
-
-    if (!fullContent.startsWith(previousFullContent)) {
-      setDisplayedLength(fullContent.length);
-      displayedLengthRef.current = fullContent.length;
-    }
-
-    previousFullContentRef.current = fullContent;
-  }, [fullContent]);
-
-  useEffect(() => {
-    if (displayedLengthRef.current >= fullContent.length) {
+  const startLoop = useCallback(() => {
+    if (isLoopRunningRef.current) {
       return;
     }
+    isLoopRunningRef.current = true;
+    lastFrameTimeRef.current = 0;
 
     const tick = (timestamp: number) => {
       if (lastFrameTimeRef.current === 0) {
@@ -57,23 +49,43 @@ export function useStreamingText(fullContent: string): UseStreamingTextResult {
       );
 
       setDisplayedLength((prev) => {
-        const next = Math.min(prev + charsToReveal, fullContent.length);
+        const next = Math.min(prev + charsToReveal, targetLengthRef.current);
         displayedLengthRef.current = next;
         return next;
       });
 
-      if (displayedLengthRef.current < fullContent.length) {
+      if (displayedLengthRef.current < targetLengthRef.current) {
         animationFrameIdRef.current = requestAnimationFrame(tick);
+      } else {
+        isLoopRunningRef.current = false;
       }
     };
 
-    lastFrameTimeRef.current = 0;
     animationFrameIdRef.current = requestAnimationFrame(tick);
+  }, []);
 
+  // Track content changes: reset on replacement, animate on append.
+  useEffect(() => {
+    const previousFullContent = previousFullContentRef.current;
+
+    if (!fullContent.startsWith(previousFullContent)) {
+      setDisplayedLength(fullContent.length);
+      displayedLengthRef.current = fullContent.length;
+      targetLengthRef.current = fullContent.length;
+    } else if (fullContent.length > targetLengthRef.current) {
+      targetLengthRef.current = fullContent.length;
+      startLoop();
+    }
+
+    previousFullContentRef.current = fullContent;
+  }, [fullContent, startLoop]);
+
+  // Cancel animation on unmount.
+  useEffect(() => {
     return () => {
       cancelAnimationFrame(animationFrameIdRef.current);
     };
-  }, [fullContent.length]);
+  }, []);
 
   return {
     displayedContent: fullContent.slice(0, displayedLength),
