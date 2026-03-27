@@ -229,6 +229,11 @@ describe('parseSseStream', () => {
       const response = createMockResponse(['data: ok\nbad line\n\n']);
       await expect(collectResults(response)).rejects.toThrow();
     });
+
+    it('should throw on a line with leading whitespace', async () => {
+      const response = createMockResponse([' data: hello\n\n']);
+      await expect(collectResults(response)).rejects.toThrow();
+    });
   });
 
   describe('many small chunks', () => {

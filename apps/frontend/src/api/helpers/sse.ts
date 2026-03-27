@@ -71,9 +71,14 @@ function extractDataFromBlock(block: string): string | undefined {
 /**
  * Parses an SSE stream from a fetch Response into raw data strings.
  *
- * Handles buffering across chunk boundaries and extracts the string
- * after the `data: ` prefix for each event. Callers are responsible
- * for further parsing (e.g., JSON).
+ * Handles buffering across chunk boundaries. For each event block (delimited
+ * by `\n\n`), validates that every line starts with a known SSE field prefix
+ * and throws on malformed lines. Extracts and concatenates all `data:` field
+ * values (joined with `\n` for multi-line data). The space after `data:` is
+ * optional per spec. Callers are responsible for further parsing (e.g., JSON).
+ *
+ * The reader is cancelled in a finally block so that the underlying fetch
+ * connection is properly cleaned up on early exit or error.
  */
 export async function* parseSseStream(
   response: Response,
@@ -113,6 +118,6 @@ export async function* parseSseStream(
       }
     }
   } finally {
-    lineReader.releaseLock();
+    await lineReader.cancel();
   }
 }
