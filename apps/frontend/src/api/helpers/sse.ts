@@ -26,9 +26,10 @@ function stripCr(line: string): string {
 
 /**
  * Validates that every non-empty line in a block starts with a known SSE
- * field prefix. Leading whitespace on a line is genuinely malformed per the
- * SSE spec. Only trailing `\r` is stripped (for CRLF compatibility).
- * Throws if any line is malformed.
+ * field prefix. Leading whitespace on a line is treated as malformed — while
+ * the SSE spec would see it as an unknown field name, we intentionally reject
+ * it to catch server-side bugs. Only trailing `\r` is stripped (for CRLF
+ * compatibility). Throws if any line is malformed.
  */
 function validateSseBlock(block: string): void {
   for (const line of block.split('\n')) {
