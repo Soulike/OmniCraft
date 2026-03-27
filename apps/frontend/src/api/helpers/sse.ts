@@ -20,21 +20,44 @@ function isSseLineValid(line: string): boolean {
 
 /**
  * Validates that every non-empty line in a block starts with a known SSE
- * field prefix. Throws if any line is malformed.
+ * field prefix. Only trailing whitespace is stripped — leading whitespace on
+ * a line is genuinely malformed per the SSE spec. Throws if any line is
+ * malformed.
  */
 function validateSseBlock(block: string): void {
   for (const line of block.split('\n')) {
-    const trimmedLine = line.trim();
-    if (trimmedLine === '') continue;
+    const cleaned = line.trimEnd();
+    if (cleaned === '') continue;
 
-    if (!isSseLineValid(trimmedLine)) {
+    if (!isSseLineValid(cleaned)) {
       const preview =
-        trimmedLine.length > MAX_ERROR_PREVIEW_LENGTH
-          ? `${trimmedLine.slice(0, MAX_ERROR_PREVIEW_LENGTH)}... (${trimmedLine.length} chars)`
-          : trimmedLine;
+        cleaned.length > MAX_ERROR_PREVIEW_LENGTH
+          ? `${cleaned.slice(0, MAX_ERROR_PREVIEW_LENGTH)}... (${cleaned.length} chars)`
+          : cleaned;
       throw new Error(`Malformed SSE line: ${preview}`);
     }
   }
+}
+
+/**
+ * Extracts and concatenates all `data:` field values from an SSE event block.
+ * Per the SSE spec, multiple `data:` lines in a single event are joined with
+ * newlines. The space after "data:" is optional.
+ */
+function extractDataFromBlock(block: string): string | undefined {
+  const dataValues: string[] = [];
+
+  for (const line of block.split('\n')) {
+    const cleaned = line.trimEnd();
+    if (cleaned.startsWith(SSE_DATA_PREFIX)) {
+      dataValues.push(cleaned.slice(SSE_DATA_PREFIX.length));
+    } else if (cleaned.startsWith('data:')) {
+      dataValues.push(cleaned.slice('data:'.length));
+    }
+  }
+
+  if (dataValues.length === 0) return undefined;
+  return dataValues.join('\n');
 }
 
 /**
@@ -75,15 +98,10 @@ export async function* parseSseStream(
 
       validateSseBlock(trimmed);
 
-      if (!trimmed.startsWith('data:')) continue;
+      const data = extractDataFromBlock(trimmed);
+      if (data === undefined) continue;
 
-      // Extract the data payload. Per the SSE spec, the space after
-      // "data:" is optional, so handle both "data: value" and "data:value".
-      const dataLine = trimmed.startsWith(SSE_DATA_PREFIX)
-        ? trimmed.slice(SSE_DATA_PREFIX.length)
-        : trimmed.slice('data:'.length);
-
-      yield dataLine;
+      yield data;
     }
   }
 }

@@ -117,6 +117,12 @@ describe('parseSseStream', () => {
       expect(results).toEqual(['hello']);
     });
 
+    it('should handle multi-field events with event and data', async () => {
+      const response = createMockResponse(['event: message\ndata: hello\n\n']);
+      const results = await collectResults(response);
+      expect(results).toEqual(['hello']);
+    });
+
     it('should skip comment blocks', async () => {
       const response = createMockResponse([
         ': this is a comment\n\ndata: hello\n\n',
@@ -178,6 +184,12 @@ describe('parseSseStream', () => {
       const response = createMockResponse(['data:hello\n\n']);
       const results = await collectResults(response);
       expect(results).toEqual(['hello']);
+    });
+
+    it('should combine multiple data lines in a single event block', async () => {
+      const response = createMockResponse(['data: a\ndata: b\n\n']);
+      const results = await collectResults(response);
+      expect(results).toEqual(['a\nb']);
     });
   });
 
