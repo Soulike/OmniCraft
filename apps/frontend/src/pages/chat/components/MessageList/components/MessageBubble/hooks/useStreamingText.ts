@@ -23,10 +23,7 @@ export function useStreamingText(fullContent: string): UseStreamingTextResult {
   const isLoopRunningRef = useRef(false);
   const previousFullContentRef = useRef(fullContent);
   const lastFrameTimeRef = useRef(0);
-
-  useEffect(() => {
-    displayedLengthRef.current = displayedLength;
-  }, [displayedLength]);
+  const fractionalCarryRef = useRef(0);
 
   const startLoop = useCallback(() => {
     if (isLoopRunningRef.current) {
@@ -34,25 +31,29 @@ export function useStreamingText(fullContent: string): UseStreamingTextResult {
     }
     isLoopRunningRef.current = true;
     lastFrameTimeRef.current = 0;
+    fractionalCarryRef.current = 0;
 
     const tick = (timestamp: number) => {
       if (lastFrameTimeRef.current === 0) {
         lastFrameTimeRef.current = timestamp;
+        animationFrameIdRef.current = requestAnimationFrame(tick);
+        return;
       }
 
       const elapsed = timestamp - lastFrameTimeRef.current;
       lastFrameTimeRef.current = timestamp;
 
-      const charsToReveal = Math.max(
-        1,
-        Math.round((elapsed / 1000) * CHARS_PER_SECOND),
-      );
+      fractionalCarryRef.current += (elapsed / 1000) * CHARS_PER_SECOND;
+      const charsToReveal = Math.floor(fractionalCarryRef.current);
+      fractionalCarryRef.current -= charsToReveal;
 
-      setDisplayedLength((prev) => {
-        const next = Math.min(prev + charsToReveal, targetLengthRef.current);
-        displayedLengthRef.current = next;
-        return next;
-      });
+      if (charsToReveal > 0) {
+        setDisplayedLength((prev) => {
+          const next = Math.min(prev + charsToReveal, targetLengthRef.current);
+          displayedLengthRef.current = next;
+          return next;
+        });
+      }
 
       if (displayedLengthRef.current < targetLengthRef.current) {
         animationFrameIdRef.current = requestAnimationFrame(tick);
@@ -72,6 +73,7 @@ export function useStreamingText(fullContent: string): UseStreamingTextResult {
       cancelAnimationFrame(animationFrameIdRef.current);
       isLoopRunningRef.current = false;
       lastFrameTimeRef.current = 0;
+      fractionalCarryRef.current = 0;
       setDisplayedLength(fullContent.length);
       displayedLengthRef.current = fullContent.length;
       targetLengthRef.current = fullContent.length;
