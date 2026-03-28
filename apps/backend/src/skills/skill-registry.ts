@@ -14,9 +14,7 @@ export abstract class SkillRegistry {
    */
   async loadFromFile(filePath: string): Promise<void> {
     const skill = await SkillDefinition.fromFile(filePath);
-    const existing = this.skills.get(skill.name);
-    if (existing) {
-      if (existing === skill) return;
+    if (this.skills.has(skill.name)) {
       throw new Error(`Skill "${skill.name}" is already registered`);
     }
     this.skills.set(skill.name, skill);

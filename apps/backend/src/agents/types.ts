@@ -123,9 +123,10 @@ export abstract class Agent {
     const settings = await settingsService.getAll();
     const maxRounds = settings.agent.maxToolRounds;
 
-    const tools = this.getAvailableTools();
-    const systemPrompt = this.buildSystemPrompt();
     const llmSession = this.getLlmSession();
+
+    let tools = this.getAvailableTools();
+    let systemPrompt = this.buildSystemPrompt();
 
     const toolCalls: LlmToolCall[] = [];
     yield* this.consumeStream(
@@ -140,6 +141,10 @@ export abstract class Agent {
         yield {type: 'done', reason: 'max_rounds_reached'};
         return;
       }
+
+      // Re-fetch tools and system prompt each round to pick up dynamic changes.
+      tools = this.getAvailableTools();
+      systemPrompt = this.buildSystemPrompt();
 
       const toolResults = yield* this.executeToolCalls(toolCalls, tools);
 

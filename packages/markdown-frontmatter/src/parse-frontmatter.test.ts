@@ -75,4 +75,15 @@ Body`;
     });
     expect(result.body).toBe('Body');
   });
+
+  it('does not treat ---foo on a line as a closing delimiter', () => {
+    // The closing delimiter must be `---` on its own line, not `---foo`.
+    // Here `---` at end is the real closing delimiter.
+    const input = '---\nname: test\n---\n---foo is body content';
+    const result = parseFrontmatter<{name: string}>(input);
+    expect(result.attributes).toEqual({name: 'test'});
+    // The first valid `---` on its own line closes frontmatter.
+    // `---foo is body content` is the body.
+    expect(result.body).toBe('---foo is body content');
+  });
 });

@@ -29,7 +29,7 @@ export type SseToolExecuteEndEvent = z.infer<
   typeof sseToolExecuteEndEventSchema
 >;
 
-/** Stream completed successfully. */
+/** Stream completed. Reason indicates whether it finished normally or was capped. */
 export const sseDoneEventSchema = z.object({
   type: z.literal('done'),
   reason: z.enum(['complete', 'max_rounds_reached']),

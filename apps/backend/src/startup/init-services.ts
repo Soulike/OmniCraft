@@ -7,7 +7,6 @@ import {LlmSessionStore} from '@/models/llm-session-store/index.js';
 import {SettingsManager} from '@/models/settings-manager/index.js';
 import {CoreSkillRegistry} from '@/skills/index.js';
 import {CoreToolRegistry} from '@/tools/index.js';
-import {loadSkillTool} from '@/tools/index.js';
 
 /** Initializes all services that require async setup before the server starts. */
 export async function initServices(): Promise<void> {
@@ -27,10 +26,9 @@ async function initSettingsManager(): Promise<void> {
   }
 }
 
-/** Initializes tool registries and registers core tools. */
+/** Initializes tool registries. */
 function initToolRegistries(): void {
-  const coreTools = CoreToolRegistry.create();
-  coreTools.register(loadSkillTool);
+  CoreToolRegistry.create();
 }
 
 /** Initializes skill registries and loads skill files. */
