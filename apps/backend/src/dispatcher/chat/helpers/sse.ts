@@ -27,7 +27,7 @@ export async function pumpEventStream(
     for await (const event of eventStream) {
       writeSseEvent(stream, event);
     }
-    const done: SseDoneEvent = {type: 'done'};
+    const done: SseDoneEvent = {type: 'done', reason: 'complete'};
     writeSseEvent(stream, done);
   } catch (e) {
     logger.error({err: e}, 'SSE stream error');
