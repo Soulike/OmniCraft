@@ -3,8 +3,8 @@ import crypto from 'node:crypto';
 import type {LlmConfig, LlmToolCall} from '@/api/llm/index.js';
 import {eventBus} from '@/events/index.js';
 import type {
-  LlmSessionEvent,
   LlmSessionEventStream,
+  LlmSessionTextDeltaEvent,
   ToolResult,
 } from '@/models/llm-session/index.js';
 import {LlmSession} from '@/models/llm-session/index.js';
@@ -46,7 +46,7 @@ export interface AgentDoneEvent {
 
 /** All events that the agent can yield to callers. */
 export type AgentEvent =
-  | LlmSessionEvent
+  | LlmSessionTextDeltaEvent
   | AgentToolExecuteStartEvent
   | AgentToolExecuteEndEvent
   | AgentDoneEvent;

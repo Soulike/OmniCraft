@@ -64,7 +64,9 @@ export function parseFrontmatter<T = Record<string, unknown>>(
 
   const parsed: unknown = parseYaml(yamlString);
   const attributes = (
-    parsed !== null && typeof parsed === 'object' ? parsed : {}
+    parsed !== null && typeof parsed === 'object' && !Array.isArray(parsed)
+      ? parsed
+      : {}
   ) as T;
 
   return {attributes, body};
