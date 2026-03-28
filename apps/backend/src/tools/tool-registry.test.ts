@@ -47,9 +47,9 @@ describe('ToolRegistry', () => {
     const tool = createMockTool('duplicate');
     registry.register(tool);
     const tool2 = createMockTool('duplicate');
-    expect(() => { registry.register(tool2); }).toThrow(
-      'Tool "duplicate" is already registered',
-    );
+    expect(() => {
+      registry.register(tool2);
+    }).toThrow('Tool "duplicate" is already registered');
   });
 
   it('allows registering the same instance twice (idempotent)', () => {
