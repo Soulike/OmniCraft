@@ -107,6 +107,18 @@
     "configs/typescript": {
       "name": "@config/typescript",
     },
+    "packages/markdown-frontmatter": {
+      "name": "@omnicraft/markdown-frontmatter",
+      "dependencies": {
+        "yaml": "^2.8.2",
+      },
+      "devDependencies": {
+        "@config/eslint": "workspace:^",
+        "@config/typescript": "workspace:^",
+        "typescript": "catalog:",
+        "vitest": "^4.1.0",
+      },
+    },
     "packages/settings-schema": {
       "name": "@omnicraft/settings-schema",
       "dependencies": {
@@ -350,6 +362,8 @@
     "@omnicraft/backend": ["@omnicraft/backend@workspace:apps/backend"],
 
     "@omnicraft/frontend": ["@omnicraft/frontend@workspace:apps/frontend"],
+
+    "@omnicraft/markdown-frontmatter": ["@omnicraft/markdown-frontmatter@workspace:packages/markdown-frontmatter"],
 
     "@omnicraft/settings-schema": ["@omnicraft/settings-schema@workspace:packages/settings-schema"],
 
