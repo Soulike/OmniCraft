@@ -30,9 +30,9 @@ export abstract class Agent {
   /** Cached LLM session instance, lazily resolved from the store. */
   private cachedLlmSession: LlmSession | null = null;
 
-  constructor(getConfig: () => Promise<LlmConfig>, systemPrompt = '') {
+  constructor(getConfig: () => Promise<LlmConfig>) {
     this.id = crypto.randomUUID();
-    const llmSession = new LlmSession(getConfig, systemPrompt);
+    const llmSession = new LlmSession(getConfig);
     this.llmSessionId = llmSession.id;
     eventBus.emit('agent-created', this);
   }

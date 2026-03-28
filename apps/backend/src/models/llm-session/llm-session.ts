@@ -10,6 +10,7 @@ import type {
 import {llmApi} from '@/api/llm/index.js';
 import {eventBus} from '@/events/index.js';
 import {Mutex} from '@/helpers/mutex.js';
+import type {ToolDefinition} from '@/tools/types.js';
 
 import type {LlmSessionEventStream, ToolResult} from './types.js';
 
@@ -30,13 +31,11 @@ export class LlmSession {
   private readonly messages: LlmMessage[] = [];
   private usage: LlmUsage = {inputTokens: 0, outputTokens: 0};
   private readonly getConfig: () => Promise<LlmConfig>;
-  private readonly systemPrompt: string;
   private readonly mutex = new Mutex();
 
-  constructor(getConfig: () => Promise<LlmConfig>, systemPrompt = '') {
+  constructor(getConfig: () => Promise<LlmConfig>) {
     this.id = crypto.randomUUID();
     this.getConfig = getConfig;
-    this.systemPrompt = systemPrompt;
     eventBus.emit('llm-session-created', this);
   }
 
@@ -47,8 +46,12 @@ export class LlmSession {
    * events with fully assembled tool calls (if any). Once fully consumed,
    * the user message and assistant reply are recorded in the history.
    */
-  async *sendUserMessage(content: string): LlmSessionEventStream {
-    yield* this.sendMessages([{role: 'user', content}]);
+  async *sendUserMessage(
+    content: string,
+    tools: readonly ToolDefinition[] = [],
+    systemPrompt = '',
+  ): LlmSessionEventStream {
+    yield* this.sendMessages([{role: 'user', content}], tools, systemPrompt);
   }
 
   /**
@@ -58,13 +61,17 @@ export class LlmSession {
    * can incorporate the results. Returns the same high-level event stream
    * as `sendMessage`.
    */
-  async *submitToolResults(results: ToolResult[]): LlmSessionEventStream {
+  async *submitToolResults(
+    results: ToolResult[],
+    tools: readonly ToolDefinition[] = [],
+    systemPrompt = '',
+  ): LlmSessionEventStream {
     const toolMessages: LlmMessage[] = results.map((result) => ({
       role: 'tool' as const,
       callId: result.callId,
       content: result.content,
     }));
-    yield* this.sendMessages(toolMessages);
+    yield* this.sendMessages(toolMessages, tools, systemPrompt);
   }
 
   /** Returns the accumulated token usage across all LLM calls in this session. */
@@ -87,13 +94,17 @@ export class LlmSession {
    * Appends messages to history, streams a completion from the LLM, and
    * rolls back if the stream is cancelled or errors. Serialized via mutex.
    */
-  private async *sendMessages(messages: LlmMessage[]): LlmSessionEventStream {
+  private async *sendMessages(
+    messages: LlmMessage[],
+    tools: readonly ToolDefinition[],
+    systemPrompt: string,
+  ): LlmSessionEventStream {
     const release = await this.mutex.acquire();
     const rollbackIndex = this.messages.length;
     this.messages.push(...messages);
     let completed = false;
     try {
-      yield* this.streamCompletion();
+      yield* this.streamCompletion(tools, systemPrompt);
       completed = true;
     } finally {
       if (!completed) {
@@ -108,13 +119,16 @@ export class LlmSession {
    * Yields text deltas in real-time, then fully assembled tool calls.
    * Records the assistant message in history when done.
    */
-  private async *streamCompletion(): LlmSessionEventStream {
+  private async *streamCompletion(
+    tools: readonly ToolDefinition[],
+    systemPrompt: string,
+  ): LlmSessionEventStream {
     const llmConfig = await this.getConfig();
     const eventStream = llmApi.streamCompletion({
       config: llmConfig,
       messages: this.messages,
-      systemPrompt: this.systemPrompt || undefined,
-      tools: [],
+      systemPrompt: systemPrompt || undefined,
+      tools,
     });
 
     let textContent = '';
