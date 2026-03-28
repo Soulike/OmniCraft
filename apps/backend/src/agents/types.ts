@@ -316,15 +316,16 @@ export abstract class Agent {
         results.push({callId: toolCall.callId, content: result});
       } catch (error: unknown) {
         const message = error instanceof Error ? error.message : String(error);
+        const errorContent = `Error: ${message}`;
 
         yield {
           type: 'tool-execute-end',
           callId: toolCall.callId,
-          result: message,
+          result: errorContent,
           isError: true,
         };
 
-        results.push({callId: toolCall.callId, content: message});
+        results.push({callId: toolCall.callId, content: errorContent});
       }
     }
 
