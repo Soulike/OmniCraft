@@ -1,7 +1,6 @@
 import assert from 'node:assert';
 import {PassThrough} from 'node:stream';
 
-import type {SseDoneEvent, SseErrorEvent} from '@omnicraft/sse-events';
 import {sseEventSchema} from '@omnicraft/sse-events';
 
 import {logger} from '@/logger.js';
@@ -16,7 +15,8 @@ export function writeSseEvent(stream: PassThrough, data: unknown): void {
 
 /**
  * Consumes an async event stream and writes each event as SSE.
- * Writes a `done` event on completion, or an `error` event on failure.
+ * The agent stream yields its own `done` event on completion.
+ * Writes an `error` event on failure.
  * Always ends the stream when finished.
  */
 export async function pumpEventStream(
@@ -27,15 +27,12 @@ export async function pumpEventStream(
     for await (const event of eventStream) {
       writeSseEvent(stream, event);
     }
-    const done: SseDoneEvent = {type: 'done', reason: 'complete'};
-    writeSseEvent(stream, done);
   } catch (e) {
     logger.error({err: e}, 'SSE stream error');
-    const error: SseErrorEvent = {
+    writeSseEvent(stream, {
       type: 'error',
       message: 'An internal error occurred',
-    };
-    writeSseEvent(stream, error);
+    });
   } finally {
     if (!stream.destroyed && !stream.writableEnded) {
       stream.end();

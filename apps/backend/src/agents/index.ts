@@ -1,4 +1,4 @@
-export {SimpleAgent} from './simple-agent/index.js';
+export {CoreAgent} from './core-agent/index.js';
 export type {
   AgentDoneEvent,
   AgentEvent,

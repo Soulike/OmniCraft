@@ -1,5 +1,5 @@
 import type {AgentEventStream} from '@/agents/index.js';
-import {SimpleAgent} from '@/agents/index.js';
+import {CoreAgent} from '@/agents/index.js';
 import type {LlmConfig} from '@/api/llm/index.js';
 import {AgentStore} from '@/models/agent-store/index.js';
 import {LlmSessionStore} from '@/models/llm-session-store/index.js';
@@ -18,7 +18,7 @@ async function getLlmConfig(): Promise<LlmConfig> {
 /** Service layer for chat operations. */
 export const chatService = {
   /**
-   * Creates a new Agent Session with a SimpleAgent.
+   * Creates a new Agent Session with a CoreAgent.
    * Validates LLM configuration before creating the session.
    */
   async createSession(): Promise<CreateSessionResult> {
@@ -34,7 +34,7 @@ export const chatService = {
       return {success: false, error: CreateSessionError.MODEL_NOT_CONFIGURED};
     }
 
-    const agent = new SimpleAgent(getLlmConfig);
+    const agent = new CoreAgent(getLlmConfig);
     return {success: true, sessionId: agent.id};
   },
 
