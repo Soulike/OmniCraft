@@ -125,12 +125,13 @@ export abstract class Agent {
 
     const llmSession = this.getLlmSession();
 
-    let tools = this.getAvailableTools();
-    let systemPrompt = this.buildSystemPrompt();
-
     const toolCalls: LlmToolCall[] = [];
     yield* this.consumeStream(
-      llmSession.sendUserMessage(userMessage, tools, systemPrompt),
+      llmSession.sendUserMessage(
+        userMessage,
+        this.getAvailableTools(),
+        this.buildSystemPrompt(),
+      ),
       toolCalls,
     );
 
@@ -142,15 +143,18 @@ export abstract class Agent {
         return;
       }
 
-      // Re-fetch tools and system prompt each round to pick up dynamic changes.
-      tools = this.getAvailableTools();
-      systemPrompt = this.buildSystemPrompt();
-
-      const toolResults = yield* this.executeToolCalls(toolCalls, tools);
+      const toolResults = yield* this.executeToolCalls(
+        toolCalls,
+        this.getAvailableTools(),
+      );
 
       toolCalls.length = 0;
       yield* this.consumeStream(
-        llmSession.submitToolResults(toolResults, tools, systemPrompt),
+        llmSession.submitToolResults(
+          toolResults,
+          this.getAvailableTools(),
+          this.buildSystemPrompt(),
+        ),
         toolCalls,
       );
     }
