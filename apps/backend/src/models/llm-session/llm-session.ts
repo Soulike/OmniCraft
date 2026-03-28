@@ -114,6 +114,7 @@ export class LlmSession {
       config: llmConfig,
       messages: this.messages,
       systemPrompt: this.systemPrompt || undefined,
+      tools: [],
     });
 
     let textContent = '';

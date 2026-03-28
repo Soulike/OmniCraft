@@ -1,6 +1,9 @@
 import assert from 'node:assert';
 
 import Anthropic from '@anthropic-ai/sdk';
+import {z} from 'zod';
+
+import type {ToolDefinition} from '@/tools/types.js';
 
 import type {
   LlmCompletionOptions,
@@ -53,6 +56,15 @@ function toSdkMessage(message: LlmMessage): SdkMessageParam {
   }
 }
 
+/** Converts a ToolDefinition to the Anthropic tool format. */
+function toClaudeTool(tool: ToolDefinition): Anthropic.Tool {
+  return {
+    name: tool.name,
+    description: tool.description,
+    input_schema: z.toJSONSchema(tool.parameters) as Anthropic.Tool.InputSchema,
+  };
+}
+
 /** Streams LLM events from the Anthropic Claude API. */
 export async function* streamClaude(
   options: LlmCompletionOptions,
@@ -63,11 +75,14 @@ export async function* streamClaude(
     baseURL: config.baseUrl,
   });
 
+  const claudeTools = options.tools.map(toClaudeTool);
+
   const stream = client.messages.stream({
     model: config.model,
     max_tokens: 4096,
     system: systemPrompt,
     messages: messages.map(toSdkMessage),
+    ...(claudeTools.length > 0 ? {tools: claudeTools} : {}),
   });
 
   // Claude uses content block indices; track index → callId mapping.
