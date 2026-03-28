@@ -21,6 +21,7 @@
         "@anthropic-ai/sdk": "^0.80.0",
         "@koa/bodyparser": "^6.1.0",
         "@koa/router": "^15.1.0",
+        "@omnicraft/markdown-frontmatter": "workspace:^",
         "@omnicraft/settings-schema": "workspace:^",
         "@omnicraft/sse-events": "workspace:^",
         "http-status-codes": "^2.3.0",
