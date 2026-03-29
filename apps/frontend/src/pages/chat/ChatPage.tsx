@@ -14,17 +14,25 @@ export function ChatPage() {
   const {
     messages,
     addUserMessage,
-    appendToLastAssistantMessage,
+    appendTextToLastAssistant,
+    pushContentToLastAssistant,
     removeLastAssistantMessageIfEmpty,
   } = useMessages();
 
-  const {isStreaming, streamError, sendMessage, clearStreamError} =
-    useStreamChat({
-      sessionId,
-      addUserMessage,
-      appendToLastAssistantMessage,
-      removeLastAssistantMessageIfEmpty,
-    });
+  const {
+    isStreaming,
+    streamError,
+    maxRoundsReached,
+    sendMessage,
+    clearStreamError,
+    clearMaxRoundsReached,
+  } = useStreamChat({
+    sessionId,
+    addUserMessage,
+    appendTextToLastAssistant,
+    pushContentToLastAssistant,
+    removeLastAssistantMessageIfEmpty,
+  });
 
   const scrollRef = useAutoScroll();
 
@@ -40,11 +48,13 @@ export function ChatPage() {
       messages={messages}
       isInputDisabled={isStreaming || !sessionId}
       error={displayError}
+      maxRoundsReached={maxRoundsReached}
       scrollRef={scrollRef}
       onSend={(content) => {
         void sendMessage(content);
       }}
       onDismissError={dismissError}
+      onDismissMaxRoundsReached={clearMaxRoundsReached}
     />
   );
 }
