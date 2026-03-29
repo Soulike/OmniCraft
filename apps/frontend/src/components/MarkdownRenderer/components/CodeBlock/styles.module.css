@@ -15,7 +15,7 @@
 
 .language {
   font-size: 0.75em;
-  color: var(--muted-foreground);
+  color: var(--muted);
   user-select: none;
 }
 
@@ -36,7 +36,7 @@
   text-align: right;
   user-select: none;
   flex-shrink: 0;
-  color: var(--muted-foreground);
+  color: var(--muted);
   opacity: 0.5;
 }
 

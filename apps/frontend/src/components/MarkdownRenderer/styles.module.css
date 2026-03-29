@@ -82,7 +82,7 @@
   margin-bottom: 0.5em;
   padding-left: 1em;
   border-left: 3px solid var(--border);
-  color: var(--muted-foreground);
+  color: var(--muted);
 }
 
 /* Tables (GFM) */
