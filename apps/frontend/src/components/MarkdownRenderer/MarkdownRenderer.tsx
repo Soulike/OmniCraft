@@ -4,12 +4,16 @@ import ReactMarkdown from 'react-markdown';
 import rehypeHighlight from 'rehype-highlight';
 import remarkGfm from 'remark-gfm';
 
+import {CodeBlock} from './components/CodeBlock/index.js';
 import styles from './styles.module.css';
 
 const REMARK_PLUGINS = [remarkGfm];
 const REHYPE_PLUGINS = [rehypeHighlight];
 
 const CUSTOM_COMPONENTS: Components = {
+  pre({children}) {
+    return <CodeBlock>{children}</CodeBlock>;
+  },
   a({href, children, ...rest}) {
     const isExternal = href?.startsWith('http');
     return (
