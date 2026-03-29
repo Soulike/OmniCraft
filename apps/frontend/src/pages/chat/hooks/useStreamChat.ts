@@ -2,7 +2,6 @@ import {useCallback, useState} from 'react';
 
 import {streamChatCompletion} from '@/api/chat/index.js';
 
-import type {ChatMessage} from '../types.js';
 import type {useMessages} from './useMessages.js';
 
 type MessagesHook = ReturnType<typeof useMessages>;
@@ -10,7 +9,8 @@ type MessagesHook = ReturnType<typeof useMessages>;
 interface UseStreamChatOptions {
   sessionId: string | null;
   addUserMessage: MessagesHook['addUserMessage'];
-  appendToLastAssistantMessage: MessagesHook['appendToLastAssistantMessage'];
+  appendTextToLastAssistant: MessagesHook['appendTextToLastAssistant'];
+  pushContentToLastAssistant: MessagesHook['pushContentToLastAssistant'];
   removeLastAssistantMessageIfEmpty: MessagesHook['removeLastAssistantMessageIfEmpty'];
 }
 
@@ -18,11 +18,13 @@ interface UseStreamChatOptions {
 export function useStreamChat({
   sessionId,
   addUserMessage,
-  appendToLastAssistantMessage,
+  appendTextToLastAssistant,
+  pushContentToLastAssistant,
   removeLastAssistantMessageIfEmpty,
 }: UseStreamChatOptions) {
   const [isStreaming, setIsStreaming] = useState(false);
   const [streamError, setStreamError] = useState<string | null>(null);
+  const [maxRoundsReached, setMaxRoundsReached] = useState(false);
 
   const sendMessage = useCallback(
     async (content: string) => {
@@ -32,10 +34,10 @@ export function useStreamChat({
       if (!trimmed) return;
 
       setStreamError(null);
+      setMaxRoundsReached(false);
       setIsStreaming(true);
 
-      const userMessage: ChatMessage = {role: 'user', content: trimmed};
-      addUserMessage(userMessage);
+      addUserMessage(trimmed);
 
       try {
         const stream = streamChatCompletion(sessionId, trimmed);
@@ -43,13 +45,28 @@ export function useStreamChat({
         for await (const event of stream) {
           switch (event.type) {
             case 'text-delta':
-              appendToLastAssistantMessage(event.content);
+              appendTextToLastAssistant(event.content);
               break;
             case 'tool-execute-start':
+              pushContentToLastAssistant({
+                type: 'tool-execution-start',
+                callId: event.callId,
+                toolName: event.toolName,
+                arguments: event.arguments,
+              });
+              break;
             case 'tool-execute-end':
-              // Tool execution events are not rendered in the UI yet.
+              pushContentToLastAssistant({
+                type: 'tool-execution-end',
+                callId: event.callId,
+                result: event.result,
+                isError: event.isError,
+              });
               break;
             case 'done':
+              if (event.reason === 'max_rounds_reached') {
+                setMaxRoundsReached(true);
+              }
               removeLastAssistantMessageIfEmpty();
               break;
             case 'error':
@@ -58,8 +75,7 @@ export function useStreamChat({
               break;
           }
         }
-      } catch (e) {
-        console.error('Chat completion failed', e);
+      } catch (e: unknown) {
         removeLastAssistantMessageIfEmpty();
         const message =
           e instanceof Error ? e.message : 'An unexpected error occurred';
@@ -72,7 +88,8 @@ export function useStreamChat({
       isStreaming,
       sessionId,
       addUserMessage,
-      appendToLastAssistantMessage,
+      appendTextToLastAssistant,
+      pushContentToLastAssistant,
       removeLastAssistantMessageIfEmpty,
     ],
   );
@@ -81,5 +98,16 @@ export function useStreamChat({
     setStreamError(null);
   }, []);
 
-  return {isStreaming, streamError, sendMessage, clearStreamError};
+  const clearMaxRoundsReached = useCallback(() => {
+    setMaxRoundsReached(false);
+  }, []);
+
+  return {
+    isStreaming,
+    streamError,
+    maxRoundsReached,
+    sendMessage,
+    clearStreamError,
+    clearMaxRoundsReached,
+  };
 }
