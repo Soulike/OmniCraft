@@ -87,7 +87,7 @@ export async function* streamClaude(
     max_tokens: 4096,
     system: systemPrompt,
     messages: messages.map(toSdkMessage),
-    ...(claudeTools.length > 0 ? {tools: claudeTools} : {}),
+    tools: claudeTools,
   });
 
   // Claude uses content block indices; track index → callId mapping.
