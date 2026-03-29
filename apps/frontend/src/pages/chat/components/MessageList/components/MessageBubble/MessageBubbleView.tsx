@@ -1,6 +1,8 @@
 import {Skeleton} from '@heroui/react';
 import clsx from 'clsx';
 
+import {MarkdownRenderer} from '@/components/MarkdownRenderer/index.js';
+
 import type {ChatMessage} from '../../../../types.js';
 import styles from './styles.module.css';
 
@@ -18,7 +20,11 @@ export function MessageBubbleView({role, content}: MessageBubbleViewProps) {
       })}
     >
       <div className={styles.content}>
-        {content || <Skeleton className={styles.skeleton} />}
+        {content ? (
+          <MarkdownRenderer content={content} />
+        ) : (
+          <Skeleton className={styles.skeleton} />
+        )}
       </div>
     </div>
   );

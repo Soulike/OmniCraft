@@ -1,0 +1,65 @@
+.container {
+  border-radius: 8px;
+  overflow: hidden;
+  margin-top: 0.75em;
+  margin-bottom: 0.75em;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 4px 4px 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.language {
+  font-size: 0.75em;
+  color: var(--muted);
+  user-select: none;
+}
+
+.body {
+  display: flex;
+  overflow-x: auto;
+  padding: 12px 0;
+  font-family: monospace;
+  font-size: 1em;
+  line-height: 1.5;
+}
+
+.lineNumbers {
+  display: flex;
+  flex-direction: column;
+  padding-left: 12px;
+  padding-right: 8px;
+  text-align: right;
+  user-select: none;
+  flex-shrink: 0;
+  color: var(--muted);
+  opacity: 0.5;
+}
+
+.pre {
+  margin: 0;
+  padding: 0;
+  padding-left: 8px;
+  padding-right: 12px;
+  flex: 1;
+  min-width: 0;
+  font: inherit;
+  line-height: inherit;
+}
+
+.pre :global(code) {
+  background: none;
+  padding: 0;
+  border-radius: 0;
+  font: inherit;
+  line-height: inherit;
+}
+
+/* Override hljs theme's built-in padding on pre code.hljs */
+.pre :global(code.hljs) {
+  padding: 0;
+}

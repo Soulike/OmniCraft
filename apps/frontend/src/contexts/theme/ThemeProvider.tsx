@@ -1,5 +1,6 @@
 import {type ReactNode, useCallback, useEffect, useMemo, useState} from 'react';
 
+import {useHljsTheme} from '@/hooks/useHljsTheme.js';
 import {useMatchMedia} from '@/hooks/useMatchMedia.js';
 
 import {ThemeContext} from './ThemeContext.js';
@@ -39,6 +40,8 @@ export function ThemeProvider({children}: ThemeProviderProps) {
     html.classList.remove('light', 'dark');
     html.classList.add(resolvedTheme);
   }, [resolvedTheme]);
+
+  useHljsTheme(resolvedTheme);
 
   const value = useMemo(
     () => ({themeMode, resolvedTheme, changeThemeMode}),
