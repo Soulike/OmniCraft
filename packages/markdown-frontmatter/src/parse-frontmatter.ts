@@ -8,7 +8,23 @@ export interface FrontmatterResult<T> {
   readonly body: string;
 }
 
-const DELIMITER = '---';
+/**
+ * Matches YAML frontmatter at the start of a Markdown string.
+ *
+ * Expected format:
+ * ```
+ * ---
+ * <yaml content>
+ * ---
+ * <body>
+ * ```
+ *
+ * - `^---\n`           — opening delimiter on the first line
+ * - `(?:([\s\S]*?)\n)` — YAML content with trailing newline (optional for empty frontmatter)
+ * - `?---`             — closing delimiter on its own line
+ * - `(?:\n|$)`         — followed by a newline or end of string
+ */
+const FRONTMATTER_REGEX = /^---\n(?:([\s\S]*?)\n)?---(?:\n|$)/;
 
 /**
  * Parses a Markdown string with YAML frontmatter.
@@ -23,44 +39,13 @@ const DELIMITER = '---';
 export function parseFrontmatter<T = Record<string, unknown>>(
   markdown: string,
 ): FrontmatterResult<T> {
-  if (!markdown.startsWith(`${DELIMITER}\n`)) {
+  const match = FRONTMATTER_REGEX.exec(markdown);
+  if (!match) {
     return {attributes: {} as T, body: markdown};
   }
 
-  // Find the closing delimiter: must be `\n---\n` or `\n---` at end of string.
-  // Start searching from the position of the opening delimiter's newline,
-  // so that `---\n---` (empty frontmatter) is correctly matched.
-  const searchFrom = DELIMITER.length;
-  let endIndex = -1;
-  let pos = searchFrom;
-
-  while (pos < markdown.length) {
-    const candidate = markdown.indexOf(`\n${DELIMITER}`, pos);
-    if (candidate === -1) break;
-
-    const afterDelimiter = candidate + DELIMITER.length + 1;
-    // Closing delimiter must be followed by \n or be at end of string.
-    if (
-      afterDelimiter >= markdown.length ||
-      markdown[afterDelimiter] === '\n'
-    ) {
-      endIndex = candidate;
-      break;
-    }
-    // Not a valid closing delimiter (e.g., `---foo`), keep searching.
-    pos = candidate + 1;
-  }
-
-  if (endIndex === -1) {
-    return {attributes: {} as T, body: markdown};
-  }
-
-  const yamlString = markdown.slice(DELIMITER.length + 1, endIndex);
-  const bodyStart = endIndex + DELIMITER.length + 1;
-  const body =
-    markdown[bodyStart] === '\n'
-      ? markdown.slice(bodyStart + 1)
-      : markdown.slice(bodyStart);
+  const yamlString = (match[1] as string | undefined) ?? '';
+  const body = markdown.slice(match[0].length);
 
   const parsed: unknown = parseYaml(yamlString);
   const attributes = (
