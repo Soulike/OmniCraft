@@ -18,6 +18,10 @@ export default [
     rules: {
       '@typescript-eslint/no-extraneous-class': 'off',
       '@typescript-eslint/no-explicit-any': 'error',
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        {argsIgnorePattern: '^_', destructuredArrayIgnorePattern: '^_'},
+      ],
       '@typescript-eslint/restrict-template-expressions': 'off',
       '@typescript-eslint/switch-exhaustiveness-check': 'error',
       '@typescript-eslint/unified-signatures': 'off',
