@@ -16,13 +16,18 @@ export function useCopyToClipboard(): UseCopyToClipboardResult {
   const timerRef = useRef(0);
 
   const copy = useCallback((text: string) => {
-    void navigator.clipboard.writeText(text).then(() => {
-      setCopied(true);
-      window.clearTimeout(timerRef.current);
-      timerRef.current = window.setTimeout(() => {
-        setCopied(false);
-      }, RESET_DELAY_MS);
-    });
+    void navigator.clipboard
+      .writeText(text)
+      .then(() => {
+        setCopied(true);
+        window.clearTimeout(timerRef.current);
+        timerRef.current = window.setTimeout(() => {
+          setCopied(false);
+        }, RESET_DELAY_MS);
+      })
+      .catch((error: unknown) => {
+        console.error('Failed to copy text to clipboard', error);
+      });
   }, []);
 
   useEffect(() => {
