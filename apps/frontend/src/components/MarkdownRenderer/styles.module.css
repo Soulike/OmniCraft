@@ -92,18 +92,24 @@
   border-collapse: collapse;
   width: 100%;
   font-size: 0.9em;
+  border-radius: 8px;
+  overflow: hidden;
 }
 
 .markdown :global(th),
 .markdown :global(td) {
-  padding: 6px 12px;
-  border: 1px solid var(--border);
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
   text-align: left;
 }
 
 .markdown :global(th) {
   font-weight: 600;
-  background: var(--muted);
+  background: color-mix(in oklch, var(--accent) 10%, transparent);
+}
+
+.markdown :global(tr:last-child td) {
+  border-bottom: none;
 }
 
 /* Horizontal rules */
