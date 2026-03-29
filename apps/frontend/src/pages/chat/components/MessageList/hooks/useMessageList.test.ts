@@ -1,6 +1,6 @@
 import {describe, expect, it} from 'vitest';
 
-import type {ChatMessage} from '../../../../types.js';
+import type {ChatMessage} from '../../../types.js';
 import {transformMessages} from './useMessageList.js';
 
 describe('transformMessages', () => {
