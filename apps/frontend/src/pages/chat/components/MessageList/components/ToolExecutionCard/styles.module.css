@@ -26,23 +26,14 @@
   font-size: 0.875rem;
 }
 
-.status {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 0.75rem;
-}
-
-.statusRunning {
-  color: var(--muted);
-}
-
 .statusDone {
   color: var(--success);
+  flex-shrink: 0;
 }
 
 .statusError {
   color: var(--danger);
+  flex-shrink: 0;
 }
 
 .body {

@@ -1,5 +1,6 @@
 import {Disclosure, Spinner} from '@heroui/react';
 import clsx from 'clsx';
+import {CircleCheck, CircleX} from 'lucide-react';
 import {useMemo} from 'react';
 
 import styles from './styles.module.css';
@@ -10,6 +11,8 @@ interface ToolExecutionCardViewProps {
   status: 'running' | 'done' | 'error';
   result?: string;
 }
+
+const STATUS_ICON_SIZE = 16;
 
 export function ToolExecutionCardView({
   toolName,
@@ -31,23 +34,17 @@ export function ToolExecutionCardView({
       <Disclosure>
         <Disclosure.Heading>
           <Disclosure.Trigger className={styles.trigger}>
+            {status === 'running' && <Spinner size='sm' />}
+            {status === 'done' && (
+              <CircleCheck
+                className={styles.statusDone}
+                size={STATUS_ICON_SIZE}
+              />
+            )}
+            {status === 'error' && (
+              <CircleX className={styles.statusError} size={STATUS_ICON_SIZE} />
+            )}
             <span className={styles.toolName}>{toolName}</span>
-            <span
-              className={clsx(styles.status, {
-                [styles.statusRunning]: status === 'running',
-                [styles.statusDone]: status === 'done',
-                [styles.statusError]: status === 'error',
-              })}
-            >
-              {status === 'running' && (
-                <>
-                  <Spinner size='sm' />
-                  <span>Running...</span>
-                </>
-              )}
-              {status === 'done' && <span>Done</span>}
-              {status === 'error' && <span>Error</span>}
-            </span>
             <Disclosure.Indicator />
           </Disclosure.Trigger>
         </Disclosure.Heading>
