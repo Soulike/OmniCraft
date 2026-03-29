@@ -3,7 +3,12 @@ import {createBrowserRouter, Navigate} from 'react-router';
 import {Layout} from '@/pages/_layout/index.js';
 import {ROUTES} from '@/routes.js';
 
-import {ChatPage, LlmSection, SettingsPage} from './lazy-pages.js';
+import {
+  AgentSection,
+  ChatPage,
+  LlmSection,
+  SettingsPage,
+} from './lazy-pages.js';
 
 /** Application router configuration. */
 export const router = createBrowserRouter([
@@ -37,6 +42,10 @@ export const router = createBrowserRouter([
           {
             path: ROUTES.settings.llm(),
             element: <LlmSection />,
+          },
+          {
+            path: ROUTES.settings.agent(),
+            element: <AgentSection />,
           },
         ],
       },
