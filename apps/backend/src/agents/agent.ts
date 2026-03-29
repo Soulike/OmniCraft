@@ -4,6 +4,7 @@ import type {LlmConfig, LlmToolCall} from '@/api/llm/index.js';
 import {eventBus} from '@/events/index.js';
 import type {
   LlmSessionEventStream,
+  LlmSessionTextDeltaEvent,
   ToolResult,
 } from '@/models/llm-session/index.js';
 import {LlmSession} from '@/models/llm-session/index.js';
@@ -78,14 +79,12 @@ export abstract class Agent {
 
     const llmSession = this.getLlmSession();
 
-    const toolCalls: LlmToolCall[] = [];
-    yield* this.consumeStream(
+    let toolCalls = yield* this.consumeStream(
       llmSession.sendUserMessage(
         userMessage,
         this.getAvailableTools(),
         this.buildSystemPrompt(),
       ),
-      toolCalls,
     );
 
     let round = 0;
@@ -104,14 +103,12 @@ export abstract class Agent {
         this.getAvailableTools(),
       );
 
-      toolCalls.length = 0;
-      yield* this.consumeStream(
+      toolCalls = yield* this.consumeStream(
         llmSession.submitToolResults(
           toolResults,
           this.getAvailableTools(),
           this.buildSystemPrompt(),
         ),
-        toolCalls,
       );
     }
 
@@ -209,12 +206,12 @@ export abstract class Agent {
 
   /**
    * Consumes an LLM event stream, yielding text-delta events to the caller
-   * and collecting tool-call events into the provided mutable array.
+   * and collecting tool-call events. Returns the collected tool calls.
    */
   private async *consumeStream(
     stream: LlmSessionEventStream,
-    toolCalls: LlmToolCall[],
-  ): AgentEventStream {
+  ): AsyncGenerator<LlmSessionTextDeltaEvent, LlmToolCall[], undefined> {
+    const toolCalls: LlmToolCall[] = [];
     for await (const event of stream) {
       if (event.type === 'text-delta') {
         yield event;
@@ -222,6 +219,7 @@ export abstract class Agent {
         toolCalls.push(event.toolCall);
       }
     }
+    return toolCalls;
   }
 
   /**
