@@ -82,6 +82,7 @@ export function useMessages() {
    */
   const removeLastAssistantMessageIfEmpty = useCallback(() => {
     setMessages((prev) => {
+      if (prev.length === 0) return prev;
       const last = prev[prev.length - 1];
       if (last.role === 'assistant' && last.content.length === 0) {
         return prev.slice(0, -1);
