@@ -21,7 +21,7 @@ function isSafeUrl(href: string | undefined): boolean {
   if (href.startsWith('#')) {
     return true;
   }
-  // Relative URLs (but not protocol-relative //example.com)
+  // Root-relative URLs (but not protocol-relative //example.com)
   if (href.startsWith('/') && !href.startsWith('//')) {
     return true;
   }
@@ -47,6 +47,21 @@ const CUSTOM_COMPONENTS: Components = {
       >
         {children}
       </a>
+    );
+  },
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  img({src, alt, node, ...rest}) {
+    if (!isSafeUrl(src)) {
+      return <span>{alt ?? ''}</span>;
+    }
+    return (
+      <img
+        src={src}
+        alt={alt ?? ''}
+        loading='lazy'
+        referrerPolicy='no-referrer'
+        {...rest}
+      />
     );
   },
 };
