@@ -48,7 +48,7 @@ export abstract class SkillRegistry {
    * Loads a single Markdown file, parses its frontmatter,
    * and registers the resulting SkillDefinition.
    */
-  async loadFromFile(filePath: string): Promise<void> {
+  protected async loadFromFile(filePath: string): Promise<void> {
     const skill = await SkillDefinition.fromFile(filePath);
     if (this.skills.has(skill.name)) {
       throw new Error(`Skill "${skill.name}" is already registered`);

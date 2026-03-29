@@ -54,6 +54,7 @@ export function useStreamChat({
                 type: 'tool-execution-start',
                 callId: event.callId,
                 toolName: event.toolName,
+                displayName: event.displayName,
                 arguments: event.arguments,
               });
               break;

@@ -28,7 +28,7 @@ export function useMessages() {
   /**
    * Appends a text token to the last assistant message.
    * If the last message is an assistant text message, the token is appended.
-   * Otherwise a new assistant text message is pushed.
+   * Otherwise a new assistant text message is pushed with the token.
    */
   const appendAssistantText = useCallback((token: string) => {
     setMessages((prev) => {
@@ -65,10 +65,22 @@ export function useMessages() {
     [],
   );
 
-  /** Pushes a tool-execution-end message to the end of the message list. */
+  /**
+   * Pushes a tool-execution-end message and prepares an empty assistant
+   * text message for subsequent streaming. The empty placeholder ensures
+   * the MessageBubble mounts with empty content so useStreamingText
+   * animates from the first token.
+   */
   const pushToolExecutionEnd = useCallback(
     (content: ToolExecutionEndContent) => {
-      setMessages((prev) => [...prev, {role: 'assistant', content}]);
+      setMessages((prev) => [
+        ...prev,
+        {role: 'assistant', content},
+        {
+          role: 'assistant' as const,
+          content: {type: 'text' as const, content: ''},
+        },
+      ]);
     },
     [],
   );

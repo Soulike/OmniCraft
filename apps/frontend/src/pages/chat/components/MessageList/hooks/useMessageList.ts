@@ -16,6 +16,7 @@ export interface ToolExecutionRenderItem {
   type: 'tool-execution';
   callId: string;
   toolName: string;
+  displayName: string;
   arguments: string;
   status: 'running' | 'done' | 'error';
   result?: string;
@@ -62,6 +63,7 @@ export function transformMessages(
             type: 'tool-execution',
             callId: content.callId,
             toolName: content.toolName,
+            displayName: content.displayName,
             arguments: content.arguments,
             status: endEvent.isError ? 'error' : 'done',
             result: endEvent.result,
@@ -71,6 +73,7 @@ export function transformMessages(
             type: 'tool-execution',
             callId: content.callId,
             toolName: content.toolName,
+            displayName: content.displayName,
             arguments: content.arguments,
             status: 'running',
           });

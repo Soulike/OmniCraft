@@ -3,6 +3,8 @@
   background: var(--surface);
   border: 1px solid var(--border);
   overflow: hidden;
+  width: 250px;
+  max-width: 100%;
 }
 
 .trigger {
@@ -24,23 +26,14 @@
   font-size: 0.875rem;
 }
 
-.status {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 0.75rem;
-}
-
-.statusRunning {
-  color: var(--muted);
-}
-
 .statusDone {
   color: var(--success);
+  flex-shrink: 0;
 }
 
 .statusError {
   color: var(--danger);
+  flex-shrink: 0;
 }
 
 .body {
@@ -63,6 +56,12 @@
   color: var(--muted);
   text-transform: uppercase;
   letter-spacing: 0.05em;
+}
+
+.code {
+  font-family: monospace;
+  font-size: 0.8125rem;
+  color: var(--foreground);
 }
 
 .pre {

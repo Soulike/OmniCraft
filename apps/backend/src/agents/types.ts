@@ -11,6 +11,7 @@ export interface AgentToolExecuteStartEvent {
   type: 'tool-execute-start';
   callId: string;
   toolName: string;
+  displayName: string;
   arguments: string;
 }
 

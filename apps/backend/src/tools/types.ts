@@ -18,7 +18,12 @@ export interface ToolExecutionContext {
  */
 export interface ToolDefinition<T extends z.ZodType = z.ZodType> {
   readonly name: string;
+  /** Human-readable name for UI display. */
+  readonly displayName: string;
   readonly description: string;
   readonly parameters: T;
-  execute(args: z.infer<T>, context: ToolExecutionContext): Promise<string>;
+  execute(
+    args: z.infer<T>,
+    context: ToolExecutionContext,
+  ): Promise<string> | string;
 }

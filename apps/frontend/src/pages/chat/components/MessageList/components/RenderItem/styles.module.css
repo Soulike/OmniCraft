@@ -1,9 +1,23 @@
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    translate: 0 8px;
+  }
+
+  to {
+    opacity: 1;
+    translate: 0 0;
+  }
+}
+
 .userMessage {
   align-self: flex-end;
   max-width: 80%;
+  animation: fadeInUp 0.2s ease-out;
 }
 
 .assistantMessage {
   align-self: flex-start;
   max-width: 80%;
+  animation: fadeInUp 0.2s ease-out;
 }

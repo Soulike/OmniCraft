@@ -12,6 +12,7 @@ export const sseToolExecuteStartEventSchema = z.object({
   type: z.literal('tool-execute-start'),
   callId: z.string(),
   toolName: z.string(),
+  displayName: z.string(),
   arguments: z.string(),
 });
 export type SseToolExecuteStartEvent = z.infer<

@@ -11,6 +11,11 @@ class TestSkillRegistry extends SkillRegistry {
   static createForTest(): TestSkillRegistry {
     return new TestSkillRegistry();
   }
+
+  /** Exposes protected loadFromFile for testing. */
+  public override async loadFromFile(filePath: string): Promise<void> {
+    return super.loadFromFile(filePath);
+  }
 }
 
 describe('SkillRegistry', () => {

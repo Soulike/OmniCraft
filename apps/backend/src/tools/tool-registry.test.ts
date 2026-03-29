@@ -9,11 +9,17 @@ class TestToolRegistry extends ToolRegistry {
   static createForTest(): TestToolRegistry {
     return new TestToolRegistry();
   }
+
+  /** Exposes protected register for testing. */
+  public override register(tool: ToolDefinition): void {
+    super.register(tool);
+  }
 }
 
 function createMockTool(name: string): ToolDefinition {
   return {
     name,
+    displayName: `Mock: ${name}`,
     description: `Mock tool: ${name}`,
     parameters: z.object({}),
     execute: () => Promise.resolve('ok'),
