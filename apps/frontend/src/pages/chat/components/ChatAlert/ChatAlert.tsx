@@ -1,12 +1,13 @@
 import {Alert, CloseButton} from '@heroui/react';
+import type {ComponentProps} from 'react';
 
 import styles from './styles.module.css';
 
 interface ChatAlertProps {
-  status: 'danger' | 'warning';
+  status: ComponentProps<typeof Alert>['status'];
   title: string;
   message: string;
-  onDismiss: () => void;
+  onDismiss: ComponentProps<typeof CloseButton>['onPress'];
 }
 
 export function ChatAlert({status, title, message, onDismiss}: ChatAlertProps) {

@@ -1,6 +1,10 @@
 import {useCallback, useState} from 'react';
 
-import type {ChatMessage} from '../types.js';
+import type {
+  ChatMessage,
+  ToolExecutionEndContent,
+  ToolExecutionStartContent,
+} from '../types.js';
 
 /** Manages the chat message history in React state. */
 export function useMessages() {
@@ -26,7 +30,7 @@ export function useMessages() {
    * If the last message is an assistant text message, the token is appended.
    * Otherwise a new assistant text message is pushed.
    */
-  const appendTextToLastAssistant = useCallback((token: string) => {
+  const appendAssistantText = useCallback((token: string) => {
     setMessages((prev) => {
       const last = prev[prev.length - 1];
 
@@ -53,10 +57,21 @@ export function useMessages() {
     });
   }, []);
 
-  /** Pushes a new message to the end of the message list. */
-  const pushMessage = useCallback((message: ChatMessage) => {
-    setMessages((prev) => [...prev, message]);
-  }, []);
+  /** Pushes a tool-execution-start message to the end of the message list. */
+  const pushToolExecutionStart = useCallback(
+    (content: ToolExecutionStartContent) => {
+      setMessages((prev) => [...prev, {role: 'assistant', content}]);
+    },
+    [],
+  );
+
+  /** Pushes a tool-execution-end message to the end of the message list. */
+  const pushToolExecutionEnd = useCallback(
+    (content: ToolExecutionEndContent) => {
+      setMessages((prev) => [...prev, {role: 'assistant', content}]);
+    },
+    [],
+  );
 
   /**
    * Removes the last assistant message if it is an empty text placeholder
@@ -85,8 +100,9 @@ export function useMessages() {
   return {
     messages,
     addUserMessage,
-    appendTextToLastAssistant,
-    pushMessage,
+    appendAssistantText,
+    pushToolExecutionStart,
+    pushToolExecutionEnd,
     removeLastAssistantMessageIfEmpty,
     clearMessages,
   };

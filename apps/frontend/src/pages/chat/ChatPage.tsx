@@ -14,8 +14,9 @@ export function ChatPage() {
   const {
     messages,
     addUserMessage,
-    appendTextToLastAssistant,
-    pushMessage,
+    appendAssistantText,
+    pushToolExecutionStart,
+    pushToolExecutionEnd,
     removeLastAssistantMessageIfEmpty,
   } = useMessages();
 
@@ -29,8 +30,9 @@ export function ChatPage() {
   } = useStreamChat({
     sessionId,
     addUserMessage,
-    appendTextToLastAssistant,
-    pushMessage,
+    appendAssistantText,
+    pushToolExecutionStart,
+    pushToolExecutionEnd,
     removeLastAssistantMessageIfEmpty,
   });
 

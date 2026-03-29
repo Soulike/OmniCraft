@@ -9,8 +9,9 @@ type MessagesHook = ReturnType<typeof useMessages>;
 interface UseStreamChatOptions {
   sessionId: string | null;
   addUserMessage: MessagesHook['addUserMessage'];
-  appendTextToLastAssistant: MessagesHook['appendTextToLastAssistant'];
-  pushMessage: MessagesHook['pushMessage'];
+  appendAssistantText: MessagesHook['appendAssistantText'];
+  pushToolExecutionStart: MessagesHook['pushToolExecutionStart'];
+  pushToolExecutionEnd: MessagesHook['pushToolExecutionEnd'];
   removeLastAssistantMessageIfEmpty: MessagesHook['removeLastAssistantMessageIfEmpty'];
 }
 
@@ -18,8 +19,9 @@ interface UseStreamChatOptions {
 export function useStreamChat({
   sessionId,
   addUserMessage,
-  appendTextToLastAssistant,
-  pushMessage,
+  appendAssistantText,
+  pushToolExecutionStart,
+  pushToolExecutionEnd,
   removeLastAssistantMessageIfEmpty,
 }: UseStreamChatOptions) {
   const [isStreaming, setIsStreaming] = useState(false);
@@ -45,28 +47,22 @@ export function useStreamChat({
         for await (const event of stream) {
           switch (event.type) {
             case 'text-delta':
-              appendTextToLastAssistant(event.content);
+              appendAssistantText(event.content);
               break;
             case 'tool-execute-start':
-              pushMessage({
-                role: 'assistant',
-                content: {
-                  type: 'tool-execution-start',
-                  callId: event.callId,
-                  toolName: event.toolName,
-                  arguments: event.arguments,
-                },
+              pushToolExecutionStart({
+                type: 'tool-execution-start',
+                callId: event.callId,
+                toolName: event.toolName,
+                arguments: event.arguments,
               });
               break;
             case 'tool-execute-end':
-              pushMessage({
-                role: 'assistant',
-                content: {
-                  type: 'tool-execution-end',
-                  callId: event.callId,
-                  result: event.result,
-                  isError: event.isError,
-                },
+              pushToolExecutionEnd({
+                type: 'tool-execution-end',
+                callId: event.callId,
+                result: event.result,
+                isError: event.isError,
               });
               break;
             case 'done':
@@ -82,6 +78,7 @@ export function useStreamChat({
           }
         }
       } catch (e: unknown) {
+        console.error('Chat completion failed', e);
         removeLastAssistantMessageIfEmpty();
         const message =
           e instanceof Error ? e.message : 'An unexpected error occurred';
@@ -95,8 +92,9 @@ export function useStreamChat({
       isStreaming,
       sessionId,
       addUserMessage,
-      appendTextToLastAssistant,
-      pushMessage,
+      appendAssistantText,
+      pushToolExecutionStart,
+      pushToolExecutionEnd,
       removeLastAssistantMessageIfEmpty,
     ],
   );

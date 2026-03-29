@@ -1,8 +1,9 @@
+import type {ChatMessage} from '../../../../types.js';
 import {useStreamingText} from './hooks/useStreamingText.js';
 import {MessageBubbleView} from './MessageBubbleView.js';
 
 interface MessageBubbleProps {
-  role: 'user' | 'assistant';
+  role: ChatMessage['role'];
   content: string;
   isStreaming: boolean;
 }
