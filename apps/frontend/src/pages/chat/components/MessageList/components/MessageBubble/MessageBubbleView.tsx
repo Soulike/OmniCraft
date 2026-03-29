@@ -1,11 +1,10 @@
 import {Skeleton} from '@heroui/react';
 import clsx from 'clsx';
 
-import type {ChatMessage} from '../../../../types.js';
 import styles from './styles.module.css';
 
 interface MessageBubbleViewProps {
-  role: ChatMessage['role'];
+  role: 'user' | 'assistant';
   content: string;
 }
 
