@@ -3,6 +3,8 @@
   background: var(--surface);
   border: 1px solid var(--border);
   overflow: hidden;
+  width: 250px;
+  max-width: 100%;
 }
 
 .trigger {
