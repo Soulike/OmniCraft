@@ -1,6 +1,6 @@
 import {useCallback, useEffect, useRef, useState} from 'react';
 
-const CHARS_PER_FRAME = 2;
+const CHARS_PER_FRAME = 1;
 
 interface UseStreamingTextResult {
   displayedContent: string;

@@ -1,41 +1,91 @@
 import {useCallback, useState} from 'react';
 
-import type {ChatMessage} from '../types.js';
+import type {
+  ChatMessage,
+  ToolExecutionEndContent,
+  ToolExecutionStartContent,
+} from '../types.js';
 
 /** Manages the chat message history in React state. */
 export function useMessages() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
 
   /**
-   * Adds a user message and prepares an empty assistant message for streaming.
-   * Both are added in a single state update to avoid batching issues.
+   * Adds a user message with text content and prepares an empty assistant
+   * text message for streaming. Both are added in a single state update.
    */
-  const addUserMessage = useCallback((userMessage: ChatMessage) => {
+  const addUserMessage = useCallback((content: string) => {
     setMessages((prev) => [
       ...prev,
-      userMessage,
-      {role: 'assistant' as const, content: ''},
+      {role: 'user' as const, content: {type: 'text' as const, content}},
+      {
+        role: 'assistant' as const,
+        content: {type: 'text' as const, content: ''},
+      },
     ]);
   }, []);
 
-  /** Appends a token to the last assistant message. Throws if the last message is not from assistant. */
-  const appendToLastAssistantMessage = useCallback((token: string) => {
+  /**
+   * Appends a text token to the last assistant message.
+   * If the last message is an assistant text message, the token is appended.
+   * Otherwise a new assistant text message is pushed.
+   */
+  const appendAssistantText = useCallback((token: string) => {
     setMessages((prev) => {
       const last = prev[prev.length - 1];
-      if (last.role !== 'assistant') {
-        throw new Error(
-          'Cannot append: last message is not an assistant message',
-        );
+
+      if (last.role === 'assistant' && last.content.type === 'text') {
+        return [
+          ...prev.slice(0, -1),
+          {
+            ...last,
+            content: {
+              ...last.content,
+              content: last.content.content + token,
+            },
+          },
+        ];
       }
-      return [...prev.slice(0, -1), {...last, content: last.content + token}];
+
+      return [
+        ...prev,
+        {
+          role: 'assistant' as const,
+          content: {type: 'text' as const, content: token},
+        },
+      ];
     });
   }, []);
 
-  /** Removes the last assistant message if it has no content (empty placeholder). */
+  /** Pushes a tool-execution-start message to the end of the message list. */
+  const pushToolExecutionStart = useCallback(
+    (content: ToolExecutionStartContent) => {
+      setMessages((prev) => [...prev, {role: 'assistant', content}]);
+    },
+    [],
+  );
+
+  /** Pushes a tool-execution-end message to the end of the message list. */
+  const pushToolExecutionEnd = useCallback(
+    (content: ToolExecutionEndContent) => {
+      setMessages((prev) => [...prev, {role: 'assistant', content}]);
+    },
+    [],
+  );
+
+  /**
+   * Removes the last assistant message if it is an empty text placeholder
+   * (unused streaming slot).
+   */
   const removeLastAssistantMessageIfEmpty = useCallback(() => {
     setMessages((prev) => {
+      if (prev.length === 0) return prev;
       const last = prev[prev.length - 1];
-      if (last.role === 'assistant' && last.content === '') {
+      if (
+        last.role === 'assistant' &&
+        last.content.type === 'text' &&
+        last.content.content === ''
+      ) {
         return prev.slice(0, -1);
       }
       return prev;
@@ -50,7 +100,9 @@ export function useMessages() {
   return {
     messages,
     addUserMessage,
-    appendToLastAssistantMessage,
+    appendAssistantText,
+    pushToolExecutionStart,
+    pushToolExecutionEnd,
     removeLastAssistantMessageIfEmpty,
     clearMessages,
   };

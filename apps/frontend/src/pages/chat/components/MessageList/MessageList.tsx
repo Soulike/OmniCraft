@@ -1,36 +1,17 @@
 import type {ChatMessage} from '../../types.js';
-import {MessageBubble} from './components/MessageBubble/index.js';
-import styles from './styles.module.css';
+import {useMessageList} from './hooks/useMessageList.js';
+import {MessageListView} from './MessageListView.js';
 
 interface MessageListProps {
   messages: ChatMessage[];
 }
 
+/**
+ * Container component for the message list.
+ * Transforms ChatMessage[] into render items via the view-model hook,
+ * then delegates rendering to MessageListView.
+ */
 export function MessageList({messages}: MessageListProps) {
-  if (messages.length === 0) {
-    return (
-      <div className={styles.empty}>
-        <p className={styles.emptyText}>Send a message to start chatting.</p>
-      </div>
-    );
-  }
-
-  return (
-    <div className={styles.container}>
-      <div className={styles.list}>
-        {messages.map((message, index) => (
-          <div
-            key={index}
-            className={
-              message.role === 'user'
-                ? styles.userMessage
-                : styles.assistantMessage
-            }
-          >
-            <MessageBubble message={message} />
-          </div>
-        ))}
-      </div>
-    </div>
-  );
+  const items = useMessageList(messages);
+  return <MessageListView items={items} />;
 }

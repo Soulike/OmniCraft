@@ -6,10 +6,14 @@ import {ROUTES} from '@/routes.js';
 
 import {SettingsPageView, type SettingsTab} from './SettingsPageView.js';
 
-const TABS: SettingsTab[] = [{id: 'llm', label: 'LLM'}];
+const TABS: SettingsTab[] = [
+  {id: 'llm', label: 'LLM'},
+  {id: 'agent', label: 'Agent'},
+];
 
 const TAB_TO_PATH: Record<string, string> = {
   llm: ROUTES.settings.llm(),
+  agent: ROUTES.settings.agent(),
 };
 
 const PATH_TO_TAB: Record<string, string> = Object.fromEntries(

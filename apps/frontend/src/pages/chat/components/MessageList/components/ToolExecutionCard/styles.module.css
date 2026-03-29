@@ -1,0 +1,82 @@
+.card {
+  border-radius: 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.trigger {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 12px;
+  cursor: pointer;
+  background: none;
+  border: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+
+.toolName {
+  font-weight: 600;
+  font-size: 0.875rem;
+}
+
+.status {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.75rem;
+}
+
+.statusRunning {
+  color: var(--muted);
+}
+
+.statusDone {
+  color: var(--success);
+}
+
+.statusError {
+  color: var(--danger);
+}
+
+.body {
+  padding: 0 12px 12px;
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.section + .section {
+  margin-top: 8px;
+}
+
+.label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.pre {
+  margin: 0;
+  padding: 8px;
+  background: var(--background);
+  border-radius: 6px;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.preError {
+  color: var(--danger);
+}

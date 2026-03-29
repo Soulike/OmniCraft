@@ -3,14 +3,14 @@ import {useStreamingText} from './hooks/useStreamingText.js';
 import {MessageBubbleView} from './MessageBubbleView.js';
 
 interface MessageBubbleProps {
-  message: ChatMessage;
+  role: ChatMessage['role'];
+  content: string;
 }
 
-export function MessageBubble({message}: MessageBubbleProps) {
-  const {displayedContent} = useStreamingText(message.content);
+export function MessageBubble({role, content}: MessageBubbleProps) {
+  const {displayedContent} = useStreamingText(content);
 
-  const content =
-    message.role === 'assistant' ? displayedContent : message.content;
+  const displayContent = role === 'assistant' ? displayedContent : content;
 
-  return <MessageBubbleView role={message.role} content={content} />;
+  return <MessageBubbleView role={role} content={displayContent} />;
 }

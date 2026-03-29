@@ -1,0 +1,9 @@
+.userMessage {
+  align-self: flex-end;
+  max-width: 80%;
+}
+
+.assistantMessage {
+  align-self: flex-start;
+  max-width: 80%;
+}

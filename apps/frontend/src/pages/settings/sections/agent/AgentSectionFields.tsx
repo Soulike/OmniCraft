@@ -1,0 +1,47 @@
+import {
+  Description,
+  FieldError,
+  Input,
+  Label,
+  NumberField,
+} from '@heroui/react';
+
+import type {SettingSectionRenderProps} from '../../components/SettingSection/index.js';
+
+export function AgentSectionFields({
+  values,
+  setValue,
+  validationErrors,
+  isDisabled,
+}: SettingSectionRenderProps) {
+  const rawValue = values['agent/maxToolRounds'];
+  const numericValue =
+    rawValue !== undefined && rawValue !== null ? Number(rawValue) : undefined;
+  const fieldValue =
+    numericValue !== undefined && !Number.isNaN(numericValue)
+      ? numericValue
+      : undefined;
+
+  return (
+    <NumberField
+      value={fieldValue}
+      isInvalid={'agent/maxToolRounds' in validationErrors}
+      isDisabled={isDisabled}
+      minValue={1}
+      onChange={(value) => {
+        if (typeof value === 'number' && Number.isFinite(value)) {
+          setValue('agent/maxToolRounds', value);
+        }
+      }}
+    >
+      <Label>Max Tool Rounds</Label>
+      <Input />
+      <Description>
+        Maximum number of tool execution rounds per user message
+      </Description>
+      {validationErrors['agent/maxToolRounds'] && (
+        <FieldError>{validationErrors['agent/maxToolRounds']}</FieldError>
+      )}
+    </NumberField>
+  );
+}

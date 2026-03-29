@@ -14,3 +14,9 @@ export const LlmSection = lazy(async () => {
   const {LlmSection} = await import('@/pages/settings/sections/llm/index.js');
   return {default: LlmSection};
 });
+
+export const AgentSection = lazy(async () => {
+  const {AgentSection} =
+    await import('@/pages/settings/sections/agent/index.js');
+  return {default: AgentSection};
+});
