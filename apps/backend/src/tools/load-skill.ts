@@ -18,7 +18,7 @@ export const loadSkillTool: ToolDefinition<typeof parameters> = {
   ): Promise<string> {
     const skill = context.availableSkills.find((s) => s.name === args.name);
     if (!skill) {
-      return `Error: Skill "${args.name}" not found. Available skills: ${context.availableSkills.map((s) => s.name).join(', ') || 'none'}`;
+      return `Error: Skill "${args.name}" not found.`;
     }
     return skill.getContent();
   },

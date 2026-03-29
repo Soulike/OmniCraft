@@ -48,8 +48,8 @@ export class LlmSession {
    */
   async *sendUserMessage(
     content: string,
-    tools: readonly ToolDefinition[] = [],
-    systemPrompt = '',
+    tools: readonly ToolDefinition[],
+    systemPrompt: string,
   ): LlmSessionEventStream {
     yield* this.sendMessages([{role: 'user', content}], tools, systemPrompt);
   }
@@ -63,8 +63,8 @@ export class LlmSession {
    */
   async *submitToolResults(
     results: ToolResult[],
-    tools: readonly ToolDefinition[] = [],
-    systemPrompt = '',
+    tools: readonly ToolDefinition[],
+    systemPrompt: string,
   ): LlmSessionEventStream {
     const toolMessages: LlmMessage[] = results.map((result) => ({
       role: 'tool' as const,

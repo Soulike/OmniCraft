@@ -90,7 +90,7 @@ export abstract class Agent {
 
     let round = 0;
     while (toolCalls.length > 0) {
-      round += 1;
+      round++;
       if (round > maxRounds) {
         yield {
           type: 'done',
@@ -199,7 +199,7 @@ export abstract class Agent {
       '',
       '## Available Skills',
       '',
-      'Use the load_skill tool to load the full instructions for a skill before using it.',
+      `Use the ${loadSkillTool.name} tool to load the full instructions for a skill before using it.`,
       '',
       skillLines,
     ].join('\n');

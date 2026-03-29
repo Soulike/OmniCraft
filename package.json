@@ -33,6 +33,7 @@
   "catalog": {
     "eslint": "^10.0.2",
     "typescript": "^6.0.2",
+    "vitest": "^4.1.0",
     "zod": "^4.3.6"
   }
 }

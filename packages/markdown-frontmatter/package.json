@@ -17,6 +17,6 @@
     "@config/eslint": "workspace:^",
     "@config/typescript": "workspace:^",
     "typescript": "catalog:",
-    "vitest": "^4.1.0"
+    "vitest": "catalog:"
   }
 }
