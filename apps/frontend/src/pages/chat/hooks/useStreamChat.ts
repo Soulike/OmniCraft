@@ -81,6 +81,7 @@ export function useStreamChat({
           e instanceof Error ? e.message : 'An unexpected error occurred';
         setStreamError(message);
       } finally {
+        removeLastAssistantMessageIfEmpty();
         setIsStreaming(false);
       }
     },

@@ -1,0 +1,232 @@
+<h2>Complete Chat Flow — With Tool Execution</h2>
+<p class="subtitle">Full interaction showing a multi-round Agent Loop</p>
+
+<div class="mockup">
+  <div class="mockup-header">Chat Page</div>
+  <div
+    class="mockup-body"
+    style="
+      background: #1a1a2e;
+      padding: 16px;
+      font-family: system-ui;
+      color: #e0e0e0;
+      font-size: 13px;
+    "
+  >
+    <!-- User message -->
+    <div style="display: flex; justify-content: flex-end; margin-bottom: 12px">
+      <div
+        style="
+          background: #3a3a5c;
+          padding: 10px 14px;
+          border-radius: 12px;
+          max-width: 70%;
+        "
+      >
+        What's the population of Tokyo and its current weather?
+      </div>
+    </div>
+
+    <!-- Assistant text before tools -->
+    <div style="display: flex; justify-content: flex-start; margin-bottom: 8px">
+      <div
+        style="
+          background: #2a2a4a;
+          padding: 10px 14px;
+          border-radius: 12px;
+          max-width: 70%;
+        "
+      >
+        I'll look that up for you.
+      </div>
+    </div>
+
+    <!-- Tool card 1 - completed, collapsed -->
+    <div style="display: flex; justify-content: flex-start; margin-bottom: 6px">
+      <div
+        style="
+          background: #2a2a4a;
+          border: 1px solid #3a3a5c;
+          border-radius: 8px;
+          padding: 10px 14px;
+          max-width: 70%;
+          cursor: pointer;
+        "
+      >
+        <div style="display: flex; align-items: center; gap: 8px">
+          <span style="font-size: 14px">🔧</span>
+          <span style="font-weight: 600; font-size: 12px">web_search</span>
+          <span style="color: #4ade80; font-size: 11px; margin-left: auto"
+            >✓ Done</span
+          >
+          <span style="color: #888; font-size: 11px">▶</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tool card 2 - completed, expanded -->
+    <div style="display: flex; justify-content: flex-start; margin-bottom: 8px">
+      <div
+        style="
+          background: #2a2a4a;
+          border: 1px solid #3a3a5c;
+          border-radius: 8px;
+          padding: 10px 14px;
+          max-width: 75%;
+          cursor: pointer;
+        "
+      >
+        <div style="display: flex; align-items: center; gap: 8px">
+          <span style="font-size: 14px">🔧</span>
+          <span style="font-weight: 600; font-size: 12px">get_weather</span>
+          <span style="color: #4ade80; font-size: 11px; margin-left: auto"
+            >✓ Done</span
+          >
+          <span style="color: #888; font-size: 11px">▼</span>
+        </div>
+        <div
+          style="
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid #3a3a5c;
+            font-size: 12px;
+          "
+        >
+          <div style="margin-bottom: 8px">
+            <span style="color: #888; font-size: 11px">Arguments</span>
+            <pre
+              style="
+                background: #1a1a2e;
+                padding: 6px 8px;
+                border-radius: 4px;
+                margin: 4px 0;
+                overflow-x: auto;
+                font-size: 11px;
+              "
+            >
+{"city": "Tokyo"}</pre
+            >
+          </div>
+          <div>
+            <span style="color: #888; font-size: 11px">Result</span>
+            <pre
+              style="
+                background: #1a1a2e;
+                padding: 6px 8px;
+                border-radius: 4px;
+                margin: 4px 0;
+                overflow-x: auto;
+                font-size: 11px;
+                white-space: pre-wrap;
+              "
+            >
+{"temperature": "18°C", "condition": "Partly Cloudy", "humidity": "65%"}</pre
+            >
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tool card 3 - running with spinner -->
+    <div style="display: flex; justify-content: flex-start; margin-bottom: 8px">
+      <div
+        style="
+          background: #2a2a4a;
+          border: 1px solid #3a3a5c;
+          border-radius: 8px;
+          padding: 10px 14px;
+          max-width: 70%;
+          cursor: pointer;
+        "
+      >
+        <div style="display: flex; align-items: center; gap: 8px">
+          <span style="font-size: 14px">🔧</span>
+          <span style="font-weight: 600; font-size: 12px">calculate</span>
+          <span
+            style="
+              margin-left: auto;
+              display: flex;
+              align-items: center;
+              gap: 4px;
+            "
+          >
+            <span
+              style="
+                display: inline-block;
+                width: 12px;
+                height: 12px;
+                border: 2px solid #6c6cff;
+                border-top-color: transparent;
+                border-radius: 50%;
+                animation: spin 0.8s linear infinite;
+              "
+            ></span>
+            <span style="color: #6c6cff; font-size: 11px">Running...</span>
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <style>
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+    </style>
+
+    <!-- Divider -->
+    <div style="border-top: 1px dashed #3a3a5c; margin: 16px 0"></div>
+
+    <!-- Max rounds warning -->
+    <div
+      style="
+        background: #4a3a20;
+        border: 1px solid #6b5a30;
+        border-radius: 8px;
+        padding: 10px 14px;
+        margin-bottom: 12px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      "
+    >
+      <span style="color: #fbbf24; font-size: 16px">⚠</span>
+      <span style="color: #fbbf24; font-size: 12px"
+        >Tool call limit reached (20 rounds). The response may be
+        incomplete.</span
+      >
+    </div>
+
+    <!-- Final assistant message -->
+    <div style="display: flex; justify-content: flex-start">
+      <div
+        style="
+          background: #2a2a4a;
+          padding: 10px 14px;
+          border-radius: 12px;
+          max-width: 70%;
+        "
+      >
+        Tokyo has a population of approximately 13.96 million. Currently it's
+        18°C and partly cloudy with 65% humidity.
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top: 24px">
+  <h3>Components shown:</h3>
+  <ul>
+    <li>
+      <strong>Tool card (collapsed)</strong> — tool name + ✓ Done + expand arrow
+    </li>
+    <li><strong>Tool card (expanded)</strong> — arguments + result</li>
+    <li><strong>Tool card (running)</strong> — spinner + "Running..."</li>
+    <li>
+      <strong>Tool card (error)</strong> — same as done but ✗ Error in red (not
+      shown)
+    </li>
+    <li><strong>Max rounds warning</strong> — amber alert bar</li>
+  </ul>
+</div>

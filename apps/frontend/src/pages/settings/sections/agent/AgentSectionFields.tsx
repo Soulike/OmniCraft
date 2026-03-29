@@ -29,7 +29,9 @@ export function AgentSectionFields({
       isDisabled={isDisabled}
       minValue={1}
       onChange={(value) => {
-        setValue('agent/maxToolRounds', value);
+        if (typeof value === 'number' && Number.isFinite(value)) {
+          setValue('agent/maxToolRounds', value);
+        }
       }}
     >
       <Label>Max Tool Rounds</Label>

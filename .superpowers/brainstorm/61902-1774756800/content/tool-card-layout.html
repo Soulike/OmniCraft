@@ -1,0 +1,151 @@
+<h2>Tool Execution Card — Layout Options</h2>
+<p class="subtitle">How should tool execution cards appear in the chat flow?</p>
+
+<div class="cards">
+  <div class="card" data-choice="a" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div
+        style="
+          background: #1a1a2e;
+          border-radius: 8px;
+          padding: 16px;
+          font-family: system-ui;
+          color: #e0e0e0;
+          font-size: 13px;
+        "
+      >
+        <!-- User message -->
+        <div
+          style="display: flex; justify-content: flex-end; margin-bottom: 12px"
+        >
+          <div
+            style="
+              background: #3a3a5c;
+              padding: 10px 14px;
+              border-radius: 12px;
+              max-width: 70%;
+            "
+          >
+            What's the weather in Tokyo?
+          </div>
+        </div>
+        <!-- Tool card - collapsed -->
+        <div style="margin: 8px 0; padding: 0 8px">
+          <div
+            style="
+              background: #2a2a4a;
+              border: 1px solid #3a3a5c;
+              border-radius: 8px;
+              padding: 10px 14px;
+              cursor: pointer;
+            "
+          >
+            <div style="display: flex; align-items: center; gap: 8px">
+              <span style="color: #6c6cff">🔧</span>
+              <span style="font-weight: 600; font-size: 12px">web_search</span>
+              <span style="color: #4ade80; font-size: 11px; margin-left: auto"
+                >✓ Done</span
+              >
+            </div>
+          </div>
+        </div>
+        <!-- Assistant message -->
+        <div
+          style="display: flex; justify-content: flex-start; margin-top: 12px"
+        >
+          <div
+            style="
+              background: #2a2a4a;
+              padding: 10px 14px;
+              border-radius: 12px;
+              max-width: 70%;
+            "
+          >
+            The weather in Tokyo is currently 18°C...
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>A: Full-width Card</h3>
+      <p>
+        Tool card spans the full chat width, sitting between messages. Not
+        aligned to either side. Clean separation from conversation.
+      </p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="b" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div
+        style="
+          background: #1a1a2e;
+          border-radius: 8px;
+          padding: 16px;
+          font-family: system-ui;
+          color: #e0e0e0;
+          font-size: 13px;
+        "
+      >
+        <!-- User message -->
+        <div
+          style="display: flex; justify-content: flex-end; margin-bottom: 12px"
+        >
+          <div
+            style="
+              background: #3a3a5c;
+              padding: 10px 14px;
+              border-radius: 12px;
+              max-width: 70%;
+            "
+          >
+            What's the weather in Tokyo?
+          </div>
+        </div>
+        <!-- Tool card - left aligned like assistant -->
+        <div
+          style="display: flex; justify-content: flex-start; margin-bottom: 4px"
+        >
+          <div
+            style="
+              background: #2a2a4a;
+              border: 1px solid #3a3a5c;
+              border-radius: 8px;
+              padding: 10px 14px;
+              max-width: 70%;
+              cursor: pointer;
+            "
+          >
+            <div style="display: flex; align-items: center; gap: 8px">
+              <span style="color: #6c6cff">🔧</span>
+              <span style="font-weight: 600; font-size: 12px">web_search</span>
+              <span style="color: #4ade80; font-size: 11px; margin-left: auto"
+                >✓ Done</span
+              >
+            </div>
+          </div>
+        </div>
+        <!-- Assistant message -->
+        <div style="display: flex; justify-content: flex-start">
+          <div
+            style="
+              background: #2a2a4a;
+              padding: 10px 14px;
+              border-radius: 12px;
+              max-width: 70%;
+            "
+          >
+            The weather in Tokyo is currently 18°C...
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>B: Left-aligned (with Assistant)</h3>
+      <p>
+        Tool card aligned to the left like assistant messages. Visually groups
+        tool execution as part of the assistant's "thinking" process.
+      </p>
+    </div>
+  </div>
+</div>
