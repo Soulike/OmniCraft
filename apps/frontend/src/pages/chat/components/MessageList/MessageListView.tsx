@@ -1,10 +1,6 @@
 import {MessageBubble} from './components/MessageBubble/index.js';
 import {ToolExecutionCard} from './components/ToolExecutionCard/index.js';
-import type {
-  AssistantMessageRenderItem,
-  AssistantSegment,
-  MessageRenderItem,
-} from './hooks/useMessageList.js';
+import type {MessageRenderItem} from './hooks/useMessageList.js';
 import styles from './styles.module.css';
 
 interface MessageListViewProps {
@@ -23,77 +19,58 @@ export function MessageListView({items}: MessageListViewProps) {
   return (
     <div className={styles.container}>
       <div className={styles.list}>
-        {items.map((item, index) => {
-          if (item.type === 'user') {
-            return (
-              <div key={index} className={styles.userMessage}>
-                <MessageBubble
-                  role='user'
-                  content={item.text}
-                  isStreaming={false}
-                />
-              </div>
-            );
-          }
-
-          return (
-            <div key={index} className={styles.assistantMessage}>
-              <AssistantSegments segments={item.segments} />
-            </div>
-          );
-        })}
+        {items.map((item, index) => (
+          <RenderItem key={itemKey(item, index)} item={item} />
+        ))}
       </div>
     </div>
   );
 }
 
-interface AssistantSegmentsProps {
-  segments: AssistantMessageRenderItem['segments'];
+interface RenderItemProps {
+  item: MessageRenderItem;
 }
 
-function AssistantSegments({segments}: AssistantSegmentsProps) {
-  if (segments.length === 0) {
-    return <MessageBubble role='assistant' content='' isStreaming={false} />;
+function RenderItem({item}: RenderItemProps) {
+  switch (item.type) {
+    case 'user-text':
+      return (
+        <div className={styles.userMessage}>
+          <MessageBubble
+            role='user'
+            content={item.content}
+            isStreaming={false}
+          />
+        </div>
+      );
+    case 'assistant-text':
+      return (
+        <div className={styles.assistantMessage}>
+          <MessageBubble
+            role='assistant'
+            content={item.content}
+            isStreaming={item.isStreaming}
+          />
+        </div>
+      );
+    case 'tool-execution':
+      return (
+        <div className={styles.assistantMessage}>
+          <ToolExecutionCard
+            toolName={item.toolName}
+            arguments={item.arguments}
+            status={item.status}
+            result={item.result}
+          />
+        </div>
+      );
   }
-
-  return (
-    <div className={styles.segmentList}>
-      {segments.map((segment, index) => (
-        <SegmentRenderer key={segmentKey(segment, index)} segment={segment} />
-      ))}
-    </div>
-  );
 }
 
-interface SegmentRendererProps {
-  segment: AssistantSegment;
-}
-
-function SegmentRenderer({segment}: SegmentRendererProps) {
-  if (segment.type === 'text') {
-    return (
-      <MessageBubble
-        role='assistant'
-        content={segment.content}
-        isStreaming={segment.isStreaming}
-      />
-    );
+/** Produces a stable key for a render item. */
+function itemKey(item: MessageRenderItem, index: number): string {
+  if (item.type === 'tool-execution') {
+    return `tool-${item.callId}`;
   }
-
-  return (
-    <ToolExecutionCard
-      toolName={segment.toolName}
-      arguments={segment.arguments}
-      status={segment.status}
-      result={segment.result}
-    />
-  );
-}
-
-/** Produces a stable key for a segment. Namespaced to avoid collisions. */
-function segmentKey(segment: AssistantSegment, index: number): string {
-  if (segment.type === 'tool-execution') {
-    return `tool-${segment.callId}`;
-  }
-  return `text-${index.toString()}`;
+  return `${item.type}-${index.toString()}`;
 }

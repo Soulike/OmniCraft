@@ -10,7 +10,7 @@ interface UseStreamChatOptions {
   sessionId: string | null;
   addUserMessage: MessagesHook['addUserMessage'];
   appendTextToLastAssistant: MessagesHook['appendTextToLastAssistant'];
-  pushContentToLastAssistant: MessagesHook['pushContentToLastAssistant'];
+  pushMessage: MessagesHook['pushMessage'];
   removeLastAssistantMessageIfEmpty: MessagesHook['removeLastAssistantMessageIfEmpty'];
 }
 
@@ -19,7 +19,7 @@ export function useStreamChat({
   sessionId,
   addUserMessage,
   appendTextToLastAssistant,
-  pushContentToLastAssistant,
+  pushMessage,
   removeLastAssistantMessageIfEmpty,
 }: UseStreamChatOptions) {
   const [isStreaming, setIsStreaming] = useState(false);
@@ -48,19 +48,25 @@ export function useStreamChat({
               appendTextToLastAssistant(event.content);
               break;
             case 'tool-execute-start':
-              pushContentToLastAssistant({
-                type: 'tool-execution-start',
-                callId: event.callId,
-                toolName: event.toolName,
-                arguments: event.arguments,
+              pushMessage({
+                role: 'assistant',
+                content: {
+                  type: 'tool-execution-start',
+                  callId: event.callId,
+                  toolName: event.toolName,
+                  arguments: event.arguments,
+                },
               });
               break;
             case 'tool-execute-end':
-              pushContentToLastAssistant({
-                type: 'tool-execution-end',
-                callId: event.callId,
-                result: event.result,
-                isError: event.isError,
+              pushMessage({
+                role: 'assistant',
+                content: {
+                  type: 'tool-execution-end',
+                  callId: event.callId,
+                  result: event.result,
+                  isError: event.isError,
+                },
               });
               break;
             case 'done':
@@ -90,7 +96,7 @@ export function useStreamChat({
       sessionId,
       addUserMessage,
       appendTextToLastAssistant,
-      pushContentToLastAssistant,
+      pushMessage,
       removeLastAssistantMessageIfEmpty,
     ],
   );

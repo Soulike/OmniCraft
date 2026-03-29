@@ -26,8 +26,8 @@ export type MessageContent =
   | ToolExecutionStartContent
   | ToolExecutionEndContent;
 
-/** A chat message for UI rendering. Content is an append-only array. */
+/** A chat message for UI rendering. Each message has exactly one content. */
 export interface ChatMessage {
   role: 'user' | 'assistant';
-  content: MessageContent[];
+  content: MessageContent;
 }

@@ -1,16 +1,19 @@
 import {useMemo} from 'react';
 
-import type {ChatMessage, MessageContent} from '../../../types.js';
+import type {ChatMessage} from '../../../types.js';
 
-/** Render model for a text segment within an assistant message. */
-export interface TextRenderSegment {
-  type: 'text';
+export interface UserTextRenderItem {
+  type: 'user-text';
+  content: string;
+}
+
+export interface AssistantTextRenderItem {
+  type: 'assistant-text';
   content: string;
   isStreaming: boolean;
 }
 
-/** Render model for a tool execution within an assistant message. */
-export interface ToolExecutionRenderSegment {
+export interface ToolExecutionRenderItem {
   type: 'tool-execution';
   callId: string;
   toolName: string;
@@ -19,38 +22,23 @@ export interface ToolExecutionRenderSegment {
   result?: string;
 }
 
-export type AssistantSegment = TextRenderSegment | ToolExecutionRenderSegment;
-
-export interface UserMessageRenderItem {
-  type: 'user';
-  text: string;
-}
-
-export interface AssistantMessageRenderItem {
-  type: 'assistant';
-  segments: AssistantSegment[];
-}
-
 export type MessageRenderItem =
-  | UserMessageRenderItem
-  | AssistantMessageRenderItem;
+  | UserTextRenderItem
+  | AssistantTextRenderItem
+  | ToolExecutionRenderItem;
 
 /**
- * Determines whether a text segment is actively streaming.
+ * Determines whether an assistant text message is actively streaming.
  *
- * True only when the stream is actively running, this is the last message
- * in the conversation, and the text entry is the last entry in the content
- * array (the one currently receiving tokens).
+ * True only when the stream is actively running and this is the last message
+ * in the conversation.
  */
 function isTextStreaming(
-  contentArray: readonly MessageContent[],
-  index: number,
-  isLastMessage: boolean,
+  messageIndex: number,
+  messageCount: number,
   isActivelyStreaming: boolean,
 ): boolean {
-  return (
-    isActivelyStreaming && isLastMessage && index === contentArray.length - 1
-  );
+  return isActivelyStreaming && messageIndex === messageCount - 1;
 }
 
 /** Converts a ChatMessage[] into renderable MessageRenderItem[]. */
@@ -58,79 +46,65 @@ export function transformMessages(
   messages: ChatMessage[],
   isStreaming: boolean,
 ): MessageRenderItem[] {
-  return messages.map((message, messageIndex): MessageRenderItem => {
-    if (message.role === 'user') {
-      const textEntry = message.content.find((c) => c.type === 'text');
-      return {
-        type: 'user',
-        text: textEntry ? textEntry.content : '',
-      };
+  // First pass: collect tool-execution-end events by callId
+  const endEvents = new Map<string, {result: string; isError: boolean}>();
+  for (const message of messages) {
+    if (message.content.type === 'tool-execution-end') {
+      endEvents.set(message.content.callId, {
+        result: message.content.result,
+        isError: message.content.isError,
+      });
     }
+  }
 
-    const isLastMessage = messageIndex === messages.length - 1;
+  // Second pass: build render items
+  const items: MessageRenderItem[] = [];
+  for (let i = 0; i < messages.length; i++) {
+    const message = messages[i];
+    const {content} = message;
 
-    // Assistant message: build segments from content array
-    const segments: AssistantSegment[] = [];
-    const endEvents = new Map<string, {result: string; isError: boolean}>();
-
-    // First pass: collect all tool-execution-end events by callId
-    for (const entry of message.content) {
-      if (entry.type === 'tool-execution-end') {
-        endEvents.set(entry.callId, {
-          result: entry.result,
-          isError: entry.isError,
-        });
-      }
-    }
-
-    // Second pass: build segments in order
-    for (let i = 0; i < message.content.length; i++) {
-      const entry = message.content[i];
-
-      switch (entry.type) {
-        case 'text': {
-          segments.push({
-            type: 'text',
-            content: entry.content,
-            isStreaming: isTextStreaming(
-              message.content,
-              i,
-              isLastMessage,
-              isStreaming,
-            ),
+    switch (content.type) {
+      case 'text': {
+        if (message.role === 'user') {
+          items.push({type: 'user-text', content: content.content});
+        } else {
+          items.push({
+            type: 'assistant-text',
+            content: content.content,
+            isStreaming: isTextStreaming(i, messages.length, isStreaming),
           });
-          break;
         }
-        case 'tool-execution-start': {
-          const endEvent = endEvents.get(entry.callId);
-          if (endEvent) {
-            segments.push({
-              type: 'tool-execution',
-              callId: entry.callId,
-              toolName: entry.toolName,
-              arguments: entry.arguments,
-              status: endEvent.isError ? 'error' : 'done',
-              result: endEvent.result,
-            });
-          } else {
-            segments.push({
-              type: 'tool-execution',
-              callId: entry.callId,
-              toolName: entry.toolName,
-              arguments: entry.arguments,
-              status: 'running',
-            });
-          }
-          break;
-        }
-        case 'tool-execution-end':
-          // Already handled via the start event pairing above
-          break;
+        break;
       }
+      case 'tool-execution-start': {
+        const endEvent = endEvents.get(content.callId);
+        if (endEvent) {
+          items.push({
+            type: 'tool-execution',
+            callId: content.callId,
+            toolName: content.toolName,
+            arguments: content.arguments,
+            status: endEvent.isError ? 'error' : 'done',
+            result: endEvent.result,
+          });
+        } else {
+          items.push({
+            type: 'tool-execution',
+            callId: content.callId,
+            toolName: content.toolName,
+            arguments: content.arguments,
+            status: 'running',
+          });
+        }
+        break;
+      }
+      case 'tool-execution-end':
+        // Already handled via the start event pairing above
+        break;
     }
+  }
 
-    return {type: 'assistant', segments};
-  });
+  return items;
 }
 
 /**

@@ -15,7 +15,7 @@ export function ChatPage() {
     messages,
     addUserMessage,
     appendTextToLastAssistant,
-    pushContentToLastAssistant,
+    pushMessage,
     removeLastAssistantMessageIfEmpty,
   } = useMessages();
 
@@ -30,7 +30,7 @@ export function ChatPage() {
     sessionId,
     addUserMessage,
     appendTextToLastAssistant,
-    pushContentToLastAssistant,
+    pushMessage,
     removeLastAssistantMessageIfEmpty,
   });
 

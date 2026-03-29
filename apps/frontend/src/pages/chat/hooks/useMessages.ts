@@ -1,10 +1,6 @@
 import {useCallback, useState} from 'react';
 
-import type {
-  ChatMessage,
-  ToolExecutionEndContent,
-  ToolExecutionStartContent,
-} from '../types.js';
+import type {ChatMessage} from '../types.js';
 
 /** Manages the chat message history in React state. */
 export function useMessages() {
@@ -12,79 +8,69 @@ export function useMessages() {
 
   /**
    * Adds a user message with text content and prepares an empty assistant
-   * message for streaming. Both are added in a single state update.
+   * text message for streaming. Both are added in a single state update.
    */
   const addUserMessage = useCallback((content: string) => {
     setMessages((prev) => [
       ...prev,
-      {role: 'user' as const, content: [{type: 'text' as const, content}]},
-      {role: 'assistant' as const, content: []},
+      {role: 'user' as const, content: {type: 'text' as const, content}},
+      {
+        role: 'assistant' as const,
+        content: {type: 'text' as const, content: ''},
+      },
     ]);
   }, []);
 
   /**
    * Appends a text token to the last assistant message.
-   * If the last entry in the assistant's content array is a TextContent,
-   * the token is appended to it. Otherwise a new TextContent is pushed.
+   * If the last message is an assistant text message, the token is appended.
+   * Otherwise a new assistant text message is pushed.
    */
   const appendTextToLastAssistant = useCallback((token: string) => {
     setMessages((prev) => {
       const last = prev[prev.length - 1];
-      if (last.role !== 'assistant') {
-        throw new Error(
-          'Cannot append: last message is not an assistant message',
-        );
+
+      if (last.role === 'assistant' && last.content.type === 'text') {
+        return [
+          ...prev.slice(0, -1),
+          {
+            ...last,
+            content: {
+              ...last.content,
+              content: last.content.content + token,
+            },
+          },
+        ];
       }
 
-      const contentArray = [...last.content];
-      const lastIndex = contentArray.length - 1;
-
-      if (lastIndex >= 0 && contentArray[lastIndex].type === 'text') {
-        const lastEntry = contentArray[lastIndex];
-        contentArray[lastIndex] = {
-          ...lastEntry,
-          content: lastEntry.content + token,
-        };
-      } else {
-        contentArray.push({type: 'text', content: token});
-      }
-
-      return [...prev.slice(0, -1), {...last, content: contentArray}];
+      return [
+        ...prev,
+        {
+          role: 'assistant' as const,
+          content: {type: 'text' as const, content: token},
+        },
+      ];
     });
   }, []);
 
-  /**
-   * Pushes a tool execution start or end entry to the last assistant message's
-   * content array.
-   */
-  const pushContentToLastAssistant = useCallback(
-    (item: ToolExecutionStartContent | ToolExecutionEndContent) => {
-      setMessages((prev) => {
-        const last = prev[prev.length - 1];
-        if (last.role !== 'assistant') {
-          throw new Error(
-            'Cannot push content: last message is not an assistant message',
-          );
-        }
-
-        return [
-          ...prev.slice(0, -1),
-          {...last, content: [...last.content, item]},
-        ];
-      });
-    },
-    [],
-  );
+  /** Pushes a new message to the end of the message list. */
+  const pushMessage = useCallback((message: ChatMessage) => {
+    setMessages((prev) => [...prev, message]);
+  }, []);
 
   /**
-   * Removes the last assistant message if its content array is empty
-   * (unused placeholder).
+   * Removes the last assistant message if it is an empty text placeholder
+   * (unused streaming slot).
    */
   const removeLastAssistantMessageIfEmpty = useCallback(() => {
     setMessages((prev) => {
       if (prev.length === 0) return prev;
       const last = prev[prev.length - 1];
-      if (last.role === 'assistant' && last.content.length === 0) {
+      if (
+        last.role === 'assistant' &&
+        last.content.type === 'text' &&
+        last.content.content === ''
+      ) {
         return prev.slice(0, -1);
       }
       return prev;
@@ -100,7 +86,7 @@ export function useMessages() {
     messages,
     addUserMessage,
     appendTextToLastAssistant,
-    pushContentToLastAssistant,
+    pushMessage,
     removeLastAssistantMessageIfEmpty,
     clearMessages,
   };
