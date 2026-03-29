@@ -1,12 +1,48 @@
+import assert from 'node:assert';
+
 import {SkillDefinition} from './skill-definition.js';
 
 /**
  * Abstract base class for skill registries.
+ *
  * Concrete subclasses are singletons that group skills by category.
+ * Singleton lifecycle is managed by the base class via `create()`,
+ * `getInstance()`, and `resetInstance()`.
  * Skills are loaded from Markdown files via `loadFromFile`.
  */
 export abstract class SkillRegistry {
+  private static readonly instances = new Map<
+    typeof SkillRegistry,
+    SkillRegistry
+  >();
+
   private readonly skills = new Map<string, SkillDefinition>();
+
+  /** Creates the singleton instance for the calling subclass. */
+  static create(): SkillRegistry {
+    assert(
+      !SkillRegistry.instances.has(this),
+      `${this.name} is already initialized.`,
+    );
+    const instance = Reflect.construct(this, []) as SkillRegistry;
+    SkillRegistry.instances.set(this, instance);
+    return instance;
+  }
+
+  /** Returns the singleton instance for the calling subclass. */
+  static getInstance(): SkillRegistry {
+    const instance = SkillRegistry.instances.get(this);
+    assert(
+      instance,
+      `${this.name} is not initialized. Call ${this.name}.create() first.`,
+    );
+    return instance;
+  }
+
+  /** Resets the singleton instance for the calling subclass. Only for use in tests. */
+  static resetInstance(): void {
+    SkillRegistry.instances.delete(this);
+  }
 
   /**
    * Loads a single Markdown file, parses its frontmatter,
