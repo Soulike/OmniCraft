@@ -19,6 +19,7 @@ class TestToolRegistry extends ToolRegistry {
 function createMockTool(name: string): ToolDefinition {
   return {
     name,
+    displayName: `Mock: ${name}`,
     description: `Mock tool: ${name}`,
     parameters: z.object({}),
     execute: () => Promise.resolve('ok'),

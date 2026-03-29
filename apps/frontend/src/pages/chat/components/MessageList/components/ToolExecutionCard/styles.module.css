@@ -58,6 +58,12 @@
   letter-spacing: 0.05em;
 }
 
+.code {
+  font-family: monospace;
+  font-size: 0.8125rem;
+  color: var(--foreground);
+}
+
 .pre {
   margin: 0;
   padding: 8px;

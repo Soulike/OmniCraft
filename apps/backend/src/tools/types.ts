@@ -18,6 +18,8 @@ export interface ToolExecutionContext {
  */
 export interface ToolDefinition<T extends z.ZodType = z.ZodType> {
   readonly name: string;
+  /** Human-readable name for UI display. */
+  readonly displayName: string;
   readonly description: string;
   readonly parameters: T;
   execute(

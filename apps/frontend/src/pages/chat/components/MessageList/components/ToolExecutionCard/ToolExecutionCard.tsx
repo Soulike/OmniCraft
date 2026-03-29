@@ -2,6 +2,7 @@ import {ToolExecutionCardView} from './ToolExecutionCardView.js';
 
 interface ToolExecutionCardProps {
   toolName: string;
+  displayName: string;
   arguments: string;
   status: 'running' | 'done' | 'error';
   result?: string;
@@ -9,6 +10,7 @@ interface ToolExecutionCardProps {
 
 export function ToolExecutionCard({
   toolName,
+  displayName,
   arguments: toolArguments,
   status,
   result,
@@ -16,6 +18,7 @@ export function ToolExecutionCard({
   return (
     <ToolExecutionCardView
       toolName={toolName}
+      displayName={displayName}
       arguments={toolArguments}
       status={status}
       result={result}

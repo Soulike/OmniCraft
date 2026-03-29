@@ -26,6 +26,7 @@ export function RenderItem({item}: RenderItemProps) {
         <div className={styles.assistantMessage}>
           <ToolExecutionCard
             toolName={item.toolName}
+            displayName={item.displayName}
             arguments={item.arguments}
             status={item.status}
             result={item.result}

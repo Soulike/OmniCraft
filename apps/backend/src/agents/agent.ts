@@ -102,10 +102,12 @@ export abstract class Agent {
       const toolResults: ToolResult[] = [];
 
       for (const toolCall of toolCalls) {
+        const tool = tools.find((t) => t.name === toolCall.toolName);
         yield {
           type: 'tool-execute-start',
           callId: toolCall.callId,
           toolName: toolCall.toolName,
+          displayName: tool?.displayName ?? toolCall.toolName,
           arguments: toolCall.arguments,
         } satisfies AgentToolExecuteStartEvent;
 

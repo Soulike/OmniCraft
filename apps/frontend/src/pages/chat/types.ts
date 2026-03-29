@@ -9,6 +9,7 @@ export interface ToolExecutionStartContent {
   type: 'tool-execution-start';
   callId: string;
   toolName: string;
+  displayName: string;
   arguments: string;
 }
 
