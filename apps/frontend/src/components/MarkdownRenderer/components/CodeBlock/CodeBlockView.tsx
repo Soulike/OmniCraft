@@ -24,7 +24,13 @@ export function CodeBlockView({
       <div className={styles.header}>
         <span className={styles.language}>{language ?? 'text'}</span>
         <Tooltip delay={0}>
-          <Button isIconOnly size='sm' variant='ghost' onPress={onCopy}>
+          <Button
+            isIconOnly
+            aria-label={copied ? 'Copied!' : 'Copy code'}
+            size='sm'
+            variant='ghost'
+            onPress={onCopy}
+          >
             {copied ? <Check size={14} /> : <Copy size={14} />}
           </Button>
           <Tooltip.Content>

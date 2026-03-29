@@ -17,8 +17,12 @@ function isSafeUrl(href: string | undefined): boolean {
   if (!href) {
     return false;
   }
-  // Relative URLs and fragment links are safe
-  if (href.startsWith('/') || href.startsWith('#')) {
+  // Fragment links are safe
+  if (href.startsWith('#')) {
+    return true;
+  }
+  // Relative URLs (but not protocol-relative //example.com)
+  if (href.startsWith('/') && !href.startsWith('//')) {
     return true;
   }
   return SAFE_URL_PROTOCOLS.test(href);
@@ -28,11 +32,13 @@ const CUSTOM_COMPONENTS: Components = {
   pre({children}) {
     return <CodeBlock>{children}</CodeBlock>;
   },
-  a({href, children, ...rest}) {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  a({href, children, node, ...rest}) {
     if (!isSafeUrl(href)) {
-      return <span {...rest}>{children}</span>;
+      return <span>{children}</span>;
     }
-    const isExternal = href?.startsWith('http');
+    const isExternal =
+      href?.startsWith('http') === true || href?.startsWith('//') === true;
     return (
       <a
         href={href}
