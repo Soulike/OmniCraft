@@ -90,10 +90,10 @@ function SegmentRenderer({segment}: SegmentRendererProps) {
   );
 }
 
-/** Produces a stable key for a segment. */
+/** Produces a stable key for a segment. Namespaced to avoid collisions. */
 function segmentKey(segment: AssistantSegment, index: number): string {
   if (segment.type === 'tool-execution') {
-    return segment.callId;
+    return `tool-${segment.callId}`;
   }
   return `text-${index.toString()}`;
 }

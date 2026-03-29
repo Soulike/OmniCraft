@@ -54,7 +54,7 @@ function isTextStreaming(
 }
 
 /** Converts a ChatMessage[] into renderable MessageRenderItem[]. */
-function transformMessages(
+export function transformMessages(
   messages: ChatMessage[],
   isStreaming: boolean,
 ): MessageRenderItem[] {
