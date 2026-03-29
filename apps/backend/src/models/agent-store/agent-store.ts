@@ -1,6 +1,6 @@
 import assert from 'node:assert';
 
-import type {Agent} from '@/agents/types.js';
+import type {Agent} from '@/agents/agent.js';
 import {eventBus} from '@/events/index.js';
 
 /**

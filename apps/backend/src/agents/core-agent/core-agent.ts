@@ -2,7 +2,7 @@ import type {LlmConfig} from '@/api/llm/index.js';
 import {CoreSkillRegistry} from '@/skills/index.js';
 import {CoreToolRegistry} from '@/tools/index.js';
 
-import {Agent} from '../types.js';
+import {Agent} from '../agent.js';
 
 /**
  * Default agent with core tools and skills.

@@ -1,6 +1,6 @@
 import {EventEmitter} from 'node:events';
 
-import type {Agent} from '@/agents/types.js';
+import type {Agent} from '@/agents/agent.js';
 import type {LlmSession} from '@/models/llm-session/index.js';
 
 interface EventBusEvents {
