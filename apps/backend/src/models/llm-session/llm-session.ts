@@ -158,6 +158,11 @@ export class LlmSession {
         case 'tool-call-end': {
           const tc = pendingToolCalls.get(event.callId);
           if (tc) {
+            // When the LLM emits no argument deltas (e.g. parameterless tools),
+            // the accumulated string is still empty. Normalize to valid JSON.
+            if (!tc.arguments) {
+              tc.arguments = '{}';
+            }
             toolCalls.push(tc);
             pendingToolCalls.delete(event.callId);
           }

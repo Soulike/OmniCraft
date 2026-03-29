@@ -44,7 +44,7 @@ export abstract class ToolRegistry {
   }
 
   /** Registers a tool. Throws if a different tool with the same name exists. */
-  register(tool: ToolDefinition): void {
+  protected register(tool: ToolDefinition): void {
     const existing = this.tools.get(tool.name);
     if (existing) {
       if (existing === tool) return;
