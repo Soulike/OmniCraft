@@ -38,22 +38,23 @@ export type MessageRenderItem =
 /**
  * Determines whether a text segment is actively streaming.
  *
- * A text segment is streaming if it is the last entry in the content array
- * and contains text (non-empty). When a message is still being streamed,
- * new text-delta events keep appending to the last TextContent. Once the
- * stream moves on to a tool call or finishes, the text is no longer the
- * last entry and is considered complete.
+ * A text segment is streaming only when the message is the last one in the
+ * conversation (the one currently being received), the text entry is the last
+ * entry in the content array, and it contains text. Once the stream moves on
+ * to a tool call or finishes, the text is no longer the last entry and is
+ * considered complete.
  */
 function isTextStreaming(
   contentArray: readonly MessageContent[],
   index: number,
+  isLastMessage: boolean,
 ): boolean {
-  return index === contentArray.length - 1;
+  return isLastMessage && index === contentArray.length - 1;
 }
 
 /** Converts a ChatMessage[] into renderable MessageRenderItem[]. */
 function transformMessages(messages: ChatMessage[]): MessageRenderItem[] {
-  return messages.map((message): MessageRenderItem => {
+  return messages.map((message, messageIndex): MessageRenderItem => {
     if (message.role === 'user') {
       const textEntry = message.content.find((c) => c.type === 'text');
       return {
@@ -61,6 +62,8 @@ function transformMessages(messages: ChatMessage[]): MessageRenderItem[] {
         text: textEntry ? textEntry.content : '',
       };
     }
+
+    const isLastMessage = messageIndex === messages.length - 1;
 
     // Assistant message: build segments from content array
     const segments: AssistantSegment[] = [];
@@ -85,7 +88,7 @@ function transformMessages(messages: ChatMessage[]): MessageRenderItem[] {
           segments.push({
             type: 'text',
             content: entry.content,
-            isStreaming: isTextStreaming(message.content, i),
+            isStreaming: isTextStreaming(message.content, i, isLastMessage),
           });
           break;
         }

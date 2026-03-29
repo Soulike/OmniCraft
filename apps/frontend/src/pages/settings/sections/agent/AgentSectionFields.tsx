@@ -14,9 +14,17 @@ export function AgentSectionFields({
   validationErrors,
   isDisabled,
 }: SettingSectionRenderProps) {
+  const rawValue = values['agent/maxToolRounds'];
+  const numericValue =
+    rawValue !== undefined && rawValue !== null ? Number(rawValue) : undefined;
+  const fieldValue =
+    numericValue !== undefined && !Number.isNaN(numericValue)
+      ? numericValue
+      : undefined;
+
   return (
     <NumberField
-      value={Number(values['agent/maxToolRounds'])}
+      value={fieldValue}
       isInvalid={'agent/maxToolRounds' in validationErrors}
       isDisabled={isDisabled}
       minValue={1}

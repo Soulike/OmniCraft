@@ -1,5 +1,6 @@
 import {Disclosure, Spinner} from '@heroui/react';
 import clsx from 'clsx';
+import {useMemo} from 'react';
 
 import styles from './styles.module.css';
 
@@ -16,6 +17,15 @@ export function ToolExecutionCardView({
   status,
   result,
 }: ToolExecutionCardViewProps) {
+  const formattedArguments = useMemo(
+    () => formatJson(toolArguments),
+    [toolArguments],
+  );
+  const formattedResult = useMemo(
+    () => (result !== undefined ? formatJson(result) : undefined),
+    [result],
+  );
+
   return (
     <div className={styles.card}>
       <Disclosure>
@@ -45,9 +55,9 @@ export function ToolExecutionCardView({
           <Disclosure.Body className={styles.body}>
             <div className={styles.section}>
               <span className={styles.label}>Arguments</span>
-              <pre className={styles.pre}>{formatJson(toolArguments)}</pre>
+              <pre className={styles.pre}>{formattedArguments}</pre>
             </div>
-            {result !== undefined && (
+            {formattedResult !== undefined && (
               <div className={styles.section}>
                 <span className={styles.label}>Result</span>
                 <pre
@@ -55,7 +65,7 @@ export function ToolExecutionCardView({
                     [styles.preError]: status === 'error',
                   })}
                 >
-                  {result}
+                  {formattedResult}
                 </pre>
               </div>
             )}
