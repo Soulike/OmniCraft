@@ -2,6 +2,9 @@ import assert from 'node:assert';
 
 import type OpenAI from 'openai';
 import OpenAIClient from 'openai';
+import {z} from 'zod';
+
+import type {ToolDefinition} from '@/tools/types.js';
 
 import type {
   LlmCompletionOptions,
@@ -40,6 +43,18 @@ function toSdkMessage(message: LlmMessage): SdkMessageParam {
   }
 }
 
+/** Converts a ToolDefinition to the OpenAI tool format. */
+function toOpenAITool(tool: ToolDefinition): OpenAI.ChatCompletionTool {
+  return {
+    type: 'function',
+    function: {
+      name: tool.name,
+      description: tool.description,
+      parameters: z.toJSONSchema(tool.parameters),
+    },
+  };
+}
+
 /** Streams LLM events from an OpenAI-compatible API. */
 export async function* streamOpenAI(
   options: LlmCompletionOptions,
@@ -56,11 +71,14 @@ export async function* streamOpenAI(
   }
   sdkMessages.push(...messages.map(toSdkMessage));
 
+  const openaiTools = options.tools.map(toOpenAITool);
+
   const stream = await client.chat.completions.create({
     model: config.model,
     messages: sdkMessages,
     stream: true,
     stream_options: {include_usage: true},
+    ...(openaiTools.length > 0 ? {tools: openaiTools} : {}),
   });
 
   // OpenAI streams tool calls incrementally per choice delta.

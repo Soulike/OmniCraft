@@ -5,12 +5,16 @@ import {logger} from '@/logger.js';
 import {AgentStore} from '@/models/agent-store/index.js';
 import {LlmSessionStore} from '@/models/llm-session-store/index.js';
 import {SettingsManager} from '@/models/settings-manager/index.js';
+import {CoreSkillRegistry} from '@/skills/index.js';
+import {CoreToolRegistry} from '@/tools/index.js';
 
 /** Initializes all services that require async setup before the server starts. */
 export async function initServices(): Promise<void> {
   await initSettingsManager();
   AgentStore.create();
   LlmSessionStore.create();
+  initToolRegistries();
+  initSkillRegistries();
 }
 
 /** Initializes the SettingsManager singleton. */
@@ -20,4 +24,15 @@ async function initSettingsManager(): Promise<void> {
   for (const warning of warnings) {
     logger.warn({warning}, 'Settings initialization warning');
   }
+}
+
+/** Initializes tool registries. */
+function initToolRegistries(): void {
+  CoreToolRegistry.create();
+}
+
+/** Initializes skill registries and loads skill files. */
+function initSkillRegistries(): void {
+  CoreSkillRegistry.create();
+  // No skill files to load yet — framework only.
 }

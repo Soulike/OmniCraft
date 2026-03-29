@@ -1,6 +1,6 @@
 {
-  "name": "@omnicraft/settings-schema",
-  "description": "Zod schemas and types for OmniCraft settings",
+  "name": "@omnicraft/markdown-frontmatter",
+  "description": "YAML frontmatter parser for Markdown files",
   "private": true,
   "type": "module",
   "exports": {
@@ -11,7 +11,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "zod": "catalog:"
+    "yaml": "^2.8.2"
   },
   "devDependencies": {
     "@config/eslint": "workspace:^",

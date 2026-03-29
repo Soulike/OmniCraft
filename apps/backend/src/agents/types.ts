@@ -1,54 +1,49 @@
-import crypto from 'node:crypto';
+import type {LlmSessionTextDeltaEvent} from '@/models/llm-session/index.js';
+import type {SkillRegistry} from '@/skills/index.js';
+import type {ToolRegistry} from '@/tools/index.js';
 
-import type {LlmConfig} from '@/api/llm/index.js';
-import {eventBus} from '@/events/index.js';
-import type {LlmSessionEvent} from '@/models/llm-session/index.js';
-import {LlmSession} from '@/models/llm-session/index.js';
-import {LlmSessionStore} from '@/models/llm-session-store/index.js';
+// ---------------------------------------------------------------------------
+// Agent Event Types
+// ---------------------------------------------------------------------------
 
-/**
- * Agent event stream. Currently identical to LlmSessionEvent.
- * Will diverge as agents add higher-level events (e.g., thinking, sub-agent delegation).
- */
-export type AgentEvent = LlmSessionEvent;
+/** The agent has started executing a tool call. */
+export interface AgentToolExecuteStartEvent {
+  type: 'tool-execute-start';
+  callId: string;
+  toolName: string;
+  arguments: string;
+}
+
+/** The agent has finished executing a tool call. */
+export interface AgentToolExecuteEndEvent {
+  type: 'tool-execute-end';
+  callId: string;
+  result: string;
+  isError: boolean;
+}
+
+/** The agent has finished processing a user message. */
+export interface AgentDoneEvent {
+  type: 'done';
+  reason: 'complete' | 'max_rounds_reached';
+}
+
+/** All events that the agent can yield to callers. */
+export type AgentEvent =
+  | LlmSessionTextDeltaEvent
+  | AgentToolExecuteStartEvent
+  | AgentToolExecuteEndEvent
+  | AgentDoneEvent;
 
 /** An async generator that yields agent streaming events. */
 export type AgentEventStream = AsyncGenerator<AgentEvent, void, undefined>;
 
-/**
- * Base class for all agents.
- * Implementations can range from a simple LLM passthrough (SimpleAgent)
- * to complex agents with tool calling, multi-step reasoning, and sub-agents.
- */
-export abstract class Agent {
-  /** Unique identifier for this agent session. */
-  readonly id: string;
+// ---------------------------------------------------------------------------
+// Agent Options
+// ---------------------------------------------------------------------------
 
-  /** The id of the LLM session used by this agent. */
-  readonly llmSessionId: string;
-
-  /** Cached LLM session instance, lazily resolved from the store. */
-  private cachedLlmSession: LlmSession | null = null;
-
-  constructor(getConfig: () => Promise<LlmConfig>, systemPrompt = '') {
-    this.id = crypto.randomUUID();
-    const llmSession = new LlmSession(getConfig, systemPrompt);
-    this.llmSessionId = llmSession.id;
-    eventBus.emit('agent-created', this);
-  }
-
-  /** Resolves the LLM session from the store, caching the result. */
-  protected getLlmSession(): LlmSession {
-    if (!this.cachedLlmSession) {
-      const session = LlmSessionStore.getInstance().get(this.llmSessionId);
-      if (!session) {
-        throw new Error(`LLM session not found: ${this.llmSessionId}`);
-      }
-      this.cachedLlmSession = session;
-    }
-    return this.cachedLlmSession;
-  }
-
-  /** Handles a user message and streams back response events for one turn. */
-  abstract handleUserMessage(userMessage: string): AgentEventStream;
+export interface AgentOptions {
+  readonly toolRegistries: ToolRegistry[];
+  readonly skillRegistries: SkillRegistry[];
+  readonly baseSystemPrompt: string;
 }

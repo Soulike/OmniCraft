@@ -3,12 +3,14 @@ export type {
   SseErrorEvent,
   SseEvent,
   SseTextDeltaEvent,
-  SseToolCallEvent,
+  SseToolExecuteEndEvent,
+  SseToolExecuteStartEvent,
 } from './schema.js';
 export {
   sseDoneEventSchema,
   sseErrorEventSchema,
   sseEventSchema,
   sseTextDeltaEventSchema,
-  sseToolCallEventSchema,
+  sseToolExecuteEndEventSchema,
+  sseToolExecuteStartEventSchema,
 } from './schema.js';

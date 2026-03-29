@@ -1,3 +1,5 @@
+import type {ToolDefinition} from '@/tools/types.js';
+
 /** A tool call issued by the assistant. */
 export interface LlmToolCall {
   callId: string;
@@ -101,4 +103,5 @@ export interface LlmCompletionOptions {
   readonly config: Readonly<LlmConfig>;
   readonly messages: readonly LlmMessage[];
   readonly systemPrompt?: string;
+  readonly tools: readonly ToolDefinition[];
 }

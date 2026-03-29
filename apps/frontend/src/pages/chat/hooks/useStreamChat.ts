@@ -45,8 +45,9 @@ export function useStreamChat({
             case 'text-delta':
               appendToLastAssistantMessage(event.content);
               break;
-            case 'tool-call':
-              // V1: tool calls are not rendered in the UI yet.
+            case 'tool-execute-start':
+            case 'tool-execute-end':
+              // Tool execution events are not rendered in the UI yet.
               break;
             case 'done':
               removeLastAssistantMessageIfEmpty();
