@@ -37,8 +37,7 @@ const CUSTOM_COMPONENTS: Components = {
     if (!isSafeUrl(href)) {
       return <span>{children}</span>;
     }
-    const isExternal =
-      href?.startsWith('http') === true || href?.startsWith('//') === true;
+    const isExternal = href?.startsWith('http') === true;
     return (
       <a
         href={href}
