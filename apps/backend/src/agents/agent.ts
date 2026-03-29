@@ -98,10 +98,28 @@ export abstract class Agent {
         return;
       }
 
-      const toolResults = yield* this.executeToolCalls(
-        toolCalls,
-        this.getAvailableTools(),
-      );
+      const tools = this.getAvailableTools();
+      const toolResults: ToolResult[] = [];
+
+      for (const toolCall of toolCalls) {
+        yield {
+          type: 'tool-execute-start',
+          callId: toolCall.callId,
+          toolName: toolCall.toolName,
+          arguments: toolCall.arguments,
+        } satisfies AgentToolExecuteStartEvent;
+
+        const result = await this.executeTool(toolCall, tools);
+
+        yield {
+          type: 'tool-execute-end',
+          callId: toolCall.callId,
+          result: result.content,
+          isError: result.isError,
+        } satisfies AgentToolExecuteEndEvent;
+
+        toolResults.push({callId: toolCall.callId, content: result.content});
+      }
 
       toolCalls = yield* this.consumeStream(
         llmSession.submitToolResults(
@@ -223,70 +241,33 @@ export abstract class Agent {
   }
 
   /**
-   * Executes all collected tool calls, yielding start/end events for each.
-   * Returns the tool results array for submission to the LLM.
+   * Executes a single tool call. Returns the result content and whether it errored.
    */
-  private async *executeToolCalls(
-    toolCalls: readonly LlmToolCall[],
+  private async executeTool(
+    toolCall: LlmToolCall,
     tools: readonly ToolDefinition[],
-  ): AsyncGenerator<
-    AgentToolExecuteStartEvent | AgentToolExecuteEndEvent,
-    ToolResult[],
-    undefined
-  > {
+  ): Promise<{content: string; isError: boolean}> {
     const context: ToolExecutionContext = {
       availableSkills: this.getAvailableSkills(),
     };
 
-    const toolMap = new Map<string, ToolDefinition>();
-    for (const tool of tools) {
-      toolMap.set(tool.name, tool);
-    }
-
-    const results: ToolResult[] = [];
-
-    for (const toolCall of toolCalls) {
-      yield {
-        type: 'tool-execute-start',
-        callId: toolCall.callId,
-        toolName: toolCall.toolName,
-        arguments: toolCall.arguments,
+    const tool = tools.find((t) => t.name === toolCall.toolName);
+    if (!tool) {
+      return {
+        content: `Error: Unknown tool: ${toolCall.toolName}`,
+        isError: true,
       };
-
-      try {
-        const tool = toolMap.get(toolCall.toolName);
-        if (!tool) {
-          throw new Error(`Unknown tool: ${toolCall.toolName}`);
-        }
-
-        const parsedArgs: unknown = tool.parameters.parse(
-          JSON.parse(toolCall.arguments),
-        );
-        const result = await tool.execute(parsedArgs, context);
-
-        yield {
-          type: 'tool-execute-end',
-          callId: toolCall.callId,
-          result,
-          isError: false,
-        };
-
-        results.push({callId: toolCall.callId, content: result});
-      } catch (error: unknown) {
-        const message = error instanceof Error ? error.message : String(error);
-        const errorContent = `Error: ${message}`;
-
-        yield {
-          type: 'tool-execute-end',
-          callId: toolCall.callId,
-          result: errorContent,
-          isError: true,
-        };
-
-        results.push({callId: toolCall.callId, content: errorContent});
-      }
     }
 
-    return results;
+    try {
+      const parsedArgs: unknown = tool.parameters.parse(
+        JSON.parse(toolCall.arguments),
+      );
+      const content = await tool.execute(parsedArgs, context);
+      return {content, isError: false};
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      return {content: `Error: ${message}`, isError: true};
+    }
   }
 }
