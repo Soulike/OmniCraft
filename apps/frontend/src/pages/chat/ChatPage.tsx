@@ -46,6 +46,7 @@ export function ChatPage() {
   return (
     <ChatPageView
       messages={messages}
+      isStreaming={isStreaming}
       isInputDisabled={isStreaming || !sessionId}
       error={displayError}
       maxRoundsReached={maxRoundsReached}

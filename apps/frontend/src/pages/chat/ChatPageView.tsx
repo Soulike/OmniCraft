@@ -8,6 +8,7 @@ import type {ChatMessage} from './types.js';
 
 interface ChatPageViewProps {
   messages: ChatMessage[];
+  isStreaming: boolean;
   isInputDisabled: boolean;
   error: string | null;
   maxRoundsReached: boolean;
@@ -19,6 +20,7 @@ interface ChatPageViewProps {
 
 export function ChatPageView({
   messages,
+  isStreaming,
   isInputDisabled,
   error,
   maxRoundsReached,
@@ -46,7 +48,7 @@ export function ChatPageView({
         />
       )}
       <div className={styles.messageListWrapper} ref={scrollRef}>
-        <MessageList messages={messages} />
+        <MessageList messages={messages} isStreaming={isStreaming} />
       </div>
       <ChatInput onSend={onSend} isDisabled={isInputDisabled} />
     </div>
