@@ -1,6 +1,6 @@
 import type {z} from 'zod';
 
-import type {SkillDefinition} from '@/skills/types.js';
+import type {SkillDefinition} from '@/skills/skill-definition.js';
 
 /** Execution context provided by the Agent to each Tool at call time. */
 export interface ToolExecutionContext {

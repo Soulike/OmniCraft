@@ -1,4 +1,4 @@
-import {SkillDefinition} from './types.js';
+import {SkillDefinition} from './skill-definition.js';
 
 /**
  * Abstract base class for skill registries.
