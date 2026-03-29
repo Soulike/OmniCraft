@@ -58,10 +58,15 @@ function toSdkMessage(message: LlmMessage): SdkMessageParam {
 
 /** Converts a ToolDefinition to the Anthropic tool format. */
 function toClaudeTool(tool: ToolDefinition): Anthropic.Tool {
+  const jsonSchema = z.toJSONSchema(tool.parameters);
+  assert(
+    'type' in jsonSchema && jsonSchema.type === 'object',
+    `Tool "${tool.name}" parameters must produce a JSON Schema with type: "object"`,
+  );
   return {
     name: tool.name,
     description: tool.description,
-    input_schema: z.toJSONSchema(tool.parameters) as Anthropic.Tool.InputSchema,
+    input_schema: jsonSchema as Anthropic.Tool.InputSchema,
   };
 }
 
