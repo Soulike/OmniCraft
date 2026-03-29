@@ -69,10 +69,10 @@
 
 /* Inline code */
 .markdown :global(code:not(pre code)) {
-  background: var(--muted);
+  background: var(--surface-secondary);
   padding: 0.15em 0.4em;
   border-radius: 4px;
-  font-size: 0.9em;
+  font-size: 1em;
   font-family: monospace;
 }
 
