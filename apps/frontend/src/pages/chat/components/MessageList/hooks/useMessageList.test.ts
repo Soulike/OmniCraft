@@ -8,7 +8,7 @@ describe('transformMessages', () => {
     const messages: ChatMessage[] = [
       {role: 'user', content: {type: 'text', content: 'Hello'}},
     ];
-    const result = transformMessages(messages, false);
+    const result = transformMessages(messages);
     expect(result).toEqual([{type: 'user-text', content: 'Hello'}]);
   });
 
@@ -16,10 +16,8 @@ describe('transformMessages', () => {
     const messages: ChatMessage[] = [
       {role: 'assistant', content: {type: 'text', content: 'Hi there'}},
     ];
-    const result = transformMessages(messages, false);
-    expect(result).toEqual([
-      {type: 'assistant-text', content: 'Hi there', isStreaming: false},
-    ]);
+    const result = transformMessages(messages);
+    expect(result).toEqual([{type: 'assistant-text', content: 'Hi there'}]);
   });
 
   it('pairs tool-execution-start and tool-execution-end by callId across messages', () => {
@@ -43,7 +41,7 @@ describe('transformMessages', () => {
         },
       },
     ];
-    const result = transformMessages(messages, false);
+    const result = transformMessages(messages);
     expect(result).toEqual([
       {
         type: 'tool-execution',
@@ -68,7 +66,7 @@ describe('transformMessages', () => {
         },
       },
     ];
-    const result = transformMessages(messages, true);
+    const result = transformMessages(messages);
     expect(result).toEqual([
       {
         type: 'tool-execution',
@@ -101,7 +99,7 @@ describe('transformMessages', () => {
         },
       },
     ];
-    const result = transformMessages(messages, false);
+    const result = transformMessages(messages);
     expect(result).toEqual([
       {
         type: 'tool-execution',
@@ -112,29 +110,6 @@ describe('transformMessages', () => {
         result: 'Error: failed',
       },
     ]);
-  });
-
-  it('sets isStreaming only on the last assistant text message when streaming', () => {
-    const messages: ChatMessage[] = [
-      {role: 'assistant', content: {type: 'text', content: 'old message'}},
-      {role: 'assistant', content: {type: 'text', content: 'streaming...'}},
-    ];
-
-    const streaming = transformMessages(messages, true);
-    expect(streaming[0]).toMatchObject({
-      type: 'assistant-text',
-      isStreaming: false,
-    });
-    expect(streaming[1]).toMatchObject({
-      type: 'assistant-text',
-      isStreaming: true,
-    });
-
-    const notStreaming = transformMessages(messages, false);
-    expect(notStreaming[1]).toMatchObject({
-      type: 'assistant-text',
-      isStreaming: false,
-    });
   });
 
   it('handles mixed text and tool messages in order', () => {
@@ -163,7 +138,7 @@ describe('transformMessages', () => {
         content: {type: 'text', content: 'Here is what I found'},
       },
     ];
-    const result = transformMessages(messages, false);
+    const result = transformMessages(messages);
     expect(result).toHaveLength(3);
     expect(result[0].type).toBe('assistant-text');
     expect(result[1].type).toBe('tool-execution');
@@ -182,12 +157,12 @@ describe('transformMessages', () => {
         },
       },
     ];
-    const result = transformMessages(messages, false);
+    const result = transformMessages(messages);
     expect(result).toEqual([]);
   });
 
   it('returns empty array for empty messages', () => {
-    const result = transformMessages([], false);
+    const result = transformMessages([]);
     expect(result).toEqual([]);
   });
 });

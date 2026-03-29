@@ -4,7 +4,6 @@ import {MessageListView} from './MessageListView.js';
 
 interface MessageListProps {
   messages: ChatMessage[];
-  isStreaming: boolean;
 }
 
 /**
@@ -12,7 +11,7 @@ interface MessageListProps {
  * Transforms ChatMessage[] into render items via the view-model hook,
  * then delegates rendering to MessageListView.
  */
-export function MessageList({messages, isStreaming}: MessageListProps) {
-  const items = useMessageList(messages, isStreaming);
+export function MessageList({messages}: MessageListProps) {
+  const items = useMessageList(messages);
   return <MessageListView items={items} />;
 }

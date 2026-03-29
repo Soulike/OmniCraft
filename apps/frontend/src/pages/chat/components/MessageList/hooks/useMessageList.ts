@@ -10,7 +10,6 @@ export interface UserTextRenderItem {
 export interface AssistantTextRenderItem {
   type: 'assistant-text';
   content: string;
-  isStreaming: boolean;
 }
 
 export interface ToolExecutionRenderItem {
@@ -27,24 +26,9 @@ export type MessageRenderItem =
   | AssistantTextRenderItem
   | ToolExecutionRenderItem;
 
-/**
- * Determines whether an assistant text message is actively streaming.
- *
- * True only when the stream is actively running and this is the last message
- * in the conversation.
- */
-function isTextStreaming(
-  messageIndex: number,
-  messageCount: number,
-  isActivelyStreaming: boolean,
-): boolean {
-  return isActivelyStreaming && messageIndex === messageCount - 1;
-}
-
 /** Converts a ChatMessage[] into renderable MessageRenderItem[]. */
 export function transformMessages(
   messages: ChatMessage[],
-  isStreaming: boolean,
 ): MessageRenderItem[] {
   // First pass: collect tool-execution-end events by callId
   const endEvents = new Map<string, {result: string; isError: boolean}>();
@@ -59,8 +43,7 @@ export function transformMessages(
 
   // Second pass: build render items
   const items: MessageRenderItem[] = [];
-  for (let i = 0; i < messages.length; i++) {
-    const message = messages[i];
+  for (const message of messages) {
     const {content} = message;
 
     switch (content.type) {
@@ -68,11 +51,7 @@ export function transformMessages(
         if (message.role === 'user') {
           items.push({type: 'user-text', content: content.content});
         } else {
-          items.push({
-            type: 'assistant-text',
-            content: content.content,
-            isStreaming: isTextStreaming(i, messages.length, isStreaming),
-          });
+          items.push({type: 'assistant-text', content: content.content});
         }
         break;
       }
@@ -109,15 +88,7 @@ export function transformMessages(
 
 /**
  * View-model hook that transforms ChatMessage[] into MessageRenderItem[].
- * @param messages - The raw chat messages.
- * @param isStreaming - Whether the stream is actively running.
  */
-export function useMessageList(
-  messages: ChatMessage[],
-  isStreaming: boolean,
-): MessageRenderItem[] {
-  return useMemo(
-    () => transformMessages(messages, isStreaming),
-    [messages, isStreaming],
-  );
+export function useMessageList(messages: ChatMessage[]): MessageRenderItem[] {
+  return useMemo(() => transformMessages(messages), [messages]);
 }
