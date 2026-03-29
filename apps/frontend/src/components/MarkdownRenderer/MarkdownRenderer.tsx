@@ -6,7 +6,7 @@ import remarkBreaks from 'remark-breaks';
 import remarkGfm from 'remark-gfm';
 
 import {CodeBlock} from './components/CodeBlock/index.js';
-import {isSafeUrl} from './helpers/isSafeUrl.js';
+import {sanitizeImageUrl, sanitizeLinkUrl} from './helpers/sanitize-url.js';
 import styles from './styles.module.css';
 
 const REMARK_PLUGINS = [remarkGfm, remarkBreaks];
@@ -17,13 +17,14 @@ const CUSTOM_COMPONENTS: Components = {
     return <CodeBlock>{children}</CodeBlock>;
   },
   a({href, children, node: _node, ...rest}) {
-    if (!href || !isSafeUrl(href)) {
+    const sanitizedHref = sanitizeLinkUrl(href ?? '');
+    if (!sanitizedHref) {
       return <span>{children}</span>;
     }
-    const isExternal = href.startsWith('http');
+    const isExternal = sanitizedHref.startsWith('http');
     return (
       <a
-        href={href}
+        href={sanitizedHref}
         {...(isExternal ? {target: '_blank', rel: 'noopener noreferrer'} : {})}
         {...rest}
       >
@@ -32,12 +33,13 @@ const CUSTOM_COMPONENTS: Components = {
     );
   },
   img({src, alt, node: _node, ...rest}) {
-    if (!src || !isSafeUrl(src)) {
+    const sanitizedSrc = sanitizeImageUrl(src ?? '');
+    if (!sanitizedSrc) {
       return <span>{alt ?? ''}</span>;
     }
     return (
       <img
-        src={src}
+        src={sanitizedSrc}
         alt={alt ?? ''}
         loading='lazy'
         referrerPolicy='no-referrer'
