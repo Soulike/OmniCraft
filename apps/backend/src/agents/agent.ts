@@ -82,7 +82,7 @@ export abstract class Agent {
     let toolCalls = yield* this.consumeStream(
       llmSession.sendUserMessage(
         userMessage,
-        this.getAvailableTools(),
+        [...this.getAvailableTools().values()],
         this.buildSystemPrompt(),
       ),
     );
@@ -98,11 +98,11 @@ export abstract class Agent {
         return;
       }
 
-      const tools = this.getAvailableTools();
+      const availableTools = this.getAvailableTools();
       const toolResults: ToolResult[] = [];
 
       for (const toolCall of toolCalls) {
-        const tool = tools.find((t) => t.name === toolCall.toolName);
+        const tool = availableTools.get(toolCall.toolName);
         yield {
           type: 'tool-execute-start',
           callId: toolCall.callId,
@@ -111,7 +111,7 @@ export abstract class Agent {
           arguments: toolCall.arguments,
         } satisfies AgentToolExecuteStartEvent;
 
-        const result = await this.executeTool(toolCall, tools);
+        const result = await this.executeTool(toolCall, availableTools);
 
         yield {
           type: 'tool-execute-end',
@@ -126,7 +126,7 @@ export abstract class Agent {
       toolCalls = yield* this.consumeStream(
         llmSession.submitToolResults(
           toolResults,
-          this.getAvailableTools(),
+          [...this.getAvailableTools().values()],
           this.buildSystemPrompt(),
         ),
       );
@@ -144,7 +144,7 @@ export abstract class Agent {
    * Adds the built-in `load_skill` tool when skills are available.
    * Throws if two different tool instances share the same name.
    */
-  private getAvailableTools(): ToolDefinition[] {
+  private getAvailableTools(): ReadonlyMap<string, ToolDefinition> {
     const toolMap = new Map<string, ToolDefinition>();
 
     for (const registry of this.toolRegistries) {
@@ -174,7 +174,7 @@ export abstract class Agent {
       }
     }
 
-    return [...toolMap.values()];
+    return toolMap;
   }
 
   /**
@@ -247,19 +247,19 @@ export abstract class Agent {
    */
   private async executeTool(
     toolCall: LlmToolCall,
-    tools: readonly ToolDefinition[],
+    availableTools: ReadonlyMap<string, ToolDefinition>,
   ): Promise<{content: string; isError: boolean}> {
-    const context: ToolExecutionContext = {
-      availableSkills: this.getAvailableSkills(),
-    };
-
-    const tool = tools.find((t) => t.name === toolCall.toolName);
+    const tool = availableTools.get(toolCall.toolName);
     if (!tool) {
       return {
         content: `Error: Unknown tool: ${toolCall.toolName}`,
         isError: true,
       };
     }
+
+    const context: ToolExecutionContext = {
+      availableSkills: this.getAvailableSkills(),
+    };
 
     try {
       const parsedArgs: unknown = tool.parameters.parse(
