@@ -1,8 +1,8 @@
+import {CoreAgent} from '@/agent/agents/index.js';
 import type {AgentEventStream} from '@/agent-core/agent/index.js';
 import {AgentStore} from '@/agent-core/agent-store/index.js';
 import type {LlmConfig} from '@/agent-core/llm-api/index.js';
 import {LlmSessionStore} from '@/agent-core/llm-session-store/index.js';
-import {CoreAgent} from '@/agents/index.js';
 import {settingsService} from '@/services/settings/index.js';
 
 import type {CreateSessionResult} from './types.js';
