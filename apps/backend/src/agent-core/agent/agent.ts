@@ -35,11 +35,6 @@ export abstract class Agent {
   /** The LLM session used by this agent. */
   private readonly llmSession: LlmSession;
 
-  /** The id of the LLM session used by this agent. */
-  get llmSessionId(): string {
-    return this.llmSession.id;
-  }
-
   private readonly toolRegistries: AgentOptions['toolRegistries'];
   private readonly skillRegistries: AgentOptions['skillRegistries'];
   private readonly baseSystemPrompt: string;
