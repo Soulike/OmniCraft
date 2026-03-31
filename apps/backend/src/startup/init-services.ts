@@ -5,14 +5,12 @@ import {CoreToolRegistry} from '@/agent/tools/index.js';
 import {getDataDir} from '@/helpers/env.js';
 import {logger} from '@/logger.js';
 import {AgentStore} from '@/models/agent-store/index.js';
-import {LlmSessionStore} from '@/models/llm-session-store/index.js';
 import {SettingsManager} from '@/models/settings-manager/index.js';
 
 /** Initializes all services that require async setup before the server starts. */
 export async function initServices(): Promise<void> {
   await initSettingsManager();
   AgentStore.create();
-  LlmSessionStore.create();
   initToolRegistries();
   initSkillRegistries();
 }

@@ -2,7 +2,6 @@ import crypto from 'node:crypto';
 
 import {Mutex} from '@/helpers/mutex.js';
 
-import {agentEventBus} from '../events/index.js';
 import type {
   LlmAssistantMessage,
   LlmConfig,
@@ -49,8 +48,6 @@ export class LlmSession {
     } else {
       this.id = crypto.randomUUID();
     }
-
-    agentEventBus.emit('llm-session-created', this);
   }
 
   /** Returns a serializable snapshot of this session. */
