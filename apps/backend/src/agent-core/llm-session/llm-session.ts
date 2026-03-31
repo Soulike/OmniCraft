@@ -1,8 +1,8 @@
 import crypto from 'node:crypto';
 
-import {eventBus} from '@/events/index.js';
 import {Mutex} from '@/helpers/mutex.js';
 
+import {agentEventBus} from '../events/index.js';
 import type {
   LlmAssistantMessage,
   LlmConfig,
@@ -36,7 +36,7 @@ export class LlmSession {
   constructor(getConfig: () => Promise<LlmConfig>) {
     this.id = crypto.randomUUID();
     this.getConfig = getConfig;
-    eventBus.emit('llm-session-created', this);
+    agentEventBus.emit('llm-session-created', this);
   }
 
   /**

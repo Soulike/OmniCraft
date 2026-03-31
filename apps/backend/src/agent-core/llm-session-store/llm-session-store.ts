@@ -1,7 +1,6 @@
 import assert from 'node:assert';
 
-import {eventBus} from '@/events/index.js';
-
+import {agentEventBus} from '../events/index.js';
 import {LlmSession} from '../llm-session/index.js';
 
 /**
@@ -34,14 +33,14 @@ export class LlmSessionStore {
     );
     const store = new LlmSessionStore();
     LlmSessionStore.instance = store;
-    eventBus.on('llm-session-created', store.onLlmSessionCreated);
+    agentEventBus.on('llm-session-created', store.onLlmSessionCreated);
     return store;
   }
 
   /** Resets the singleton instance. Only for use in tests. */
   static resetInstance(): void {
     if (LlmSessionStore.instance) {
-      eventBus.off(
+      agentEventBus.off(
         'llm-session-created',
         LlmSessionStore.instance.onLlmSessionCreated,
       );

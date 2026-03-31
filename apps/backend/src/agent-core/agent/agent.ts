@@ -1,7 +1,6 @@
 import crypto from 'node:crypto';
 
-import {eventBus} from '@/events/index.js';
-
+import {agentEventBus} from '../events/index.js';
 import type {LlmConfig, LlmToolCall} from '../llm-api/index.js';
 import type {
   LlmSessionEventStream,
@@ -53,7 +52,7 @@ export abstract class Agent {
 
     const llmSession = new LlmSession(getConfig);
     this.llmSessionId = llmSession.id;
-    eventBus.emit('agent-created', this);
+    agentEventBus.emit('agent-created', this);
   }
 
   /** Resolves the LLM session from the store, caching the result. */
