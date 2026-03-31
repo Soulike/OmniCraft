@@ -8,7 +8,6 @@ import type {
   ToolResult,
 } from '../llm-session/index.js';
 import {LlmSession} from '../llm-session/index.js';
-import {LlmSessionStore} from '../llm-session-store/index.js';
 import type {SkillDefinition} from '../skill/index.js';
 import type {ToolDefinition, ToolExecutionContext} from '../tool/index.js';
 import {loadSkillTool} from '../tool/index.js';
@@ -32,11 +31,13 @@ export abstract class Agent {
   /** Unique identifier for this agent session. */
   readonly id: string;
 
-  /** The id of the LLM session used by this agent. */
-  readonly llmSessionId: string;
+  /** The LLM session used by this agent. */
+  private readonly llmSession: LlmSession;
 
-  /** Cached LLM session instance, lazily resolved from the store. */
-  private cachedLlmSession: LlmSession | null = null;
+  /** The id of the LLM session used by this agent. */
+  get llmSessionId(): string {
+    return this.llmSession.id;
+  }
 
   private readonly toolRegistries: AgentOptions['toolRegistries'];
   private readonly skillRegistries: AgentOptions['skillRegistries'];
@@ -50,21 +51,8 @@ export abstract class Agent {
     this.baseSystemPrompt = options.baseSystemPrompt;
     this.getMaxToolRounds = options.getMaxToolRounds;
 
-    const llmSession = new LlmSession(getConfig);
-    this.llmSessionId = llmSession.id;
+    this.llmSession = new LlmSession(getConfig);
     agentEventBus.emit('agent-created', this);
-  }
-
-  /** Resolves the LLM session from the store, caching the result. */
-  private getLlmSession(): LlmSession {
-    if (!this.cachedLlmSession) {
-      const session = LlmSessionStore.getInstance().get(this.llmSessionId);
-      if (!session) {
-        throw new Error(`LLM session not found: ${this.llmSessionId}`);
-      }
-      this.cachedLlmSession = session;
-    }
-    return this.cachedLlmSession;
   }
 
   /**
@@ -76,10 +64,8 @@ export abstract class Agent {
   async *handleUserMessage(userMessage: string): AgentEventStream {
     const maxRounds = await this.getMaxToolRounds();
 
-    const llmSession = this.getLlmSession();
-
     let toolCalls = yield* this.consumeStream(
-      llmSession.sendUserMessage(
+      this.llmSession.sendUserMessage(
         userMessage,
         [...this.getAvailableTools().values()],
         this.buildSystemPrompt(),
@@ -123,7 +109,7 @@ export abstract class Agent {
       }
 
       toolCalls = yield* this.consumeStream(
-        llmSession.submitToolResults(
+        this.llmSession.submitToolResults(
           toolResults,
           [...this.getAvailableTools().values()],
           this.buildSystemPrompt(),

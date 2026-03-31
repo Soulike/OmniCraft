@@ -2,10 +2,10 @@ import path from 'node:path';
 
 import {CoreSkillRegistry} from '@/agent/skills/index.js';
 import {CoreToolRegistry} from '@/agent/tools/index.js';
-import {AgentStore} from '@/agent-core/agent-store/index.js';
-import {LlmSessionStore} from '@/agent-core/llm-session-store/index.js';
 import {getDataDir} from '@/helpers/env.js';
 import {logger} from '@/logger.js';
+import {AgentStore} from '@/models/agent-store/index.js';
+import {LlmSessionStore} from '@/models/llm-session-store/index.js';
 import {SettingsManager} from '@/models/settings-manager/index.js';
 
 /** Initializes all services that require async setup before the server starts. */
