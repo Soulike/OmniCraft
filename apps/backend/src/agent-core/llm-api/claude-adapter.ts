@@ -3,8 +3,7 @@ import assert from 'node:assert';
 import Anthropic from '@anthropic-ai/sdk';
 import {z} from 'zod';
 
-import type {ToolDefinition} from '@/tools/types.js';
-
+import type {ToolDefinition} from '../tool/types.js';
 import type {
   LlmCompletionOptions,
   LlmEventStream,

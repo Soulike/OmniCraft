@@ -1,7 +1,8 @@
 import assert from 'node:assert';
 
-import type {Agent} from '@/agents/agent.js';
 import {eventBus} from '@/events/index.js';
+
+import type {Agent} from '../agent/agent.js';
 
 /**
  * In-memory store for agent instances, keyed by agent id.

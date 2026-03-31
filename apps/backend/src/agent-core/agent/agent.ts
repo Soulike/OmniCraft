@@ -1,19 +1,18 @@
 import crypto from 'node:crypto';
 
-import type {LlmConfig, LlmToolCall} from '@/api/llm/index.js';
 import {eventBus} from '@/events/index.js';
+
+import type {LlmConfig, LlmToolCall} from '../llm-api/index.js';
 import type {
   LlmSessionEventStream,
   LlmSessionTextDeltaEvent,
   ToolResult,
-} from '@/models/llm-session/index.js';
-import {LlmSession} from '@/models/llm-session/index.js';
-import {LlmSessionStore} from '@/models/llm-session-store/index.js';
-import {settingsService} from '@/services/settings/index.js';
-import type {SkillDefinition} from '@/skills/index.js';
-import type {ToolDefinition, ToolExecutionContext} from '@/tools/index.js';
-import {loadSkillTool} from '@/tools/index.js';
-
+} from '../llm-session/index.js';
+import {LlmSession} from '../llm-session/index.js';
+import {LlmSessionStore} from '../llm-session-store/index.js';
+import type {SkillDefinition} from '../skill/index.js';
+import type {ToolDefinition, ToolExecutionContext} from '../tool/index.js';
+import {loadSkillTool} from '../tool/index.js';
 import type {
   AgentDoneEvent,
   AgentEventStream,
@@ -43,12 +42,14 @@ export abstract class Agent {
   private readonly toolRegistries: AgentOptions['toolRegistries'];
   private readonly skillRegistries: AgentOptions['skillRegistries'];
   private readonly baseSystemPrompt: string;
+  private readonly getMaxToolRounds: AgentOptions['getMaxToolRounds'];
 
   constructor(getConfig: () => Promise<LlmConfig>, options: AgentOptions) {
     this.id = crypto.randomUUID();
     this.toolRegistries = options.toolRegistries;
     this.skillRegistries = options.skillRegistries;
     this.baseSystemPrompt = options.baseSystemPrompt;
+    this.getMaxToolRounds = options.getMaxToolRounds;
 
     const llmSession = new LlmSession(getConfig);
     this.llmSessionId = llmSession.id;
@@ -74,8 +75,7 @@ export abstract class Agent {
    * the LLM produces no tool calls or the maximum round limit is reached.
    */
   async *handleUserMessage(userMessage: string): AgentEventStream {
-    const settings = await settingsService.getAll();
-    const maxRounds = settings.agent.maxToolRounds;
+    const maxRounds = await this.getMaxToolRounds();
 
     const llmSession = this.getLlmSession();
 

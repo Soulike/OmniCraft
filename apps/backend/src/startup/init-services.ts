@@ -1,9 +1,9 @@
 import path from 'node:path';
 
+import {AgentStore} from '@/agent-core/agent-store/index.js';
+import {LlmSessionStore} from '@/agent-core/llm-session-store/index.js';
 import {getDataDir} from '@/helpers/env.js';
 import {logger} from '@/logger.js';
-import {AgentStore} from '@/models/agent-store/index.js';
-import {LlmSessionStore} from '@/models/llm-session-store/index.js';
 import {SettingsManager} from '@/models/settings-manager/index.js';
 import {CoreSkillRegistry} from '@/skills/index.js';
 import {CoreToolRegistry} from '@/tools/index.js';

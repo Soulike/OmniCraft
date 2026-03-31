@@ -4,8 +4,7 @@ import path from 'node:path';
 
 import {afterEach, beforeEach, describe, expect, it} from 'vitest';
 
-import {SkillDefinition} from '@/skills/skill-definition.js';
-
+import {SkillDefinition} from '../skill/skill-definition.js';
 import {loadSkillTool} from './load-skill.js';
 
 describe('loadSkillTool', () => {

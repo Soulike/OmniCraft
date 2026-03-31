@@ -1,4 +1,4 @@
-import type {LlmToolCall} from '@/api/llm/index.js';
+import type {LlmToolCall} from '../llm-api/index.js';
 
 /** A tool execution result to submit back to the LLM. */
 export interface ToolResult {

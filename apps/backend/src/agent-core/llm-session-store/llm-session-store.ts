@@ -1,7 +1,8 @@
 import assert from 'node:assert';
 
 import {eventBus} from '@/events/index.js';
-import {LlmSession} from '@/models/llm-session/index.js';
+
+import {LlmSession} from '../llm-session/index.js';
 
 /**
  * In-memory store for LLM sessions, keyed by session id.

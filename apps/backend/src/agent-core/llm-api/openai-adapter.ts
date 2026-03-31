@@ -4,8 +4,7 @@ import type OpenAI from 'openai';
 import OpenAIClient from 'openai';
 import {z} from 'zod';
 
-import type {ToolDefinition} from '@/tools/types.js';
-
+import type {ToolDefinition} from '../tool/types.js';
 import type {
   LlmCompletionOptions,
   LlmEventStream,

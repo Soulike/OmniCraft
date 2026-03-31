@@ -1,4 +1,4 @@
-import type {ToolDefinition} from '@/tools/types.js';
+import type {ToolDefinition} from '../tool/types.js';
 
 /** A tool call issued by the assistant. */
 export interface LlmToolCall {

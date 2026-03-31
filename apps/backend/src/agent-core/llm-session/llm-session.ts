@@ -1,17 +1,17 @@
 import crypto from 'node:crypto';
 
+import {eventBus} from '@/events/index.js';
+import {Mutex} from '@/helpers/mutex.js';
+
 import type {
   LlmAssistantMessage,
   LlmConfig,
   LlmMessage,
   LlmToolCall,
   LlmUsage,
-} from '@/api/llm/index.js';
-import {llmApi} from '@/api/llm/index.js';
-import {eventBus} from '@/events/index.js';
-import {Mutex} from '@/helpers/mutex.js';
-import type {ToolDefinition} from '@/tools/types.js';
-
+} from '../llm-api/index.js';
+import {llmApi} from '../llm-api/index.js';
+import type {ToolDefinition} from '../tool/types.js';
 import type {LlmSessionEventStream, ToolResult} from './types.js';
 
 /**

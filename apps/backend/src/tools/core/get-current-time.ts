@@ -1,6 +1,6 @@
 import {z} from 'zod';
 
-import type {ToolDefinition} from '../types.js';
+import type {ToolDefinition} from '@/agent-core/tool/index.js';
 
 const parameters = z.object({});
 

@@ -1,4 +1,5 @@
-import {ToolRegistry} from '../tool-registry.js';
+import {ToolRegistry} from '@/agent-core/tool/index.js';
+
 import {getCurrentTimeTool} from './get-current-time.js';
 
 /** Registry for always-available core tools. */
