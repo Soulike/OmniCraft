@@ -15,6 +15,7 @@ import type {
   AgentDoneEvent,
   AgentEventStream,
   AgentOptions,
+  AgentSnapshot,
   AgentToolExecuteEndEvent,
   AgentToolExecuteStartEvent,
 } from './types.js';
@@ -44,15 +45,30 @@ export abstract class Agent {
   private readonly baseSystemPrompt: string;
   private readonly getMaxToolRounds: AgentOptions['getMaxToolRounds'];
 
-  constructor(getConfig: () => Promise<LlmConfig>, options: AgentOptions) {
-    this.id = crypto.randomUUID();
+  constructor(
+    getConfig: () => Promise<LlmConfig>,
+    options: AgentOptions,
+    snapshot?: AgentSnapshot,
+  ) {
     this.toolRegistries = options.toolRegistries;
     this.skillRegistries = options.skillRegistries;
     this.baseSystemPrompt = options.baseSystemPrompt;
     this.getMaxToolRounds = options.getMaxToolRounds;
 
-    this.llmSession = new LlmSession(getConfig);
+    if (snapshot) {
+      this.id = snapshot.id;
+      this.llmSession = new LlmSession(getConfig, snapshot.llmSession);
+    } else {
+      this.id = crypto.randomUUID();
+      this.llmSession = new LlmSession(getConfig);
+    }
+
     agentEventBus.emit('agent-created', this);
+  }
+
+  /** Returns a serializable snapshot of this agent. */
+  toSnapshot(): AgentSnapshot {
+    return {id: this.id, llmSession: this.llmSession.toSnapshot()};
   }
 
   /**

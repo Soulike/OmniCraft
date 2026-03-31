@@ -1,3 +1,4 @@
+import type {LlmSessionSnapshot} from '../llm-session/index.js';
 import type {LlmSessionTextDeltaEvent} from '../llm-session/index.js';
 import type {SkillRegistry} from '../skill/index.js';
 import type {ToolRegistry} from '../tool/index.js';
@@ -38,6 +39,16 @@ export type AgentEvent =
 
 /** An async generator that yields agent streaming events. */
 export type AgentEventStream = AsyncGenerator<AgentEvent, void, undefined>;
+
+// ---------------------------------------------------------------------------
+// Agent Snapshot (for persistence)
+// ---------------------------------------------------------------------------
+
+/** Serializable snapshot of an Agent, used for persistence. */
+export interface AgentSnapshot {
+  id: string;
+  llmSession: LlmSessionSnapshot;
+}
 
 // ---------------------------------------------------------------------------
 // Agent Options

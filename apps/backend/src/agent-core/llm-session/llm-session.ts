@@ -12,7 +12,11 @@ import type {
 } from '../llm-api/index.js';
 import {llmApi} from '../llm-api/index.js';
 import type {ToolDefinition} from '../tool/types.js';
-import type {LlmSessionEventStream, ToolResult} from './types.js';
+import type {
+  LlmSessionEventStream,
+  LlmSessionSnapshot,
+  ToolResult,
+} from './types.js';
 
 /**
  * In-memory LLM conversation context.
@@ -33,10 +37,25 @@ export class LlmSession {
   private readonly getConfig: () => Promise<LlmConfig>;
   private readonly mutex = new Mutex();
 
-  constructor(getConfig: () => Promise<LlmConfig>) {
-    this.id = crypto.randomUUID();
+  constructor(
+    getConfig: () => Promise<LlmConfig>,
+    snapshot?: LlmSessionSnapshot,
+  ) {
     this.getConfig = getConfig;
+
+    if (snapshot) {
+      this.id = snapshot.id;
+      this.messages.push(...snapshot.messages);
+    } else {
+      this.id = crypto.randomUUID();
+    }
+
     agentEventBus.emit('llm-session-created', this);
+  }
+
+  /** Returns a serializable snapshot of this session. */
+  toSnapshot(): LlmSessionSnapshot {
+    return {id: this.id, messages: [...this.messages]};
   }
 
   /**

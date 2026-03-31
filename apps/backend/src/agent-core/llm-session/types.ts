@@ -1,4 +1,10 @@
-import type {LlmToolCall} from '../llm-api/index.js';
+import type {LlmMessage, LlmToolCall} from '../llm-api/index.js';
+
+/** Serializable snapshot of an LlmSession, used for persistence. */
+export interface LlmSessionSnapshot {
+  id: string;
+  messages: LlmMessage[];
+}
 
 /** A tool execution result to submit back to the LLM. */
 export interface ToolResult {
