@@ -1,8 +1,7 @@
-import type {AgentEventStream} from '@/agents/index.js';
-import {CoreAgent} from '@/agents/index.js';
-import type {LlmConfig} from '@/api/llm/index.js';
+import {CoreAgent} from '@/agent/agents/index.js';
+import type {AgentEventStream} from '@/agent-core/agent/index.js';
+import type {LlmConfig} from '@/agent-core/llm-api/index.js';
 import {AgentStore} from '@/models/agent-store/index.js';
-import {LlmSessionStore} from '@/models/llm-session-store/index.js';
 import {settingsService} from '@/services/settings/index.js';
 
 import type {CreateSessionResult} from './types.js';
@@ -51,13 +50,8 @@ export const chatService = {
     return agent.handleUserMessage(userMessage);
   },
 
-  /** Deletes an agent session and its associated LLM session. */
+  /** Deletes an agent session. */
   deleteSession(agentId: string): void {
-    const agentStore = AgentStore.getInstance();
-    const agent = agentStore.get(agentId);
-    if (agent) {
-      LlmSessionStore.getInstance().delete(agent.llmSessionId);
-      agentStore.delete(agentId);
-    }
+    AgentStore.getInstance().delete(agentId);
   },
 };

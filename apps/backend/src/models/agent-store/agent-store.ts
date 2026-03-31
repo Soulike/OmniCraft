@@ -1,7 +1,7 @@
 import assert from 'node:assert';
 
-import type {Agent} from '@/agents/agent.js';
-import {eventBus} from '@/events/index.js';
+import type {Agent} from '@/agent-core/agent/index.js';
+import {agentEventBus} from '@/agent-core/events/index.js';
 
 /**
  * In-memory store for agent instances, keyed by agent id.
@@ -30,14 +30,14 @@ export class AgentStore {
     assert(AgentStore.instance === null, 'AgentStore is already initialized.');
     const store = new AgentStore();
     AgentStore.instance = store;
-    eventBus.on('agent-created', store.onAgentCreated);
+    agentEventBus.on('agent-created', store.onAgentCreated);
     return store;
   }
 
   /** Resets the singleton instance. Only for use in tests. */
   static resetInstance(): void {
     if (AgentStore.instance) {
-      eventBus.off('agent-created', AgentStore.instance.onAgentCreated);
+      agentEventBus.off('agent-created', AgentStore.instance.onAgentCreated);
     }
     AgentStore.instance = null;
   }
