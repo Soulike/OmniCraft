@@ -98,6 +98,25 @@ interface ToolExecutionContext {
 - Creates a `FileContentCache` instance, held for the Agent's lifetime.
 - `executeTool()` injects both `workingDirectory` and `fileCache` into `ToolExecutionContext`.
 
+### AgentSnapshot
+
+Add a serializable `options` object to persist agent configuration:
+
+```typescript
+export interface AgentSnapshotOptions {
+  workingDirectory: string;
+}
+
+export interface AgentSnapshot {
+  id: string;
+  llmSession: LlmSessionSnapshot;
+  options: AgentSnapshotOptions;
+}
+```
+
+- `toSnapshot()` includes `workingDirectory` in `options`.
+- Constructor restores `workingDirectory` from `snapshot.options` when resuming.
+
 ### Test helpers
 
 - `createMockContext()` updated to include `workingDirectory` and `fileCache` defaults.
@@ -152,7 +171,8 @@ Framework changes in `apps/backend/src/agent-core/`:
 
 ```
 agent-core/
+├── agent/types.ts           # add AgentSnapshotOptions, update AgentSnapshot
+├── agent/agent.ts           # accept workingDirectory, create FileContentCache, inject into context
 ├── tool/types.ts            # add workingDirectory, fileCache to ToolExecutionContext
-├── tool/testing.ts          # update createMockContext
-└── agent/agent.ts           # accept workingDirectory, create FileContentCache, inject into context
+└── tool/testing.ts          # update createMockContext
 ```
