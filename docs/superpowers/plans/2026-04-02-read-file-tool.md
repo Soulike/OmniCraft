@@ -50,7 +50,7 @@
 
 - [ ] **Step 1: Add `workingDirectory` and `fileCache` to `ToolExecutionContext`**
 
-In `apps/backend/src/agent-core/tool/types.ts`, add a forward-declared import for `FileContentCache` and two new fields:
+In `apps/backend/src/agent-core/tool/types.ts`, add a forward-declared interface for `FileContentCache` and two new fields:
 
 ```typescript
 import type {z} from 'zod';
@@ -108,15 +108,15 @@ export interface ToolDefinition<T extends z.ZodType = z.ZodType> {
 }
 ```
 
-- [ ] **Step 2: Add `AgentSnapshotOptions` and `workingDirectory` to agent types**
+- [ ] **Step 2: Add `AgentSnapshotOptions`, `workingDirectory`, and `fileCache` to agent types**
 
-In `apps/backend/src/agent-core/agent/types.ts`, add `AgentSnapshotOptions`, update `AgentSnapshot`, and add `workingDirectory` to `AgentOptions`:
+In `apps/backend/src/agent-core/agent/types.ts`, add `AgentSnapshotOptions`, update `AgentSnapshot`, and add `workingDirectory` + `fileCache` to `AgentOptions`:
 
 ```typescript
 import type {LlmSessionSnapshot} from '../llm-session/index.js';
 import type {LlmSessionTextDeltaEvent} from '../llm-session/index.js';
 import type {SkillRegistry} from '../skill/index.js';
-import type {ToolRegistry} from '../tool/index.js';
+import type {FileContentCache, ToolRegistry} from '../tool/index.js';
 import type {ToolSetRegistry} from '../tool-set/index.js';
 
 // ---------------------------------------------------------------------------
@@ -183,6 +183,7 @@ export interface AgentOptions {
   readonly baseSystemPrompt: string;
   readonly getMaxToolRounds: () => Promise<number> | number;
   readonly workingDirectory: string;
+  readonly fileCache: FileContentCache;
 }
 ```
 
@@ -290,314 +291,7 @@ git commit -m "feat(backend): add workingDirectory and fileCache to ToolExecutio
 
 ---
 
-### Task 2: Wire `workingDirectory` and `FileContentCache` into Agent
-
-**Files:**
-
-- Modify: `apps/backend/src/agent-core/agent/agent.ts`
-- Modify: `apps/backend/src/agent/agents/core-agent/core-agent.ts`
-- Modify: `apps/backend/src/services/chat/chat-service.ts`
-
-- [ ] **Step 1: Update `Agent` to accept `workingDirectory`, create cache, inject into context**
-
-In `apps/backend/src/agent-core/agent/agent.ts`, add imports, a `workingDirectory` field, a `fileCache` field, and update `executeTool` and `toSnapshot`:
-
-The `Agent` class needs a concrete `FileContentCache` implementation. But we haven't built it yet. For now, we need the `FileContentCache` interface from `types.ts` — the Agent will receive the cache instance from the subclass. We'll add a `fileCache` to `AgentOptions` so subclasses can provide their own implementation.
-
-First, update `AgentOptions` in `types.ts` to include `fileCache`:
-
-In `apps/backend/src/agent-core/agent/types.ts`, add the import and field:
-
-```typescript
-import type {LlmSessionSnapshot} from '../llm-session/index.js';
-import type {LlmSessionTextDeltaEvent} from '../llm-session/index.js';
-import type {SkillRegistry} from '../skill/index.js';
-import type {FileContentCache, ToolRegistry} from '../tool/index.js';
-import type {ToolSetRegistry} from '../tool-set/index.js';
-
-// ... (event types unchanged) ...
-
-// ---------------------------------------------------------------------------
-// Agent Options
-// ---------------------------------------------------------------------------
-
-export interface AgentOptions {
-  readonly toolRegistries: ToolRegistry[];
-  readonly toolSetRegistries: ToolSetRegistry[];
-  readonly skillRegistries: SkillRegistry[];
-  readonly baseSystemPrompt: string;
-  readonly getMaxToolRounds: () => Promise<number> | number;
-  readonly workingDirectory: string;
-  readonly fileCache: FileContentCache;
-}
-```
-
-Then update `apps/backend/src/agent-core/agent/agent.ts`:
-
-```typescript
-import crypto from 'node:crypto';
-
-import {agentEventBus} from '../events/index.js';
-import type {LlmConfig, LlmToolCall} from '../llm-api/index.js';
-import type {
-  LlmSessionEventStream,
-  LlmSessionTextDeltaEvent,
-  ToolResult,
-} from '../llm-session/index.js';
-import {LlmSession} from '../llm-session/index.js';
-import type {SkillDefinition} from '../skill/index.js';
-import type {
-  FileContentCache,
-  ToolDefinition,
-  ToolExecutionContext,
-} from '../tool/index.js';
-import {loadSkillTool} from '../tool/index.js';
-import type {ToolSetDefinition} from '../tool-set/index.js';
-import {loadToolSetTool} from '../tool-set/index.js';
-import type {
-  AgentDoneEvent,
-  AgentEventStream,
-  AgentOptions,
-  AgentSnapshot,
-  AgentToolExecuteEndEvent,
-  AgentToolExecuteStartEvent,
-} from './types.js';
-
-/**
- * Base class for all agents.
- *
- * Implements the full Agent Loop: send user message → stream LLM response →
- * execute tool calls → submit results → repeat until done or max rounds.
- *
- * Subclasses only differ in what they pass to `super()`.
- */
-export abstract class Agent {
-  /** Unique identifier for this agent session. */
-  readonly id: string;
-
-  /** The LLM session used by this agent. */
-  private readonly llmSession: LlmSession;
-
-  private readonly toolRegistries: AgentOptions['toolRegistries'];
-  private readonly toolSetRegistries: AgentOptions['toolSetRegistries'];
-  private readonly skillRegistries: AgentOptions['skillRegistries'];
-  private readonly baseSystemPrompt: string;
-  private readonly getMaxToolRounds: AgentOptions['getMaxToolRounds'];
-  private readonly workingDirectory: string;
-  private readonly fileCache: FileContentCache;
-
-  /** Tool sets loaded into this agent session via the `load_toolset` tool. */
-  private readonly loadedToolSets = new Set<ToolSetDefinition>();
-
-  constructor(
-    getConfig: () => Promise<LlmConfig>,
-    options: AgentOptions,
-    snapshot?: AgentSnapshot,
-  ) {
-    this.toolRegistries = options.toolRegistries;
-    this.toolSetRegistries = options.toolSetRegistries;
-    this.skillRegistries = options.skillRegistries;
-    this.baseSystemPrompt = options.baseSystemPrompt;
-    this.getMaxToolRounds = options.getMaxToolRounds;
-    this.fileCache = options.fileCache;
-
-    if (snapshot) {
-      this.id = snapshot.id;
-      this.workingDirectory = snapshot.options.workingDirectory;
-      this.llmSession = new LlmSession(getConfig, snapshot.llmSession);
-    } else {
-      this.id = crypto.randomUUID();
-      this.workingDirectory = options.workingDirectory;
-      this.llmSession = new LlmSession(getConfig);
-    }
-
-    agentEventBus.emit('agent-created', this);
-  }
-
-  /** Returns a serializable snapshot of this agent. */
-  toSnapshot(): AgentSnapshot {
-    return {
-      id: this.id,
-      llmSession: this.llmSession.toSnapshot(),
-      options: {
-        workingDirectory: this.workingDirectory,
-      },
-    };
-  }
-
-  // ... handleUserMessage and private helpers unchanged except executeTool ...
-
-  /**
-   * Executes a single tool call. Returns the result content and whether it errored.
-   */
-  private async executeTool(
-    toolCall: LlmToolCall,
-    availableTools: ReadonlyMap<string, ToolDefinition>,
-  ): Promise<{content: string; isError: boolean}> {
-    const tool = availableTools.get(toolCall.toolName);
-    if (!tool) {
-      return {
-        content: `Error: Unknown tool: ${toolCall.toolName}`,
-        isError: true,
-      };
-    }
-
-    const context: ToolExecutionContext = {
-      availableSkills: this.getAvailableSkills(),
-      availableToolSets: this.getAvailableToolSets(),
-      loadedToolSets: this.loadedToolSets,
-      loadToolSetToAgent: (toolSet) => {
-        this.loadedToolSets.add(toolSet);
-      },
-      workingDirectory: this.workingDirectory,
-      fileCache: this.fileCache,
-    };
-
-    try {
-      const parsedArgs: unknown = tool.parameters.parse(
-        JSON.parse(toolCall.arguments),
-      );
-      const content = await tool.execute(parsedArgs, context);
-      return {content, isError: false};
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : String(error);
-      return {content: `Error: ${message}`, isError: true};
-    }
-  }
-}
-```
-
-Note: Only the constructor, `toSnapshot()`, fields, and `executeTool()` change. All other methods (`handleUserMessage`, `getAvailableTools`, `getAvailableSkills`, `getAvailableToolSets`, `buildSystemPrompt`, `consumeStream`) remain unchanged.
-
-- [ ] **Step 2: Update `CoreAgent` to pass `workingDirectory` and `fileCache`**
-
-We need the real `FileContentCache` class, which doesn't exist yet. For now, create a minimal placeholder that satisfies the interface so we can wire things up. We will replace it with the real implementation in Task 3.
-
-In `apps/backend/src/agent/agents/core-agent/core-agent.ts`:
-
-```typescript
-import {CoreSkillRegistry} from '@/agent/skills/index.js';
-import {CoreToolSetRegistry} from '@/agent/tool-sets/index.js';
-import {CoreToolRegistry, FileToolRegistry} from '@/agent/tools/index.js';
-import {Agent} from '@/agent-core/agent/index.js';
-import type {LlmConfig} from '@/agent-core/llm-api/index.js';
-import type {FileContentCache} from '@/agent-core/tool/index.js';
-import {settingsService} from '@/services/settings/index.js';
-
-/** No-op cache used until the real FileContentCache is implemented. */
-const noopFileCache: FileContentCache = {
-  get: () => Promise.resolve(undefined),
-  set: () => Promise.resolve(),
-  invalidate: () => {
-    // noop
-  },
-};
-
-/**
- * Default agent with core tools and skills.
- * Used as the standard agent type for chat sessions.
- */
-export class CoreAgent extends Agent {
-  constructor(getConfig: () => Promise<LlmConfig>, workingDirectory: string) {
-    super(getConfig, {
-      toolRegistries: [
-        CoreToolRegistry.getInstance(),
-        FileToolRegistry.getInstance(),
-      ],
-      toolSetRegistries: [CoreToolSetRegistry.getInstance()],
-      skillRegistries: [CoreSkillRegistry.getInstance()],
-      baseSystemPrompt: 'You are a helpful assistant.',
-      getMaxToolRounds: async () => {
-        const settings = await settingsService.getAll();
-        return settings.agent.maxToolRounds;
-      },
-      workingDirectory,
-      fileCache: noopFileCache,
-    });
-  }
-}
-```
-
-- [ ] **Step 3: Update `chatService` to pass `workingDirectory`**
-
-In `apps/backend/src/services/chat/chat-service.ts`, use `process.cwd()` as the default working directory for now:
-
-```typescript
-import {CoreAgent} from '@/agent/agents/index.js';
-import type {AgentEventStream} from '@/agent-core/agent/index.js';
-import type {LlmConfig} from '@/agent-core/llm-api/index.js';
-import {AgentStore} from '@/models/agent-store/index.js';
-import {settingsService} from '@/services/settings/index.js';
-
-import type {CreateSessionResult} from './types.js';
-import {CreateSessionError} from './types.js';
-
-/** Returns the current LLM configuration from settings. */
-async function getLlmConfig(): Promise<LlmConfig> {
-  const settings = await settingsService.getAll();
-  const {apiFormat, apiKey, baseUrl, model} = settings.llm;
-  return {apiFormat, apiKey, baseUrl, model};
-}
-
-/** Service layer for chat operations. */
-export const chatService = {
-  /**
-   * Creates a new Agent Session with a CoreAgent.
-   * Validates LLM configuration before creating the session.
-   */
-  async createSession(): Promise<CreateSessionResult> {
-    const config = await getLlmConfig();
-
-    if (!config.baseUrl) {
-      return {
-        success: false,
-        error: CreateSessionError.BASE_URL_NOT_CONFIGURED,
-      };
-    }
-    if (!config.model) {
-      return {success: false, error: CreateSessionError.MODEL_NOT_CONFIGURED};
-    }
-
-    const agent = new CoreAgent(getLlmConfig, process.cwd());
-    return {success: true, sessionId: agent.id};
-  },
-
-  /**
-   * Streams a completion for the given agent.
-   * Returns undefined if the agent does not exist.
-   */
-  streamCompletion(
-    agentId: string,
-    userMessage: string,
-  ): AgentEventStream | undefined {
-    const agent = AgentStore.getInstance().get(agentId);
-    if (!agent) return undefined;
-    return agent.handleUserMessage(userMessage);
-  },
-
-  /** Deletes an agent session. */
-  deleteSession(agentId: string): void {
-    AgentStore.getInstance().delete(agentId);
-  },
-};
-```
-
-- [ ] **Step 4: Run typecheck and tests**
-
-Run: `cd apps/backend && bun run typecheck && bun run test`
-
-Expected: Type check passes, all tests pass.
-
-- [ ] **Step 5: Commit**
-
-```bash
-git add apps/backend/src/agent-core/agent/agent.ts apps/backend/src/agent-core/agent/types.ts apps/backend/src/agent/agents/core-agent/core-agent.ts apps/backend/src/services/chat/chat-service.ts
-git commit -m "feat(backend): wire workingDirectory and fileCache into Agent"
-```
-
----
-
-### Task 3: Implement `FileContentCache`
+### Task 2: Implement `FileContentCache`
 
 **Files:**
 
@@ -859,6 +553,237 @@ Expected: All tests PASS.
 ```bash
 git add apps/backend/src/agent/tools/file/file-content-cache.ts apps/backend/src/agent/tools/file/file-content-cache.test.ts
 git commit -m "feat(backend): implement FileContentCache with LRU eviction"
+```
+
+---
+
+### Task 3: Wire `workingDirectory` and `FileContentCache` into Agent
+
+**Files:**
+
+- Modify: `apps/backend/src/agent-core/agent/agent.ts`
+- Modify: `apps/backend/src/agent/agents/core-agent/core-agent.ts`
+- Modify: `apps/backend/src/agent/tools/file/index.ts`
+- Modify: `apps/backend/src/agent/tools/index.ts`
+- Modify: `apps/backend/src/services/chat/chat-service.ts`
+
+- [ ] **Step 1: Update `Agent` base class**
+
+In `apps/backend/src/agent-core/agent/agent.ts`, add `workingDirectory` and `fileCache` fields, update constructor, `toSnapshot()`, and `executeTool()`:
+
+```typescript
+import crypto from 'node:crypto';
+
+import {agentEventBus} from '../events/index.js';
+import type {LlmConfig, LlmToolCall} from '../llm-api/index.js';
+import type {
+  LlmSessionEventStream,
+  LlmSessionTextDeltaEvent,
+  ToolResult,
+} from '../llm-session/index.js';
+import {LlmSession} from '../llm-session/index.js';
+import type {SkillDefinition} from '../skill/index.js';
+import type {
+  FileContentCache,
+  ToolDefinition,
+  ToolExecutionContext,
+} from '../tool/index.js';
+import {loadSkillTool} from '../tool/index.js';
+import type {ToolSetDefinition} from '../tool-set/index.js';
+import {loadToolSetTool} from '../tool-set/index.js';
+import type {
+  AgentDoneEvent,
+  AgentEventStream,
+  AgentOptions,
+  AgentSnapshot,
+  AgentToolExecuteEndEvent,
+  AgentToolExecuteStartEvent,
+} from './types.js';
+
+/**
+ * Base class for all agents.
+ *
+ * Implements the full Agent Loop: send user message → stream LLM response →
+ * execute tool calls → submit results → repeat until done or max rounds.
+ *
+ * Subclasses only differ in what they pass to `super()`.
+ */
+export abstract class Agent {
+  /** Unique identifier for this agent session. */
+  readonly id: string;
+
+  /** The LLM session used by this agent. */
+  private readonly llmSession: LlmSession;
+
+  private readonly toolRegistries: AgentOptions['toolRegistries'];
+  private readonly toolSetRegistries: AgentOptions['toolSetRegistries'];
+  private readonly skillRegistries: AgentOptions['skillRegistries'];
+  private readonly baseSystemPrompt: string;
+  private readonly getMaxToolRounds: AgentOptions['getMaxToolRounds'];
+  private readonly workingDirectory: string;
+  private readonly fileCache: FileContentCache;
+
+  /** Tool sets loaded into this agent session via the `load_toolset` tool. */
+  private readonly loadedToolSets = new Set<ToolSetDefinition>();
+
+  constructor(
+    getConfig: () => Promise<LlmConfig>,
+    options: AgentOptions,
+    snapshot?: AgentSnapshot,
+  ) {
+    this.toolRegistries = options.toolRegistries;
+    this.toolSetRegistries = options.toolSetRegistries;
+    this.skillRegistries = options.skillRegistries;
+    this.baseSystemPrompt = options.baseSystemPrompt;
+    this.getMaxToolRounds = options.getMaxToolRounds;
+    this.fileCache = options.fileCache;
+
+    if (snapshot) {
+      this.id = snapshot.id;
+      this.workingDirectory = snapshot.options.workingDirectory;
+      this.llmSession = new LlmSession(getConfig, snapshot.llmSession);
+    } else {
+      this.id = crypto.randomUUID();
+      this.workingDirectory = options.workingDirectory;
+      this.llmSession = new LlmSession(getConfig);
+    }
+
+    agentEventBus.emit('agent-created', this);
+  }
+
+  /** Returns a serializable snapshot of this agent. */
+  toSnapshot(): AgentSnapshot {
+    return {
+      id: this.id,
+      llmSession: this.llmSession.toSnapshot(),
+      options: {
+        workingDirectory: this.workingDirectory,
+      },
+    };
+  }
+
+  // ... handleUserMessage, consumeStream, getAvailableTools, getAvailableSkills,
+  //     getAvailableToolSets, buildSystemPrompt — ALL UNCHANGED ...
+
+  /**
+   * Executes a single tool call. Returns the result content and whether it errored.
+   */
+  private async executeTool(
+    toolCall: LlmToolCall,
+    availableTools: ReadonlyMap<string, ToolDefinition>,
+  ): Promise<{content: string; isError: boolean}> {
+    const tool = availableTools.get(toolCall.toolName);
+    if (!tool) {
+      return {
+        content: `Error: Unknown tool: ${toolCall.toolName}`,
+        isError: true,
+      };
+    }
+
+    const context: ToolExecutionContext = {
+      availableSkills: this.getAvailableSkills(),
+      availableToolSets: this.getAvailableToolSets(),
+      loadedToolSets: this.loadedToolSets,
+      loadToolSetToAgent: (toolSet) => {
+        this.loadedToolSets.add(toolSet);
+      },
+      workingDirectory: this.workingDirectory,
+      fileCache: this.fileCache,
+    };
+
+    try {
+      const parsedArgs: unknown = tool.parameters.parse(
+        JSON.parse(toolCall.arguments),
+      );
+      const content = await tool.execute(parsedArgs, context);
+      return {content, isError: false};
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      return {content: `Error: ${message}`, isError: true};
+    }
+  }
+}
+```
+
+Note: Only the constructor, field declarations, `toSnapshot()`, and `executeTool()` change. All other methods remain unchanged.
+
+- [ ] **Step 2: Update `CoreAgent` to pass `workingDirectory` and real `FileContentCache`**
+
+Update `apps/backend/src/agent/tools/file/index.ts` to export `FileContentCache`:
+
+```typescript
+export {FileContentCache} from './file-content-cache.js';
+export {FileToolRegistry} from './file-tool-registry.js';
+```
+
+Update `apps/backend/src/agent/tools/index.ts` to re-export:
+
+```typescript
+export {CoreToolRegistry} from './core/core-tool-registry.js';
+export {FileContentCache} from './file/file-content-cache.js';
+export {FileToolRegistry} from './file/file-tool-registry.js';
+```
+
+Update `apps/backend/src/agent/agents/core-agent/core-agent.ts`:
+
+```typescript
+import {CoreSkillRegistry} from '@/agent/skills/index.js';
+import {CoreToolSetRegistry} from '@/agent/tool-sets/index.js';
+import {
+  CoreToolRegistry,
+  FileContentCache,
+  FileToolRegistry,
+} from '@/agent/tools/index.js';
+import {Agent} from '@/agent-core/agent/index.js';
+import type {LlmConfig} from '@/agent-core/llm-api/index.js';
+import {settingsService} from '@/services/settings/index.js';
+
+/**
+ * Default agent with core tools and skills.
+ * Used as the standard agent type for chat sessions.
+ */
+export class CoreAgent extends Agent {
+  constructor(getConfig: () => Promise<LlmConfig>, workingDirectory: string) {
+    super(getConfig, {
+      toolRegistries: [
+        CoreToolRegistry.getInstance(),
+        FileToolRegistry.getInstance(),
+      ],
+      toolSetRegistries: [CoreToolSetRegistry.getInstance()],
+      skillRegistries: [CoreSkillRegistry.getInstance()],
+      baseSystemPrompt: 'You are a helpful assistant.',
+      getMaxToolRounds: async () => {
+        const settings = await settingsService.getAll();
+        return settings.agent.maxToolRounds;
+      },
+      workingDirectory,
+      fileCache: new FileContentCache(),
+    });
+  }
+}
+```
+
+- [ ] **Step 3: Update `chatService` to pass `workingDirectory`**
+
+In `apps/backend/src/services/chat/chat-service.ts`, use `process.cwd()` as the default working directory:
+
+```typescript
+const agent = new CoreAgent(getLlmConfig, process.cwd());
+```
+
+This is the only line that changes in the file.
+
+- [ ] **Step 4: Run typecheck and tests**
+
+Run: `cd apps/backend && bun run typecheck && bun run test`
+
+Expected: Type check passes, all tests pass.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add apps/backend/src/agent-core/agent/agent.ts apps/backend/src/agent/agents/core-agent/core-agent.ts apps/backend/src/agent/tools/file/index.ts apps/backend/src/agent/tools/index.ts apps/backend/src/services/chat/chat-service.ts
+git commit -m "feat(backend): wire workingDirectory and FileContentCache into Agent"
 ```
 
 ---
@@ -1250,7 +1175,7 @@ export class FileToolRegistry extends ToolRegistry {
 }
 ```
 
-- [ ] **Step 2: Update barrel export**
+- [ ] **Step 2: Update barrel export to include `readFileTool`**
 
 Update `apps/backend/src/agent/tools/file/index.ts`:
 
@@ -1260,64 +1185,15 @@ export {FileToolRegistry} from './file-tool-registry.js';
 export {readFileTool} from './read-file.js';
 ```
 
-- [ ] **Step 3: Replace noop cache in `CoreAgent` with real `FileContentCache`**
-
-Update `apps/backend/src/agent/agents/core-agent/core-agent.ts`:
-
-```typescript
-import {CoreSkillRegistry} from '@/agent/skills/index.js';
-import {CoreToolSetRegistry} from '@/agent/tool-sets/index.js';
-import {
-  CoreToolRegistry,
-  FileContentCache,
-  FileToolRegistry,
-} from '@/agent/tools/index.js';
-import {Agent} from '@/agent-core/agent/index.js';
-import type {LlmConfig} from '@/agent-core/llm-api/index.js';
-import {settingsService} from '@/services/settings/index.js';
-
-/**
- * Default agent with core tools and skills.
- * Used as the standard agent type for chat sessions.
- */
-export class CoreAgent extends Agent {
-  constructor(getConfig: () => Promise<LlmConfig>, workingDirectory: string) {
-    super(getConfig, {
-      toolRegistries: [
-        CoreToolRegistry.getInstance(),
-        FileToolRegistry.getInstance(),
-      ],
-      toolSetRegistries: [CoreToolSetRegistry.getInstance()],
-      skillRegistries: [CoreSkillRegistry.getInstance()],
-      baseSystemPrompt: 'You are a helpful assistant.',
-      getMaxToolRounds: async () => {
-        const settings = await settingsService.getAll();
-        return settings.agent.maxToolRounds;
-      },
-      workingDirectory,
-      fileCache: new FileContentCache(),
-    });
-  }
-}
-```
-
-- [ ] **Step 4: Update `apps/backend/src/agent/tools/index.ts` barrel**
-
-```typescript
-export {CoreToolRegistry} from './core/core-tool-registry.js';
-export {FileContentCache} from './file/file-content-cache.js';
-export {FileToolRegistry} from './file/file-tool-registry.js';
-```
-
-- [ ] **Step 5: Run full typecheck and test suite**
+- [ ] **Step 3: Run full typecheck and test suite**
 
 Run: `cd apps/backend && bun run typecheck && bun run test`
 
 Expected: All type checks pass, all tests pass.
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 4: Commit**
 
 ```bash
-git add apps/backend/src/agent/tools/file/file-tool-registry.ts apps/backend/src/agent/tools/file/index.ts apps/backend/src/agent/agents/core-agent/core-agent.ts apps/backend/src/agent/tools/index.ts
-git commit -m "feat(backend): register read_file tool and wire up FileContentCache"
+git add apps/backend/src/agent/tools/file/file-tool-registry.ts apps/backend/src/agent/tools/file/index.ts
+git commit -m "feat(backend): register read_file tool in FileToolRegistry"
 ```
