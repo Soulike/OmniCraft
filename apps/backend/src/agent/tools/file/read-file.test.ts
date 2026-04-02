@@ -188,7 +188,8 @@ describe('readFileTool', () => {
         context,
       );
 
-      expect(result).toContain('Error: Read result exceeds 32KB limit');
+      expect(result).toContain('Error: Read result exceeds');
+      expect(result).toContain('byte limit');
       expect(result).toContain('200 lines');
     });
   });

@@ -8,9 +8,17 @@ import type {
   ToolExecutionContext,
 } from '@/agent-core/tool/index.js';
 
-import {formatWithLineNumbers, isBinaryFile, isSubPath} from './helpers.js';
+import {
+  countLines,
+  formatWithLineNumbers,
+  isBinaryFile,
+  isSubPath,
+  readLineRange,
+  ReadSizeLimitError,
+} from './helpers.js';
 
 const MAX_RETURN_SIZE = 32_768; // 32KB
+const MAX_FULL_READ_FILE_SIZE = 1_048_576; // 1MB
 
 const parameters = z.object({
   filePath: z
@@ -76,49 +84,65 @@ export const readFileTool: ToolDefinition<typeof parameters> = {
       return `Error: Unable to check if file is binary: ${args.filePath}`;
     }
 
-    // 5. Get content (cache or disk)
-    let fullContent: string | undefined = await fileCache.get(absolutePath);
-    if (fullContent === undefined) {
-      try {
-        fullContent = await fs.readFile(absolutePath, 'utf-8');
-      } catch (error: unknown) {
-        const message = error instanceof Error ? error.message : String(error);
-        return `Error: ${message}`;
-      }
-      await fileCache.set(absolutePath, fullContent);
-    }
-
-    // 6. Split into lines and extract range
-    const allLines = fullContent.split('\n');
-    if (allLines.length > 0 && allLines[allLines.length - 1] === '') {
-      allLines.pop();
-    }
-    const totalLines = allLines.length;
-
+    // 5–6. Get content and extract lines
     const startLine = args.startLine ?? 1;
+    let selectedLines: string[];
+    let totalLines: number;
+
+    try {
+      if (stat.size <= MAX_FULL_READ_FILE_SIZE) {
+        // Small file: use cache, parse lines from memory
+        let content: string | undefined = await fileCache.get(absolutePath);
+        if (content === undefined) {
+          content = await fs.readFile(absolutePath, 'utf-8');
+          await fileCache.set(absolutePath, content);
+        }
+        const contentBuffer = Buffer.from(content);
+        [totalLines, selectedLines] = await Promise.all([
+          countLines(contentBuffer),
+          readLineRange(
+            contentBuffer,
+            startLine,
+            args.lineCount,
+            MAX_RETURN_SIZE,
+          ),
+        ]);
+      } else {
+        // Large file: stream from disk, never load full content into memory
+        [totalLines, selectedLines] = await Promise.all([
+          countLines(absolutePath),
+          readLineRange(
+            absolutePath,
+            startLine,
+            args.lineCount,
+            MAX_RETURN_SIZE,
+          ),
+        ]);
+      }
+    } catch (error: unknown) {
+      if (error instanceof ReadSizeLimitError) {
+        const lines = await countLines(absolutePath);
+        return (
+          `Error: ${error.message}. ` +
+          `File: ${args.filePath} (${lines} lines). ` +
+          `Use startLine and lineCount to read a portion.`
+        );
+      }
+      const message = error instanceof Error ? error.message : String(error);
+      return `Error: ${message}`;
+    }
+
     const endLine = args.lineCount
       ? Math.min(startLine + args.lineCount - 1, totalLines)
       : totalLines;
 
-    const selectedLines = allLines.slice(startLine - 1, endLine);
-
-    // 7. Format with line numbers
+    // 7. Format with line numbers and return
     const formatted = formatWithLineNumbers(
       selectedLines,
       startLine,
       totalLines,
     );
 
-    // 8. Check size limit
-    if (Buffer.byteLength(formatted) > MAX_RETURN_SIZE) {
-      return (
-        `Error: Read result exceeds 32KB limit. ` +
-        `File: ${args.filePath} (${totalLines} lines). ` +
-        `Use startLine and lineCount to read a portion.`
-      );
-    }
-
-    // 9. Build header and return
     const isPartial = startLine !== 1 || endLine !== totalLines;
     const rangeInfo = isPartial
       ? ` (${totalLines} lines, showing lines ${startLine}-${endLine})`

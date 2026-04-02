@@ -4,7 +4,14 @@ import path from 'node:path';
 
 import {afterEach, beforeEach, describe, expect, it} from 'vitest';
 
-import {formatWithLineNumbers, isBinaryFile, isSubPath} from './helpers.js';
+import {
+  countLines,
+  formatWithLineNumbers,
+  isBinaryFile,
+  isSubPath,
+  readLineRange,
+  ReadSizeLimitError,
+} from './helpers.js';
 
 describe('isSubPath', () => {
   it('returns true for a direct child', () => {
@@ -93,5 +100,88 @@ describe('formatWithLineNumbers', () => {
   it('handles single line', () => {
     const result = formatWithLineNumbers(['only'], 1, 1);
     expect(result).toBe('1\tonly');
+  });
+});
+
+describe('countLines', () => {
+  let tmpDir: string;
+
+  beforeEach(async () => {
+    tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'cl-test-'));
+  });
+
+  afterEach(async () => {
+    await fs.rm(tmpDir, {recursive: true, force: true});
+  });
+
+  it('counts lines in a multi-line file', async () => {
+    const filePath = path.join(tmpDir, 'lines.txt');
+    await fs.writeFile(filePath, 'a\nb\nc\nd\ne\n');
+    expect(await countLines(filePath)).toBe(5);
+  });
+
+  it('counts lines in a file without trailing newline', async () => {
+    const filePath = path.join(tmpDir, 'no-newline.txt');
+    await fs.writeFile(filePath, 'a\nb\nc');
+    expect(await countLines(filePath)).toBe(3);
+  });
+
+  it('returns 1 for a single-line file', async () => {
+    const filePath = path.join(tmpDir, 'single.txt');
+    await fs.writeFile(filePath, 'only line\n');
+    expect(await countLines(filePath)).toBe(1);
+  });
+});
+
+describe('readLineRange', () => {
+  let tmpDir: string;
+
+  beforeEach(async () => {
+    tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'rlr-test-'));
+  });
+
+  afterEach(async () => {
+    await fs.rm(tmpDir, {recursive: true, force: true});
+  });
+
+  const MAX_BYTES = 1_048_576; // 1MB — generous limit for basic tests
+
+  it('reads all lines when no lineCount is given', async () => {
+    const filePath = path.join(tmpDir, 'all.txt');
+    await fs.writeFile(filePath, 'a\nb\nc\n');
+    const lines = await readLineRange(filePath, 1, undefined, MAX_BYTES);
+    expect(lines).toEqual(['a', 'b', 'c']);
+  });
+
+  it('reads a specific range from the middle', async () => {
+    const filePath = path.join(tmpDir, 'range.txt');
+    await fs.writeFile(filePath, 'a\nb\nc\nd\ne\n');
+    const lines = await readLineRange(filePath, 2, 3, MAX_BYTES);
+    expect(lines).toEqual(['b', 'c', 'd']);
+  });
+
+  it('returns empty array when startLine exceeds total lines', async () => {
+    const filePath = path.join(tmpDir, 'short.txt');
+    await fs.writeFile(filePath, 'a\nb\n');
+    const lines = await readLineRange(filePath, 100, undefined, MAX_BYTES);
+    expect(lines).toEqual([]);
+  });
+
+  it('stops at end of file when lineCount extends beyond', async () => {
+    const filePath = path.join(tmpDir, 'end.txt');
+    await fs.writeFile(filePath, 'a\nb\nc\n');
+    const lines = await readLineRange(filePath, 2, 100, MAX_BYTES);
+    expect(lines).toEqual(['b', 'c']);
+  });
+
+  it('throws ReadSizeLimitError when result exceeds maxBytes', async () => {
+    const filePath = path.join(tmpDir, 'big.txt');
+    await fs.writeFile(
+      filePath,
+      'a'.repeat(100) + '\n' + 'b'.repeat(100) + '\n',
+    );
+    await expect(readLineRange(filePath, 1, undefined, 50)).rejects.toThrow(
+      ReadSizeLimitError,
+    );
   });
 });
