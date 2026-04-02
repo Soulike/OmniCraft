@@ -1,5 +1,6 @@
 import type {z} from 'zod';
 
+import type {FileContentCache} from '../agent/file-content-cache.js';
 import type {SkillDefinition} from '../skill/skill-definition.js';
 import type {ToolSetDefinition} from '../tool-set/tool-set-definition.js';
 import type {LoadToolSetToAgentFn} from '../tool-set/types.js';
@@ -17,6 +18,12 @@ export interface ToolExecutionContext {
 
   /** Loads a tool set into the Agent, making its tools available in subsequent rounds. */
   readonly loadToolSetToAgent: LoadToolSetToAgentFn;
+
+  /** The Agent's working directory. File tools resolve relative paths against this. */
+  readonly workingDirectory: string;
+
+  /** LRU cache for file contents, scoped to the Agent's lifetime. */
+  readonly fileCache: FileContentCache;
 }
 
 /**

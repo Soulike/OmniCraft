@@ -1,3 +1,5 @@
+import os from 'node:os';
+
 import {CoreAgent} from '@/agent/agents/index.js';
 import type {AgentEventStream} from '@/agent-core/agent/index.js';
 import type {LlmConfig} from '@/agent-core/llm-api/index.js';
@@ -33,7 +35,7 @@ export const chatService = {
       return {success: false, error: CreateSessionError.MODEL_NOT_CONFIGURED};
     }
 
-    const agent = new CoreAgent(getLlmConfig);
+    const agent = new CoreAgent(getLlmConfig, os.tmpdir());
     return {success: true, sessionId: agent.id};
   },
 

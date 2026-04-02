@@ -2,8 +2,11 @@
  * Shared test helpers for the tool module.
  * Only imported by test files — never by production code.
  */
+import os from 'node:os';
+
 import {z} from 'zod';
 
+import {FileContentCache} from '../agent/file-content-cache.js';
 import type {ToolSetDefinition} from '../tool-set/tool-set-definition.js';
 import type {ToolDefinition, ToolExecutionContext} from './types.js';
 
@@ -29,6 +32,8 @@ export function createMockContext(
     loadToolSetToAgent: () => {
       // noop
     },
+    workingDirectory: os.tmpdir(),
+    fileCache: new FileContentCache(),
     ...overrides,
   };
 }
