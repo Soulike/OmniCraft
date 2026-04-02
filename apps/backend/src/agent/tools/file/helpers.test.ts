@@ -61,6 +61,17 @@ describe('isBinaryFile', () => {
     await fs.writeFile(filePath, '');
     expect(await isBinaryFile(filePath)).toBe(false);
   });
+
+  it('returns false when null byte is beyond 8KB detection range', async () => {
+    const textPart = 'a'.repeat(8_192);
+    const nullPart = Buffer.from([0x00]);
+    const filePath = path.join(tmpDir, 'late-null.bin');
+    await fs.writeFile(
+      filePath,
+      Buffer.concat([Buffer.from(textPart), nullPart]),
+    );
+    expect(await isBinaryFile(filePath)).toBe(false);
+  });
 });
 
 describe('formatWithLineNumbers', () => {

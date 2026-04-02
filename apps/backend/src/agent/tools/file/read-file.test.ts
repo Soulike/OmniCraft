@@ -108,6 +108,25 @@ describe('readFileTool', () => {
       expect(result).toContain('  1\tline1');
       expect(result).toContain('  2\tline2');
     });
+    it('handles empty file', async () => {
+      await writeFile('empty.txt', '');
+      const result = await readFileTool.execute(
+        {filePath: 'empty.txt'},
+        context,
+      );
+
+      expect(result).toContain('File: empty.txt (0 lines)');
+    });
+
+    it('returns empty content when startLine exceeds total lines', async () => {
+      await writeFile('short.txt', 'a\nb\nc');
+      const result = await readFileTool.execute(
+        {filePath: 'short.txt', startLine: 100},
+        context,
+      );
+
+      expect(result).toContain('(3 lines, showing lines 100-3)');
+    });
   });
 
   describe('error cases', () => {
