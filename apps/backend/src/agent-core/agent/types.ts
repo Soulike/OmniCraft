@@ -45,10 +45,16 @@ export type AgentEventStream = AsyncGenerator<AgentEvent, void, undefined>;
 // Agent Snapshot (for persistence)
 // ---------------------------------------------------------------------------
 
+/** Serializable agent configuration persisted in snapshots. */
+export interface AgentSnapshotOptions {
+  workingDirectory: string;
+}
+
 /** Serializable snapshot of an Agent, used for persistence. */
 export interface AgentSnapshot {
   id: string;
   llmSession: LlmSessionSnapshot;
+  options: AgentSnapshotOptions;
 }
 
 // ---------------------------------------------------------------------------
@@ -61,4 +67,5 @@ export interface AgentOptions {
   readonly skillRegistries: SkillRegistry[];
   readonly baseSystemPrompt: string;
   readonly getMaxToolRounds: () => Promise<number> | number;
+  readonly workingDirectory: string;
 }

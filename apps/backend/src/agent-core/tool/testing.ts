@@ -2,8 +2,11 @@
  * Shared test helpers for the tool module.
  * Only imported by test files — never by production code.
  */
+import os from 'node:os';
+
 import {z} from 'zod';
 
+import type {FileContentCache} from '../agent/file-content-cache.js';
 import type {ToolSetDefinition} from '../tool-set/tool-set-definition.js';
 import type {ToolDefinition, ToolExecutionContext} from './types.js';
 
@@ -18,6 +21,17 @@ export function createMockTool(name: string): ToolDefinition {
   };
 }
 
+/** Creates a no-op FileContentCache for testing. */
+function createMockFileCache(): FileContentCache {
+  return {
+    get: () => Promise.resolve(undefined),
+    set: () => Promise.resolve(),
+    invalidate: () => {
+      // noop
+    },
+  };
+}
+
 /** Creates a ToolExecutionContext with sensible defaults, overridable per field. */
 export function createMockContext(
   overrides?: Partial<ToolExecutionContext>,
@@ -29,6 +43,8 @@ export function createMockContext(
     loadToolSetToAgent: () => {
       // noop
     },
+    workingDirectory: os.tmpdir(),
+    fileCache: createMockFileCache(),
     ...overrides,
   };
 }
