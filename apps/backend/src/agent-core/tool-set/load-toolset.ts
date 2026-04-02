@@ -17,9 +17,7 @@ export const loadToolSetTool: ToolDefinition<typeof parameters> = {
     args: z.infer<typeof parameters>,
     context: ToolExecutionContext,
   ): string {
-    const toolSet = context.availableToolSets.find(
-      (ts) => ts.name === args.name,
-    );
+    const toolSet = context.availableToolSets.get(args.name);
     if (!toolSet) {
       return `Error: ToolSet "${args.name}" not found.`;
     }

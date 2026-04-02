@@ -17,7 +17,7 @@ export const loadSkillTool: ToolDefinition<typeof parameters> = {
     args: z.infer<typeof parameters>,
     context: ToolExecutionContext,
   ): Promise<string> {
-    const skill = context.availableSkills.find((s) => s.name === args.name);
+    const skill = context.availableSkills.get(args.name);
     if (!skill) {
       return `Error: Skill "${args.name}" not found.`;
     }

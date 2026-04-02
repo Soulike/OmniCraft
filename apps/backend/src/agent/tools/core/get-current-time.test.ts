@@ -5,8 +5,8 @@ import type {ToolExecutionContext} from '@/agent-core/tool/index.js';
 import {getCurrentTimeTool} from './get-current-time.js';
 
 const context: ToolExecutionContext = {
-  availableSkills: [],
-  availableToolSets: [],
+  availableSkills: new Map(),
+  availableToolSets: new Map(),
   loadedToolSets: new Set(),
   loadToolSetToAgent: () => {
     // noop

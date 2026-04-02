@@ -12,8 +12,8 @@ function createContext(
   overrides?: Partial<ToolExecutionContext>,
 ): ToolExecutionContext {
   return {
-    availableSkills: [],
-    availableToolSets: [],
+    availableSkills: new Map(),
+    availableToolSets: new Map(),
     loadedToolSets: new Set(),
     loadToolSetToAgent: () => {
       // noop
@@ -49,7 +49,9 @@ describe('loadSkillTool', () => {
 
     const result = await loadSkillTool.execute(
       {name: 'test-skill'},
-      createContext({availableSkills: [skill]}),
+      createContext({
+        availableSkills: new Map([[skill.name, skill]]),
+      }),
     );
 
     expect(result).toContain('# Test Skill');

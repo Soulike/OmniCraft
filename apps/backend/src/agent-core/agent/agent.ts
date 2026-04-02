@@ -175,12 +175,12 @@ export abstract class Agent {
     }
 
     const skills = this.getAvailableSkills();
-    if (skills.length > 0) {
+    if (skills.size > 0) {
       addTool(loadSkillTool, 'built-in');
     }
 
     const toolSets = this.getAvailableToolSets();
-    if (toolSets.length > 0) {
+    if (toolSets.size > 0) {
       addTool(loadToolSetTool, 'built-in');
     }
 
@@ -191,7 +191,7 @@ export abstract class Agent {
    * Merges skills from all registries, deduplicates by reference identity.
    * Throws if two different skill instances share the same name.
    */
-  private getAvailableSkills(): SkillDefinition[] {
+  private getAvailableSkills(): ReadonlyMap<string, SkillDefinition> {
     const skillMap = new Map<string, SkillDefinition>();
 
     for (const registry of this.skillRegistries) {
@@ -207,14 +207,14 @@ export abstract class Agent {
       }
     }
 
-    return [...skillMap.values()];
+    return skillMap;
   }
 
   /**
    * Merges tool sets from all registries, deduplicates by reference identity.
    * Throws if two different tool set instances share the same name.
    */
-  private getAvailableToolSets(): ToolSetDefinition[] {
+  private getAvailableToolSets(): ReadonlyMap<string, ToolSetDefinition> {
     const toolSetMap = new Map<string, ToolSetDefinition>();
 
     for (const registry of this.toolSetRegistries) {
@@ -230,7 +230,7 @@ export abstract class Agent {
       }
     }
 
-    return [...toolSetMap.values()];
+    return toolSetMap;
   }
 
   /**
@@ -241,8 +241,8 @@ export abstract class Agent {
     let prompt = this.baseSystemPrompt;
 
     const skills = this.getAvailableSkills();
-    if (skills.length > 0) {
-      const skillLines = skills
+    if (skills.size > 0) {
+      const skillLines = [...skills.values()]
         .map((skill) => `- ${skill.name}: ${skill.description}`)
         .join('\n');
 
@@ -257,8 +257,8 @@ export abstract class Agent {
     }
 
     const toolSets = this.getAvailableToolSets();
-    if (toolSets.length > 0) {
-      const toolSetLines = toolSets
+    if (toolSets.size > 0) {
+      const toolSetLines = [...toolSets.values()]
         .map((ts) => `- ${ts.name}: ${ts.description}`)
         .join('\n');
 

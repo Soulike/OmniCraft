@@ -1,8 +1,7 @@
 import {describe, expect, it, vi} from 'vitest';
 import {z} from 'zod';
 
-import type {ToolExecutionContext} from '../tool/types.js';
-import type {ToolDefinition} from '../tool/types.js';
+import type {ToolDefinition, ToolExecutionContext} from '../tool/types.js';
 import {loadToolSetTool} from './load-toolset.js';
 import {ToolSetDefinition} from './tool-set-definition.js';
 
@@ -29,8 +28,8 @@ function createContext(
   overrides?: Partial<ToolExecutionContext>,
 ): ToolExecutionContext {
   return {
-    availableSkills: [],
-    availableToolSets: [],
+    availableSkills: new Map(),
+    availableToolSets: new Map(),
     loadedToolSets: new Set(),
     loadToolSetToAgent: () => {
       // noop
@@ -52,7 +51,7 @@ describe('loadToolSetTool', () => {
     ]);
     const loadFn = vi.fn();
     const context = createContext({
-      availableToolSets: [toolSet],
+      availableToolSets: new Map([[toolSet.name, toolSet]]),
       loadToolSetToAgent: loadFn,
     });
 
@@ -79,7 +78,7 @@ describe('loadToolSetTool', () => {
     ]);
     const loadFn = vi.fn();
     const context = createContext({
-      availableToolSets: [toolSet],
+      availableToolSets: new Map([[toolSet.name, toolSet]]),
       loadedToolSets: new Set([toolSet]),
       loadToolSetToAgent: loadFn,
     });
