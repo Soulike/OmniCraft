@@ -5,8 +5,9 @@ const BINARY_DETECTION_SIZE = 8_192; // 8KB
 
 /** Returns true if `child` is strictly inside `parent` (not equal to it). */
 export function isSubPath(parent: string, child: string): boolean {
-  const resolved = path.resolve(child);
-  return resolved.startsWith(parent + path.sep);
+  const resolvedParent = path.resolve(parent);
+  const resolvedChild = path.resolve(child);
+  return resolvedChild.startsWith(resolvedParent + path.sep);
 }
 
 /** Returns true if the file contains null bytes in its first 8KB. */
