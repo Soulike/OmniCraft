@@ -26,11 +26,12 @@ A file reading tool for the Agent system, enabling LLM to read files within the 
 
 1. Resolve path: `path.resolve(cwd, filePath)` to get absolute path.
 2. Security check: absolute path must start with `cwd`. If not, return access denied error.
-3. Check cache: if hit, extract requested line range from cached content, skip to step 8.
-4. `fs.stat`: verify file exists and is a regular file. Get file size.
+3. `fs.stat`: verify file exists and is a regular file. Get file size and mtime.
+4. Check cache: if hit **and** cached mtime/size match current stat, extract requested line range from cached content, skip to step 8.
+   If hit but mtime/size mismatch, invalidate the stale entry and continue to step 5.
 5. File size decision:
    - \> 1MB: stream through the file to count total lines and extract only the requested line range. Do not cache.
-   - \<= 1MB: read full content, store in cache (LRU eviction if total cache exceeds 10MB). Extract requested line range from content.
+   - \<= 1MB: read full content, store in cache with mtime and size (LRU eviction if total cache exceeds 10MB). Extract requested line range from content.
 6. At this point we have: the extracted lines, the total line count.
 7. Check if extracted result exceeds 32KB. If so, return error with total line count.
 8. Format output with line numbers and metadata header. Return.
@@ -106,17 +107,23 @@ LRU cache for file contents, scoped to an Agent instance.
 ### Interface
 
 ```typescript
+interface FileStats {
+  mtimeMs: number;
+  size: number;
+}
+
 class FileContentCache {
-  get(absolutePath: string): string | undefined;
-  set(absolutePath: string, content: string): void;
+  get(absolutePath: string, currentStats: FileStats): string | undefined;
+  set(absolutePath: string, content: string, stats: FileStats): void;
   invalidate(absolutePath: string): void;
 }
 ```
 
 ### Internals
 
-- Backed by `Map<string, string>` — insertion order provides LRU ordering.
-- `get()`: if found, delete and re-insert to move to end (most recently used).
+- Each cache entry stores: `{ content: string, mtimeMs: number, size: number }`.
+- Backed by `Map<string, CacheEntry>` — insertion order provides LRU ordering.
+- `get()`: if found, compare `mtimeMs` and `size` against `currentStats`. If mismatch, invalidate and return `undefined`. If valid, delete and re-insert to move to end (most recently used), return content.
 - `set()`: if new entry would cause total size to exceed 10MB, evict from the front (least recently used) until enough space is available. If a single entry exceeds 10MB, do not cache it.
 - `invalidate()`: remove the entry and update total size.
 - Tracks `currentTotalSize` as a running sum of `Buffer.byteLength(content)` for each cached entry.
