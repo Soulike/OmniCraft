@@ -646,7 +646,21 @@ export abstract class Agent {
   }
 
   // ... handleUserMessage, consumeStream, getAvailableTools, getAvailableSkills,
-  //     getAvailableToolSets, buildSystemPrompt — ALL UNCHANGED ...
+  //     getAvailableToolSets, consumeStream — ALL UNCHANGED ...
+
+  /**
+   * Combines the base system prompt with catalog sections listing
+   * all available skills and tool sets, plus the working directory.
+   */
+  private buildSystemPrompt(): string {
+    let prompt = this.baseSystemPrompt;
+
+    // ... existing skills and tool sets catalog sections unchanged ...
+
+    prompt += `\n\nWorking directory: ${this.workingDirectory}`;
+
+    return prompt;
+  }
 
   /**
    * Executes a single tool call. Returns the result content and whether it errored.
@@ -688,7 +702,7 @@ export abstract class Agent {
 }
 ```
 
-Note: Only the constructor, field declarations, `toSnapshot()`, and `executeTool()` change. All other methods remain unchanged.
+Note: The constructor, field declarations, `toSnapshot()`, `buildSystemPrompt()`, and `executeTool()` change. All other methods remain unchanged.
 
 - [ ] **Step 2: Update `CoreAgent`**
 
