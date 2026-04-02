@@ -16,12 +16,14 @@
 
 ### New files
 
-| File                                                           | Responsibility                                    |
-| -------------------------------------------------------------- | ------------------------------------------------- |
-| `apps/backend/src/agent-core/agent/file-content-cache.ts`      | LRU file content cache with mtime/size validation |
-| `apps/backend/src/agent-core/agent/file-content-cache.test.ts` | Tests for FileContentCache                        |
-| `apps/backend/src/agent/tools/file/read-file.ts`               | `read_file` tool definition                       |
-| `apps/backend/src/agent/tools/file/read-file.test.ts`          | Tests for read_file tool                          |
+| File                                                           | Responsibility                                                                |
+| -------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| `apps/backend/src/agent-core/agent/file-content-cache.ts`      | LRU file content cache with mtime/size validation                             |
+| `apps/backend/src/agent-core/agent/file-content-cache.test.ts` | Tests for FileContentCache                                                    |
+| `apps/backend/src/agent/tools/file/helpers.ts`                 | Reusable file utilities: `isSubPath`, `isBinaryFile`, `formatWithLineNumbers` |
+| `apps/backend/src/agent/tools/file/helpers.test.ts`            | Tests for file helpers                                                        |
+| `apps/backend/src/agent/tools/file/read-file.ts`               | `read_file` tool definition (orchestration only)                              |
+| `apps/backend/src/agent/tools/file/read-file.test.ts`          | Tests for read_file tool                                                      |
 
 ### Modified files
 
@@ -763,7 +765,170 @@ git commit -m "feat(backend): wire workingDirectory and FileContentCache into Ag
 
 ---
 
-### Task 4: Implement `read_file` tool
+### Task 4: Implement file helpers
+
+**Files:**
+
+- Create: `apps/backend/src/agent/tools/file/helpers.ts`
+- Test: `apps/backend/src/agent/tools/file/helpers.test.ts`
+
+- [ ] **Step 1: Write tests for helpers**
+
+Create `apps/backend/src/agent/tools/file/helpers.test.ts`:
+
+```typescript
+import fs from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
+import {afterEach, beforeEach, describe, expect, it} from 'vitest';
+
+import {formatWithLineNumbers, isBinaryFile, isSubPath} from './helpers.js';
+
+describe('isSubPath', () => {
+  it('returns true for a direct child', () => {
+    expect(isSubPath('/home/user', '/home/user/file.txt')).toBe(true);
+  });
+
+  it('returns true for a nested child', () => {
+    expect(isSubPath('/home/user', '/home/user/a/b/c.txt')).toBe(true);
+  });
+
+  it('returns false for the parent itself', () => {
+    expect(isSubPath('/home/user', '/home/user')).toBe(false);
+  });
+
+  it('returns false for a sibling directory', () => {
+    expect(isSubPath('/home/user', '/home/other/file.txt')).toBe(false);
+  });
+
+  it('returns false for path traversal', () => {
+    expect(isSubPath('/home/user', '/home/user/../other/file.txt')).toBe(false);
+  });
+
+  it('returns false for prefix trick (userdata vs user)', () => {
+    expect(isSubPath('/home/user', '/home/userdata/file.txt')).toBe(false);
+  });
+});
+
+describe('isBinaryFile', () => {
+  let tmpDir: string;
+
+  beforeEach(async () => {
+    tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'bin-test-'));
+  });
+
+  afterEach(async () => {
+    await fs.rm(tmpDir, {recursive: true, force: true});
+  });
+
+  it('returns false for a text file', async () => {
+    const filePath = path.join(tmpDir, 'text.txt');
+    await fs.writeFile(filePath, 'hello world\n');
+    expect(await isBinaryFile(filePath)).toBe(false);
+  });
+
+  it('returns true for a file with null bytes', async () => {
+    const filePath = path.join(tmpDir, 'binary.bin');
+    const buf = Buffer.from('hello\x00world');
+    await fs.writeFile(filePath, buf);
+    expect(await isBinaryFile(filePath)).toBe(true);
+  });
+
+  it('returns false for an empty file', async () => {
+    const filePath = path.join(tmpDir, 'empty.txt');
+    await fs.writeFile(filePath, '');
+    expect(await isBinaryFile(filePath)).toBe(false);
+  });
+});
+
+describe('formatWithLineNumbers', () => {
+  it('formats lines with right-aligned line numbers', () => {
+    const result = formatWithLineNumbers(['a', 'b', 'c'], 1, 3);
+    expect(result).toBe('1\ta\n2\tb\n3\tc');
+  });
+
+  it('pads line numbers to match total line count width', () => {
+    const result = formatWithLineNumbers(['x', 'y'], 1, 100);
+    expect(result).toBe('  1\tx\n  2\ty');
+  });
+
+  it('uses correct line numbers for partial reads', () => {
+    const result = formatWithLineNumbers(['d', 'e'], 4, 10);
+    expect(result).toBe(' 4\td\n 5\te');
+  });
+
+  it('handles single line', () => {
+    const result = formatWithLineNumbers(['only'], 1, 1);
+    expect(result).toBe('1\tonly');
+  });
+});
+```
+
+- [ ] **Step 2: Run tests to verify they fail**
+
+Run: `cd apps/backend && bun run test -- src/agent/tools/file/helpers.test.ts`
+
+Expected: FAIL — module not found.
+
+- [ ] **Step 3: Implement helpers**
+
+Create `apps/backend/src/agent/tools/file/helpers.ts`:
+
+```typescript
+import fs from 'node:fs/promises';
+import path from 'node:path';
+
+const BINARY_DETECTION_SIZE = 8_192; // 8KB
+
+/** Returns true if `child` is strictly inside `parent` (not equal to it). */
+export function isSubPath(parent: string, child: string): boolean {
+  const resolved = path.resolve(child);
+  return resolved.startsWith(parent + path.sep);
+}
+
+/** Returns true if the file contains null bytes in its first 8KB. */
+export async function isBinaryFile(absolutePath: string): Promise<boolean> {
+  const handle = await fs.open(absolutePath, 'r');
+  try {
+    const stat = await handle.stat();
+    const buf = Buffer.alloc(Math.min(BINARY_DETECTION_SIZE, stat.size));
+    if (buf.length === 0) return false;
+    await handle.read(buf, 0, buf.length, 0);
+    return buf.includes(0x00);
+  } finally {
+    await handle.close();
+  }
+}
+
+/** Formats lines with right-aligned line numbers and tab separators. */
+export function formatWithLineNumbers(
+  lines: string[],
+  startLine: number,
+  totalLines: number,
+): string {
+  const width = String(totalLines).length;
+  return lines
+    .map((line, i) => `${String(startLine + i).padStart(width)}\t${line}`)
+    .join('\n');
+}
+```
+
+- [ ] **Step 4: Run tests to verify they pass**
+
+Run: `cd apps/backend && bun run test -- src/agent/tools/file/helpers.test.ts`
+
+Expected: All tests PASS.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add apps/backend/src/agent/tools/file/helpers.ts apps/backend/src/agent/tools/file/helpers.test.ts
+git commit -m "feat(backend): add file helpers (isSubPath, isBinaryFile, formatWithLineNumbers)"
+```
+
+---
+
+### Task 5: Implement `read_file` tool
 
 **Files:**
 
@@ -972,8 +1137,9 @@ import type {
   ToolExecutionContext,
 } from '@/agent-core/tool/index.js';
 
+import {formatWithLineNumbers, isBinaryFile, isSubPath} from './helpers.js';
+
 const MAX_RETURN_SIZE = 32_768; // 32KB
-const BINARY_DETECTION_SIZE = 8_192; // 8KB
 
 const parameters = z.object({
   filePath: z
@@ -1014,10 +1180,7 @@ export const readFileTool: ToolDefinition<typeof parameters> = {
     const absolutePath = path.resolve(workingDirectory, args.filePath);
 
     // 2. Security check
-    if (
-      !absolutePath.startsWith(workingDirectory + path.sep) &&
-      absolutePath !== workingDirectory
-    ) {
+    if (!isSubPath(workingDirectory, absolutePath)) {
       return 'Error: Access denied: path is outside the working directory';
     }
 
@@ -1035,15 +1198,8 @@ export const readFileTool: ToolDefinition<typeof parameters> = {
 
     // 4. Binary check
     try {
-      const handle = await fs.open(absolutePath, 'r');
-      try {
-        const buf = Buffer.alloc(Math.min(BINARY_DETECTION_SIZE, stat.size));
-        await handle.read(buf, 0, buf.length, 0);
-        if (buf.includes(0x00)) {
-          return `Error: Binary file detected: ${args.filePath}. Only text files are supported.`;
-        }
-      } finally {
-        await handle.close();
+      if (await isBinaryFile(absolutePath)) {
+        return `Error: Binary file detected: ${args.filePath}. Only text files are supported.`;
       }
     } catch {
       return `Error: Binary file detected: ${args.filePath}. Only text files are supported.`;
@@ -1063,7 +1219,6 @@ export const readFileTool: ToolDefinition<typeof parameters> = {
 
     // 6. Split into lines and extract range
     const allLines = fullContent.split('\n');
-    // Remove trailing empty line from final newline
     if (allLines.length > 0 && allLines[allLines.length - 1] === '') {
       allLines.pop();
     }
@@ -1077,13 +1232,11 @@ export const readFileTool: ToolDefinition<typeof parameters> = {
     const selectedLines = allLines.slice(startLine - 1, endLine);
 
     // 7. Format with line numbers
-    const lineNumberWidth = String(totalLines).length;
-    const formatted = selectedLines
-      .map(
-        (line, i) =>
-          `${String(startLine + i).padStart(lineNumberWidth)}\t${line}`,
-      )
-      .join('\n');
+    const formatted = formatWithLineNumbers(
+      selectedLines,
+      startLine,
+      totalLines,
+    );
 
     // 8. Check size limit
     if (Buffer.byteLength(formatted) > MAX_RETURN_SIZE) {
@@ -1121,7 +1274,7 @@ git commit -m "feat(backend): implement read_file tool"
 
 ---
 
-### Task 5: Register tool and update exports
+### Task 6: Register tool and update exports
 
 **Files:**
 
