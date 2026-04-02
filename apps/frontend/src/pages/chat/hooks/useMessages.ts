@@ -6,6 +6,25 @@ import type {
   ToolExecutionStartContent,
 } from '../types.js';
 
+/**
+ * Returns the message array without the trailing empty assistant text
+ * placeholder, or unchanged if the last message is not one.
+ */
+function removeTrailingAssistantMessageIfEmpty(
+  messages: ChatMessage[],
+): ChatMessage[] {
+  if (messages.length === 0) return messages;
+  const last = messages[messages.length - 1];
+  if (
+    last.role === 'assistant' &&
+    last.content.type === 'text' &&
+    last.content.content === ''
+  ) {
+    return messages.slice(0, -1);
+  }
+  return messages;
+}
+
 /** Manages the chat message history in React state. */
 export function useMessages() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -57,10 +76,17 @@ export function useMessages() {
     });
   }, []);
 
-  /** Pushes a tool-execution-start message to the end of the message list. */
+  /**
+   * Pushes a tool-execution-start message to the end of the message list.
+   * Removes a trailing empty assistant text placeholder first, since the
+   * LLM may issue a tool call without producing any text.
+   */
   const pushToolExecutionStart = useCallback(
     (content: ToolExecutionStartContent) => {
-      setMessages((prev) => [...prev, {role: 'assistant', content}]);
+      setMessages((prev) => {
+        const base = removeTrailingAssistantMessageIfEmpty(prev);
+        return [...base, {role: 'assistant' as const, content}];
+      });
     },
     [],
   );
@@ -90,18 +116,7 @@ export function useMessages() {
    * (unused streaming slot).
    */
   const removeLastAssistantMessageIfEmpty = useCallback(() => {
-    setMessages((prev) => {
-      if (prev.length === 0) return prev;
-      const last = prev[prev.length - 1];
-      if (
-        last.role === 'assistant' &&
-        last.content.type === 'text' &&
-        last.content.content === ''
-      ) {
-        return prev.slice(0, -1);
-      }
-      return prev;
-    });
+    setMessages(removeTrailingAssistantMessageIfEmpty);
   }, []);
 
   /** Clears all messages. */
