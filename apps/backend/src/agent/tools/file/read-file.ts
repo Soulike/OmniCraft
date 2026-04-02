@@ -73,7 +73,7 @@ export const readFileTool: ToolDefinition<typeof parameters> = {
         return `Error: Binary file detected: ${args.filePath}. Only text files are supported.`;
       }
     } catch {
-      return `Error: Binary file detected: ${args.filePath}. Only text files are supported.`;
+      return `Error: Unable to check if file is binary: ${args.filePath}`;
     }
 
     // 5. Get content (cache or disk)
