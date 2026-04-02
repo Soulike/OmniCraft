@@ -121,11 +121,9 @@ export const readFileTool: ToolDefinition<typeof parameters> = {
       }
     } catch (error: unknown) {
       if (error instanceof ReadSizeLimitError) {
-        const lines = await countLines(absolutePath);
         return (
           `Error: ${error.message}. ` +
-          `File: ${args.filePath} (${lines} lines). ` +
-          `Use startLine and lineCount to read a portion.`
+          `Use startLine and lineCount to read a smaller portion.`
         );
       }
       const message = error instanceof Error ? error.message : String(error);

@@ -190,7 +190,7 @@ describe('readFileTool', () => {
 
       expect(result).toContain('Error: Read result exceeds');
       expect(result).toContain('byte limit');
-      expect(result).toContain('200 lines');
+      expect(result).toContain('Use startLine and lineCount');
     });
   });
 });
