@@ -2,6 +2,7 @@ import type {LlmSessionSnapshot} from '../llm-session/index.js';
 import type {LlmSessionTextDeltaEvent} from '../llm-session/index.js';
 import type {SkillRegistry} from '../skill/index.js';
 import type {ToolRegistry} from '../tool/index.js';
+import type {ToolSetRegistry} from '../tool-set/index.js';
 
 // ---------------------------------------------------------------------------
 // Agent Event Types
@@ -56,6 +57,7 @@ export interface AgentSnapshot {
 
 export interface AgentOptions {
   readonly toolRegistries: ToolRegistry[];
+  readonly toolSetRegistries: ToolSetRegistry[];
   readonly skillRegistries: SkillRegistry[];
   readonly baseSystemPrompt: string;
   readonly getMaxToolRounds: () => Promise<number> | number;

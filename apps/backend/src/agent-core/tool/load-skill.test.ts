@@ -6,6 +6,21 @@ import {afterEach, beforeEach, describe, expect, it} from 'vitest';
 
 import {SkillDefinition} from '../skill/skill-definition.js';
 import {loadSkillTool} from './load-skill.js';
+import type {ToolExecutionContext} from './types.js';
+
+function createContext(
+  overrides?: Partial<ToolExecutionContext>,
+): ToolExecutionContext {
+  return {
+    availableSkills: [],
+    availableToolSets: [],
+    loadedToolSets: new Set(),
+    loadToolSetToAgent: () => {
+      // noop
+    },
+    ...overrides,
+  };
+}
 
 describe('loadSkillTool', () => {
   let tempDir: string;
@@ -34,7 +49,7 @@ describe('loadSkillTool', () => {
 
     const result = await loadSkillTool.execute(
       {name: 'test-skill'},
-      {availableSkills: [skill]},
+      createContext({availableSkills: [skill]}),
     );
 
     expect(result).toContain('# Test Skill');
@@ -44,7 +59,7 @@ describe('loadSkillTool', () => {
   it('returns error message when skill is not found', async () => {
     const result = await loadSkillTool.execute(
       {name: 'nonexistent'},
-      {availableSkills: []},
+      createContext(),
     );
 
     expect(result).toContain('not found');
