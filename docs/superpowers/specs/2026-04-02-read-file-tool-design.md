@@ -128,14 +128,9 @@ LRU cache for file contents, scoped to an Agent instance.
 ### Interface
 
 ```typescript
-interface FileStats {
-  mtimeMs: number;
-  size: number;
-}
-
 class FileContentCache {
-  get(absolutePath: string, currentStats: FileStats): string | undefined;
-  set(absolutePath: string, content: string, stats: FileStats): void;
+  get(absolutePath: string): Promise<string | undefined>;
+  set(absolutePath: string, content: string): Promise<void>;
   invalidate(absolutePath: string): void;
 }
 ```
@@ -144,9 +139,9 @@ class FileContentCache {
 
 - Each cache entry stores: `{ content: string, mtimeMs: number, size: number }`.
 - Backed by `Map<string, CacheEntry>` — insertion order provides LRU ordering.
-- `get()`: if found, compare `mtimeMs` and `size` against `currentStats`. If mismatch, invalidate and return `undefined`. If valid, delete and re-insert to move to end (most recently used), return content.
-- `set()`: if new entry would cause total size to exceed 10MB, evict from the front (least recently used) until enough space is available. If a single entry exceeds 10MB, do not cache it.
-- `invalidate()`: remove the entry and update total size.
+- `get()`: calls `fs.stat` internally to get current mtime/size. If the cached entry's mtime/size mismatch, invalidate and return `undefined`. If valid, delete and re-insert to move to end (most recently used), return content.
+- `set()`: calls `fs.stat` internally to capture mtime/size alongside content. If new entry would cause total size to exceed 10MB, evict from the front (least recently used) until enough space is available. If a single entry exceeds 10MB, do not cache it.
+- `invalidate()`: remove the entry and update total size. Synchronous (pure memory operation).
 - Tracks `currentTotalSize` as a running sum of `Buffer.byteLength(content)` for each cached entry.
 
 ### Cache Invalidation
