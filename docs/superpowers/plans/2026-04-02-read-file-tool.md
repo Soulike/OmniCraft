@@ -4,7 +4,7 @@
 
 **Goal:** Implement a `read_file` tool that enables the Agent's LLM to read text files within the working directory, with content caching, size limits, and binary detection.
 
-**Architecture:** Framework layer (`agent-core`) gets two new `ToolExecutionContext` fields: `workingDirectory` and `fileCache`. `FileContentCache` is an LRU cache keyed by absolute path with mtime/size validation. The `read_file` tool lives in the `agent/tools/file/` module and uses both context fields.
+**Architecture:** `FileContentCache` lives in `agent-core/agent/` as Agent-level infrastructure, created internally by the Agent. `ToolExecutionContext` gets `workingDirectory` and `fileCache` fields. The `read_file` tool lives in `agent/tools/file/` and uses both.
 
 **Tech Stack:** Node.js `fs/promises` for file I/O, Zod for parameter validation, Vitest for testing.
 
@@ -18,8 +18,8 @@
 
 | File                                                           | Responsibility                                    |
 | -------------------------------------------------------------- | ------------------------------------------------- |
-| `apps/backend/src/agent/tools/file/file-content-cache.ts`      | LRU file content cache with mtime/size validation |
-| `apps/backend/src/agent/tools/file/file-content-cache.test.ts` | Tests for FileContentCache                        |
+| `apps/backend/src/agent-core/agent/file-content-cache.ts`      | LRU file content cache with mtime/size validation |
+| `apps/backend/src/agent-core/agent/file-content-cache.test.ts` | Tests for FileContentCache                        |
 | `apps/backend/src/agent/tools/file/read-file.ts`               | `read_file` tool definition                       |
 | `apps/backend/src/agent/tools/file/read-file.test.ts`          | Tests for read_file tool                          |
 
@@ -28,43 +28,303 @@
 | File                                                      | Change                                                                                       |
 | --------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
 | `apps/backend/src/agent-core/agent/types.ts`              | Add `AgentSnapshotOptions`, update `AgentSnapshot`, add `workingDirectory` to `AgentOptions` |
-| `apps/backend/src/agent-core/agent/agent.ts`              | Accept `workingDirectory`, create `FileContentCache`, inject into `ToolExecutionContext`     |
-| `apps/backend/src/agent-core/agent/index.ts`              | Export `AgentSnapshotOptions`                                                                |
+| `apps/backend/src/agent-core/agent/agent.ts`              | Accept `workingDirectory`, create `FileContentCache` internally, inject into context         |
+| `apps/backend/src/agent-core/agent/index.ts`              | Export `AgentSnapshotOptions`, `FileContentCache`                                            |
 | `apps/backend/src/agent-core/tool/types.ts`               | Add `workingDirectory` and `fileCache` to `ToolExecutionContext`                             |
-| `apps/backend/src/agent-core/tool/index.ts`               | Re-export `FileContentCache` type                                                            |
+| `apps/backend/src/agent-core/tool/index.ts`               | Re-export `FileContentCache`                                                                 |
 | `apps/backend/src/agent-core/tool/testing.ts`             | Update `createMockContext()` defaults                                                        |
 | `apps/backend/src/agent/tools/file/file-tool-registry.ts` | Register `readFileTool`                                                                      |
-| `apps/backend/src/agent/tools/file/index.ts`              | Export `FileContentCache`, `readFileTool`                                                    |
+| `apps/backend/src/agent/tools/file/index.ts`              | Export `readFileTool`                                                                        |
 | `apps/backend/src/agent/agents/core-agent/core-agent.ts`  | Pass `workingDirectory` to `super()`                                                         |
 | `apps/backend/src/services/chat/chat-service.ts`          | Pass `workingDirectory` when creating `CoreAgent`                                            |
 
 ---
 
-### Task 1: Add `workingDirectory` and `fileCache` to framework types
+### Task 1: Implement `FileContentCache`
+
+**Files:**
+
+- Create: `apps/backend/src/agent-core/agent/file-content-cache.ts`
+- Test: `apps/backend/src/agent-core/agent/file-content-cache.test.ts`
+
+- [ ] **Step 1: Write tests for `FileContentCache`**
+
+Create `apps/backend/src/agent-core/agent/file-content-cache.test.ts`:
+
+```typescript
+import fs from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
+import {afterEach, beforeEach, describe, expect, it} from 'vitest';
+
+import {FileContentCache} from './file-content-cache.js';
+
+describe('FileContentCache', () => {
+  let tmpDir: string;
+  let cache: FileContentCache;
+
+  beforeEach(async () => {
+    tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'fcc-test-'));
+    cache = new FileContentCache();
+  });
+
+  afterEach(async () => {
+    await fs.rm(tmpDir, {recursive: true, force: true});
+  });
+
+  async function writeFile(name: string, content: string): Promise<string> {
+    const filePath = path.join(tmpDir, name);
+    await fs.writeFile(filePath, content);
+    return filePath;
+  }
+
+  describe('get', () => {
+    it('returns undefined for a path that was never cached', async () => {
+      const filePath = path.join(tmpDir, 'nonexistent.txt');
+      expect(await cache.get(filePath)).toBeUndefined();
+    });
+
+    it('returns cached content when file has not changed', async () => {
+      const filePath = await writeFile('a.txt', 'hello');
+      await cache.set(filePath, 'hello');
+      expect(await cache.get(filePath)).toBe('hello');
+    });
+
+    it('returns undefined and invalidates when file mtime changes', async () => {
+      const filePath = await writeFile('a.txt', 'v1');
+      await cache.set(filePath, 'v1');
+
+      await new Promise((r) => setTimeout(r, 50));
+      await fs.writeFile(filePath, 'v2');
+
+      expect(await cache.get(filePath)).toBeUndefined();
+    });
+
+    it('returns undefined and invalidates when file size changes', async () => {
+      const filePath = await writeFile('a.txt', 'short');
+      await cache.set(filePath, 'short');
+
+      await new Promise((r) => setTimeout(r, 50));
+      await fs.writeFile(filePath, 'a much longer content string');
+
+      expect(await cache.get(filePath)).toBeUndefined();
+    });
+  });
+
+  describe('set', () => {
+    it('stores content that can be retrieved', async () => {
+      const filePath = await writeFile('a.txt', 'content');
+      await cache.set(filePath, 'content');
+      expect(await cache.get(filePath)).toBe('content');
+    });
+
+    it('does not cache content exceeding single file limit', async () => {
+      const bigContent = 'x'.repeat(1_100_000); // > 1MB
+      const filePath = await writeFile('big.txt', bigContent);
+      await cache.set(filePath, bigContent);
+      expect(await cache.get(filePath)).toBeUndefined();
+    });
+
+    it('evicts LRU entries when total size exceeds limit', async () => {
+      const smallCache = new FileContentCache({
+        maxFileSizeBytes: 100,
+        maxTotalFileSizeBytes: 100,
+      });
+      const f1 = await writeFile('f1.txt', 'a'.repeat(60));
+      const f2 = await writeFile('f2.txt', 'b'.repeat(60));
+
+      await smallCache.set(f1, 'a'.repeat(60));
+      await smallCache.set(f2, 'b'.repeat(60));
+
+      expect(await smallCache.get(f1)).toBeUndefined();
+      expect(await smallCache.get(f2)).toBe('b'.repeat(60));
+    });
+  });
+
+  describe('invalidate', () => {
+    it('removes a cached entry', async () => {
+      const filePath = await writeFile('a.txt', 'content');
+      await cache.set(filePath, 'content');
+      cache.invalidate(filePath);
+      expect(await cache.get(filePath)).toBeUndefined();
+    });
+
+    it('is a no-op for unknown paths', () => {
+      expect(() => cache.invalidate('/no/such/path')).not.toThrow();
+    });
+  });
+
+  describe('LRU ordering', () => {
+    it('get() refreshes entry, preventing eviction', async () => {
+      const smallCache = new FileContentCache({
+        maxFileSizeBytes: 150,
+        maxTotalFileSizeBytes: 150,
+      });
+      const f1 = await writeFile('f1.txt', 'a'.repeat(60));
+      const f2 = await writeFile('f2.txt', 'b'.repeat(60));
+      const f3 = await writeFile('f3.txt', 'c'.repeat(60));
+
+      await smallCache.set(f1, 'a'.repeat(60));
+      await smallCache.set(f2, 'b'.repeat(60));
+
+      await smallCache.get(f1);
+
+      await smallCache.set(f3, 'c'.repeat(60));
+
+      expect(await smallCache.get(f1)).toBe('a'.repeat(60));
+      expect(await smallCache.get(f2)).toBeUndefined();
+      expect(await smallCache.get(f3)).toBe('c'.repeat(60));
+    });
+  });
+});
+```
+
+- [ ] **Step 2: Run test to verify it fails**
+
+Run: `cd apps/backend && bun run test -- src/agent-core/agent/file-content-cache.test.ts`
+
+Expected: FAIL — `FileContentCache` is not exported from `./file-content-cache.js`.
+
+- [ ] **Step 3: Implement `FileContentCache`**
+
+Create `apps/backend/src/agent-core/agent/file-content-cache.ts`:
+
+```typescript
+import fs from 'node:fs/promises';
+
+const DEFAULT_MAX_FILE_SIZE_BYTES = 1_048_576; // 1MB
+const DEFAULT_MAX_TOTAL_FILE_SIZE_BYTES = 10_485_760; // 10MB
+
+interface CacheEntry {
+  content: string;
+  mtimeMs: number;
+  size: number;
+  byteLength: number;
+}
+
+interface FileContentCacheOptions {
+  maxFileSizeBytes: number;
+  maxTotalFileSizeBytes: number;
+}
+
+/** LRU cache for file contents with mtime/size validation. */
+export class FileContentCache {
+  private readonly entries = new Map<string, CacheEntry>();
+  private readonly maxFileSizeBytes: number;
+  private readonly maxTotalFileSizeBytes: number;
+  private currentTotalBytes = 0;
+
+  constructor(options?: FileContentCacheOptions) {
+    this.maxFileSizeBytes =
+      options?.maxFileSizeBytes ?? DEFAULT_MAX_FILE_SIZE_BYTES;
+    this.maxTotalFileSizeBytes =
+      options?.maxTotalFileSizeBytes ?? DEFAULT_MAX_TOTAL_FILE_SIZE_BYTES;
+  }
+
+  /** Returns cached content if valid, or undefined if missing/stale. */
+  async get(absolutePath: string): Promise<string | undefined> {
+    const entry = this.entries.get(absolutePath);
+    if (!entry) return undefined;
+
+    let stat: Awaited<ReturnType<typeof fs.stat>>;
+    try {
+      stat = await fs.stat(absolutePath);
+    } catch {
+      this.invalidate(absolutePath);
+      return undefined;
+    }
+
+    if (stat.mtimeMs !== entry.mtimeMs || stat.size !== entry.size) {
+      this.invalidate(absolutePath);
+      return undefined;
+    }
+
+    // Move to end (most recently used)
+    this.entries.delete(absolutePath);
+    this.entries.set(absolutePath, entry);
+
+    return entry.content;
+  }
+
+  /** Caches file content with current mtime/size. Skips files exceeding max file size. */
+  async set(absolutePath: string, content: string): Promise<void> {
+    const byteLength = Buffer.byteLength(content);
+    if (byteLength > this.maxFileSizeBytes) return;
+
+    this.invalidate(absolutePath);
+    this.evictUntilFits(byteLength);
+
+    let stat: Awaited<ReturnType<typeof fs.stat>>;
+    try {
+      stat = await fs.stat(absolutePath);
+    } catch {
+      return;
+    }
+
+    this.entries.set(absolutePath, {
+      content,
+      mtimeMs: stat.mtimeMs,
+      size: stat.size,
+      byteLength,
+    });
+    this.currentTotalBytes += byteLength;
+  }
+
+  /** Removes a cached entry. */
+  invalidate(absolutePath: string): void {
+    const entry = this.entries.get(absolutePath);
+    if (!entry) return;
+    this.currentTotalBytes -= entry.byteLength;
+    this.entries.delete(absolutePath);
+  }
+
+  /** Evicts least recently used entries until `needed` bytes fit. */
+  private evictUntilFits(needed: number): void {
+    for (const [key, entry] of this.entries) {
+      if (this.currentTotalBytes + needed <= this.maxTotalFileSizeBytes) break;
+      this.currentTotalBytes -= entry.byteLength;
+      this.entries.delete(key);
+    }
+  }
+}
+```
+
+- [ ] **Step 4: Run tests to verify they pass**
+
+Run: `cd apps/backend && bun run test -- src/agent-core/agent/file-content-cache.test.ts`
+
+Expected: All tests PASS.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add apps/backend/src/agent-core/agent/file-content-cache.ts apps/backend/src/agent-core/agent/file-content-cache.test.ts
+git commit -m "feat(backend): implement FileContentCache with LRU eviction"
+```
+
+---
+
+### Task 2: Add `workingDirectory` and `fileCache` to framework types
 
 **Files:**
 
 - Modify: `apps/backend/src/agent-core/tool/types.ts`
+- Modify: `apps/backend/src/agent-core/tool/index.ts`
+- Modify: `apps/backend/src/agent-core/tool/testing.ts`
 - Modify: `apps/backend/src/agent-core/agent/types.ts`
 - Modify: `apps/backend/src/agent-core/agent/index.ts`
 
 - [ ] **Step 1: Add `workingDirectory` and `fileCache` to `ToolExecutionContext`**
 
-In `apps/backend/src/agent-core/tool/types.ts`, add a forward-declared interface for `FileContentCache` and two new fields:
+In `apps/backend/src/agent-core/tool/types.ts`, import `FileContentCache` and add two new fields:
 
 ```typescript
 import type {z} from 'zod';
 
+import type {FileContentCache} from '../agent/file-content-cache.js';
 import type {SkillDefinition} from '../skill/skill-definition.js';
 import type {ToolSetDefinition} from '../tool-set/tool-set-definition.js';
 import type {LoadToolSetToAgentFn} from '../tool-set/types.js';
-
-/** Forward-declared to avoid circular dependency with the agent/tools layer. */
-export interface FileContentCache {
-  get(absolutePath: string): Promise<string | undefined>;
-  set(absolutePath: string, content: string): Promise<void>;
-  invalidate(absolutePath: string): void;
-}
 
 /** Execution context provided by the Agent to each Tool at call time. */
 export interface ToolExecutionContext {
@@ -108,15 +368,15 @@ export interface ToolDefinition<T extends z.ZodType = z.ZodType> {
 }
 ```
 
-- [ ] **Step 2: Add `AgentSnapshotOptions`, `workingDirectory`, and `fileCache` to agent types**
+- [ ] **Step 2: Add `AgentSnapshotOptions` and `workingDirectory` to agent types**
 
-In `apps/backend/src/agent-core/agent/types.ts`, add `AgentSnapshotOptions`, update `AgentSnapshot`, and add `workingDirectory` + `fileCache` to `AgentOptions`:
+In `apps/backend/src/agent-core/agent/types.ts`, add `AgentSnapshotOptions`, update `AgentSnapshot`, and add `workingDirectory` to `AgentOptions`:
 
 ```typescript
 import type {LlmSessionSnapshot} from '../llm-session/index.js';
 import type {LlmSessionTextDeltaEvent} from '../llm-session/index.js';
 import type {SkillRegistry} from '../skill/index.js';
-import type {FileContentCache, ToolRegistry} from '../tool/index.js';
+import type {ToolRegistry} from '../tool/index.js';
 import type {ToolSetRegistry} from '../tool-set/index.js';
 
 // ---------------------------------------------------------------------------
@@ -183,16 +443,16 @@ export interface AgentOptions {
   readonly baseSystemPrompt: string;
   readonly getMaxToolRounds: () => Promise<number> | number;
   readonly workingDirectory: string;
-  readonly fileCache: FileContentCache;
 }
 ```
 
-- [ ] **Step 3: Export `AgentSnapshotOptions` and `FileContentCache` from barrel files**
+- [ ] **Step 3: Export from barrel files**
 
 In `apps/backend/src/agent-core/agent/index.ts`:
 
 ```typescript
 export {Agent} from './agent.js';
+export {FileContentCache} from './file-content-cache.js';
 export type {
   AgentDoneEvent,
   AgentEvent,
@@ -210,11 +470,7 @@ In `apps/backend/src/agent-core/tool/index.ts`:
 ```typescript
 export {loadSkillTool} from './load-skill.js';
 export {ToolRegistry} from './tool-registry.js';
-export type {
-  FileContentCache,
-  ToolDefinition,
-  ToolExecutionContext,
-} from './types.js';
+export type {ToolDefinition, ToolExecutionContext} from './types.js';
 ```
 
 - [ ] **Step 4: Update `createMockContext()` test helper**
@@ -229,12 +485,9 @@ In `apps/backend/src/agent-core/tool/testing.ts`:
 import os from 'node:os';
 import {z} from 'zod';
 
+import type {FileContentCache} from '../agent/file-content-cache.js';
 import type {ToolSetDefinition} from '../tool-set/tool-set-definition.js';
-import type {
-  FileContentCache,
-  ToolDefinition,
-  ToolExecutionContext,
-} from './types.js';
+import type {ToolDefinition, ToolExecutionContext} from './types.js';
 
 /** Creates a minimal mock ToolDefinition. */
 export function createMockTool(name: string): ToolDefinition {
@@ -280,7 +533,7 @@ export function createMockContext(
 
 Run: `cd apps/backend && bun run test`
 
-Expected: All existing tests pass (the mock context now includes new fields with defaults).
+Expected: All existing tests pass.
 
 - [ ] **Step 6: Commit**
 
@@ -291,292 +544,17 @@ git commit -m "feat(backend): add workingDirectory and fileCache to ToolExecutio
 
 ---
 
-### Task 2: Implement `FileContentCache`
-
-**Files:**
-
-- Create: `apps/backend/src/agent/tools/file/file-content-cache.ts`
-- Test: `apps/backend/src/agent/tools/file/file-content-cache.test.ts`
-
-- [ ] **Step 1: Write tests for `FileContentCache`**
-
-Create `apps/backend/src/agent/tools/file/file-content-cache.test.ts`:
-
-```typescript
-import fs from 'node:fs/promises';
-import os from 'node:os';
-import path from 'node:path';
-import {afterEach, beforeEach, describe, expect, it} from 'vitest';
-
-import {FileContentCache} from './file-content-cache.js';
-
-describe('FileContentCache', () => {
-  let tmpDir: string;
-  let cache: FileContentCache;
-
-  beforeEach(async () => {
-    tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'fcc-test-'));
-    cache = new FileContentCache();
-  });
-
-  afterEach(async () => {
-    await fs.rm(tmpDir, {recursive: true, force: true});
-  });
-
-  async function writeFile(name: string, content: string): Promise<string> {
-    const filePath = path.join(tmpDir, name);
-    await fs.writeFile(filePath, content);
-    return filePath;
-  }
-
-  describe('get', () => {
-    it('returns undefined for a path that was never cached', async () => {
-      const filePath = path.join(tmpDir, 'nonexistent.txt');
-      expect(await cache.get(filePath)).toBeUndefined();
-    });
-
-    it('returns cached content when file has not changed', async () => {
-      const filePath = await writeFile('a.txt', 'hello');
-      await cache.set(filePath, 'hello');
-      expect(await cache.get(filePath)).toBe('hello');
-    });
-
-    it('returns undefined and invalidates when file mtime changes', async () => {
-      const filePath = await writeFile('a.txt', 'v1');
-      await cache.set(filePath, 'v1');
-
-      // Overwrite to change mtime (add small delay to ensure mtime differs)
-      await new Promise((r) => setTimeout(r, 50));
-      await fs.writeFile(filePath, 'v2');
-
-      expect(await cache.get(filePath)).toBeUndefined();
-    });
-
-    it('returns undefined and invalidates when file size changes', async () => {
-      const filePath = await writeFile('a.txt', 'short');
-      await cache.set(filePath, 'short');
-
-      // Truncate changes size but may keep same mtime on fast writes
-      await new Promise((r) => setTimeout(r, 50));
-      await fs.writeFile(filePath, 'a much longer content string');
-
-      expect(await cache.get(filePath)).toBeUndefined();
-    });
-  });
-
-  describe('set', () => {
-    it('stores content that can be retrieved', async () => {
-      const filePath = await writeFile('a.txt', 'content');
-      await cache.set(filePath, 'content');
-      expect(await cache.get(filePath)).toBe('content');
-    });
-
-    it('does not cache content exceeding single file limit', async () => {
-      const bigContent = 'x'.repeat(1_100_000); // > 1MB
-      const filePath = await writeFile('big.txt', bigContent);
-      await cache.set(filePath, bigContent);
-      expect(await cache.get(filePath)).toBeUndefined();
-    });
-
-    it('evicts LRU entries when total size exceeds limit', async () => {
-      // Use a small cache for testing
-      const smallCache = new FileContentCache({
-        maxFileSizeBytes: 100,
-        maxTotalFileSizeBytes: 100,
-      });
-      const f1 = await writeFile('f1.txt', 'a'.repeat(60));
-      const f2 = await writeFile('f2.txt', 'b'.repeat(60));
-
-      await smallCache.set(f1, 'a'.repeat(60));
-      await smallCache.set(f2, 'b'.repeat(60));
-
-      // f1 should have been evicted to make room for f2
-      expect(await smallCache.get(f1)).toBeUndefined();
-      expect(await smallCache.get(f2)).toBe('b'.repeat(60));
-    });
-  });
-
-  describe('invalidate', () => {
-    it('removes a cached entry', async () => {
-      const filePath = await writeFile('a.txt', 'content');
-      await cache.set(filePath, 'content');
-      cache.invalidate(filePath);
-      expect(await cache.get(filePath)).toBeUndefined();
-    });
-
-    it('is a no-op for unknown paths', () => {
-      expect(() => cache.invalidate('/no/such/path')).not.toThrow();
-    });
-  });
-
-  describe('LRU ordering', () => {
-    it('get() refreshes entry, preventing eviction', async () => {
-      const smallCache = new FileContentCache({
-        maxFileSizeBytes: 150,
-        maxTotalFileSizeBytes: 150,
-      });
-      const f1 = await writeFile('f1.txt', 'a'.repeat(60));
-      const f2 = await writeFile('f2.txt', 'b'.repeat(60));
-      const f3 = await writeFile('f3.txt', 'c'.repeat(60));
-
-      await smallCache.set(f1, 'a'.repeat(60));
-      await smallCache.set(f2, 'b'.repeat(60));
-
-      // Access f1 to make it most recently used
-      await smallCache.get(f1);
-
-      // f3 should evict f2 (least recently used), not f1
-      await smallCache.set(f3, 'c'.repeat(60));
-
-      expect(await smallCache.get(f1)).toBe('a'.repeat(60));
-      expect(await smallCache.get(f2)).toBeUndefined();
-      expect(await smallCache.get(f3)).toBe('c'.repeat(60));
-    });
-  });
-});
-```
-
-- [ ] **Step 2: Run test to verify it fails**
-
-Run: `cd apps/backend && bun run test -- src/agent/tools/file/file-content-cache.test.ts`
-
-Expected: FAIL — `FileContentCache` is not exported from `./file-content-cache.js`.
-
-- [ ] **Step 3: Implement `FileContentCache`**
-
-Create `apps/backend/src/agent/tools/file/file-content-cache.ts`:
-
-```typescript
-import fs from 'node:fs/promises';
-
-const DEFAULT_MAX_FILE_SIZE_BYTES = 1_048_576; // 1MB
-const DEFAULT_MAX_TOTAL_FILE_SIZE_BYTES = 10_485_760; // 10MB
-
-interface CacheEntry {
-  content: string;
-  mtimeMs: number;
-  size: number;
-  byteLength: number;
-}
-
-interface FileContentCacheOptions {
-  maxFileSizeBytes: number;
-  maxTotalFileSizeBytes: number;
-}
-
-/** LRU cache for file contents with mtime/size validation. */
-export class FileContentCache {
-  private readonly entries = new Map<string, CacheEntry>();
-  private readonly maxFileSizeBytes: number;
-  private readonly maxTotalFileSizeBytes: number;
-  private currentTotalBytes = 0;
-
-  constructor(options?: FileContentCacheOptions) {
-    this.maxFileSizeBytes =
-      options?.maxFileSizeBytes ?? DEFAULT_MAX_FILE_SIZE_BYTES;
-    this.maxTotalFileSizeBytes =
-      options?.maxTotalFileSizeBytes ?? DEFAULT_MAX_TOTAL_FILE_SIZE_BYTES;
-  }
-
-  /** Returns cached content if valid, or undefined if missing/stale. */
-  async get(absolutePath: string): Promise<string | undefined> {
-    const entry = this.entries.get(absolutePath);
-    if (!entry) return undefined;
-
-    let stat: Awaited<ReturnType<typeof fs.stat>>;
-    try {
-      stat = await fs.stat(absolutePath);
-    } catch {
-      this.invalidate(absolutePath);
-      return undefined;
-    }
-
-    if (stat.mtimeMs !== entry.mtimeMs || stat.size !== entry.size) {
-      this.invalidate(absolutePath);
-      return undefined;
-    }
-
-    // Move to end (most recently used)
-    this.entries.delete(absolutePath);
-    this.entries.set(absolutePath, entry);
-
-    return entry.content;
-  }
-
-  /** Caches file content with current mtime/size. Skips files exceeding single file limit. */
-  async set(absolutePath: string, content: string): Promise<void> {
-    const byteLength = Buffer.byteLength(content);
-    if (byteLength > this.maxFileSizeBytes) return;
-
-    // Remove existing entry if present (will be re-inserted at end)
-    this.invalidate(absolutePath);
-
-    // Evict LRU entries until there is room
-    this.evictUntilFits(byteLength);
-
-    let stat: Awaited<ReturnType<typeof fs.stat>>;
-    try {
-      stat = await fs.stat(absolutePath);
-    } catch {
-      return;
-    }
-
-    this.entries.set(absolutePath, {
-      content,
-      mtimeMs: stat.mtimeMs,
-      size: stat.size,
-      byteLength,
-    });
-    this.currentTotalBytes += byteLength;
-  }
-
-  /** Removes a cached entry. */
-  invalidate(absolutePath: string): void {
-    const entry = this.entries.get(absolutePath);
-    if (!entry) return;
-    this.currentTotalBytes -= entry.byteLength;
-    this.entries.delete(absolutePath);
-  }
-
-  /** Evicts least recently used entries until `needed` bytes fit. */
-  private evictUntilFits(needed: number): void {
-    for (const [key, entry] of this.entries) {
-      if (this.currentTotalBytes + needed <= this.maxTotalFileSizeBytes) break;
-      this.currentTotalBytes -= entry.byteLength;
-      this.entries.delete(key);
-    }
-  }
-}
-```
-
-- [ ] **Step 4: Run tests to verify they pass**
-
-Run: `cd apps/backend && bun run test -- src/agent/tools/file/file-content-cache.test.ts`
-
-Expected: All tests PASS.
-
-- [ ] **Step 5: Commit**
-
-```bash
-git add apps/backend/src/agent/tools/file/file-content-cache.ts apps/backend/src/agent/tools/file/file-content-cache.test.ts
-git commit -m "feat(backend): implement FileContentCache with LRU eviction"
-```
-
----
-
 ### Task 3: Wire `workingDirectory` and `FileContentCache` into Agent
 
 **Files:**
 
 - Modify: `apps/backend/src/agent-core/agent/agent.ts`
 - Modify: `apps/backend/src/agent/agents/core-agent/core-agent.ts`
-- Modify: `apps/backend/src/agent/tools/file/index.ts`
-- Modify: `apps/backend/src/agent/tools/index.ts`
 - Modify: `apps/backend/src/services/chat/chat-service.ts`
 
 - [ ] **Step 1: Update `Agent` base class**
 
-In `apps/backend/src/agent-core/agent/agent.ts`, add `workingDirectory` and `fileCache` fields, update constructor, `toSnapshot()`, and `executeTool()`:
+In `apps/backend/src/agent-core/agent/agent.ts`, add `workingDirectory` field, create `FileContentCache` internally, update constructor, `toSnapshot()`, and `executeTool()`:
 
 ```typescript
 import crypto from 'node:crypto';
@@ -590,14 +568,11 @@ import type {
 } from '../llm-session/index.js';
 import {LlmSession} from '../llm-session/index.js';
 import type {SkillDefinition} from '../skill/index.js';
-import type {
-  FileContentCache,
-  ToolDefinition,
-  ToolExecutionContext,
-} from '../tool/index.js';
+import type {ToolDefinition, ToolExecutionContext} from '../tool/index.js';
 import {loadSkillTool} from '../tool/index.js';
 import type {ToolSetDefinition} from '../tool-set/index.js';
 import {loadToolSetTool} from '../tool-set/index.js';
+import {FileContentCache} from './file-content-cache.js';
 import type {
   AgentDoneEvent,
   AgentEventStream,
@@ -628,7 +603,9 @@ export abstract class Agent {
   private readonly baseSystemPrompt: string;
   private readonly getMaxToolRounds: AgentOptions['getMaxToolRounds'];
   private readonly workingDirectory: string;
-  private readonly fileCache: FileContentCache;
+
+  /** LRU file content cache, shared by all file-related tools. */
+  private readonly fileCache = new FileContentCache();
 
   /** Tool sets loaded into this agent session via the `load_toolset` tool. */
   private readonly loadedToolSets = new Set<ToolSetDefinition>();
@@ -643,7 +620,6 @@ export abstract class Agent {
     this.skillRegistries = options.skillRegistries;
     this.baseSystemPrompt = options.baseSystemPrompt;
     this.getMaxToolRounds = options.getMaxToolRounds;
-    this.fileCache = options.fileCache;
 
     if (snapshot) {
       this.id = snapshot.id;
@@ -714,33 +690,14 @@ export abstract class Agent {
 
 Note: Only the constructor, field declarations, `toSnapshot()`, and `executeTool()` change. All other methods remain unchanged.
 
-- [ ] **Step 2: Update `CoreAgent` to pass `workingDirectory` and real `FileContentCache`**
-
-Update `apps/backend/src/agent/tools/file/index.ts` to export `FileContentCache`:
-
-```typescript
-export {FileContentCache} from './file-content-cache.js';
-export {FileToolRegistry} from './file-tool-registry.js';
-```
-
-Update `apps/backend/src/agent/tools/index.ts` to re-export:
-
-```typescript
-export {CoreToolRegistry} from './core/core-tool-registry.js';
-export {FileContentCache} from './file/file-content-cache.js';
-export {FileToolRegistry} from './file/file-tool-registry.js';
-```
+- [ ] **Step 2: Update `CoreAgent`**
 
 Update `apps/backend/src/agent/agents/core-agent/core-agent.ts`:
 
 ```typescript
 import {CoreSkillRegistry} from '@/agent/skills/index.js';
 import {CoreToolSetRegistry} from '@/agent/tool-sets/index.js';
-import {
-  CoreToolRegistry,
-  FileContentCache,
-  FileToolRegistry,
-} from '@/agent/tools/index.js';
+import {CoreToolRegistry, FileToolRegistry} from '@/agent/tools/index.js';
 import {Agent} from '@/agent-core/agent/index.js';
 import type {LlmConfig} from '@/agent-core/llm-api/index.js';
 import {settingsService} from '@/services/settings/index.js';
@@ -764,7 +721,6 @@ export class CoreAgent extends Agent {
         return settings.agent.maxToolRounds;
       },
       workingDirectory,
-      fileCache: new FileContentCache(),
     });
   }
 }
@@ -772,13 +728,11 @@ export class CoreAgent extends Agent {
 
 - [ ] **Step 3: Update `chatService` to pass `workingDirectory`**
 
-In `apps/backend/src/services/chat/chat-service.ts`, use `process.cwd()` as the default working directory:
+In `apps/backend/src/services/chat/chat-service.ts`, change one line:
 
 ```typescript
 const agent = new CoreAgent(getLlmConfig, process.cwd());
 ```
-
-This is the only line that changes in the file.
 
 - [ ] **Step 4: Run typecheck and tests**
 
@@ -789,7 +743,7 @@ Expected: Type check passes, all tests pass.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add apps/backend/src/agent-core/agent/agent.ts apps/backend/src/agent/agents/core-agent/core-agent.ts apps/backend/src/agent/tools/file/index.ts apps/backend/src/agent/tools/index.ts apps/backend/src/services/chat/chat-service.ts
+git add apps/backend/src/agent-core/agent/agent.ts apps/backend/src/agent/agents/core-agent/core-agent.ts apps/backend/src/services/chat/chat-service.ts
 git commit -m "feat(backend): wire workingDirectory and FileContentCache into Agent"
 ```
 
@@ -812,10 +766,10 @@ import os from 'node:os';
 import path from 'node:path';
 import {afterEach, beforeEach, describe, expect, it} from 'vitest';
 
+import {FileContentCache} from '@/agent-core/agent/index.js';
 import {createMockContext} from '@/agent-core/tool/testing.js';
 import type {ToolExecutionContext} from '@/agent-core/tool/types.js';
 
-import {FileContentCache} from './file-content-cache.js';
 import {readFileTool} from './read-file.js';
 
 describe('readFileTool', () => {
@@ -913,7 +867,6 @@ describe('readFileTool', () => {
         context,
       );
 
-      // Line 1 should be padded to match width of "100"
       expect(result).toContain('  1\tline1');
       expect(result).toContain('  2\tline2');
     });
@@ -969,7 +922,6 @@ describe('readFileTool', () => {
     });
 
     it('returns error when result exceeds 32KB', async () => {
-      // Create a file with many long lines that exceed 32KB
       const longLine = 'x'.repeat(500);
       const lines = Array.from({length: 200}, () => longLine).join('\n');
       await writeFile('huge.txt', lines);
@@ -1187,7 +1139,6 @@ export class FileToolRegistry extends ToolRegistry {
 Update `apps/backend/src/agent/tools/file/index.ts`:
 
 ```typescript
-export {FileContentCache} from './file-content-cache.js';
 export {FileToolRegistry} from './file-tool-registry.js';
 export {readFileTool} from './read-file.js';
 ```
