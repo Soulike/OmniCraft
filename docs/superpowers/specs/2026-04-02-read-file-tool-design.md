@@ -71,7 +71,6 @@ Line numbers are right-aligned and tab-separated, matching the real line numbers
 | Not a file          | `Error: Not a file: <filePath>`                                                                                       |
 | Binary file         | `Error: Binary file detected: <filePath>. Only text files are supported.`                                             |
 | Result exceeds 32KB | `Error: Read result exceeds 32KB limit. File: <filePath> (<N> lines). Use startLine and lineCount to read a portion.` |
-| Permission denied   | `Error: Permission denied: <filePath>`                                                                                |
 | Other I/O error     | `Error: <system error message>`                                                                                       |
 
 All errors are returned as strings (not thrown), so the LLM can understand and adjust its strategy.
