@@ -16,25 +16,27 @@ A file reading tool for the Agent system, enabling LLM to read files within the 
 
 ## Constants
 
-| Name                    | Value | Purpose                                     |
-| ----------------------- | ----- | ------------------------------------------- |
-| Max return size         | 32KB  | Reject and return error if result exceeds   |
-| Single file cache limit | 1MB   | Files larger than this are not cached       |
-| Total cache size limit  | 10MB  | LRU eviction when total cached size exceeds |
+| Name                    | Value | Purpose                                         |
+| ----------------------- | ----- | ----------------------------------------------- |
+| Max return size         | 32KB  | Reject and return error if result exceeds       |
+| Single file cache limit | 1MB   | Files larger than this are not cached           |
+| Total cache size limit  | 10MB  | LRU eviction when total cached size exceeds     |
+| Binary detection size   | 8KB   | Read first 8KB to check for null bytes (binary) |
 
 ## Execution Flow
 
 1. Resolve path: `path.resolve(cwd, filePath)` to get absolute path.
 2. Security check: absolute path must start with `cwd`. If not, return access denied error.
 3. `fs.stat`: verify file exists and is a regular file. Get file size and mtime.
-4. Check cache: if hit **and** cached mtime/size match current stat, extract requested line range from cached content, skip to step 8.
-   If hit but mtime/size mismatch, invalidate the stale entry and continue to step 5.
-5. File size decision:
+4. Binary check: read first 8KB of the file. If it contains a null byte (`0x00`), return error indicating the file is binary.
+5. Check cache: if hit **and** cached mtime/size match current stat, extract requested line range from cached content, skip to step 9.
+   If hit but mtime/size mismatch, invalidate the stale entry and continue to step 6.
+6. File size decision:
    - \> 1MB: stream through the file to count total lines and extract only the requested line range. Do not cache.
    - \<= 1MB: read full content, store in cache with mtime and size (LRU eviction if total cache exceeds 10MB). Extract requested line range from content.
-6. At this point we have: the extracted lines, the total line count.
-7. Check if extracted result exceeds 32KB. If so, return error with total line count.
-8. Format output with line numbers and metadata header. Return.
+7. At this point we have: the extracted lines, the total line count.
+8. Check if extracted result exceeds 32KB. If so, return error with total line count.
+9. Format output with line numbers and metadata header. Return.
 
 ## Return Format
 
@@ -67,6 +69,7 @@ Line numbers are right-aligned and tab-separated, matching the real line numbers
 | Path outside cwd    | `Error: Access denied: path is outside the working directory`                                                         |
 | File not found      | `Error: File not found: <filePath>`                                                                                   |
 | Not a file          | `Error: Not a file: <filePath>`                                                                                       |
+| Binary file         | `Error: Binary file detected: <filePath>. Only text files are supported.`                                             |
 | Result exceeds 32KB | `Error: Read result exceeds 32KB limit. File: <filePath> (<N> lines). Use startLine and lineCount to read a portion.` |
 | Permission denied   | `Error: Permission denied: <filePath>`                                                                                |
 | Other I/O error     | `Error: <system error message>`                                                                                       |
