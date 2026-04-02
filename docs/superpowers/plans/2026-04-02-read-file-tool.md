@@ -657,7 +657,7 @@ export abstract class Agent {
 
     // ... existing skills and tool sets catalog sections unchanged ...
 
-    prompt += `\n\nWorking directory: ${this.workingDirectory}`;
+    prompt += `\n\nWorking directory: ${this.workingDirectory}\nYou can only access files within this directory.`;
 
     return prompt;
   }
