@@ -131,6 +131,22 @@ describe('countLines', () => {
     await fs.writeFile(filePath, 'only line\n');
     expect(await countLines(filePath)).toBe(1);
   });
+
+  it('counts lines from a Buffer', async () => {
+    const buf = Buffer.from('a\nb\nc\n');
+    expect(await countLines(buf)).toBe(3);
+  });
+
+  it('counts lines with CRLF line endings', async () => {
+    const filePath = path.join(tmpDir, 'crlf.txt');
+    await fs.writeFile(filePath, 'a\r\nb\r\nc\r\n');
+    expect(await countLines(filePath)).toBe(3);
+  });
+
+  it('counts lines from a Buffer with CRLF line endings', async () => {
+    const buf = Buffer.from('a\r\nb\r\nc\r\n');
+    expect(await countLines(buf)).toBe(3);
+  });
 });
 
 describe('readLineRange', () => {
@@ -183,5 +199,24 @@ describe('readLineRange', () => {
     await expect(readLineRange(filePath, 1, undefined, 50)).rejects.toThrow(
       ReadSizeLimitError,
     );
+  });
+
+  it('reads lines from a Buffer', async () => {
+    const buf = Buffer.from('a\nb\nc\nd\ne\n');
+    const lines = await readLineRange(buf, 2, 3, MAX_BYTES);
+    expect(lines).toEqual(['b', 'c', 'd']);
+  });
+
+  it('handles CRLF line endings from file', async () => {
+    const filePath = path.join(tmpDir, 'crlf.txt');
+    await fs.writeFile(filePath, 'a\r\nb\r\nc\r\n');
+    const lines = await readLineRange(filePath, 1, undefined, MAX_BYTES);
+    expect(lines).toEqual(['a', 'b', 'c']);
+  });
+
+  it('handles CRLF line endings from Buffer', async () => {
+    const buf = Buffer.from('a\r\nb\r\nc\r\n');
+    const lines = await readLineRange(buf, 1, undefined, MAX_BYTES);
+    expect(lines).toEqual(['a', 'b', 'c']);
   });
 });
