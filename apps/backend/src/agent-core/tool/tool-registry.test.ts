@@ -1,6 +1,6 @@
 import {describe, expect, it} from 'vitest';
-import {z} from 'zod';
 
+import {createMockTool} from './testing.js';
 import {ToolRegistry} from './tool-registry.js';
 import type {ToolDefinition} from './types.js';
 
@@ -14,16 +14,6 @@ class TestToolRegistry extends ToolRegistry {
   public override register(tool: ToolDefinition): void {
     super.register(tool);
   }
-}
-
-function createMockTool(name: string): ToolDefinition {
-  return {
-    name,
-    displayName: `Mock: ${name}`,
-    description: `Mock tool: ${name}`,
-    parameters: z.object({}),
-    execute: () => Promise.resolve('ok'),
-  };
 }
 
 describe('ToolRegistry', () => {

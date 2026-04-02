@@ -1,17 +1,8 @@
 import {describe, expect, it} from 'vitest';
 
-import type {ToolExecutionContext} from '@/agent-core/tool/index.js';
+import {createMockContext} from '@/agent-core/tool/testing.js';
 
 import {getCurrentTimeTool} from './get-current-time.js';
-
-const context: ToolExecutionContext = {
-  availableSkills: new Map(),
-  availableToolSets: new Map(),
-  loadedToolSets: new Set(),
-  loadToolSetToAgent: () => {
-    // noop
-  },
-};
 
 describe('getCurrentTimeTool', () => {
   it('has the correct name and description', () => {
@@ -20,14 +11,14 @@ describe('getCurrentTimeTool', () => {
   });
 
   it('returns a valid ISO 8601 date string', async () => {
-    const result = await getCurrentTimeTool.execute({}, context);
+    const result = await getCurrentTimeTool.execute({}, createMockContext());
 
     expect(new Date(result).toISOString()).toBe(result);
   });
 
   it('returns approximately the current time', async () => {
     const before = Date.now();
-    const result = await getCurrentTimeTool.execute({}, context);
+    const result = await getCurrentTimeTool.execute({}, createMockContext());
     const after = Date.now();
 
     const resultTime = new Date(result).getTime();

@@ -1,19 +1,9 @@
 import {describe, expect, it, vi} from 'vitest';
-import {z} from 'zod';
 
-import type {ToolDefinition, ToolExecutionContext} from '../tool/types.js';
+import {createMockContext, createMockTool} from '../tool/testing.js';
+import type {ToolDefinition} from '../tool/types.js';
 import {loadToolSetTool} from './load-toolset.js';
 import {ToolSetDefinition} from './tool-set-definition.js';
-
-function createMockTool(name: string): ToolDefinition {
-  return {
-    name,
-    displayName: `Mock: ${name}`,
-    description: `Mock tool: ${name}`,
-    parameters: z.object({}),
-    execute: () => Promise.resolve('ok'),
-  };
-}
 
 class TestToolSet extends ToolSetDefinition {
   constructor(name: string, description: string, tools: ToolDefinition[]) {
@@ -22,20 +12,6 @@ class TestToolSet extends ToolSetDefinition {
       this.register(tool);
     }
   }
-}
-
-function createContext(
-  overrides?: Partial<ToolExecutionContext>,
-): ToolExecutionContext {
-  return {
-    availableSkills: new Map(),
-    availableToolSets: new Map(),
-    loadedToolSets: new Set(),
-    loadToolSetToAgent: () => {
-      // noop
-    },
-    ...overrides,
-  };
 }
 
 describe('loadToolSetTool', () => {
@@ -50,7 +26,7 @@ describe('loadToolSetTool', () => {
       createMockTool('write_file'),
     ]);
     const loadFn = vi.fn();
-    const context = createContext({
+    const context = createMockContext({
       availableToolSets: new Map([[toolSet.name, toolSet]]),
       loadToolSetToAgent: loadFn,
     });
@@ -64,9 +40,10 @@ describe('loadToolSetTool', () => {
   });
 
   it('returns error when tool set is not found', () => {
-    const context = createContext();
-
-    const result = loadToolSetTool.execute({name: 'nonexistent'}, context);
+    const result = loadToolSetTool.execute(
+      {name: 'nonexistent'},
+      createMockContext(),
+    );
 
     expect(result).toContain('not found');
     expect(result).toContain('nonexistent');
@@ -77,7 +54,7 @@ describe('loadToolSetTool', () => {
       createMockTool('read_file'),
     ]);
     const loadFn = vi.fn();
-    const context = createContext({
+    const context = createMockContext({
       availableToolSets: new Map([[toolSet.name, toolSet]]),
       loadedToolSets: new Set([toolSet]),
       loadToolSetToAgent: loadFn,

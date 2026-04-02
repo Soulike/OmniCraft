@@ -1,18 +1,8 @@
 import {describe, expect, it} from 'vitest';
-import {z} from 'zod';
 
+import {createMockTool} from '../tool/testing.js';
 import type {ToolDefinition} from '../tool/types.js';
 import {ToolSetDefinition} from './tool-set-definition.js';
-
-function createMockTool(name: string): ToolDefinition {
-  return {
-    name,
-    displayName: `Mock: ${name}`,
-    description: `Mock tool: ${name}`,
-    parameters: z.object({}),
-    execute: () => Promise.resolve('ok'),
-  };
-}
 
 class TestToolSetDefinition extends ToolSetDefinition {
   /** Exposes protected register for testing. */
