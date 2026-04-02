@@ -381,8 +381,8 @@ describe('FileContentCache', () => {
     it('evicts LRU entries when total size exceeds limit', async () => {
       // Use a small cache for testing
       const smallCache = new FileContentCache({
-        singleFileLimit: 100,
-        totalSizeLimit: 100,
+        maxFileSizeBytes: 100,
+        maxTotalFileSizeBytes: 100,
       });
       const f1 = await writeFile('f1.txt', 'a'.repeat(60));
       const f2 = await writeFile('f2.txt', 'b'.repeat(60));
@@ -412,8 +412,8 @@ describe('FileContentCache', () => {
   describe('LRU ordering', () => {
     it('get() refreshes entry, preventing eviction', async () => {
       const smallCache = new FileContentCache({
-        singleFileLimit: 150,
-        totalSizeLimit: 150,
+        maxFileSizeBytes: 150,
+        maxTotalFileSizeBytes: 150,
       });
       const f1 = await writeFile('f1.txt', 'a'.repeat(60));
       const f2 = await writeFile('f2.txt', 'b'.repeat(60));
@@ -449,8 +449,8 @@ Create `apps/backend/src/agent/tools/file/file-content-cache.ts`:
 ```typescript
 import fs from 'node:fs/promises';
 
-const DEFAULT_SINGLE_FILE_LIMIT = 1_048_576; // 1MB
-const DEFAULT_TOTAL_SIZE_LIMIT = 10_485_760; // 10MB
+const DEFAULT_MAX_FILE_SIZE_BYTES = 1_048_576; // 1MB
+const DEFAULT_MAX_TOTAL_FILE_SIZE_BYTES = 10_485_760; // 10MB
 
 interface CacheEntry {
   content: string;
@@ -460,21 +460,22 @@ interface CacheEntry {
 }
 
 interface FileContentCacheOptions {
-  singleFileLimit: number;
-  totalSizeLimit: number;
+  maxFileSizeBytes: number;
+  maxTotalFileSizeBytes: number;
 }
 
 /** LRU cache for file contents with mtime/size validation. */
 export class FileContentCache {
   private readonly entries = new Map<string, CacheEntry>();
-  private readonly singleFileLimit: number;
-  private readonly totalSizeLimit: number;
-  private currentTotalSize = 0;
+  private readonly maxFileSizeBytes: number;
+  private readonly maxTotalFileSizeBytes: number;
+  private currentTotalBytes = 0;
 
   constructor(options?: FileContentCacheOptions) {
-    this.singleFileLimit =
-      options?.singleFileLimit ?? DEFAULT_SINGLE_FILE_LIMIT;
-    this.totalSizeLimit = options?.totalSizeLimit ?? DEFAULT_TOTAL_SIZE_LIMIT;
+    this.maxFileSizeBytes =
+      options?.maxFileSizeBytes ?? DEFAULT_MAX_FILE_SIZE_BYTES;
+    this.maxTotalFileSizeBytes =
+      options?.maxTotalFileSizeBytes ?? DEFAULT_MAX_TOTAL_FILE_SIZE_BYTES;
   }
 
   /** Returns cached content if valid, or undefined if missing/stale. */
@@ -505,7 +506,7 @@ export class FileContentCache {
   /** Caches file content with current mtime/size. Skips files exceeding single file limit. */
   async set(absolutePath: string, content: string): Promise<void> {
     const byteLength = Buffer.byteLength(content);
-    if (byteLength > this.singleFileLimit) return;
+    if (byteLength > this.maxFileSizeBytes) return;
 
     // Remove existing entry if present (will be re-inserted at end)
     this.invalidate(absolutePath);
@@ -526,22 +527,22 @@ export class FileContentCache {
       size: stat.size,
       byteLength,
     });
-    this.currentTotalSize += byteLength;
+    this.currentTotalBytes += byteLength;
   }
 
   /** Removes a cached entry. */
   invalidate(absolutePath: string): void {
     const entry = this.entries.get(absolutePath);
     if (!entry) return;
-    this.currentTotalSize -= entry.byteLength;
+    this.currentTotalBytes -= entry.byteLength;
     this.entries.delete(absolutePath);
   }
 
   /** Evicts least recently used entries until `needed` bytes fit. */
   private evictUntilFits(needed: number): void {
     for (const [key, entry] of this.entries) {
-      if (this.currentTotalSize + needed <= this.totalSizeLimit) break;
-      this.currentTotalSize -= entry.byteLength;
+      if (this.currentTotalBytes + needed <= this.maxTotalFileSizeBytes) break;
+      this.currentTotalBytes -= entry.byteLength;
       this.entries.delete(key);
     }
   }
