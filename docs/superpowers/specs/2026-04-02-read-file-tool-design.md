@@ -8,11 +8,11 @@ A file reading tool for the Agent system, enabling LLM to read files within the 
 
 **Name:** `read_file`
 
-| Parameter   | Type     | Required | Description                                      |
-| ----------- | -------- | -------- | ------------------------------------------------ |
-| `filePath`  | `string` | Yes      | File path, absolute or relative to `cwd`         |
-| `startLine` | `number` | No       | Start line number (1-based), defaults to 1       |
-| `lineCount` | `number` | No       | Number of lines to read, defaults to end of file |
+| Parameter   | Type     | Required | Description                                          |
+| ----------- | -------- | -------- | ---------------------------------------------------- |
+| `filePath`  | `string` | Yes      | File path, absolute or relative to working directory |
+| `startLine` | `number` | No       | Start line number (1-based), defaults to 1           |
+| `lineCount` | `number` | No       | Number of lines to read, defaults to end of file     |
 
 ## Constants
 
@@ -25,8 +25,8 @@ A file reading tool for the Agent system, enabling LLM to read files within the 
 
 ## Execution Flow
 
-1. Resolve path: `path.resolve(cwd, filePath)` to get absolute path.
-2. Security check: absolute path must start with `cwd`. If not, return access denied error.
+1. Resolve path: `path.resolve(workingDirectory, filePath)` to get absolute path.
+2. Security check: absolute path must start with `workingDirectory`. If not, return access denied error.
 3. `fs.stat`: verify file exists and is a regular file. Get file size and mtime.
 4. Binary check: read first 8KB of the file. If it contains a null byte (`0x00`), return error indicating the file is binary.
 5. Check cache: if hit **and** cached mtime/size match current stat, extract requested line range from cached content, skip to step 9.
@@ -84,23 +84,23 @@ Add two fields:
 ```typescript
 interface ToolExecutionContext {
   // ... existing fields
-  readonly cwd: string;
+  readonly workingDirectory: string;
   readonly fileCache: FileContentCache;
 }
 ```
 
-- `cwd`: Agent's working directory, passed in at Agent construction time.
+- `workingDirectory`: Agent's working directory, passed in at Agent construction time.
 - `fileCache`: cache instance, owned by the Agent, injected into context on each tool execution.
 
 ### Agent
 
-- Constructor accepts a new `cwd` parameter from the caller (e.g., HTTP handler or session initializer).
+- Constructor accepts a new `workingDirectory` parameter from the caller (e.g., HTTP handler or session initializer).
 - Creates a `FileContentCache` instance, held for the Agent's lifetime.
-- `executeTool()` injects both `cwd` and `fileCache` into `ToolExecutionContext`.
+- `executeTool()` injects both `workingDirectory` and `fileCache` into `ToolExecutionContext`.
 
 ### Test helpers
 
-- `createMockContext()` updated to include `cwd` and `fileCache` defaults.
+- `createMockContext()` updated to include `workingDirectory` and `fileCache` defaults.
 
 ## FileContentCache
 
@@ -152,7 +152,7 @@ Framework changes in `apps/backend/src/agent-core/`:
 
 ```
 agent-core/
-├── tool/types.ts            # add cwd, fileCache to ToolExecutionContext
+├── tool/types.ts            # add workingDirectory, fileCache to ToolExecutionContext
 ├── tool/testing.ts          # update createMockContext
-└── agent/agent.ts           # accept cwd, create FileContentCache, inject into context
+└── agent/agent.ts           # accept workingDirectory, create FileContentCache, inject into context
 ```
