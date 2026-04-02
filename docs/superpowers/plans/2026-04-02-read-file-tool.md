@@ -745,7 +745,7 @@ export class CoreAgent extends Agent {
 In `apps/backend/src/services/chat/chat-service.ts`, change one line:
 
 ```typescript
-const agent = new CoreAgent(getLlmConfig, process.cwd());
+const agent = new CoreAgent(getLlmConfig, '/tmp');
 ```
 
 - [ ] **Step 4: Run typecheck and tests**
