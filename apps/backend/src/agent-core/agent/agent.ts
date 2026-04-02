@@ -13,6 +13,7 @@ import type {ToolDefinition, ToolExecutionContext} from '../tool/index.js';
 import {loadSkillTool} from '../tool/index.js';
 import type {ToolSetDefinition} from '../tool-set/index.js';
 import {loadToolSetTool} from '../tool-set/index.js';
+import {FileContentCache} from './file-content-cache.js';
 import type {
   AgentDoneEvent,
   AgentEventStream,
@@ -43,6 +44,11 @@ export abstract class Agent {
   private readonly baseSystemPrompt: string;
   private readonly getMaxToolRounds: AgentOptions['getMaxToolRounds'];
 
+  private readonly workingDirectory: string;
+
+  /** LRU file content cache, shared by all file-related tools. */
+  private readonly fileCache = new FileContentCache();
+
   /** Tool sets loaded into this agent session via the `load_toolset` tool. */
   private readonly loadedToolSets = new Set<ToolSetDefinition>();
 
@@ -59,9 +65,11 @@ export abstract class Agent {
 
     if (snapshot) {
       this.id = snapshot.id;
+      this.workingDirectory = snapshot.options.workingDirectory;
       this.llmSession = new LlmSession(getConfig, snapshot.llmSession);
     } else {
       this.id = crypto.randomUUID();
+      this.workingDirectory = options.workingDirectory;
       this.llmSession = new LlmSession(getConfig);
     }
 
@@ -70,7 +78,13 @@ export abstract class Agent {
 
   /** Returns a serializable snapshot of this agent. */
   toSnapshot(): AgentSnapshot {
-    return {id: this.id, llmSession: this.llmSession.toSnapshot()};
+    return {
+      id: this.id,
+      llmSession: this.llmSession.toSnapshot(),
+      options: {
+        workingDirectory: this.workingDirectory,
+      },
+    };
   }
 
   /**
@@ -272,6 +286,8 @@ export abstract class Agent {
       ].join('\n');
     }
 
+    prompt += `\n\nWorking directory: ${this.workingDirectory}\nYou can only access files within this directory.`;
+
     return prompt;
   }
 
@@ -315,6 +331,8 @@ export abstract class Agent {
       loadToolSetToAgent: (toolSet) => {
         this.loadedToolSets.add(toolSet);
       },
+      workingDirectory: this.workingDirectory,
+      fileCache: this.fileCache,
     };
 
     try {

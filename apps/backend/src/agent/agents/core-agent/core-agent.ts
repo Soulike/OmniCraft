@@ -10,7 +10,7 @@ import {settingsService} from '@/services/settings/index.js';
  * Used as the standard agent type for chat sessions.
  */
 export class CoreAgent extends Agent {
-  constructor(getConfig: () => Promise<LlmConfig>) {
+  constructor(getConfig: () => Promise<LlmConfig>, workingDirectory: string) {
     super(getConfig, {
       toolRegistries: [
         CoreToolRegistry.getInstance(),
@@ -23,6 +23,7 @@ export class CoreAgent extends Agent {
         const settings = await settingsService.getAll();
         return settings.agent.maxToolRounds;
       },
+      workingDirectory,
     });
   }
 }

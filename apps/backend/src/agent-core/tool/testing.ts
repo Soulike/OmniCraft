@@ -6,7 +6,7 @@ import os from 'node:os';
 
 import {z} from 'zod';
 
-import type {FileContentCache} from '../agent/file-content-cache.js';
+import {FileContentCache} from '../agent/file-content-cache.js';
 import type {ToolSetDefinition} from '../tool-set/tool-set-definition.js';
 import type {ToolDefinition, ToolExecutionContext} from './types.js';
 
@@ -18,17 +18,6 @@ export function createMockTool(name: string): ToolDefinition {
     description: `Mock tool: ${name}`,
     parameters: z.object({}),
     execute: () => Promise.resolve('ok'),
-  };
-}
-
-/** Creates a no-op FileContentCache for testing. */
-function createMockFileCache(): FileContentCache {
-  return {
-    get: () => Promise.resolve(undefined),
-    set: () => Promise.resolve(),
-    invalidate: () => {
-      // noop
-    },
   };
 }
 
@@ -44,7 +33,7 @@ export function createMockContext(
       // noop
     },
     workingDirectory: os.tmpdir(),
-    fileCache: createMockFileCache(),
+    fileCache: new FileContentCache(),
     ...overrides,
   };
 }

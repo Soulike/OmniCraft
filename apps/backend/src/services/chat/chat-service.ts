@@ -33,7 +33,7 @@ export const chatService = {
       return {success: false, error: CreateSessionError.MODEL_NOT_CONFIGURED};
     }
 
-    const agent = new CoreAgent(getLlmConfig);
+    const agent = new CoreAgent(getLlmConfig, '/tmp');
     return {success: true, sessionId: agent.id};
   },
 
