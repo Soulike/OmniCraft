@@ -380,7 +380,10 @@ describe('FileContentCache', () => {
 
     it('evicts LRU entries when total size exceeds limit', async () => {
       // Use a small cache for testing
-      const smallCache = new FileContentCache({totalSizeLimit: 100});
+      const smallCache = new FileContentCache({
+        singleFileLimit: 100,
+        totalSizeLimit: 100,
+      });
       const f1 = await writeFile('f1.txt', 'a'.repeat(60));
       const f2 = await writeFile('f2.txt', 'b'.repeat(60));
 
@@ -408,7 +411,10 @@ describe('FileContentCache', () => {
 
   describe('LRU ordering', () => {
     it('get() refreshes entry, preventing eviction', async () => {
-      const smallCache = new FileContentCache({totalSizeLimit: 150});
+      const smallCache = new FileContentCache({
+        singleFileLimit: 150,
+        totalSizeLimit: 150,
+      });
       const f1 = await writeFile('f1.txt', 'a'.repeat(60));
       const f2 = await writeFile('f2.txt', 'b'.repeat(60));
       const f3 = await writeFile('f3.txt', 'c'.repeat(60));
@@ -454,8 +460,8 @@ interface CacheEntry {
 }
 
 interface FileContentCacheOptions {
-  singleFileLimit?: number;
-  totalSizeLimit?: number;
+  singleFileLimit: number;
+  totalSizeLimit: number;
 }
 
 /** LRU cache for file contents with mtime/size validation. */
