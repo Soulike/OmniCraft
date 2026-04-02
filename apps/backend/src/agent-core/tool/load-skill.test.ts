@@ -6,6 +6,7 @@ import {afterEach, beforeEach, describe, expect, it} from 'vitest';
 
 import {SkillDefinition} from '../skill/skill-definition.js';
 import {loadSkillTool} from './load-skill.js';
+import {createMockContext} from './testing.js';
 
 describe('loadSkillTool', () => {
   let tempDir: string;
@@ -34,7 +35,9 @@ describe('loadSkillTool', () => {
 
     const result = await loadSkillTool.execute(
       {name: 'test-skill'},
-      {availableSkills: [skill]},
+      createMockContext({
+        availableSkills: new Map([[skill.name, skill]]),
+      }),
     );
 
     expect(result).toContain('# Test Skill');
@@ -44,7 +47,7 @@ describe('loadSkillTool', () => {
   it('returns error message when skill is not found', async () => {
     const result = await loadSkillTool.execute(
       {name: 'nonexistent'},
-      {availableSkills: []},
+      createMockContext(),
     );
 
     expect(result).toContain('not found');
