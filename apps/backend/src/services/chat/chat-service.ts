@@ -77,8 +77,10 @@ export const chatService = {
   /**
    * Generates a short title for a chat session using the light model.
    * Takes the first user message and assistant reply as context.
+   * Stores the title on the agent for persistence.
    */
   async generateTitle(
+    agentId: string,
     userMessage: string,
     assistantMessage: string,
   ): Promise<string> {
@@ -107,6 +109,13 @@ export const chatService = {
         title += event.content;
       }
     }
-    return title.trim();
+    title = title.trim();
+
+    const agent = AgentStore.getInstance().get(agentId);
+    if (agent) {
+      agent.title = title;
+    }
+
+    return title;
   },
 };

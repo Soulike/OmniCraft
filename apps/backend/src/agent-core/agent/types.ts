@@ -54,6 +54,7 @@ export interface AgentSnapshotOptions {
 /** Serializable snapshot of an Agent, used for persistence. */
 export interface AgentSnapshot {
   id: string;
+  title: string;
   llmSession: LlmSessionSnapshot;
   options: AgentSnapshotOptions;
 }
