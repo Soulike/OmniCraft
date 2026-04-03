@@ -1,12 +1,11 @@
 import os from 'node:os';
 
 import {CoreAgent} from '@/agent/agents/index.js';
-import type {AgentEventStream} from '@/agent-core/agent/index.js';
 import type {LlmConfig} from '@/agent-core/llm-api/index.js';
 import {AgentStore} from '@/models/agent-store/index.js';
 import {settingsService} from '@/services/settings/index.js';
 
-import type {CreateSessionResult} from './types.js';
+import type {CreateSessionResult, StreamCompletionResult} from './types.js';
 import {CreateSessionError} from './types.js';
 
 /** Returns the current LLM configuration from settings. */
@@ -46,10 +45,20 @@ export const chatService = {
   streamCompletion(
     agentId: string,
     userMessage: string,
-  ): AgentEventStream | undefined {
+  ): StreamCompletionResult | undefined {
     const agent = AgentStore.getInstance().get(agentId);
     if (!agent) return undefined;
-    return agent.handleUserMessage(userMessage);
+    const abortController = new AbortController();
+    const eventStream = agent.handleUserMessage(
+      userMessage,
+      abortController.signal,
+    );
+    return {
+      eventStream,
+      abort: () => {
+        abortController.abort();
+      },
+    };
   },
 
   /** Deletes an agent session. */

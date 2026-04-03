@@ -3,11 +3,12 @@ import {useCallback, useState} from 'react';
 import {ChatInputView} from './ChatInputView.js';
 
 interface ChatInputProps {
+  isStreaming: boolean;
   onSend: (content: string) => void;
-  isDisabled: boolean;
+  onStop: () => void;
 }
 
-export function ChatInput({onSend, isDisabled}: ChatInputProps) {
+export function ChatInput({isStreaming, onSend, onStop}: ChatInputProps) {
   const [input, setInput] = useState('');
 
   const handleSend = useCallback(() => {
@@ -29,10 +30,11 @@ export function ChatInput({onSend, isDisabled}: ChatInputProps) {
   return (
     <ChatInputView
       input={input}
-      isDisabled={isDisabled}
+      isStreaming={isStreaming}
       onInputChange={setInput}
       onKeyDown={handleKeyDown}
       onSend={handleSend}
+      onStop={onStop}
     />
   );
 }

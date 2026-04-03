@@ -81,13 +81,16 @@ export async function* streamClaude(
 
   const claudeTools = options.tools.map(toClaudeTool);
 
-  const stream = client.messages.stream({
-    model: config.model,
-    max_tokens: 4096,
-    system: systemPrompt,
-    messages: messages.map(toSdkMessage),
-    tools: claudeTools,
-  });
+  const stream = client.messages.stream(
+    {
+      model: config.model,
+      max_tokens: 4096,
+      system: systemPrompt,
+      messages: messages.map(toSdkMessage),
+      tools: claudeTools,
+    },
+    {signal: options.signal},
+  );
 
   // Claude uses content block indices; track index → callId mapping.
   const blockCallIds = new Map<number, string>();

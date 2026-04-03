@@ -105,7 +105,10 @@ export abstract class Agent {
    * Streams LLM responses, executes tool calls, and repeats until
    * the LLM produces no tool calls or the maximum round limit is reached.
    */
-  async *handleUserMessage(userMessage: string): AgentEventStream {
+  async *handleUserMessage(
+    userMessage: string,
+    signal?: AbortSignal,
+  ): AgentEventStream {
     const maxRounds = await this.getMaxToolRounds();
 
     let toolCalls = yield* this.consumeStream(
@@ -113,11 +116,14 @@ export abstract class Agent {
         userMessage,
         [...this.getAvailableTools().values()],
         this.buildSystemPrompt(),
+        signal,
       ),
     );
 
     let round = 0;
     while (toolCalls.length > 0) {
+      if (signal?.aborted) return;
+
       round++;
       if (round > maxRounds) {
         yield {
@@ -131,6 +137,8 @@ export abstract class Agent {
       const toolResults: ToolResult[] = [];
 
       for (const toolCall of toolCalls) {
+        if (signal?.aborted) return;
+
         const tool = availableTools.get(toolCall.toolName);
         yield {
           type: 'tool-execute-start',
@@ -157,6 +165,7 @@ export abstract class Agent {
           toolResults,
           [...this.getAvailableTools().values()],
           this.buildSystemPrompt(),
+          signal,
         ),
       );
     }

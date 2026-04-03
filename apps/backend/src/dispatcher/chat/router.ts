@@ -43,12 +43,14 @@ router.post(CHAT_SESSION_COMPLETIONS, (ctx) => {
     throw e;
   }
 
-  const eventStream = chatService.streamCompletion(id, message);
-  if (!eventStream) {
+  const result = chatService.streamCompletion(id, message);
+  if (!result) {
     ctx.response.status = StatusCodes.NOT_FOUND;
     ctx.response.body = {error: `Session not found: ${id}`};
     return;
   }
+
+  const {eventStream, abort} = result;
 
   ctx.response.type = 'text/event-stream';
   ctx.response.set('Cache-Control', 'no-cache');
@@ -60,6 +62,7 @@ router.post(CHAT_SESSION_COMPLETIONS, (ctx) => {
 
   const onDisconnect = () => {
     ctx.req.off('close', onDisconnect);
+    abort();
     if (!stream.destroyed) {
       stream.destroy();
     }

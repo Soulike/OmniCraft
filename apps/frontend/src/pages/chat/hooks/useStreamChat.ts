@@ -1,4 +1,4 @@
-import {useCallback, useState} from 'react';
+import {useCallback, useRef, useState} from 'react';
 
 import {streamChatCompletion} from '@/api/chat/index.js';
 
@@ -31,6 +31,7 @@ export function useStreamChat({
   const [isStreaming, setIsStreaming] = useState(false);
   const [streamError, setStreamError] = useState<string | null>(null);
   const [maxRoundsReached, setMaxRoundsReached] = useState(false);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   const sendMessage = useCallback(
     async (content: string) => {
@@ -46,10 +47,17 @@ export function useStreamChat({
       setMaxRoundsReached(false);
       setIsStreaming(true);
 
+      const abortController = new AbortController();
+      abortControllerRef.current = abortController;
+
       addUserMessage(trimmed);
 
       try {
-        const stream = streamChatCompletion(activeSessionId, trimmed);
+        const stream = streamChatCompletion(
+          activeSessionId,
+          trimmed,
+          abortController.signal,
+        );
 
         for await (const event of stream) {
           switch (event.type) {
@@ -86,12 +94,17 @@ export function useStreamChat({
           }
         }
       } catch (e: unknown) {
-        console.error('Chat completion failed', e);
-        removeLastAssistantMessageIfEmpty();
-        const message =
-          e instanceof Error ? e.message : 'An unexpected error occurred';
-        setStreamError(message);
+        if (e instanceof DOMException && e.name === 'AbortError') {
+          // Intentional stop — not an error. Keep partial content.
+        } else {
+          console.error('Chat completion failed', e);
+          removeLastAssistantMessageIfEmpty();
+          const message =
+            e instanceof Error ? e.message : 'An unexpected error occurred';
+          setStreamError(message);
+        }
       } finally {
+        abortControllerRef.current = null;
         removeLastAssistantMessageIfEmpty();
         setIsStreaming(false);
       }
@@ -116,6 +129,10 @@ export function useStreamChat({
     setMaxRoundsReached(false);
   }, []);
 
+  const stopGeneration = useCallback(() => {
+    abortControllerRef.current?.abort();
+  }, []);
+
   return {
     isStreaming,
     streamError,
@@ -123,5 +140,6 @@ export function useStreamChat({
     sendMessage,
     clearStreamError,
     clearMaxRoundsReached,
+    stopGeneration,
   };
 }

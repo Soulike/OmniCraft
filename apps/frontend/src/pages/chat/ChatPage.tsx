@@ -26,6 +26,7 @@ export function ChatPage() {
     streamError,
     maxRoundsReached,
     sendMessage,
+    stopGeneration,
     clearStreamError,
     clearMaxRoundsReached,
   } = useStreamChat({
@@ -50,13 +51,14 @@ export function ChatPage() {
   return (
     <ChatPageView
       messages={messages}
-      isInputDisabled={isStreaming}
+      isStreaming={isStreaming}
       error={displayError}
       maxRoundsReached={maxRoundsReached}
       scrollRef={scrollRef}
       onSend={(content) => {
         void sendMessage(content);
       }}
+      onStop={stopGeneration}
       onDismissError={dismissError}
       onDismissMaxRoundsReached={clearMaxRoundsReached}
     />
