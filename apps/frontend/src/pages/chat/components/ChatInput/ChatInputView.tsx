@@ -1,22 +1,24 @@
 import {Button, TextArea} from '@heroui/react';
-import {SendIcon} from 'lucide-react';
+import {SendIcon, SquareIcon} from 'lucide-react';
 
 import styles from './styles.module.css';
 
 interface ChatInputViewProps {
   input: string;
-  isDisabled: boolean;
+  isStreaming: boolean;
   onInputChange: (value: string) => void;
   onKeyDown: (e: React.KeyboardEvent) => void;
   onSend: () => void;
+  onStop: () => void;
 }
 
 export function ChatInputView({
   input,
-  isDisabled,
+  isStreaming,
   onInputChange,
   onKeyDown,
   onSend,
+  onStop,
 }: ChatInputViewProps) {
   return (
     <div className={styles.container}>
@@ -26,20 +28,31 @@ export function ChatInputView({
         placeholder='Type a message... (Enter to send, Shift+Enter for newline)'
         rows={1}
         value={input}
-        disabled={isDisabled}
+        disabled={isStreaming}
         onChange={(e) => {
           onInputChange(e.target.value);
         }}
         onKeyDown={onKeyDown}
       />
-      <Button
-        aria-label='Send message'
-        isDisabled={!input.trim() || isDisabled}
-        isIconOnly
-        onPress={onSend}
-      >
-        <SendIcon size={18} />
-      </Button>
+      {isStreaming ? (
+        <Button
+          aria-label='Stop generation'
+          variant='danger'
+          isIconOnly
+          onPress={onStop}
+        >
+          <SquareIcon size={18} />
+        </Button>
+      ) : (
+        <Button
+          aria-label='Send message'
+          isDisabled={!input.trim()}
+          isIconOnly
+          onPress={onSend}
+        >
+          <SendIcon size={18} />
+        </Button>
+      )}
     </div>
   );
 }
