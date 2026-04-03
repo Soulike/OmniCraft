@@ -20,3 +20,9 @@ export const AgentSection = lazy(async () => {
     await import('@/pages/settings/sections/agent/index.js');
   return {default: AgentSection};
 });
+
+export const SearchSection = lazy(async () => {
+  const {SearchSection} =
+    await import('@/pages/settings/sections/search/index.js');
+  return {default: SearchSection};
+});
