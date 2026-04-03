@@ -3,7 +3,7 @@
   background: var(--surface);
   border: 1px solid var(--border);
   overflow: hidden;
-  width: 250px;
+  width: 400px;
   max-width: 100%;
 }
 
@@ -71,7 +71,8 @@
   border-radius: 6px;
   font-size: 0.8125rem;
   line-height: 1.5;
-  overflow-x: auto;
+  max-height: 200px;
+  overflow-y: auto;
   white-space: pre-wrap;
   word-break: break-word;
 }
