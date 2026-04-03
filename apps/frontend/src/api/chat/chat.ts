@@ -28,11 +28,13 @@ export async function createSession(): Promise<string> {
 export async function* streamChatCompletion(
   sessionId: string,
   message: string,
+  signal?: AbortSignal,
 ): AsyncGenerator<SseEvent, void, undefined> {
   const res = await fetch(`${BASE}/session/${sessionId}/completions`, {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
     body: JSON.stringify({message}),
+    signal,
   });
 
   if (!res.ok) {
