@@ -66,8 +66,14 @@ export class LlmSession {
     content: string,
     tools: readonly ToolDefinition[],
     systemPrompt: string,
+    signal?: AbortSignal,
   ): LlmSessionEventStream {
-    yield* this.sendMessages([{role: 'user', content}], tools, systemPrompt);
+    yield* this.sendMessages(
+      [{role: 'user', content}],
+      tools,
+      systemPrompt,
+      signal,
+    );
   }
 
   /**
@@ -81,13 +87,14 @@ export class LlmSession {
     results: ToolResult[],
     tools: readonly ToolDefinition[],
     systemPrompt: string,
+    signal?: AbortSignal,
   ): LlmSessionEventStream {
     const toolMessages: LlmMessage[] = results.map((result) => ({
       role: 'tool' as const,
       callId: result.callId,
       content: result.content,
     }));
-    yield* this.sendMessages(toolMessages, tools, systemPrompt);
+    yield* this.sendMessages(toolMessages, tools, systemPrompt, signal);
   }
 
   /** Returns the accumulated token usage across all LLM calls in this session. */
@@ -114,13 +121,14 @@ export class LlmSession {
     messages: LlmMessage[],
     tools: readonly ToolDefinition[],
     systemPrompt: string,
+    signal?: AbortSignal,
   ): LlmSessionEventStream {
     const release = await this.mutex.acquire();
     const rollbackIndex = this.messages.length;
     this.messages.push(...messages);
     let completed = false;
     try {
-      yield* this.streamCompletion(tools, systemPrompt);
+      yield* this.streamCompletion(tools, systemPrompt, signal);
       completed = true;
     } finally {
       if (!completed) {
@@ -138,6 +146,7 @@ export class LlmSession {
   private async *streamCompletion(
     tools: readonly ToolDefinition[],
     systemPrompt: string,
+    signal?: AbortSignal,
   ): LlmSessionEventStream {
     const llmConfig = await this.getConfig();
     const eventStream = llmApi.streamCompletion({
@@ -145,6 +154,7 @@ export class LlmSession {
       messages: this.messages,
       systemPrompt: systemPrompt || undefined,
       tools,
+      signal,
     });
 
     let textContent = '';
