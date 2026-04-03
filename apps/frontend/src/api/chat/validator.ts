@@ -6,3 +6,8 @@ export {sseEventSchema} from '@omnicraft/sse-events';
 export const createSessionResponse = z.object({
   sessionId: z.string(),
 });
+
+/** Validates the response from POST /api/chat/session/:id/generate-title. */
+export const generateTitleResponse = z.object({
+  title: z.string(),
+});

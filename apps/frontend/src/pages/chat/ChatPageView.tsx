@@ -7,6 +7,7 @@ import styles from './styles.module.css';
 import type {ChatMessage} from './types.js';
 
 interface ChatPageViewProps {
+  title: string | null;
   messages: ChatMessage[];
   isStreaming: boolean;
   error: string | null;
@@ -19,6 +20,7 @@ interface ChatPageViewProps {
 }
 
 export function ChatPageView({
+  title,
   messages,
   isStreaming,
   error,
@@ -47,6 +49,7 @@ export function ChatPageView({
           onDismiss={onDismissMaxRoundsReached}
         />
       )}
+      {title && <h2 className={styles.title}>{title}</h2>}
       <div className={styles.messageListWrapper} ref={scrollRef}>
         <MessageList messages={messages} />
       </div>

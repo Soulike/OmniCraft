@@ -1,1 +1,1 @@
-export {createSession, streamChatCompletion} from './chat.js';
+export {createSession, generateTitle, streamChatCompletion} from './chat.js';
