@@ -4,33 +4,13 @@ import {afterAll, beforeAll, describe, expect, it} from 'vitest';
 
 import {createMockContext} from '@/agent-core/tool/testing.js';
 
+import {
+  createTestServer,
+  serverUrl,
+  startServer,
+  stopServer,
+} from './testing.js';
 import {webFetchRawTool} from './web-fetch-raw.js';
-
-function serverUrl(server: http.Server): string {
-  const addr = server.address();
-  if (typeof addr === 'string' || addr === null) {
-    throw new Error('Unexpected address');
-  }
-  return `http://127.0.0.1:${addr.port.toString()}`;
-}
-
-function startServer(server: http.Server): Promise<void> {
-  return new Promise<void>((resolve) => {
-    server.listen(0, '127.0.0.1', resolve);
-  });
-}
-
-function stopServer(server: http.Server): Promise<void> {
-  return new Promise<void>((resolve, reject) => {
-    server.close((err) => {
-      if (err) {
-        reject(err);
-      } else {
-        resolve();
-      }
-    });
-  });
-}
 
 describe('webFetchRawTool', () => {
   it('has the correct tool name', () => {
@@ -43,10 +23,7 @@ describe('webFetchRawTool', () => {
       '<html><head><title>My Page</title></head><body><h1>Hello World</h1></body></html>';
 
     beforeAll(async () => {
-      server = http.createServer((_req, res) => {
-        res.writeHead(200, {'Content-Type': 'text/html; charset=utf-8'});
-        res.end(rawHtml);
-      });
+      server = createTestServer('text/html; charset=utf-8', rawHtml);
       await startServer(server);
     });
 
@@ -77,10 +54,7 @@ describe('webFetchRawTool', () => {
     const jsonBody = JSON.stringify({key: 'value', count: 42});
 
     beforeAll(async () => {
-      server = http.createServer((_req, res) => {
-        res.writeHead(200, {'Content-Type': 'application/json'});
-        res.end(jsonBody);
-      });
+      server = createTestServer('application/json', jsonBody);
       await startServer(server);
     });
 
@@ -112,10 +86,10 @@ describe('webFetchRawTool', () => {
     let server: http.Server;
 
     beforeAll(async () => {
-      server = http.createServer((_req, res) => {
-        res.writeHead(200, {'Content-Type': 'image/png'});
-        res.end(Buffer.from([0x89, 0x50, 0x4e, 0x47]));
-      });
+      server = createTestServer(
+        'image/png',
+        Buffer.from([0x89, 0x50, 0x4e, 0x47]),
+      );
       await startServer(server);
     });
 

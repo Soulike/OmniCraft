@@ -6,24 +6,12 @@ import path from 'node:path';
 import {afterAll, afterEach, beforeAll, describe, expect, it} from 'vitest';
 
 import {fetchBody, isTextContentType, writeToTempFile} from './helpers.js';
-
-function createTestServer(
-  contentType: string,
-  body: string | Buffer,
-  statusCode = 200,
-): http.Server {
-  return http.createServer((_req, res) => {
-    res.writeHead(statusCode, {'Content-Type': contentType});
-    res.end(body);
-  });
-}
-
-function serverUrl(server: http.Server): string {
-  const addr = server.address();
-  if (typeof addr === 'string' || addr === null)
-    throw new Error('Unexpected address');
-  return `http://127.0.0.1:${addr.port.toString()}`;
-}
+import {
+  createTestServer,
+  serverUrl,
+  startServer,
+  stopServer,
+} from './testing.js';
 
 describe('isTextContentType', () => {
   it('returns true for text/html', () => {
@@ -77,29 +65,14 @@ describe('fetchBody', () => {
   describe('success', () => {
     let server: http.Server;
 
-    beforeAll(
-      () =>
-        new Promise<void>((resolve) => {
-          server = createTestServer(
-            'text/html; charset=utf-8',
-            '<h1>Hello</h1>',
-          );
-          server.listen(0, '127.0.0.1', resolve);
-        }),
-    );
+    beforeAll(async () => {
+      server = createTestServer('text/html; charset=utf-8', '<h1>Hello</h1>');
+      await startServer(server);
+    });
 
-    afterAll(
-      () =>
-        new Promise<void>((resolve, reject) => {
-          server.close((err) => {
-            if (err) {
-              reject(err);
-            } else {
-              resolve();
-            }
-          });
-        }),
-    );
+    afterAll(async () => {
+      await stopServer(server);
+    });
 
     it('returns body and content type', async () => {
       const result = await fetchBody(serverUrl(server), opts);
@@ -114,45 +87,25 @@ describe('fetchBody', () => {
         'image/png',
         Buffer.from([0x89, 0x50, 0x4e, 0x47]),
       );
-      await new Promise<void>((resolve) => {
-        server.listen(0, '127.0.0.1', resolve);
-      });
+      await startServer(server);
 
       try {
         await expect(fetchBody(serverUrl(server), opts)).rejects.toThrow(
           'Unsupported content type',
         );
       } finally {
-        await new Promise<void>((resolve, reject) => {
-          server.close((err) => {
-            if (err) {
-              reject(err);
-            } else {
-              resolve();
-            }
-          });
-        });
+        await stopServer(server);
       }
     });
 
     it('throws for HTTP error status', async () => {
       const server = createTestServer('text/plain', 'Not Found', 404);
-      await new Promise<void>((resolve) => {
-        server.listen(0, '127.0.0.1', resolve);
-      });
+      await startServer(server);
 
       try {
         await expect(fetchBody(serverUrl(server), opts)).rejects.toThrow('404');
       } finally {
-        await new Promise<void>((resolve, reject) => {
-          server.close((err) => {
-            if (err) {
-              reject(err);
-            } else {
-              resolve();
-            }
-          });
-        });
+        await stopServer(server);
       }
     });
 

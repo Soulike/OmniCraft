@@ -1,5 +1,4 @@
 import fs from 'node:fs/promises';
-import http from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -8,39 +7,13 @@ import {afterEach, beforeEach, describe, expect, it} from 'vitest';
 import {createMockContext} from '@/agent-core/tool/testing.js';
 import type {ToolExecutionContext} from '@/agent-core/tool/types.js';
 
+import {
+  createTestServer,
+  serverUrl,
+  startServer,
+  stopServer,
+} from './testing.js';
 import {webFetchTool} from './web-fetch.js';
-
-function createTestServer(contentType: string, body: string): http.Server {
-  return http.createServer((_req, res) => {
-    res.writeHead(200, {'Content-Type': contentType});
-    res.end(body);
-  });
-}
-
-function serverUrl(server: http.Server): string {
-  const addr = server.address();
-  if (typeof addr === 'string' || addr === null)
-    throw new Error('Unexpected address');
-  return `http://127.0.0.1:${addr.port.toString()}`;
-}
-
-async function startServer(server: http.Server): Promise<void> {
-  return new Promise<void>((resolve) => {
-    server.listen(0, '127.0.0.1', resolve);
-  });
-}
-
-async function stopServer(server: http.Server): Promise<void> {
-  return new Promise<void>((resolve, reject) => {
-    server.close((err) => {
-      if (err) {
-        reject(err);
-      } else {
-        resolve();
-      }
-    });
-  });
-}
 
 describe('webFetchTool', () => {
   let tmpDir: string;
