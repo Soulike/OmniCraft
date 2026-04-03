@@ -1,6 +1,7 @@
 import type {LlmSessionSnapshot} from '../llm-session/index.js';
 import type {LlmSessionTextDeltaEvent} from '../llm-session/index.js';
 import type {SkillRegistry} from '../skill/index.js';
+import type {AllowedPath} from '../tool/index.js';
 import type {ToolRegistry} from '../tool/index.js';
 import type {ToolSetRegistry} from '../tool-set/index.js';
 
@@ -68,4 +69,5 @@ export interface AgentOptions {
   readonly baseSystemPrompt: string;
   readonly getMaxToolRounds: () => Promise<number> | number;
   readonly workingDirectory: string;
+  readonly extraAllowedPaths: readonly AllowedPath[];
 }

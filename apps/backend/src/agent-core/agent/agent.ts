@@ -1,4 +1,5 @@
 import crypto from 'node:crypto';
+import os from 'node:os';
 
 import {agentEventBus} from '../events/index.js';
 import type {LlmConfig, LlmToolCall} from '../llm-api/index.js';
@@ -9,7 +10,11 @@ import type {
 } from '../llm-session/index.js';
 import {LlmSession} from '../llm-session/index.js';
 import type {SkillDefinition} from '../skill/index.js';
-import type {ToolDefinition, ToolExecutionContext} from '../tool/index.js';
+import type {
+  AllowedPath,
+  ToolDefinition,
+  ToolExecutionContext,
+} from '../tool/index.js';
 import {loadSkillTool} from '../tool/index.js';
 import type {ToolSetDefinition} from '../tool-set/index.js';
 import {loadToolSetTool} from '../tool-set/index.js';
@@ -46,6 +51,8 @@ export abstract class Agent {
 
   private readonly workingDirectory: string;
 
+  private readonly extraAllowedPaths: readonly AllowedPath[];
+
   /** LRU file content cache, shared by all file-related tools. */
   private readonly fileCache = new FileContentCache();
 
@@ -62,6 +69,11 @@ export abstract class Agent {
     this.skillRegistries = options.skillRegistries;
     this.baseSystemPrompt = options.baseSystemPrompt;
     this.getMaxToolRounds = options.getMaxToolRounds;
+
+    this.extraAllowedPaths = [
+      {path: os.tmpdir(), mode: 'read-write' as const},
+      ...options.extraAllowedPaths,
+    ];
 
     if (snapshot) {
       this.id = snapshot.id;
@@ -333,6 +345,7 @@ export abstract class Agent {
       },
       workingDirectory: this.workingDirectory,
       fileCache: this.fileCache,
+      extraAllowedPaths: this.extraAllowedPaths,
     };
 
     try {

@@ -34,6 +34,7 @@ export function createMockContext(
     },
     workingDirectory: os.tmpdir(),
     fileCache: new FileContentCache(),
+    extraAllowedPaths: [],
     ...overrides,
   };
 }
