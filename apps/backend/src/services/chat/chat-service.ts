@@ -2,6 +2,7 @@ import os from 'node:os';
 
 import {CoreAgent} from '@/agent/agents/index.js';
 import type {LlmConfig} from '@/agent-core/llm-api/index.js';
+import {llmApi} from '@/agent-core/llm-api/index.js';
 import {AgentStore} from '@/models/agent-store/index.js';
 import {settingsService} from '@/services/settings/index.js';
 
@@ -71,5 +72,41 @@ export const chatService = {
   /** Deletes an agent session. */
   deleteSession(agentId: string): void {
     AgentStore.getInstance().delete(agentId);
+  },
+
+  /**
+   * Generates a short title for a chat session using the light model.
+   * Takes the first user message and assistant reply as context.
+   */
+  async generateTitle(
+    userMessage: string,
+    assistantMessage: string,
+  ): Promise<string> {
+    const config = await getLightLlmConfig();
+    const stream = llmApi.streamCompletion({
+      config,
+      messages: [
+        {
+          role: 'user',
+          content: [
+            'Generate a short title (under 20 characters) for this conversation.',
+            'Reply with ONLY the title, no quotes or extra text.',
+            '',
+            `User: ${userMessage}`,
+            '',
+            `Assistant: ${assistantMessage}`,
+          ].join('\n'),
+        },
+      ],
+      tools: [],
+    });
+
+    let title = '';
+    for await (const event of stream) {
+      if (event.type === 'text-delta') {
+        title += event.content;
+      }
+    }
+    return title.trim();
   },
 };
