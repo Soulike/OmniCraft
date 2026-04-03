@@ -49,7 +49,7 @@ export function ChatPageView({
           onDismiss={onDismissMaxRoundsReached}
         />
       )}
-      {title && <h2 className={styles.title}>{title}</h2>}
+      <h2 className={styles.title}>{title ?? 'New Session'}</h2>
       <div className={styles.messageListWrapper} ref={scrollRef}>
         <MessageList messages={messages} />
       </div>
