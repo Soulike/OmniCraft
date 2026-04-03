@@ -2,6 +2,7 @@ import {ToolSetDefinition} from '@/agent-core/tool-set/index.js';
 
 import {webFetchTool} from './web-fetch.js';
 import {webFetchRawTool} from './web-fetch-raw.js';
+import {webSearchTool} from './web-search.js';
 
 /** Tool set for web-related operations: fetching URLs, searching, etc. */
 export class WebToolSet extends ToolSetDefinition {
@@ -13,5 +14,6 @@ export class WebToolSet extends ToolSetDefinition {
     });
     this.register(webFetchTool);
     this.register(webFetchRawTool);
+    this.register(webSearchTool);
   }
 }
