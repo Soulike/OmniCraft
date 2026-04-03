@@ -40,6 +40,9 @@ export abstract class Agent {
   /** Unique identifier for this agent session. */
   readonly id: string;
 
+  /** Short title for this session, generated after the first reply. */
+  title = '';
+
   /** The LLM session used by this agent. */
   private readonly llmSession: LlmSession;
 
@@ -77,6 +80,7 @@ export abstract class Agent {
 
     if (snapshot) {
       this.id = snapshot.id;
+      this.title = snapshot.title;
       this.workingDirectory = snapshot.options.workingDirectory;
       this.llmSession = new LlmSession(getConfig, snapshot.llmSession);
     } else {
@@ -92,6 +96,7 @@ export abstract class Agent {
   toSnapshot(): AgentSnapshot {
     return {
       id: this.id,
+      title: this.title,
       llmSession: this.llmSession.toSnapshot(),
       options: {
         workingDirectory: this.workingDirectory,

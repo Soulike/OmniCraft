@@ -1,7 +1,11 @@
 import type {SseEvent} from '@omnicraft/sse-events';
 
 import {parseSseStream} from '../helpers/sse.js';
-import {createSessionResponse, sseEventSchema} from './validator.js';
+import {
+  createSessionResponse,
+  generateTitleResponse,
+  sseEventSchema,
+} from './validator.js';
 
 const BASE = '/api/chat';
 
@@ -46,4 +50,28 @@ export async function* streamChatCompletion(
     const parsed: unknown = JSON.parse(data);
     yield sseEventSchema.parse(parsed);
   }
+}
+
+/** Generates a short title for a chat session. */
+export async function generateTitle(
+  sessionId: string,
+  userMessage: string,
+  assistantMessage: string,
+): Promise<string> {
+  const res = await fetch(`${BASE}/session/${sessionId}/generate-title`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({userMessage, assistantMessage}),
+  });
+
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(
+      `Failed to generate title (${res.status.toString()}): ${body}`,
+    );
+  }
+
+  const json: unknown = await res.json();
+  const {title} = generateTitleResponse.parse(json);
+  return title;
 }

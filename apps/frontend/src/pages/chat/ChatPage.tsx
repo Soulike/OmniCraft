@@ -5,6 +5,7 @@ import {useAutoScroll} from '@/hooks/useAutoScroll.js';
 import {ChatPageView} from './ChatPageView.js';
 import {useMessages} from './hooks/useMessages.js';
 import {useSession} from './hooks/useSession.js';
+import {useSessionTitle} from './hooks/useSessionTitle.js';
 import {useStreamChat} from './hooks/useStreamChat.js';
 
 /** Chat page container. Composes hooks and passes state to the view. */
@@ -20,6 +21,15 @@ export function ChatPage() {
     pushToolExecutionEnd,
     removeLastAssistantMessageIfEmpty,
   } = useMessages();
+
+  const {title, requestTitle} = useSessionTitle();
+
+  const handleFirstComplete = useCallback(
+    (sid: string, userMsg: string, assistantMsg: string) => {
+      void requestTitle(sid, userMsg, assistantMsg);
+    },
+    [requestTitle],
+  );
 
   const {
     isStreaming,
@@ -37,6 +47,7 @@ export function ChatPage() {
     pushToolExecutionStart,
     pushToolExecutionEnd,
     removeLastAssistantMessageIfEmpty,
+    onFirstComplete: handleFirstComplete,
   });
 
   const scrollRef = useAutoScroll();
@@ -50,6 +61,7 @@ export function ChatPage() {
 
   return (
     <ChatPageView
+      title={title}
       messages={messages}
       isStreaming={isStreaming}
       error={displayError}

@@ -16,6 +16,11 @@ interface UseStreamChatOptions {
   pushToolExecutionStart: MessagesHook['pushToolExecutionStart'];
   pushToolExecutionEnd: MessagesHook['pushToolExecutionEnd'];
   removeLastAssistantMessageIfEmpty: MessagesHook['removeLastAssistantMessageIfEmpty'];
+  onFirstComplete?: (
+    sessionId: string,
+    userMessage: string,
+    assistantMessage: string,
+  ) => void;
 }
 
 /** Orchestrates sending a message and consuming the SSE stream. */
@@ -27,11 +32,13 @@ export function useStreamChat({
   pushToolExecutionStart,
   pushToolExecutionEnd,
   removeLastAssistantMessageIfEmpty,
+  onFirstComplete,
 }: UseStreamChatOptions) {
   const [isStreaming, setIsStreaming] = useState(false);
   const [streamError, setStreamError] = useState<string | null>(null);
   const [maxRoundsReached, setMaxRoundsReached] = useState(false);
   const abortControllerRef = useRef<AbortController | null>(null);
+  const isFirstCompletionRef = useRef(true);
 
   const sendMessage = useCallback(
     async (content: string) => {
@@ -52,6 +59,8 @@ export function useStreamChat({
 
       addUserMessage(trimmed);
 
+      let assistantText = '';
+
       try {
         const stream = streamChatCompletion(
           activeSessionId,
@@ -62,6 +71,7 @@ export function useStreamChat({
         for await (const event of stream) {
           switch (event.type) {
             case 'text-delta':
+              assistantText += event.content;
               appendAssistantText(event.content);
               break;
             case 'tool-execute-start':
@@ -86,6 +96,14 @@ export function useStreamChat({
                 setMaxRoundsReached(true);
               }
               removeLastAssistantMessageIfEmpty();
+              if (
+                isFirstCompletionRef.current &&
+                assistantText &&
+                onFirstComplete
+              ) {
+                isFirstCompletionRef.current = false;
+                onFirstComplete(activeSessionId, trimmed, assistantText);
+              }
               break;
             case 'error':
               removeLastAssistantMessageIfEmpty();
@@ -118,6 +136,7 @@ export function useStreamChat({
       pushToolExecutionStart,
       pushToolExecutionEnd,
       removeLastAssistantMessageIfEmpty,
+      onFirstComplete,
     ],
   );
 

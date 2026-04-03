@@ -1,27 +1,16 @@
 import os from 'node:os';
 
 import {CoreAgent} from '@/agent/agents/index.js';
-import type {LlmConfig} from '@/agent-core/llm-api/index.js';
-import {llmApi} from '@/agent-core/llm-api/index.js';
+import {logger} from '@/logger.js';
 import {AgentStore} from '@/models/agent-store/index.js';
-import {settingsService} from '@/services/settings/index.js';
 
+import {
+  generateTitleFromLlm,
+  getLlmConfig,
+  truncateToTitle,
+} from './helpers.js';
 import type {CreateSessionResult, StreamCompletionResult} from './types.js';
 import {CreateSessionError} from './types.js';
-
-/** Returns the current LLM configuration from settings. */
-async function getLlmConfig(): Promise<LlmConfig> {
-  const settings = await settingsService.getAll();
-  const {apiFormat, apiKey, baseUrl, model} = settings.llm;
-  return {apiFormat, apiKey, baseUrl, model};
-}
-
-/** Returns LLM configuration for lightweight tasks, falling back to the main model. */
-export async function getLightLlmConfig(): Promise<LlmConfig> {
-  const settings = await settingsService.getAll();
-  const {apiFormat, apiKey, baseUrl, model, lightModel} = settings.llm;
-  return {apiFormat, apiKey, baseUrl, model: lightModel || model};
-}
 
 /** Service layer for chat operations. */
 export const chatService = {
@@ -77,36 +66,30 @@ export const chatService = {
   /**
    * Generates a short title for a chat session using the light model.
    * Takes the first user message and assistant reply as context.
+   * Stores the title on the agent for persistence.
+   * Falls back to truncating the user message if generation fails.
    */
   async generateTitle(
+    agentId: string,
     userMessage: string,
     assistantMessage: string,
   ): Promise<string> {
-    const config = await getLightLlmConfig();
-    const stream = llmApi.streamCompletion({
-      config,
-      messages: [
-        {
-          role: 'user',
-          content: [
-            'Generate a short title (under 20 characters) for this conversation.',
-            'Reply with ONLY the title, no quotes or extra text.',
-            '',
-            `User: ${userMessage}`,
-            '',
-            `Assistant: ${assistantMessage}`,
-          ].join('\n'),
-        },
-      ],
-      tools: [],
-    });
-
-    let title = '';
-    for await (const event of stream) {
-      if (event.type === 'text-delta') {
-        title += event.content;
-      }
+    let title: string;
+    try {
+      title = await generateTitleFromLlm(userMessage, assistantMessage);
+    } catch (e) {
+      logger.error(
+        {err: e},
+        'Failed to generate title via LLM, using fallback',
+      );
+      title = truncateToTitle(userMessage);
     }
-    return title.trim();
+
+    const agent = AgentStore.getInstance().get(agentId);
+    if (agent) {
+      agent.title = title;
+    }
+
+    return title;
   },
 };

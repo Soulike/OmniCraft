@@ -81,6 +81,8 @@ router.post(CHAT_SESSION_COMPLETIONS, (ctx) => {
 
 /** POST /chat/session/:id/generate-title — generates a title for a session. */
 router.post(CHAT_SESSION_GENERATE_TITLE, async (ctx) => {
+  const {id} = ctx.params;
+
   let userMessage: string;
   let assistantMessage: string;
   try {
@@ -96,7 +98,11 @@ router.post(CHAT_SESSION_GENERATE_TITLE, async (ctx) => {
     throw e;
   }
 
-  const title = await chatService.generateTitle(userMessage, assistantMessage);
+  const title = await chatService.generateTitle(
+    id,
+    userMessage,
+    assistantMessage,
+  );
   ctx.response.body = {title};
 });
 
