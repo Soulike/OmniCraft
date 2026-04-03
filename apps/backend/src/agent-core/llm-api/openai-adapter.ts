@@ -72,13 +72,16 @@ export async function* streamOpenAI(
 
   const openaiTools = options.tools.map(toOpenAITool);
 
-  const stream = await client.chat.completions.create({
-    model: config.model,
-    messages: sdkMessages,
-    stream: true,
-    stream_options: {include_usage: true},
-    ...(openaiTools.length > 0 ? {tools: openaiTools} : {}),
-  });
+  const stream = await client.chat.completions.create(
+    {
+      model: config.model,
+      messages: sdkMessages,
+      stream: true,
+      stream_options: {include_usage: true},
+      ...(openaiTools.length > 0 ? {tools: openaiTools} : {}),
+    },
+    {signal: options.signal},
+  );
 
   // OpenAI streams tool calls incrementally per choice delta.
   // Track index → callId so we can emit tool-call-end with the correct callId.
