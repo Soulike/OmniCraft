@@ -104,4 +104,5 @@ export interface LlmCompletionOptions {
   readonly messages: readonly LlmMessage[];
   readonly systemPrompt?: string;
   readonly tools: readonly ToolDefinition[];
+  readonly signal?: AbortSignal;
 }
