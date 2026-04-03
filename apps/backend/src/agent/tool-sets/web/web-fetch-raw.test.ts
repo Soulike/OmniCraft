@@ -105,4 +105,23 @@ describe('webFetchRawTool', () => {
       expect(result).toMatch(/Error/i);
     });
   });
+
+  describe('large content fallback', () => {
+    it('writes content to temp file when exceeding 32KB', async () => {
+      const largeBody = 'x'.repeat(40_000);
+      const server = createTestServer('text/plain', largeBody);
+      await startServer(server);
+
+      try {
+        const result = await webFetchRawTool.execute(
+          {url: serverUrl(server)},
+          createMockContext(),
+        );
+        expect(result).toContain('Content saved to file:');
+        expect(result).toContain('URL:');
+      } finally {
+        await stopServer(server);
+      }
+    });
+  });
 });

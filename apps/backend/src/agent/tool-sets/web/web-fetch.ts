@@ -1,6 +1,3 @@
-import os from 'node:os';
-import path from 'node:path';
-
 import {Readability} from '@mozilla/readability';
 import {parseHTML} from 'linkedom';
 import TurndownService from 'turndown';
@@ -11,15 +8,15 @@ import type {
   ToolExecutionContext,
 } from '@/agent-core/tool/index.js';
 
+import {
+  MAX_INLINE_SIZE,
+  MAX_RESPONSE_SIZE,
+  TEMP_DIR,
+  TIMEOUT_MS,
+  USER_AGENT,
+} from './config.js';
 import {fetchBody, writeToTempFile} from './helpers.js';
 import {validateUrl} from './url-validator.js';
-
-const TIMEOUT_MS = 30_000;
-const MAX_RESPONSE_SIZE = 5 * 1024 * 1024; // 5MB
-const MAX_INLINE_SIZE = 32_768; // 32KB
-const TEMP_DIR = path.join(os.tmpdir(), 'omnicraft-web-fetch');
-const USER_AGENT =
-  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36';
 
 const parameters = z.object({
   url: z.url().describe('The URL to fetch.'),
@@ -142,9 +139,13 @@ export const webFetchTool: ToolDefinition<typeof parameters> = {
     }
 
     if (Buffer.byteLength(content) > MAX_INLINE_SIZE) {
-      const filePath = await writeToTempFile(content, {
-        directory: TEMP_DIR,
-      });
+      let filePath: string;
+      try {
+        filePath = await writeToTempFile(content, {directory: TEMP_DIR});
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : String(error);
+        return `Error: Failed to save content to temporary file: ${message}`;
+      }
       return formatResponse(
         args.url,
         title,

@@ -142,4 +142,42 @@ describe('webFetchTool', () => {
       expect(result).toContain('Failed to fetch URL');
     });
   });
+
+  describe('large content fallback', () => {
+    it('writes content to temp file when exceeding 32KB', async () => {
+      const largeBody = 'x'.repeat(40_000);
+      const html = `<!DOCTYPE html><html><head><title>Large</title></head><body><article><p>${largeBody}</p></article></body></html>`;
+      const server = createTestServer('text/html; charset=utf-8', html);
+      await startServer(server);
+
+      try {
+        const result = await webFetchTool.execute(
+          {url: serverUrl(server)},
+          context,
+        );
+        expect(result).toContain('Content saved to file:');
+        expect(result).toContain('URL:');
+      } finally {
+        await stopServer(server);
+      }
+    });
+  });
+
+  describe('Readability fallback', () => {
+    it('falls back to full page with note when extraction fails', async () => {
+      const html = '<html><head></head><body></body></html>';
+      const server = createTestServer('text/html; charset=utf-8', html);
+      await startServer(server);
+
+      try {
+        const result = await webFetchTool.execute(
+          {url: serverUrl(server)},
+          context,
+        );
+        expect(result).toContain('Note: Article extraction failed');
+      } finally {
+        await stopServer(server);
+      }
+    });
+  });
 });
