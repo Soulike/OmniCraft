@@ -1,3 +1,5 @@
+import type {EventBus} from '@/helpers/event-bus.js';
+
 /** Text content from the LLM or user input. */
 export interface TextContent {
   type: 'text';
@@ -32,3 +34,33 @@ export interface ChatMessage {
   role: 'user' | 'assistant';
   content: MessageContent;
 }
+
+// ---------------------------------------------------------------------------
+// Chat Event Bus
+// ---------------------------------------------------------------------------
+
+/** Event map for the chat page event bus. */
+export interface ChatEventMap {
+  /** User sent a message. */
+  'user-message-sent': {content: string};
+  /** A text token arrived from the LLM. */
+  'text-delta': {content: string};
+  /** A tool started executing. */
+  'tool-execute-start': ToolExecutionStartContent;
+  /** A tool finished executing. */
+  'tool-execute-end': ToolExecutionEndContent;
+  /** The stream completed (LLM finished or max rounds reached). */
+  'stream-done': {
+    sessionId: string;
+    userMessage: string;
+    assistantMessage: string;
+    reason: string;
+  };
+  /** An error occurred during streaming. */
+  'stream-error': {message: string};
+  /** The stream ended (always fires in finally, regardless of outcome). */
+  'stream-end': undefined;
+}
+
+/** Typed event bus for the chat page. */
+export type ChatEventBus = EventBus<ChatEventMap>;

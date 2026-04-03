@@ -2,43 +2,23 @@ import {useCallback, useRef, useState} from 'react';
 
 import {streamChatCompletion} from '@/api/chat/index.js';
 
-import type {useMessages} from './useMessages.js';
+import {useChatEventBus} from './useChatEventBus.js';
 import type {useSession} from './useSession.js';
 
-type MessagesHook = ReturnType<typeof useMessages>;
 type SessionHook = ReturnType<typeof useSession>;
 
 interface UseStreamChatOptions {
   sessionId: SessionHook['sessionId'];
   resetSession: SessionHook['resetSession'];
-  addUserMessage: MessagesHook['addUserMessage'];
-  appendAssistantText: MessagesHook['appendAssistantText'];
-  pushToolExecutionStart: MessagesHook['pushToolExecutionStart'];
-  pushToolExecutionEnd: MessagesHook['pushToolExecutionEnd'];
-  removeLastAssistantMessageIfEmpty: MessagesHook['removeLastAssistantMessageIfEmpty'];
-  onFirstComplete?: (
-    sessionId: string,
-    userMessage: string,
-    assistantMessage: string,
-  ) => void;
 }
 
 /** Orchestrates sending a message and consuming the SSE stream. */
-export function useStreamChat({
-  sessionId,
-  resetSession,
-  addUserMessage,
-  appendAssistantText,
-  pushToolExecutionStart,
-  pushToolExecutionEnd,
-  removeLastAssistantMessageIfEmpty,
-  onFirstComplete,
-}: UseStreamChatOptions) {
+export function useStreamChat({sessionId, resetSession}: UseStreamChatOptions) {
   const [isStreaming, setIsStreaming] = useState(false);
   const [streamError, setStreamError] = useState<string | null>(null);
   const [maxRoundsReached, setMaxRoundsReached] = useState(false);
   const abortControllerRef = useRef<AbortController | null>(null);
-  const isFirstCompletionRef = useRef(true);
+  const eventBus = useChatEventBus();
 
   const sendMessage = useCallback(
     async (content: string) => {
@@ -57,7 +37,7 @@ export function useStreamChat({
       const abortController = new AbortController();
       abortControllerRef.current = abortController;
 
-      addUserMessage(trimmed);
+      eventBus.emit('user-message-sent', {content: trimmed});
 
       let assistantText = '';
 
@@ -72,10 +52,10 @@ export function useStreamChat({
           switch (event.type) {
             case 'text-delta':
               assistantText += event.content;
-              appendAssistantText(event.content);
+              eventBus.emit('text-delta', {content: event.content});
               break;
             case 'tool-execute-start':
-              pushToolExecutionStart({
+              eventBus.emit('tool-execute-start', {
                 type: 'tool-execution-start',
                 callId: event.callId,
                 toolName: event.toolName,
@@ -84,7 +64,7 @@ export function useStreamChat({
               });
               break;
             case 'tool-execute-end':
-              pushToolExecutionEnd({
+              eventBus.emit('tool-execute-end', {
                 type: 'tool-execution-end',
                 callId: event.callId,
                 result: event.result,
@@ -95,18 +75,15 @@ export function useStreamChat({
               if (event.reason === 'max_rounds_reached') {
                 setMaxRoundsReached(true);
               }
-              removeLastAssistantMessageIfEmpty();
-              if (
-                isFirstCompletionRef.current &&
-                assistantText &&
-                onFirstComplete
-              ) {
-                isFirstCompletionRef.current = false;
-                onFirstComplete(activeSessionId, trimmed, assistantText);
-              }
+              eventBus.emit('stream-done', {
+                sessionId: activeSessionId,
+                userMessage: trimmed,
+                assistantMessage: assistantText,
+                reason: event.reason,
+              });
               break;
             case 'error':
-              removeLastAssistantMessageIfEmpty();
+              eventBus.emit('stream-error', {message: event.message});
               setStreamError(event.message);
               break;
           }
@@ -116,29 +93,23 @@ export function useStreamChat({
           // Intentional stop — not an error. Keep partial content.
         } else {
           console.error('Chat completion failed', e);
-          removeLastAssistantMessageIfEmpty();
           const message =
             e instanceof Error ? e.message : 'An unexpected error occurred';
+          eventBus.emit('stream-error', {message});
           setStreamError(message);
         }
       } finally {
         abortControllerRef.current = null;
-        removeLastAssistantMessageIfEmpty();
+        eventBus.emit('stream-end');
         setIsStreaming(false);
       }
     },
-    [
-      isStreaming,
-      sessionId,
-      resetSession,
-      addUserMessage,
-      appendAssistantText,
-      pushToolExecutionStart,
-      pushToolExecutionEnd,
-      removeLastAssistantMessageIfEmpty,
-      onFirstComplete,
-    ],
+    [isStreaming, sessionId, resetSession, eventBus],
   );
+
+  const stopGeneration = useCallback(() => {
+    abortControllerRef.current?.abort();
+  }, []);
 
   const clearStreamError = useCallback(() => {
     setStreamError(null);
@@ -148,17 +119,13 @@ export function useStreamChat({
     setMaxRoundsReached(false);
   }, []);
 
-  const stopGeneration = useCallback(() => {
-    abortControllerRef.current?.abort();
-  }, []);
-
   return {
     isStreaming,
     streamError,
     maxRoundsReached,
     sendMessage,
+    stopGeneration,
     clearStreamError,
     clearMaxRoundsReached,
-    stopGeneration,
   };
 }
