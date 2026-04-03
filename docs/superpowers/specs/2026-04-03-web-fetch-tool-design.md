@@ -169,6 +169,10 @@ readonly extraAllowedPaths: readonly AllowedPath[];
 base for resolving relative paths, and will be used as the cwd for future Bash
 tools. It does not appear in `extraAllowedPaths`.
 
+The `Agent` base class automatically includes `os.tmpdir()` as read-write in
+`extraAllowedPaths`. Subclasses pass additional paths via `AgentOptions`, which
+the base class appends after the tmpdir entry.
+
 ### read_file Path Validation Change
 
 Current logic checks only `workingDirectory`. New logic:
