@@ -3,33 +3,28 @@ import {useCallback} from 'react';
 import {useAutoScroll} from '@/hooks/useAutoScroll.js';
 
 import {ChatPageView} from './ChatPageView.js';
+import {ChatEventBusProvider} from './contexts/ChatEventBusContext/index.js';
 import {useMessages} from './hooks/useMessages.js';
 import {useSession} from './hooks/useSession.js';
 import {useSessionTitle} from './hooks/useSessionTitle.js';
 import {useStreamChat} from './hooks/useStreamChat.js';
 
-/** Chat page container. Composes hooks and passes state to the view. */
+/** Chat page container. Wraps content in event bus provider. */
 export function ChatPage() {
+  return (
+    <ChatEventBusProvider>
+      <ChatPageContent />
+    </ChatEventBusProvider>
+  );
+}
+
+/** Inner content that uses the event bus via context. */
+function ChatPageContent() {
   const {sessionId, sessionError, resetSession, clearSessionError} =
     useSession();
 
-  const {
-    messages,
-    addUserMessage,
-    appendAssistantText,
-    pushToolExecutionStart,
-    pushToolExecutionEnd,
-    removeLastAssistantMessageIfEmpty,
-  } = useMessages();
-
-  const {title, requestTitle} = useSessionTitle();
-
-  const handleFirstComplete = useCallback(
-    (sid: string, userMsg: string, assistantMsg: string) => {
-      void requestTitle(sid, userMsg, assistantMsg);
-    },
-    [requestTitle],
-  );
+  const {messages} = useMessages();
+  const {title} = useSessionTitle();
 
   const {
     isStreaming,
@@ -39,16 +34,7 @@ export function ChatPage() {
     stopGeneration,
     clearStreamError,
     clearMaxRoundsReached,
-  } = useStreamChat({
-    sessionId,
-    resetSession,
-    addUserMessage,
-    appendAssistantText,
-    pushToolExecutionStart,
-    pushToolExecutionEnd,
-    removeLastAssistantMessageIfEmpty,
-    onFirstComplete: handleFirstComplete,
-  });
+  } = useStreamChat({sessionId, resetSession});
 
   const scrollRef = useAutoScroll();
 
