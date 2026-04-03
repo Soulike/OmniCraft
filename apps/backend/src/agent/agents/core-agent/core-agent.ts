@@ -24,6 +24,7 @@ export class CoreAgent extends Agent {
         return settings.agent.maxToolRounds;
       },
       workingDirectory,
+      extraAllowedPaths: [],
     });
   }
 }

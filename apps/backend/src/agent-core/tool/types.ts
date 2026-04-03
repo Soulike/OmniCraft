@@ -5,6 +5,14 @@ import type {SkillDefinition} from '../skill/skill-definition.js';
 import type {ToolSetDefinition} from '../tool-set/tool-set-definition.js';
 import type {LoadToolSetToAgentFn} from '../tool-set/types.js';
 
+/** A directory the agent is allowed to access beyond its working directory. */
+export interface AllowedPath {
+  /** Absolute path of the allowed directory. */
+  readonly path: string;
+  /** 'read' = read-only, 'read-write' = read and write. */
+  readonly mode: 'read' | 'read-write';
+}
+
 /** Execution context provided by the Agent to each Tool at call time. */
 export interface ToolExecutionContext {
   /** All skills available to the current Agent, merged and deduplicated. */
@@ -24,6 +32,12 @@ export interface ToolExecutionContext {
 
   /** LRU cache for file contents, scoped to the Agent's lifetime. */
   readonly fileCache: FileContentCache;
+
+  /**
+   * Additional paths the agent is allowed to access beyond workingDirectory.
+   * workingDirectory is always read-write and should NOT be listed here.
+   */
+  readonly extraAllowedPaths: readonly AllowedPath[];
 }
 
 /**

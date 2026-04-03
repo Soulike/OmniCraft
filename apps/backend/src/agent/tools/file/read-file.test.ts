@@ -129,6 +129,66 @@ describe('readFileTool', () => {
     });
   });
 
+  describe('extraAllowedPaths', () => {
+    let extraDir: string;
+
+    beforeEach(async () => {
+      extraDir = await fs.mkdtemp(path.join(os.tmpdir(), 'rft-extra-'));
+    });
+
+    afterEach(async () => {
+      await fs.rm(extraDir, {recursive: true, force: true});
+    });
+
+    it('allows reading a file in an extra read-only path', async () => {
+      const filePath = path.join(extraDir, 'allowed.txt');
+      await fs.writeFile(filePath, 'extra content');
+
+      const extraContext = createMockContext({
+        workingDirectory: tmpDir,
+        fileCache: new FileContentCache(),
+        extraAllowedPaths: [{path: extraDir, mode: 'read'}],
+      });
+
+      const result = await readFileTool.execute({filePath}, extraContext);
+
+      expect(result).toContain('extra content');
+    });
+
+    it('allows reading a file in an extra read-write path', async () => {
+      const filePath = path.join(extraDir, 'rw.txt');
+      await fs.writeFile(filePath, 'rw content');
+
+      const extraContext = createMockContext({
+        workingDirectory: tmpDir,
+        fileCache: new FileContentCache(),
+        extraAllowedPaths: [{path: extraDir, mode: 'read-write'}],
+      });
+
+      const result = await readFileTool.execute({filePath}, extraContext);
+
+      expect(result).toContain('rw content');
+    });
+
+    it('rejects reading a file outside all allowed paths', async () => {
+      const otherDir = await fs.mkdtemp(path.join(os.tmpdir(), 'rft-other-'));
+      const filePath = path.join(otherDir, 'secret.txt');
+      await fs.writeFile(filePath, 'secret');
+
+      const extraContext = createMockContext({
+        workingDirectory: tmpDir,
+        fileCache: new FileContentCache(),
+        extraAllowedPaths: [{path: extraDir, mode: 'read'}],
+      });
+
+      const result = await readFileTool.execute({filePath}, extraContext);
+
+      expect(result).toContain('Error: Access denied');
+
+      await fs.rm(otherDir, {recursive: true, force: true});
+    });
+  });
+
   describe('error cases', () => {
     it('rejects paths outside workingDirectory', async () => {
       const result = await readFileTool.execute(
