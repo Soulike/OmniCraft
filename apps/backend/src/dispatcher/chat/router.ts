@@ -7,8 +7,12 @@ import {ZodError} from 'zod';
 import {chatService} from '@/services/chat/index.js';
 
 import {pumpEventStream} from './helpers/sse.js';
-import {CHAT_SESSION, CHAT_SESSION_COMPLETIONS} from './path.js';
-import {chatCompletionsBody} from './validator.js';
+import {
+  CHAT_SESSION,
+  CHAT_SESSION_COMPLETIONS,
+  CHAT_SESSION_GENERATE_TITLE,
+} from './path.js';
+import {chatCompletionsBody, generateTitleBody} from './validator.js';
 
 const router = new Router();
 
@@ -73,6 +77,27 @@ router.post(CHAT_SESSION_COMPLETIONS, (ctx) => {
   void pumpEventStream(stream, eventStream).finally(() => {
     ctx.req.off('close', onDisconnect);
   });
+});
+
+/** POST /chat/session/:id/generate-title — generates a title for a session. */
+router.post(CHAT_SESSION_GENERATE_TITLE, async (ctx) => {
+  let userMessage: string;
+  let assistantMessage: string;
+  try {
+    const body = generateTitleBody.parse(ctx.request.body);
+    userMessage = body.userMessage;
+    assistantMessage = body.assistantMessage;
+  } catch (e) {
+    if (e instanceof ZodError) {
+      ctx.response.status = StatusCodes.BAD_REQUEST;
+      ctx.response.body = {error: e.issues};
+      return;
+    }
+    throw e;
+  }
+
+  const title = await chatService.generateTitle(userMessage, assistantMessage);
+  ctx.response.body = {title};
 });
 
 export {router};
