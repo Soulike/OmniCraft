@@ -1,21 +1,16 @@
 import os from 'node:os';
 
 import {CoreAgent} from '@/agent/agents/index.js';
-import type {LlmConfig} from '@/agent-core/llm-api/index.js';
 import {logger} from '@/logger.js';
 import {AgentStore} from '@/models/agent-store/index.js';
-import {settingsService} from '@/services/settings/index.js';
 
-import {generateTitleFromLlm, truncateToTitle} from './helpers.js';
+import {
+  generateTitleFromLlm,
+  getLlmConfig,
+  truncateToTitle,
+} from './helpers.js';
 import type {CreateSessionResult, StreamCompletionResult} from './types.js';
 import {CreateSessionError} from './types.js';
-
-/** Returns the current LLM configuration from settings. */
-async function getLlmConfig(): Promise<LlmConfig> {
-  const settings = await settingsService.getAll();
-  const {apiFormat, apiKey, baseUrl, model} = settings.llm;
-  return {apiFormat, apiKey, baseUrl, model};
-}
 
 /** Service layer for chat operations. */
 export const chatService = {
