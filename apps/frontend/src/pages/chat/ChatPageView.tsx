@@ -1,3 +1,4 @@
+import {ScrollShadow} from '@heroui/react';
 import type {RefObject} from 'react';
 
 import {ChatAlert} from './components/ChatAlert/index.js';
@@ -50,9 +51,9 @@ export function ChatPageView({
         />
       )}
       <h2 className={styles.title}>{title ?? 'New Session'}</h2>
-      <div className={styles.messageListWrapper} ref={scrollRef}>
+      <ScrollShadow className={styles.messageListWrapper} ref={scrollRef}>
         <MessageList messages={messages} />
-      </div>
+      </ScrollShadow>
       <ChatInput isStreaming={isStreaming} onSend={onSend} onStop={onStop} />
     </div>
   );

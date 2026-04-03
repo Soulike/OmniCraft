@@ -3,7 +3,7 @@
   background: var(--surface);
   border: 1px solid var(--border);
   overflow: hidden;
-  width: 250px;
+  width: 400px;
   max-width: 100%;
 }
 
