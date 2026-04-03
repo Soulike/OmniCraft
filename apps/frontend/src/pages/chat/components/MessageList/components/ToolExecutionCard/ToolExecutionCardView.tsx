@@ -1,4 +1,4 @@
-import {Disclosure, Spinner} from '@heroui/react';
+import {Disclosure, ScrollShadow, Spinner} from '@heroui/react';
 import clsx from 'clsx';
 import {CircleCheck, CircleX} from 'lucide-react';
 import {useMemo} from 'react';
@@ -58,18 +58,20 @@ export function ToolExecutionCardView({
             </div>
             <div className={styles.section}>
               <span className={styles.label}>Arguments</span>
-              <pre className={styles.pre}>{formattedArguments}</pre>
+              <ScrollShadow className={styles.pre}>
+                {formattedArguments}
+              </ScrollShadow>
             </div>
             {formattedResult !== undefined && (
               <div className={styles.section}>
                 <span className={styles.label}>Result</span>
-                <pre
+                <ScrollShadow
                   className={clsx(styles.pre, {
                     [styles.preError]: status === 'error',
                   })}
                 >
                   {formattedResult}
-                </pre>
+                </ScrollShadow>
               </div>
             )}
           </Disclosure.Body>
