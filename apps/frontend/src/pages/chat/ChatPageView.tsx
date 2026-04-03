@@ -8,22 +8,24 @@ import type {ChatMessage} from './types.js';
 
 interface ChatPageViewProps {
   messages: ChatMessage[];
-  isInputDisabled: boolean;
+  isStreaming: boolean;
   error: string | null;
   maxRoundsReached: boolean;
   scrollRef: RefObject<HTMLDivElement | null>;
   onSend: (content: string) => void;
+  onStop: () => void;
   onDismissError: () => void;
   onDismissMaxRoundsReached: () => void;
 }
 
 export function ChatPageView({
   messages,
-  isInputDisabled,
+  isStreaming,
   error,
   maxRoundsReached,
   scrollRef,
   onSend,
+  onStop,
   onDismissError,
   onDismissMaxRoundsReached,
 }: ChatPageViewProps) {
@@ -48,7 +50,7 @@ export function ChatPageView({
       <div className={styles.messageListWrapper} ref={scrollRef}>
         <MessageList messages={messages} />
       </div>
-      <ChatInput onSend={onSend} isDisabled={isInputDisabled} />
+      <ChatInput isStreaming={isStreaming} onSend={onSend} onStop={onStop} />
     </div>
   );
 }
