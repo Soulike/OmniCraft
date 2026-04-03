@@ -7,6 +7,7 @@ import {
   AgentSection,
   ChatPage,
   LlmSection,
+  SearchSection,
   SettingsPage,
 } from './lazy-pages.js';
 
@@ -46,6 +47,10 @@ export const router = createBrowserRouter([
           {
             path: ROUTES.settings.agent(),
             element: <AgentSection />,
+          },
+          {
+            path: ROUTES.settings.search(),
+            element: <SearchSection />,
           },
         ],
       },
