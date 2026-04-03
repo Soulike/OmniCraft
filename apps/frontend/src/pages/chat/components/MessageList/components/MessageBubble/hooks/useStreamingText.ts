@@ -1,6 +1,10 @@
 import {useCallback, useEffect, useRef, useState} from 'react';
 
-const CHARS_PER_FRAME = 1;
+/**
+ * Number of frames over which the animation should catch up to the target.
+ * At 60 fps this is roughly 0.5 seconds.
+ */
+const FRAMES_TO_CATCH_UP = 30;
 
 interface UseStreamingTextResult {
   displayedContent: string;
@@ -30,7 +34,12 @@ export function useStreamingText(fullContent: string): UseStreamingTextResult {
 
     const tick = () => {
       setDisplayedLength((prev) => {
-        const next = Math.min(prev + CHARS_PER_FRAME, targetLengthRef.current);
+        const buffer = targetLengthRef.current - prev;
+        const charsThisFrame = Math.max(
+          1,
+          Math.ceil(buffer / FRAMES_TO_CATCH_UP),
+        );
+        const next = Math.min(prev + charsThisFrame, targetLengthRef.current);
         displayedLengthRef.current = next;
         return next;
       });
