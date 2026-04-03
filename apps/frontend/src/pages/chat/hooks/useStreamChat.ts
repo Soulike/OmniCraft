@@ -3,11 +3,14 @@ import {useCallback, useState} from 'react';
 import {streamChatCompletion} from '@/api/chat/index.js';
 
 import type {useMessages} from './useMessages.js';
+import type {useSession} from './useSession.js';
 
 type MessagesHook = ReturnType<typeof useMessages>;
+type SessionHook = ReturnType<typeof useSession>;
 
 interface UseStreamChatOptions {
-  sessionId: string | null;
+  sessionId: SessionHook['sessionId'];
+  resetSession: SessionHook['resetSession'];
   addUserMessage: MessagesHook['addUserMessage'];
   appendAssistantText: MessagesHook['appendAssistantText'];
   pushToolExecutionStart: MessagesHook['pushToolExecutionStart'];
@@ -18,6 +21,7 @@ interface UseStreamChatOptions {
 /** Orchestrates sending a message and consuming the SSE stream. */
 export function useStreamChat({
   sessionId,
+  resetSession,
   addUserMessage,
   appendAssistantText,
   pushToolExecutionStart,
@@ -30,10 +34,13 @@ export function useStreamChat({
 
   const sendMessage = useCallback(
     async (content: string) => {
-      if (isStreaming || !sessionId) return;
+      if (isStreaming) return;
 
       const trimmed = content.trim();
       if (!trimmed) return;
+
+      const activeSessionId = sessionId ?? (await resetSession());
+      if (!activeSessionId) return;
 
       setStreamError(null);
       setMaxRoundsReached(false);
@@ -42,7 +49,7 @@ export function useStreamChat({
       addUserMessage(trimmed);
 
       try {
-        const stream = streamChatCompletion(sessionId, trimmed);
+        const stream = streamChatCompletion(activeSessionId, trimmed);
 
         for await (const event of stream) {
           switch (event.type) {
@@ -92,6 +99,7 @@ export function useStreamChat({
     [
       isStreaming,
       sessionId,
+      resetSession,
       addUserMessage,
       appendAssistantText,
       pushToolExecutionStart,
