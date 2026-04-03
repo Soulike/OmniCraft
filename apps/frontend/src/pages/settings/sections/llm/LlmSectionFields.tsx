@@ -99,6 +99,25 @@ export function LlmSectionFields({
           <FieldError>{validationErrors['llm/model']}</FieldError>
         )}
       </TextField>
+
+      <TextField
+        value={String(values['llm/lightModel'])}
+        isInvalid={'llm/lightModel' in validationErrors}
+        isDisabled={isDisabled}
+        onChange={(val) => {
+          setValue('llm/lightModel', val);
+        }}
+      >
+        <Label>Light Model</Label>
+        <Input placeholder='claude-haiku-4-20250514' />
+        <Description>
+          Model for lightweight tasks (e.g. title generation). Falls back to the
+          main model if empty.
+        </Description>
+        {validationErrors['llm/lightModel'] && (
+          <FieldError>{validationErrors['llm/lightModel']}</FieldError>
+        )}
+      </TextField>
     </>
   );
 }

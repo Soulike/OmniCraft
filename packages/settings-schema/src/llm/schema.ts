@@ -15,4 +15,10 @@ export const llmSettingsSchema = z.object({
     .min(1)
     .describe('Model name to use')
     .default('claude-sonnet-4-20250514'),
+  lightModel: z
+    .string()
+    .describe(
+      'Model name for lightweight tasks (e.g. title generation). Falls back to the main model if empty.',
+    )
+    .default(''),
 });

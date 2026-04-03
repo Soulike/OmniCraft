@@ -15,6 +15,13 @@ async function getLlmConfig(): Promise<LlmConfig> {
   return {apiFormat, apiKey, baseUrl, model};
 }
 
+/** Returns LLM configuration for lightweight tasks, falling back to the main model. */
+export async function getLightLlmConfig(): Promise<LlmConfig> {
+  const settings = await settingsService.getAll();
+  const {apiFormat, apiKey, baseUrl, model, lightModel} = settings.llm;
+  return {apiFormat, apiKey, baseUrl, model: lightModel || model};
+}
+
 /** Service layer for chat operations. */
 export const chatService = {
   /**

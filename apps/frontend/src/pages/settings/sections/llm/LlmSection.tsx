@@ -10,6 +10,7 @@ const FIELDS = [
   {path: 'llm/apiKey', schema: llmShape.apiKey},
   {path: 'llm/baseUrl', schema: llmShape.baseUrl},
   {path: 'llm/model', schema: llmShape.model},
+  {path: 'llm/lightModel', schema: llmShape.lightModel},
 ];
 
 export function LlmSection() {
