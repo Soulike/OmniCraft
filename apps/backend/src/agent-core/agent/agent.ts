@@ -312,7 +312,16 @@ export abstract class Agent {
       ].join('\n');
     }
 
-    prompt += `\n\nWorking directory: ${this.workingDirectory}\nYou can only access files within this directory.`;
+    prompt += `\n\nCurrent time: ${new Date().toISOString()}`;
+
+    prompt += `\n\nWorking directory: ${this.workingDirectory}\nYou can read and write files within this directory.`;
+
+    if (this.extraAllowedPaths.length > 0) {
+      const pathLines = this.extraAllowedPaths
+        .map((p) => `- ${p.path} (${p.mode})`)
+        .join('\n');
+      prompt += `\n\nAdditional accessible paths:\n${pathLines}`;
+    }
 
     return prompt;
   }
