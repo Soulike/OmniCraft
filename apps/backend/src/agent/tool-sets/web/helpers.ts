@@ -26,6 +26,7 @@ export function isTextContentType(contentType: string): boolean {
     ct.startsWith('text/') ||
     ct.includes('application/json') ||
     ct.includes('application/xml') ||
+    ct.includes('application/javascript') ||
     ct.includes('+xml') ||
     ct.includes('+json')
   );
@@ -40,12 +41,25 @@ export async function fetchBody(
   url: string,
   options: FetchBodyOptions,
 ): Promise<FetchBodyResult> {
-  const response = await fetch(url, {
-    signal: AbortSignal.timeout(options.timeoutMs),
-    headers: options.headers,
-  });
+  const abortController = new AbortController();
+  const timeoutId = setTimeout(
+    () => { abortController.abort(new Error('Request timed out')); },
+    options.timeoutMs,
+  );
+
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      signal: abortController.signal,
+      headers: options.headers,
+    });
+  } catch (error: unknown) {
+    clearTimeout(timeoutId);
+    throw error;
+  }
 
   if (!response.ok) {
+    clearTimeout(timeoutId);
     throw new Error(
       `HTTP ${response.status.toString()} ${response.statusText}`,
     );
@@ -53,14 +67,17 @@ export async function fetchBody(
 
   const contentType = response.headers.get('content-type');
   if (!contentType) {
+    clearTimeout(timeoutId);
     throw new Error('Response has no Content-Type header');
   }
   if (!isTextContentType(contentType)) {
+    clearTimeout(timeoutId);
     throw new Error(`Unsupported content type: ${contentType}`);
   }
 
   const contentLength = response.headers.get('content-length');
   if (contentLength && parseInt(contentLength, 10) > options.maxResponseSize) {
+    clearTimeout(timeoutId);
     throw new Error(
       `Response too large (exceeds ${(options.maxResponseSize / 1024 / 1024).toString()}MB limit)`,
     );
@@ -68,20 +85,29 @@ export async function fetchBody(
 
   // Stream body and enforce size limit
   if (!response.body) {
+    clearTimeout(timeoutId);
     throw new Error('Response body is not readable');
   }
 
+  const reader = response.body;
   const chunks: Uint8Array[] = [];
   let totalBytes = 0;
 
-  for await (const chunk of response.body) {
-    totalBytes += chunk.byteLength;
-    if (totalBytes > options.maxResponseSize) {
-      throw new Error(
-        `Response too large (exceeds ${(options.maxResponseSize / 1024 / 1024).toString()}MB limit)`,
-      );
+  try {
+    for await (const chunk of reader) {
+      totalBytes += chunk.byteLength;
+      if (totalBytes > options.maxResponseSize) {
+        throw new Error(
+          `Response too large (exceeds ${(options.maxResponseSize / 1024 / 1024).toString()}MB limit)`,
+        );
+      }
+      chunks.push(chunk);
     }
-    chunks.push(chunk);
+  } catch (error: unknown) {
+    abortController.abort();
+    throw error;
+  } finally {
+    clearTimeout(timeoutId);
   }
 
   const body = new TextDecoder().decode(Buffer.concat(chunks));

@@ -16,10 +16,10 @@ Two tools in the `WebToolSet` for fetching URL content:
 
 ### Parameters
 
-| Parameter         | Type               | Required | Description                                                                                                                                                                       |
-| ----------------- | ------------------ | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `url`             | `z.string().url()` | Yes      | The URL to fetch.                                                                                                                                                                 |
-| `includeFullPage` | `z.boolean()`      | No       | Defaults to `false`. When `false`, only the main article content is extracted. Set to `true` to include the full page content if extraction is incomplete or missing information. |
+| Parameter         | Type          | Required | Description                                                                                                                                                                       |
+| ----------------- | ------------- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `url`             | `z.url()`     | Yes      | The URL to fetch.                                                                                                                                                                 |
+| `includeFullPage` | `z.boolean()` | No       | Defaults to `false`. When `false`, only the main article content is extracted. Set to `true` to include the full page content if extraction is incomplete or missing information. |
 
 ### Response Format
 
@@ -56,9 +56,9 @@ The LLM can then read the file using its available file-reading tools.
 
 ### Parameters
 
-| Parameter | Type               | Required | Description       |
-| --------- | ------------------ | -------- | ----------------- |
-| `url`     | `z.string().url()` | Yes      | The URL to fetch. |
+| Parameter | Type      | Required | Description       |
+| --------- | --------- | -------- | ----------------- |
+| `url`     | `z.url()` | Yes      | The URL to fetch. |
 
 ### Behavior
 

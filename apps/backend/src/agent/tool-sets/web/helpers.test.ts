@@ -34,6 +34,10 @@ describe('isTextContentType', () => {
     expect(isTextContentType('application/xml')).toBe(true);
   });
 
+  it('returns true for application/javascript', () => {
+    expect(isTextContentType('application/javascript')).toBe(true);
+  });
+
   it('returns true for application/rss+xml', () => {
     expect(isTextContentType('application/rss+xml')).toBe(true);
   });
