@@ -1,12 +1,11 @@
-import {useCallback, useEffect, useRef, useState} from 'react';
+import {useCallback, useState} from 'react';
 
 import {createSession} from '@/api/chat/index.js';
 
-/** Manages the chat session lifecycle. Creates a session on mount. */
+/** Manages the chat session lifecycle. Session is created on demand via `resetSession`. */
 export function useSession() {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const initRef = useRef(false);
 
   const resetSession = useCallback(async () => {
     setError(null);
@@ -22,12 +21,6 @@ export function useSession() {
       return null;
     }
   }, []);
-
-  useEffect(() => {
-    if (initRef.current) return;
-    initRef.current = true;
-    void resetSession();
-  }, [resetSession]);
 
   const clearSessionError = useCallback(() => {
     setError(null);

@@ -9,7 +9,8 @@ import {useStreamChat} from './hooks/useStreamChat.js';
 
 /** Chat page container. Composes hooks and passes state to the view. */
 export function ChatPage() {
-  const {sessionId, sessionError, clearSessionError} = useSession();
+  const {sessionId, sessionError, resetSession, clearSessionError} =
+    useSession();
 
   const {
     messages,
@@ -29,6 +30,7 @@ export function ChatPage() {
     clearMaxRoundsReached,
   } = useStreamChat({
     sessionId,
+    resetSession,
     addUserMessage,
     appendAssistantText,
     pushToolExecutionStart,
@@ -48,7 +50,7 @@ export function ChatPage() {
   return (
     <ChatPageView
       messages={messages}
-      isInputDisabled={isStreaming || !sessionId}
+      isInputDisabled={isStreaming}
       error={displayError}
       maxRoundsReached={maxRoundsReached}
       scrollRef={scrollRef}
