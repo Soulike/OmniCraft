@@ -146,14 +146,21 @@ export async function* streamOpenAIResponses(
         break;
       }
 
+      // Throw on stream errors so LlmSession can roll back messages.
+      case 'error':
+        throw new Error(`OpenAI Responses stream error: ${event.message}`);
+
+      case 'response.failed': {
+        const errorMessage = event.response.error?.message ?? 'unknown error';
+        throw new Error(`OpenAI Responses request failed: ${errorMessage}`);
+      }
+
       // Events below are not relevant for our streaming protocol.
       // They cover built-in tools, audio, reasoning, and lifecycle
       // states that the unified LlmEvent model does not represent.
       case 'response.queued':
       case 'response.in_progress':
-      case 'response.failed':
       case 'response.incomplete':
-      case 'error':
       case 'response.output_text.done':
       case 'response.output_text.annotation.added':
       case 'response.content_part.added':
