@@ -54,8 +54,8 @@ function ChatPageContent() {
       maxRoundsReached={maxRoundsReached}
       scrollRef={scrollRef}
       onSend={(content) => {
-        scrollToBottom();
         void sendMessage(content);
+        requestAnimationFrame(() => { scrollToBottom(); });
       }}
       onStop={stopGeneration}
       onDismissError={dismissError}
