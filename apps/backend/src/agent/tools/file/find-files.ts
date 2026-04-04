@@ -16,6 +16,7 @@ const MAX_RESULTS = 100;
 const parameters = z.object({
   pattern: z
     .string()
+    .min(1)
     .describe(
       'Glob pattern to match files, e.g. "**/*.ts", "src/{components,hooks}/**/*.ts"',
     ),
