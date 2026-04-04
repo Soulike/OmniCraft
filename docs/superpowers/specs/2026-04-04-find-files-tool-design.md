@@ -67,4 +67,4 @@ No files found matching "{pattern}" in {path}.
 - Path outside allowed directories: `"Error: Access denied: path is outside the allowed directories"`
 - Path does not exist: `"Error: Directory not found: {path}"`
 - Path is not a directory: `"Error: Not a directory: {path}"`
-- Invalid glob pattern (fast-glob throws): `"Error: Invalid pattern: {message}"`
+- fast-glob throws: `"Error: {message}"`
