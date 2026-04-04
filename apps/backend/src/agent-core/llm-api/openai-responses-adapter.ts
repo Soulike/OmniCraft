@@ -138,7 +138,7 @@ export async function* streamOpenAIResponses(
         const usage = event.response.usage;
         yield {
           type: 'message-end',
-          stopReason: event.response.status ?? 'completed',
+          stopReason: event.response.status ?? 'unknown',
           usage: {
             inputTokens: usage?.input_tokens ?? 0,
             outputTokens: usage?.output_tokens ?? 0,
