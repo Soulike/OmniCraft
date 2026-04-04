@@ -11,7 +11,7 @@ import type {
   ToolExecutionContext,
 } from '@/agent-core/tool/index.js';
 
-import {isSubPathOrSelf} from './helpers.js';
+import {AccessCheckResult, checkAccess} from './helpers.js';
 
 const MAX_RESULTS = 100;
 const TIMEOUT_MS = 30_000;
@@ -50,14 +50,19 @@ export const findFilesTool: ToolDefinition<typeof parameters> = {
     const searchDir = path.resolve(workingDirectory, args.path ?? '.');
 
     // 2. Security check
-    if (!isSubPathOrSelf(workingDirectory, searchDir)) {
-      const allowed = context.extraAllowedPaths.some((entry) =>
-        isSubPathOrSelf(entry.path, searchDir),
-      );
-      if (!allowed) {
-        return 'Error: Access denied: path is outside the allowed directories';
-      }
+    const accessResult = checkAccess(
+      searchDir,
+      'read',
+      workingDirectory,
+      context.extraAllowedPaths,
+    );
+    if (accessResult === AccessCheckResult.ERROR_OUTSIDE_ALLOWED_DIRECTORIES) {
+      return 'Error: Access denied: path is outside the allowed directories';
     }
+    assert(
+      accessResult !== AccessCheckResult.ERROR_READ_ONLY,
+      'checkAccess should never return READ_ONLY for read mode',
+    );
 
     // 3. Verify directory exists
     let stat: Stats;

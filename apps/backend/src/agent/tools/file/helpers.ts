@@ -46,12 +46,12 @@ export function checkAccess(
   workingDirectory: string,
   extraAllowedPaths: readonly AllowedPath[],
 ): AccessCheckResult {
-  if (isSubPath(workingDirectory, targetPath)) {
+  if (isSubPathOrSelf(workingDirectory, targetPath)) {
     return AccessCheckResult.OK;
   }
 
   const matchedEntry = extraAllowedPaths.find((entry) =>
-    isSubPath(entry.path, targetPath),
+    isSubPathOrSelf(entry.path, targetPath),
   );
 
   if (!matchedEntry) {
