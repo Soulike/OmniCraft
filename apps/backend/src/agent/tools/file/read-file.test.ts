@@ -127,6 +127,20 @@ describe('readFileTool', () => {
 
       expect(result).toContain('(3 lines, showing lines 100-3)');
     });
+
+    it('tracks file stat after successful read', async () => {
+      await writeFile('tracked.txt', 'content');
+      const stat = await fs.stat(path.join(tmpDir, 'tracked.txt'));
+
+      await readFileTool.execute({filePath: 'tracked.txt'}, context);
+
+      const result = context.fileStatTracker.canModify(
+        path.join(tmpDir, 'tracked.txt'),
+        stat.size,
+        stat.mtimeMs,
+      );
+      expect(result).toBe('ok');
+    });
   });
 
   describe('extraAllowedPaths', () => {

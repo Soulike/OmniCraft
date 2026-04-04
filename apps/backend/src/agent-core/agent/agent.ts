@@ -17,6 +17,7 @@ import type {
 } from '../tool/index.js';
 import {loadSkillTool} from '../tool/index.js';
 import {FileContentCache} from './file-content-cache.js';
+import {FileStatTracker} from './file-stat-tracker.js';
 import type {
   AgentDoneEvent,
   AgentEventStream,
@@ -55,6 +56,9 @@ export abstract class Agent {
 
   /** LRU file content cache, shared by all file-related tools. */
   private readonly fileCache = new FileContentCache();
+
+  /** Tracks file stats for modification safety checks. */
+  private readonly fileStatTracker = new FileStatTracker();
 
   constructor(
     getConfig: () => Promise<LlmConfig>,
@@ -308,6 +312,7 @@ export abstract class Agent {
       availableSkills: this.getAvailableSkills(),
       workingDirectory: this.workingDirectory,
       fileCache: this.fileCache,
+      fileStatTracker: this.fileStatTracker,
       extraAllowedPaths: this.extraAllowedPaths,
     };
 

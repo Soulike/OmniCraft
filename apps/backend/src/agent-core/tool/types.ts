@@ -1,6 +1,7 @@
 import type {z} from 'zod';
 
 import type {FileContentCache} from '../agent/file-content-cache.js';
+import type {FileStatTracker} from '../agent/file-stat-tracker.js';
 import type {SkillDefinition} from '../skill/skill-definition.js';
 
 /** A directory the agent is allowed to access beyond its working directory. */
@@ -21,6 +22,9 @@ export interface ToolExecutionContext {
 
   /** LRU cache for file contents, scoped to the Agent's lifetime. */
   readonly fileCache: FileContentCache;
+
+  /** Tracks file stats to prevent blind or stale modifications. */
+  readonly fileStatTracker: FileStatTracker;
 
   /**
    * Additional paths the agent is allowed to access beyond workingDirectory.
