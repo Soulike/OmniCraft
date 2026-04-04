@@ -12,11 +12,11 @@ Add a `search_files` tool to the existing `FileToolRegistry`, allowing the Agent
 
 ## Parameters
 
-| Parameter     | Type     | Required | Description                                                                |
-| ------------- | -------- | -------- | -------------------------------------------------------------------------- |
-| `pattern`     | `string` | Yes      | Regex pattern to match against file contents                               |
-| `path`        | `string` | No       | Search root directory (relative or absolute), defaults to workingDirectory |
-| `filePattern` | `string` | No       | Glob pattern to filter files, e.g. `**/*.ts`, defaults to `**/*`           |
+| Parameter     | Type     | Required | Description                                                                      |
+| ------------- | -------- | -------- | -------------------------------------------------------------------------------- |
+| `pattern`     | `string` | Yes      | Pattern string compiled to a JavaScript RegExp and matched with .test() per line |
+| `path`        | `string` | No       | Search root directory (relative or absolute), defaults to workingDirectory       |
+| `filePattern` | `string` | No       | Glob pattern to filter files, e.g. `**/*.ts`, defaults to `**/*`                 |
 
 ## Architecture
 
