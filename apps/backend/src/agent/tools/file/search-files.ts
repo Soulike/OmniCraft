@@ -14,7 +14,7 @@ import type {
   ToolExecutionContext,
 } from '@/agent-core/tool/index.js';
 
-import {isBinaryFile, isSubPathOrSelf} from './helpers.js';
+import {AccessCheckResult, checkAccess, isBinaryFile} from './helpers.js';
 
 const MAX_MATCHES = 100;
 const MAX_CONCURRENCY = 10;
@@ -106,13 +106,14 @@ export const searchFilesTool: ToolDefinition<typeof parameters> = {
     const searchDir = path.resolve(workingDirectory, args.path ?? '.');
 
     // 2. Security check
-    if (!isSubPathOrSelf(workingDirectory, searchDir)) {
-      const allowed = context.extraAllowedPaths.some((entry) =>
-        isSubPathOrSelf(entry.path, searchDir),
-      );
-      if (!allowed) {
-        return 'Error: Access denied: path is outside the allowed directories';
-      }
+    const accessResult = checkAccess(
+      searchDir,
+      'read',
+      workingDirectory,
+      context.extraAllowedPaths,
+    );
+    if (accessResult === AccessCheckResult.ERROR_OUTSIDE_ALLOWED_DIRECTORIES) {
+      return 'Error: Access denied: path is outside the allowed directories';
     }
 
     // 3. Verify directory exists
