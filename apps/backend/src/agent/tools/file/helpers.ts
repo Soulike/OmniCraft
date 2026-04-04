@@ -23,11 +23,8 @@ export function isSubPath(parent: string, child: string): boolean {
 
 /** Returns true if `child` is `parent` itself or strictly inside it. */
 export function isSubPathOrSelf(parent: string, child: string): boolean {
-  const resolvedParent = path.resolve(parent);
-  const resolvedChild = path.resolve(child);
   return (
-    resolvedChild === resolvedParent ||
-    resolvedChild.startsWith(resolvedParent + path.sep)
+    path.resolve(parent) === path.resolve(child) || isSubPath(parent, child)
   );
 }
 
