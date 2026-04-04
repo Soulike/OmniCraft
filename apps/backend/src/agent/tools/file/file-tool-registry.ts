@@ -1,5 +1,6 @@
 import {ToolRegistry} from '@/agent-core/tool/index.js';
 
+import {editFileTool} from './edit-file.js';
 import {findFilesTool} from './find-files.js';
 import {readFileTool} from './read-file.js';
 import {searchFilesTool} from './search-files.js';
@@ -14,6 +15,7 @@ export class FileToolRegistry extends ToolRegistry {
     instance.register(findFilesTool);
     instance.register(searchFilesTool);
     instance.register(writeFileTool);
+    instance.register(editFileTool);
     return instance;
   }
 }
