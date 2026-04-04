@@ -45,6 +45,7 @@ export interface LlmConfig {
 export interface LlmUsage {
   inputTokens: number;
   outputTokens: number;
+  cacheReadInputTokens: number;
 }
 
 /** The LLM response has started. */

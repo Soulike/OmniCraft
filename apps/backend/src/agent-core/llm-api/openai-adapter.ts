@@ -108,6 +108,8 @@ export async function* streamOpenAI(
           usage: {
             inputTokens: chunk.usage.prompt_tokens,
             outputTokens: chunk.usage.completion_tokens,
+            cacheReadInputTokens:
+              chunk.usage.prompt_tokens_details?.cached_tokens ?? 0,
           },
         };
       }
@@ -166,6 +168,8 @@ export async function* streamOpenAI(
           usage: {
             inputTokens: chunk.usage.prompt_tokens,
             outputTokens: chunk.usage.completion_tokens,
+            cacheReadInputTokens:
+              chunk.usage.prompt_tokens_details?.cached_tokens ?? 0,
           },
         };
       }
