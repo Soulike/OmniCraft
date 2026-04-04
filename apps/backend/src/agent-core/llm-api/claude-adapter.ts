@@ -13,6 +13,13 @@ import type {
 
 type SdkMessageParam = Anthropic.MessageParam;
 
+// Compile-time check: the content block types we cache-mark must accept cache_control.
+// If the SDK removes or renames this field, these lines will fail to compile.
+type AssertCacheControl<T extends {cache_control?: unknown}> = T;
+type _CheckText = AssertCacheControl<Anthropic.TextBlockParam>;
+type _CheckToolUse = AssertCacheControl<Anthropic.ToolUseBlockParam>;
+type _CheckToolResult = AssertCacheControl<Anthropic.ToolResultBlockParam>;
+
 /** Converts our unified LlmMessage to the Anthropic SDK message format. */
 function toSdkMessage(message: LlmMessage): SdkMessageParam {
   switch (message.role) {
