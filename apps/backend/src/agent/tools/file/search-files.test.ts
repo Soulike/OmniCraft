@@ -248,12 +248,20 @@ describe('searchFilesTool', () => {
     it('returns error for invalid regex', async () => {
       await writeFile('a.ts', 'hello\n');
 
+      const result = await searchFilesTool.execute({pattern: 'a**'}, context);
+
+      expect(result).toContain('Error: Invalid regex pattern');
+    });
+
+    it('rejects unsafe regex patterns', async () => {
+      await writeFile('a.ts', 'hello\n');
+
       const result = await searchFilesTool.execute(
-        {pattern: '[invalid'},
+        {pattern: '(a+)+$'},
         context,
       );
 
-      expect(result).toContain('Error: Invalid regex pattern');
+      expect(result).toContain('Error: Regex pattern rejected');
     });
 
     it('returns error when path is a file', async () => {

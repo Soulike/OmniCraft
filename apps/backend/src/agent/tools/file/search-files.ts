@@ -6,6 +6,7 @@ import path from 'node:path';
 import readline from 'node:readline';
 
 import fg from 'fast-glob';
+import isSafeRegex from 'safe-regex2';
 import {z} from 'zod';
 
 import type {
@@ -127,6 +128,10 @@ export const searchFilesTool: ToolDefinition<typeof parameters> = {
     }
 
     // 4. Compile regex
+    if (!isSafeRegex(args.pattern)) {
+      return 'Error: Regex pattern rejected — potential catastrophic backtracking';
+    }
+
     let regex: RegExp;
     try {
       regex = new RegExp(args.pattern);
