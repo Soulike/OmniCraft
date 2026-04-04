@@ -48,7 +48,8 @@ Success (diff exceeds 4KB):
 
 ```
 File edited: {filePath} ({count} replacement(s))
-Diff too large to display.
+{first 4KB of unified diff}
+... Diff truncated. Read the file to review the modified sections.
 ```
 
 ## File Changes
