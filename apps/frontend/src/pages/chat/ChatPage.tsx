@@ -36,7 +36,7 @@ function ChatPageContent() {
     clearMaxRoundsReached,
   } = useStreamChat({sessionId, resetSession});
 
-  const scrollRef = useAutoScroll();
+  const {containerRef: scrollRef, scrollToBottom} = useAutoScroll();
 
   const displayError = sessionError ?? streamError;
 
@@ -54,6 +54,7 @@ function ChatPageContent() {
       maxRoundsReached={maxRoundsReached}
       scrollRef={scrollRef}
       onSend={(content) => {
+        scrollToBottom();
         void sendMessage(content);
       }}
       onStop={stopGeneration}

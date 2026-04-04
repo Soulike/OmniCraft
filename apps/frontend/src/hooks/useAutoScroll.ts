@@ -15,20 +15,42 @@ const NEAR_BOTTOM_THRESHOLD = 100;
 export function useAutoScroll() {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const isNearBottomRef = useRef(true);
+  const isSmoothScrollingRef = useRef(false);
 
   const updateIsNearBottom = useCallback(() => {
+    if (isSmoothScrollingRef.current) return;
     const el = containerRef.current;
     if (!el) return;
     isNearBottomRef.current =
       el.scrollHeight - el.scrollTop - el.clientHeight < NEAR_BOTTOM_THRESHOLD;
   }, []);
 
-  const scrollToBottom = useCallback(() => {
+  const autoScrollToBottom = useCallback(() => {
+    if (isSmoothScrollingRef.current) return;
     const el = containerRef.current;
     if (!el) return;
     if (isNearBottomRef.current) {
       el.scrollTop = el.scrollHeight;
     }
+  }, []);
+
+  const scrollToBottom = useCallback(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    isNearBottomRef.current = true;
+
+    const distance = el.scrollHeight - el.scrollTop - el.clientHeight;
+    if (distance < 1) return;
+
+    isSmoothScrollingRef.current = true;
+    el.addEventListener(
+      'scrollend',
+      () => {
+        isSmoothScrollingRef.current = false;
+      },
+      {once: true},
+    );
+    el.scrollTo({top: el.scrollHeight, behavior: 'smooth'});
   }, []);
 
   useEffect(() => {
@@ -37,14 +59,14 @@ export function useAutoScroll() {
 
     el.addEventListener('scroll', updateIsNearBottom, {passive: true});
 
-    const observer = new MutationObserver(scrollToBottom);
+    const observer = new MutationObserver(autoScrollToBottom);
     observer.observe(el, {childList: true, subtree: true, characterData: true});
 
     return () => {
       el.removeEventListener('scroll', updateIsNearBottom);
       observer.disconnect();
     };
-  }, [updateIsNearBottom, scrollToBottom]);
+  }, [updateIsNearBottom, autoScrollToBottom]);
 
-  return containerRef;
+  return {containerRef, scrollToBottom};
 }
