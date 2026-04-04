@@ -254,8 +254,6 @@ export abstract class Agent {
       ].join('\n');
     }
 
-    prompt += `\n\nCurrent time: ${new Date().toISOString()}`;
-
     prompt += `\n\nWorking directory: ${this.workingDirectory}\nYou can read and write files within this directory.`;
 
     if (this.extraAllowedPaths.length > 0) {
