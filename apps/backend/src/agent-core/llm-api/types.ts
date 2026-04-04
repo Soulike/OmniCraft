@@ -35,7 +35,7 @@ export type LlmMessage =
 
 /** Configuration needed to call an LLM API. */
 export interface LlmConfig {
-  apiFormat: 'claude' | 'openai';
+  apiFormat: 'claude' | 'openai' | 'openai-responses';
   apiKey: string;
   baseUrl: string;
   model: string;
