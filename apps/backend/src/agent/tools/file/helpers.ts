@@ -42,6 +42,18 @@ export enum AccessCheckResult {
  */
 export function checkAccess(
   targetPath: string,
+  requiredMode: 'read',
+  workingDirectory: string,
+  extraAllowedPaths: readonly AllowedPath[],
+): AccessCheckResult.OK | AccessCheckResult.ERROR_OUTSIDE_ALLOWED_DIRECTORIES;
+export function checkAccess(
+  targetPath: string,
+  requiredMode: 'read-write',
+  workingDirectory: string,
+  extraAllowedPaths: readonly AllowedPath[],
+): AccessCheckResult;
+export function checkAccess(
+  targetPath: string,
   requiredMode: 'read' | 'read-write',
   workingDirectory: string,
   extraAllowedPaths: readonly AllowedPath[],

@@ -115,10 +115,6 @@ export const searchFilesTool: ToolDefinition<typeof parameters> = {
     if (accessResult === AccessCheckResult.ERROR_OUTSIDE_ALLOWED_DIRECTORIES) {
       return 'Error: Access denied: path is outside the allowed directories';
     }
-    assert(
-      accessResult !== AccessCheckResult.ERROR_READ_ONLY,
-      'checkAccess should never return READ_ONLY for read mode',
-    );
 
     // 3. Verify directory exists
     let stat: Stats;
