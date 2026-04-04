@@ -1,3 +1,5 @@
+import type {SseUsage} from '@omnicraft/sse-events';
+
 import type {EventBus} from '@/helpers/event-bus.js';
 
 /** Text content from the LLM or user input. */
@@ -55,6 +57,7 @@ export interface ChatEventMap {
     userMessage: string;
     assistantMessage: string;
     reason: string;
+    usage: SseUsage;
   };
   /** An error occurred during streaming. */
   'stream-error': {message: string};

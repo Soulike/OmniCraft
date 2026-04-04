@@ -5,6 +5,7 @@ export type {
   SseTextDeltaEvent,
   SseToolExecuteEndEvent,
   SseToolExecuteStartEvent,
+  SseUsage,
 } from './schema.js';
 export {
   sseDoneEventSchema,
@@ -13,4 +14,5 @@ export {
   sseTextDeltaEventSchema,
   sseToolExecuteEndEventSchema,
   sseToolExecuteStartEventSchema,
+  sseUsageSchema,
 } from './schema.js';

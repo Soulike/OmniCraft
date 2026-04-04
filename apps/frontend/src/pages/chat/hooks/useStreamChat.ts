@@ -80,6 +80,7 @@ export function useStreamChat({sessionId, resetSession}: UseStreamChatOptions) {
                 userMessage: trimmed,
                 assistantMessage: assistantText,
                 reason: event.reason,
+                usage: event.usage,
               });
               break;
             case 'error':

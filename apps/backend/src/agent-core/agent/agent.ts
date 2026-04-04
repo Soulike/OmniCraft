@@ -127,6 +127,7 @@ export abstract class Agent {
         yield {
           type: 'done',
           reason: 'max_rounds_reached',
+          usage: this.llmSession.getUsage(),
         } satisfies AgentDoneEvent;
         return;
       }
@@ -168,7 +169,11 @@ export abstract class Agent {
       );
     }
 
-    yield {type: 'done', reason: 'complete'} satisfies AgentDoneEvent;
+    yield {
+      type: 'done',
+      reason: 'complete',
+      usage: this.llmSession.getUsage(),
+    } satisfies AgentDoneEvent;
   }
 
   // -------------------------------------------------------------------------

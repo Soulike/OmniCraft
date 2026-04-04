@@ -1,9 +1,11 @@
 import {ScrollShadow} from '@heroui/react';
+import type {SseUsage} from '@omnicraft/sse-events';
 import type {RefObject} from 'react';
 
 import {ChatAlert} from './components/ChatAlert/index.js';
 import {ChatInput} from './components/ChatInput/index.js';
 import {MessageList} from './components/MessageList/index.js';
+import {UsageBar} from './components/UsageBar/index.js';
 import styles from './styles.module.css';
 import type {ChatMessage} from './types.js';
 
@@ -13,6 +15,7 @@ interface ChatPageViewProps {
   isStreaming: boolean;
   error: string | null;
   maxRoundsReached: boolean;
+  usage: SseUsage | null;
   scrollRef: RefObject<HTMLDivElement | null>;
   onSend: (content: string) => void;
   onStop: () => void;
@@ -26,6 +29,7 @@ export function ChatPageView({
   isStreaming,
   error,
   maxRoundsReached,
+  usage,
   scrollRef,
   onSend,
   onStop,
@@ -54,6 +58,7 @@ export function ChatPageView({
       <ScrollShadow className={styles.messageListWrapper} ref={scrollRef}>
         <MessageList messages={messages} />
       </ScrollShadow>
+      {usage && <UsageBar usage={usage} />}
       <ChatInput isStreaming={isStreaming} onSend={onSend} onStop={onStop} />
     </div>
   );
