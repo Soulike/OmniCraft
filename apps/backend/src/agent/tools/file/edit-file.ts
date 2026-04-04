@@ -11,7 +11,7 @@ import type {
   ToolExecutionContext,
 } from '@/agent-core/tool/index.js';
 
-import {isSubPath} from './helpers.js';
+import {AccessCheckResult, checkAccess} from './helpers.js';
 
 const MAX_DIFF_SIZE = 4_096; // 4KB
 const MAX_FILE_SIZE = 10_485_760; // 10MB
@@ -62,16 +62,17 @@ export const editFileTool: ToolDefinition<typeof parameters> = {
     const absolutePath = path.resolve(workingDirectory, args.filePath);
 
     // 2. Security check
-    if (!isSubPath(workingDirectory, absolutePath)) {
-      const matchedEntry = context.extraAllowedPaths.find((entry) =>
-        isSubPath(entry.path, absolutePath),
-      );
-      if (!matchedEntry) {
-        return 'Error: Access denied: path is outside the allowed directories';
-      }
-      if (matchedEntry.mode === 'read') {
-        return 'Error: Access denied: path is read-only';
-      }
+    const accessResult = checkAccess(
+      workingDirectory,
+      absolutePath,
+      context.extraAllowedPaths,
+      'read-write',
+    );
+    if (accessResult === AccessCheckResult.OUTSIDE) {
+      return 'Error: Access denied: path is outside the allowed directories';
+    }
+    if (accessResult === AccessCheckResult.READ_ONLY) {
+      return 'Error: Access denied: path is read-only';
     }
 
     // 3. Read file
@@ -110,7 +111,12 @@ export const editFileTool: ToolDefinition<typeof parameters> = {
       return `Error: ${message}`;
     }
 
-    // 4. Count occurrences
+    // 4. Check for no-op replacement
+    if (args.oldString === args.newString) {
+      return 'Error: oldString and newString are identical. No changes needed.';
+    }
+
+    // 5. Count occurrences
     const matchCount = countOccurrences(oldContent, args.oldString);
 
     if (matchCount === 0) {
@@ -140,6 +146,7 @@ export const editFileTool: ToolDefinition<typeof parameters> = {
     // Track new file stat
     const newStat = await fs.stat(absolutePath);
     context.fileStatTracker.set(absolutePath, newStat.size, newStat.mtimeMs);
+    context.fileCache.invalidate(absolutePath);
 
     // 7. Generate diff
     const diff = createPatch(args.filePath, oldContent, newContent);

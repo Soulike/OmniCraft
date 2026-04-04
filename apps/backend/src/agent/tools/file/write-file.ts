@@ -10,7 +10,7 @@ import type {
   ToolExecutionContext,
 } from '@/agent-core/tool/index.js';
 
-import {countLines, isSubPath} from './helpers.js';
+import {AccessCheckResult, checkAccess, countLines} from './helpers.js';
 
 const MAX_CONTENT_SIZE = 1_048_576; // 1MB
 
@@ -47,16 +47,17 @@ export const writeFileTool: ToolDefinition<typeof parameters> = {
     const absolutePath = path.resolve(workingDirectory, args.filePath);
 
     // 3. Security check
-    if (!isSubPath(workingDirectory, absolutePath)) {
-      const matchedEntry = context.extraAllowedPaths.find((entry) =>
-        isSubPath(entry.path, absolutePath),
-      );
-      if (!matchedEntry) {
-        return 'Error: Access denied: path is outside the allowed directories';
-      }
-      if (matchedEntry.mode === 'read') {
-        return 'Error: Access denied: path is read-only';
-      }
+    const accessResult = checkAccess(
+      workingDirectory,
+      absolutePath,
+      context.extraAllowedPaths,
+      'read-write',
+    );
+    if (accessResult === AccessCheckResult.OUTSIDE) {
+      return 'Error: Access denied: path is outside the allowed directories';
+    }
+    if (accessResult === AccessCheckResult.READ_ONLY) {
+      return 'Error: Access denied: path is read-only';
     }
 
     // 4. Check if file exists — if so, verify it was read first
@@ -100,6 +101,7 @@ export const writeFileTool: ToolDefinition<typeof parameters> = {
     // Track new file stat
     const newStat = await fs.stat(absolutePath);
     context.fileStatTracker.set(absolutePath, newStat.size, newStat.mtimeMs);
+    context.fileCache.invalidate(absolutePath);
 
     // 7. Count lines and return success
     const lineCount = await countLines(Buffer.from(args.content));

@@ -4,6 +4,8 @@ import path from 'node:path';
 import readline from 'node:readline';
 import {Readable} from 'node:stream';
 
+import type {AllowedPath} from '@/agent-core/tool/index.js';
+
 const BINARY_DETECTION_SIZE = 8_192; // 8KB
 
 /** Thrown when readLineRange exceeds the maxBytes limit. */
@@ -26,6 +28,41 @@ export function isSubPathOrSelf(parent: string, child: string): boolean {
   return (
     path.resolve(parent) === path.resolve(child) || isSubPath(parent, child)
   );
+}
+
+export enum AccessCheckResult {
+  OK = 'ok',
+  OUTSIDE = 'outside',
+  READ_ONLY = 'read_only',
+}
+
+/**
+ * Checks if a resolved absolute path is accessible with the required mode.
+ * workingDirectory is always read-write.
+ */
+export function checkAccess(
+  workingDirectory: string,
+  absolutePath: string,
+  extraAllowedPaths: readonly AllowedPath[],
+  requiredMode: 'read' | 'read-write',
+): AccessCheckResult {
+  if (isSubPath(workingDirectory, absolutePath)) {
+    return AccessCheckResult.OK;
+  }
+
+  const matchedEntry = extraAllowedPaths.find((entry) =>
+    isSubPath(entry.path, absolutePath),
+  );
+
+  if (!matchedEntry) {
+    return AccessCheckResult.OUTSIDE;
+  }
+
+  if (requiredMode === 'read-write' && matchedEntry.mode === 'read') {
+    return AccessCheckResult.READ_ONLY;
+  }
+
+  return AccessCheckResult.OK;
 }
 
 /** Returns true if the file contains null bytes in its first 8KB. */

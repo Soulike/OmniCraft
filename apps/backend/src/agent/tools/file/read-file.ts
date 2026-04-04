@@ -10,10 +10,11 @@ import type {
 } from '@/agent-core/tool/index.js';
 
 import {
+  AccessCheckResult,
+  checkAccess,
   countLines,
   formatWithLineNumbers,
   isBinaryFile,
-  isSubPath,
   readLineRange,
   ReadSizeLimitError,
 } from './helpers.js';
@@ -60,13 +61,14 @@ export const readFileTool: ToolDefinition<typeof parameters> = {
     const absolutePath = path.resolve(workingDirectory, args.filePath);
 
     // 2. Security check: workingDirectory or extraAllowedPaths
-    if (!isSubPath(workingDirectory, absolutePath)) {
-      const allowed = context.extraAllowedPaths.some((entry) =>
-        isSubPath(entry.path, absolutePath),
-      );
-      if (!allowed) {
-        return 'Error: Access denied: path is outside the allowed directories';
-      }
+    const accessResult = checkAccess(
+      workingDirectory,
+      absolutePath,
+      context.extraAllowedPaths,
+      'read',
+    );
+    if (accessResult === AccessCheckResult.OUTSIDE) {
+      return 'Error: Access denied: path is outside the allowed directories';
     }
 
     // 3. Stat
