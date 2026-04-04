@@ -22,7 +22,7 @@ Add a `search_files` tool to the existing `FileToolRegistry`, allowing the Agent
 
 Two layers:
 
-1. **`searchFile(filePath, regex, signal)`** — Async function. Reads a single file line-by-line with readline, returns an array of `{line: number, content: string}` matches. Accepts an `AbortSignal` to stop early on timeout or result cap.
+1. **`searchFile(filePath, regex, maxMatches, signal)`** — Async function. Reads a single file line-by-line with readline, returns an array of `{line: number, content: string}` matches. Stops when `maxMatches` is reached or `AbortSignal` fires.
 2. **Tool `execute()`** — Uses fast-glob stream to enumerate files, dispatches `searchFile` calls concurrently (max 10 in flight), collects results up to the limit.
 
 ## Behavior
@@ -34,8 +34,8 @@ Two layers:
 5. Use fast-glob stream with `filePattern` (default `**/*`), `onlyFiles: true`, `dot: true`.
 6. For each file from the stream:
    - Skip binary files (reuse `isBinaryFile` from helpers).
-   - Call `searchFile(absolutePath, regex, signal)` concurrently (max 10 in-flight).
-7. `searchFile` reads line-by-line with readline. For each matching line, record `{line, content}`. Respects `AbortSignal` — stops reading and returns partial results when aborted.
+   - Call `searchFile(absolutePath, regex, remainingQuota, signal)` concurrently (max 10 in-flight). `remainingQuota` is the number of matches still allowed before hitting the global cap.
+7. `searchFile` reads line-by-line with readline. For each matching line, record `{line, content}`. Stops when `maxMatches` is reached or `AbortSignal` fires, returning collected matches.
 8. Collect matches across all files. Cap at 100 total matching lines. When reached, abort all in-flight searches and stop enumerating files.
 9. 30s timeout (timestamp-based). When exceeded, abort all in-flight searches and return collected results with a warning.
 10. Sort results by file path, then by line number.
