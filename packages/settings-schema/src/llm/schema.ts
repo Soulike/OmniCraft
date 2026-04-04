@@ -2,7 +2,7 @@ import {z} from 'zod';
 
 export const llmSettingsSchema = z.object({
   apiFormat: z
-    .enum(['claude', 'openai'])
+    .enum(['claude', 'openai', 'openai-responses'])
     .describe('API protocol format')
     .default('claude'),
   apiKey: z.string().describe('API key for the LLM service').default(''),
