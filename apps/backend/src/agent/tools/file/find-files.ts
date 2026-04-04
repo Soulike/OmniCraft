@@ -13,6 +13,7 @@ import type {
 import {isSubPathOrSelf} from './helpers.js';
 
 const MAX_RESULTS = 100;
+const TIMEOUT_MS = 30_000;
 
 const parameters = z.object({
   pattern: z
@@ -69,17 +70,33 @@ export const findFilesTool: ToolDefinition<typeof parameters> = {
       return `Error: Not a directory: ${args.path}`;
     }
 
-    // 4. Run fast-glob
-    let entries: string[];
+    // 4. Run fast-glob with stream
+    const stream = fg.stream(args.pattern, {
+      cwd: searchDir,
+      onlyFiles: true,
+      dot: true,
+    });
+
+    const entries: string[] = [];
+    let timedOut = false;
+
     try {
-      entries = await fg(args.pattern, {
-        cwd: searchDir,
-        onlyFiles: true,
-        dot: true,
-      });
+      const startTime = Date.now();
+      for await (const entry of stream) {
+        entries.push(entry as string);
+        if (entries.length >= MAX_RESULTS) {
+          break;
+        }
+        if (Date.now() - startTime > TIMEOUT_MS) {
+          timedOut = true;
+          break;
+        }
+      }
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : String(error);
-      return `Error: ${message}`;
+      if (entries.length === 0) {
+        const message = error instanceof Error ? error.message : String(error);
+        return `Error: ${message}`;
+      }
     }
 
     // 5. Sort alphabetically
@@ -87,25 +104,29 @@ export const findFilesTool: ToolDefinition<typeof parameters> = {
 
     // 6. Format output
     const displayPath = args.path ?? workingDirectory;
+    const hitLimit = entries.length >= MAX_RESULTS;
+
+    if (entries.length === 0 && timedOut) {
+      return `No files found matching "${args.pattern}" in ${displayPath} (search timed out after 30s).`;
+    }
 
     if (entries.length === 0) {
       return `No files found matching "${args.pattern}" in ${displayPath}.`;
     }
 
-    const total = entries.length;
-    const truncated = total > MAX_RESULTS;
-    const shown = truncated ? entries.slice(0, MAX_RESULTS) : entries;
+    const body = entries.join('\n');
 
-    const header = truncated
-      ? `Found ${MAX_RESULTS} of ${total} files matching "${args.pattern}" in ${displayPath} (truncated):`
-      : `Found ${total} files matching "${args.pattern}" in ${displayPath}:`;
+    if (timedOut) {
+      const header = `Found ${entries.length} files matching "${args.pattern}" in ${displayPath} (search timed out after 30s):`;
+      return `${header}\n${body}\nResults may be incomplete. Use a more specific pattern to narrow down.`;
+    }
 
-    const body = shown.join('\n');
+    if (hitLimit) {
+      const header = `Found 100+ files matching "${args.pattern}" in ${displayPath} (showing first 100):`;
+      return `${header}\n${body}\nUse a more specific pattern to narrow down.`;
+    }
 
-    const footer = truncated
-      ? `\nShowing ${MAX_RESULTS} of ${total} results. Use a more specific pattern to narrow down.`
-      : '';
-
-    return `${header}\n${body}${footer}`;
+    const header = `Found ${entries.length} files matching "${args.pattern}" in ${displayPath}:`;
+    return `${header}\n${body}`;
   },
 };

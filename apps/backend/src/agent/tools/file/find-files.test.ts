@@ -147,8 +147,8 @@ describe('findFilesTool', () => {
 
       const result = await findFilesTool.execute({pattern: '**/*.ts'}, context);
 
-      expect(result).toContain('Found 100 of 120 files');
-      expect(result).toContain('truncated');
+      expect(result).toContain('Found 100+ files');
+      expect(result).toContain('showing first 100');
       expect(result).toContain('Use a more specific pattern');
     });
   });
