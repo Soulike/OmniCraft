@@ -1,8 +1,11 @@
 import path from 'node:path';
 
 import {CoreSkillRegistry} from '@/agent/skills/index.js';
-import {CoreToolSetRegistry} from '@/agent/tool-sets/index.js';
-import {CoreToolRegistry, FileToolRegistry} from '@/agent/tools/index.js';
+import {
+  CoreToolRegistry,
+  FileToolRegistry,
+  WebToolRegistry,
+} from '@/agent/tools/index.js';
 import {getDataDir} from '@/helpers/env.js';
 import {logger} from '@/logger.js';
 import {AgentStore} from '@/models/agent-store/index.js';
@@ -13,7 +16,6 @@ export async function initServices(): Promise<void> {
   await initSettingsManager();
   AgentStore.create();
   initToolRegistries();
-  initToolSetRegistries();
   initSkillRegistries();
 }
 
@@ -30,11 +32,7 @@ async function initSettingsManager(): Promise<void> {
 function initToolRegistries(): void {
   CoreToolRegistry.create();
   FileToolRegistry.create();
-}
-
-/** Initializes tool set registries. */
-function initToolSetRegistries(): void {
-  CoreToolSetRegistry.create();
+  WebToolRegistry.create();
 }
 
 /** Initializes skill registries and loads skill files. */

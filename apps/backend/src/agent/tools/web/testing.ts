@@ -1,5 +1,5 @@
 /**
- * Shared test helpers for the web tool-set module.
+ * Shared test helpers for the web tools module.
  * Only imported by test files — never by production code.
  */
 import http from 'node:http';
