@@ -32,7 +32,11 @@ export class LlmSession {
   readonly id: string;
 
   private readonly messages: LlmMessage[] = [];
-  private usage: LlmUsage = {inputTokens: 0, outputTokens: 0};
+  private usage: LlmUsage = {
+    inputTokens: 0,
+    outputTokens: 0,
+    cacheReadInputTokens: 0,
+  };
   private readonly getConfig: () => Promise<LlmConfig>;
   private readonly mutex = new Mutex();
 
@@ -110,7 +114,7 @@ export class LlmSession {
   /** Clears all messages and resets usage. */
   clear(): void {
     this.messages.length = 0;
-    this.usage = {inputTokens: 0, outputTokens: 0};
+    this.usage = {inputTokens: 0, outputTokens: 0, cacheReadInputTokens: 0};
   }
 
   /**
@@ -198,6 +202,9 @@ export class LlmSession {
           this.usage = {
             inputTokens: this.usage.inputTokens + event.usage.inputTokens,
             outputTokens: this.usage.outputTokens + event.usage.outputTokens,
+            cacheReadInputTokens:
+              this.usage.cacheReadInputTokens +
+              event.usage.cacheReadInputTokens,
           };
           break;
         case 'message-start':

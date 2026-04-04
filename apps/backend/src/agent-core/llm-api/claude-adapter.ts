@@ -151,7 +151,11 @@ export async function* streamClaude(
 
   // Accumulate usage across events; Claude reports input in message_start
   // and output in message_delta.
-  let usage: LlmUsage = {inputTokens: 0, outputTokens: 0};
+  let usage: LlmUsage = {
+    inputTokens: 0,
+    outputTokens: 0,
+    cacheReadInputTokens: 0,
+  };
   let stopReason = '';
 
   for await (const event of stream) {
@@ -160,6 +164,8 @@ export async function* streamClaude(
         usage = {
           inputTokens: event.message.usage.input_tokens,
           outputTokens: event.message.usage.output_tokens,
+          cacheReadInputTokens:
+            event.message.usage.cache_read_input_tokens ?? 0,
         };
         yield {type: 'message-start', messageId: event.message.id};
         break;
@@ -169,6 +175,8 @@ export async function* streamClaude(
         usage = {
           ...usage,
           outputTokens: event.usage.output_tokens,
+          cacheReadInputTokens:
+            event.usage.cache_read_input_tokens ?? usage.cacheReadInputTokens,
         };
         break;
       }
