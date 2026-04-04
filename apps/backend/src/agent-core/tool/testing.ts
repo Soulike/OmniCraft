@@ -7,6 +7,7 @@ import os from 'node:os';
 import {z} from 'zod';
 
 import {FileContentCache} from '../agent/file-content-cache.js';
+import {FileStatTracker} from '../agent/file-stat-tracker.js';
 import type {ToolDefinition, ToolExecutionContext} from './types.js';
 
 /** Creates a minimal mock ToolDefinition. */
@@ -28,6 +29,7 @@ export function createMockContext(
     availableSkills: new Map(),
     workingDirectory: os.tmpdir(),
     fileCache: new FileContentCache(),
+    fileStatTracker: new FileStatTracker(),
     extraAllowedPaths: [],
     ...overrides,
   };
