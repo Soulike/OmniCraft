@@ -30,10 +30,19 @@ export type SseToolExecuteEndEvent = z.infer<
   typeof sseToolExecuteEndEventSchema
 >;
 
+/** Token usage statistics shared between backend and frontend. */
+export const sseUsageSchema = z.object({
+  inputTokens: z.number(),
+  outputTokens: z.number(),
+  cacheReadInputTokens: z.number(),
+});
+export type SseUsage = z.infer<typeof sseUsageSchema>;
+
 /** Stream completed. Reason indicates whether it finished normally or was capped. */
 export const sseDoneEventSchema = z.object({
   type: z.literal('done'),
   reason: z.enum(['complete', 'max_rounds_reached']),
+  usage: sseUsageSchema,
 });
 export type SseDoneEvent = z.infer<typeof sseDoneEventSchema>;
 
