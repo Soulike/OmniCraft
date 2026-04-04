@@ -41,10 +41,10 @@ export enum AccessCheckResult {
  * workingDirectory is always read-write.
  */
 export function checkAccess(
-  workingDirectory: string,
   targetPath: string,
-  extraAllowedPaths: readonly AllowedPath[],
   requiredMode: 'read' | 'read-write',
+  workingDirectory: string,
+  extraAllowedPaths: readonly AllowedPath[],
 ): AccessCheckResult {
   if (isSubPath(workingDirectory, targetPath)) {
     return AccessCheckResult.OK;

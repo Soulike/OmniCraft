@@ -63,10 +63,10 @@ export const editFileTool: ToolDefinition<typeof parameters> = {
 
     // 2. Security check
     const accessResult = checkAccess(
-      workingDirectory,
       absolutePath,
-      context.extraAllowedPaths,
       'read-write',
+      workingDirectory,
+      context.extraAllowedPaths,
     );
     if (accessResult === AccessCheckResult.ERROR_OUTSIDE_ALLOWED_DIRECTORIES) {
       return 'Error: Access denied: path is outside the allowed directories';
