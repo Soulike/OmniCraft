@@ -153,6 +153,9 @@ export const readFileTool: ToolDefinition<typeof parameters> = {
       : ` (${totalLines} lines)`;
     const header = `File: ${args.filePath}${rangeInfo}`;
 
+    // 8. Track file stat for modification safety
+    context.fileStatTracker.set(absolutePath, stat.size, stat.mtimeMs);
+
     return `${header}\n${formatted}`;
   },
 };
