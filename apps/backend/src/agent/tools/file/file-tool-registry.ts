@@ -2,6 +2,7 @@ import {ToolRegistry} from '@/agent-core/tool/index.js';
 
 import {findFilesTool} from './find-files.js';
 import {readFileTool} from './read-file.js';
+import {searchFilesTool} from './search-files.js';
 
 /** Registry for file-operation tools. */
 export class FileToolRegistry extends ToolRegistry {
@@ -10,6 +11,7 @@ export class FileToolRegistry extends ToolRegistry {
     const instance = super.create() as FileToolRegistry;
     instance.register(readFileTool);
     instance.register(findFilesTool);
+    instance.register(searchFilesTool);
     return instance;
   }
 }

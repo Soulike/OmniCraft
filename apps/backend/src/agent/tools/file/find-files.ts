@@ -1,3 +1,4 @@
+import assert from 'node:assert';
 import type {Stats} from 'node:fs';
 import fs from 'node:fs/promises';
 import path from 'node:path';
@@ -83,7 +84,8 @@ export const findFilesTool: ToolDefinition<typeof parameters> = {
     try {
       const startTime = Date.now();
       for await (const entry of stream) {
-        entries.push(entry as string);
+        assert(typeof entry === 'string');
+        entries.push(entry);
         if (entries.length >= MAX_RESULTS) {
           break;
         }
@@ -122,7 +124,7 @@ export const findFilesTool: ToolDefinition<typeof parameters> = {
     }
 
     if (hitLimit) {
-      const header = `Found 100+ files matching "${args.pattern}" in ${displayPath} (showing first 100):`;
+      const header = `Found ${MAX_RESULTS}+ files matching "${args.pattern}" in ${displayPath} (showing first ${MAX_RESULTS}):`;
       return `${header}\n${body}\nUse a more specific pattern to narrow down.`;
     }
 
