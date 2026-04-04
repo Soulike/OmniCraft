@@ -1,3 +1,5 @@
+import assert from 'node:assert';
+
 import type OpenAI from 'openai';
 import OpenAIClient from 'openai';
 import {z} from 'zod';
@@ -82,8 +84,9 @@ export async function* streamOpenAIResponses(
     {signal: options.signal},
   );
 
-  // Track active function calls by item_id to emit tool-call-end correctly.
-  const activeToolCalls = new Map<string, string>();
+  // Map item ID → call ID. Delta events reference items by item_id,
+  // but our unified protocol uses call_id. The two are different identifiers.
+  const callIdByItemId = new Map<string, string>();
 
   for await (const event of stream) {
     switch (event.type) {
@@ -97,10 +100,11 @@ export async function* streamOpenAIResponses(
 
       case 'response.output_item.added':
         if (event.item.type === 'function_call') {
-          activeToolCalls.set(
-            event.item.id ?? event.item.call_id,
-            event.item.call_id,
+          assert(
+            event.item.id,
+            'Expected item.id on function_call output item',
           );
+          callIdByItemId.set(event.item.id, event.item.call_id);
           yield {
             type: 'tool-call-start',
             callId: event.item.call_id,
@@ -109,21 +113,23 @@ export async function* streamOpenAIResponses(
         }
         break;
 
-      case 'response.function_call_arguments.delta':
-        yield {
-          type: 'tool-call-delta',
-          callId: activeToolCalls.get(event.item_id) ?? event.item_id,
-          argumentsDelta: event.delta,
-        };
+      case 'response.function_call_arguments.delta': {
+        const callId = callIdByItemId.get(event.item_id);
+        assert(callId, `Missing call_id for item ${event.item_id}`);
+        yield {type: 'tool-call-delta', callId, argumentsDelta: event.delta};
         break;
+      }
 
       case 'response.output_item.done':
         if (event.item.type === 'function_call') {
-          const callId =
-            activeToolCalls.get(event.item.id ?? event.item.call_id) ??
-            event.item.call_id;
+          assert(
+            event.item.id,
+            'Expected item.id on function_call output item',
+          );
+          const callId = callIdByItemId.get(event.item.id);
+          assert(callId, `Missing call_id for item ${event.item.id}`);
           yield {type: 'tool-call-end', callId};
-          activeToolCalls.delete(event.item.id ?? event.item.call_id);
+          callIdByItemId.delete(event.item.id);
         }
         break;
 
