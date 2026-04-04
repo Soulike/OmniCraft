@@ -42,16 +42,16 @@ export enum AccessCheckResult {
  */
 export function checkAccess(
   workingDirectory: string,
-  absolutePath: string,
+  targetPath: string,
   extraAllowedPaths: readonly AllowedPath[],
   requiredMode: 'read' | 'read-write',
 ): AccessCheckResult {
-  if (isSubPath(workingDirectory, absolutePath)) {
+  if (isSubPath(workingDirectory, targetPath)) {
     return AccessCheckResult.OK;
   }
 
   const matchedEntry = extraAllowedPaths.find((entry) =>
-    isSubPath(entry.path, absolutePath),
+    isSubPath(entry.path, targetPath),
   );
 
   if (!matchedEntry) {
