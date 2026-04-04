@@ -12,6 +12,12 @@ export interface AllowedPath {
   readonly mode: 'read' | 'read-write';
 }
 
+/** Mutable shell state tracked per-agent across tool calls. */
+export interface ShellState {
+  /** Current working directory for shell commands. */
+  cwd: string;
+}
+
 /** Execution context provided by the Agent to each Tool at call time. */
 export interface ToolExecutionContext {
   /** All skills available to the current Agent, merged and deduplicated. */
@@ -31,6 +37,9 @@ export interface ToolExecutionContext {
    * workingDirectory is always read-write and should NOT be listed here.
    */
   readonly extraAllowedPaths: readonly AllowedPath[];
+
+  /** Mutable shell state (e.g. CWD) tracked across tool calls. */
+  readonly shellState: ShellState;
 }
 
 /**
