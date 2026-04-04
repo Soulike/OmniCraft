@@ -203,7 +203,7 @@ describe('writeFileTool', () => {
         context,
       );
 
-      expect(result).toContain('Error: Content exceeds 1MB limit');
+      expect(result).toContain('Error: Content exceeds');
     });
   });
 });
@@ -245,7 +245,7 @@ import type {
   ToolExecutionContext,
 } from '@/agent-core/tool/index.js';
 
-import {isSubPath} from './helpers.js';
+import {countLines, isSubPath} from './helpers.js';
 
 const MAX_CONTENT_SIZE = 1_048_576; // 1MB
 
@@ -275,7 +275,7 @@ export const writeFileTool: ToolDefinition<typeof parameters> = {
 
     // 1. Check content size
     if (Buffer.byteLength(args.content) > MAX_CONTENT_SIZE) {
-      return 'Error: Content exceeds 1MB limit';
+      return `Error: Content exceeds ${MAX_CONTENT_SIZE} byte limit`;
     }
 
     // 2. Resolve path
@@ -306,7 +306,7 @@ export const writeFileTool: ToolDefinition<typeof parameters> = {
     }
 
     // 6. Count lines and return success
-    const lineCount = args.content === '' ? 0 : args.content.split('\n').length;
+    const lineCount = await countLines(Buffer.from(args.content));
     return `File written: ${args.filePath} (${lineCount} lines)`;
   },
 };

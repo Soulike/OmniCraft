@@ -45,7 +45,7 @@ File written: {filePath} ({lineCount} lines)
 
 ## Error Cases
 
-- Content exceeds 1MB: `"Error: Content exceeds 1MB limit"`
+- Content exceeds 1MB: `"Error: Content exceeds {MAX_CONTENT_SIZE} byte limit"`
 - Path outside allowed directories: `"Error: Access denied: path is outside the allowed directories"`
 - Path within a read-only extraAllowedPath: `"Error: Access denied: path is read-only"`
 - Write failure (IO error): `"Error: {message}"`
