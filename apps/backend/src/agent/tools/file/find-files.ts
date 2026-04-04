@@ -1,3 +1,4 @@
+import type {Stats} from 'node:fs';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
@@ -57,7 +58,7 @@ export const findFilesTool: ToolDefinition<typeof parameters> = {
     }
 
     // 3. Verify directory exists
-    let stat: Awaited<ReturnType<typeof fs.stat>>;
+    let stat: Stats;
     try {
       stat = await fs.stat(searchDir);
     } catch {

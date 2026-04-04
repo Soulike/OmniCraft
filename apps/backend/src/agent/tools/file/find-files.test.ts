@@ -180,6 +180,23 @@ describe('findFilesTool', () => {
 
       expect(result).toContain('lib.ts');
     });
+
+    it('allows searching in an extra read-write path', async () => {
+      await fs.writeFile(path.join(extraDir, 'rw.ts'), '');
+
+      const extraContext = createMockContext({
+        workingDirectory: tmpDir,
+        fileCache: new FileContentCache(),
+        extraAllowedPaths: [{path: extraDir, mode: 'read-write'}],
+      });
+
+      const result = await findFilesTool.execute(
+        {pattern: '**/*.ts', path: extraDir},
+        extraContext,
+      );
+
+      expect(result).toContain('rw.ts');
+    });
   });
 
   describe('error cases', () => {
