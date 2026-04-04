@@ -1,3 +1,5 @@
+import type {SseUsage} from '@omnicraft/sse-events';
+
 import type {ToolDefinition} from '../tool/types.js';
 
 /** A tool call issued by the assistant. */
@@ -41,12 +43,8 @@ export interface LlmConfig {
   model: string;
 }
 
-/** Token usage statistics. */
-export interface LlmUsage {
-  inputTokens: number;
-  outputTokens: number;
-  cacheReadInputTokens: number;
-}
+/** Token usage statistics. Re-exported from the shared SSE events package. */
+export type LlmUsage = SseUsage;
 
 /** The LLM response has started. */
 export interface LlmMessageStartEvent {
