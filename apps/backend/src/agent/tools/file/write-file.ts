@@ -79,6 +79,11 @@ export const writeFileTool: ToolDefinition<typeof parameters> = {
       if (checkResult === FileStatCheckResult.MODIFIED_SINCE_LAST_READ) {
         return 'Error: File has been modified since last read. Read the file again before modifying it';
       }
+    } else {
+      const checkResult = context.fileStatTracker.canModify(absolutePath, 0, 0);
+      if (checkResult === FileStatCheckResult.MODIFIED_SINCE_LAST_READ) {
+        return 'Error: File has been deleted since last read. Verify that the write is still intended after deletion, then retry.';
+      }
     }
 
     // 5. Auto-create parent directories

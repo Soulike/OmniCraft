@@ -232,5 +232,20 @@ describe('writeFileTool', () => {
 
       expect(result).toContain('File written:');
     });
+
+    it('rejects writing a previously read file that was deleted', async () => {
+      const filePath = path.join(tmpDir, 'deleted.txt');
+      await fs.writeFile(filePath, 'content');
+      const stat = await fs.stat(filePath);
+      context.fileStatTracker.set(filePath, stat.size, stat.mtimeMs);
+      await fs.rm(filePath);
+
+      const result = await writeFileTool.execute(
+        {filePath: 'deleted.txt', content: 'new'},
+        context,
+      );
+
+      expect(result).toContain('Error: File has been deleted since last read');
+    });
   });
 });
