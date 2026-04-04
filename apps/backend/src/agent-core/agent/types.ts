@@ -1,3 +1,4 @@
+import type {LlmUsage} from '../llm-api/index.js';
 import type {LlmSessionSnapshot} from '../llm-session/index.js';
 import type {LlmSessionTextDeltaEvent} from '../llm-session/index.js';
 import type {SkillRegistry} from '../skill/index.js';
@@ -29,6 +30,7 @@ export interface AgentToolExecuteEndEvent {
 export interface AgentDoneEvent {
   type: 'done';
   reason: 'complete' | 'max_rounds_reached';
+  usage: LlmUsage;
 }
 
 /** All events that the agent can yield to callers. */
