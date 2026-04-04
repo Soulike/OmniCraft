@@ -59,7 +59,7 @@ function toSdkMessage(message: LlmMessage): SdkMessageParam {
  * Adds a cache_control breakpoint to the last content block of the given message.
  * Normalizes string content to array format when needed.
  */
-function addCacheBreakpoint(message: SdkMessageParam): SdkMessageParam {
+export function addCacheBreakpoint(message: SdkMessageParam): SdkMessageParam {
   const cacheControl: Anthropic.CacheControlEphemeral = {type: 'ephemeral'};
 
   if (typeof message.content === 'string') {
