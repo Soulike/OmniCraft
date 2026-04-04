@@ -78,6 +78,7 @@ export async function* streamOpenAIResponses(
       model: config.model,
       input,
       stream: true,
+      store: false,
       ...(systemPrompt ? {instructions: systemPrompt} : {}),
       ...(tools.length > 0 ? {tools} : {}),
     },
