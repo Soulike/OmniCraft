@@ -67,7 +67,7 @@ export const readFileTool: ToolDefinition<typeof parameters> = {
       context.extraAllowedPaths,
       'read',
     );
-    if (accessResult === AccessCheckResult.OUTSIDE) {
+    if (accessResult === AccessCheckResult.ERROR_OUTSIDE_ALLOWED_DIRECTORIES) {
       return 'Error: Access denied: path is outside the allowed directories';
     }
 

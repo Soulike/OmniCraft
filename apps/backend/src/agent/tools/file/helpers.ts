@@ -32,8 +32,8 @@ export function isSubPathOrSelf(parent: string, child: string): boolean {
 
 export enum AccessCheckResult {
   OK = 'ok',
-  OUTSIDE = 'outside',
-  READ_ONLY = 'read_only',
+  ERROR_OUTSIDE_ALLOWED_DIRECTORIES = 'error_outside_allowed_directories',
+  ERROR_READ_ONLY = 'error_read_only',
 }
 
 /**
@@ -55,11 +55,11 @@ export function checkAccess(
   );
 
   if (!matchedEntry) {
-    return AccessCheckResult.OUTSIDE;
+    return AccessCheckResult.ERROR_OUTSIDE_ALLOWED_DIRECTORIES;
   }
 
   if (requiredMode === 'read-write' && matchedEntry.mode === 'read') {
-    return AccessCheckResult.READ_ONLY;
+    return AccessCheckResult.ERROR_READ_ONLY;
   }
 
   return AccessCheckResult.OK;

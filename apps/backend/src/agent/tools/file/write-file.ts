@@ -53,10 +53,10 @@ export const writeFileTool: ToolDefinition<typeof parameters> = {
       context.extraAllowedPaths,
       'read-write',
     );
-    if (accessResult === AccessCheckResult.OUTSIDE) {
+    if (accessResult === AccessCheckResult.ERROR_OUTSIDE_ALLOWED_DIRECTORIES) {
       return 'Error: Access denied: path is outside the allowed directories';
     }
-    if (accessResult === AccessCheckResult.READ_ONLY) {
+    if (accessResult === AccessCheckResult.ERROR_READ_ONLY) {
       return 'Error: Access denied: path is read-only';
     }
 
