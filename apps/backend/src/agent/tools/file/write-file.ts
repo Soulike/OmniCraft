@@ -1,8 +1,10 @@
+import type {Stats} from 'node:fs';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
 import {z} from 'zod';
 
+import {FileStatCheckResult} from '@/agent-core/agent/index.js';
 import type {
   ToolDefinition,
   ToolExecutionContext,
@@ -57,10 +59,32 @@ export const writeFileTool: ToolDefinition<typeof parameters> = {
       }
     }
 
-    // 4. Auto-create parent directories
+    // 4. Check if file exists — if so, verify it was read first
+    let existingStat: Stats | null = null;
+    try {
+      existingStat = await fs.stat(absolutePath);
+    } catch {
+      // File doesn't exist, which is fine for write_file
+    }
+
+    if (existingStat) {
+      const checkResult = context.fileStatTracker.canModify(
+        absolutePath,
+        existingStat.size,
+        existingStat.mtimeMs,
+      );
+      if (checkResult === FileStatCheckResult.NOT_READ) {
+        return 'Error: Read the file before modifying it';
+      }
+      if (checkResult === FileStatCheckResult.MODIFIED_SINCE_LAST_READ) {
+        return 'Error: File has been modified since last read. Read the file again before modifying it';
+      }
+    }
+
+    // 5. Auto-create parent directories
     await fs.mkdir(path.dirname(absolutePath), {recursive: true});
 
-    // 5. Write file
+    // 6. Write file
     try {
       await fs.writeFile(absolutePath, args.content, 'utf-8');
     } catch (error: unknown) {
@@ -68,7 +92,11 @@ export const writeFileTool: ToolDefinition<typeof parameters> = {
       return `Error: ${message}`;
     }
 
-    // 6. Count lines and return success
+    // Track new file stat
+    const newStat = await fs.stat(absolutePath);
+    context.fileStatTracker.set(absolutePath, newStat.size, newStat.mtimeMs);
+
+    // 7. Count lines and return success
     const lineCount = await countLines(Buffer.from(args.content));
     return `File written: ${args.filePath} (${lineCount} lines)`;
   },

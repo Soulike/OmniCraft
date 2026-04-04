@@ -49,6 +49,8 @@ describe('writeFileTool', () => {
     it('overwrites an existing file', async () => {
       const filePath = path.join(tmpDir, 'existing.txt');
       await fs.writeFile(filePath, 'old content');
+      const stat = await fs.stat(filePath);
+      context.fileStatTracker.set(filePath, stat.size, stat.mtimeMs);
 
       const result = await writeFileTool.execute(
         {filePath: 'existing.txt', content: 'new content'},
@@ -103,6 +105,20 @@ describe('writeFileTool', () => {
       expect(result).toContain('File written:');
       const written = await fs.readFile(absPath, 'utf-8');
       expect(written).toBe('absolute');
+    });
+
+    it('allows overwriting a file that was read first', async () => {
+      const filePath = path.join(tmpDir, 'read-first.txt');
+      await fs.writeFile(filePath, 'old');
+      const stat = await fs.stat(filePath);
+      context.fileStatTracker.set(filePath, stat.size, stat.mtimeMs);
+
+      const result = await writeFileTool.execute(
+        {filePath: 'read-first.txt', content: 'new'},
+        context,
+      );
+
+      expect(result).toContain('File written:');
     });
   });
 
@@ -181,6 +197,40 @@ describe('writeFileTool', () => {
       );
 
       expect(result).toContain('Error: Content exceeds');
+    });
+
+    it('rejects overwriting a file that was not read', async () => {
+      await fs.writeFile(path.join(tmpDir, 'unread.txt'), 'old');
+
+      const result = await writeFileTool.execute(
+        {filePath: 'unread.txt', content: 'new'},
+        context,
+      );
+
+      expect(result).toContain('Error: Read the file before modifying it');
+    });
+
+    it('rejects overwriting a file modified since last read', async () => {
+      const filePath = path.join(tmpDir, 'stale.txt');
+      await fs.writeFile(filePath, 'old');
+      // Track with stale stat
+      context.fileStatTracker.set(filePath, 0, 0);
+
+      const result = await writeFileTool.execute(
+        {filePath: 'stale.txt', content: 'new'},
+        context,
+      );
+
+      expect(result).toContain('Error: File has been modified since last read');
+    });
+
+    it('allows creating a new file without prior read', async () => {
+      const result = await writeFileTool.execute(
+        {filePath: 'brand-new.txt', content: 'fresh'},
+        context,
+      );
+
+      expect(result).toContain('File written:');
     });
   });
 });
