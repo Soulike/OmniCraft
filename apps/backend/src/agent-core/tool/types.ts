@@ -2,8 +2,6 @@ import type {z} from 'zod';
 
 import type {FileContentCache} from '../agent/file-content-cache.js';
 import type {SkillDefinition} from '../skill/skill-definition.js';
-import type {ToolSetDefinition} from '../tool-set/tool-set-definition.js';
-import type {LoadToolSetToAgentFn} from '../tool-set/types.js';
 
 /** A directory the agent is allowed to access beyond its working directory. */
 export interface AllowedPath {
@@ -17,15 +15,6 @@ export interface AllowedPath {
 export interface ToolExecutionContext {
   /** All skills available to the current Agent, merged and deduplicated. */
   readonly availableSkills: ReadonlyMap<string, SkillDefinition>;
-
-  /** All tool sets available to the current Agent, merged and deduplicated. */
-  readonly availableToolSets: ReadonlyMap<string, ToolSetDefinition>;
-
-  /** Tool sets currently loaded into the Agent. */
-  readonly loadedToolSets: ReadonlySet<ToolSetDefinition>;
-
-  /** Loads a tool set into the Agent, making its tools available in subsequent rounds. */
-  readonly loadToolSetToAgent: LoadToolSetToAgentFn;
 
   /** The Agent's working directory. File tools resolve relative paths against this. */
   readonly workingDirectory: string;

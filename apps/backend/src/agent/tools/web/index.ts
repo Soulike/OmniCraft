@@ -8,4 +8,4 @@ export {validateUrl} from './url-validator.js';
 export {webFetchTool} from './web-fetch.js';
 export {webFetchRawTool} from './web-fetch-raw.js';
 export {webSearchTool} from './web-search.js';
-export {WebToolSet} from './web-tool-set.js';
+export {WebToolRegistry} from './web-tool-registry.js';

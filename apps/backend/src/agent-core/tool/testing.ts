@@ -7,7 +7,6 @@ import os from 'node:os';
 import {z} from 'zod';
 
 import {FileContentCache} from '../agent/file-content-cache.js';
-import type {ToolSetDefinition} from '../tool-set/tool-set-definition.js';
 import type {ToolDefinition, ToolExecutionContext} from './types.js';
 
 /** Creates a minimal mock ToolDefinition. */
@@ -27,11 +26,6 @@ export function createMockContext(
 ): ToolExecutionContext {
   return {
     availableSkills: new Map(),
-    availableToolSets: new Map<string, ToolSetDefinition>(),
-    loadedToolSets: new Set(),
-    loadToolSetToAgent: () => {
-      // noop
-    },
     workingDirectory: os.tmpdir(),
     fileCache: new FileContentCache(),
     extraAllowedPaths: [],
