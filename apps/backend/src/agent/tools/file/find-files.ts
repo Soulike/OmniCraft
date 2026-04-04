@@ -9,7 +9,7 @@ import type {
   ToolExecutionContext,
 } from '@/agent-core/tool/index.js';
 
-import {isSubPath} from './helpers.js';
+import {isSubPathOrSelf} from './helpers.js';
 
 const MAX_RESULTS = 100;
 
@@ -46,14 +46,9 @@ export const findFilesTool: ToolDefinition<typeof parameters> = {
     const searchDir = path.resolve(workingDirectory, args.path ?? '.');
 
     // 2. Security check
-    if (
-      searchDir !== path.resolve(workingDirectory) &&
-      !isSubPath(workingDirectory, searchDir)
-    ) {
-      const allowed = context.extraAllowedPaths.some(
-        (entry) =>
-          searchDir === path.resolve(entry.path) ||
-          isSubPath(entry.path, searchDir),
+    if (!isSubPathOrSelf(workingDirectory, searchDir)) {
+      const allowed = context.extraAllowedPaths.some((entry) =>
+        isSubPathOrSelf(entry.path, searchDir),
       );
       if (!allowed) {
         return 'Error: Access denied: path is outside the allowed directories';
