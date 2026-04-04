@@ -268,6 +268,19 @@ describe('editFileTool', () => {
       expect(result).toContain('Error: old string not found');
     });
 
+    it('rejects no-op replacement when oldString equals newString', async () => {
+      const filePath = await writeFile('noop.ts', 'content');
+      const stat = await fs.stat(filePath);
+      context.fileStatTracker.set(filePath, stat.size, stat.mtimeMs);
+
+      const result = await editFileTool.execute(
+        {filePath: 'noop.ts', oldString: 'content', newString: 'content'},
+        context,
+      );
+
+      expect(result).toContain('Error: oldString and newString are identical');
+    });
+
     it('returns error on multiple matches without replaceAll', async () => {
       await writeFile('test.ts', 'foo\nbar\nfoo\n');
       const stat = await fs.stat(path.join(tmpDir, 'test.ts'));
