@@ -48,17 +48,20 @@ export async function searchFile(
     crlfDelay: Infinity,
   });
 
-  let lineNumber = 0;
-  for await (const line of rl) {
-    if (signal?.aborted) break;
-    lineNumber++;
-    if (regex.test(line)) {
-      matches.push({line: lineNumber, content: line});
-      if (matches.length >= maxMatches) break;
+  try {
+    let lineNumber = 0;
+    for await (const line of rl) {
+      if (signal?.aborted) break;
+      lineNumber++;
+      if (regex.test(line)) {
+        matches.push({line: lineNumber, content: line});
+        if (matches.length >= maxMatches) break;
+      }
     }
+  } finally {
+    rl.close();
   }
 
-  rl.close();
   return matches;
 }
 
