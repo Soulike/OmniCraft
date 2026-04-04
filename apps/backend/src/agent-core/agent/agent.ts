@@ -16,8 +16,6 @@ import type {
   ToolExecutionContext,
 } from '../tool/index.js';
 import {loadSkillTool} from '../tool/index.js';
-import type {ToolSetDefinition} from '../tool-set/index.js';
-import {loadToolSetTool} from '../tool-set/index.js';
 import {FileContentCache} from './file-content-cache.js';
 import type {
   AgentDoneEvent,
@@ -47,7 +45,6 @@ export abstract class Agent {
   private readonly llmSession: LlmSession;
 
   private readonly toolRegistries: AgentOptions['toolRegistries'];
-  private readonly toolSetRegistries: AgentOptions['toolSetRegistries'];
   private readonly skillRegistries: AgentOptions['skillRegistries'];
   private readonly baseSystemPrompt: string;
   private readonly getMaxToolRounds: AgentOptions['getMaxToolRounds'];
@@ -59,16 +56,12 @@ export abstract class Agent {
   /** LRU file content cache, shared by all file-related tools. */
   private readonly fileCache = new FileContentCache();
 
-  /** Tool sets loaded into this agent session via the `load_toolset` tool. */
-  private readonly loadedToolSets = new Set<ToolSetDefinition>();
-
   constructor(
     getConfig: () => Promise<LlmConfig>,
     options: AgentOptions,
     snapshot?: AgentSnapshot,
   ) {
     this.toolRegistries = options.toolRegistries;
-    this.toolSetRegistries = options.toolSetRegistries;
     this.skillRegistries = options.skillRegistries;
     this.baseSystemPrompt = options.baseSystemPrompt;
     this.getMaxToolRounds = options.getMaxToolRounds;
@@ -183,9 +176,8 @@ export abstract class Agent {
   // -------------------------------------------------------------------------
 
   /**
-   * Merges tools from all registries and loaded tool sets, deduplicates by
-   * reference identity. Adds built-in `load_skill` / `load_toolset` tools
-   * when skills / tool sets are available.
+   * Merges tools from all registries, deduplicates by reference identity.
+   * Adds built-in `load_skill` tool when skills are available.
    * Throws if two different tool instances share the same name.
    */
   private getAvailableTools(): ReadonlyMap<string, ToolDefinition> {
@@ -208,20 +200,9 @@ export abstract class Agent {
       }
     }
 
-    for (const toolSet of this.loadedToolSets) {
-      for (const tool of toolSet.getAll()) {
-        addTool(tool, `tool set "${toolSet.name}"`);
-      }
-    }
-
     const skills = this.getAvailableSkills();
     if (skills.size > 0) {
       addTool(loadSkillTool, 'built-in');
-    }
-
-    const toolSets = this.getAvailableToolSets();
-    if (toolSets.size > 0) {
-      addTool(loadToolSetTool, 'built-in');
     }
 
     return toolMap;
@@ -251,31 +232,8 @@ export abstract class Agent {
   }
 
   /**
-   * Merges tool sets from all registries, deduplicates by reference identity.
-   * Throws if two different tool set instances share the same name.
-   */
-  private getAvailableToolSets(): ReadonlyMap<string, ToolSetDefinition> {
-    const toolSetMap = new Map<string, ToolSetDefinition>();
-
-    for (const registry of this.toolSetRegistries) {
-      for (const toolSet of registry.getAll()) {
-        const existing = toolSetMap.get(toolSet.name);
-        if (existing) {
-          if (existing === toolSet) continue;
-          throw new Error(
-            `Duplicate tool set name "${toolSet.name}" from different sources`,
-          );
-        }
-        toolSetMap.set(toolSet.name, toolSet);
-      }
-    }
-
-    return toolSetMap;
-  }
-
-  /**
    * Combines the base system prompt with catalog sections listing
-   * all available skills and tool sets.
+   * all available skills.
    */
   private buildSystemPrompt(): string {
     let prompt = this.baseSystemPrompt;
@@ -293,22 +251,6 @@ export abstract class Agent {
         `Use the ${loadSkillTool.name} tool to load the full instructions for a skill before using it.`,
         '',
         skillLines,
-      ].join('\n');
-    }
-
-    const toolSets = this.getAvailableToolSets();
-    if (toolSets.size > 0) {
-      const toolSetLines = [...toolSets.values()]
-        .map((ts) => `- ${ts.name}: ${ts.description}`)
-        .join('\n');
-
-      prompt += [
-        '',
-        '## Available ToolSets',
-        '',
-        `Use the ${loadToolSetTool.name} tool to load a set of tools when needed.`,
-        '',
-        toolSetLines,
       ].join('\n');
     }
 
@@ -361,11 +303,6 @@ export abstract class Agent {
 
     const context: ToolExecutionContext = {
       availableSkills: this.getAvailableSkills(),
-      availableToolSets: this.getAvailableToolSets(),
-      loadedToolSets: this.loadedToolSets,
-      loadToolSetToAgent: (toolSet) => {
-        this.loadedToolSets.add(toolSet);
-      },
       workingDirectory: this.workingDirectory,
       fileCache: this.fileCache,
       extraAllowedPaths: this.extraAllowedPaths,

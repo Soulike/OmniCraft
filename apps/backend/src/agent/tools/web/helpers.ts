@@ -42,10 +42,9 @@ export async function fetchBody(
   options: FetchBodyOptions,
 ): Promise<FetchBodyResult> {
   const abortController = new AbortController();
-  const timeoutId = setTimeout(
-    () => { abortController.abort(new Error('Request timed out')); },
-    options.timeoutMs,
-  );
+  const timeoutId = setTimeout(() => {
+    abortController.abort(new Error('Request timed out'));
+  }, options.timeoutMs);
 
   let response: Response;
   try {
