@@ -20,12 +20,13 @@ Add a `write_file` tool to the existing `FileToolRegistry`, allowing the Agent t
 ## Behavior
 
 1. Resolve `filePath` to an absolute path.
-2. Security check via `isSubPath`: path must be within workingDirectory or an extraAllowedPath with `read-write` mode.
+2. Check content size: reject if exceeds 1MB (1,048,576 bytes).
+3. Security check via `isSubPath`: path must be within workingDirectory or an extraAllowedPath with `read-write` mode.
    - Path outside all allowed directories: return access denied error.
    - Path within an extraAllowedPath with `read` mode: return read-only error.
-3. Auto-create parent directories (`fs.mkdir` with `recursive: true`).
-4. Write content to file (`fs.writeFile`, UTF-8 encoding).
-5. Count lines and return success message.
+4. Auto-create parent directories (`fs.mkdir` with `recursive: true`).
+5. Write content to file (`fs.writeFile`, UTF-8 encoding).
+6. Count lines and return success message.
 
 ## Output Format
 
@@ -44,6 +45,7 @@ File written: {filePath} ({lineCount} lines)
 
 ## Error Cases
 
+- Content exceeds 1MB: `"Error: Content exceeds 1MB limit"`
 - Path outside allowed directories: `"Error: Access denied: path is outside the allowed directories"`
 - Path within a read-only extraAllowedPath: `"Error: Access denied: path is read-only"`
 - Write failure (IO error): `"Error: {message}"`
