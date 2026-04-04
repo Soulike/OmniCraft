@@ -133,7 +133,8 @@ export async function* streamOpenAIResponses(
         }
         break;
 
-      case 'response.completed': {
+      case 'response.completed':
+      case 'response.incomplete': {
         const usage = event.response.usage;
         yield {
           type: 'message-end',
@@ -155,29 +156,35 @@ export async function* streamOpenAIResponses(
         throw new Error(`OpenAI Responses request failed: ${errorMessage}`);
       }
 
-      // Events below are not relevant for our streaming protocol.
-      // They cover built-in tools, audio, reasoning, and lifecycle
-      // states that the unified LlmEvent model does not represent.
-      case 'response.queued':
-      case 'response.in_progress':
-      case 'response.incomplete':
-      case 'response.output_text.done':
-      case 'response.output_text.annotation.added':
-      case 'response.content_part.added':
-      case 'response.content_part.done':
+      // Surface refusal text as normal text so the user sees why the model declined.
       case 'response.refusal.delta':
-      case 'response.refusal.done':
-      case 'response.function_call_arguments.done':
-      case 'response.audio.delta':
-      case 'response.audio.done':
-      case 'response.audio.transcript.delta':
-      case 'response.audio.transcript.done':
+        yield {type: 'text-delta', content: event.delta};
+        break;
+
+      // Reasoning events — not surfaced yet but available for future
+      // "show thinking" support.
       case 'response.reasoning_text.delta':
       case 'response.reasoning_text.done':
       case 'response.reasoning_summary_text.delta':
       case 'response.reasoning_summary_text.done':
       case 'response.reasoning_summary_part.added':
       case 'response.reasoning_summary_part.done':
+        break;
+
+      // Events below are not relevant for our streaming protocol.
+      // They cover lifecycle confirmations, built-in tools, and audio.
+      case 'response.queued':
+      case 'response.in_progress':
+      case 'response.output_text.done':
+      case 'response.output_text.annotation.added':
+      case 'response.content_part.added':
+      case 'response.content_part.done':
+      case 'response.refusal.done':
+      case 'response.function_call_arguments.done':
+      case 'response.audio.delta':
+      case 'response.audio.done':
+      case 'response.audio.transcript.delta':
+      case 'response.audio.transcript.done':
       case 'response.web_search_call.in_progress':
       case 'response.web_search_call.searching':
       case 'response.web_search_call.completed':
