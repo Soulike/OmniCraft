@@ -27,6 +27,7 @@
     "@omnicraft/settings-schema": "workspace:^",
     "@omnicraft/sse-events": "workspace:^",
     "@tavily/core": "^0.7.2",
+    "fast-glob": "^3.3.3",
     "http-status-codes": "^2.3.0",
     "koa": "^3.1.1",
     "koa-compose": "^4.1.0",
