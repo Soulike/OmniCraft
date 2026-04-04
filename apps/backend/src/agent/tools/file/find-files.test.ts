@@ -2,7 +2,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
-import {afterEach, beforeEach, describe, expect, it} from 'vitest';
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 
 import {FileContentCache} from '@/agent-core/agent/index.js';
 import {createMockContext} from '@/agent-core/tool/testing.js';
@@ -200,6 +200,29 @@ describe('findFilesTool', () => {
   });
 
   describe('error cases', () => {
+    it('returns partial results on timeout', async () => {
+      for (let i = 0; i < 5; i++) {
+        await writeFile(`file${i}.ts`, '');
+      }
+
+      let callCount = 0;
+      vi.spyOn(Date, 'now').mockImplementation(() => {
+        callCount++;
+        // First call sets startTime, subsequent calls exceed timeout
+        if (callCount <= 1) return 0;
+        return 31_000;
+      });
+
+      const result = await findFilesTool.execute({pattern: '**/*.ts'}, context);
+
+      vi.restoreAllMocks();
+
+      expect(result).toContain('search timed out after 30s');
+      expect(result).toContain('Results may be incomplete');
+      // Should have collected at least 1 file before timeout
+      expect(result).toContain('.ts');
+    });
+
     it('rejects path outside workingDirectory', async () => {
       const result = await findFilesTool.execute(
         {pattern: '**/*.ts', path: '/etc'},
