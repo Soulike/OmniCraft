@@ -2,6 +2,7 @@ import path from 'node:path';
 
 import {CoreSkillRegistry} from '@/agent/skills/index.js';
 import {
+  BashToolRegistry,
   CoreToolRegistry,
   FileToolRegistry,
   WebToolRegistry,
@@ -33,6 +34,7 @@ function initToolRegistries(): void {
   CoreToolRegistry.create();
   FileToolRegistry.create();
   WebToolRegistry.create();
+  BashToolRegistry.create();
 }
 
 /** Initializes skill registries and loads skill files. */
