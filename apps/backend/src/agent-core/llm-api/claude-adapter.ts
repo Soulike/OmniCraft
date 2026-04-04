@@ -55,6 +55,35 @@ function toSdkMessage(message: LlmMessage): SdkMessageParam {
   }
 }
 
+/**
+ * Adds a cache_control breakpoint to the last content block of the given message.
+ * Normalizes string content to array format when needed.
+ */
+function addCacheBreakpoint(message: SdkMessageParam): SdkMessageParam {
+  const cacheControl: Anthropic.CacheControlEphemeral = {type: 'ephemeral'};
+
+  if (typeof message.content === 'string') {
+    return {
+      ...message,
+      content: [
+        {type: 'text', text: message.content, cache_control: cacheControl},
+      ],
+    };
+  }
+
+  if (Array.isArray(message.content) && message.content.length > 0) {
+    const blocks = [...message.content];
+    // Use Object.assign to avoid TypeScript union spread issues — all content
+    // block param types accept cache_control but TS can't prove it via spread.
+    blocks[blocks.length - 1] = Object.assign({}, blocks[blocks.length - 1], {
+      cache_control: cacheControl,
+    });
+    return {...message, content: blocks};
+  }
+
+  return message;
+}
+
 /** Converts a ToolDefinition to the Anthropic tool format. */
 function toClaudeTool(tool: ToolDefinition): Anthropic.Tool {
   const jsonSchema = z.toJSONSchema(tool.parameters);
@@ -81,12 +110,30 @@ export async function* streamClaude(
 
   const claudeTools = options.tools.map(toClaudeTool);
 
+  // Convert messages and add a cache breakpoint on the second-to-last message
+  // so the API can cache the conversation prefix that won't change anymore.
+  const sdkMessages = messages.map(toSdkMessage);
+  if (sdkMessages.length >= 2) {
+    sdkMessages[sdkMessages.length - 2] = addCacheBreakpoint(
+      sdkMessages[sdkMessages.length - 2],
+    );
+  }
+
   const stream = client.messages.stream(
     {
       model: config.model,
       max_tokens: 4096,
-      system: systemPrompt,
-      messages: messages.map(toSdkMessage),
+      // Cache the system prompt — it's static across all rounds in a session.
+      system: systemPrompt
+        ? [
+            {
+              type: 'text',
+              text: systemPrompt,
+              cache_control: {type: 'ephemeral'},
+            },
+          ]
+        : undefined,
+      messages: sdkMessages,
       tools: claudeTools,
     },
     {signal: options.signal},
