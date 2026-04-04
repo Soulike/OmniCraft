@@ -1,3 +1,4 @@
+import type {Stats} from 'node:fs';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
@@ -69,7 +70,7 @@ export const readFileTool: ToolDefinition<typeof parameters> = {
     }
 
     // 3. Stat
-    let stat: Awaited<ReturnType<typeof fs.stat>>;
+    let stat: Stats;
     try {
       stat = await fs.stat(absolutePath);
     } catch {

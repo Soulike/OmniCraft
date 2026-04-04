@@ -21,6 +21,13 @@ export function isSubPath(parent: string, child: string): boolean {
   return resolvedChild.startsWith(resolvedParent + path.sep);
 }
 
+/** Returns true if `child` is `parent` itself or strictly inside it. */
+export function isSubPathOrSelf(parent: string, child: string): boolean {
+  return (
+    path.resolve(parent) === path.resolve(child) || isSubPath(parent, child)
+  );
+}
+
 /** Returns true if the file contains null bytes in its first 8KB. */
 export async function isBinaryFile(absolutePath: string): Promise<boolean> {
   const handle = await fs.open(absolutePath, 'r');
