@@ -285,6 +285,20 @@ describe('editFileTool', () => {
       expect(result).toContain('Error: Found 2 matches');
       expect(result).toContain('replaceAll');
     });
+
+    it('rejects files exceeding 10MB', async () => {
+      const bigPath = path.join(tmpDir, 'huge.txt');
+      const handle = await fs.open(bigPath, 'w');
+      await handle.truncate(10_485_761);
+      await handle.close();
+
+      const result = await editFileTool.execute(
+        {filePath: 'huge.txt', oldString: 'a', newString: 'b'},
+        context,
+      );
+
+      expect(result).toContain('Error: File exceeds');
+    });
   });
 });
 ```
@@ -309,6 +323,7 @@ import type {
 import {isSubPath} from './helpers.js';
 
 const MAX_DIFF_SIZE = 4_096; // 4KB
+const MAX_FILE_SIZE = 10_485_760; // 10MB
 
 const parameters = z.object({
   filePath: z
@@ -378,6 +393,10 @@ export const editFileTool: ToolDefinition<typeof parameters> = {
 
     if (!stat.isFile()) {
       return `Error: Not a file: ${args.filePath}`;
+    }
+
+    if (stat.size > MAX_FILE_SIZE) {
+      return `Error: File exceeds ${MAX_FILE_SIZE} byte limit`;
     }
 
     let oldContent: string;
