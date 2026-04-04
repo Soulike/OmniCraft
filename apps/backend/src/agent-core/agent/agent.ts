@@ -271,7 +271,7 @@ export abstract class Agent {
 
     prompt += `\n\nWorking directory: ${this.workingDirectory}\nYou can read and write files within this directory.`;
     prompt +=
-      '\nWhen executing shell commands, do not access any files outside your working directory and other allowed paths unless its necessary to finish your job or user explicitly requests it.';
+      "\nWhen executing shell commands, do not access any files outside your working directory and other allowed paths unless it's necessary to finish your job or user explicitly requests it.";
 
     if (this.extraAllowedPaths.length > 0) {
       const pathLines = this.extraAllowedPaths
