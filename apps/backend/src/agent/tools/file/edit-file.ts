@@ -5,6 +5,7 @@ import path from 'node:path';
 import {createPatch} from 'diff';
 import {z} from 'zod';
 
+import {FileStatCheckResult} from '@/agent-core/agent/index.js';
 import type {
   ToolDefinition,
   ToolExecutionContext,
@@ -89,6 +90,18 @@ export const editFileTool: ToolDefinition<typeof parameters> = {
       return `Error: File exceeds ${MAX_FILE_SIZE} byte limit`;
     }
 
+    const checkResult = context.fileStatTracker.canModify(
+      absolutePath,
+      stat.size,
+      stat.mtimeMs,
+    );
+    if (checkResult === FileStatCheckResult.NOT_READ) {
+      return 'Error: Read the file before modifying it';
+    }
+    if (checkResult === FileStatCheckResult.MODIFIED_SINCE_LAST_READ) {
+      return 'Error: File has been modified since last read. Read the file again before modifying it';
+    }
+
     let oldContent: string;
     try {
       oldContent = await fs.readFile(absolutePath, 'utf-8');
@@ -123,6 +136,10 @@ export const editFileTool: ToolDefinition<typeof parameters> = {
       const message = error instanceof Error ? error.message : String(error);
       return `Error: ${message}`;
     }
+
+    // Track new file stat
+    const newStat = await fs.stat(absolutePath);
+    context.fileStatTracker.set(absolutePath, newStat.size, newStat.mtimeMs);
 
     // 7. Generate diff
     const diff = createPatch(args.filePath, oldContent, newContent);
