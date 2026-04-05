@@ -16,21 +16,21 @@ import styles from './styles.module.css';
 
 export function SessionConfigBar() {
   const {
-    allowedPaths,
-    pathsLoading,
-    pathsError,
-    workspace,
-    extraAllowedPaths,
-    setWorkspace,
-    setExtraAllowedPaths,
+    allAllowedPathsFromSettings,
+    isLoading,
+    loadError,
+    selectedWorkspace,
+    selectedExtraAllowedPaths,
+    setSelectedWorkspace,
+    setSelectedExtraAllowedPaths,
   } = useSessionConfig();
 
   const readWritePaths = useMemo(
-    () => allowedPaths.filter((p) => p.mode === 'read-write'),
-    [allowedPaths],
+    () => allAllowedPathsFromSettings.filter((p) => p.mode === 'read-write'),
+    [allAllowedPathsFromSettings],
   );
 
-  if (pathsLoading) {
+  if (isLoading) {
     return (
       <div className={styles.container}>
         <div className={styles.dropdowns}>
@@ -41,7 +41,7 @@ export function SessionConfigBar() {
     );
   }
 
-  if (pathsError || allowedPaths.length === 0) {
+  if (loadError || allAllowedPathsFromSettings.length === 0) {
     return (
       <div className={styles.emptyContainer}>
         <Link className={styles.settingsLink} to={ROUTES.settings.fileAccess()}>
@@ -57,9 +57,9 @@ export function SessionConfigBar() {
         <div className={styles.dropdowns}>
           <Select
             className={styles.workspaceSelect}
-            value={workspace ?? ''}
+            value={selectedWorkspace ?? ''}
             onChange={(value) => {
-              setWorkspace(value ? String(value) : undefined);
+              setSelectedWorkspace(value ? String(value) : undefined);
             }}
           >
             <Label>Workspace</Label>
@@ -84,13 +84,13 @@ export function SessionConfigBar() {
             </Select.Popover>
           </Select>
 
-          {allowedPaths.length > 0 && (
+          {allAllowedPathsFromSettings.length > 0 && (
             <SelectRoot<object, 'multiple'>
               className={styles.extraPathsSelect}
               selectionMode='multiple'
-              value={extraAllowedPaths}
+              value={selectedExtraAllowedPaths}
               onChange={(value) => {
-                setExtraAllowedPaths(value.map(String));
+                setSelectedExtraAllowedPaths(value.map(String));
               }}
             >
               <Label>Extra Allowed Paths</Label>
@@ -103,7 +103,7 @@ export function SessionConfigBar() {
               </Description>
               <Select.Popover>
                 <ListBox>
-                  {allowedPaths.map((entry) => (
+                  {allAllowedPathsFromSettings.map((entry) => (
                     <ListBox.Item
                       key={entry.path}
                       id={entry.path}

@@ -30,11 +30,15 @@ function ChatPageContent() {
   const {messages} = useMessages();
   const {title} = useSessionTitle();
 
-  const {workspace, extraAllowedPaths} = useSessionConfig();
+  const {selectedWorkspace, selectedExtraAllowedPaths} = useSessionConfig();
 
   const resetSessionWithConfig = useCallback(
-    async () => resetSession({workspace, extraAllowedPaths}),
-    [resetSession, workspace, extraAllowedPaths],
+    async () =>
+      resetSession({
+        workspace: selectedWorkspace,
+        extraAllowedPaths: selectedExtraAllowedPaths,
+      }),
+    [resetSession, selectedWorkspace, selectedExtraAllowedPaths],
   );
 
   const {

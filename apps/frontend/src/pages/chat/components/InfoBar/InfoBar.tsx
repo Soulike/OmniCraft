@@ -6,23 +6,24 @@ import {UsageInfo} from './components/UsageInfo/index.js';
 import styles from './styles.module.css';
 
 export function InfoBar() {
-  const {workspace, resolvedExtraPaths, pathsError} = useSessionConfig();
+  const {selectedWorkspace, selectedExtraAllowedPathEntries, loadError} =
+    useSessionConfig();
 
   const warning = useMemo(() => {
-    if (pathsError) return `Failed to load allowed paths: ${pathsError}`;
-    if (!workspace)
+    if (loadError) return `Failed to load allowed paths: ${loadError}`;
+    if (!selectedWorkspace)
       return 'No workspace selected — agent will have limited file access.';
     return undefined;
-  }, [pathsError, workspace]);
+  }, [loadError, selectedWorkspace]);
 
-  const showAccessInfo = workspace ?? warning;
+  const showAccessInfo = selectedWorkspace ?? warning;
 
   return (
     <div className={styles.container}>
       {showAccessInfo && (
         <AccessInfo
-          workspace={workspace}
-          extraPaths={resolvedExtraPaths}
+          workspace={selectedWorkspace}
+          extraPaths={selectedExtraAllowedPathEntries}
           warning={warning}
         />
       )}

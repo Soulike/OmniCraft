@@ -6,23 +6,28 @@ import {getAllowedPaths} from '@/api/settings/file-access/index.js';
 import {SessionConfigContext} from './SessionConfigContext.js';
 
 export function SessionConfigProvider({children}: {children: ReactNode}) {
-  const [allowedPaths, setAllowedPaths] = useState<AllowedPathEntry[]>([]);
-  const [pathsLoading, setPathsLoading] = useState(true);
-  const [pathsError, setPathsError] = useState<string | null>(null);
-  const [workspace, setWorkspace] = useState<string | undefined>(undefined);
-  const [extraAllowedPaths, setExtraAllowedPaths] = useState<string[]>([]);
+  const [allAllowedPathsFromSettings, setAllAllowedPathsFromSettings] =
+    useState<AllowedPathEntry[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [selectedWorkspace, setSelectedWorkspace] = useState<
+    string | undefined
+  >(undefined);
+  const [selectedExtraAllowedPaths, setSelectedExtraAllowedPaths] = useState<
+    string[]
+  >([]);
 
   const load = useCallback(async () => {
-    setPathsLoading(true);
-    setPathsError(null);
+    setIsLoading(true);
+    setLoadError(null);
     try {
-      setAllowedPaths(await getAllowedPaths());
+      setAllAllowedPathsFromSettings(await getAllowedPaths());
     } catch (e) {
-      setPathsError(
+      setLoadError(
         e instanceof Error ? e.message : 'Failed to load allowed paths',
       );
     } finally {
-      setPathsLoading(false);
+      setIsLoading(false);
     }
   }, []);
 
@@ -30,29 +35,32 @@ export function SessionConfigProvider({children}: {children: ReactNode}) {
     void load();
   }, [load]);
 
-  const resolvedExtraPaths = useMemo(
-    () => allowedPaths.filter((p) => extraAllowedPaths.includes(p.path)),
-    [allowedPaths, extraAllowedPaths],
+  const selectedExtraAllowedPathEntries = useMemo(
+    () =>
+      allAllowedPathsFromSettings.filter((p) =>
+        selectedExtraAllowedPaths.includes(p.path),
+      ),
+    [allAllowedPathsFromSettings, selectedExtraAllowedPaths],
   );
 
   const value = useMemo(
     () => ({
-      allowedPaths,
-      pathsLoading,
-      pathsError,
-      workspace,
-      extraAllowedPaths,
-      resolvedExtraPaths,
-      setWorkspace,
-      setExtraAllowedPaths,
+      allAllowedPathsFromSettings,
+      isLoading,
+      loadError,
+      selectedWorkspace,
+      selectedExtraAllowedPaths,
+      selectedExtraAllowedPathEntries,
+      setSelectedWorkspace,
+      setSelectedExtraAllowedPaths,
     }),
     [
-      allowedPaths,
-      pathsLoading,
-      pathsError,
-      workspace,
-      extraAllowedPaths,
-      resolvedExtraPaths,
+      allAllowedPathsFromSettings,
+      isLoading,
+      loadError,
+      selectedWorkspace,
+      selectedExtraAllowedPaths,
+      selectedExtraAllowedPathEntries,
     ],
   );
 
