@@ -17,6 +17,10 @@
   margin: 0;
 }
 
+.pathListContainer {
+  border-radius: var(--radius-xl);
+}
+
 .entryPath {
   flex: 1;
   font-family: monospace;
