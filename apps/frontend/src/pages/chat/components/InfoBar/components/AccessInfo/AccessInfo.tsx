@@ -1,4 +1,4 @@
-import {Chip, Separator, Tooltip} from '@heroui/react';
+import {Button, Chip, Separator, Tooltip} from '@heroui/react';
 import type {AllowedPathEntry} from '@omnicraft/settings-schema';
 import {TriangleAlert} from 'lucide-react';
 
@@ -15,9 +15,15 @@ export function AccessInfo({workspace, extraPaths, warning}: AccessInfoProps) {
     <div className={styles.container}>
       {warning && (
         <Tooltip delay={0}>
-          <span className={styles.warningIcon}>
+          <Button
+            isIconOnly
+            size='sm'
+            variant='ghost'
+            aria-label={warning}
+            className={styles.warningIcon}
+          >
             <TriangleAlert size={14} />
-          </span>
+          </Button>
           <Tooltip.Content>
             <p>{warning}</p>
           </Tooltip.Content>
@@ -28,10 +34,15 @@ export function AccessInfo({workspace, extraPaths, warning}: AccessInfoProps) {
         <>
           <Separator orientation='vertical' />
           <Tooltip delay={0}>
-            <span className={styles.extraPaths}>
+            <Button
+              size='sm'
+              variant='ghost'
+              aria-label='Extra allowed paths'
+              className={styles.extraPaths}
+            >
               {extraPaths.length} extra{' '}
               {extraPaths.length === 1 ? 'path' : 'paths'}
-            </span>
+            </Button>
             <Tooltip.Content>
               <div className={styles.tooltipContent}>
                 {extraPaths.map((p) => (

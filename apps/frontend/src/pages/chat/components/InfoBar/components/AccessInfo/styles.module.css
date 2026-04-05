@@ -10,13 +10,9 @@
 
 .warningIcon {
   color: var(--color-warning);
-  cursor: help;
-  display: flex;
-  align-items: center;
 }
 
 .extraPaths {
-  cursor: help;
   text-decoration: underline dotted;
   text-underline-offset: 3px;
 }
