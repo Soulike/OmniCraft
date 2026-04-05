@@ -7,3 +7,11 @@
   font-size: 0.75em;
   color: var(--muted);
 }
+
+.left {
+  min-width: 0;
+}
+
+.right {
+  flex-shrink: 0;
+}

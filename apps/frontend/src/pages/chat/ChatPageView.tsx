@@ -66,7 +66,7 @@ export function ChatPageView({
           <MessageList messages={messages} />
         )}
       </ScrollShadow>
-      <InfoBar />
+      {sessionId && <InfoBar />}
       <ChatInput isStreaming={isStreaming} onSend={onSend} onStop={onStop} />
     </div>
   );
