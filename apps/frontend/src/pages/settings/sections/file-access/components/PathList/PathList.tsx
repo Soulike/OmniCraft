@@ -1,11 +1,4 @@
-import {
-  Button,
-  Chip,
-  ErrorMessage,
-  Label,
-  ListBox,
-  Surface,
-} from '@heroui/react';
+import {Button, Chip, Label, ListBox, Surface} from '@heroui/react';
 import type {AllowedPathEntry} from '@omnicraft/settings-schema';
 
 import type {InvalidPathEntry} from '@/api/settings/file-access/index.js';
@@ -38,11 +31,7 @@ export function PathList({paths, invalidPaths, onRemove}: PathListProps) {
             <ListBox.Item key={i} id={i} textValue={entry.path}>
               <div className={styles.entryContent}>
                 <Label className={styles.entryPath}>{entry.path}</Label>
-                {error && (
-                  <ErrorMessage className={styles.entryError}>
-                    {error}
-                  </ErrorMessage>
-                )}
+                {error && <p className={styles.entryError}>{error}</p>}
               </div>
               <div className={styles.entryActions}>
                 <Chip
