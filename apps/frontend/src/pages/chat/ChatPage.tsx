@@ -10,7 +10,6 @@ import {useSession} from './hooks/useSession.js';
 import {useSessionConfig} from './hooks/useSessionConfig.js';
 import {useSessionTitle} from './hooks/useSessionTitle.js';
 import {useStreamChat} from './hooks/useStreamChat.js';
-import {useUsage} from './hooks/useUsage.js';
 
 /** Chat page container. Wraps content in event bus provider. */
 export function ChatPage() {
@@ -55,8 +54,6 @@ function ChatPageContent() {
 
   const {containerRef: scrollRef, scrollToBottom} = useAutoScroll();
 
-  const {usage} = useUsage();
-
   const resolvedExtraPaths = useMemo(
     () => allowedPaths.filter((p) => extraAllowedPaths.includes(p.path)),
     [allowedPaths, extraAllowedPaths],
@@ -76,7 +73,6 @@ function ChatPageContent() {
       isStreaming={isStreaming}
       error={displayError}
       maxRoundsReached={maxRoundsReached}
-      usage={usage}
       scrollRef={scrollRef}
       sessionId={sessionId}
       allowedPaths={allowedPaths}

@@ -1,13 +1,12 @@
-import type {SseUsage} from '@omnicraft/sse-events';
-
 import {formatTokenCount} from './helpers/format-token-count.js';
+import {useUsage} from './hooks/useUsage.js';
 import styles from './styles.module.css';
 
-interface UsageInfoProps {
-  usage: SseUsage;
-}
+export function UsageInfo() {
+  const {usage} = useUsage();
 
-export function UsageInfo({usage}: UsageInfoProps) {
+  if (!usage) return null;
+
   const cacheRate =
     usage.inputTokens > 0
       ? Math.round((usage.cacheReadInputTokens / usage.inputTokens) * 100)

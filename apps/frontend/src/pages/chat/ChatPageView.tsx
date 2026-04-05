@@ -1,6 +1,5 @@
 import {ScrollShadow} from '@heroui/react';
 import type {AllowedPathEntry} from '@omnicraft/settings-schema';
-import type {SseUsage} from '@omnicraft/sse-events';
 import type {RefObject} from 'react';
 import {useMemo} from 'react';
 
@@ -18,7 +17,6 @@ interface ChatPageViewProps {
   isStreaming: boolean;
   error: string | null;
   maxRoundsReached: boolean;
-  usage: SseUsage | null;
   scrollRef: RefObject<HTMLDivElement | null>;
   sessionId: string | null;
   allowedPaths: AllowedPathEntry[];
@@ -41,7 +39,6 @@ export function ChatPageView({
   isStreaming,
   error,
   maxRoundsReached,
-  usage,
   scrollRef,
   sessionId,
   allowedPaths,
@@ -101,7 +98,6 @@ export function ChatPageView({
         workspace={workspace}
         extraPaths={resolvedExtraPaths}
         warning={accessWarning}
-        usage={usage}
       />
       <ChatInput isStreaming={isStreaming} onSend={onSend} onStop={onStop} />
     </div>

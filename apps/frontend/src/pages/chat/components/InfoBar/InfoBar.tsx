@@ -1,5 +1,4 @@
 import type {AllowedPathEntry} from '@omnicraft/settings-schema';
-import type {SseUsage} from '@omnicraft/sse-events';
 
 import {AccessInfo} from './components/AccessInfo/index.js';
 import {UsageInfo} from './components/UsageInfo/index.js';
@@ -9,10 +8,9 @@ interface InfoBarProps {
   workspace?: string;
   extraPaths?: readonly AllowedPathEntry[];
   warning?: string;
-  usage: SseUsage | null;
 }
 
-export function InfoBar({workspace, extraPaths, warning, usage}: InfoBarProps) {
+export function InfoBar({workspace, extraPaths, warning}: InfoBarProps) {
   const showAccessInfo = workspace ?? warning;
 
   return (
@@ -24,7 +22,7 @@ export function InfoBar({workspace, extraPaths, warning, usage}: InfoBarProps) {
           warning={warning}
         />
       )}
-      {usage && <UsageInfo usage={usage} />}
+      <UsageInfo />
     </div>
   );
 }
