@@ -1,0 +1,12 @@
+.container {
+  display: flex;
+  gap: 12px;
+}
+
+.item {
+  white-space: nowrap;
+}
+
+.rate {
+  opacity: 0.7;
+}

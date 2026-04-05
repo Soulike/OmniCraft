@@ -1,0 +1,15 @@
+.container {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.pathField {
+  flex: 1;
+  min-width: 0;
+}
+
+.modeSelect {
+  width: 148px;
+  flex-shrink: 0;
+}

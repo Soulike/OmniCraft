@@ -26,3 +26,9 @@ export const SearchSection = lazy(async () => {
     await import('@/pages/settings/sections/search/index.js');
   return {default: SearchSection};
 });
+
+export const FileAccessSection = lazy(async () => {
+  const {FileAccessSection} =
+    await import('@/pages/settings/sections/file-access/index.js');
+  return {default: FileAccessSection};
+});

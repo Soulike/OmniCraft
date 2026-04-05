@@ -4,28 +4,45 @@ import {useAutoScroll} from '@/hooks/useAutoScroll.js';
 
 import {ChatPageView} from './ChatPageView.js';
 import {ChatEventBusProvider} from './contexts/ChatEventBusContext/index.js';
+import {SessionConfigProvider} from './contexts/SessionConfigContext/index.js';
 import {useMessages} from './hooks/useMessages.js';
 import {useSession} from './hooks/useSession.js';
+import {useSessionConfig} from './hooks/useSessionConfig.js';
 import {useSessionTitle} from './hooks/useSessionTitle.js';
 import {useStreamChat} from './hooks/useStreamChat.js';
-import {useUsage} from './hooks/useUsage.js';
 
-/** Chat page container. Wraps content in event bus provider. */
+/** Chat page container. Wraps content in providers. */
 export function ChatPage() {
   return (
     <ChatEventBusProvider>
-      <ChatPageContent />
+      <SessionConfigProvider>
+        <ChatPageContent />
+      </SessionConfigProvider>
     </ChatEventBusProvider>
   );
 }
 
-/** Inner content that uses the event bus via context. */
+/** Inner content that uses contexts. */
 function ChatPageContent() {
   const {sessionId, sessionError, resetSession, clearSessionError} =
     useSession();
 
   const {messages} = useMessages();
   const {title} = useSessionTitle();
+
+  const {selectedWorkspace, selectedExtraAllowedPaths} = useSessionConfig();
+
+  const resetSessionWithConfig = useCallback(
+    async () =>
+      resetSession({
+        workspace: selectedWorkspace,
+        extraAllowedPaths:
+          selectedExtraAllowedPaths.length > 0
+            ? selectedExtraAllowedPaths
+            : undefined,
+      }),
+    [resetSession, selectedWorkspace, selectedExtraAllowedPaths],
+  );
 
   const {
     isStreaming,
@@ -35,11 +52,9 @@ function ChatPageContent() {
     stopGeneration,
     clearStreamError,
     clearMaxRoundsReached,
-  } = useStreamChat({sessionId, resetSession});
+  } = useStreamChat({sessionId, resetSession: resetSessionWithConfig});
 
   const {containerRef: scrollRef, scrollToBottom} = useAutoScroll();
-
-  const {usage} = useUsage();
 
   const displayError = sessionError ?? streamError;
 
@@ -55,8 +70,8 @@ function ChatPageContent() {
       isStreaming={isStreaming}
       error={displayError}
       maxRoundsReached={maxRoundsReached}
-      usage={usage}
       scrollRef={scrollRef}
+      sessionId={sessionId}
       onSend={(content) => {
         void sendMessage(content);
         requestAnimationFrame(() => {

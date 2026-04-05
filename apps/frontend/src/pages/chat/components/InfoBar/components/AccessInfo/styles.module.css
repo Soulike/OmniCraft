@@ -1,0 +1,31 @@
+.container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.item {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.extraPaths {
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+}
+
+.tooltipContent {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.tooltipEntry {
+  display: flex;
+  gap: 6px;
+}
+
+.tooltipPath {
+  font-family: monospace;
+}

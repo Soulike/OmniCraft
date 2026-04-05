@@ -1,0 +1,36 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+  max-width: 500px;
+}
+
+.welcomeText {
+  font-size: 1.1em;
+  font-weight: 500;
+  color: var(--color-foreground);
+  text-align: center;
+  margin: 0;
+}
+
+.dropdowns {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+}
+
+.disclaimer {
+  font-size: 0.75em;
+  color: var(--color-foreground-400);
+  text-align: center;
+  margin: 0;
+}
+
+.settingsLink {
+  color: var(--color-accent);
+  text-decoration: underline;
+  font-size: 0.85em;
+}

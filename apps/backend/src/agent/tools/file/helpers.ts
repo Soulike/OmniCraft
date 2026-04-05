@@ -4,7 +4,7 @@ import path from 'node:path';
 import readline from 'node:readline';
 import {Readable} from 'node:stream';
 
-import type {AllowedPath} from '@/agent-core/tool/index.js';
+import type {AllowedPathEntry} from '@/agent-core/tool/index.js';
 
 const BINARY_DETECTION_SIZE = 8_192; // 8KB
 
@@ -44,19 +44,19 @@ export function checkAccess(
   targetPath: string,
   requiredMode: 'read',
   workingDirectory: string,
-  extraAllowedPaths: readonly AllowedPath[],
+  extraAllowedPaths: readonly AllowedPathEntry[],
 ): AccessCheckResult.OK | AccessCheckResult.ERROR_OUTSIDE_ALLOWED_DIRECTORIES;
 export function checkAccess(
   targetPath: string,
   requiredMode: 'read-write',
   workingDirectory: string,
-  extraAllowedPaths: readonly AllowedPath[],
+  extraAllowedPaths: readonly AllowedPathEntry[],
 ): AccessCheckResult;
 export function checkAccess(
   targetPath: string,
   requiredMode: 'read' | 'read-write',
   workingDirectory: string,
-  extraAllowedPaths: readonly AllowedPath[],
+  extraAllowedPaths: readonly AllowedPathEntry[],
 ): AccessCheckResult {
   if (isSubPathOrSelf(workingDirectory, targetPath)) {
     return AccessCheckResult.OK;

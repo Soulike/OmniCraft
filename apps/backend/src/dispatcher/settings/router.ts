@@ -19,7 +19,7 @@ router.get(SETTINGS_JSON_SCHEMA, (ctx) => {
   ctx.response.body = settingsService.getJSONSchema();
 });
 
-/** PUT /settings/batch — atomically writes multiple scalar values. */
+/** PUT /settings/batch — atomically writes multiple leaf values. */
 router.put(SETTINGS_BATCH, async (ctx) => {
   try {
     const {entries} = putSettingsBatchBody.parse(ctx.request.body);
@@ -36,7 +36,7 @@ router.put(SETTINGS_BATCH, async (ctx) => {
   }
 });
 
-/** GET /settings/* — reads a scalar value at the given key path. */
+/** GET /settings/* — reads a leaf value at the given key path. */
 router.get(SETTINGS_VALUE, async (ctx) => {
   try {
     const keyPath = parseLeafKeyPath(ctx.params.path);
@@ -53,7 +53,7 @@ router.get(SETTINGS_VALUE, async (ctx) => {
   }
 });
 
-/** PUT /settings/* — writes a scalar value at the given key path. */
+/** PUT /settings/* — writes a leaf value at the given key path. */
 router.put(SETTINGS_VALUE, async (ctx) => {
   try {
     const keyPath = parseLeafKeyPath(ctx.params.path);

@@ -1,0 +1,32 @@
+.emptyState {
+  font-size: 13px;
+  color: var(--muted);
+  margin: 0;
+}
+
+.container {
+  border-radius: var(--radius-xl);
+}
+
+.entryContent {
+  flex: 1;
+  min-width: 0;
+}
+
+.entryPath {
+  font-family: monospace;
+  font-size: 13px;
+  word-break: break-all;
+}
+
+.entryError {
+  color: var(--color-danger);
+  font-size: 12px;
+}
+
+.entryActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}

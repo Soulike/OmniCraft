@@ -1,16 +1,9 @@
+import type {AllowedPathEntry} from '@omnicraft/settings-schema';
 import type {z} from 'zod';
 
 import type {FileContentCache} from '../agent/file-content-cache.js';
 import type {FileStatTracker} from '../agent/file-stat-tracker.js';
 import type {SkillDefinition} from '../skill/skill-definition.js';
-
-/** A directory the agent is allowed to access beyond its working directory. */
-export interface AllowedPath {
-  /** Absolute path of the allowed directory. */
-  readonly path: string;
-  /** 'read' = read-only, 'read-write' = read and write. */
-  readonly mode: 'read' | 'read-write';
-}
 
 /** Mutable shell state tracked per-agent across tool calls. */
 export interface ShellState {
@@ -36,7 +29,7 @@ export interface ToolExecutionContext {
    * Additional paths the agent is allowed to access beyond workingDirectory.
    * workingDirectory is always read-write and should NOT be listed here.
    */
-  readonly extraAllowedPaths: readonly AllowedPath[];
+  readonly extraAllowedPaths: readonly AllowedPathEntry[];
 
   /** Mutable shell state (e.g. CWD) tracked across tool calls. */
   readonly shellState: ShellState;

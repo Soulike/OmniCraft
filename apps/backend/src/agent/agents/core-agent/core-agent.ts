@@ -1,3 +1,5 @@
+import type {AllowedPathEntry} from '@omnicraft/settings-schema';
+
 import {CoreSkillRegistry} from '@/agent/skills/index.js';
 import {
   BashToolRegistry,
@@ -14,7 +16,11 @@ import {settingsService} from '@/services/settings/index.js';
  * Used as the standard agent type for chat sessions.
  */
 export class CoreAgent extends Agent {
-  constructor(getConfig: () => Promise<LlmConfig>, workingDirectory: string) {
+  constructor(
+    getConfig: () => Promise<LlmConfig>,
+    workingDirectory: string,
+    extraAllowedPaths: readonly AllowedPathEntry[] = [],
+  ) {
     super(getConfig, {
       toolRegistries: [
         CoreToolRegistry.getInstance(),
@@ -29,7 +35,7 @@ export class CoreAgent extends Agent {
         return settings.agent.maxToolRounds;
       },
       workingDirectory,
-      extraAllowedPaths: [],
+      extraAllowedPaths,
     });
   }
 }

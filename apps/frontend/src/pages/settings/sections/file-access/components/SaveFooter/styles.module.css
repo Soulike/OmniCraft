@@ -1,0 +1,11 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.saveError {
+  font-size: 13px;
+  color: var(--color-danger);
+  margin: 0;
+}

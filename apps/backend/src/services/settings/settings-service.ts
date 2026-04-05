@@ -16,7 +16,7 @@ export const settingsService = {
   },
 
   /**
-   * Reads a scalar value at the given key path.
+   * Reads a leaf value at the given key path.
    * @param keyPath - Path segments to a leaf node (e.g., `['llm', 'apiKey']`).
    */
   async get(keyPath: string[]): Promise<unknown> {
@@ -24,16 +24,16 @@ export const settingsService = {
   },
 
   /**
-   * Writes a scalar value at the given key path.
+   * Writes a leaf value at the given key path.
    * @param keyPath - Path segments to a leaf node (e.g., `['llm', 'apiKey']`).
-   * @param value - The scalar value to set.
+   * @param value - The value to set.
    */
   async set(keyPath: string[], value: unknown): Promise<void> {
     await SettingsManager.getInstance().set(keyPath, value);
   },
 
   /**
-   * Atomically writes multiple scalar values.
+   * Atomically writes multiple leaf values.
    * Converts slash-separated path strings to key path arrays.
    * @param entries - Array of `{path, value}` pairs where `path` is slash-separated (e.g., `'llm/apiKey'`).
    */
@@ -55,7 +55,7 @@ export const settingsService = {
   },
 
   /**
-   * Checks whether the given key path is a valid leaf (scalar) node.
+   * Checks whether the given key path is a valid leaf node.
    * @param keyPath - Path segments to check.
    */
   isValidLeafPath(keyPath: string[]): boolean {
