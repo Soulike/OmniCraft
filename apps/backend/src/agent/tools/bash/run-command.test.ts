@@ -106,13 +106,13 @@ describe('runCommandTool', () => {
     });
   });
 
-  describe('output truncation', () => {
-    it('truncates output exceeding 32KB', async () => {
+  describe('large output', () => {
+    it('saves output exceeding 32KB to a temp file', async () => {
       const result = await runCommandTool.execute(
         {command: 'head -c 41000 /dev/urandom | base64'},
         context,
       );
-      expect(result).toContain('Output truncated: exceeded 32KB limit');
+      expect(result).toContain('Output saved to file:');
     });
   });
 });

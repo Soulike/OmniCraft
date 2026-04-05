@@ -7,6 +7,7 @@ import type {
   ToolDefinition,
   ToolExecutionContext,
 } from '@/agent-core/tool/index.js';
+import {writeToTempFile} from '@/helpers/fs.js';
 
 import {isSubPathOrSelf} from '../file/helpers.js';
 import {isExecError, parseWrappedOutput, wrapCommand} from './helpers.js';
@@ -128,10 +129,13 @@ export const runCommandTool: ToolDefinition<typeof parameters> = {
     }
 
     if (Buffer.byteLength(output) > MAX_OUTPUT_BYTES) {
-      const truncated = Buffer.from(output)
-        .subarray(0, MAX_OUTPUT_BYTES)
-        .toString('utf-8');
-      return truncated + '\n(Output truncated: exceeded 32KB limit)';
+      try {
+        const filePath = await writeToTempFile(output, '.txt');
+        return `Output saved to file: ${filePath}`;
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : String(error);
+        return `Error: Failed to save output to temporary file: ${message}`;
+      }
     }
 
     return output;
