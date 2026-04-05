@@ -7,19 +7,24 @@ import {UsageInfo} from './components/UsageInfo/index.js';
 import styles from './styles.module.css';
 
 export function InfoBar() {
-  const {selectedWorkspace, selectedExtraAllowedPathEntries, loadError} =
-    useSessionConfig();
+  const {
+    allAllowedPathEntriesFromSettings,
+    selectedWorkspace,
+    selectedExtraAllowedPathEntries,
+    loadError,
+    isLoading,
+  } = useSessionConfig();
   const {usage} = useUsage();
 
+  const hasConfiguredPaths =
+    !isLoading && !loadError && allAllowedPathEntriesFromSettings.length > 0;
+
   const warning = useMemo(() => {
-    if (loadError)
-      return loadError instanceof Error
-        ? loadError.message
-        : 'Failed to load allowed paths';
+    if (!hasConfiguredPaths) return undefined;
     if (!selectedWorkspace)
       return 'No workspace selected — agent will have limited file access.';
     return undefined;
-  }, [loadError, selectedWorkspace]);
+  }, [hasConfiguredPaths, selectedWorkspace]);
 
   const showAccessInfo = selectedWorkspace ?? warning;
 
