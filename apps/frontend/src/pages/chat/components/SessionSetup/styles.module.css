@@ -16,10 +16,9 @@
 
 .dropdowns {
   display: flex;
-  align-items: flex-start;
+  flex-direction: column;
   gap: 12px;
   width: 100%;
-  flex-wrap: wrap;
 }
 
 .disclaimer {
