@@ -2,12 +2,14 @@ import {useMemo} from 'react';
 
 import {useSessionConfig} from '../../hooks/useSessionConfig.js';
 import {AccessInfo} from './components/AccessInfo/index.js';
+import {useUsage} from './components/UsageInfo/hooks/useUsage.js';
 import {UsageInfo} from './components/UsageInfo/index.js';
 import styles from './styles.module.css';
 
 export function InfoBar() {
   const {selectedWorkspace, selectedExtraAllowedPathEntries, loadError} =
     useSessionConfig();
+  const {usage} = useUsage();
 
   const warning = useMemo(() => {
     if (loadError)
@@ -30,7 +32,7 @@ export function InfoBar() {
           warning={warning}
         />
       )}
-      <UsageInfo />
+      {usage && <UsageInfo usage={usage} />}
     </div>
   );
 }
