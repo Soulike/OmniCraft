@@ -1,13 +1,14 @@
-import {useState} from 'react';
+import {use} from 'react';
 
-export function useSessionConfig() {
-  const [workspace, setWorkspace] = useState<string | undefined>(undefined);
-  const [extraAllowedPaths, setExtraAllowedPaths] = useState<string[]>([]);
+import type {SessionConfigContextValue} from '../contexts/SessionConfigContext/index.js';
+import {SessionConfigContext} from '../contexts/SessionConfigContext/index.js';
 
-  return {
-    workspace,
-    setWorkspace,
-    extraAllowedPaths,
-    setExtraAllowedPaths,
-  };
+export function useSessionConfig(): SessionConfigContextValue {
+  const value = use(SessionConfigContext);
+  if (!value) {
+    throw new Error(
+      'useSessionConfig must be used within SessionConfigProvider',
+    );
+  }
+  return value;
 }

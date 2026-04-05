@@ -6,33 +6,25 @@ import {
   SelectRoot,
   Skeleton,
 } from '@heroui/react';
-import type {AllowedPathEntry} from '@omnicraft/settings-schema';
 import {useMemo} from 'react';
 import {Link} from 'react-router';
 
 import {ROUTES} from '@/routes.js';
 
+import {useSessionConfig} from '../../hooks/useSessionConfig.js';
 import styles from './styles.module.css';
 
-interface SessionConfigBarProps {
-  allowedPaths: AllowedPathEntry[];
-  pathsLoading: boolean;
-  pathsError: string | null;
-  workspace: string | undefined;
-  onWorkspaceChange: (workspace: string | undefined) => void;
-  extraAllowedPaths: string[];
-  onExtraAllowedPathsChange: (paths: string[]) => void;
-}
+export function SessionConfigBar() {
+  const {
+    allowedPaths,
+    pathsLoading,
+    pathsError,
+    workspace,
+    extraAllowedPaths,
+    setWorkspace,
+    setExtraAllowedPaths,
+  } = useSessionConfig();
 
-export function SessionConfigBar({
-  allowedPaths,
-  pathsLoading,
-  pathsError,
-  workspace,
-  onWorkspaceChange,
-  extraAllowedPaths,
-  onExtraAllowedPathsChange,
-}: SessionConfigBarProps) {
   const readWritePaths = useMemo(
     () => allowedPaths.filter((p) => p.mode === 'read-write'),
     [allowedPaths],
@@ -67,7 +59,7 @@ export function SessionConfigBar({
             className={styles.workspaceSelect}
             value={workspace ?? ''}
             onChange={(value) => {
-              onWorkspaceChange(value ? String(value) : undefined);
+              setWorkspace(value ? String(value) : undefined);
             }}
           >
             <Label>Workspace</Label>
@@ -98,7 +90,7 @@ export function SessionConfigBar({
               selectionMode='multiple'
               value={extraAllowedPaths}
               onChange={(value) => {
-                onExtraAllowedPathsChange(value.map(String));
+                setExtraAllowedPaths(value.map(String));
               }}
             >
               <Label>Extra Allowed Paths</Label>

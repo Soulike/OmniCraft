@@ -1,16 +1,20 @@
-import type {AllowedPathEntry} from '@omnicraft/settings-schema';
+import {useMemo} from 'react';
 
+import {useSessionConfig} from '../../hooks/useSessionConfig.js';
 import {AccessInfo} from './components/AccessInfo/index.js';
 import {UsageInfo} from './components/UsageInfo/index.js';
 import styles from './styles.module.css';
 
-interface InfoBarProps {
-  workspace?: string;
-  extraPaths?: readonly AllowedPathEntry[];
-  warning?: string;
-}
+export function InfoBar() {
+  const {workspace, resolvedExtraPaths, pathsError} = useSessionConfig();
 
-export function InfoBar({workspace, extraPaths, warning}: InfoBarProps) {
+  const warning = useMemo(() => {
+    if (pathsError) return `Failed to load allowed paths: ${pathsError}`;
+    if (!workspace)
+      return 'No workspace selected — agent will have limited file access.';
+    return undefined;
+  }, [pathsError, workspace]);
+
   const showAccessInfo = workspace ?? warning;
 
   return (
@@ -18,7 +22,7 @@ export function InfoBar({workspace, extraPaths, warning}: InfoBarProps) {
       {showAccessInfo && (
         <AccessInfo
           workspace={workspace}
-          extraPaths={extraPaths ?? []}
+          extraPaths={resolvedExtraPaths}
           warning={warning}
         />
       )}

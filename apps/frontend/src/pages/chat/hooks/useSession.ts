@@ -4,7 +4,7 @@ import {createSession} from '@/api/chat/index.js';
 
 interface SessionConfig {
   workspace?: string;
-  extraAllowedPaths?: string[];
+  extraAllowedPaths?: readonly string[];
 }
 
 /** Manages the chat session lifecycle. Session is created on demand via `resetSession`. */

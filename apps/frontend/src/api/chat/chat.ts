@@ -11,7 +11,7 @@ const BASE = '/api/chat';
 
 interface CreateSessionOptions {
   workspace?: string;
-  extraAllowedPaths?: string[];
+  extraAllowedPaths?: readonly string[];
 }
 
 /** Creates a new chat session. Returns the session ID. */
