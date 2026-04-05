@@ -11,12 +11,10 @@ export function InfoBar() {
 
   return (
     <div className={styles.container}>
-      {selectedWorkspace && (
-        <AccessInfo
-          workspace={selectedWorkspace}
-          extraPaths={selectedExtraAllowedPathEntries}
-        />
-      )}
+      <AccessInfo
+        workspace={selectedWorkspace}
+        extraPaths={selectedExtraAllowedPathEntries}
+      />
       {usage && <UsageInfo usage={usage} />}
     </div>
   );
