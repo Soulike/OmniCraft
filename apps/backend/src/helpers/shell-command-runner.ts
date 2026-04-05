@@ -1,14 +1,14 @@
 import assert from 'node:assert';
 import type {ChildProcess} from 'node:child_process';
 import {spawn} from 'node:child_process';
+import crypto from 'node:crypto';
 import fs from 'node:fs/promises';
-import {Readable} from 'node:stream';
 
 import {createTempFileWriteStream} from './fs.js';
 
 /** Result returned by {@link ShellCommandRunner.run}. */
 export interface ShellCommandResult {
-  /** Path to the temp file containing stdout. */
+  /** Path to the temp file containing stdout (marker stripped). */
   stdoutFile: string;
   /** Path to the temp file containing stderr. */
   stderrFile: string;
@@ -22,7 +22,8 @@ export interface ShellCommandResult {
 
 /**
  * Executes a shell command in the user's default shell, streaming
- * stdout and stderr to temp files. CWD is captured via fd 3.
+ * stdout and stderr to temp files. CWD is extracted from a unique
+ * marker appended to the command's stdout.
  *
  * Each instance is single-use — call {@link run} exactly once.
  */
@@ -31,6 +32,7 @@ export class ShellCommandRunner {
   private readonly cwd: string;
   private readonly timeout: number;
   private readonly signal?: AbortSignal;
+  private readonly marker: string;
 
   private executed = false;
 
@@ -44,6 +46,7 @@ export class ShellCommandRunner {
     this.cwd = cwd;
     this.timeout = timeout;
     this.signal = signal;
+    this.marker = `__OMNI_CWD_${crypto.randomUUID().replaceAll('-', '')}__`;
   }
 
   /** Executes the command. Can only be called once per instance. */
@@ -54,7 +57,6 @@ export class ShellCommandRunner {
     const stdoutFile = createTempFileWriteStream('.txt');
     const stderrFile = createTempFileWriteStream('.txt');
 
-    // Set up finish promises before spawn so no event is missed
     const stdoutFinished = new Promise<void>((resolve) => {
       stdoutFile.stream.on('finish', resolve);
     });
@@ -67,24 +69,14 @@ export class ShellCommandRunner {
 
       this.pipeStreams(child, stdoutFile.stream, stderrFile.stream);
 
-      const fd3 = child.stdio[3];
-      assert(fd3 instanceof Readable, 'fd 3 must be a readable pipe');
-      const cwdPromise = this.collectCwd(fd3);
+      const [exitCode, timedOut] = await this.waitForExit(child);
 
-      const exitPromise = this.waitForExit(
-        child,
-        stdoutFile.stream,
-        stderrFile.stream,
-      );
+      // End write streams and wait for flush
+      stdoutFile.stream.end();
+      stderrFile.stream.end();
+      await Promise.all([stdoutFinished, stderrFinished]);
 
-      const [exitCode, timedOut] = await exitPromise;
-      // Force fd3 closed so collectCwd's async iterator exits after SIGKILL
-      fd3.destroy();
-      const [, , cwd] = await Promise.all([
-        stdoutFinished,
-        stderrFinished,
-        cwdPromise,
-      ]);
+      const cwd = await this.extractCwd(stdoutFile.filePath);
 
       return {
         stdoutFile: stdoutFile.filePath,
@@ -102,7 +94,7 @@ export class ShellCommandRunner {
     }
   }
 
-  /** Spawns the user's login shell with fd 3 for CWD capture. */
+  /** Spawns the user's login shell. */
   private spawnShell(): ChildProcess {
     const wrappedCommand = this.wrapCommand();
     const shell = process.env.SHELL ?? '/bin/sh';
@@ -110,18 +102,22 @@ export class ShellCommandRunner {
     return spawn(shell, ['-l', '-c', wrappedCommand], {
       cwd: this.cwd,
       env: process.env,
-      stdio: ['ignore', 'pipe', 'pipe', 'pipe'],
+      stdio: ['ignore', 'pipe', 'pipe'],
     });
   }
 
   /**
-   * Wraps the user command so that the shell writes CWD to fd 3
-   * and exits with the original exit code.
+   * Wraps the user command so that a unique marker and `pwd` are
+   * appended to stdout. The original exit code is preserved.
    */
   private wrapCommand(): string {
-    return [this.command, '__omni_ec=$?', 'pwd >&3', 'exit $__omni_ec'].join(
-      '\n',
-    );
+    return [
+      this.command,
+      '__omni_ec=$?',
+      `printf '\\n${this.marker}\\n'`,
+      'pwd',
+      'exit $__omni_ec',
+    ].join('\n');
   }
 
   /** Pipes child stdout/stderr to write streams. */
@@ -141,29 +137,54 @@ export class ShellCommandRunner {
     });
   }
 
-  /** Collects CWD from fd 3 (a single path string). */
-  private async collectCwd(fd3: Readable): Promise<string | null> {
-    let data = '';
+  /**
+   * Reads the tail of the stdout file, finds the marker, extracts CWD,
+   * and truncates the file to remove the marker lines.
+   */
+  private async extractCwd(stdoutFilePath: string): Promise<string | null> {
+    const stat = await fs.stat(stdoutFilePath);
+    if (stat.size === 0) return null;
+
+    // Read the tail (marker + pwd is < 200 bytes, read 1KB to be safe)
+    const tailSize = Math.min(stat.size, 1024);
+    const handle = await fs.open(stdoutFilePath, 'r+');
     try {
-      for await (const chunk of fd3) {
-        data += (chunk as Buffer).toString();
-      }
-    } catch {
-      // Stream destroyed (e.g., after SIGKILL) — return what we have
+      const buffer = Buffer.alloc(tailSize);
+      await handle.read(buffer, 0, tailSize, stat.size - tailSize);
+      const tail = buffer.toString('utf-8');
+
+      const markerIndex = tail.lastIndexOf(this.marker);
+      if (markerIndex === -1) return null;
+
+      // Extract CWD from after the marker
+      const afterMarker = tail
+        .substring(markerIndex + this.marker.length)
+        .trim();
+      const cwd = afterMarker.split('\n')[0]?.trim() || null;
+
+      // Find the newline before the marker to get the truncation point
+      const tailBeforeMarker = tail.substring(0, markerIndex);
+      const trailingNewline = tailBeforeMarker.endsWith('\n') ? 1 : 0;
+      const bytesToKeep =
+        stat.size -
+        tailSize +
+        Buffer.byteLength(tailBeforeMarker, 'utf-8') -
+        trailingNewline;
+
+      await handle.truncate(Math.max(0, bytesToKeep));
+
+      return cwd;
+    } finally {
+      await handle.close();
     }
-    return data.trim() || null;
   }
 
   /**
-   * Waits for the child process to exit. Handles timeout and abort signal.
-   * Ends the write streams after exit so `finish` events fire.
+   * Waits for the child process to exit.
+   * Handles timeout and abort signal.
    * Returns [exitCode, timedOut].
    */
-  private waitForExit(
-    child: ChildProcess,
-    stdoutStream: NodeJS.WritableStream,
-    stderrStream: NodeJS.WritableStream,
-  ): Promise<[number, boolean]> {
+  private waitForExit(child: ChildProcess): Promise<[number, boolean]> {
     let timedOut = false;
 
     const killChild = (): void => {
@@ -187,8 +208,6 @@ export class ShellCommandRunner {
       const cleanup = () => {
         clearTimeout(timer);
         this.signal?.removeEventListener('abort', killChild);
-        stdoutStream.end();
-        stderrStream.end();
       };
 
       child.on('exit', (code) => {

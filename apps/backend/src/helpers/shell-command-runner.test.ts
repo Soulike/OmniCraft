@@ -64,7 +64,7 @@ describe('ShellCommandRunner', () => {
     cleanup();
   });
 
-  it('captures CWD via fd 3', async () => {
+  it('captures CWD via stdout marker', async () => {
     const {result, cleanup} = await run('true', tmpDir, 10_000);
 
     expect(result.cwd).toBe(tmpDir);
