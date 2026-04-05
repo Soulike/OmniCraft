@@ -205,19 +205,18 @@ describe('unwrapSchema', () => {
   });
 
   describe('array schema unwrap behavior', () => {
-    it('fully unwraps through array .unwrap() to the element schema', () => {
+    it('stops at array schema without unwrapping to element', () => {
       const inner = z.string();
       const arr = z.array(inner);
-      // z.array has .unwrap() that returns the element type, so unwrapSchema
-      // traverses through it — this is the implementation's behavior
-      expect(unwrapSchema(arr)).toBe(inner);
+      expect(unwrapSchema(arr)).toBe(arr);
     });
 
-    it('unwraps a wrapped array to its element schema', () => {
+    it('unwraps wrappers around array but stops at the array', () => {
       const element = z.number();
-      const wrapped = z.array(element).optional();
-      // optional -> array -> element
-      expect(unwrapSchema(wrapped)).toBe(element);
+      const arr = z.array(element);
+      const wrapped = arr.optional();
+      // optional -> array (stops here)
+      expect(unwrapSchema(wrapped)).toBe(arr);
     });
   });
 

@@ -1,6 +1,6 @@
 import assert from 'node:assert';
 
-import type {ZodType} from 'zod';
+import {ZodArray,type ZodType} from 'zod';
 
 /** A Zod schema that has a `.shape` property (i.e., an object schema). */
 interface ZodObjectLike {
@@ -12,10 +12,17 @@ export function hasShape(schema: ZodType): schema is ZodType & ZodObjectLike {
   return 'shape' in schema && typeof schema.shape === 'object';
 }
 
-/** Unwraps Zod wrapper types (default, prefault, optional, etc.) to get the core schema. */
+/**
+ * Unwraps Zod wrapper types (default, prefault, optional, etc.) to get the core schema.
+ * Stops at arrays — they have `.unwrap()` but are concrete types, not wrappers.
+ */
 export function unwrapSchema(schema: ZodType): ZodType {
   let s = schema;
-  while ('unwrap' in s && typeof s.unwrap === 'function') {
+  while (
+    !(s instanceof ZodArray) &&
+    'unwrap' in s &&
+    typeof s.unwrap === 'function'
+  ) {
     s = (s as ZodType & {unwrap(): ZodType}).unwrap();
   }
   return s;
