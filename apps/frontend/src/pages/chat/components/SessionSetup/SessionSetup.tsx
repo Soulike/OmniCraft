@@ -37,6 +37,17 @@ export function SessionSetup() {
         explicitly requested.
       </p>
 
+      {loadError && (
+        <Alert status='danger'>
+          <Alert.Indicator />
+          <Alert.Content>
+            <Alert.Description>
+              Failed to load allowed paths from settings.
+            </Alert.Description>
+          </Alert.Content>
+        </Alert>
+      )}
+
       {!isLoading && !loadError && !hasConfiguredPaths && (
         <Alert status='warning'>
           <Alert.Indicator />
