@@ -59,10 +59,16 @@ New tab at `/settings/file-access` in the settings page.
 - Must be an absolute path.
 - Must exist on the filesystem.
 - Must be a directory (not a file).
+- The process must have the requested access level (read for `read` mode, read + write for `read-write` mode).
 
 Returns per-path errors so the UI can indicate which entries are invalid.
 
-Follows existing settings section patterns (`SettingSection` component, `useSettingValues`/`useSettingSave` hooks). However, since the allowed paths field is an array of objects (not a scalar), the existing scalar-oriented settings API (`GET/PUT /settings/:path`) is insufficient. The `PUT /settings/batch` endpoint can handle this since it writes arbitrary key-value pairs. The settings UI for this section will manage the array as a single value, reading via `GET /settings/fileAccess.allowedPaths` and writing via batch.
+Follows existing settings section patterns (`SettingSection` component, `useSettingValues`/`useSettingSave` hooks). However, since the allowed paths field is an array of objects with custom filesystem validation (not a scalar), it uses a dedicated endpoint rather than the generic settings API:
+
+- **Read:** `GET /api/settings/file-access/allowed-paths` — returns the current array.
+- **Write:** `PUT /api/settings/file-access/allowed-paths` — accepts the full array, validates schema + filesystem, returns per-path errors or saves.
+
+The settings UI for this section calls this endpoint directly instead of using the generic `useSettingSave` hook.
 
 ## Backend Validation
 
@@ -75,6 +81,7 @@ When `fileAccess.allowedPaths` is saved, the Zod schema validates structure (arr
 - Path is absolute.
 - Path exists on the filesystem.
 - Path is a directory.
+- The process has the requested access level (read access for `read` mode, read + write access for `read-write` mode).
 
 On failure, return an error response with per-path details:
 
@@ -93,17 +100,18 @@ This catches typos and misconfiguration at settings time.
 When `POST /chat/session` is called with workspace and extra paths:
 
 - Workspace must be an absolute path, must exist, must be a directory.
+- Workspace must be readable and writable by the process.
 - Workspace must appear in `fileAccess.allowedPaths` with `read-write` mode.
 - Each extra allowed path must appear in `fileAccess.allowedPaths`.
-- All referenced paths must still exist on the filesystem.
+- All referenced paths must still exist on the filesystem and have the required access level.
 
 This catches paths that were valid at settings time but have since been removed/unmounted.
 
 New error types in `CreateSessionError`:
 
-- `WORKSPACE_NOT_CONFIGURED` — no workspace provided.
 - `WORKSPACE_PATH_NOT_FOUND` — workspace path no longer exists.
-- `WORKSPACE_NOT_IN_ALLOWED_PATHS` — workspace path not in settings or not read-write.
+- `WORKSPACE_NOT_IN_ALLOWED_PATHS` — workspace path not in settings.
+- `WORKSPACE_NOT_READ_WRITE` — workspace path is in settings but not with `read-write` mode.
 - `EXTRA_PATH_NOT_FOUND` — an extra allowed path no longer exists.
 - `EXTRA_PATH_NOT_IN_ALLOWED_PATHS` — an extra path not in settings.
 
@@ -111,18 +119,20 @@ New error types in `CreateSessionError`:
 
 **Current:** `POST /chat/session` — no body.
 
-**New:** `POST /chat/session` — requires body:
+**New:** `POST /chat/session` — accepts optional body:
 
 ```ts
 {
-  workspace: string;           // absolute path, must be rw in settings
-  extraAllowedPaths: string[]; // absolute paths, must be in settings
+  workspace?: string;            // absolute path, must be rw in settings
+  extraAllowedPaths?: string[];  // absolute paths, must be in settings
 }
 ```
 
+If `workspace` is omitted, the session uses `os.tmpdir()` as the working directory with no extra paths (current default behavior). If `workspace` is provided, it is validated along with any extra paths.
+
 Response shape unchanged: `{ success, sessionId }` or `{ success, error }` with the new error types above.
 
-The `CoreAgent` constructor receives `extraAllowedPaths` instead of hardcoding `[]`. The `chatService.createSession()` method accepts `workspace` and `extraAllowedPaths`, validates them, and passes through to `CoreAgent`.
+The `CoreAgent` constructor receives `extraAllowedPaths` instead of hardcoding `[]`. The `chatService.createSession()` method accepts `workspace` and `extraAllowedPaths` strings, validates them, resolves each extra path to its full `AllowedPathEntry` (including mode) by looking it up in `fileAccess.allowedPaths` from settings, and passes the resolved entries to `CoreAgent`.
 
 ## Chat Page — Config Bar
 
@@ -134,7 +144,13 @@ An inline configuration bar above the input area. Visible before the session is 
 
 ### States
 
-**No workspace selected:** Input is disabled. An error-style warning appears above the input (same style as session creation errors): "Select a workspace to start chatting".
+**Loading:** Config bar fetches `fileAccess.allowedPaths` from the backend on mount. During the fetch, dropdowns show a loading/skeleton state. Input is enabled — the user can start chatting without file access.
+
+**Fetch error:** If the fetch fails, show an error in the config bar: "Failed to load allowed paths from settings." Input remains enabled — user can still chat without file access.
+
+**No paths configured:** If the fetch returns an empty array, show a message with a link to settings: "No allowed paths configured." with a link/button navigating to Settings → File Access. Input remains enabled.
+
+**No workspace selected:** Paths loaded, dropdowns populated, but no workspace selected. Input is enabled. A soft warning (not error-style) appears: "No workspace selected — agent will have limited file access."
 
 **Workspace selected, no session yet:** Input is enabled. User can type and send. On first Send:
 
@@ -155,7 +171,9 @@ The InfoBar effectively replaces the current `UsageBar`, extending it with acces
 
 ### New components
 
-- `InfoBar` — replaces `UsageBar`. Displays workspace + extra paths (left) and token usage (right). Positioned just above the input, same location and styling approach as current `UsageBar` (CSS Modules).
+- `InfoBar` — replaces `UsageBar`. Container component positioned just above the input, same location and styling approach as current `UsageBar` (CSS Modules). Contains two sub-components:
+  - `AccessInfo` — displays workspace path and extra paths count with tooltip. Left side of the InfoBar.
+  - `UsageInfo` — displays token usage (input, output, cached). Right side of the InfoBar. Extracts the rendering logic from the old `UsageBar`.
 - `SessionConfigBar` — config bar with workspace dropdown, extra paths multi-select, disclaimer. Shown before session creation.
 - Settings section component for the File Access tab (follows existing `SettingSection` patterns).
 
