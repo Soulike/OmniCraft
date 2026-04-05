@@ -3,12 +3,14 @@ import type {ChildProcess} from 'node:child_process';
 import {spawn} from 'node:child_process';
 import crypto from 'node:crypto';
 import fs from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
 
 import {createTempFileWriteStream} from './fs.js';
 
 /** Result returned by {@link ShellCommandRunner.run}. */
 export interface ShellCommandResult {
-  /** Path to the temp file containing stdout (marker stripped). */
+  /** Path to the temp file containing stdout. */
   stdoutFile: string;
   /** Path to the temp file containing stderr. */
   stderrFile: string;
@@ -22,8 +24,8 @@ export interface ShellCommandResult {
 
 /**
  * Executes a shell command in the user's default shell, streaming
- * stdout and stderr to temp files. CWD is extracted from a unique
- * marker appended to the command's stdout.
+ * stdout and stderr to temp files. CWD is written to a separate
+ * temp file via shell redirection, keeping stdout clean.
  *
  * Each instance is single-use — call {@link run} exactly once.
  */
@@ -32,7 +34,7 @@ export class ShellCommandRunner {
   private readonly cwd: string;
   private readonly timeout: number;
   private readonly signal?: AbortSignal;
-  private readonly marker: string;
+  private readonly cwdFilePath: string;
 
   private executed = false;
 
@@ -46,7 +48,10 @@ export class ShellCommandRunner {
     this.cwd = cwd;
     this.timeout = timeout;
     this.signal = signal;
-    this.marker = `__OMNI_CWD_${crypto.randomUUID().replaceAll('-', '')}__`;
+    this.cwdFilePath = path.join(
+      os.tmpdir(),
+      `omni-cwd-${crypto.randomUUID()}.txt`,
+    );
   }
 
   /** Executes the command. Can only be called once per instance. */
@@ -71,12 +76,11 @@ export class ShellCommandRunner {
 
       const [exitCode, timedOut] = await this.waitForExit(child);
 
-      // End write streams and wait for flush
       stdoutFile.stream.end();
       stderrFile.stream.end();
       await Promise.all([stdoutFinished, stderrFinished]);
 
-      const cwd = await this.extractCwd(stdoutFile.filePath);
+      const cwd = await this.readCwdFile();
 
       return {
         stdoutFile: stdoutFile.filePath,
@@ -88,8 +92,16 @@ export class ShellCommandRunner {
     } catch (error) {
       stdoutFile.stream.destroy();
       stderrFile.stream.destroy();
-      void fs.unlink(stdoutFile.filePath);
-      void fs.unlink(stderrFile.filePath);
+      // Files may not exist if spawn failed before writing
+      void fs.unlink(stdoutFile.filePath).catch(() => {
+        /* ignored */
+      });
+      void fs.unlink(stderrFile.filePath).catch(() => {
+        /* ignored */
+      });
+      void fs.unlink(this.cwdFilePath).catch(() => {
+        /* ignored */
+      });
       throw error;
     }
   }
@@ -107,15 +119,14 @@ export class ShellCommandRunner {
   }
 
   /**
-   * Wraps the user command so that a unique marker and `pwd` are
-   * appended to stdout. The original exit code is preserved.
+   * Wraps the user command so that CWD is written to a temp file
+   * via shell redirection. The original exit code is preserved.
    */
   private wrapCommand(): string {
     return [
       this.command,
       '__omni_ec=$?',
-      `printf '\\n${this.marker}\\n'`,
-      'pwd',
+      `pwd > ${this.cwdFilePath}`,
       'exit $__omni_ec',
     ].join('\n');
   }
@@ -137,42 +148,18 @@ export class ShellCommandRunner {
     });
   }
 
-  /**
-   * Reads the tail of the stdout file, finds the marker, extracts CWD,
-   * and truncates the file to remove the marker lines.
-   */
-  private async extractCwd(stdoutFilePath: string): Promise<string | null> {
-    const stat = await fs.stat(stdoutFilePath);
-    if (stat.size === 0) return null;
-
-    // Read the tail (marker + pwd is < 200 bytes, read 1KB to be safe)
-    const tailSize = Math.min(stat.size, 1024);
-    const handle = await fs.open(stdoutFilePath, 'r+');
+  /** Reads CWD from the temp file, then deletes it. */
+  private async readCwdFile(): Promise<string | null> {
     try {
-      const buffer = Buffer.alloc(tailSize);
-      await handle.read(buffer, 0, tailSize, stat.size - tailSize);
-      const tail = buffer.toString('utf-8');
-
-      // Matches the tail format produced by wrapCommand():
-      //   \n<MARKER>\n<cwd>\n
-      // with optional \r for cross-platform compatibility
-      const pattern = new RegExp(`\\r?\\n?${this.marker}\\r?\\n(.+?)\\s*$`);
-      const match = pattern.exec(tail);
-      if (!match) return null;
-
-      const cwd = match[1];
-
-      // Truncate file to remove everything from the match start
-      const matchStart = match.index;
-      const bytesToKeep =
-        stat.size -
-        tailSize +
-        Buffer.byteLength(tail.substring(0, matchStart), 'utf-8');
-      await handle.truncate(Math.max(0, bytesToKeep));
-
-      return cwd;
+      const content = await fs.readFile(this.cwdFilePath, 'utf-8');
+      return content.trim() || null;
+    } catch {
+      return null;
     } finally {
-      await handle.close();
+      // CWD file may not exist if command was killed before pwd ran
+      void fs.unlink(this.cwdFilePath).catch(() => {
+        /* ignored */
+      });
     }
   }
 

@@ -21,8 +21,13 @@ async function run(
   ).run();
 
   const cleanup = () => {
-    void fs.unlink(result.stdoutFile);
-    void fs.unlink(result.stderrFile);
+    // File may not exist if command was killed before producing output
+    void fs.unlink(result.stdoutFile).catch(() => {
+      /* ignored */
+    });
+    void fs.unlink(result.stderrFile).catch(() => {
+      /* ignored */
+    });
   };
 
   return {result, cleanup};
@@ -64,7 +69,7 @@ describe('ShellCommandRunner', () => {
     cleanup();
   });
 
-  it('captures CWD via stdout marker', async () => {
+  it('captures CWD via temp file', async () => {
     const {result, cleanup} = await run('true', tmpDir, 10_000);
 
     expect(result.cwd).toBe(tmpDir);
