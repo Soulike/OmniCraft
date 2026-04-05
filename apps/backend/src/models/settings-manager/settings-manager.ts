@@ -179,14 +179,10 @@ export class SettingsManager {
    * @throws If any path is invalid, does not point to a leaf, or a value is not scalar.
    */
   async setBatch(updates: SettingEntry[]): Promise<void> {
-    for (const {keyPath, value} of updates) {
+    for (const {keyPath} of updates) {
       assert(
         SettingsManager.isValidLeafPath(keyPath),
         `Invalid leaf path: [${keyPath.join(', ')}]`,
-      );
-      assert(
-        typeof value !== 'object' || value === null,
-        'Value must be a scalar, not an object',
       );
     }
 
