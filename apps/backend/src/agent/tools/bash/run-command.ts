@@ -62,10 +62,15 @@ export const runCommandTool: ToolDefinition<typeof parameters> = {
     args: RunCommandArgs,
     context: ToolExecutionContext,
   ): Promise<string> {
-    const {shellState, workingDirectory} = context;
+    const {shellState, workingDirectory, signal} = context;
     const timeout = args.timeout ?? DEFAULT_TIMEOUT_MS;
 
-    const result = await executeCommand(args.command, shellState.cwd, timeout);
+    const result = await executeCommand(
+      args.command,
+      shellState.cwd,
+      timeout,
+      signal,
+    );
 
     // Resolve stdout and stderr temp files
     const stdout = await resolveOutputFile(result.stdoutFile);

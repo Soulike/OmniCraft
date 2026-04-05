@@ -157,7 +157,7 @@ export abstract class Agent {
           arguments: toolCall.arguments,
         } satisfies AgentToolExecuteStartEvent;
 
-        const result = await this.executeTool(toolCall, availableTools);
+        const result = await this.executeTool(toolCall, availableTools, signal);
 
         yield {
           type: 'tool-execute-end',
@@ -307,6 +307,7 @@ export abstract class Agent {
   private async executeTool(
     toolCall: LlmToolCall,
     availableTools: ReadonlyMap<string, ToolDefinition>,
+    signal?: AbortSignal,
   ): Promise<{content: string; isError: boolean}> {
     const tool = availableTools.get(toolCall.toolName);
     if (!tool) {
@@ -323,6 +324,7 @@ export abstract class Agent {
       fileStatTracker: this.fileStatTracker,
       extraAllowedPaths: this.extraAllowedPaths,
       shellState: this.shellState,
+      signal,
     };
 
     try {

@@ -40,6 +40,9 @@ export interface ToolExecutionContext {
 
   /** Mutable shell state (e.g. CWD) tracked across tool calls. */
   readonly shellState: ShellState;
+
+  /** Signal from the agent loop — aborted when the user cancels the request. */
+  readonly signal?: AbortSignal;
 }
 
 /**
