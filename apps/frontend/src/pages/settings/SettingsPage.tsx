@@ -10,12 +10,14 @@ const TABS: SettingsTab[] = [
   {id: 'llm', label: 'LLM'},
   {id: 'agent', label: 'Agent'},
   {id: 'search', label: 'Search'},
+  {id: 'fileAccess', label: 'File Access'},
 ];
 
 const TAB_TO_PATH: Record<string, string> = {
   llm: ROUTES.settings.llm(),
   agent: ROUTES.settings.agent(),
   search: ROUTES.settings.search(),
+  fileAccess: ROUTES.settings.fileAccess(),
 };
 
 const PATH_TO_TAB: Record<string, string> = Object.fromEntries(

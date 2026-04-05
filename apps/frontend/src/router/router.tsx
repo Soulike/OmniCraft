@@ -6,6 +6,7 @@ import {ROUTES} from '@/routes.js';
 import {
   AgentSection,
   ChatPage,
+  FileAccessSection,
   LlmSection,
   SearchSection,
   SettingsPage,
@@ -51,6 +52,10 @@ export const router = createBrowserRouter([
           {
             path: ROUTES.settings.search(),
             element: <SearchSection />,
+          },
+          {
+            path: ROUTES.settings.fileAccess(),
+            element: <FileAccessSection />,
           },
         ],
       },
