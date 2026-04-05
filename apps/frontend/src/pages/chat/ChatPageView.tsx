@@ -2,6 +2,7 @@ import {ScrollShadow} from '@heroui/react';
 import type {AllowedPathEntry} from '@omnicraft/settings-schema';
 import type {SseUsage} from '@omnicraft/sse-events';
 import type {RefObject} from 'react';
+import {useMemo} from 'react';
 
 import {ChatAlert} from './components/ChatAlert/index.js';
 import {ChatInput} from './components/ChatInput/index.js';
@@ -56,6 +57,13 @@ export function ChatPageView({
   onDismissError,
   onDismissMaxRoundsReached,
 }: ChatPageViewProps) {
+  const accessWarning = useMemo(() => {
+    if (pathsError) return `Failed to load allowed paths: ${pathsError}`;
+    if (!workspace)
+      return 'No workspace selected — agent will have limited file access.';
+    return undefined;
+  }, [pathsError, workspace]);
+
   return (
     <div className={styles.page}>
       {error && (
@@ -75,6 +83,9 @@ export function ChatPageView({
         />
       )}
       <h2 className={styles.title}>{title ?? 'New Session'}</h2>
+      <ScrollShadow className={styles.messageListWrapper} ref={scrollRef}>
+        <MessageList messages={messages} />
+      </ScrollShadow>
       {!sessionId && (
         <SessionConfigBar
           allowedPaths={allowedPaths}
@@ -86,12 +97,10 @@ export function ChatPageView({
           onExtraAllowedPathsChange={onExtraAllowedPathsChange}
         />
       )}
-      <ScrollShadow className={styles.messageListWrapper} ref={scrollRef}>
-        <MessageList messages={messages} />
-      </ScrollShadow>
       <InfoBar
         workspace={workspace}
         extraPaths={resolvedExtraPaths}
+        warning={accessWarning}
         usage={usage}
       />
       <ChatInput isStreaming={isStreaming} onSend={onSend} onStop={onStop} />

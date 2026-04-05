@@ -49,26 +49,12 @@ export function SessionConfigBar({
     );
   }
 
-  if (pathsError) {
+  if (pathsError || allowedPaths.length === 0) {
     return (
-      <div>
-        <p className={`${styles.message} ${styles.error}`}>{pathsError}</p>
-      </div>
-    );
-  }
-
-  if (allowedPaths.length === 0) {
-    return (
-      <div>
-        <p className={`${styles.message} ${styles.info}`}>
-          No allowed paths configured.{' '}
-          <Link
-            className={styles.settingsLink}
-            to={ROUTES.settings.fileAccess()}
-          >
-            Configure in Settings &rarr; File Access
-          </Link>
-        </p>
+      <div className={styles.emptyContainer}>
+        <Link className={styles.settingsLink} to={ROUTES.settings.fileAccess()}>
+          Configure allowed paths in Settings &rarr; File Access
+        </Link>
       </div>
     );
   }
@@ -141,12 +127,6 @@ export function SessionConfigBar({
           )}
         </div>
       </div>
-
-      {!workspace && (
-        <p className={`${styles.message} ${styles.warning}`}>
-          No workspace selected &mdash; agent will have limited file access.
-        </p>
-      )}
 
       <p className={styles.disclaimer}>
         Agent may still access files outside these paths via shell when

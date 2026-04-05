@@ -8,14 +8,21 @@ import styles from './styles.module.css';
 interface InfoBarProps {
   workspace?: string;
   extraPaths?: readonly AllowedPathEntry[];
+  warning?: string;
   usage: SseUsage | null;
 }
 
-export function InfoBar({workspace, extraPaths, usage}: InfoBarProps) {
+export function InfoBar({workspace, extraPaths, warning, usage}: InfoBarProps) {
+  const showAccessInfo = workspace ?? warning;
+
   return (
     <div className={styles.container}>
-      {workspace && (
-        <AccessInfo workspace={workspace} extraPaths={extraPaths ?? []} />
+      {showAccessInfo && (
+        <AccessInfo
+          workspace={workspace}
+          extraPaths={extraPaths ?? []}
+          warning={warning}
+        />
       )}
       {usage && <UsageInfo usage={usage} />}
     </div>
