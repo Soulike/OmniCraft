@@ -1,5 +1,6 @@
 import {
   Button,
+  Chip,
   Label,
   ListBox,
   Select,
@@ -20,6 +21,7 @@ export function ExtraAllowedPathsSelect() {
 
   return (
     <SelectRoot<object, 'multiple'>
+      isDisabled={allAllowedPathEntriesFromSettings.length === 0}
       selectionMode='multiple'
       value={selectedExtraAllowedPaths}
       onChange={(value) => {
@@ -30,14 +32,16 @@ export function ExtraAllowedPathsSelect() {
         <span className={styles.labelContent}>
           Extra Allowed Paths
           <Tooltip delay={0}>
-            <Button
-              isIconOnly
-              size='sm'
-              variant='ghost'
-              aria-label='Extra paths info'
-            >
-              <Info size={12} />
-            </Button>
+            <Tooltip.Trigger>
+              <Button
+                isIconOnly
+                size='sm'
+                variant='ghost'
+                aria-label='Workspace info'
+              >
+                <Info size={12} />
+              </Button>
+            </Tooltip.Trigger>
             <Tooltip.Content>
               <p>Additional directories the agent may access</p>
             </Tooltip.Content>
@@ -56,7 +60,8 @@ export function ExtraAllowedPathsSelect() {
               id={entry.path}
               textValue={`${entry.path} (${entry.mode})`}
             >
-              {entry.path} ({entry.mode})
+              {entry.path}
+              <Chip>{entry.mode}</Chip>
               <ListBox.ItemIndicator />
             </ListBox.Item>
           ))}

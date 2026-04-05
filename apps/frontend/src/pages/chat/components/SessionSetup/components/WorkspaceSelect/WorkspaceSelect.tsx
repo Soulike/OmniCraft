@@ -20,6 +20,7 @@ export function WorkspaceSelect() {
 
   return (
     <Select
+      isDisabled={readWritePaths.length === 0}
       value={selectedWorkspace ?? ''}
       onChange={(value) => {
         setSelectedWorkspace(value ? String(value) : undefined);
@@ -29,14 +30,16 @@ export function WorkspaceSelect() {
         <span className={styles.labelContent}>
           Workspace
           <Tooltip delay={0}>
-            <Button
-              isIconOnly
-              size='sm'
-              variant='ghost'
-              aria-label='Workspace info'
-            >
-              <Info size={12} />
-            </Button>
+            <Tooltip.Trigger>
+              <Button
+                isIconOnly
+                size='sm'
+                variant='ghost'
+                aria-label='Workspace info'
+              >
+                <Info size={12} />
+              </Button>
+            </Tooltip.Trigger>
             <Tooltip.Content>
               <p>Read-write directory the agent works in</p>
             </Tooltip.Content>
