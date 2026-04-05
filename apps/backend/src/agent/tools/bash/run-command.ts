@@ -29,24 +29,27 @@ const parameters = z.object({
 
 type RunCommandArgs = z.infer<typeof parameters>;
 
+type ResolvedOutput =
+  | {type: 'inline'; content: string}
+  | {type: 'file'; filePath: string}
+  | {type: 'empty'};
+
 /**
  * Resolves a temp file to either inline content or a file-path reference.
  * Deletes the file when inlined or empty.
  */
-async function resolveOutputFile(
-  filePath: string,
-): Promise<{content: string; savedToFile: boolean}> {
+async function resolveOutputFile(filePath: string): Promise<ResolvedOutput> {
   const stat = await fs.stat(filePath);
   if (stat.size === 0) {
     await fs.unlink(filePath);
-    return {content: '', savedToFile: false};
+    return {type: 'empty'};
   }
   if (stat.size <= MAX_INLINE_BYTES) {
     const content = await fs.readFile(filePath, 'utf-8');
     await fs.unlink(filePath);
-    return {content, savedToFile: false};
+    return {type: 'inline', content};
   }
-  return {content: filePath, savedToFile: true};
+  return {type: 'file', filePath};
 }
 
 /** Built-in tool that executes a shell command. */
@@ -97,14 +100,16 @@ export const runCommandTool: ToolDefinition<typeof parameters> = {
       output += `Error: Command timed out after ${timeout}ms\n`;
     }
 
-    output += stdout.savedToFile
-      ? `Output saved to file: ${stdout.content}`
-      : stdout.content;
+    if (stdout.type === 'inline') {
+      output += stdout.content;
+    } else if (stdout.type === 'file') {
+      output += `Output saved to file: ${stdout.filePath}`;
+    }
 
-    if (stderr.content) {
-      output += stderr.savedToFile
-        ? `\n(stderr saved to file: ${stderr.content})`
-        : `\n(stderr)\n${stderr.content}`;
+    if (stderr.type === 'inline') {
+      output += `\n(stderr)\n${stderr.content}`;
+    } else if (stderr.type === 'file') {
+      output += `\n(stderr saved to file: ${stderr.filePath})`;
     }
 
     if (result.exitCode !== 0) {
