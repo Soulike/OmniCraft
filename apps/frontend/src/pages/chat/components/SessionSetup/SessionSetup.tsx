@@ -50,7 +50,7 @@ export function SessionSetup() {
         </Link>
       )}
 
-      {!isLoading && !selectedWorkspace && (
+      {!isLoading && !loadError && !selectedWorkspace && (
         <Alert status='warning'>
           <Alert.Indicator />
           <Alert.Content>

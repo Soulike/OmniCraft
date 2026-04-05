@@ -137,9 +137,9 @@ export class SettingsManager {
   }
 
   /**
-   * Reads a scalar value at the given key path.
+   * Reads a leaf value at the given key path.
    * @param keyPath - Path segments to a leaf node (e.g., `['llm', 'apiKey']`).
-   * @returns The scalar value at that path.
+   * @returns The leaf value at that path.
    * @throws If the path is invalid or does not point to a leaf node.
    */
   async get(keyPath: string[]): Promise<unknown> {
@@ -157,21 +157,21 @@ export class SettingsManager {
   }
 
   /**
-   * Writes a scalar value at the given key path.
+   * Writes a leaf value at the given key path.
    * @param keyPath - Path segments to a leaf node (e.g., `['llm', 'apiKey']`).
-   * @param value - The scalar value to set.
-   * @throws If the path is invalid, does not point to a leaf, or the value is not a scalar.
+   * @param value - The value to set.
+   * @throws If the path is invalid or does not point to a leaf node.
    */
   async set(keyPath: string[], value: unknown): Promise<void> {
     await this.setBatch([{keyPath, value}]);
   }
 
   /**
-   * Atomically writes multiple scalar values.
+   * Atomically writes multiple leaf values.
    * All updates are applied in a single I/O operation: if any update
    * fails validation, none of the changes are persisted.
    * @param updates - Array of key path and value pairs to set.
-   * @throws If any path is invalid, does not point to a leaf, or a value is not scalar.
+   * @throws If any path is invalid or does not point to a leaf node.
    */
   async setBatch(updates: SettingEntry[]): Promise<void> {
     for (const {keyPath} of updates) {
