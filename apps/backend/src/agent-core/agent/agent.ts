@@ -1,4 +1,5 @@
 import crypto from 'node:crypto';
+import {realpathSync} from 'node:fs';
 import os from 'node:os';
 
 import {agentEventBus} from '../events/index.js';
@@ -75,18 +76,18 @@ export abstract class Agent {
     this.getMaxToolRounds = options.getMaxToolRounds;
 
     this.extraAllowedPaths = [
-      {path: os.tmpdir(), mode: 'read-write' as const},
+      {path: realpathSync(os.tmpdir()), mode: 'read-write' as const},
       ...options.extraAllowedPaths,
     ];
 
     if (snapshot) {
       this.id = snapshot.id;
       this.title = snapshot.title;
-      this.workingDirectory = snapshot.options.workingDirectory;
+      this.workingDirectory = realpathSync(snapshot.options.workingDirectory);
       this.llmSession = new LlmSession(getConfig, snapshot.llmSession);
     } else {
       this.id = crypto.randomUUID();
-      this.workingDirectory = options.workingDirectory;
+      this.workingDirectory = realpathSync(options.workingDirectory);
       this.llmSession = new LlmSession(getConfig);
     }
 
