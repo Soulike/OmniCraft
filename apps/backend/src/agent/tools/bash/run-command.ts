@@ -96,9 +96,7 @@ export const runCommandTool: ToolDefinition<typeof parameters> = {
         }
       } else {
         shellState.cwd = workingDirectory;
-        cwdMessage =
-          `\n(Working directory reset to: ${workingDirectory}` +
-          ` — target was outside allowed directory)`;
+        cwdMessage = `\n(Working directory reset to: ${workingDirectory})`;
       }
     }
 

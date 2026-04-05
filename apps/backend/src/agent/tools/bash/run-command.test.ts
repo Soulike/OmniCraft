@@ -93,7 +93,6 @@ describe('runCommandTool', () => {
 
       expect(context.shellState.cwd).toBe(tmpDir);
       expect(result).toContain('Working directory reset to:');
-      expect(result).toContain('outside allowed directory');
     });
   });
 
