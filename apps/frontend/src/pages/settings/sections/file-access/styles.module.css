@@ -18,9 +18,17 @@
 }
 
 .entryPath {
+  flex: 1;
   font-family: monospace;
   font-size: 13px;
   word-break: break-all;
+}
+
+.entryActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
 }
 
 .addRow {

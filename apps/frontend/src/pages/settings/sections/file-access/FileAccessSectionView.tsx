@@ -87,21 +87,23 @@ export function FileAccessSectionView({
                   textValue={entry.path}
                 >
                   <Label className={styles.entryPath}>{entry.path}</Label>
-                  <Chip
-                    size='sm'
-                    color={entry.mode === 'read-write' ? 'accent' : 'default'}
-                  >
-                    {entry.mode}
-                  </Chip>
-                  <Button
-                    size='sm'
-                    variant='danger'
-                    onPress={() => {
-                      onRemove(i);
-                    }}
-                  >
-                    Remove
-                  </Button>
+                  <div className={styles.entryActions}>
+                    <Chip
+                      size='sm'
+                      color={entry.mode === 'read-write' ? 'accent' : 'default'}
+                    >
+                      {entry.mode}
+                    </Chip>
+                    <Button
+                      size='sm'
+                      variant='danger'
+                      onPress={() => {
+                        onRemove(i);
+                      }}
+                    >
+                      Remove
+                    </Button>
+                  </div>
                 </ListBox.Item>
               ))}
             </ListBox>
