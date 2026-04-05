@@ -56,6 +56,7 @@ export const runCommandTool: ToolDefinition<typeof parameters> = {
     let stderr: string;
     let exitCode = 0;
     let timedOut = false;
+    let maxBufferExceeded = false;
 
     try {
       const result = await execFileAsync(shell, ['-l', '-c', wrapped.command], {
@@ -72,6 +73,12 @@ export const runCommandTool: ToolDefinition<typeof parameters> = {
         stderr = error.stderr;
         timedOut = error.killed;
         exitCode = error.code ?? 1;
+        if (
+          error.message.includes('maxBuffer') ||
+          error.message.includes('MAXBUFFER')
+        ) {
+          maxBufferExceeded = true;
+        }
       } else {
         const message = error instanceof Error ? error.message : String(error);
         return `Error: ${message}`;
@@ -99,6 +106,10 @@ export const runCommandTool: ToolDefinition<typeof parameters> = {
 
     if (timedOut) {
       output += `Error: Command timed out after ${timeout}ms\n`;
+    }
+
+    if (maxBufferExceeded) {
+      output += 'Error: Command output exceeded maximum buffer size\n';
     }
 
     output += commandOutput;
