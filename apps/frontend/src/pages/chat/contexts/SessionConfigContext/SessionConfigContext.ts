@@ -4,7 +4,7 @@ import {createContext} from 'react';
 interface SessionConfigContextValue {
   readonly allAllowedPathsFromSettings: readonly AllowedPathEntry[];
   readonly isLoading: boolean;
-  readonly loadError: string | null;
+  readonly loadError: unknown;
   readonly selectedWorkspace: string | undefined;
   readonly selectedExtraAllowedPaths: readonly string[];
   readonly selectedExtraAllowedPathEntries: readonly AllowedPathEntry[];

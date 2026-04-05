@@ -9,7 +9,7 @@ export function SessionConfigProvider({children}: {children: ReactNode}) {
   const [allAllowedPathsFromSettings, setAllAllowedPathsFromSettings] =
     useState<AllowedPathEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<unknown>(null);
   const [selectedWorkspace, setSelectedWorkspace] = useState<
     string | undefined
   >(undefined);
@@ -23,9 +23,7 @@ export function SessionConfigProvider({children}: {children: ReactNode}) {
     try {
       setAllAllowedPathsFromSettings(await getAllowedPaths());
     } catch (e) {
-      setLoadError(
-        e instanceof Error ? e.message : 'Failed to load allowed paths',
-      );
+      setLoadError(e);
     } finally {
       setIsLoading(false);
     }

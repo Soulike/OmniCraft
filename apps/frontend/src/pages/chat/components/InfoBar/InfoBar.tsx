@@ -10,7 +10,10 @@ export function InfoBar() {
     useSessionConfig();
 
   const warning = useMemo(() => {
-    if (loadError) return `Failed to load allowed paths: ${loadError}`;
+    if (loadError)
+      return loadError instanceof Error
+        ? loadError.message
+        : 'Failed to load allowed paths';
     if (!selectedWorkspace)
       return 'No workspace selected — agent will have limited file access.';
     return undefined;
