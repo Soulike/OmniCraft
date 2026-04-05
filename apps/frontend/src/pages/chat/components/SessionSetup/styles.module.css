@@ -34,10 +34,3 @@
   text-decoration: underline;
   font-size: 0.85em;
 }
-
-.skeletonRow {
-  height: 40px;
-  min-width: 200px;
-  flex: 1;
-  border-radius: 8px;
-}

@@ -1,4 +1,4 @@
-import {Button, Label, ListBox, Select, Tooltip} from '@heroui/react';
+import {Button, Label, ListBox, Select, Spinner, Tooltip} from '@heroui/react';
 import {Info} from 'lucide-react';
 import {useMemo} from 'react';
 
@@ -8,6 +8,7 @@ import styles from './styles.module.css';
 export function WorkspaceSelect() {
   const {
     allAllowedPathEntriesFromSettings,
+    isLoading,
     selectedWorkspace,
     setSelectedWorkspace,
   } = useSessionConfig();
@@ -20,7 +21,7 @@ export function WorkspaceSelect() {
 
   return (
     <Select
-      isDisabled={readWritePaths.length === 0}
+      isDisabled={isLoading || readWritePaths.length === 0}
       value={selectedWorkspace ?? ''}
       onChange={(value) => {
         setSelectedWorkspace(value ? String(value) : undefined);
@@ -44,6 +45,7 @@ export function WorkspaceSelect() {
               <p>Read-write directory the agent works in</p>
             </Tooltip.Content>
           </Tooltip>
+          {isLoading && <Spinner size='sm' />}
         </span>
       </Label>
       <Select.Trigger>

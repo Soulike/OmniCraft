@@ -5,6 +5,7 @@ import {
   ListBox,
   Select,
   SelectRoot,
+  Spinner,
   Tooltip,
 } from '@heroui/react';
 import {Info} from 'lucide-react';
@@ -15,13 +16,14 @@ import styles from './styles.module.css';
 export function ExtraAllowedPathsSelect() {
   const {
     allAllowedPathEntriesFromSettings,
+    isLoading,
     selectedExtraAllowedPaths,
     setSelectedExtraAllowedPaths,
   } = useSessionConfig();
 
   return (
     <SelectRoot<object, 'multiple'>
-      isDisabled={allAllowedPathEntriesFromSettings.length === 0}
+      isDisabled={isLoading || allAllowedPathEntriesFromSettings.length === 0}
       selectionMode='multiple'
       value={selectedExtraAllowedPaths}
       onChange={(value) => {
@@ -37,7 +39,7 @@ export function ExtraAllowedPathsSelect() {
                 isIconOnly
                 size='sm'
                 variant='ghost'
-                aria-label='Workspace info'
+                aria-label='Extra allowed paths info'
               >
                 <Info size={12} />
               </Button>
@@ -46,6 +48,7 @@ export function ExtraAllowedPathsSelect() {
               <p>Additional directories the agent may access</p>
             </Tooltip.Content>
           </Tooltip>
+          {isLoading && <Spinner size='sm' />}
         </span>
       </Label>
       <Select.Trigger>

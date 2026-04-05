@@ -44,11 +44,14 @@ export const chatService = {
       return {success: false, error: CreateSessionError.MODEL_NOT_CONFIGURED};
     }
 
-    const hasPathOptions = options.workspace ?? options.extraAllowedPaths;
+    const hasWorkspace = options.workspace !== undefined;
+    const hasExtraAllowedPaths =
+      options.extraAllowedPaths !== undefined &&
+      options.extraAllowedPaths.length > 0;
     let workingDirectory = os.tmpdir();
     let resolvedExtraPaths: readonly AllowedPathEntry[] = [];
 
-    if (hasPathOptions) {
+    if (hasWorkspace || hasExtraAllowedPaths) {
       const settings = await SettingsManager.getInstance().getAll();
       const allowedPaths = settings.fileAccess.allowedPaths;
 
