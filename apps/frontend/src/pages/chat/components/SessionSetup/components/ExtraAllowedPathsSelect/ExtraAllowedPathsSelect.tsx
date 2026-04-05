@@ -1,5 +1,5 @@
+import {useSessionConfig} from '../../../../hooks/useSessionConfig.js';
 import {ExtraAllowedPathsSelectView} from './ExtraAllowedPathsSelectView.js';
-import {useExtraAllowedPathsSelect} from './hooks/useExtraAllowedPathsSelect.js';
 
 export function ExtraAllowedPathsSelect() {
   const {
@@ -7,7 +7,7 @@ export function ExtraAllowedPathsSelect() {
     isLoading,
     selectedExtraAllowedPaths,
     setSelectedExtraAllowedPaths,
-  } = useExtraAllowedPathsSelect();
+  } = useSessionConfig();
 
   return (
     <ExtraAllowedPathsSelectView
