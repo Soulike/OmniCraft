@@ -1,6 +1,7 @@
 import {Alert, Skeleton} from '@heroui/react';
 import type {AllowedPathEntry} from '@omnicraft/settings-schema';
 
+import type {InvalidPathEntry} from '@/api/settings/file-access/index.js';
 import {LoadError} from '@/components/LoadError/index.js';
 
 import {AddPathForm} from './components/AddPathForm/index.js';
@@ -14,6 +15,7 @@ interface FileAccessSectionViewProps {
   loadError: string | null;
   isSaving: boolean;
   saveError: string | null;
+  invalidPaths: InvalidPathEntry[];
   onAdd: (entry: AllowedPathEntry) => void;
   onRemove: (index: number) => void;
   onSave: () => void;
@@ -26,6 +28,7 @@ export function FileAccessSectionView({
   loadError,
   isSaving,
   saveError,
+  invalidPaths,
   onAdd,
   onRemove,
   onSave,
@@ -54,7 +57,11 @@ export function FileAccessSectionView({
         <LoadError message={loadError} onRetry={onRetry} />
       ) : (
         <>
-          <PathList paths={paths} onRemove={onRemove} />
+          <PathList
+            paths={paths}
+            invalidPaths={invalidPaths}
+            onRemove={onRemove}
+          />
           <AddPathForm onAdd={onAdd} />
           <SaveFooter
             isSaving={isSaving}
