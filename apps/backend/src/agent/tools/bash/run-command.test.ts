@@ -33,16 +33,21 @@ describe('runCommandTool', () => {
     expect(runCommandTool.name).toBe('run_command');
   });
 
-  describe('basic execution', () => {
-    it('executes a simple command and returns stdout', async () => {
-      const result = await runCommandTool.execute(
-        {command: 'echo hello'},
-        context,
-      );
-      expect(result).toContain('hello');
+  describe('output formatting', () => {
+    it('returns "(No output)" for silent successful commands', async () => {
+      const result = await runCommandTool.execute({command: 'true'}, context);
+      expect(result).toBe('(No output)');
     });
 
-    it('returns stderr when present', async () => {
+    it('includes exit code for failed commands', async () => {
+      const result = await runCommandTool.execute(
+        {command: 'exit 42'},
+        context,
+      );
+      expect(result).toContain('Exit code: 42');
+    });
+
+    it('includes stderr section when present', async () => {
       const result = await runCommandTool.execute(
         {command: 'echo error >&2'},
         context,
@@ -51,30 +56,30 @@ describe('runCommandTool', () => {
       expect(result).toContain('error');
     });
 
-    it('returns exit code for failed commands', async () => {
+    it('includes timeout message', async () => {
       const result = await runCommandTool.execute(
-        {command: 'exit 42'},
+        {command: 'sleep 30', timeout: 500},
         context,
       );
-      expect(result).toContain('Exit code: 42');
+      expect(result).toContain('Command timed out');
     });
 
-    it('returns "(No output)" for silent successful commands', async () => {
-      const result = await runCommandTool.execute({command: 'true'}, context);
-      expect(result).toBe('(No output)');
+    it('saves large output to a temp file', async () => {
+      const result = await runCommandTool.execute(
+        {command: 'head -c 41000 /dev/urandom | base64'},
+        context,
+      );
+      expect(result).toContain('Output saved to file:');
     });
   });
 
-  describe('CWD tracking', () => {
-    it('tracks directory changes across calls', async () => {
+  describe('CWD enforcement', () => {
+    it('updates shellState.cwd when directory changes', async () => {
       const subDir = path.join(tmpDir, 'sub');
       await fs.mkdir(subDir);
 
       await runCommandTool.execute({command: 'cd sub'}, context);
       expect(context.shellState.cwd).toBe(subDir);
-
-      const result = await runCommandTool.execute({command: 'pwd'}, context);
-      expect(result).toContain(subDir);
     });
 
     it('reports CWD change in output', async () => {
@@ -85,34 +90,21 @@ describe('runCommandTool', () => {
       expect(result).toContain('Working directory:');
       expect(result).toContain(subDir);
     });
-  });
 
-  describe('CWD enforcement', () => {
     it('resets CWD when command navigates outside workingDirectory', async () => {
       const result = await runCommandTool.execute({command: 'cd /'}, context);
 
       expect(context.shellState.cwd).toBe(tmpDir);
       expect(result).toContain('Working directory reset to:');
     });
-  });
 
-  describe('timeout', () => {
-    it('reports timeout for long-running commands', async () => {
-      const result = await runCommandTool.execute(
-        {command: 'sleep 30', timeout: 500},
-        context,
-      );
-      expect(result).toContain('Command timed out');
-    });
-  });
+    it('uses tracked CWD for subsequent commands', async () => {
+      const subDir = path.join(tmpDir, 'sub');
+      await fs.mkdir(subDir);
 
-  describe('large output', () => {
-    it('saves output exceeding 32KB to a temp file', async () => {
-      const result = await runCommandTool.execute(
-        {command: 'head -c 41000 /dev/urandom | base64'},
-        context,
-      );
-      expect(result).toContain('Output saved to file:');
+      await runCommandTool.execute({command: 'cd sub'}, context);
+      const result = await runCommandTool.execute({command: 'pwd'}, context);
+      expect(result).toContain(subDir);
     });
   });
 });
