@@ -52,6 +52,10 @@ export function WorkspaceSelect() {
       </Select.Trigger>
       <Select.Popover>
         <ListBox>
+          <ListBox.Item id='' textValue='None'>
+            None
+            <ListBox.ItemIndicator />
+          </ListBox.Item>
           {readWritePaths.map((entry) => (
             <ListBox.Item
               key={entry.path}
