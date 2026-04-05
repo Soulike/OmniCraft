@@ -56,6 +56,14 @@ export const runCommandTool: ToolDefinition<typeof parameters> = {
     const stdoutFile = createTempFileWriteStream('.txt');
     const stderrFile = createTempFileWriteStream('.txt');
 
+    // Set up finish promises before spawn so no event is missed
+    const stdoutFinished = new Promise<void>((resolve) => {
+      stdoutFile.stream.on('finish', resolve);
+    });
+    const stderrFinished = new Promise<void>((resolve) => {
+      stderrFile.stream.on('finish', resolve);
+    });
+
     const child = spawn(shell, ['-l', '-c', wrappedCommand], {
       cwd: shellState.cwd,
       env: process.env,
@@ -78,14 +86,6 @@ export const runCommandTool: ToolDefinition<typeof parameters> = {
     let cwdData = '';
     fd3.on('data', (chunk: Buffer) => {
       cwdData += chunk.toString();
-    });
-
-    // Set up finish promises before they can resolve
-    const stdoutFinished = new Promise<void>((resolve) => {
-      stdoutFile.stream.on('finish', resolve);
-    });
-    const stderrFinished = new Promise<void>((resolve) => {
-      stderrFile.stream.on('finish', resolve);
     });
 
     // Timeout handling — use object to avoid TS narrowing the flag to false
