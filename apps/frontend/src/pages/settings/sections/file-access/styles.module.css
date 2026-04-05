@@ -11,58 +11,6 @@
   color: var(--foreground);
 }
 
-.emptyState {
-  font-size: 13px;
-  color: var(--muted);
-  margin: 0;
-}
-
-.pathListContainer {
-  border-radius: var(--radius-xl);
-}
-
-.entryPath {
-  flex: 1;
-  font-family: monospace;
-  font-size: 13px;
-  word-break: break-all;
-}
-
-.entryActions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-shrink: 0;
-}
-
-.addRow {
-  display: flex;
-  align-items: flex-end;
-  gap: 8px;
-}
-
-.addPathField {
-  flex: 1;
-  min-width: 0;
-}
-
-.addModeSelect {
-  width: 148px;
-  flex-shrink: 0;
-}
-
-.footer {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.saveError {
-  font-size: 13px;
-  color: var(--color-danger);
-  margin: 0;
-}
-
 .skeletonContainer {
   display: flex;
   flex-direction: column;
