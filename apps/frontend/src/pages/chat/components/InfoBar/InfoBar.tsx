@@ -1,8 +1,6 @@
 import {useSessionConfig} from '../../hooks/useSessionConfig.js';
-import {AccessInfo} from './components/AccessInfo/index.js';
 import {useUsage} from './components/UsageInfo/hooks/useUsage.js';
-import {UsageInfo} from './components/UsageInfo/index.js';
-import styles from './styles.module.css';
+import {InfoBarView} from './InfoBarView.js';
 
 export function InfoBar() {
   const {selectedWorkspace, selectedExtraAllowedPathEntries} =
@@ -10,14 +8,10 @@ export function InfoBar() {
   const {usage} = useUsage();
 
   return (
-    <div className={styles.container}>
-      <div className={styles.left}>
-        <AccessInfo
-          workspace={selectedWorkspace}
-          extraPaths={selectedExtraAllowedPathEntries}
-        />
-      </div>
-      <div className={styles.right}>{usage && <UsageInfo usage={usage} />}</div>
-    </div>
+    <InfoBarView
+      selectedWorkspace={selectedWorkspace}
+      selectedExtraAllowedPathEntries={selectedExtraAllowedPathEntries}
+      usage={usage}
+    />
   );
 }
