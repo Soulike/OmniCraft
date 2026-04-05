@@ -1,3 +1,4 @@
+import {realpathSync} from 'node:fs';
 import fs from 'node:fs/promises';
 
 import {z} from 'zod';
@@ -79,10 +80,11 @@ export const runCommandTool: ToolDefinition<typeof parameters> = {
     const stdout = await resolveOutputFile(result.stdoutFile);
     const stderr = await resolveOutputFile(result.stderrFile);
 
-    // CWD enforcement
+    // CWD enforcement — resolve symlinks since pwd returns real paths
     let cwdMessage = '';
     if (result.cwd) {
-      if (isSubPathOrSelf(workingDirectory, result.cwd)) {
+      const realWorkingDir = realpathSync(workingDirectory);
+      if (isSubPathOrSelf(realWorkingDir, result.cwd)) {
         if (result.cwd !== shellState.cwd) {
           shellState.cwd = result.cwd;
           cwdMessage = `\n(Working directory: ${result.cwd})`;
