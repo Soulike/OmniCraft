@@ -115,6 +115,7 @@ export class ShellCommandRunner {
       cwd: this.cwd,
       env: process.env,
       stdio: ['ignore', 'pipe', 'pipe'],
+      detached: true,
     });
   }
 
@@ -172,7 +173,9 @@ export class ShellCommandRunner {
     let timedOut = false;
 
     const killChild = (): void => {
-      child.kill('SIGKILL');
+      if (child.pid) {
+        process.kill(-child.pid, 'SIGKILL');
+      }
     };
 
     const timer = setTimeout(() => {
