@@ -1,3 +1,4 @@
+import assert from 'node:assert';
 import {spawn} from 'node:child_process';
 import fs from 'node:fs/promises';
 import type {Readable} from 'node:stream';
@@ -60,6 +61,9 @@ export const runCommandTool: ToolDefinition<typeof parameters> = {
       env: process.env,
       stdio: ['ignore', 'pipe', 'pipe', 'pipe'],
     });
+
+    assert(child.stdout, 'stdout must be piped');
+    assert(child.stderr, 'stderr must be piped');
 
     child.stdout.on('data', (chunk: Buffer) => {
       stdoutFile.stream.write(chunk);
