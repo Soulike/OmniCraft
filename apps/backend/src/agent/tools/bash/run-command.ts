@@ -1,7 +1,4 @@
-import assert from 'node:assert';
-import {spawn} from 'node:child_process';
 import fs from 'node:fs/promises';
-import {Readable} from 'node:stream';
 
 import {z} from 'zod';
 
@@ -9,10 +6,9 @@ import type {
   ToolDefinition,
   ToolExecutionContext,
 } from '@/agent-core/tool/index.js';
-import {createTempFileWriteStream} from '@/helpers/fs.js';
 
 import {isSubPathOrSelf} from '../file/helpers.js';
-import {wrapCommand} from './helpers.js';
+import {executeCommand} from './helpers.js';
 
 const DEFAULT_TIMEOUT_MS = 120_000;
 const MAX_TIMEOUT_MS = 600_000;
@@ -33,6 +29,26 @@ const parameters = z.object({
 
 type RunCommandArgs = z.infer<typeof parameters>;
 
+/**
+ * Resolves a temp file to either inline content or a file-path reference.
+ * Deletes the file when inlined or empty.
+ */
+async function resolveOutputFile(
+  filePath: string,
+): Promise<{content: string; savedToFile: boolean}> {
+  const stat = await fs.stat(filePath);
+  if (stat.size === 0) {
+    await fs.unlink(filePath);
+    return {content: '', savedToFile: false};
+  }
+  if (stat.size <= MAX_INLINE_BYTES) {
+    const content = await fs.readFile(filePath, 'utf-8');
+    await fs.unlink(filePath);
+    return {content, savedToFile: false};
+  }
+  return {content: filePath, savedToFile: true};
+}
+
 /** Built-in tool that executes a shell command. */
 export const runCommandTool: ToolDefinition<typeof parameters> = {
   name: 'run_command',
@@ -49,107 +65,19 @@ export const runCommandTool: ToolDefinition<typeof parameters> = {
     const {shellState, workingDirectory} = context;
     const timeout = args.timeout ?? DEFAULT_TIMEOUT_MS;
 
-    const wrappedCommand = wrapCommand(args.command);
-    const shell = process.env.SHELL ?? '/bin/sh';
+    const result = await executeCommand(args.command, shellState.cwd, timeout);
 
-    // Stream stdout and stderr to temp files; fd 3 carries CWD
-    const stdoutFile = createTempFileWriteStream('.txt');
-    const stderrFile = createTempFileWriteStream('.txt');
+    // Resolve stdout and stderr temp files
+    const stdout = await resolveOutputFile(result.stdoutFile);
+    const stderr = await resolveOutputFile(result.stderrFile);
 
-    // Set up finish promises before spawn so no event is missed
-    const stdoutFinished = new Promise<void>((resolve) => {
-      stdoutFile.stream.on('finish', resolve);
-    });
-    const stderrFinished = new Promise<void>((resolve) => {
-      stderrFile.stream.on('finish', resolve);
-    });
-
-    const child = spawn(shell, ['-l', '-c', wrappedCommand], {
-      cwd: shellState.cwd,
-      env: process.env,
-      stdio: ['ignore', 'pipe', 'pipe', 'pipe'],
-    });
-
-    assert(child.stdout, 'stdout must be piped');
-    assert(child.stderr, 'stderr must be piped');
-
-    child.stdout.on('data', (chunk: Buffer) => {
-      stdoutFile.stream.write(chunk);
-    });
-    child.stderr.on('data', (chunk: Buffer) => {
-      stderrFile.stream.write(chunk);
-    });
-
-    // Collect CWD from fd 3 (just a path string, tiny)
-    const fd3 = child.stdio[3];
-    assert(fd3 instanceof Readable, 'fd 3 must be a readable pipe');
-    let cwdData = '';
-    fd3.on('data', (chunk: Buffer) => {
-      cwdData += chunk.toString();
-    });
-
-    // Timeout handling — use object to avoid TS narrowing the flag to false
-    const state = {timedOut: false};
-    const timer = setTimeout(() => {
-      state.timedOut = true;
-      child.kill('SIGKILL');
-    }, timeout);
-
-    // Wait for process exit, then end write streams
-    const exitCode = await new Promise<number>((resolve, reject) => {
-      child.on('exit', (code) => {
-        clearTimeout(timer);
-        stdoutFile.stream.end();
-        stderrFile.stream.end();
-        resolve(code ?? 1);
-      });
-      child.on('error', (err) => {
-        clearTimeout(timer);
-        stdoutFile.stream.end();
-        stderrFile.stream.end();
-        reject(err);
-      });
-    });
-
-    // Wait for file streams to finish flushing
-    await Promise.all([stdoutFinished, stderrFinished]);
-
-    // Check file sizes
-    const [stdoutStat, stderrStat] = await Promise.all([
-      fs.stat(stdoutFile.filePath),
-      fs.stat(stderrFile.filePath),
-    ]);
-
-    // Resolve stdout: inline or file path
-    let stdoutContent: string;
-    if (stdoutStat.size <= MAX_INLINE_BYTES) {
-      stdoutContent = await fs.readFile(stdoutFile.filePath, 'utf-8');
-      await fs.unlink(stdoutFile.filePath);
-    } else {
-      stdoutContent = `Output saved to file: ${stdoutFile.filePath}`;
-    }
-
-    // Resolve stderr: inline or file path
-    let stderrContent: string | null = null;
-    if (stderrStat.size > 0) {
-      if (stderrStat.size <= MAX_INLINE_BYTES) {
-        stderrContent = await fs.readFile(stderrFile.filePath, 'utf-8');
-        await fs.unlink(stderrFile.filePath);
-      } else {
-        stderrContent = `stderr saved to file: ${stderrFile.filePath}`;
-      }
-    } else {
-      await fs.unlink(stderrFile.filePath);
-    }
-
-    // Parse CWD from fd 3
-    const newCwd = cwdData.trim() || null;
+    // CWD enforcement
     let cwdMessage = '';
-    if (newCwd) {
-      if (isSubPathOrSelf(workingDirectory, newCwd)) {
-        if (newCwd !== shellState.cwd) {
-          shellState.cwd = newCwd;
-          cwdMessage = `\n(Working directory: ${newCwd})`;
+    if (result.cwd) {
+      if (isSubPathOrSelf(workingDirectory, result.cwd)) {
+        if (result.cwd !== shellState.cwd) {
+          shellState.cwd = result.cwd;
+          cwdMessage = `\n(Working directory: ${result.cwd})`;
         }
       } else {
         shellState.cwd = workingDirectory;
@@ -160,18 +88,22 @@ export const runCommandTool: ToolDefinition<typeof parameters> = {
     // Assemble output
     let output = '';
 
-    if (state.timedOut) {
+    if (result.timedOut) {
       output += `Error: Command timed out after ${timeout}ms\n`;
     }
 
-    output += stdoutContent;
+    output += stdout.savedToFile
+      ? `Output saved to file: ${stdout.content}`
+      : stdout.content;
 
-    if (stderrContent) {
-      output += `\n(stderr)\n${stderrContent}`;
+    if (stderr.content) {
+      output += stderr.savedToFile
+        ? `\n(stderr saved to file: ${stderr.content})`
+        : `\n(stderr)\n${stderr.content}`;
     }
 
-    if (exitCode !== 0) {
-      output += `\nExit code: ${exitCode}`;
+    if (result.exitCode !== 0) {
+      output += `\nExit code: ${result.exitCode}`;
     }
 
     output += cwdMessage;
