@@ -66,7 +66,11 @@ export class ShellCommandRunner {
       const child = this.spawnShell();
 
       this.pipeStreams(child, stdoutFile.stream, stderrFile.stream);
-      const getCwd = this.collectCwd(child);
+
+      const fd3 = child.stdio[3];
+      assert(fd3 instanceof Readable, 'fd 3 must be a readable pipe');
+      const cwdPromise = this.collectCwd(fd3);
+
       const exitPromise = this.waitForExit(
         child,
         stdoutFile.stream,
@@ -74,12 +78,18 @@ export class ShellCommandRunner {
       );
 
       const [exitCode, timedOut] = await exitPromise;
-      await Promise.all([stdoutFinished, stderrFinished]);
+      // Force fd3 closed so collectCwd's async iterator exits after SIGKILL
+      fd3.destroy();
+      const [, , cwd] = await Promise.all([
+        stdoutFinished,
+        stderrFinished,
+        cwdPromise,
+      ]);
 
       return {
         stdoutFile: stdoutFile.filePath,
         stderrFile: stderrFile.filePath,
-        cwd: getCwd(),
+        cwd,
         exitCode,
         timedOut,
       };
@@ -131,17 +141,17 @@ export class ShellCommandRunner {
     });
   }
 
-  /** Collects CWD from fd 3 (a single path string). Returns a getter. */
-  private collectCwd(child: ChildProcess): () => string | null {
-    const fd3 = child.stdio[3];
-    assert(fd3 instanceof Readable, 'fd 3 must be a readable pipe');
-
+  /** Collects CWD from fd 3 (a single path string). */
+  private async collectCwd(fd3: Readable): Promise<string | null> {
     let data = '';
-    fd3.on('data', (chunk: Buffer) => {
-      data += chunk.toString();
-    });
-
-    return () => data.trim() || null;
+    try {
+      for await (const chunk of fd3) {
+        data += (chunk as Buffer).toString();
+      }
+    } catch {
+      // Stream destroyed (e.g., after SIGKILL) — return what we have
+    }
+    return data.trim() || null;
   }
 
   /**
