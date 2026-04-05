@@ -40,6 +40,7 @@ export function useAllowedPaths() {
       setInvalidPaths([]);
       try {
         await putAllowedPaths(entries);
+        await load();
         return true;
       } catch (e) {
         if (e instanceof InvalidPathsError) {
@@ -50,7 +51,6 @@ export function useAllowedPaths() {
         return false;
       } finally {
         setIsSaving(false);
-        await load();
       }
     },
     [load],
