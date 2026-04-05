@@ -1,5 +1,6 @@
-import {execFile} from 'node:child_process';
-import {promisify} from 'node:util';
+import {spawn} from 'node:child_process';
+import fs from 'node:fs/promises';
+import type {Readable} from 'node:stream';
 
 import {z} from 'zod';
 
@@ -7,17 +8,14 @@ import type {
   ToolDefinition,
   ToolExecutionContext,
 } from '@/agent-core/tool/index.js';
-import {writeToTempFile} from '@/helpers/fs.js';
+import {createTempFileWriteStream} from '@/helpers/fs.js';
 
 import {isSubPathOrSelf} from '../file/helpers.js';
-import {isExecError, parseWrappedOutput, wrapCommand} from './helpers.js';
-
-const execFileAsync = promisify(execFile);
+import {wrapCommand} from './helpers.js';
 
 const DEFAULT_TIMEOUT_MS = 120_000;
 const MAX_TIMEOUT_MS = 600_000;
-const MAX_OUTPUT_BYTES = 32_768; // 32KB
-const MAX_BUFFER_BYTES = 1_048_576; // 1MB
+const MAX_INLINE_BYTES = 32_768; // 32KB
 
 const parameters = z.object({
   command: z.string().min(1).describe('The shell command to execute'),
@@ -50,44 +48,97 @@ export const runCommandTool: ToolDefinition<typeof parameters> = {
     const {shellState, workingDirectory} = context;
     const timeout = args.timeout ?? DEFAULT_TIMEOUT_MS;
 
-    const wrapped = wrapCommand(args.command);
+    const wrappedCommand = wrapCommand(args.command);
     const shell = process.env.SHELL ?? '/bin/sh';
 
-    let stdout: string;
-    let stderr: string;
-    let exitCode = 0;
-    let timedOut = false;
-    let maxBufferExceeded = false;
+    // Stream stdout and stderr to temp files; fd 3 carries CWD
+    const stdoutFile = createTempFileWriteStream('.txt');
+    const stderrFile = createTempFileWriteStream('.txt');
 
-    try {
-      const result = await execFileAsync(shell, ['-l', '-c', wrapped.command], {
-        cwd: shellState.cwd,
-        timeout,
-        maxBuffer: MAX_BUFFER_BYTES,
-        env: process.env,
+    const child = spawn(shell, ['-l', '-c', wrappedCommand], {
+      cwd: shellState.cwd,
+      env: process.env,
+      stdio: ['ignore', 'pipe', 'pipe', 'pipe'],
+    });
+
+    child.stdout.on('data', (chunk: Buffer) => {
+      stdoutFile.stream.write(chunk);
+    });
+    child.stderr.on('data', (chunk: Buffer) => {
+      stderrFile.stream.write(chunk);
+    });
+
+    // Collect CWD from fd 3 (just a path string, tiny)
+    const fd3 = child.stdio[3] as Readable;
+    let cwdData = '';
+    fd3.on('data', (chunk: Buffer) => {
+      cwdData += chunk.toString();
+    });
+
+    // Set up finish promises before they can resolve
+    const stdoutFinished = new Promise<void>((resolve) => {
+      stdoutFile.stream.on('finish', resolve);
+    });
+    const stderrFinished = new Promise<void>((resolve) => {
+      stderrFile.stream.on('finish', resolve);
+    });
+
+    // Timeout handling — use object to avoid TS narrowing the flag to false
+    const state = {timedOut: false};
+    const timer = setTimeout(() => {
+      state.timedOut = true;
+      child.kill('SIGKILL');
+    }, timeout);
+
+    // Wait for process exit, then end write streams
+    const exitCode = await new Promise<number>((resolve, reject) => {
+      child.on('exit', (code) => {
+        clearTimeout(timer);
+        stdoutFile.stream.end();
+        stderrFile.stream.end();
+        resolve(code ?? 1);
       });
-      stdout = result.stdout;
-      stderr = result.stderr;
-    } catch (error: unknown) {
-      if (isExecError(error)) {
-        stdout = error.stdout;
-        stderr = error.stderr;
-        timedOut = error.killed;
-        exitCode = error.code ?? 1;
-        if (
-          error.message.includes('maxBuffer') ||
-          error.message.includes('MAXBUFFER')
-        ) {
-          maxBufferExceeded = true;
-        }
-      } else {
-        const message = error instanceof Error ? error.message : String(error);
-        return `Error: ${message}`;
-      }
+      child.on('error', (err) => {
+        clearTimeout(timer);
+        stdoutFile.stream.end();
+        stderrFile.stream.end();
+        reject(err);
+      });
+    });
+
+    // Wait for file streams to finish flushing
+    await Promise.all([stdoutFinished, stderrFinished]);
+
+    // Check file sizes
+    const [stdoutStat, stderrStat] = await Promise.all([
+      fs.stat(stdoutFile.filePath),
+      fs.stat(stderrFile.filePath),
+    ]);
+
+    // Resolve stdout: inline or file path
+    let stdoutContent: string;
+    if (stdoutStat.size <= MAX_INLINE_BYTES) {
+      stdoutContent = await fs.readFile(stdoutFile.filePath, 'utf-8');
+      await fs.unlink(stdoutFile.filePath);
+    } else {
+      stdoutContent = `Output saved to file: ${stdoutFile.filePath}`;
     }
 
-    const {commandOutput, newCwd} = parseWrappedOutput(stdout, wrapped.marker);
+    // Resolve stderr: inline or file path
+    let stderrContent: string | null = null;
+    if (stderrStat.size > 0) {
+      if (stderrStat.size <= MAX_INLINE_BYTES) {
+        stderrContent = await fs.readFile(stderrFile.filePath, 'utf-8');
+        await fs.unlink(stderrFile.filePath);
+      } else {
+        stderrContent = `stderr saved to file: ${stderrFile.filePath}`;
+      }
+    } else {
+      await fs.unlink(stderrFile.filePath);
+    }
 
+    // Parse CWD from fd 3
+    const newCwd = cwdData.trim() || null;
     let cwdMessage = '';
     if (newCwd) {
       if (isSubPathOrSelf(workingDirectory, newCwd)) {
@@ -101,20 +152,17 @@ export const runCommandTool: ToolDefinition<typeof parameters> = {
       }
     }
 
+    // Assemble output
     let output = '';
 
-    if (timedOut) {
+    if (state.timedOut) {
       output += `Error: Command timed out after ${timeout}ms\n`;
     }
 
-    if (maxBufferExceeded) {
-      output += `Error: Command output exceeded maximum buffer size (${MAX_BUFFER_BYTES} bytes)\n`;
-    }
+    output += stdoutContent;
 
-    output += commandOutput;
-
-    if (stderr) {
-      output += `\n(stderr)\n${stderr}`;
+    if (stderrContent) {
+      output += `\n(stderr)\n${stderrContent}`;
     }
 
     if (exitCode !== 0) {
@@ -126,16 +174,6 @@ export const runCommandTool: ToolDefinition<typeof parameters> = {
 
     if (!output) {
       return '(No output)';
-    }
-
-    if (Buffer.byteLength(output) > MAX_OUTPUT_BYTES) {
-      try {
-        const filePath = await writeToTempFile(output, '.txt');
-        return `Output saved to file: ${filePath}`;
-      } catch (error: unknown) {
-        const message = error instanceof Error ? error.message : String(error);
-        return `Error: Failed to save output to temporary file: ${message}`;
-      }
     }
 
     return output;

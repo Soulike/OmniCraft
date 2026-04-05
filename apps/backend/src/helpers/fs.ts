@@ -1,4 +1,6 @@
 import crypto from 'node:crypto';
+import type {WriteStream} from 'node:fs';
+import {createWriteStream} from 'node:fs';
 import {access} from 'node:fs/promises';
 import fs from 'node:fs/promises';
 import os from 'node:os';
@@ -22,4 +24,13 @@ export async function writeToTempFile(
   const filePath = path.join(os.tmpdir(), `${crypto.randomUUID()}${extension}`);
   await fs.writeFile(filePath, content, 'utf-8');
   return filePath;
+}
+
+/** Creates a writable stream to a new temporary file in os.tmpdir(). */
+export function createTempFileWriteStream(extension: string): {
+  filePath: string;
+  stream: WriteStream;
+} {
+  const filePath = path.join(os.tmpdir(), `${crypto.randomUUID()}${extension}`);
+  return {filePath, stream: createWriteStream(filePath, 'utf-8')};
 }
