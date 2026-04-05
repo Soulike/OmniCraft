@@ -1,4 +1,5 @@
 import {
+  Alert,
   Button,
   Chip,
   Input,
@@ -53,10 +54,13 @@ export function FileAccessSectionView({
   return (
     <div className={styles.section}>
       <h2 className={styles.title}>File Access</h2>
-      <p className={styles.infoNote}>
-        The system temporary directory is always accessible with read-write
-        permission.
-      </p>
+      <Alert status={'accent'}>
+        <Alert.Indicator />
+        <Alert.Content>
+          The system temporary directory is always accessible with read-write
+          permission.
+        </Alert.Content>
+      </Alert>
       {isLoading ? (
         <div className={styles.skeletonContainer}>
           {Array.from({length: 3}).map((_, i) => (
