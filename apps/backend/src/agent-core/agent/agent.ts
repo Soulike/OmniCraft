@@ -11,7 +11,7 @@ import type {
 import {LlmSession} from '../llm-session/index.js';
 import type {SkillDefinition} from '../skill/index.js';
 import type {
-  AllowedPath,
+  AllowedPathEntry,
   ShellState,
   ToolDefinition,
   ToolExecutionContext,
@@ -53,7 +53,7 @@ export abstract class Agent {
 
   private readonly workingDirectory: string;
 
-  private readonly extraAllowedPaths: readonly AllowedPath[];
+  private readonly extraAllowedPaths: readonly AllowedPathEntry[];
 
   /** LRU file content cache, shared by all file-related tools. */
   private readonly fileCache = new FileContentCache();
