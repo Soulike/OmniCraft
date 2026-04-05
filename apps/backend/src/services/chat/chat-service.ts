@@ -49,7 +49,7 @@ export const chatService = {
       options.extraAllowedPaths !== undefined &&
       options.extraAllowedPaths.length > 0;
     let workingDirectory = os.tmpdir();
-    let resolvedExtraPaths: readonly AllowedPathEntry[] = [];
+    let resolvedExtraFilePathEntries: readonly AllowedPathEntry[] = [];
 
     if (hasWorkspace || hasExtraAllowedPaths) {
       const settings = await SettingsManager.getInstance().getAll();
@@ -69,17 +69,19 @@ export const chatService = {
         workingDirectory = options.workspace;
       }
 
-      resolvedExtraPaths = (options.extraAllowedPaths ?? []).map((p) => {
-        const entry = allowedPaths.find((e) => e.path === p);
-        assert(entry, `Extra path not found in allowed paths: ${p}`);
-        return entry;
-      });
+      resolvedExtraFilePathEntries = (options.extraAllowedPaths ?? []).map(
+        (p) => {
+          const entry = allowedPaths.find((e) => e.path === p);
+          assert(entry, `Extra path not found in allowed paths: ${p}`);
+          return entry;
+        },
+      );
     }
 
     const agent = new CoreAgent(
       getLlmConfig,
       workingDirectory,
-      resolvedExtraPaths,
+      resolvedExtraFilePathEntries,
     );
     return {success: true, sessionId: agent.id};
   },
