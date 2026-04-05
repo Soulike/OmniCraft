@@ -1,7 +1,6 @@
 import {
   Button,
   Chip,
-  Description,
   Input,
   Label,
   ListBox,
@@ -107,7 +106,6 @@ export function FileAccessSectionView({
             >
               <Label>Path</Label>
               <Input placeholder='/absolute/path/to/directory' />
-              <Description>Absolute directory path to allow access</Description>
             </TextField>
             <Select
               value={newMode}
