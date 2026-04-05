@@ -36,7 +36,10 @@ function ChatPageContent() {
     async () =>
       resetSession({
         workspace: selectedWorkspace,
-        extraAllowedPaths: selectedExtraAllowedPaths,
+        extraAllowedPaths:
+          selectedExtraAllowedPaths.length > 0
+            ? selectedExtraAllowedPaths
+            : undefined,
       }),
     [resetSession, selectedWorkspace, selectedExtraAllowedPaths],
   );
