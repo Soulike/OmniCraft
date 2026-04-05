@@ -8,10 +8,6 @@
   white-space: nowrap;
 }
 
-.warningIcon {
-  color: var(--color-warning);
-}
-
 .extraPaths {
   text-decoration: underline dotted;
   text-underline-offset: 3px;
