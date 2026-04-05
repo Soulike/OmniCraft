@@ -153,24 +153,21 @@ export class ShellCommandRunner {
       await handle.read(buffer, 0, tailSize, stat.size - tailSize);
       const tail = buffer.toString('utf-8');
 
-      const markerIndex = tail.lastIndexOf(this.marker);
-      if (markerIndex === -1) return null;
+      // Matches the tail format produced by wrapCommand():
+      //   \n<MARKER>\n<cwd>\n
+      // with optional \r for cross-platform compatibility
+      const pattern = new RegExp(`\\r?\\n?${this.marker}\\r?\\n(.+?)\\s*$`);
+      const match = pattern.exec(tail);
+      if (!match) return null;
 
-      // Extract CWD from after the marker
-      const afterMarker = tail
-        .substring(markerIndex + this.marker.length)
-        .trim();
-      const cwd = afterMarker.split('\n')[0]?.trim() || null;
+      const cwd = match[1];
 
-      // Find the newline before the marker to get the truncation point
-      const tailBeforeMarker = tail.substring(0, markerIndex);
-      const trailingNewline = tailBeforeMarker.endsWith('\n') ? 1 : 0;
+      // Truncate file to remove everything from the match start
+      const matchStart = match.index;
       const bytesToKeep =
         stat.size -
         tailSize +
-        Buffer.byteLength(tailBeforeMarker, 'utf-8') -
-        trailingNewline;
-
+        Buffer.byteLength(tail.substring(0, matchStart), 'utf-8');
       await handle.truncate(Math.max(0, bytesToKeep));
 
       return cwd;
