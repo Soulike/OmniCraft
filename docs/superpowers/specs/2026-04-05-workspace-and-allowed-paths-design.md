@@ -31,6 +31,18 @@ Root schema: `{ llm, agent, search, fileAccess }`.
 
 Stored in `~/.omni-craft/settings.json`. The system temp directory (`os.tmpdir()`) is always implicitly allowed with read-write — not stored in settings.
 
+### Type unification
+
+The `AllowedPath` interface currently defined in `agent-core/tool/types.ts` (`{ path: string; mode: 'read' | 'read-write' }`) has the same shape as the Zod schema's `allowedPathEntry`. Remove the hand-written interface and replace it with the Zod-inferred type from `settings-schema`:
+
+```ts
+// Export from settings-schema
+export type AllowedPathEntry = z.infer<typeof allowedPathEntry>;
+// { path: string; mode: 'read' | 'read-write' }
+```
+
+All usages of the old `AllowedPath` interface in `agent-core` and `agent` (agent options, tool execution context, `checkAccess`, file tools) are updated to import from `@omnicraft/settings-schema` instead. This makes `settings-schema` the single source of truth for this type, shared across frontend and backend.
+
 ## Settings UI — File Access Tab
 
 New tab at `/settings/file-access` in the settings page.
@@ -155,7 +167,8 @@ The InfoBar effectively replaces the current `UsageBar`, extending it with acces
 
 ### Backend changes
 
-- `settings-schema`: new `fileAccess` section.
+- `settings-schema`: new `fileAccess` section. Export `AllowedPathEntry` type, replacing the hand-written `AllowedPath` interface in `agent-core/tool/types.ts`.
+- `agent-core`: remove `AllowedPath` interface from `tool/types.ts`. Update all imports (`AgentOptions`, `ToolExecutionContext`, `checkAccess`, file tools) to use `AllowedPathEntry` from `@omnicraft/settings-schema`.
 - `chat-service.ts`: `createSession()` accepts `workspace` and `extraAllowedPaths`, validates them.
 - `core-agent.ts`: constructor accepts and passes through `extraAllowedPaths`.
 - `chat/router.ts`: parses request body for session creation.
