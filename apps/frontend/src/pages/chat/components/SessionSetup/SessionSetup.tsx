@@ -37,7 +37,7 @@ export function SessionSetup() {
         explicitly requested.
       </p>
 
-      {loadError && (
+      {loadError !== null && (
         <Alert status='danger'>
           <Alert.Indicator />
           <Alert.Content>
