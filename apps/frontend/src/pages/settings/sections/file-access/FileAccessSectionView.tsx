@@ -79,10 +79,14 @@ export function FileAccessSectionView({
               No allowed paths configured yet.
             </p>
           ) : (
-            <div className={styles.pathList}>
+            <ListBox aria-label='Allowed paths' selectionMode='none'>
               {paths.map((entry, i) => (
-                <div key={entry.path} className={styles.entryRow}>
-                  <code className={styles.entryPath}>{entry.path}</code>
+                <ListBox.Item
+                  key={entry.path}
+                  id={entry.path}
+                  textValue={entry.path}
+                >
+                  <Label className={styles.entryPath}>{entry.path}</Label>
                   <Chip
                     size='sm'
                     color={entry.mode === 'read-write' ? 'accent' : 'default'}
@@ -98,9 +102,9 @@ export function FileAccessSectionView({
                   >
                     Remove
                   </Button>
-                </div>
+                </ListBox.Item>
               ))}
-            </div>
+            </ListBox>
           )}
           <div className={styles.addRow}>
             <TextField
