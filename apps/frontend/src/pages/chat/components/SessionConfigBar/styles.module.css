@@ -1,0 +1,61 @@
+.container {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 8px 16px;
+  flex-wrap: wrap;
+}
+
+.dropdowns {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.workspaceSelect {
+  min-width: 220px;
+  flex: 1;
+}
+
+.extraPathsSelect {
+  min-width: 220px;
+  flex: 1;
+}
+
+.message {
+  padding: 4px 16px;
+  font-size: 0.8em;
+}
+
+.warning {
+  color: var(--color-warning);
+}
+
+.error {
+  color: var(--color-danger);
+}
+
+.info {
+  color: var(--color-foreground-500);
+}
+
+.disclaimer {
+  padding: 0 16px 4px;
+  font-size: 0.75em;
+  color: var(--color-foreground-400);
+}
+
+.settingsLink {
+  color: var(--color-accent);
+  text-decoration: underline;
+}
+
+.skeletonRow {
+  height: 40px;
+  min-width: 220px;
+  flex: 1;
+  border-radius: 8px;
+}

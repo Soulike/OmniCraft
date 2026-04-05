@@ -1,0 +1,157 @@
+import {
+  Description,
+  Label,
+  ListBox,
+  Select,
+  SelectRoot,
+  Skeleton,
+} from '@heroui/react';
+import type {AllowedPathEntry} from '@omnicraft/settings-schema';
+import {useMemo} from 'react';
+import {Link} from 'react-router';
+
+import {ROUTES} from '@/routes.js';
+
+import styles from './styles.module.css';
+
+interface SessionConfigBarProps {
+  allowedPaths: AllowedPathEntry[];
+  pathsLoading: boolean;
+  pathsError: string | null;
+  workspace: string | undefined;
+  onWorkspaceChange: (workspace: string | undefined) => void;
+  extraAllowedPaths: string[];
+  onExtraAllowedPathsChange: (paths: string[]) => void;
+}
+
+export function SessionConfigBar({
+  allowedPaths,
+  pathsLoading,
+  pathsError,
+  workspace,
+  onWorkspaceChange,
+  extraAllowedPaths,
+  onExtraAllowedPathsChange,
+}: SessionConfigBarProps) {
+  const readWritePaths = useMemo(
+    () => allowedPaths.filter((p) => p.mode === 'read-write'),
+    [allowedPaths],
+  );
+
+  if (pathsLoading) {
+    return (
+      <div className={styles.container}>
+        <div className={styles.dropdowns}>
+          <Skeleton className={styles.skeletonRow} />
+          <Skeleton className={styles.skeletonRow} />
+        </div>
+      </div>
+    );
+  }
+
+  if (pathsError) {
+    return (
+      <div>
+        <p className={`${styles.message} ${styles.error}`}>{pathsError}</p>
+      </div>
+    );
+  }
+
+  if (allowedPaths.length === 0) {
+    return (
+      <div>
+        <p className={`${styles.message} ${styles.info}`}>
+          No allowed paths configured.{' '}
+          <Link
+            className={styles.settingsLink}
+            to={ROUTES.settings.fileAccess()}
+          >
+            Configure in Settings &rarr; File Access
+          </Link>
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <div className={styles.container}>
+        <div className={styles.dropdowns}>
+          <Select
+            className={styles.workspaceSelect}
+            value={workspace ?? ''}
+            onChange={(value) => {
+              onWorkspaceChange(value ? String(value) : undefined);
+            }}
+          >
+            <Label>Workspace</Label>
+            <Select.Trigger>
+              <Select.Value />
+              <Select.Indicator />
+            </Select.Trigger>
+            <Description>Read-write directory the agent works in</Description>
+            <Select.Popover>
+              <ListBox>
+                {readWritePaths.map((entry) => (
+                  <ListBox.Item
+                    key={entry.path}
+                    id={entry.path}
+                    textValue={entry.path}
+                  >
+                    {entry.path}
+                    <ListBox.ItemIndicator />
+                  </ListBox.Item>
+                ))}
+              </ListBox>
+            </Select.Popover>
+          </Select>
+
+          {allowedPaths.length > 0 && (
+            <SelectRoot<object, 'multiple'>
+              className={styles.extraPathsSelect}
+              selectionMode='multiple'
+              value={extraAllowedPaths}
+              onChange={(value) => {
+                onExtraAllowedPathsChange(value.map(String));
+              }}
+            >
+              <Label>Extra Allowed Paths</Label>
+              <Select.Trigger>
+                <Select.Value />
+                <Select.Indicator />
+              </Select.Trigger>
+              <Description>
+                Additional directories the agent may access
+              </Description>
+              <Select.Popover>
+                <ListBox>
+                  {allowedPaths.map((entry) => (
+                    <ListBox.Item
+                      key={entry.path}
+                      id={entry.path}
+                      textValue={`${entry.path} (${entry.mode})`}
+                    >
+                      {entry.path} ({entry.mode})
+                      <ListBox.ItemIndicator />
+                    </ListBox.Item>
+                  ))}
+                </ListBox>
+              </Select.Popover>
+            </SelectRoot>
+          )}
+        </div>
+      </div>
+
+      {!workspace && (
+        <p className={`${styles.message} ${styles.warning}`}>
+          No workspace selected &mdash; agent will have limited file access.
+        </p>
+      )}
+
+      <p className={styles.disclaimer}>
+        Agent may still access files outside these paths via shell when
+        explicitly requested.
+      </p>
+    </div>
+  );
+}
