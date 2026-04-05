@@ -1,10 +1,11 @@
 import {constants} from 'node:fs';
-import fs from 'node:fs/promises';
 import path from 'node:path';
 
 import type {AllowedPathEntry} from '@omnicraft/settings-schema';
 
-import {type InvalidPathEntry,PathValidationError} from './types.js';
+import {checkDirectoryAccess} from '@/helpers/fs.js';
+
+import {type InvalidPathEntry, PathValidationError} from './types.js';
 
 /**
  * Validates path entries for duplicates and filesystem access.
@@ -47,23 +48,13 @@ async function validateSinglePath(
   resolvedPath: string,
   mode: AllowedPathEntry['mode'],
 ): Promise<PathValidationError | null> {
-  let stat;
-  try {
-    stat = await fs.stat(resolvedPath);
-  } catch {
-    return PathValidationError.NOT_FOUND;
-  }
-
-  if (!stat.isDirectory()) {
-    return PathValidationError.NOT_DIRECTORY;
-  }
-
   const requiredFlags =
     mode === 'read-write' ? constants.R_OK | constants.W_OK : constants.R_OK;
 
-  try {
-    await fs.access(resolvedPath, requiredFlags);
-  } catch {
+  const fsError = await checkDirectoryAccess(resolvedPath, requiredFlags);
+  if (fsError === 'not_found') return PathValidationError.NOT_FOUND;
+  if (fsError === 'not_directory') return PathValidationError.NOT_DIRECTORY;
+  if (fsError === 'not_accessible') {
     return mode === 'read-write'
       ? PathValidationError.NOT_READABLE_AND_WRITABLE
       : PathValidationError.NOT_READABLE;

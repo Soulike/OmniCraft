@@ -1,7 +1,8 @@
 import {constants} from 'node:fs';
-import fs from 'node:fs/promises';
 
 import type {AllowedPathEntry} from '@omnicraft/settings-schema';
+
+import {checkDirectoryAccess} from '@/helpers/fs.js';
 
 import {CreateSessionError} from './types.js';
 
@@ -69,26 +70,5 @@ async function validateExtraPaths(
       return CreateSessionError.EXTRA_PATH_NOT_ACCESSIBLE;
   }
 
-  return null;
-}
-
-type FilesystemError = 'not_found' | 'not_directory' | 'not_accessible';
-
-async function checkDirectoryAccess(
-  dirPath: string,
-  flags: number,
-): Promise<FilesystemError | null> {
-  let stat;
-  try {
-    stat = await fs.stat(dirPath);
-  } catch {
-    return 'not_found';
-  }
-  if (!stat.isDirectory()) return 'not_directory';
-  try {
-    await fs.access(dirPath, flags);
-  } catch {
-    return 'not_accessible';
-  }
   return null;
 }
