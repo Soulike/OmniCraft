@@ -44,10 +44,11 @@ export const chatService = {
       return {success: false, error: CreateSessionError.MODEL_NOT_CONFIGURED};
     }
 
+    const hasPathOptions = options.workspace ?? options.extraAllowedPaths;
     let workingDirectory = os.tmpdir();
     let resolvedExtraPaths: readonly AllowedPathEntry[] = [];
 
-    if (options.workspace) {
+    if (hasPathOptions) {
       const settings = await SettingsManager.getInstance().getAll();
       const allowedPaths = settings.fileAccess.allowedPaths;
 
@@ -61,7 +62,10 @@ export const chatService = {
         return {success: false, error: validationError};
       }
 
-      workingDirectory = options.workspace;
+      if (options.workspace) {
+        workingDirectory = options.workspace;
+      }
+
       resolvedExtraPaths = (options.extraAllowedPaths ?? []).map((p) => {
         const entry = allowedPaths.find((e) => e.path === p);
         assert(entry, `Extra path not found in allowed paths: ${p}`);

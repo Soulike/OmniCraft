@@ -10,12 +10,14 @@ import {CreateSessionError} from './types.js';
  * Returns null if valid, or the first error found.
  */
 export async function validateSessionPaths(
-  workspace: string,
+  workspace: string | undefined,
   extraPaths: readonly string[],
   allowedPaths: readonly AllowedPathEntry[],
 ): Promise<CreateSessionError | null> {
-  const workspaceError = await validateWorkspace(workspace, allowedPaths);
-  if (workspaceError) return workspaceError;
+  if (workspace) {
+    const workspaceError = await validateWorkspace(workspace, allowedPaths);
+    if (workspaceError) return workspaceError;
+  }
 
   const extraError = await validateExtraPaths(extraPaths, allowedPaths);
   if (extraError) return extraError;
