@@ -12,13 +12,35 @@ import {
   CHAT_SESSION_COMPLETIONS,
   CHAT_SESSION_GENERATE_TITLE,
 } from './path.js';
-import {chatCompletionsBody, generateTitleBody} from './validator.js';
+import {
+  chatCompletionsBody,
+  createSessionBody,
+  generateTitleBody,
+} from './validator.js';
 
 const router = new Router();
 
 /** POST /chat/session — creates a new chat session. */
 router.post(CHAT_SESSION, async (ctx) => {
-  const result = await chatService.createSession();
+  let options = {};
+  try {
+    const body = createSessionBody.parse(ctx.request.body);
+    if (body) {
+      options = {
+        workspace: body.workspace,
+        extraAllowedPaths: body.extraAllowedPaths,
+      };
+    }
+  } catch (e) {
+    if (e instanceof ZodError) {
+      ctx.response.status = StatusCodes.BAD_REQUEST;
+      ctx.response.body = {error: e.issues};
+      return;
+    }
+    throw e;
+  }
+
+  const result = await chatService.createSession(options);
 
   if (!result.success) {
     ctx.response.status = StatusCodes.UNPROCESSABLE_ENTITY;
