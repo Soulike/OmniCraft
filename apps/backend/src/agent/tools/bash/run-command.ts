@@ -1,7 +1,7 @@
 import assert from 'node:assert';
 import {spawn} from 'node:child_process';
 import fs from 'node:fs/promises';
-import type {Readable} from 'node:stream';
+import {Readable} from 'node:stream';
 
 import {z} from 'zod';
 
@@ -73,7 +73,8 @@ export const runCommandTool: ToolDefinition<typeof parameters> = {
     });
 
     // Collect CWD from fd 3 (just a path string, tiny)
-    const fd3 = child.stdio[3] as Readable;
+    const fd3 = child.stdio[3];
+    assert(fd3 instanceof Readable, 'fd 3 must be a readable pipe');
     let cwdData = '';
     fd3.on('data', (chunk: Buffer) => {
       cwdData += chunk.toString();
