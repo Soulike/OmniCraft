@@ -30,6 +30,21 @@ export interface ShellCommandResult {
  * Each instance is single-use — call {@link run} exactly once.
  */
 export class ShellCommandRunner {
+  /** PIDs of active process groups, for cleanup on server exit. */
+  private static readonly activePids = new Set<number>();
+
+  /** Kills all active process groups. Synchronous — safe in `process.on('exit')`. */
+  static killAll(): void {
+    for (const pid of ShellCommandRunner.activePids) {
+      try {
+        process.kill(-pid, 'SIGKILL');
+      } catch {
+        // Process may have already exited
+      }
+    }
+    ShellCommandRunner.activePids.clear();
+  }
+
   private readonly command: string;
   private readonly cwd: string;
   private readonly timeout: number;
@@ -69,8 +84,14 @@ export class ShellCommandRunner {
       stderrFile.stream.on('finish', resolve);
     });
 
+    let childPid: number | undefined;
+
     try {
       const child = this.spawnShell();
+      childPid = child.pid;
+      if (childPid) {
+        ShellCommandRunner.activePids.add(childPid);
+      }
 
       this.pipeStreams(child, stdoutFile.stream, stderrFile.stream);
 
@@ -103,6 +124,10 @@ export class ShellCommandRunner {
         /* ignored */
       });
       throw error;
+    } finally {
+      if (childPid) {
+        ShellCommandRunner.activePids.delete(childPid);
+      }
     }
   }
 
