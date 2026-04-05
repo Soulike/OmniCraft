@@ -1,7 +1,9 @@
-import {Description, Label, ListBox, Select} from '@heroui/react';
+import {Button, Label, ListBox, Select, Tooltip} from '@heroui/react';
+import {Info} from 'lucide-react';
 import {useMemo} from 'react';
 
 import {useSessionConfig} from '../../../../hooks/useSessionConfig.js';
+import styles from './styles.module.css';
 
 export function WorkspaceSelect() {
   const {
@@ -23,12 +25,28 @@ export function WorkspaceSelect() {
         setSelectedWorkspace(value ? String(value) : undefined);
       }}
     >
-      <Label>Workspace</Label>
+      <Label>
+        <span className={styles.labelContent}>
+          Workspace
+          <Tooltip delay={0}>
+            <Button
+              isIconOnly
+              size='sm'
+              variant='ghost'
+              aria-label='Workspace info'
+            >
+              <Info size={12} />
+            </Button>
+            <Tooltip.Content>
+              <p>Read-write directory the agent works in</p>
+            </Tooltip.Content>
+          </Tooltip>
+        </span>
+      </Label>
       <Select.Trigger>
         <Select.Value />
         <Select.Indicator />
       </Select.Trigger>
-      <Description>Read-write directory the agent works in</Description>
       <Select.Popover>
         <ListBox>
           {readWritePaths.map((entry) => (

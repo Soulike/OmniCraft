@@ -8,8 +8,9 @@
 }
 
 .welcomeText {
-  font-size: 0.9em;
-  color: var(--color-foreground-500);
+  font-size: 1.1em;
+  font-weight: 500;
+  color: var(--color-foreground);
   text-align: center;
   margin: 0;
 }

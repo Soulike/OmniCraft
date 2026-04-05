@@ -22,8 +22,9 @@ export function SessionSetup() {
   return (
     <div className={styles.container}>
       <p className={styles.welcomeText}>
-        Configure workspace for this session below, or start chatting right
-        away.
+        Configure workspace for this session below,
+        <br />
+        or start chatting right away. 🚀
       </p>
 
       {isLoading ? (
@@ -53,11 +54,8 @@ export function SessionSetup() {
         <Alert status='warning'>
           <Alert.Indicator />
           <Alert.Content>
-            <Alert.Title>Limited file access</Alert.Title>
             <Alert.Description>
-              {hasConfiguredPaths
-                ? 'No workspace selected. The agent will only be able to access the system temporary directory.'
-                : 'No allowed paths configured. The agent will only be able to access the system temporary directory.'}
+              No workspace configured for this session.
             </Alert.Description>
           </Alert.Content>
         </Alert>
