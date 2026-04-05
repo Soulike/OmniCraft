@@ -14,37 +14,44 @@
 
 ### New files
 
-| File                                                                              | Responsibility                                                |
-| --------------------------------------------------------------------------------- | ------------------------------------------------------------- |
-| `packages/settings-schema/src/file-access/schema.ts`                              | Zod schema for `fileAccess` section + `AllowedPathEntry` type |
-| `apps/backend/src/dispatcher/file-access-settings/index.ts`                       | Router export                                                 |
-| `apps/backend/src/dispatcher/file-access-settings/path.ts`                        | Route path constants                                          |
-| `apps/backend/src/dispatcher/file-access-settings/router.ts`                      | GET/PUT handlers for allowed paths                            |
-| `apps/backend/src/dispatcher/file-access-settings/validator.ts`                   | Request body Zod schemas                                      |
-| `apps/backend/src/services/file-access-settings/index.ts`                         | Service export                                                |
-| `apps/backend/src/services/file-access-settings/file-access-settings-service.ts`  | Read/write/validate allowed paths                             |
-| `apps/backend/src/services/file-access-settings/helpers.ts`                       | Filesystem validation (exists, isDir, permissions)            |
-| `apps/backend/src/services/file-access-settings/helpers.test.ts`                  | Tests for filesystem validation                               |
-| `apps/backend/src/services/file-access-settings/types.ts`                         | Error types for validation results                            |
-| `apps/backend/src/services/chat/validation.ts`                                    | Session creation path validation                              |
-| `apps/backend/src/services/chat/validation.test.ts`                               | Tests for session creation validation                         |
-| `apps/frontend/src/api/file-access-settings/file-access-settings.ts`              | Frontend API client for allowed paths                         |
-| `apps/frontend/src/api/file-access-settings/index.ts`                             | API export                                                    |
-| `apps/frontend/src/pages/settings/sections/file-access/FileAccessSection.tsx`     | Settings tab container                                        |
-| `apps/frontend/src/pages/settings/sections/file-access/FileAccessSectionView.tsx` | Settings tab view (path list, add row, save)                  |
-| `apps/frontend/src/pages/settings/sections/file-access/index.ts`                  | Section export                                                |
-| `apps/frontend/src/pages/settings/sections/file-access/styles.module.css`         | Section styles                                                |
-| `apps/frontend/src/pages/settings/sections/file-access/hooks/useAllowedPaths.ts`  | Hook for loading/saving allowed paths                         |
-| `apps/frontend/src/pages/chat/components/SessionConfigBar/SessionConfigBar.tsx`   | Pre-session config bar (workspace + extra paths dropdowns)    |
-| `apps/frontend/src/pages/chat/components/SessionConfigBar/index.ts`               | Component export                                              |
-| `apps/frontend/src/pages/chat/components/SessionConfigBar/styles.module.css`      | Config bar styles                                             |
-| `apps/frontend/src/pages/chat/components/InfoBar/InfoBar.tsx`                     | Post-session info bar container                               |
-| `apps/frontend/src/pages/chat/components/InfoBar/AccessInfo.tsx`                  | Workspace + extra paths display with tooltip                  |
-| `apps/frontend/src/pages/chat/components/InfoBar/UsageInfo.tsx`                   | Token usage display (extracted from UsageBar)                 |
-| `apps/frontend/src/pages/chat/components/InfoBar/index.ts`                        | Component export                                              |
-| `apps/frontend/src/pages/chat/components/InfoBar/styles.module.css`               | InfoBar styles                                                |
-| `apps/frontend/src/pages/chat/hooks/useAllowedPaths.ts`                           | Hook to fetch allowed paths for chat page config              |
-| `apps/frontend/src/pages/chat/hooks/useSessionConfig.ts`                          | Hook managing workspace/extra paths selection state           |
+| File                                                                                                      | Responsibility                                                |
+| --------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| `packages/settings-schema/src/file-access/schema.ts`                                                      | Zod schema for `fileAccess` section + `AllowedPathEntry` type |
+| `apps/backend/src/dispatcher/file-access-settings/index.ts`                                               | Router export                                                 |
+| `apps/backend/src/dispatcher/file-access-settings/path.ts`                                                | Route path constants                                          |
+| `apps/backend/src/dispatcher/file-access-settings/router.ts`                                              | GET/PUT handlers for allowed paths                            |
+| `apps/backend/src/dispatcher/file-access-settings/validator.ts`                                           | Request body Zod schemas                                      |
+| `apps/backend/src/services/file-access-settings/index.ts`                                                 | Service export                                                |
+| `apps/backend/src/services/file-access-settings/file-access-settings-service.ts`                          | Read/write/validate allowed paths                             |
+| `apps/backend/src/services/file-access-settings/helpers.ts`                                               | Filesystem validation (exists, isDir, permissions)            |
+| `apps/backend/src/services/file-access-settings/helpers.test.ts`                                          | Tests for filesystem validation                               |
+| `apps/backend/src/services/file-access-settings/types.ts`                                                 | Error types for validation results                            |
+| `apps/backend/src/services/chat/validation.ts`                                                            | Session creation path validation                              |
+| `apps/backend/src/services/chat/validation.test.ts`                                                       | Tests for session creation validation                         |
+| `apps/frontend/src/api/settings/file-access/file-access.ts`                                               | Frontend API client for allowed paths                         |
+| `apps/frontend/src/api/settings/file-access/validator.ts`                                                 | Zod schemas for API response validation                       |
+| `apps/frontend/src/api/settings/file-access/index.ts`                                                     | API export                                                    |
+| `apps/frontend/src/pages/settings/sections/file-access/FileAccessSection.tsx`                             | Settings tab container                                        |
+| `apps/frontend/src/pages/settings/sections/file-access/FileAccessSectionView.tsx`                         | Settings tab view (path list, add row, save)                  |
+| `apps/frontend/src/pages/settings/sections/file-access/index.ts`                                          | Section export                                                |
+| `apps/frontend/src/pages/settings/sections/file-access/styles.module.css`                                 | Section styles                                                |
+| `apps/frontend/src/pages/settings/sections/file-access/hooks/useAllowedPaths.ts`                          | Hook for loading/saving allowed paths                         |
+| `apps/frontend/src/pages/chat/components/SessionConfigBar/SessionConfigBar.tsx`                           | Pre-session config bar (workspace + extra paths dropdowns)    |
+| `apps/frontend/src/pages/chat/components/SessionConfigBar/index.ts`                                       | Component export                                              |
+| `apps/frontend/src/pages/chat/components/SessionConfigBar/styles.module.css`                              | Config bar styles                                             |
+| `apps/frontend/src/pages/chat/components/InfoBar/InfoBar.tsx`                                             | Post-session info bar container                               |
+| `apps/frontend/src/pages/chat/components/InfoBar/index.ts`                                                | Component export                                              |
+| `apps/frontend/src/pages/chat/components/InfoBar/styles.module.css`                                       | InfoBar container styles                                      |
+| `apps/frontend/src/pages/chat/components/InfoBar/components/AccessInfo/AccessInfo.tsx`                    | Workspace + extra paths display with tooltip                  |
+| `apps/frontend/src/pages/chat/components/InfoBar/components/AccessInfo/index.ts`                          | AccessInfo export                                             |
+| `apps/frontend/src/pages/chat/components/InfoBar/components/AccessInfo/styles.module.css`                 | AccessInfo styles                                             |
+| `apps/frontend/src/pages/chat/components/InfoBar/components/UsageInfo/UsageInfo.tsx`                      | Token usage display (extracted from UsageBar)                 |
+| `apps/frontend/src/pages/chat/components/InfoBar/components/UsageInfo/index.ts`                           | UsageInfo export                                              |
+| `apps/frontend/src/pages/chat/components/InfoBar/components/UsageInfo/styles.module.css`                  | UsageInfo styles                                              |
+| `apps/frontend/src/pages/chat/components/InfoBar/components/UsageInfo/helpers/format-token-count.ts`      | Token count formatter                                         |
+| `apps/frontend/src/pages/chat/components/InfoBar/components/UsageInfo/helpers/format-token-count.test.ts` | Token count formatter tests                                   |
+| `apps/frontend/src/pages/chat/hooks/useAllowedPaths.ts`                                                   | Hook to fetch allowed paths for chat page config              |
+| `apps/frontend/src/pages/chat/hooks/useSessionConfig.ts`                                                  | Hook managing workspace/extra paths selection state           |
 
 ### Modified files
 
@@ -80,8 +87,8 @@
 | `apps/frontend/src/pages/chat/components/UsageBar/UsageBar.tsx`                       | Replaced by InfoBar/UsageInfo |
 | `apps/frontend/src/pages/chat/components/UsageBar/styles.module.css`                  | Replaced by InfoBar styles    |
 | `apps/frontend/src/pages/chat/components/UsageBar/index.ts`                           | Replaced by InfoBar export    |
-| `apps/frontend/src/pages/chat/components/UsageBar/helpers/format-token-count.ts`      | Moved to InfoBar helpers      |
-| `apps/frontend/src/pages/chat/components/UsageBar/helpers/format-token-count.test.ts` | Moved to InfoBar helpers      |
+| `apps/frontend/src/pages/chat/components/UsageBar/helpers/format-token-count.ts`      | Moved to UsageInfo helpers    |
+| `apps/frontend/src/pages/chat/components/UsageBar/helpers/format-token-count.test.ts` | Moved to UsageInfo helpers    |
 
 ---
 
@@ -335,14 +342,22 @@ git commit -m "refactor(backend): replace AllowedPath with AllowedPathEntry from
 Create `apps/backend/src/services/file-access-settings/types.ts`:
 
 ```typescript
+export enum PathValidationError {
+  NOT_ABSOLUTE = 'NOT_ABSOLUTE',
+  DUPLICATE = 'DUPLICATE',
+  NOT_FOUND = 'NOT_FOUND',
+  NOT_DIRECTORY = 'NOT_DIRECTORY',
+  NOT_READABLE = 'NOT_READABLE',
+  NOT_READABLE_AND_WRITABLE = 'NOT_READABLE_AND_WRITABLE',
+}
+
 export interface InvalidPathEntry {
-  index: number;
   path: string;
-  reason: string;
+  reason: PathValidationError;
 }
 ```
 
-- [ ] **Step 2: Write failing tests for `validatePathsOnFilesystem`**
+- [ ] **Step 2: Write failing tests for `normalizeAndValidatePaths`**
 
 Create `apps/backend/src/services/file-access-settings/helpers.test.ts`:
 
@@ -353,9 +368,10 @@ import path from 'node:path';
 
 import {afterEach, beforeEach, describe, expect, it} from 'vitest';
 
-import {validatePathsOnFilesystem} from './helpers.js';
+import {normalizeAndValidatePaths} from './helpers.js';
+import {PathValidationError} from './types.js';
 
-describe('validatePathsOnFilesystem', () => {
+describe('normalizeAndValidatePaths', () => {
   let tempDir: string;
 
   beforeEach(async () => {
@@ -366,61 +382,103 @@ describe('validatePathsOnFilesystem', () => {
     await fs.rm(tempDir, {recursive: true});
   });
 
-  it('returns empty array for valid read-write directory', async () => {
-    const result = await validatePathsOnFilesystem([
+  it('returns empty errors for valid read-write directory', async () => {
+    const {errors} = await normalizeAndValidatePaths([
       {path: tempDir, mode: 'read-write'},
     ]);
-    expect(result).toEqual([]);
+    expect(errors).toEqual([]);
   });
 
-  it('returns empty array for valid read directory', async () => {
-    const result = await validatePathsOnFilesystem([
+  it('returns empty errors for valid read directory', async () => {
+    const {errors} = await normalizeAndValidatePaths([
       {path: tempDir, mode: 'read'},
     ]);
-    expect(result).toEqual([]);
+    expect(errors).toEqual([]);
   });
 
-  it('returns error for relative path', async () => {
-    const result = await validatePathsOnFilesystem([
+  it('returns error for duplicate paths', async () => {
+    const {errors} = await normalizeAndValidatePaths([
+      {path: tempDir, mode: 'read'},
+      {path: tempDir, mode: 'read-write'},
+    ]);
+    expect(errors).toEqual([
+      {path: tempDir, reason: PathValidationError.DUPLICATE},
+    ]);
+  });
+
+  it('normalizes paths before dedup check', async () => {
+    const {errors} = await normalizeAndValidatePaths([
+      {path: tempDir, mode: 'read'},
+      {path: tempDir + '/', mode: 'read-write'},
+    ]);
+    expect(errors).toEqual([
+      {path: tempDir + '/', reason: PathValidationError.DUPLICATE},
+    ]);
+  });
+
+  it('returns normalized paths', async () => {
+    const {normalized} = await normalizeAndValidatePaths([
+      {path: tempDir + '/', mode: 'read'},
+    ]);
+    expect(normalized[0].path).toBe(tempDir);
+  });
+
+  it('returns normalized paths only for valid entries', async () => {
+    const subDir = path.join(tempDir, 'sub');
+    await fs.mkdir(subDir);
+    const {normalized, errors} = await normalizeAndValidatePaths([
+      {path: tempDir + '/', mode: 'read'},
+      {path: '/nonexistent', mode: 'read'},
+      {path: subDir, mode: 'read-write'},
+    ]);
+    expect(errors).toEqual([
+      {path: '/nonexistent', reason: PathValidationError.NOT_FOUND},
+    ]);
+    expect(normalized).toEqual([
+      {path: tempDir, mode: 'read'},
+      {path: subDir, mode: 'read-write'},
+    ]);
+  });
+
+  it('rejects relative path before normalization', async () => {
+    const {errors} = await normalizeAndValidatePaths([
       {path: 'relative/path', mode: 'read'},
     ]);
-    expect(result).toEqual([
-      {index: 0, path: 'relative/path', reason: 'Path must be absolute'},
+    expect(errors).toEqual([
+      {path: 'relative/path', reason: PathValidationError.NOT_ABSOLUTE},
     ]);
   });
 
   it('returns error for non-existent path', async () => {
-    const result = await validatePathsOnFilesystem([
+    const {errors} = await normalizeAndValidatePaths([
       {path: '/nonexistent/path/xyz', mode: 'read'},
     ]);
-    expect(result).toEqual([
-      {
-        index: 0,
-        path: '/nonexistent/path/xyz',
-        reason: 'Path does not exist',
-      },
+    expect(errors).toEqual([
+      {path: '/nonexistent/path/xyz', reason: PathValidationError.NOT_FOUND},
     ]);
   });
 
   it('returns error for file path (not directory)', async () => {
     const filePath = path.join(tempDir, 'file.txt');
     await fs.writeFile(filePath, 'content');
-    const result = await validatePathsOnFilesystem([
+    const {errors} = await normalizeAndValidatePaths([
       {path: filePath, mode: 'read'},
     ]);
-    expect(result).toEqual([
-      {index: 0, path: filePath, reason: 'Path is not a directory'},
+    expect(errors).toEqual([
+      {path: filePath, reason: PathValidationError.NOT_DIRECTORY},
     ]);
   });
 
-  it('validates multiple paths and returns errors with correct indices', async () => {
-    const result = await validatePathsOnFilesystem([
+  it('validates multiple paths and returns errors for invalid ones', async () => {
+    const subDir = path.join(tempDir, 'sub');
+    await fs.mkdir(subDir);
+    const {errors} = await normalizeAndValidatePaths([
       {path: tempDir, mode: 'read'},
       {path: '/nonexistent', mode: 'read-write'},
-      {path: tempDir, mode: 'read-write'},
+      {path: subDir, mode: 'read-write'},
     ]);
-    expect(result).toEqual([
-      {index: 1, path: '/nonexistent', reason: 'Path does not exist'},
+    expect(errors).toEqual([
+      {path: '/nonexistent', reason: PathValidationError.NOT_FOUND},
     ]);
   });
 });
@@ -432,7 +490,7 @@ Run: `cd apps/backend && bun test src/services/file-access-settings/helpers.test
 
 Expected: FAIL — module not found.
 
-- [ ] **Step 4: Implement `validatePathsOnFilesystem`**
+- [ ] **Step 4: Implement `normalizeAndValidatePaths`**
 
 Create `apps/backend/src/services/file-access-settings/helpers.ts`:
 
@@ -443,57 +501,69 @@ import path from 'node:path';
 
 import type {AllowedPathEntry} from '@omnicraft/settings-schema';
 
-import type {InvalidPathEntry} from './types.js';
+import {PathValidationError, type InvalidPathEntry} from './types.js';
 
 /**
- * Validates each path entry against the filesystem.
- * Returns an array of errors for invalid entries (empty if all valid).
+ * Validates path entries for duplicates and filesystem access.
+ * Normalizes absolute paths before dedup and storage.
+ * Returns the normalized entries and an array of errors (empty if all valid).
  */
-export async function validatePathsOnFilesystem(
+export async function normalizeAndValidatePaths(
   entries: readonly AllowedPathEntry[],
-): Promise<InvalidPathEntry[]> {
+): Promise<{normalized: AllowedPathEntry[]; errors: InvalidPathEntry[]}> {
   const errors: InvalidPathEntry[] = [];
+  const seen = new Set<string>();
+  const normalized: AllowedPathEntry[] = [];
 
-  for (let i = 0; i < entries.length; i++) {
-    const entry = entries[i];
-    const reason = await validateSinglePath(entry);
-    if (reason) {
-      errors.push({index: i, path: entry.path, reason});
+  for (const entry of entries) {
+    if (!path.isAbsolute(entry.path)) {
+      errors.push({path: entry.path, reason: PathValidationError.NOT_ABSOLUTE});
+      continue;
     }
+
+    const resolvedPath = path.resolve(entry.path);
+    if (seen.has(resolvedPath)) {
+      errors.push({path: entry.path, reason: PathValidationError.DUPLICATE});
+      continue;
+    }
+    seen.add(resolvedPath);
+
+    const reason = await validateSinglePath(resolvedPath, entry.mode);
+    if (reason) {
+      errors.push({path: entry.path, reason});
+      continue;
+    }
+
+    normalized.push({...entry, path: resolvedPath});
   }
 
-  return errors;
+  return {normalized, errors};
 }
 
 async function validateSinglePath(
-  entry: AllowedPathEntry,
-): Promise<string | null> {
-  if (!path.isAbsolute(entry.path)) {
-    return 'Path must be absolute';
-  }
-
+  resolvedPath: string,
+  mode: AllowedPathEntry['mode'],
+): Promise<PathValidationError | null> {
   let stat;
   try {
-    stat = await fs.stat(entry.path);
+    stat = await fs.stat(resolvedPath);
   } catch {
-    return 'Path does not exist';
+    return PathValidationError.NOT_FOUND;
   }
 
   if (!stat.isDirectory()) {
-    return 'Path is not a directory';
+    return PathValidationError.NOT_DIRECTORY;
   }
 
   const requiredFlags =
-    entry.mode === 'read-write'
-      ? constants.R_OK | constants.W_OK
-      : constants.R_OK;
+    mode === 'read-write' ? constants.R_OK | constants.W_OK : constants.R_OK;
 
   try {
-    await fs.access(entry.path, requiredFlags);
+    await fs.access(resolvedPath, requiredFlags);
   } catch {
-    return entry.mode === 'read-write'
-      ? 'Path is not readable and writable'
-      : 'Path is not readable';
+    return mode === 'read-write'
+      ? PathValidationError.NOT_READABLE_AND_WRITABLE
+      : PathValidationError.NOT_READABLE;
   }
 
   return null;
@@ -536,7 +606,7 @@ import type {AllowedPathEntry} from '@omnicraft/settings-schema';
 
 import {SettingsManager} from '@/models/settings-manager/index.js';
 
-import {validatePathsOnFilesystem} from './helpers.js';
+import {normalizeAndValidatePaths} from './helpers.js';
 import type {InvalidPathEntry} from './types.js';
 
 export type SaveAllowedPathsResult =
@@ -552,14 +622,14 @@ export const fileAccessSettingsService = {
   async setAllowedPaths(
     entries: AllowedPathEntry[],
   ): Promise<SaveAllowedPathsResult> {
-    const errors = await validatePathsOnFilesystem(entries);
+    const {normalized, errors} = await normalizeAndValidatePaths(entries);
     if (errors.length > 0) {
       return {success: false, invalidPaths: errors};
     }
 
     await SettingsManager.getInstance().set(
       ['fileAccess', 'allowedPaths'],
-      entries,
+      normalized,
     );
     return {success: true};
   },
@@ -674,36 +744,22 @@ apiRouter.use(
 );
 ```
 
-- [ ] **Step 7: Note on SettingsManager**
+- [ ] **Step 7: Update SettingsManager to allow non-scalar leaf values**
 
-The service calls `SettingsManager.getInstance().set(['fileAccess', 'allowedPaths'], entries)`. However, the current `SettingsManager.set()` asserts the value is scalar and the path is a valid leaf. Since `fileAccess.allowedPaths` is an array (not a scalar leaf), we need to handle this.
+The current `SettingsManager.setBatch()` asserts `typeof value !== 'object' || value === null` — this rejects arrays. Since `isLeafSchemaPath` already treats arrays as leaves (they have no `.shape`), we just need to remove the scalar assertion from `setBatch()` in `apps/backend/src/models/settings-manager/settings-manager.ts`.
 
-Check if `isLeafSchemaPath` returns true for `['fileAccess', 'allowedPaths']`. If not, the service should use `SettingsManager.getAll()`, mutate the settings object, then persist via a method that writes the full object. Alternatively, add a `setRaw` method to `SettingsManager` that writes to any valid schema path.
-
-The simplest approach: add a `setSection` method to `SettingsManager` that writes an entire section value (like `fileAccess`) after validating against the schema:
-
-In `apps/backend/src/models/settings-manager/settings-manager.ts`, add:
+Remove this assertion from `setBatch()`:
 
 ```typescript
-/**
- * Writes a value at an arbitrary schema path (not limited to leaf nodes).
- * Validates the full settings object after applying the change.
- */
-async setAtPath(keyPath: string[], value: unknown): Promise<void> {
-  await this.ioQueue.enqueue(async () => {
-    const settings: Record<string, unknown> = await this.load();
-    let target: Record<string, unknown> = settings;
-    for (let i = 0; i < keyPath.length - 1; i++) {
-      target = target[keyPath[i]] as Record<string, unknown>;
-    }
-    target[keyPath[keyPath.length - 1]] = value;
-    const validated = settingsSchema.parse(settings);
-    await this.save(validated);
-  });
-}
+assert(
+  typeof value !== 'object' || value === null,
+  'Value must be a scalar, not an object',
+);
 ```
 
-Then the service calls `SettingsManager.getInstance().setAtPath(['fileAccess', 'allowedPaths'], entries)`.
+The Zod schema validation (`settingsSchema.parse(settings)`) already ensures the value is valid — no additional assertion needed.
+
+The service then calls `SettingsManager.getInstance().setBatch([{keyPath: ['fileAccess', 'allowedPaths'], value: normalized}])` to persist.
 
 - [ ] **Step 8: Run typecheck**
 
@@ -741,9 +797,13 @@ export enum CreateSessionError {
   BASE_URL_NOT_CONFIGURED = 'BASE_URL_NOT_CONFIGURED',
   MODEL_NOT_CONFIGURED = 'MODEL_NOT_CONFIGURED',
   WORKSPACE_PATH_NOT_FOUND = 'WORKSPACE_PATH_NOT_FOUND',
+  WORKSPACE_PATH_NOT_DIRECTORY = 'WORKSPACE_PATH_NOT_DIRECTORY',
+  WORKSPACE_PATH_NOT_ACCESSIBLE = 'WORKSPACE_PATH_NOT_ACCESSIBLE',
   WORKSPACE_NOT_IN_ALLOWED_PATHS = 'WORKSPACE_NOT_IN_ALLOWED_PATHS',
   WORKSPACE_NOT_READ_WRITE = 'WORKSPACE_NOT_READ_WRITE',
   EXTRA_PATH_NOT_FOUND = 'EXTRA_PATH_NOT_FOUND',
+  EXTRA_PATH_NOT_DIRECTORY = 'EXTRA_PATH_NOT_DIRECTORY',
+  EXTRA_PATH_NOT_ACCESSIBLE = 'EXTRA_PATH_NOT_ACCESSIBLE',
   EXTRA_PATH_NOT_IN_ALLOWED_PATHS = 'EXTRA_PATH_NOT_IN_ALLOWED_PATHS',
 }
 ```
@@ -869,19 +929,21 @@ async function validateWorkspace(
   workspace: string,
   allowedPaths: readonly AllowedPathEntry[],
 ): Promise<CreateSessionError | null> {
-  if (
-    !(await isAccessibleDirectory(workspace, constants.R_OK | constants.W_OK))
-  ) {
-    return CreateSessionError.WORKSPACE_PATH_NOT_FOUND;
-  }
-
   const entry = allowedPaths.find((e) => e.path === workspace);
-  if (!entry) {
-    return CreateSessionError.WORKSPACE_NOT_IN_ALLOWED_PATHS;
-  }
-  if (entry.mode !== 'read-write') {
+  if (!entry) return CreateSessionError.WORKSPACE_NOT_IN_ALLOWED_PATHS;
+  if (entry.mode !== 'read-write')
     return CreateSessionError.WORKSPACE_NOT_READ_WRITE;
-  }
+
+  const fsError = await checkDirectoryAccess(
+    workspace,
+    constants.R_OK | constants.W_OK,
+  );
+  if (fsError === 'not_found')
+    return CreateSessionError.WORKSPACE_PATH_NOT_FOUND;
+  if (fsError === 'not_directory')
+    return CreateSessionError.WORKSPACE_PATH_NOT_DIRECTORY;
+  if (fsError === 'not_accessible')
+    return CreateSessionError.WORKSPACE_PATH_NOT_ACCESSIBLE;
 
   return null;
 }
@@ -892,35 +954,43 @@ async function validateExtraPaths(
 ): Promise<CreateSessionError | null> {
   for (const extraPath of extraPaths) {
     const entry = allowedPaths.find((e) => e.path === extraPath);
-    if (!entry) {
-      return CreateSessionError.EXTRA_PATH_NOT_IN_ALLOWED_PATHS;
-    }
+    if (!entry) return CreateSessionError.EXTRA_PATH_NOT_IN_ALLOWED_PATHS;
 
     const requiredFlags =
       entry.mode === 'read-write'
         ? constants.R_OK | constants.W_OK
         : constants.R_OK;
 
-    if (!(await isAccessibleDirectory(extraPath, requiredFlags))) {
-      return CreateSessionError.EXTRA_PATH_NOT_FOUND;
-    }
+    const fsError = await checkDirectoryAccess(extraPath, requiredFlags);
+    if (fsError === 'not_found') return CreateSessionError.EXTRA_PATH_NOT_FOUND;
+    if (fsError === 'not_directory')
+      return CreateSessionError.EXTRA_PATH_NOT_DIRECTORY;
+    if (fsError === 'not_accessible')
+      return CreateSessionError.EXTRA_PATH_NOT_ACCESSIBLE;
   }
 
   return null;
 }
 
-async function isAccessibleDirectory(
+type FilesystemError = 'not_found' | 'not_directory' | 'not_accessible';
+
+async function checkDirectoryAccess(
   dirPath: string,
   flags: number,
-): Promise<boolean> {
+): Promise<FilesystemError | null> {
+  let stat;
   try {
-    const stat = await fs.stat(dirPath);
-    if (!stat.isDirectory()) return false;
-    await fs.access(dirPath, flags);
-    return true;
+    stat = await fs.stat(dirPath);
   } catch {
-    return false;
+    return 'not_found';
   }
+  if (!stat.isDirectory()) return 'not_directory';
+  try {
+    await fs.access(dirPath, flags);
+  } catch {
+    return 'not_accessible';
+  }
+  return null;
 }
 ```
 
@@ -985,6 +1055,7 @@ import type {AllowedPathEntry} from '@omnicraft/settings-schema';
 import {CoreAgent} from '@/agent/agents/index.js';
 import {logger} from '@/logger.js';
 import {AgentStore} from '@/models/agent-store/index.js';
+import {SettingsManager} from '@/models/settings-manager/index.js';
 
 import {
   generateTitleFromLlm,
@@ -994,7 +1065,6 @@ import {
 import type {CreateSessionResult, StreamCompletionResult} from './types.js';
 import {CreateSessionError} from './types.js';
 import {validateSessionPaths} from './validation.js';
-import {fileAccessSettingsService} from '@/services/file-access-settings/index.js';
 
 interface CreateSessionOptions {
   workspace?: string;
@@ -1021,8 +1091,8 @@ export const chatService = {
     let resolvedExtraPaths: readonly AllowedPathEntry[] = [];
 
     if (options.workspace) {
-      const allowedPaths =
-        await fileAccessSettingsService.getAllowedPaths();
+      const settings = await SettingsManager.getInstance().getAll();
+      const allowedPaths = settings.fileAccess.allowedPaths;
 
       const validationError = await validateSessionPaths(
         options.workspace,
@@ -1037,7 +1107,8 @@ export const chatService = {
       workingDirectory = options.workspace;
       resolvedExtraPaths = (options.extraAllowedPaths ?? []).map((p) => {
         const entry = allowedPaths.find((e) => e.path === p);
-        return entry!;
+        assert(entry, `Extra path not found in allowed paths: ${p}`);
+        return entry;
       });
     }
 
@@ -1126,8 +1197,9 @@ git commit -m "feat(backend): session creation with optional workspace and extra
 
 **Files:**
 
-- Create: `apps/frontend/src/api/file-access-settings/file-access-settings.ts`
-- Create: `apps/frontend/src/api/file-access-settings/index.ts`
+- Create: `apps/frontend/src/api/settings/file-access/file-access.ts`
+- Create: `apps/frontend/src/api/settings/file-access/validator.ts`
+- Create: `apps/frontend/src/api/settings/file-access/index.ts`
 - Create: `apps/frontend/src/pages/settings/sections/file-access/hooks/useAllowedPaths.ts`
 - Create: `apps/frontend/src/pages/settings/sections/file-access/FileAccessSectionView.tsx`
 - Create: `apps/frontend/src/pages/settings/sections/file-access/FileAccessSection.tsx`
@@ -1140,63 +1212,82 @@ git commit -m "feat(backend): session creation with optional workspace and extra
 
 - [ ] **Step 1: Create the API client**
 
-Create `apps/frontend/src/api/file-access-settings/file-access-settings.ts`:
+Create `apps/frontend/src/api/settings/file-access/validator.ts`:
+
+```typescript
+import {allowedPathEntrySchema} from '@omnicraft/settings-schema';
+import {z} from 'zod';
+
+export const getAllowedPathsResponse = z.object({
+  allowedPaths: z.array(allowedPathEntrySchema),
+});
+
+const invalidPathEntrySchema = z.object({
+  path: z.string(),
+  reason: z.string(),
+});
+
+export type InvalidPathEntry = z.infer<typeof invalidPathEntrySchema>;
+
+export const putAllowedPathsSuccessResponse = z.object({
+  success: z.literal(true),
+});
+```
+
+Create `apps/frontend/src/api/settings/file-access/file-access.ts`:
 
 ```typescript
 import type {AllowedPathEntry} from '@omnicraft/settings-schema';
 
+import {
+  getAllowedPathsResponse,
+  type InvalidPathEntry,
+  putAllowedPathsSuccessResponse,
+} from './validator.js';
+
 const BASE = '/api/settings/file-access';
 
-export interface InvalidPathEntry {
-  index: number;
-  path: string;
-  reason: string;
-}
-
-export interface SaveAllowedPathsError {
-  error: 'INVALID_PATHS';
-  invalidPaths: InvalidPathEntry[];
-}
+export type {InvalidPathEntry};
 
 export async function getAllowedPaths(): Promise<AllowedPathEntry[]> {
   const res = await fetch(`${BASE}/allowed-paths`);
   if (!res.ok) {
     throw new Error(`Failed to fetch allowed paths: ${res.status.toString()}`);
   }
-  const body = (await res.json()) as {allowedPaths: AllowedPathEntry[]};
-  return body.allowedPaths;
+  const json: unknown = await res.json();
+  const {allowedPaths} = getAllowedPathsResponse.parse(json);
+  return allowedPaths;
 }
 
 export async function putAllowedPaths(
   allowedPaths: AllowedPathEntry[],
-): Promise<SaveAllowedPathsError | null> {
+): Promise<void> {
   const res = await fetch(`${BASE}/allowed-paths`, {
     method: 'PUT',
     headers: {'Content-Type': 'application/json'},
     body: JSON.stringify({allowedPaths}),
   });
 
-  if (res.status === 422) {
-    return (await res.json()) as SaveAllowedPathsError;
-  }
-
   if (!res.ok) {
-    throw new Error(`Failed to save allowed paths: ${res.status.toString()}`);
+    const body = await res.text();
+    throw new Error(
+      `Failed to save allowed paths (${res.status.toString()}): ${body}`,
+    );
   }
 
-  return null;
+  const json: unknown = await res.json();
+  putAllowedPathsSuccessResponse.parse(json);
 }
 ```
 
-Create `apps/frontend/src/api/file-access-settings/index.ts`:
+Create `apps/frontend/src/api/settings/file-access/index.ts`:
 
 ```typescript
 export {
   getAllowedPaths,
   type InvalidPathEntry,
   putAllowedPaths,
-  type SaveAllowedPathsError,
-} from './file-access-settings.js';
+} from './file-access.js';
 ```
 
 - [ ] **Step 2: Create the `useAllowedPaths` hook for settings**
@@ -1209,16 +1300,15 @@ import {useCallback, useEffect, useState} from 'react';
 
 import {
   getAllowedPaths,
-  type InvalidPathEntry,
   putAllowedPaths,
-} from '@/api/file-access-settings/index.js';
+} from '@/api/settings/file-access/index.js';
 
 export function useAllowedPaths() {
   const [paths, setPaths] = useState<AllowedPathEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
-  const [invalidPaths, setInvalidPaths] = useState<InvalidPathEntry[]>([]);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setIsLoading(true);
@@ -1237,33 +1327,30 @@ export function useAllowedPaths() {
     void load();
   }, [load]);
 
-  const save = useCallback(async (entries: AllowedPathEntry[]) => {
-    setIsSaving(true);
-    setInvalidPaths([]);
-    try {
-      const error = await putAllowedPaths(entries);
-      if (error) {
-        setInvalidPaths(error.invalidPaths);
+  const save = useCallback(
+    async (entries: AllowedPathEntry[]) => {
+      setIsSaving(true);
+      setSaveError(null);
+      try {
+        await putAllowedPaths(entries);
+        return true;
+      } catch (e) {
+        setSaveError(e instanceof Error ? e.message : 'Failed to save');
         return false;
+      } finally {
+        setIsSaving(false);
+        await load();
       }
-      setPaths(entries);
-      return true;
-    } catch (e) {
-      setLoadError(e instanceof Error ? e.message : 'Failed to save');
-      return false;
-    } finally {
-      setIsSaving(false);
-    }
-  }, []);
+    },
+    [load],
+  );
 
   const addPath = useCallback((entry: AllowedPathEntry) => {
     setPaths((prev) => [...prev, entry]);
-    setInvalidPaths([]);
   }, []);
 
   const removePath = useCallback((index: number) => {
     setPaths((prev) => prev.filter((_, i) => i !== index));
-    setInvalidPaths([]);
   }, []);
 
   return {
@@ -1272,7 +1359,7 @@ export function useAllowedPaths() {
     isLoading,
     loadError,
     isSaving,
-    invalidPaths,
+    saveError,
     save,
     addPath,
     removePath,
@@ -1306,7 +1393,7 @@ export function FileAccessSection() {
     isLoading,
     loadError,
     isSaving,
-    invalidPaths,
+    saveError,
     save,
     addPath,
     removePath,
@@ -1318,7 +1405,7 @@ export function FileAccessSection() {
     if (success) {
       toast.success('Allowed paths saved');
     } else {
-      toast.danger('Some paths are invalid. Please fix the errors.');
+      toast.danger('Failed to save allowed paths');
     }
   }, [save, paths]);
 
@@ -1328,7 +1415,7 @@ export function FileAccessSection() {
       isLoading={isLoading}
       loadError={loadError}
       isSaving={isSaving}
-      invalidPaths={invalidPaths}
+      saveError={saveError}
       onAdd={addPath}
       onRemove={removePath}
       onSave={() => {
@@ -1408,7 +1495,7 @@ Expected: No errors.
 - [ ] **Step 7: Commit**
 
 ```bash
-git add apps/frontend/src/api/file-access-settings/ apps/frontend/src/pages/settings/sections/file-access/ apps/frontend/src/pages/settings/SettingsPage.tsx apps/frontend/src/routes.ts apps/frontend/src/router/
+git add apps/frontend/src/api/settings/file-access/ apps/frontend/src/pages/settings/sections/file-access/ apps/frontend/src/pages/settings/SettingsPage.tsx apps/frontend/src/routes.ts apps/frontend/src/router/
 git commit -m "feat(frontend): add File Access settings tab with path management UI"
 ```
 
@@ -1513,23 +1600,28 @@ git commit -m "feat(frontend): pass workspace and extra paths to session creatio
 
 **Files:**
 
-- Create: `apps/frontend/src/pages/chat/components/InfoBar/UsageInfo.tsx`
-- Create: `apps/frontend/src/pages/chat/components/InfoBar/AccessInfo.tsx`
 - Create: `apps/frontend/src/pages/chat/components/InfoBar/InfoBar.tsx`
 - Create: `apps/frontend/src/pages/chat/components/InfoBar/index.ts`
 - Create: `apps/frontend/src/pages/chat/components/InfoBar/styles.module.css`
-- Move: `format-token-count.ts` and its test into InfoBar helpers
+- Create: `apps/frontend/src/pages/chat/components/InfoBar/components/AccessInfo/AccessInfo.tsx`
+- Create: `apps/frontend/src/pages/chat/components/InfoBar/components/AccessInfo/index.ts`
+- Create: `apps/frontend/src/pages/chat/components/InfoBar/components/AccessInfo/styles.module.css`
+- Create: `apps/frontend/src/pages/chat/components/InfoBar/components/UsageInfo/UsageInfo.tsx`
+- Create: `apps/frontend/src/pages/chat/components/InfoBar/components/UsageInfo/index.ts`
+- Create: `apps/frontend/src/pages/chat/components/InfoBar/components/UsageInfo/styles.module.css`
+- Create: `apps/frontend/src/pages/chat/components/InfoBar/components/UsageInfo/helpers/format-token-count.ts`
+- Create: `apps/frontend/src/pages/chat/components/InfoBar/components/UsageInfo/helpers/format-token-count.test.ts`
 - Delete: `apps/frontend/src/pages/chat/components/UsageBar/` (entire directory)
 
 - [ ] **Step 1: Move `formatTokenCount` helper**
 
-Create `apps/frontend/src/pages/chat/components/InfoBar/helpers/format-token-count.ts` with the same content as the current file.
+Create `apps/frontend/src/pages/chat/components/InfoBar/components/UsageInfo/helpers/format-token-count.ts` with the same content as the current file.
 
-Create `apps/frontend/src/pages/chat/components/InfoBar/helpers/format-token-count.test.ts` with the same test content.
+Create `apps/frontend/src/pages/chat/components/InfoBar/components/UsageInfo/helpers/format-token-count.test.ts` with the same test content.
 
 - [ ] **Step 2: Create `UsageInfo` sub-component**
 
-Create `apps/frontend/src/pages/chat/components/InfoBar/UsageInfo.tsx`:
+Create `apps/frontend/src/pages/chat/components/InfoBar/components/UsageInfo/UsageInfo.tsx`:
 
 ```typescript
 import type {SseUsage} from '@omnicraft/sse-events';
@@ -1548,7 +1640,7 @@ export function UsageInfo({usage}: UsageInfoProps) {
       : 0;
 
   return (
-    <div className={styles.usageInfo}>
+    <div className={styles.container}>
       <span className={styles.item}>
         Input: {formatTokenCount(usage.inputTokens)}
       </span>
@@ -1566,11 +1658,11 @@ export function UsageInfo({usage}: UsageInfoProps) {
 
 - [ ] **Step 3: Create `AccessInfo` sub-component**
 
-Create `apps/frontend/src/pages/chat/components/InfoBar/AccessInfo.tsx`:
+Create `apps/frontend/src/pages/chat/components/InfoBar/components/AccessInfo/AccessInfo.tsx`:
 
 ```typescript
 import type {AllowedPathEntry} from '@omnicraft/settings-schema';
-import {useState} from 'react';
+import {Chip, Separator, Tooltip} from '@heroui/react';
 
 import styles from './styles.module.css';
 
@@ -1580,35 +1672,33 @@ interface AccessInfoProps {
 }
 
 export function AccessInfo({workspace, extraPaths}: AccessInfoProps) {
-  const [showTooltip, setShowTooltip] = useState(false);
-
   return (
-    <div className={styles.accessInfo}>
+    <div className={styles.container}>
       <span className={styles.item}>Workspace: {workspace}</span>
       {extraPaths.length > 0 && (
         <>
-          <span className={styles.separator} />
-          <span
-            className={styles.extraPaths}
-            onMouseEnter={() => {
-              setShowTooltip(true);
-            }}
-            onMouseLeave={() => {
-              setShowTooltip(false);
-            }}
-          >
-            {extraPaths.length} extra {extraPaths.length === 1 ? 'path' : 'paths'}
-            {showTooltip && (
-              <div className={styles.tooltip}>
+          <Separator orientation='vertical' />
+          <Tooltip delay={0}>
+            <span className={styles.extraPaths}>
+              {extraPaths.length} extra{' '}
+              {extraPaths.length === 1 ? 'path' : 'paths'}
+            </span>
+            <Tooltip.Content>
+              <div className={styles.tooltipContent}>
                 {extraPaths.map((p) => (
                   <div key={p.path} className={styles.tooltipEntry}>
                     <span className={styles.tooltipPath}>{p.path}</span>
-                    <span className={styles.tooltipMode}>({p.mode})</span>
+                    <Chip
+                      size='sm'
+                      color={p.mode === 'read-write' ? 'success' : 'default'}
+                    >
+                      {p.mode}
+                    </Chip>
                   </div>
                 ))}
               </div>
-            )}
-          </span>
+            </Tooltip.Content>
+          </Tooltip>
         </>
       )}
     </div>
@@ -1624,9 +1714,9 @@ Create `apps/frontend/src/pages/chat/components/InfoBar/InfoBar.tsx`:
 import type {AllowedPathEntry} from '@omnicraft/settings-schema';
 import type {SseUsage} from '@omnicraft/sse-events';
 
-import {AccessInfo} from './AccessInfo.js';
+import {AccessInfo} from './components/AccessInfo/index.js';
 import styles from './styles.module.css';
-import {UsageInfo} from './UsageInfo.js';
+import {UsageInfo} from './components/UsageInfo/index.js';
 
 interface InfoBarProps {
   workspace?: string;
@@ -1654,7 +1744,7 @@ export {InfoBar} from './InfoBar.js';
 
 - [ ] **Step 5: Create styles**
 
-Create `apps/frontend/src/pages/chat/components/InfoBar/styles.module.css`:
+Create `apps/frontend/src/pages/chat/components/InfoBar/styles.module.css` (container only):
 
 ```css
 .container {
@@ -1666,14 +1756,12 @@ Create `apps/frontend/src/pages/chat/components/InfoBar/styles.module.css`:
   font-size: 0.75em;
   color: var(--muted);
 }
+```
 
-.accessInfo {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
+Create `apps/frontend/src/pages/chat/components/InfoBar/components/UsageInfo/styles.module.css`:
 
-.usageInfo {
+```css
+.container {
   display: flex;
   gap: 12px;
 }
@@ -1685,33 +1773,31 @@ Create `apps/frontend/src/pages/chat/components/InfoBar/styles.module.css`:
 .rate {
   opacity: 0.7;
 }
+```
 
-.separator {
-  width: 1px;
-  height: 1em;
-  background: currentColor;
-  opacity: 0.3;
+Create `apps/frontend/src/pages/chat/components/InfoBar/components/AccessInfo/styles.module.css`:
+
+```css
+.container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.item {
+  white-space: nowrap;
 }
 
 .extraPaths {
-  position: relative;
   cursor: help;
   text-decoration: underline dotted;
   text-underline-offset: 3px;
 }
 
-.tooltip {
-  position: absolute;
-  bottom: calc(100% + 8px);
-  left: 0;
-  background: var(--color-surface);
-  border: 1px solid var(--color-default-200);
-  border-radius: 6px;
-  padding: 8px 12px;
-  font-size: 11px;
-  white-space: nowrap;
-  z-index: 10;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+.tooltipContent {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 
 .tooltipEntry {
@@ -1722,10 +1808,18 @@ Create `apps/frontend/src/pages/chat/components/InfoBar/styles.module.css`:
 .tooltipPath {
   font-family: monospace;
 }
+```
 
-.tooltipMode {
-  opacity: 0.7;
-}
+Create `apps/frontend/src/pages/chat/components/InfoBar/components/AccessInfo/index.ts`:
+
+```typescript
+export {AccessInfo} from './AccessInfo.js';
+```
+
+Create `apps/frontend/src/pages/chat/components/InfoBar/components/UsageInfo/index.ts`:
+
+```typescript
+export {UsageInfo} from './UsageInfo.js';
 ```
 
 - [ ] **Step 6: Delete UsageBar directory**
@@ -1734,7 +1828,7 @@ Delete the entire `apps/frontend/src/pages/chat/components/UsageBar/` directory.
 
 - [ ] **Step 7: Run `formatTokenCount` tests**
 
-Run: `cd apps/frontend && bun test src/pages/chat/components/InfoBar/helpers/format-token-count.test.ts`
+Run: `cd apps/frontend && bun test src/pages/chat/components/InfoBar/components/UsageInfo/helpers/format-token-count.test.ts`
 
 Expected: All pass.
 
@@ -1768,7 +1862,7 @@ Create `apps/frontend/src/pages/chat/hooks/useAllowedPaths.ts`:
 import type {AllowedPathEntry} from '@omnicraft/settings-schema';
 import {useCallback, useEffect, useState} from 'react';
 
-import {getAllowedPaths} from '@/api/file-access-settings/index.js';
+import {getAllowedPaths} from '@/api/settings/file-access/index.js';
 
 export function useAllowedPaths() {
   const [paths, setPaths] = useState<AllowedPathEntry[]>([]);
@@ -1806,18 +1900,11 @@ export function useSessionConfig() {
   const [workspace, setWorkspace] = useState<string | undefined>(undefined);
   const [extraAllowedPaths, setExtraAllowedPaths] = useState<string[]>([]);
 
-  const toggleExtraPath = useCallback((path: string) => {
-    setExtraAllowedPaths((prev) =>
-      prev.includes(path) ? prev.filter((p) => p !== path) : [...prev, path],
-    );
-  }, []);
-
   return {
     workspace,
     setWorkspace,
     extraAllowedPaths,
     setExtraAllowedPaths,
-    toggleExtraPath,
   };
 }
 ```
@@ -1826,11 +1913,11 @@ export function useSessionConfig() {
 
 Create `apps/frontend/src/pages/chat/components/SessionConfigBar/SessionConfigBar.tsx` — contains:
 
-- Workspace dropdown (HeroUI `Select`, single select, filtered to `read-write` paths only)
-- Extra Allowed Paths dropdown (HeroUI `Select` with multi-select or `ListBox`, all paths)
+- Workspace dropdown (HeroUI `Select` + `ListBox`, single select, filtered to `read-write` paths only — same pattern as `LlmSectionFields`)
+- Extra Allowed Paths dropdown (HeroUI `Select` + `ListBox` with `selectionMode="multiple"`, all paths)
 - Disclaimer text
 - Warning/error messages based on state (loading, fetch error, no paths configured, no workspace selected)
-- Link to Settings → File Access when no paths configured
+- Link to Settings → File Access when no paths configured (use HeroUI `Link` or React Router `Link`)
 
 Create `apps/frontend/src/pages/chat/components/SessionConfigBar/styles.module.css` for layout.
 
@@ -1854,7 +1941,7 @@ const {
   isLoading: pathsLoading,
   error: pathsError,
 } = useAllowedPaths();
-const {workspace, setWorkspace, extraAllowedPaths, toggleExtraPath} =
+const {workspace, setWorkspace, extraAllowedPaths, setExtraAllowedPaths} =
   useSessionConfig();
 ```
 
@@ -1898,7 +1985,7 @@ import {SessionConfigBar} from './components/SessionConfigBar/index.js';
     workspace={workspace}
     onWorkspaceChange={setWorkspace}
     extraAllowedPaths={extraAllowedPaths}
-    onToggleExtraPath={toggleExtraPath}
+    onExtraAllowedPathsChange={setExtraAllowedPaths}
   />
 )}
 <InfoBar

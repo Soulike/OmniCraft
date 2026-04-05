@@ -56,12 +56,21 @@ New tab at `/settings/file-access` in the settings page.
 
 **Validation (on save):** Backend validates every path in the array:
 
+- No duplicate paths (same path appearing more than once, regardless of mode).
+- Paths are normalized via `path.resolve()` before validation and storage (removes trailing slashes, redundant separators, resolves `..` segments).
 - Must be an absolute path.
 - Must exist on the filesystem.
 - Must be a directory (not a file).
 - The process must have the requested access level (read for `read` mode, read + write for `read-write` mode).
 
-Returns per-path errors so the UI can indicate which entries are invalid.
+Returns per-path errors so the UI can indicate which entries are invalid. Since paths are deduplicated, the error uses `path` as the key (no index needed):
+
+```ts
+{
+  path: string;
+  reason: string;
+}
+```
 
 Follows existing settings section patterns (`SettingSection` component, `useSettingValues`/`useSettingSave` hooks). However, since the allowed paths field is an array of objects with custom filesystem validation (not a scalar), it uses a dedicated endpoint rather than the generic settings API:
 
@@ -76,11 +85,13 @@ Two validation points:
 
 ### 1. Settings save
 
-When `fileAccess.allowedPaths` is saved, the Zod schema validates structure (array of `{path, mode}`). After schema validation passes, a custom validation step in the settings service checks each entry against the filesystem:
+When `fileAccess.allowedPaths` is saved, the Zod schema validates structure (array of `{path, mode}`). After schema validation passes, a custom validation step in the settings service checks:
 
-- Path is absolute.
-- Path exists on the filesystem.
-- Path is a directory.
+- No duplicate paths (same path appearing more than once).
+- Paths are normalized via `path.resolve()` before all checks.
+- Each path is absolute.
+- Each path exists on the filesystem.
+- Each path is a directory.
 - The process has the requested access level (read access for `read` mode, read + write access for `read-write` mode).
 
 On failure, return an error response with per-path details:
@@ -89,7 +100,7 @@ On failure, return an error response with per-path details:
 {
   success: false;
   error: 'INVALID_PATHS';
-  invalidPaths: Array<{index: number; path: string; reason: string}>;
+  invalidPaths: Array<{path: string; reason: string}>;
 }
 ```
 
@@ -110,9 +121,13 @@ This catches paths that were valid at settings time but have since been removed/
 New error types in `CreateSessionError`:
 
 - `WORKSPACE_PATH_NOT_FOUND` — workspace path no longer exists.
+- `WORKSPACE_PATH_NOT_DIRECTORY` — workspace path exists but is not a directory.
+- `WORKSPACE_PATH_NOT_ACCESSIBLE` — workspace path exists but lacks required read-write permissions.
 - `WORKSPACE_NOT_IN_ALLOWED_PATHS` — workspace path not in settings.
 - `WORKSPACE_NOT_READ_WRITE` — workspace path is in settings but not with `read-write` mode.
 - `EXTRA_PATH_NOT_FOUND` — an extra allowed path no longer exists.
+- `EXTRA_PATH_NOT_DIRECTORY` — an extra path exists but is not a directory.
+- `EXTRA_PATH_NOT_ACCESSIBLE` — an extra path exists but lacks required permissions.
 - `EXTRA_PATH_NOT_IN_ALLOWED_PATHS` — an extra path not in settings.
 
 ## Session Creation API
