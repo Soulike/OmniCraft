@@ -12,6 +12,7 @@ import {LlmSession} from '../llm-session/index.js';
 import type {SkillDefinition} from '../skill/index.js';
 import type {
   AllowedPath,
+  ShellState,
   ToolDefinition,
   ToolExecutionContext,
 } from '../tool/index.js';
@@ -60,6 +61,9 @@ export abstract class Agent {
   /** Tracks file stats for modification safety checks. */
   private readonly fileStatTracker = new FileStatTracker();
 
+  /** Mutable shell state, shared by shell-related tools. */
+  private readonly shellState: ShellState;
+
   constructor(
     getConfig: () => Promise<LlmConfig>,
     options: AgentOptions,
@@ -85,6 +89,8 @@ export abstract class Agent {
       this.workingDirectory = options.workingDirectory;
       this.llmSession = new LlmSession(getConfig);
     }
+
+    this.shellState = {cwd: this.workingDirectory};
 
     agentEventBus.emit('agent-created', this);
   }
@@ -151,7 +157,7 @@ export abstract class Agent {
           arguments: toolCall.arguments,
         } satisfies AgentToolExecuteStartEvent;
 
-        const result = await this.executeTool(toolCall, availableTools);
+        const result = await this.executeTool(toolCall, availableTools, signal);
 
         yield {
           type: 'tool-execute-end',
@@ -264,6 +270,8 @@ export abstract class Agent {
     }
 
     prompt += `\n\nWorking directory: ${this.workingDirectory}\nYou can read and write files within this directory.`;
+    prompt +=
+      "\nWhen executing shell commands, do not access any files outside your working directory and other allowed paths unless it's necessary to finish your job or user explicitly requests it.";
 
     if (this.extraAllowedPaths.length > 0) {
       const pathLines = this.extraAllowedPaths
@@ -299,6 +307,7 @@ export abstract class Agent {
   private async executeTool(
     toolCall: LlmToolCall,
     availableTools: ReadonlyMap<string, ToolDefinition>,
+    signal?: AbortSignal,
   ): Promise<{content: string; isError: boolean}> {
     const tool = availableTools.get(toolCall.toolName);
     if (!tool) {
@@ -314,6 +323,8 @@ export abstract class Agent {
       fileCache: this.fileCache,
       fileStatTracker: this.fileStatTracker,
       extraAllowedPaths: this.extraAllowedPaths,
+      shellState: this.shellState,
+      signal,
     };
 
     try {

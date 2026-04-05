@@ -5,6 +5,7 @@ import Koa from 'koa';
 import pinoLogger from 'koa-pino-logger';
 
 import {dispatcher} from '@/dispatcher/index.js';
+import {ShellCommandRunner} from '@/helpers/shell-command-runner.js';
 import {logger} from '@/logger.js';
 import {initServices} from '@/startup/index.js';
 
@@ -26,4 +27,8 @@ app.use(dispatcher());
 
 app.listen(port, () => {
   logger.info(`Server is listening on port ${port.toString()}`);
+});
+
+process.on('exit', () => {
+  ShellCommandRunner.killAll();
 });

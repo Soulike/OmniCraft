@@ -7,15 +7,15 @@ import type {
   ToolDefinition,
   ToolExecutionContext,
 } from '@/agent-core/tool/index.js';
+import {writeToTempFile} from '@/helpers/fs.js';
 
 import {
   MAX_INLINE_SIZE,
   MAX_RESPONSE_SIZE,
-  TEMP_DIR,
   TIMEOUT_MS,
   USER_AGENT,
 } from './config.js';
-import {fetchBody, writeToTempFile} from './helpers.js';
+import {fetchBody} from './helpers.js';
 import {validateUrl} from './url-validator.js';
 
 const parameters = z.object({
@@ -141,7 +141,7 @@ export const webFetchTool: ToolDefinition<typeof parameters> = {
     if (Buffer.byteLength(content) > MAX_INLINE_SIZE) {
       let filePath: string;
       try {
-        filePath = await writeToTempFile(content, {directory: TEMP_DIR});
+        filePath = await writeToTempFile(content, '.md');
       } catch (error: unknown) {
         const message = error instanceof Error ? error.message : String(error);
         return `Error: Failed to save content to temporary file: ${message}`;

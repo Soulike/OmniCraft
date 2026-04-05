@@ -1,5 +1,6 @@
 import {CoreSkillRegistry} from '@/agent/skills/index.js';
 import {
+  BashToolRegistry,
   CoreToolRegistry,
   FileToolRegistry,
   WebToolRegistry,
@@ -19,6 +20,7 @@ export class CoreAgent extends Agent {
         CoreToolRegistry.getInstance(),
         FileToolRegistry.getInstance(),
         WebToolRegistry.getInstance(),
+        BashToolRegistry.getInstance(),
       ],
       skillRegistries: [CoreSkillRegistry.getInstance()],
       baseSystemPrompt: 'You are a helpful assistant.',

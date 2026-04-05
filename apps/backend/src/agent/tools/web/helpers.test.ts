@@ -1,11 +1,8 @@
-import fs from 'node:fs/promises';
 import http from 'node:http';
-import os from 'node:os';
-import path from 'node:path';
 
-import {afterAll, afterEach, beforeAll, describe, expect, it} from 'vitest';
+import {afterAll, beforeAll, describe, expect, it} from 'vitest';
 
-import {fetchBody, isTextContentType, writeToTempFile} from './helpers.js';
+import {fetchBody, isTextContentType} from './helpers.js';
 import {
   createTestServer,
   serverUrl,
@@ -116,29 +113,5 @@ describe('fetchBody', () => {
     it('throws when connection fails', async () => {
       await expect(fetchBody('http://127.0.0.1:1', opts)).rejects.toThrow();
     });
-  });
-});
-
-describe('writeToTempFile', () => {
-  let filePath: string;
-
-  afterEach(async () => {
-    if (filePath) {
-      await fs.rm(filePath, {force: true});
-    }
-  });
-
-  it('writes content and returns a path under the given directory', async () => {
-    const dir = path.join(os.tmpdir(), 'wf-helper-test');
-    filePath = await writeToTempFile('hello world', {directory: dir});
-    const content = await fs.readFile(filePath, 'utf-8');
-    expect(content).toBe('hello world');
-    expect(filePath.startsWith(dir)).toBe(true);
-  });
-
-  it('returns a .md file', async () => {
-    const dir = path.join(os.tmpdir(), 'wf-helper-test');
-    filePath = await writeToTempFile('test', {directory: dir});
-    expect(path.extname(filePath)).toBe('.md');
   });
 });

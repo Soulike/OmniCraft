@@ -25,12 +25,14 @@ export function createMockTool(name: string): ToolDefinition {
 export function createMockContext(
   overrides?: Partial<ToolExecutionContext>,
 ): ToolExecutionContext {
+  const workingDirectory = overrides?.workingDirectory ?? os.tmpdir();
   return {
     availableSkills: new Map(),
-    workingDirectory: os.tmpdir(),
+    workingDirectory,
     fileCache: new FileContentCache(),
     fileStatTracker: new FileStatTracker(),
     extraAllowedPaths: [],
+    shellState: {cwd: workingDirectory},
     ...overrides,
   };
 }

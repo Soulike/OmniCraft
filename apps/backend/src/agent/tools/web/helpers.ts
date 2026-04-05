@@ -1,6 +1,3 @@
-import fs from 'node:fs/promises';
-import path from 'node:path';
-
 /** Options for fetchBody. */
 export interface FetchBodyOptions {
   readonly timeoutMs: number;
@@ -12,11 +9,6 @@ export interface FetchBodyOptions {
 export interface FetchBodyResult {
   readonly body: string;
   readonly contentType: string;
-}
-
-/** Options for writeToTempFile. */
-export interface WriteToTempFileOptions {
-  readonly directory: string;
 }
 
 /** Returns true if the Content-Type indicates a text-based format. */
@@ -112,15 +104,4 @@ export async function fetchBody(
   const body = new TextDecoder().decode(Buffer.concat(chunks));
 
   return {body, contentType};
-}
-
-/** Writes content to a temporary file and returns the absolute file path. */
-export async function writeToTempFile(
-  content: string,
-  options: WriteToTempFileOptions,
-): Promise<string> {
-  await fs.mkdir(options.directory, {recursive: true});
-  const filePath = path.join(options.directory, `${crypto.randomUUID()}.md`);
-  await fs.writeFile(filePath, content, 'utf-8');
-  return filePath;
 }
