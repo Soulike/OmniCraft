@@ -6,8 +6,10 @@ import {getAllowedPaths} from '@/api/settings/file-access/index.js';
 import {SessionConfigContext} from './SessionConfigContext.js';
 
 export function SessionConfigProvider({children}: {children: ReactNode}) {
-  const [allAllowedPathsFromSettings, setAllAllowedPathsFromSettings] =
-    useState<AllowedPathEntry[]>([]);
+  const [
+    allAllowedPathEntriesFromSettings,
+    setAllAllowedPathEntriesFromSettings,
+  ] = useState<AllowedPathEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<unknown>(null);
   const [selectedWorkspace, setSelectedWorkspace] = useState<
@@ -21,7 +23,7 @@ export function SessionConfigProvider({children}: {children: ReactNode}) {
     setIsLoading(true);
     setLoadError(null);
     try {
-      setAllAllowedPathsFromSettings(await getAllowedPaths());
+      setAllAllowedPathEntriesFromSettings(await getAllowedPaths());
     } catch (e) {
       setLoadError(e);
     } finally {
@@ -35,15 +37,15 @@ export function SessionConfigProvider({children}: {children: ReactNode}) {
 
   const selectedExtraAllowedPathEntries = useMemo(
     () =>
-      allAllowedPathsFromSettings.filter((p) =>
+      allAllowedPathEntriesFromSettings.filter((p) =>
         selectedExtraAllowedPaths.includes(p.path),
       ),
-    [allAllowedPathsFromSettings, selectedExtraAllowedPaths],
+    [allAllowedPathEntriesFromSettings, selectedExtraAllowedPaths],
   );
 
   const value = useMemo(
     () => ({
-      allAllowedPathsFromSettings,
+      allAllowedPathEntriesFromSettings,
       isLoading,
       loadError,
       selectedWorkspace,
@@ -53,7 +55,7 @@ export function SessionConfigProvider({children}: {children: ReactNode}) {
       setSelectedExtraAllowedPaths,
     }),
     [
-      allAllowedPathsFromSettings,
+      allAllowedPathEntriesFromSettings,
       isLoading,
       loadError,
       selectedWorkspace,

@@ -16,7 +16,7 @@ import styles from './styles.module.css';
 
 export function SessionConfigBar() {
   const {
-    allAllowedPathsFromSettings,
+    allAllowedPathEntriesFromSettings,
     isLoading,
     loadError,
     selectedWorkspace,
@@ -26,8 +26,9 @@ export function SessionConfigBar() {
   } = useSessionConfig();
 
   const readWritePaths = useMemo(
-    () => allAllowedPathsFromSettings.filter((p) => p.mode === 'read-write'),
-    [allAllowedPathsFromSettings],
+    () =>
+      allAllowedPathEntriesFromSettings.filter((p) => p.mode === 'read-write'),
+    [allAllowedPathEntriesFromSettings],
   );
 
   if (isLoading) {
@@ -41,7 +42,7 @@ export function SessionConfigBar() {
     );
   }
 
-  if (loadError || allAllowedPathsFromSettings.length === 0) {
+  if (loadError || allAllowedPathEntriesFromSettings.length === 0) {
     return (
       <div className={styles.emptyContainer}>
         <Link className={styles.settingsLink} to={ROUTES.settings.fileAccess()}>
@@ -84,7 +85,7 @@ export function SessionConfigBar() {
             </Select.Popover>
           </Select>
 
-          {allAllowedPathsFromSettings.length > 0 && (
+          {allAllowedPathEntriesFromSettings.length > 0 && (
             <SelectRoot<object, 'multiple'>
               className={styles.extraPathsSelect}
               selectionMode='multiple'
@@ -103,7 +104,7 @@ export function SessionConfigBar() {
               </Description>
               <Select.Popover>
                 <ListBox>
-                  {allAllowedPathsFromSettings.map((entry) => (
+                  {allAllowedPathEntriesFromSettings.map((entry) => (
                     <ListBox.Item
                       key={entry.path}
                       id={entry.path}
