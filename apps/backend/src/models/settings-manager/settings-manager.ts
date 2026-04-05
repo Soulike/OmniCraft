@@ -152,12 +152,7 @@ export class SettingsManager {
       const settings = await this.load();
       const parent = getParent(settings, keyPath);
       const leafKey = keyPath[keyPath.length - 1];
-      const value = parent[leafKey];
-      assert(
-        typeof value !== 'object' || value === null,
-        'Expected a scalar value',
-      );
-      return value;
+      return parent[leafKey];
     });
   }
 
