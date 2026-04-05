@@ -1,16 +1,9 @@
 .container {
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
+  align-items: center;
   gap: 12px;
   padding: 4px 16px;
   font-size: 0.75em;
   color: var(--muted);
-}
-
-.item {
-  white-space: nowrap;
-}
-
-.rate {
-  opacity: 0.7;
 }
