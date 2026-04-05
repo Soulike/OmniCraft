@@ -6,9 +6,9 @@ import type {
   ToolDefinition,
   ToolExecutionContext,
 } from '@/agent-core/tool/index.js';
+import {ShellCommandRunner} from '@/helpers/shell-command-runner.js';
 
 import {isSubPathOrSelf} from '../file/helpers.js';
-import {executeCommand} from './helpers.js';
 
 const DEFAULT_TIMEOUT_MS = 120_000;
 const MAX_TIMEOUT_MS = 600_000;
@@ -68,12 +68,12 @@ export const runCommandTool: ToolDefinition<typeof parameters> = {
     const {shellState, workingDirectory, signal} = context;
     const timeout = args.timeout ?? DEFAULT_TIMEOUT_MS;
 
-    const result = await executeCommand(
+    const result = await new ShellCommandRunner(
       args.command,
       shellState.cwd,
       timeout,
       signal,
-    );
+    ).run();
 
     // Resolve stdout and stderr temp files
     const stdout = await resolveOutputFile(result.stdoutFile);
