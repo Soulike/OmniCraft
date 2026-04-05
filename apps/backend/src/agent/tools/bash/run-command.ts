@@ -107,7 +107,7 @@ export const runCommandTool: ToolDefinition<typeof parameters> = {
     }
 
     if (maxBufferExceeded) {
-      output += 'Error: Command output exceeded maximum buffer size\n';
+      output += `Error: Command output exceeded maximum buffer size (${MAX_BUFFER_BYTES} bytes)\n`;
     }
 
     output += commandOutput;
