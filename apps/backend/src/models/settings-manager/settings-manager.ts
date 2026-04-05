@@ -61,7 +61,7 @@ export class SettingsManager {
   }
 
   /**
-   * Checks whether the given key path is a valid leaf (scalar) node in the schema.
+   * Checks whether the given key path is a valid leaf node in the schema.
    * @param keyPath - Path segments to check (e.g., `['llm', 'apiKey']`).
    */
   static isValidLeafPath(keyPath: string[]): boolean {

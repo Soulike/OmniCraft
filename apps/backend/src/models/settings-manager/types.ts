@@ -2,7 +2,7 @@ import {z} from 'zod';
 
 import type {SettingsManager} from './settings-manager.js';
 
-/** A scalar setting value (not an object or array). */
+/** A scalar setting value for the generic settings API. Non-scalar leaves (e.g. arrays) use dedicated endpoints. */
 export const settingValueSchema = z
   .unknown()
   .refine((v) => typeof v !== 'object' || v === null, {
@@ -11,7 +11,7 @@ export const settingValueSchema = z
 
 export type SettingValue = z.infer<typeof settingValueSchema>;
 
-/** A single setting entry: a leaf key path and a scalar value. */
+/** A single setting entry: a leaf key path and a value. */
 export const settingEntrySchema = z.object({
   keyPath: z.array(z.string()).nonempty(),
   value: settingValueSchema,

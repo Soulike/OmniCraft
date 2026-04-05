@@ -1,6 +1,6 @@
 import assert from 'node:assert';
 
-import {ZodArray,type ZodType} from 'zod';
+import {ZodArray, type ZodType} from 'zod';
 
 /** A Zod schema that has a `.shape` property (i.e., an object schema). */
 interface ZodObjectLike {
@@ -53,7 +53,7 @@ export function isValidSchemaPath(schema: ZodType, keyPath: string[]): boolean {
 }
 
 /**
- * Checks whether the given key path points to a leaf (scalar) node in the schema.
+ * Checks whether the given key path points to a leaf node in the schema.
  * @param schema - Root Zod schema to validate against.
  * @param keyPath - Path segments to check (must be non-empty).
  */
