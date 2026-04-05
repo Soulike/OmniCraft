@@ -9,9 +9,20 @@ import {
 
 const BASE = '/api/chat';
 
+interface CreateSessionOptions {
+  workspace?: string;
+  extraAllowedPaths?: string[];
+}
+
 /** Creates a new chat session. Returns the session ID. */
-export async function createSession(): Promise<string> {
-  const res = await fetch(`${BASE}/session`, {method: 'POST'});
+export async function createSession(
+  options: CreateSessionOptions = {},
+): Promise<string> {
+  const res = await fetch(`${BASE}/session`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(options),
+  });
 
   if (!res.ok) {
     const body = await res.text();

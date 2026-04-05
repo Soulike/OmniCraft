@@ -2,15 +2,20 @@ import {useCallback, useState} from 'react';
 
 import {createSession} from '@/api/chat/index.js';
 
+interface SessionConfig {
+  workspace?: string;
+  extraAllowedPaths?: string[];
+}
+
 /** Manages the chat session lifecycle. Session is created on demand via `resetSession`. */
 export function useSession() {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const resetSession = useCallback(async () => {
+  const resetSession = useCallback(async (config: SessionConfig = {}) => {
     setError(null);
     try {
-      const id = await createSession();
+      const id = await createSession(config);
       setSessionId(id);
       return id;
     } catch (e) {
