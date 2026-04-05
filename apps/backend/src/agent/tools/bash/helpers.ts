@@ -75,14 +75,14 @@ export async function executeCommand(
   });
 
   // Timeout and abort handling
-  const state = {timedOut: false};
+  let timedOut = false;
 
   const killChild = (): void => {
     child.kill('SIGKILL');
   };
 
   const timer = setTimeout(() => {
-    state.timedOut = true;
+    timedOut = true;
     killChild();
   }, timeout);
 
@@ -96,18 +96,19 @@ export async function executeCommand(
 
   // Wait for process exit, then end write streams
   const exitCode = await new Promise<number>((resolve, reject) => {
-    child.on('exit', (code) => {
+    const cleanup = () => {
       clearTimeout(timer);
       signal?.removeEventListener('abort', killChild);
       stdoutFile.stream.end();
       stderrFile.stream.end();
+    };
+
+    child.on('exit', (code) => {
+      cleanup();
       resolve(code ?? 1);
     });
     child.on('error', (err) => {
-      clearTimeout(timer);
-      signal?.removeEventListener('abort', killChild);
-      stdoutFile.stream.end();
-      stderrFile.stream.end();
+      cleanup();
       reject(err);
     });
   });
@@ -120,6 +121,6 @@ export async function executeCommand(
     stderrFile: stderrFile.filePath,
     cwd: cwdData.trim() || null,
     exitCode,
-    timedOut: state.timedOut,
+    timedOut,
   };
 }
