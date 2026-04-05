@@ -35,11 +35,7 @@ export function PathList({paths, invalidPaths, onRemove}: PathListProps) {
         {paths.map((entry, i) => {
           const error = invalidByPath.get(entry.path);
           return (
-            <ListBox.Item
-              key={entry.path}
-              id={entry.path}
-              textValue={entry.path}
-            >
+            <ListBox.Item key={i} id={i} textValue={entry.path}>
               <div className={styles.entryContent}>
                 <Label className={styles.entryPath}>{entry.path}</Label>
                 {error && (
