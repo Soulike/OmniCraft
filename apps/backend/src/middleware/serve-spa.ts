@@ -1,9 +1,5 @@
-import path from 'node:path';
-
 import type {Middleware} from 'koa';
 import send from 'koa-send';
-
-import {fileExists} from '@/helpers/fs.js';
 
 const API_PREFIX = '/api';
 
@@ -19,10 +15,9 @@ export function serveSpa(distPath: string): Middleware {
       return;
     }
 
-    const filePath = path.join(distPath, ctx.path);
-    if (await fileExists(filePath)) {
+    try {
       await send(ctx, ctx.path, {root: distPath});
-    } else {
+    } catch {
       await send(ctx, '/index.html', {root: distPath});
     }
   };
