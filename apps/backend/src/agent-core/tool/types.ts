@@ -55,5 +55,6 @@ export interface ToolDefinition<T extends z.ZodType = z.ZodType> {
   execute(
     args: z.infer<T>,
     context: ToolExecutionContext,
+    onOutput?: (chunk: string) => void,
   ): Promise<string> | string;
 }
