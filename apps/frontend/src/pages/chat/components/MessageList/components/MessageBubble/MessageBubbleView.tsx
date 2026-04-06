@@ -4,20 +4,14 @@ import clsx from 'clsx';
 import {MarkdownRenderer} from '@/components/MarkdownRenderer/index.js';
 
 import type {ChatMessage} from '../../../../types.js';
-import {formatTimestamp} from './helpers/formatTimestamp.js';
 import styles from './styles.module.css';
 
 interface MessageBubbleViewProps {
   role: ChatMessage['role'];
   content: string;
-  createdAt: number | null;
 }
 
-export function MessageBubbleView({
-  role,
-  content,
-  createdAt,
-}: MessageBubbleViewProps) {
+export function MessageBubbleView({role, content}: MessageBubbleViewProps) {
   return (
     <div
       className={clsx(styles.bubble, {
@@ -32,9 +26,6 @@ export function MessageBubbleView({
           <Skeleton className={styles.skeleton} />
         )}
       </div>
-      {createdAt !== null && (
-        <time className={styles.timestamp}>{formatTimestamp(createdAt)}</time>
-      )}
     </div>
   );
 }

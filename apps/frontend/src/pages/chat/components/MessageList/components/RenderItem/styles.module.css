@@ -21,3 +21,9 @@
   max-width: 80%;
   animation: fadeInUp 0.2s ease-out;
 }
+
+.timestamp {
+  font-size: 0.75rem;
+  opacity: 0.5;
+  margin-top: 4px;
+}

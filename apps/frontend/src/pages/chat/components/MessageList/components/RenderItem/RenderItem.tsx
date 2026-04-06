@@ -1,4 +1,5 @@
 import type {MessageRenderItem} from '../../hooks/useMessageList.js';
+import {formatTimestamp} from '../MessageBubble/helpers/formatTimestamp.js';
 import {MessageBubble} from '../MessageBubble/index.js';
 import {ToolExecutionCard} from '../ToolExecutionCard/index.js';
 import styles from './styles.module.css';
@@ -12,23 +13,23 @@ export function RenderItem({item}: RenderItemProps) {
     case 'user-text':
       return (
         <div className={styles.userMessage}>
-          <MessageBubble
-            role='user'
-            id={item.id}
-            content={item.content}
-            createdAt={item.createdAt}
-          />
+          <MessageBubble role='user' id={item.id} content={item.content} />
+          {item.createdAt !== null && (
+            <time className={styles.timestamp}>
+              {formatTimestamp(item.createdAt)}
+            </time>
+          )}
         </div>
       );
     case 'assistant-text':
       return (
         <div className={styles.assistantMessage}>
-          <MessageBubble
-            role='assistant'
-            id={item.id}
-            content={item.content}
-            createdAt={item.createdAt}
-          />
+          <MessageBubble role='assistant' id={item.id} content={item.content} />
+          {item.createdAt !== null && (
+            <time className={styles.timestamp}>
+              {formatTimestamp(item.createdAt)}
+            </time>
+          )}
         </div>
       );
     case 'tool-execution':

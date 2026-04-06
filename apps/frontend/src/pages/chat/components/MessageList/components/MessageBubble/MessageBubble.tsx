@@ -8,24 +8,12 @@ interface MessageBubbleProps {
   role: ChatMessage['role'];
   id: string | null;
   content: string;
-  createdAt: number | null;
 }
 
-export function MessageBubble({
-  role,
-  id: _id,
-  content,
-  createdAt,
-}: MessageBubbleProps) {
+export function MessageBubble({role, id: _id, content}: MessageBubbleProps) {
   const {displayedContent} = useStreamingText(content);
   const displayContent = role === 'assistant' ? displayedContent : content;
   const deferredContent = useDeferredValue(displayContent);
 
-  return (
-    <MessageBubbleView
-      role={role}
-      content={deferredContent}
-      createdAt={createdAt}
-    />
-  );
+  return <MessageBubbleView role={role} content={deferredContent} />;
 }
