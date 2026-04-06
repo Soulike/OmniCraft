@@ -3,17 +3,20 @@ import {useCallback, useRef, useState} from 'react';
 import {streamChatCompletion} from '@/api/chat/index.js';
 
 import {useChatEventBus} from './useChatEventBus.js';
-import type {useSession} from './useSession.js';
+import type {useSessionId} from './useSessionId.js';
 
-type SessionHook = ReturnType<typeof useSession>;
+type SessionIdHook = ReturnType<typeof useSessionId>;
 
 interface UseStreamChatOptions {
-  sessionId: SessionHook['sessionId'];
-  resetSession: SessionHook['resetSession'];
+  sessionId: SessionIdHook['sessionId'];
+  createNewSessionId: SessionIdHook['createNewSessionId'];
 }
 
 /** Orchestrates sending a message and consuming the SSE stream. */
-export function useStreamChat({sessionId, resetSession}: UseStreamChatOptions) {
+export function useStreamChat({
+  sessionId,
+  createNewSessionId,
+}: UseStreamChatOptions) {
   const [isStreaming, setIsStreaming] = useState(false);
   const [streamError, setStreamError] = useState<string | null>(null);
   const [maxRoundsReached, setMaxRoundsReached] = useState(false);
@@ -27,7 +30,7 @@ export function useStreamChat({sessionId, resetSession}: UseStreamChatOptions) {
       const trimmed = content.trim();
       if (!trimmed) return;
 
-      const activeSessionId = sessionId ?? (await resetSession());
+      const activeSessionId = sessionId ?? (await createNewSessionId());
       if (!activeSessionId) return;
 
       setStreamError(null);
@@ -105,7 +108,7 @@ export function useStreamChat({sessionId, resetSession}: UseStreamChatOptions) {
         setIsStreaming(false);
       }
     },
-    [isStreaming, sessionId, resetSession, eventBus],
+    [isStreaming, sessionId, createNewSessionId, eventBus],
   );
 
   const stopGeneration = useCallback(() => {

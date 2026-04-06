@@ -6,8 +6,9 @@ import {ChatPageView} from './ChatPageView.js';
 import {ChatEventBusProvider} from './contexts/ChatEventBusContext/index.js';
 import {SessionConfigProvider} from './contexts/SessionConfigContext/index.js';
 import {useMessages} from './hooks/useMessages.js';
-import {useSession} from './hooks/useSession.js';
 import {useSessionConfig} from './hooks/useSessionConfig.js';
+import {useSessionId} from './hooks/useSessionId.js';
+import {useSessionLifecycle} from './hooks/useSessionLifecycle.js';
 import {useSessionTitle} from './hooks/useSessionTitle.js';
 import {useStreamChat} from './hooks/useStreamChat.js';
 
@@ -24,24 +25,29 @@ export function ChatPage() {
 
 /** Inner content that uses contexts. */
 function ChatPageContent() {
-  const {sessionId, sessionError, resetSession, clearSessionError} =
-    useSession();
+  const {
+    sessionId,
+    createNewSessionIdError,
+    createNewSessionId,
+    clearSessionId,
+    clearCreateNewSessionIdError,
+  } = useSessionId();
 
-  const {messages} = useMessages();
-  const {title} = useSessionTitle();
+  const {messages, clearMessages} = useMessages();
+  const {title, clearTitle} = useSessionTitle();
 
   const {selectedWorkspace, selectedExtraAllowedPaths} = useSessionConfig();
 
-  const resetSessionWithConfig = useCallback(
+  const createNewSessionIdWithConfig = useCallback(
     async () =>
-      resetSession({
+      createNewSessionId({
         workspace: selectedWorkspace,
         extraAllowedPaths:
           selectedExtraAllowedPaths.length > 0
             ? selectedExtraAllowedPaths
             : undefined,
       }),
-    [resetSession, selectedWorkspace, selectedExtraAllowedPaths],
+    [createNewSessionId, selectedWorkspace, selectedExtraAllowedPaths],
   );
 
   const {
@@ -52,16 +58,31 @@ function ChatPageContent() {
     stopGeneration,
     clearStreamError,
     clearMaxRoundsReached,
-  } = useStreamChat({sessionId, resetSession: resetSessionWithConfig});
+  } = useStreamChat({
+    sessionId,
+    createNewSessionId: createNewSessionIdWithConfig,
+  });
+
+  const {startNewSession} = useSessionLifecycle({
+    stopGeneration,
+    clearSessionId,
+    clearMessages,
+    clearTitle,
+    clearStreamError,
+    clearMaxRoundsReached,
+  });
 
   const {containerRef: scrollRef, scrollToBottom} = useAutoScroll();
 
-  const displayError = sessionError ?? streamError;
+  const displayError = createNewSessionIdError ?? streamError;
 
   const dismissError = useCallback(() => {
-    clearSessionError();
+    clearCreateNewSessionIdError();
     clearStreamError();
-  }, [clearSessionError, clearStreamError]);
+  }, [clearCreateNewSessionIdError, clearStreamError]);
+
+  const newSessionDisabled =
+    (sessionId === null && messages.length === 0) || isStreaming;
 
   return (
     <ChatPageView
@@ -79,6 +100,8 @@ function ChatPageContent() {
         });
       }}
       onStop={stopGeneration}
+      onNewSession={startNewSession}
+      newSessionDisabled={newSessionDisabled}
       onDismissError={dismissError}
       onDismissMaxRoundsReached={clearMaxRoundsReached}
     />
