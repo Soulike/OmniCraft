@@ -173,8 +173,8 @@ export class LlmSession {
     });
 
     let textContent = '';
-    let assistantId = '';
-    let assistantCreatedAt = 0;
+    let assistantId: string | null = null;
+    let assistantCreatedAt: number | null = null;
     const toolCalls: LlmToolCall[] = [];
     const pendingToolCalls = new Map<string, LlmToolCall>();
 
@@ -236,7 +236,10 @@ export class LlmSession {
       yield {type: 'tool-call', toolCall};
     }
 
-    assert(assistantId, 'LLM adapter did not emit message-start event');
+    assert(
+      assistantId !== null && assistantCreatedAt !== null,
+      'LLM adapter did not emit message-start event',
+    );
 
     const assistantMessage: LlmAssistantMessage = {
       id: assistantId,
