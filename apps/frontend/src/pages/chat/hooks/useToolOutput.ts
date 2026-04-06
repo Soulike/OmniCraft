@@ -10,7 +10,7 @@ const MAX_OUTPUT_BYTES = 8192; // 8 KB
  * to once per animation frame.
  */
 export function useToolOutput() {
-  const [toolOutput] = useState(() => new Map<string, string>());
+  const mapRef = useRef(new Map<string, string>());
   const rafIdRef = useRef<number | null>(null);
   const [, forceRender] = useState(0);
   const eventBus = useChatEventBus();
@@ -24,9 +24,9 @@ export function useToolOutput() {
 
   useEffect(() => {
     const onDelta = (data: {callId: string; content: string}) => {
-      const current = toolOutput.get(data.callId) ?? '';
+      const current = mapRef.current.get(data.callId) ?? '';
       const updated = current + data.content;
-      toolOutput.set(
+      mapRef.current.set(
         data.callId,
         updated.length > MAX_OUTPUT_BYTES
           ? updated.slice(updated.length - MAX_OUTPUT_BYTES)
@@ -36,7 +36,7 @@ export function useToolOutput() {
     };
 
     const onEnd = (data: {callId: string}) => {
-      toolOutput.delete(data.callId);
+      mapRef.current.delete(data.callId);
       scheduleRender();
     };
 
@@ -50,11 +50,11 @@ export function useToolOutput() {
         cancelAnimationFrame(rafIdRef.current);
       }
     };
-  }, [eventBus, scheduleRender, toolOutput]);
+  }, [eventBus, scheduleRender]);
 
   const clearToolOutput = useCallback(() => {
-    toolOutput.clear();
-  }, [toolOutput]);
+    mapRef.current.clear();
+  }, []);
 
-  return {toolOutput, clearToolOutput};
+  return {toolOutput: mapRef.current, clearToolOutput};
 }
