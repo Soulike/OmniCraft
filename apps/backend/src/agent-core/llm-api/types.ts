@@ -9,24 +9,28 @@ export interface LlmToolCall {
   arguments: string;
 }
 
-/** A message from the user. */
-export interface LlmUserMessage {
-  role: 'user';
+/** Common fields shared by all LLM messages. */
+interface LlmMessageBase {
+  id: string;
+  createdAt: number;
   content: string;
 }
 
+/** A message from the user. */
+export interface LlmUserMessage extends LlmMessageBase {
+  role: 'user';
+}
+
 /** A message from the assistant, optionally containing tool calls. */
-export interface LlmAssistantMessage {
+export interface LlmAssistantMessage extends LlmMessageBase {
   role: 'assistant';
-  content: string;
   toolCalls: LlmToolCall[];
 }
 
 /** A tool execution result, linked to a specific tool call. */
-export interface LlmToolResultMessage {
+export interface LlmToolResultMessage extends LlmMessageBase {
   role: 'tool';
   callId: string;
-  content: string;
 }
 
 /** A single message in the LLM conversation context. */
