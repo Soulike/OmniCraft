@@ -59,6 +59,8 @@ export interface ChatEventMap {
   'tool-execute-start': ToolExecutionStartContent;
   /** A tool finished executing. */
   'tool-execute-end': ToolExecutionEndContent;
+  /** Intermediate streaming output from a running tool. */
+  'tool-execute-delta': {callId: string; content: string};
   /** The stream completed (LLM finished or max rounds reached). */
   'stream-done': {
     sessionId: string;
