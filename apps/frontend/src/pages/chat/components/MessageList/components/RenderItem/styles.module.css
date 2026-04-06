@@ -27,3 +27,7 @@
   opacity: 0.5;
   margin-top: 4px;
 }
+
+.timestampRight {
+  text-align: right;
+}

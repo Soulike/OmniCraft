@@ -1,3 +1,5 @@
+import clsx from 'clsx';
+
 import type {MessageRenderItem} from '../../hooks/useMessageList.js';
 import {formatTimestamp} from '../MessageBubble/helpers/formatTimestamp.js';
 import {MessageBubble} from '../MessageBubble/index.js';
@@ -26,7 +28,7 @@ export function RenderItem({item}: RenderItemProps) {
         <div className={styles.assistantMessage}>
           <MessageBubble role='assistant' id={item.id} content={item.content} />
           {item.createdAt !== null && (
-            <time className={styles.timestamp}>
+            <time className={clsx(styles.timestamp, styles.timestampRight)}>
               {formatTimestamp(item.createdAt)}
             </time>
           )}
