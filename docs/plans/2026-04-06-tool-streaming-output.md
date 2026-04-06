@@ -382,108 +382,116 @@ git commit -m "feat(frontend): handle tool-execute-delta events with 8KB output 
 
 ---
 
-## Task 6: Display streaming output in ToolExecutionCard via context
+## Task 6: Display streaming output in ToolExecutionCard via prop drilling
 
 **Files:**
 
-- Create: `apps/frontend/src/pages/chat/contexts/ToolOutputContext/ToolOutputContext.ts`
-- Create: `apps/frontend/src/pages/chat/contexts/ToolOutputContext/ToolOutputProvider.tsx`
-- Create: `apps/frontend/src/pages/chat/contexts/ToolOutputContext/index.ts`
-- Create: `apps/frontend/src/pages/chat/contexts/ToolOutputContext/useToolOutput.ts`
 - Modify: `apps/frontend/src/pages/chat/ChatPage.tsx`
+- Modify: `apps/frontend/src/pages/chat/ChatPageView.tsx`
+- Modify: `apps/frontend/src/pages/chat/components/MessageList/MessageList.tsx`
+- Modify: `apps/frontend/src/pages/chat/components/MessageList/MessageListView.tsx`
+- Modify: `apps/frontend/src/pages/chat/components/MessageList/components/RenderItem/RenderItem.tsx`
 - Modify: `apps/frontend/src/pages/chat/components/MessageList/components/ToolExecutionCard/ToolExecutionCard.tsx`
 - Modify: `apps/frontend/src/pages/chat/components/MessageList/components/ToolExecutionCard/ToolExecutionCardView.tsx`
-- Modify: `apps/frontend/src/pages/chat/components/MessageList/components/RenderItem/RenderItem.tsx`
 
-- [ ] **Step 1: Create ToolOutputContext**
+- [ ] **Step 1: Thread `toolOutput` from `ChatPage` to `ChatPageView`**
 
-`apps/frontend/src/pages/chat/contexts/ToolOutputContext/ToolOutputContext.ts`:
-
-```typescript
-import {createContext} from 'react';
-
-export const ToolOutputContext = createContext<ReadonlyMap<string, string>>(
-  new Map(),
-);
-```
-
-- [ ] **Step 2: Create ToolOutputProvider**
-
-`apps/frontend/src/pages/chat/contexts/ToolOutputContext/ToolOutputProvider.tsx`:
-
-```typescript
-import type {ReactNode} from 'react';
-
-import {ToolOutputContext} from './ToolOutputContext.js';
-
-interface ToolOutputProviderProps {
-  toolOutput: ReadonlyMap<string, string>;
-  children: ReactNode;
-}
-
-export function ToolOutputProvider({
-  toolOutput,
-  children,
-}: ToolOutputProviderProps) {
-  return (
-    <ToolOutputContext value={toolOutput}>{children}</ToolOutputContext>
-  );
-}
-```
-
-- [ ] **Step 3: Create useToolOutput hook**
-
-`apps/frontend/src/pages/chat/contexts/ToolOutputContext/useToolOutput.ts`:
-
-```typescript
-import {useContext} from 'react';
-
-import {ToolOutputContext} from './ToolOutputContext.js';
-
-/** Returns the streaming output for a specific tool call, or undefined if none. */
-export function useToolOutput(callId: string): string | undefined {
-  const map = useContext(ToolOutputContext);
-  return map.get(callId);
-}
-```
-
-- [ ] **Step 4: Create index.ts**
-
-`apps/frontend/src/pages/chat/contexts/ToolOutputContext/index.ts`:
-
-```typescript
-export {ToolOutputProvider} from './ToolOutputProvider.js';
-export {useToolOutput} from './useToolOutput.js';
-```
-
-- [ ] **Step 5: Wire provider in ChatPage**
-
-In `apps/frontend/src/pages/chat/ChatPage.tsx`, import the provider:
-
-```typescript
-import {ToolOutputProvider} from './contexts/ToolOutputContext/index.js';
-```
-
-Update the `useMessages` destructuring:
+In `apps/frontend/src/pages/chat/ChatPage.tsx`, update the `useMessages` destructuring:
 
 ```typescript
 const {messages, toolOutput, clearMessages} = useMessages();
 ```
 
-Wrap `ChatPageView` with `ToolOutputProvider` in the return of `ChatPageContent`:
+Pass to `ChatPageView`:
 
 ```tsx
-    <ToolOutputProvider toolOutput={toolOutput}>
-      <ChatPageView ... />
-    </ToolOutputProvider>
+toolOutput = {toolOutput};
 ```
 
-- [ ] **Step 6: Update ToolExecutionCard to read from context**
-
-In `ToolExecutionCard.tsx`, add `callId` as a required prop and use the hook to get output:
+In `apps/frontend/src/pages/chat/ChatPageView.tsx`, add to `ChatPageViewProps`:
 
 ```typescript
-import {useToolOutput} from '../../../../contexts/ToolOutputContext/index.js';
+toolOutput: ReadonlyMap<string, string>;
+```
+
+Accept it in the destructuring and pass to `MessageList`:
+
+```tsx
+<MessageList messages={messages} toolOutput={toolOutput} />
+```
+
+- [ ] **Step 2: Thread through `MessageList` and `MessageListView`**
+
+In `MessageList.tsx`, add prop and forward:
+
+```typescript
+interface MessageListProps {
+  messages: ChatMessage[];
+  toolOutput: ReadonlyMap<string, string>;
+}
+
+export function MessageList({messages, toolOutput}: MessageListProps) {
+  const items = useMessageList(messages);
+  return <MessageListView items={items} toolOutput={toolOutput} />;
+}
+```
+
+In `MessageListView.tsx`, add prop and forward to `RenderItem`:
+
+```typescript
+interface MessageListViewProps {
+  items: MessageRenderItem[];
+  toolOutput: ReadonlyMap<string, string>;
+}
+```
+
+Update the render:
+
+```tsx
+{
+  items.map((item, index) => (
+    <RenderItem
+      key={itemKey(item, index)}
+      item={item}
+      toolOutput={toolOutput}
+    />
+  ));
+}
+```
+
+- [ ] **Step 3: Update `RenderItem` to pass `callId` and `toolOutput` to `ToolExecutionCard`**
+
+Add `toolOutput` to props:
+
+```typescript
+interface RenderItemProps {
+  item: MessageRenderItem;
+  toolOutput: ReadonlyMap<string, string>;
+}
+```
+
+In the `tool-execution` case:
+
+```tsx
+    case 'tool-execution':
+      return (
+        <div className={styles.assistantMessage}>
+          <ToolExecutionCard
+            callId={item.callId}
+            toolName={item.toolName}
+            displayName={item.displayName}
+            arguments={item.arguments}
+            status={item.status}
+            result={item.result}
+            toolOutput={toolOutput}
+          />
+        </div>
+      );
+```
+
+- [ ] **Step 4: Update `ToolExecutionCard` to read output from Map**
+
+```typescript
 import {ToolExecutionCardView} from './ToolExecutionCardView.js';
 
 interface ToolExecutionCardProps {
@@ -493,6 +501,7 @@ interface ToolExecutionCardProps {
   arguments: string;
   status: 'running' | 'done' | 'error';
   result?: string;
+  toolOutput: ReadonlyMap<string, string>;
 }
 
 export function ToolExecutionCard({
@@ -502,8 +511,9 @@ export function ToolExecutionCard({
   arguments: toolArguments,
   status,
   result,
+  toolOutput,
 }: ToolExecutionCardProps) {
-  const output = useToolOutput(callId);
+  const output = toolOutput.get(callId);
 
   return (
     <ToolExecutionCardView
@@ -518,27 +528,7 @@ export function ToolExecutionCard({
 }
 ```
 
-- [ ] **Step 7: Update RenderItem to pass callId**
-
-In `RenderItem.tsx`, add `callId={item.callId}` to `ToolExecutionCard`:
-
-```tsx
-    case 'tool-execution':
-      return (
-        <div className={styles.assistantMessage}>
-          <ToolExecutionCard
-            callId={item.callId}
-            toolName={item.toolName}
-            displayName={item.displayName}
-            arguments={item.arguments}
-            status={item.status}
-            result={item.result}
-          />
-        </div>
-      );
-```
-
-- [ ] **Step 8: Update ToolExecutionCardView to render Output section**
+- [ ] **Step 5: Update `ToolExecutionCardView` to render Output section**
 
 Add `output` to the props interface:
 
@@ -568,17 +558,18 @@ Add the Output section in the JSX, after the Arguments section and before the Re
 }
 ```
 
-- [ ] **Step 9: Run typecheck and tests**
+- [ ] **Step 6: Run typecheck and tests**
 
 Run: `cd apps/frontend && bun run typecheck && bun run test`
 Expected: PASS (no changes to transformMessages, existing tests unaffected)
 
-- [ ] **Step 10: Commit**
+- [ ] **Step 7: Commit**
 
 ```bash
-git add apps/frontend/src/pages/chat/contexts/ToolOutputContext/ \
-       apps/frontend/src/pages/chat/ChatPage.tsx \
+git add apps/frontend/src/pages/chat/ChatPage.tsx \
+       apps/frontend/src/pages/chat/ChatPageView.tsx \
+       apps/frontend/src/pages/chat/components/MessageList/ \
        apps/frontend/src/pages/chat/components/MessageList/components/ToolExecutionCard/ \
        apps/frontend/src/pages/chat/components/MessageList/components/RenderItem/RenderItem.tsx
-git commit -m "feat(frontend): display streaming tool output in ToolExecutionCard via context"
+git commit -m "feat(frontend): display streaming tool output in ToolExecutionCard"
 ```
