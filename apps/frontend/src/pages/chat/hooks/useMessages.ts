@@ -19,7 +19,7 @@ function removeTrailingAssistantMessageIfEmpty(
   if (
     last.role === 'assistant' &&
     last.content.type === 'text' &&
-    last.content.content === ''
+    last.content.content.trim() === ''
   ) {
     return messages.slice(0, -1);
   }
