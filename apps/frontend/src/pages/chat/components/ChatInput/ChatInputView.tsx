@@ -1,5 +1,4 @@
 import {Button, TextArea} from '@heroui/react';
-import {SendIcon, SquareIcon} from 'lucide-react';
 
 import styles from './styles.module.css';
 
@@ -35,22 +34,16 @@ export function ChatInputView({
         onKeyDown={onKeyDown}
       />
       {isStreaming ? (
-        <Button
-          aria-label='Stop generation'
-          variant='danger'
-          isIconOnly
-          onPress={onStop}
-        >
-          <SquareIcon size={18} />
+        <Button aria-label='Stop generation' variant='danger' onPress={onStop}>
+          Stop
         </Button>
       ) : (
         <Button
           aria-label='Send message'
           isDisabled={!input.trim()}
-          isIconOnly
           onPress={onSend}
         >
-          <SendIcon size={18} />
+          Send
         </Button>
       )}
     </div>

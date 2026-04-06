@@ -46,7 +46,10 @@ export const webSearchTool: ToolDefinition<typeof parameters> = {
   name: 'web_search',
   displayName: 'Web Search',
   description:
-    'Searches the web and returns relevant results with titles, URLs, and content summaries.',
+    'Searches the web and returns relevant results with titles, URLs, and content summaries. ' +
+    'Use this when the user asks about recent events, external documentation, or anything ' +
+    'that may require up-to-date information beyond your training data. ' +
+    'Prefer this over guessing when you are unsure about facts.',
   parameters,
   async execute(
     args: WebSearchArgs,

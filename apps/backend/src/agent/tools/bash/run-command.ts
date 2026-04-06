@@ -59,6 +59,7 @@ export const runCommandTool: ToolDefinition<typeof parameters> = {
   displayName: 'Run Command',
   description:
     'Executes a shell command and returns its output. ' +
+    'Only use this when no other tool can accomplish the task. ' +
     'The working directory persists across calls. ' +
     'Shell state (env vars, aliases) does not persist.',
   parameters,

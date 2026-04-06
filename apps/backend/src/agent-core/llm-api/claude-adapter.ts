@@ -19,6 +19,7 @@ type AssertCacheControl<T extends {cache_control?: unknown}> = T;
 type _CheckText = AssertCacheControl<Anthropic.TextBlockParam>;
 type _CheckToolUse = AssertCacheControl<Anthropic.ToolUseBlockParam>;
 type _CheckToolResult = AssertCacheControl<Anthropic.ToolResultBlockParam>;
+type _CheckTool = AssertCacheControl<Anthropic.Tool>;
 
 /** Converts our unified LlmMessage to the Anthropic SDK message format. */
 function toSdkMessage(message: LlmMessage): SdkMessageParam {
@@ -113,9 +114,18 @@ export async function* streamClaude(
   const client = new Anthropic({
     apiKey: config.apiKey,
     baseURL: config.baseUrl,
+    maxRetries: 20,
   });
 
   const claudeTools = options.tools.map(toClaudeTool);
+
+  // Cache the tool list — it's static across all rounds in a session.
+  if (claudeTools.length > 0) {
+    claudeTools[claudeTools.length - 1] = {
+      ...claudeTools[claudeTools.length - 1],
+      cache_control: {type: 'ephemeral'},
+    };
+  }
 
   // Convert messages and add a cache breakpoint on the second-to-last message
   // so the API can cache the conversation prefix that won't change anymore.
@@ -161,11 +171,16 @@ export async function* streamClaude(
   for await (const event of stream) {
     switch (event.type) {
       case 'message_start': {
+        // Claude's input_tokens only counts non-cached tokens. Add cache_read
+        // and cache_creation to get the true total.
+        // https://platform.claude.com/docs/en/build-with-claude/prompt-caching#tracking-cache-performance
+        const messageUsage = event.message.usage;
+        const cacheRead = messageUsage.cache_read_input_tokens ?? 0;
+        const cacheCreation = messageUsage.cache_creation_input_tokens ?? 0;
         usage = {
-          inputTokens: event.message.usage.input_tokens,
-          outputTokens: event.message.usage.output_tokens,
-          cacheReadInputTokens:
-            event.message.usage.cache_read_input_tokens ?? 0,
+          inputTokens: messageUsage.input_tokens + cacheRead + cacheCreation,
+          outputTokens: messageUsage.output_tokens,
+          cacheReadInputTokens: cacheRead,
         };
         yield {type: 'message-start', messageId: event.message.id};
         break;
