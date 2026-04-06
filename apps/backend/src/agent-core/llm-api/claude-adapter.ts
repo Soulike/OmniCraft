@@ -171,11 +171,16 @@ export async function* streamClaude(
   for await (const event of stream) {
     switch (event.type) {
       case 'message_start': {
+        // Claude's input_tokens only counts non-cached tokens. Add cache_read
+        // and cache_creation to get the true total.
+        // https://platform.claude.com/docs/en/build-with-claude/prompt-caching#tracking-cache-performance
+        const messageUsage = event.message.usage;
+        const cacheRead = messageUsage.cache_read_input_tokens ?? 0;
+        const cacheCreation = messageUsage.cache_creation_input_tokens ?? 0;
         usage = {
-          inputTokens: event.message.usage.input_tokens,
-          outputTokens: event.message.usage.output_tokens,
-          cacheReadInputTokens:
-            event.message.usage.cache_read_input_tokens ?? 0,
+          inputTokens: messageUsage.input_tokens + cacheRead + cacheCreation,
+          outputTokens: messageUsage.output_tokens,
+          cacheReadInputTokens: cacheRead,
         };
         yield {type: 'message-start', messageId: event.message.id};
         break;
