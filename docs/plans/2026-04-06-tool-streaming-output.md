@@ -292,13 +292,12 @@ git commit -m "feat(agent): yield tool-execute-delta events via onOutput callbac
 
 ---
 
-## Task 5: Frontend — emit `tool-execute-delta` and manage output state
+## Task 5: Frontend — emit `tool-execute-delta` SSE event
 
 **Files:**
 
 - Modify: `apps/frontend/src/pages/chat/types.ts`
 - Modify: `apps/frontend/src/pages/chat/hooks/useStreamChat.ts`
-- Modify: `apps/frontend/src/pages/chat/hooks/useMessages.ts`
 
 - [ ] **Step 1: Add `tool-execute-delta` to `ChatEventMap`**
 
@@ -322,67 +321,99 @@ In `useStreamChat.ts`, replace the `tool-execute-delta` no-op case (around line 
               break;
 ```
 
-- [ ] **Step 3: Manage output state in `useMessages`**
-
-Add a constant at the top of the file:
-
-```typescript
-const MAX_OUTPUT_BYTES = 8192; // 8 KB
-```
-
-In `useMessages`, add a `useState` for the tool output map:
-
-```typescript
-const [toolOutput, setToolOutput] = useState(new Map<string, string>());
-```
-
-Add event handlers inside the `useEffect`:
-
-```typescript
-const onToolExecuteDelta = (data: {callId: string; content: string}) => {
-  setToolOutput((prev) => {
-    const next = new Map(prev);
-    const current = next.get(data.callId) ?? '';
-    const updated = current + data.content;
-    next.set(
-      data.callId,
-      updated.length > MAX_OUTPUT_BYTES
-        ? updated.slice(updated.length - MAX_OUTPUT_BYTES)
-        : updated,
-    );
-    return next;
-  });
-};
-const onToolExecuteEndWithCleanup = (data: ToolExecutionEndContent) => {
-  setToolOutput((prev) => {
-    const next = new Map(prev);
-    next.delete(data.callId);
-    return next;
-  });
-  setMessages((prev) => pushToolEnd(prev, data));
-};
-```
-
-Replace the existing `onToolExecuteEnd` handler and subscription with `onToolExecuteEndWithCleanup`. Add `onToolExecuteDelta` subscription. Update the cleanup return accordingly.
-
-Export `toolOutput` from the hook:
-
-```typescript
-return {messages, toolOutput, clearMessages};
-```
-
-- [ ] **Step 4: Commit**
+- [ ] **Step 3: Commit**
 
 ```bash
 git add apps/frontend/src/pages/chat/types.ts \
-       apps/frontend/src/pages/chat/hooks/useStreamChat.ts \
-       apps/frontend/src/pages/chat/hooks/useMessages.ts
-git commit -m "feat(frontend): handle tool-execute-delta events with 8KB output buffer"
+       apps/frontend/src/pages/chat/hooks/useStreamChat.ts
+git commit -m "feat(frontend): emit tool-execute-delta SSE events to event bus"
 ```
 
 ---
 
-## Task 6: Display streaming output in ToolExecutionCard via prop drilling
+## Task 6: Create `useToolOutput` hook
+
+**Files:**
+
+- Create: `apps/frontend/src/pages/chat/hooks/useToolOutput.ts`
+
+- [ ] **Step 1: Create the hook**
+
+```typescript
+import {useCallback, useEffect, useRef, useState} from 'react';
+
+import {useChatEventBus} from './useChatEventBus.js';
+
+const MAX_OUTPUT_BYTES = 8192; // 8 KB
+
+/**
+ * Manages streaming tool output, accumulating delta chunks per callId.
+ * Truncates to the most recent 8 KB per tool. Re-renders are throttled
+ * to once per animation frame.
+ */
+export function useToolOutput() {
+  const mapRef = useRef(new Map<string, string>());
+  const rafIdRef = useRef<number | null>(null);
+  const [, forceRender] = useState(0);
+  const eventBus = useChatEventBus();
+
+  const scheduleRender = useCallback(() => {
+    if (rafIdRef.current === null) {
+      rafIdRef.current = requestAnimationFrame(() => {
+        rafIdRef.current = null;
+        forceRender((v) => v + 1);
+      });
+    }
+  }, []);
+
+  useEffect(() => {
+    const onDelta = (data: {callId: string; content: string}) => {
+      const current = mapRef.current.get(data.callId) ?? '';
+      const updated = current + data.content;
+      mapRef.current.set(
+        data.callId,
+        updated.length > MAX_OUTPUT_BYTES
+          ? updated.slice(updated.length - MAX_OUTPUT_BYTES)
+          : updated,
+      );
+      scheduleRender();
+    };
+
+    const onEnd = (data: {callId: string}) => {
+      mapRef.current.delete(data.callId);
+      scheduleRender();
+    };
+
+    eventBus.on('tool-execute-delta', onDelta);
+    eventBus.on('tool-execute-end', onEnd);
+
+    return () => {
+      eventBus.off('tool-execute-delta', onDelta);
+      eventBus.off('tool-execute-end', onEnd);
+      if (rafIdRef.current !== null) {
+        cancelAnimationFrame(rafIdRef.current);
+      }
+    };
+  }, [eventBus, scheduleRender]);
+
+  const clear = useCallback(() => {
+    mapRef.current.clear();
+  }, []);
+
+  return {toolOutput: mapRef.current, clearToolOutput: clear};
+}
+```
+
+- [ ] **Step 2: Commit**
+
+```bash
+git add apps/frontend/src/pages/chat/hooks/useToolOutput.ts
+git commit -m "feat(frontend): add useToolOutput hook with RAF-throttled rendering"
+```
+
+---
+
+## Task 7: Display streaming output in ToolExecutionCard via prop drilling
 
 **Files:**
 
@@ -394,12 +425,18 @@ git commit -m "feat(frontend): handle tool-execute-delta events with 8KB output 
 - Modify: `apps/frontend/src/pages/chat/components/MessageList/components/ToolExecutionCard/ToolExecutionCard.tsx`
 - Modify: `apps/frontend/src/pages/chat/components/MessageList/components/ToolExecutionCard/ToolExecutionCardView.tsx`
 
-- [ ] **Step 1: Thread `toolOutput` from `ChatPage` to `ChatPageView`**
+- [ ] **Step 1: Wire `useToolOutput` in `ChatPage` and pass to `ChatPageView`**
 
-In `apps/frontend/src/pages/chat/ChatPage.tsx`, update the `useMessages` destructuring:
+In `apps/frontend/src/pages/chat/ChatPage.tsx`, import and call the hook:
 
 ```typescript
-const {messages, toolOutput, clearMessages} = useMessages();
+import {useToolOutput} from './hooks/useToolOutput.js';
+```
+
+In `ChatPageContent`, add:
+
+```typescript
+const {toolOutput} = useToolOutput();
 ```
 
 Pass to `ChatPageView`:
