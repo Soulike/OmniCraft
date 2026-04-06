@@ -213,8 +213,8 @@ export abstract class Agent {
           channel.close();
         });
 
-      for await (const endEvent of channel) {
-        yield endEvent;
+      for await (const event of channel) {
+        yield event;
       }
 
       if (signal?.aborted) return;

@@ -2,7 +2,7 @@ import {useCallback, useEffect, useRef, useState} from 'react';
 
 import {useChatEventBus} from './useChatEventBus.js';
 
-const MAX_OUTPUT_BYTES = 8192; // 8 KB
+const MAX_OUTPUT_LENGTH = 8192; // 8K characters
 
 /**
  * Manages streaming tool output, accumulating delta chunks per callId.
@@ -31,8 +31,8 @@ export function useToolOutput() {
       const updated = current + data.content;
       mapRef.current.set(
         data.callId,
-        updated.length > MAX_OUTPUT_BYTES
-          ? updated.slice(updated.length - MAX_OUTPUT_BYTES)
+        updated.length > MAX_OUTPUT_LENGTH
+          ? updated.slice(updated.length - MAX_OUTPUT_LENGTH)
           : updated,
       );
       scheduleRender();
