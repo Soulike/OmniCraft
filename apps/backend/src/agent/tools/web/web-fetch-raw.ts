@@ -14,6 +14,7 @@ import {
 } from './config.js';
 import {fetchBody} from './helpers.js';
 import {validateUrl} from './url-validator.js';
+import {webFetchTool} from './web-fetch.js';
 
 const parameters = z.object({
   url: z.url().describe('The URL to fetch.'),
@@ -26,7 +27,7 @@ export const webFetchRawTool: ToolDefinition<typeof parameters> = {
   displayName: 'Web Fetch Raw',
   description:
     'Fetches a URL and returns the raw text content with no conversion. ' +
-    'Prefer web_fetch for most use cases; only use this tool when you ' +
+    `Prefer ${webFetchTool.name} for most use cases; only use this tool when you ` +
     'need unprocessed content (e.g., inspecting raw HTML structure).',
   parameters,
   async execute(

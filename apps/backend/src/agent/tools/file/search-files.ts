@@ -94,7 +94,8 @@ export const searchFilesTool: ToolDefinition<typeof parameters> = {
   name: 'search_files',
   displayName: 'Search Files',
   description:
-    'Searches file contents for a regex pattern and returns matching lines.',
+    'Searches file contents for a regex pattern and returns matching lines with file paths and line numbers. ' +
+    'Use this to find where a function, variable, string, or pattern is used across the codebase.',
   parameters,
   async execute(
     args: SearchFilesArgs,

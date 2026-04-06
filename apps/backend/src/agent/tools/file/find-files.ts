@@ -12,6 +12,7 @@ import type {
 } from '@/agent-core/tool/index.js';
 
 import {AccessCheckResult, checkAccess} from './helpers.js';
+import {searchFilesTool} from './search-files.js';
 
 const MAX_RESULTS = 100;
 const TIMEOUT_MS = 30_000;
@@ -38,7 +39,9 @@ export const findFilesTool: ToolDefinition<typeof parameters> = {
   name: 'find_files',
   displayName: 'Find Files',
   description:
-    'Searches for files matching a glob pattern and returns their paths.',
+    'Searches for files matching a glob pattern and returns their paths. ' +
+    'Use this to locate files by name or extension (e.g., find all TypeScript files, locate a config file). ' +
+    `To search file contents instead, use ${searchFilesTool.name}.`,
   parameters,
   async execute(
     args: FindFilesArgs,
