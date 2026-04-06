@@ -8,31 +8,31 @@ Tool execution is a black box — the UI shows a spinner until the tool finishes
 
 ### Tool Interface Change
 
-`ToolDefinition.execute` signature is unchanged — it still returns `Promise<string> | string`.
-
-Streaming output is delivered via a new optional callback on `ToolExecutionContext`:
+`ToolDefinition.execute` gains a third optional parameter for streaming output:
 
 ```typescript
-interface ToolExecutionContext {
-  // ... existing fields unchanged
-  onOutput?: (chunk: string) => void;
-}
+execute(
+  args: z.infer<T>,
+  context: ToolExecutionContext,
+  onOutput?: (chunk: string) => void,
+): Promise<string> | string;
 ```
 
-- Tools that support streaming call `context.onOutput?.(chunk)` during execution
-- Tools that don't stream ignore it — zero changes needed for existing tools
-- The callback is set by the Agent before calling `execute`
+- `onOutput` is the tool's own ability to emit intermediate output, not Agent state
+- Tools that support streaming call `onOutput?.(chunk)` during execution
+- Existing tools ignore the parameter — TypeScript allows implementations to omit trailing parameters
+- `ToolExecutionContext` is unchanged
 
 ### Shell Tool
 
 `ShellCommandRunner.run()` gains an optional `onStdoutData` callback parameter. In `run()`, an additional `child.stdout.on('data')` listener is registered alongside the existing one that writes to the temp file. Both listeners coexist on the same EventEmitter and fire independently.
 
-The `run_command` tool passes `context.onOutput` as the `onStdoutData` callback:
+The `run_command` tool passes `onOutput` as the `onStdoutData` callback:
 
 ```typescript
-async execute(args, context) {
+async execute(args, context, onOutput) {
   const result = await runner.run({
-    onStdoutData: (chunk) => context.onOutput?.(chunk),
+    onStdoutData: onOutput,
   });
   return assembleResult(result);
 }
@@ -42,10 +42,10 @@ No changes to the tool's return type or execution model.
 
 ### Agent Execution
 
-`Agent.executeTool()` sets up the `onOutput` callback before calling `execute`:
+`Agent.executeTool()` constructs an `onOutput` callback and passes it as the third argument to `execute`:
 
-1. Constructs `context.onOutput` to push `AgentToolExecuteDeltaEvent` to the existing `AsyncChannel`
-2. Calls `tool.execute(args, context)` and awaits the result
+1. Creates `onOutput` callback that pushes `AgentToolExecuteDeltaEvent` to the existing `AsyncChannel`
+2. Calls `tool.execute(args, context, onOutput)` and awaits the result
 3. Pushes `tool-execute-end` to the channel as before
 
 The `AsyncChannel` type widens from `AgentToolExecuteEndEvent` to `AgentToolExecuteEndEvent | AgentToolExecuteDeltaEvent`.
@@ -74,12 +74,12 @@ The `AsyncChannel` type widens from `AgentToolExecuteEndEvent` to `AgentToolExec
 
 ### Backend
 
-| File                                               | Change                                                          |
-| -------------------------------------------------- | --------------------------------------------------------------- |
-| `apps/backend/src/agent-core/tool/types.ts`        | Add `onOutput` to `ToolExecutionContext`                        |
-| `apps/backend/src/helpers/shell-command-runner.ts` | Add optional `onStdoutData` callback to `run()`                 |
-| `apps/backend/src/agent/tools/bash/run-command.ts` | Pass `context.onOutput` as `onStdoutData`                       |
-| `apps/backend/src/agent-core/agent/agent.ts`       | Set up `onOutput` callback in `executeTool`, widen channel type |
+| File                                               | Change                                                             |
+| -------------------------------------------------- | ------------------------------------------------------------------ |
+| `apps/backend/src/agent-core/tool/types.ts`        | Add `onOutput` parameter to `execute` signature                    |
+| `apps/backend/src/helpers/shell-command-runner.ts` | Add optional `onStdoutData` callback to `run()`                    |
+| `apps/backend/src/agent/tools/bash/run-command.ts` | Accept `onOutput`, pass as `onStdoutData`                          |
+| `apps/backend/src/agent-core/agent/agent.ts`       | Construct `onOutput` callback in `executeTool`, widen channel type |
 
 ### Frontend
 

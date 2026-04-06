@@ -31,31 +31,34 @@
 
 ---
 
-## Task 1: Add `onOutput` to `ToolExecutionContext`
+## Task 1: Add `onOutput` parameter to `ToolDefinition.execute`
 
 **Files:**
 
 - Modify: `apps/backend/src/agent-core/tool/types.ts`
 
-- [ ] **Step 1: Add `onOutput` callback**
+- [ ] **Step 1: Add `onOutput` as third parameter to `execute`**
 
-Add after the `signal` field (line 38):
+Update the `execute` signature in `ToolDefinition` (lines 55-58):
 
 ```typescript
-  /** Optional callback for streaming intermediate output from the tool. */
-  readonly onOutput?: (chunk: string) => void;
+  execute(
+    args: z.infer<T>,
+    context: ToolExecutionContext,
+    onOutput?: (chunk: string) => void,
+  ): Promise<string> | string;
 ```
 
 - [ ] **Step 2: Run typecheck**
 
 Run: `cd apps/backend && bun run typecheck`
-Expected: PASS (additive change)
+Expected: PASS (existing tools don't declare the parameter, which is valid TypeScript)
 
 - [ ] **Step 3: Commit**
 
 ```bash
 git add apps/backend/src/agent-core/tool/types.ts
-git commit -m "feat(tool): add onOutput callback to ToolExecutionContext"
+git commit -m "feat(tool): add onOutput parameter to ToolDefinition.execute"
 ```
 
 ---
@@ -119,7 +122,26 @@ git commit -m "feat(shell): add onStdoutData callback to ShellCommandRunner.run(
 
 - Modify: `apps/backend/src/agent/tools/bash/run-command.ts`
 
-- [ ] **Step 1: Pass `context.onOutput` to `ShellCommandRunner.run()`**
+- [ ] **Step 1: Accept `onOutput` and pass to `ShellCommandRunner.run()`**
+
+Update the `execute` method signature (lines 66-69) to accept the third parameter. Change:
+
+```typescript
+  async execute(
+    args: RunCommandArgs,
+    context: ToolExecutionContext,
+  ): Promise<string> {
+```
+
+To:
+
+```typescript
+  async execute(
+    args: RunCommandArgs,
+    context: ToolExecutionContext,
+    onOutput?: (chunk: string) => void,
+  ): Promise<string> {
+```
 
 Update the `run()` call (lines 73-78). Change:
 
@@ -140,7 +162,7 @@ const result = await new ShellCommandRunner(
   shellState.cwd,
   timeout,
   signal,
-).run({onStdoutData: context.onOutput});
+).run({onStdoutData: onOutput});
 ```
 
 - [ ] **Step 2: Run typecheck and tests**
@@ -152,7 +174,7 @@ Expected: PASS
 
 ```bash
 git add apps/backend/src/agent/tools/bash/run-command.ts
-git commit -m "feat(bash-tool): stream stdout via context.onOutput"
+git commit -m "feat(bash-tool): stream stdout via onOutput parameter"
 ```
 
 ---
@@ -190,32 +212,9 @@ const channel = new AsyncChannel<
 >();
 ```
 
-- [ ] **Step 3: Set up `onOutput` callback in `executeTool`**
+- [ ] **Step 3: Update `executeTool` to create and pass `onOutput`**
 
-In the `executeTool` method, add `onOutput` to the context construction. Replace the `context` assignment (lines 377-385):
-
-```typescript
-const context: ToolExecutionContext = {
-  availableSkills: this.getAvailableSkills(),
-  workingDirectory: this.workingDirectory,
-  fileCache: this.fileCache,
-  fileStatTracker: this.fileStatTracker,
-  extraAllowedPaths: this.extraAllowedPaths,
-  shellState: this.shellState,
-  signal,
-  onOutput: (chunk: string) => {
-    channel.push({
-      type: 'tool-execute-delta',
-      callId: toolCall.callId,
-      content: chunk,
-    } satisfies AgentToolExecuteDeltaEvent);
-  },
-};
-```
-
-This requires `channel` to be accessible from `executeTool`. Currently `executeTool` doesn't have access to the channel. We need to pass it as a parameter.
-
-Update `executeTool` signature. Change:
+Update `executeTool` signature to accept `onOutput`. Change:
 
 ```typescript
   private async executeTool(
@@ -236,24 +235,21 @@ To:
   ): Promise<{content: string; isError: boolean}> {
 ```
 
-And update the context construction to use the parameter:
+Update the `tool.execute` call inside `executeTool` to pass `onOutput` as the third argument. Change:
 
 ```typescript
-const context: ToolExecutionContext = {
-  availableSkills: this.getAvailableSkills(),
-  workingDirectory: this.workingDirectory,
-  fileCache: this.fileCache,
-  fileStatTracker: this.fileStatTracker,
-  extraAllowedPaths: this.extraAllowedPaths,
-  shellState: this.shellState,
-  signal,
-  onOutput,
-};
+const content = await tool.execute(parsedArgs, context);
 ```
 
-- [ ] **Step 4: Update call sites of `executeTool`**
+To:
 
-In `handleUserMessage`, update the tool execution map (lines 177-178). Change:
+```typescript
+const content = await tool.execute(parsedArgs, context, onOutput);
+```
+
+- [ ] **Step 4: Update call site of `executeTool` in `handleUserMessage`**
+
+In the tool execution map (around line 177), change:
 
 ```typescript
 const result = await this.executeTool(toolCall, availableTools, signal);
@@ -275,21 +271,6 @@ const result = await this.executeTool(
   onOutput,
   signal,
 );
-```
-
-And simplify the context in `executeTool` — just pass `onOutput` directly:
-
-```typescript
-const context: ToolExecutionContext = {
-  availableSkills: this.getAvailableSkills(),
-  workingDirectory: this.workingDirectory,
-  fileCache: this.fileCache,
-  fileStatTracker: this.fileStatTracker,
-  extraAllowedPaths: this.extraAllowedPaths,
-  shellState: this.shellState,
-  signal,
-  onOutput,
-};
 ```
 
 - [ ] **Step 5: Run typecheck and tests**
