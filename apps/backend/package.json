@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "NODE_ENV=development bun --hot src/index.ts",
+    "start": "NODE_ENV=production bun src/index.ts",
     "lint": "eslint src",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
@@ -14,6 +15,7 @@
     "@types/koa": "^3.0.1",
     "@types/koa-compose": "^3.2.9",
     "@types/koa-pino-logger": "^3.0.5",
+    "@types/koa-send": "^4.1.6",
     "@types/node": "^24.12.0",
     "@types/turndown": "^5.0.6",
     "typescript": "catalog:",
@@ -34,6 +36,7 @@
     "koa": "^3.1.1",
     "koa-compose": "^4.1.0",
     "koa-pino-logger": "^5.0.0",
+    "koa-send": "^5.0.1",
     "linkedom": "^0.18.12",
     "openai": "^6.32.0",
     "pino": "^10.3.1",
