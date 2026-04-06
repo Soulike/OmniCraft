@@ -4,6 +4,7 @@ import {MessageListView} from './MessageListView.js';
 
 interface MessageListProps {
   messages: ChatMessage[];
+  toolOutput: ReadonlyMap<string, string>;
 }
 
 /**
@@ -11,7 +12,7 @@ interface MessageListProps {
  * Transforms ChatMessage[] into render items via the view-model hook,
  * then delegates rendering to MessageListView.
  */
-export function MessageList({messages}: MessageListProps) {
+export function MessageList({messages, toolOutput}: MessageListProps) {
   const items = useMessageList(messages);
-  return <MessageListView items={items} />;
+  return <MessageListView items={items} toolOutput={toolOutput} />;
 }

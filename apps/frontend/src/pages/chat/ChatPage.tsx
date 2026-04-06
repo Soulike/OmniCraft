@@ -11,6 +11,7 @@ import {useSessionId} from './hooks/useSessionId.js';
 import {useSessionLifecycle} from './hooks/useSessionLifecycle.js';
 import {useSessionTitle} from './hooks/useSessionTitle.js';
 import {useStreamChat} from './hooks/useStreamChat.js';
+import {useToolOutput} from './hooks/useToolOutput.js';
 
 /** Chat page container. Wraps content in providers. */
 export function ChatPage() {
@@ -35,6 +36,7 @@ function ChatPageContent() {
 
   const {messages, clearMessages} = useMessages();
   const {title, clearTitle} = useSessionTitle();
+  const {toolOutput, clearToolOutput} = useToolOutput();
 
   const {selectedWorkspace, selectedExtraAllowedPaths} = useSessionConfig();
 
@@ -70,6 +72,7 @@ function ChatPageContent() {
     clearTitle,
     clearStreamError,
     clearMaxRoundsReached,
+    clearToolOutput,
   });
 
   const {containerRef: scrollRef, scrollToBottom} = useAutoScroll();
@@ -88,6 +91,7 @@ function ChatPageContent() {
     <ChatPageView
       title={title}
       messages={messages}
+      toolOutput={toolOutput}
       isStreaming={isStreaming}
       error={displayError}
       maxRoundsReached={maxRoundsReached}

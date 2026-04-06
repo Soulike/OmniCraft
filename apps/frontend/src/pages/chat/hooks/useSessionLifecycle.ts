@@ -7,6 +7,7 @@ interface UseSessionLifecycleOptions {
   clearTitle: () => void;
   clearStreamError: () => void;
   clearMaxRoundsReached: () => void;
+  clearToolOutput: () => void;
 }
 
 /** Orchestrates session transitions (new session, future: switch session). */
@@ -17,6 +18,7 @@ export function useSessionLifecycle({
   clearTitle,
   clearStreamError,
   clearMaxRoundsReached,
+  clearToolOutput,
 }: UseSessionLifecycleOptions) {
   const startNewSession = useCallback(() => {
     stopGeneration();
@@ -25,6 +27,7 @@ export function useSessionLifecycle({
     clearTitle();
     clearStreamError();
     clearMaxRoundsReached();
+    clearToolOutput();
   }, [
     stopGeneration,
     clearSessionId,
@@ -32,6 +35,7 @@ export function useSessionLifecycle({
     clearTitle,
     clearStreamError,
     clearMaxRoundsReached,
+    clearToolOutput,
   ]);
 
   return {startNewSession};

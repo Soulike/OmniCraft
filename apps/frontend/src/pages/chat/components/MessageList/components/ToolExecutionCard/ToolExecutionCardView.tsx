@@ -11,6 +11,7 @@ interface ToolExecutionCardViewProps {
   arguments: string;
   status: 'running' | 'done' | 'error';
   result?: string;
+  output?: string;
 }
 
 const STATUS_ICON_SIZE = 16;
@@ -21,6 +22,7 @@ export function ToolExecutionCardView({
   arguments: toolArguments,
   status,
   result,
+  output,
 }: ToolExecutionCardViewProps) {
   const formattedArguments = useMemo(
     () => formatJson(toolArguments),
@@ -62,6 +64,12 @@ export function ToolExecutionCardView({
                 {formattedArguments}
               </ScrollShadow>
             </div>
+            {output !== undefined && result === undefined && (
+              <div className={styles.section}>
+                <span className={styles.label}>Output</span>
+                <ScrollShadow className={styles.pre}>{output}</ScrollShadow>
+              </div>
+            )}
             {formattedResult !== undefined && (
               <div className={styles.section}>
                 <span className={styles.label}>Result</span>

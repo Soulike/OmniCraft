@@ -13,6 +13,7 @@ import type {ChatMessage} from './types.js';
 interface ChatPageViewProps {
   title: string | null;
   messages: ChatMessage[];
+  toolOutput: ReadonlyMap<string, string>;
   isStreaming: boolean;
   error: string | null;
   maxRoundsReached: boolean;
@@ -29,6 +30,7 @@ interface ChatPageViewProps {
 export function ChatPageView({
   title,
   messages,
+  toolOutput,
   isStreaming,
   error,
   maxRoundsReached,
@@ -72,7 +74,7 @@ export function ChatPageView({
             <SessionSetup />
           </div>
         ) : (
-          <MessageList messages={messages} />
+          <MessageList messages={messages} toolOutput={toolOutput} />
         )}
       </ScrollShadow>
       {sessionId && <InfoBar />}
