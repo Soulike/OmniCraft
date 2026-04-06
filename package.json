@@ -2,7 +2,10 @@
   "name": "omni-craft",
   "private": true,
   "scripts": {
-    "prepare": "test -d node_modules/husky && husky"
+    "prepare": "test -d node_modules/husky && husky",
+    "dev": "bun run --filter './apps/*' dev",
+    "build:frontend": "bun run --filter '@omnicraft/frontend' build",
+    "start": "bun run build:frontend && bun run --filter '@omnicraft/backend' start"
   },
   "workspaces": [
     "apps/*",
