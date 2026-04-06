@@ -16,7 +16,7 @@ export function serveSpa(distPath: string): Middleware {
     }
 
     try {
-      await send(ctx, ctx.path, {root: distPath});
+      await send(ctx, ctx.path, {root: distPath, index: 'index.html'});
     } catch {
       await send(ctx, '/index.html', {root: distPath});
     }
