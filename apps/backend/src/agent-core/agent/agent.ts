@@ -160,7 +160,7 @@ export abstract class Agent {
 
       // Execute all tools in parallel, streaming end events as each completes
       const channel = new AsyncChannel<AgentToolExecuteEndEvent>();
-      const toolResults: ToolResult[] = [];
+      const toolResults = new Map<string, ToolResult>();
 
       const executions = toolCalls.map(async (toolCall) => {
         const result = await this.executeTool(toolCall, availableTools, signal);
@@ -170,13 +170,21 @@ export abstract class Agent {
           result: result.content,
           isError: result.isError,
         } satisfies AgentToolExecuteEndEvent;
-        toolResults.push({callId: toolCall.callId, content: result.content});
+        toolResults.set(toolCall.callId, {
+          callId: toolCall.callId,
+          content: result.content,
+        });
         channel.push(endEvent);
       });
 
-      void Promise.all(executions).then(() => {
-        channel.close();
-      });
+      void Promise.all(executions)
+        .catch(() => {
+          // Individual tool errors are already handled by executeTool.
+          // This catch prevents an unhandled rejection from hanging the channel.
+        })
+        .finally(() => {
+          channel.close();
+        });
 
       for await (const endEvent of channel) {
         yield endEvent;
@@ -184,9 +192,15 @@ export abstract class Agent {
 
       if (signal?.aborted) return;
 
+      // Submit results in the same order as the original tool calls
+      const orderedResults = toolCalls.flatMap((tc) => {
+        const result = toolResults.get(tc.callId);
+        return result ? [result] : [];
+      });
+
       toolCalls = yield* this.consumeStream(
         this.llmSession.submitToolResults(
-          toolResults,
+          orderedResults,
           [...this.getAvailableTools().values()],
           this.buildSystemPrompt(),
           signal,
