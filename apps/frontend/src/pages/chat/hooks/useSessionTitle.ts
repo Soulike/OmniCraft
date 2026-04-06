@@ -1,4 +1,4 @@
-import {useEffect, useRef, useState} from 'react';
+import {useCallback, useEffect, useRef, useState} from 'react';
 
 import {generateTitle} from '@/api/chat/index.js';
 
@@ -41,5 +41,10 @@ export function useSessionTitle() {
     };
   }, [eventBus]);
 
-  return {title};
+  const clearTitle = useCallback(() => {
+    setTitle(null);
+    titleRequestedRef.current = false;
+  }, []);
+
+  return {title, clearTitle};
 }
