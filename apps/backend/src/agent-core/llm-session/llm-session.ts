@@ -1,3 +1,4 @@
+import assert from 'node:assert';
 import crypto from 'node:crypto';
 
 import {Mutex} from '@/helpers/mutex.js';
@@ -235,11 +236,7 @@ export class LlmSession {
       yield {type: 'tool-call', toolCall};
     }
 
-    // Fallback if the LLM adapter did not emit a message-start event.
-    if (!assistantId) {
-      assistantId = crypto.randomUUID();
-      assistantCreatedAt = Date.now();
-    }
+    assert(assistantId, 'LLM adapter did not emit message-start event');
 
     const assistantMessage: LlmAssistantMessage = {
       id: assistantId,
