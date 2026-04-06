@@ -74,8 +74,9 @@ function pushToolEnd(
   prev: ChatMessage[],
   content: ToolExecutionEndContent,
 ): ChatMessage[] {
+  const base = removeTrailingAssistantMessageIfEmpty(prev);
   return [
-    ...prev,
+    ...base,
     {role: 'assistant', content},
     {
       role: 'assistant' as const,

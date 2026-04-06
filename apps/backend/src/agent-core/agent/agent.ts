@@ -1,6 +1,8 @@
 import crypto from 'node:crypto';
 import os from 'node:os';
 
+import {AsyncChannel} from '@/helpers/async-channel.js';
+
 import {agentEventBus} from '../events/index.js';
 import type {LlmConfig, LlmToolCall} from '../llm-api/index.js';
 import type {
@@ -143,11 +145,9 @@ export abstract class Agent {
       }
 
       const availableTools = this.getAvailableTools();
-      const toolResults: ToolResult[] = [];
 
+      // Emit all tool-execute-start events up front
       for (const toolCall of toolCalls) {
-        if (signal?.aborted) return;
-
         const tool = availableTools.get(toolCall.toolName);
         yield {
           type: 'tool-execute-start',
@@ -156,18 +156,33 @@ export abstract class Agent {
           displayName: tool?.displayName ?? toolCall.toolName,
           arguments: toolCall.arguments,
         } satisfies AgentToolExecuteStartEvent;
+      }
 
+      // Execute all tools in parallel, streaming end events as each completes
+      const channel = new AsyncChannel<AgentToolExecuteEndEvent>();
+      const toolResults: ToolResult[] = [];
+
+      const executions = toolCalls.map(async (toolCall) => {
         const result = await this.executeTool(toolCall, availableTools, signal);
-
-        yield {
-          type: 'tool-execute-end',
+        const endEvent = {
+          type: 'tool-execute-end' as const,
           callId: toolCall.callId,
           result: result.content,
           isError: result.isError,
         } satisfies AgentToolExecuteEndEvent;
-
         toolResults.push({callId: toolCall.callId, content: result.content});
+        channel.push(endEvent);
+      });
+
+      void Promise.all(executions).then(() => {
+        channel.close();
+      });
+
+      for await (const endEvent of channel) {
+        yield endEvent;
       }
+
+      if (signal?.aborted) return;
 
       toolCalls = yield* this.consumeStream(
         this.llmSession.submitToolResults(
