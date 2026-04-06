@@ -39,13 +39,12 @@ export function RenderItem({item, toolOutput}: RenderItemProps) {
       return (
         <div className={styles.assistantMessage}>
           <ToolExecutionCard
-            callId={item.callId}
             toolName={item.toolName}
             displayName={item.displayName}
             arguments={item.arguments}
             status={item.status}
             result={item.result}
-            toolOutput={toolOutput}
+            output={toolOutput.get(item.callId)}
           />
         </div>
       );

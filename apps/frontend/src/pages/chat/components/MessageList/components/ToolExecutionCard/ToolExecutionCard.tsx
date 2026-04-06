@@ -1,26 +1,22 @@
 import {ToolExecutionCardView} from './ToolExecutionCardView.js';
 
 interface ToolExecutionCardProps {
-  callId: string;
   toolName: string;
   displayName: string;
   arguments: string;
   status: 'running' | 'done' | 'error';
   result?: string;
-  toolOutput: ReadonlyMap<string, string>;
+  output?: string;
 }
 
 export function ToolExecutionCard({
-  callId,
   toolName,
   displayName,
   arguments: toolArguments,
   status,
   result,
-  toolOutput,
+  output,
 }: ToolExecutionCardProps) {
-  const output = toolOutput.get(callId);
-
   return (
     <ToolExecutionCardView
       toolName={toolName}
