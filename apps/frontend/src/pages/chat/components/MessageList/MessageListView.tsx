@@ -28,8 +28,11 @@ export function MessageListView({items}: MessageListViewProps) {
 
 /** Produces a stable key for a render item. */
 function itemKey(item: MessageRenderItem, index: number): string {
-  if (item.type === 'tool-execution') {
-    return `tool-${item.callId}`;
+  switch (item.type) {
+    case 'tool-execution':
+      return `tool-${item.callId}`;
+    case 'user-text':
+    case 'assistant-text':
+      return item.id ?? `${item.type}-${index.toString()}`;
   }
-  return `${item.type}-${index.toString()}`;
 }
