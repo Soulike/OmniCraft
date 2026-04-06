@@ -436,10 +436,26 @@ import {useToolOutput} from './hooks/useToolOutput.js';
 In `ChatPageContent`, add:
 
 ```typescript
-const {toolOutput} = useToolOutput();
+const {toolOutput, clearToolOutput} = useToolOutput();
 ```
 
-Pass to `ChatPageView`:
+Pass `clearToolOutput` to `useSessionLifecycle` alongside existing clear functions:
+
+```typescript
+const {startNewSession} = useSessionLifecycle({
+  stopGeneration,
+  clearSessionId,
+  clearMessages,
+  clearToolOutput,
+  clearTitle,
+  clearStreamError,
+  clearMaxRoundsReached,
+});
+```
+
+Update `useSessionLifecycle` to accept and call `clearToolOutput` in its `startNewSession` callback. (Read the current file to see the exact structure, then add `clearToolOutput` to the options interface and call it alongside `clearMessages`.)
+
+Pass `toolOutput` to `ChatPageView`:
 
 ```tsx
 toolOutput = {toolOutput};
