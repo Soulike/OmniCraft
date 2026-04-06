@@ -5,6 +5,10 @@ import {useAutoScroll} from '@/hooks/useAutoScroll.js';
 import {ChatPageView} from './ChatPageView.js';
 import {ChatEventBusProvider} from './contexts/ChatEventBusContext/index.js';
 import {SessionConfigProvider} from './contexts/SessionConfigContext/index.js';
+import {
+  ToolOutputProvider,
+  useClearToolOutput,
+} from './contexts/ToolOutputContext/index.js';
 import {useMessages} from './hooks/useMessages.js';
 import {useSessionConfig} from './hooks/useSessionConfig.js';
 import {useSessionId} from './hooks/useSessionId.js';
@@ -17,7 +21,9 @@ export function ChatPage() {
   return (
     <ChatEventBusProvider>
       <SessionConfigProvider>
-        <ChatPageContent />
+        <ToolOutputProvider>
+          <ChatPageContent />
+        </ToolOutputProvider>
       </SessionConfigProvider>
     </ChatEventBusProvider>
   );
@@ -35,6 +41,7 @@ function ChatPageContent() {
 
   const {messages, clearMessages} = useMessages();
   const {title, clearTitle} = useSessionTitle();
+  const clearToolOutput = useClearToolOutput();
 
   const {selectedWorkspace, selectedExtraAllowedPaths} = useSessionConfig();
 
@@ -70,6 +77,7 @@ function ChatPageContent() {
     clearTitle,
     clearStreamError,
     clearMaxRoundsReached,
+    clearToolOutput,
   });
 
   const {containerRef: scrollRef, scrollToBottom} = useAutoScroll();

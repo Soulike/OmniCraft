@@ -66,6 +66,7 @@ export const runCommandTool: ToolDefinition<typeof parameters> = {
   async execute(
     args: RunCommandArgs,
     context: ToolExecutionContext,
+    onOutput?: (chunk: string) => void,
   ): Promise<string> {
     const {shellState, workingDirectory, signal} = context;
     const timeout = args.timeout ?? DEFAULT_TIMEOUT_MS;
@@ -75,7 +76,7 @@ export const runCommandTool: ToolDefinition<typeof parameters> = {
       shellState.cwd,
       timeout,
       signal,
-    ).run();
+    ).run({onStdoutData: onOutput});
 
     // Resolve stdout and stderr temp files
     const stdout = await resolveOutputFile(result.stdoutFile);

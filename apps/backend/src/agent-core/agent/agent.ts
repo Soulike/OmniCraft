@@ -27,6 +27,7 @@ import type {
   AgentMessageStartEvent,
   AgentOptions,
   AgentSnapshot,
+  AgentToolExecuteDeltaEvent,
   AgentToolExecuteEndEvent,
   AgentToolExecuteStartEvent,
 } from './types.js';
@@ -171,11 +172,25 @@ export abstract class Agent {
       }
 
       // Execute all tools in parallel, streaming end events as each completes
-      const channel = new AsyncChannel<AgentToolExecuteEndEvent>();
+      const channel = new AsyncChannel<
+        AgentToolExecuteEndEvent | AgentToolExecuteDeltaEvent
+      >();
       const toolResults = new Map<string, ToolResult>();
 
       const executions = toolCalls.map(async (toolCall) => {
-        const result = await this.executeTool(toolCall, availableTools, signal);
+        const onOutput = (chunk: string) => {
+          channel.push({
+            type: 'tool-execute-delta',
+            callId: toolCall.callId,
+            content: chunk,
+          } satisfies AgentToolExecuteDeltaEvent);
+        };
+        const result = await this.executeTool(
+          toolCall,
+          availableTools,
+          onOutput,
+          signal,
+        );
         const endEvent = {
           type: 'tool-execute-end' as const,
           callId: toolCall.callId,
@@ -198,8 +213,8 @@ export abstract class Agent {
           channel.close();
         });
 
-      for await (const endEvent of channel) {
-        yield endEvent;
+      for await (const event of channel) {
+        yield event;
       }
 
       if (signal?.aborted) return;
@@ -364,6 +379,7 @@ export abstract class Agent {
   private async executeTool(
     toolCall: LlmToolCall,
     availableTools: ReadonlyMap<string, ToolDefinition>,
+    onOutput: (chunk: string) => void,
     signal?: AbortSignal,
   ): Promise<{content: string; isError: boolean}> {
     const tool = availableTools.get(toolCall.toolName);
@@ -388,7 +404,7 @@ export abstract class Agent {
       const parsedArgs: unknown = tool.parameters.parse(
         JSON.parse(toolCall.arguments),
       );
-      const content = await tool.execute(parsedArgs, context);
+      const content = await tool.execute(parsedArgs, context, onOutput);
       return {content, isError: false};
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);

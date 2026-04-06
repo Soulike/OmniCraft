@@ -82,7 +82,10 @@ export function useStreamChat({
               });
               break;
             case 'tool-execute-delta':
-              // Not handled yet — will be used when tools support streaming output
+              eventBus.emit('tool-execute-delta', {
+                callId: event.callId,
+                content: event.content,
+              });
               break;
             case 'done':
               if (event.reason === 'max_rounds_reached') {

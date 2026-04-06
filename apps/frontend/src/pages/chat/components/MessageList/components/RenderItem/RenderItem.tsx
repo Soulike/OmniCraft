@@ -38,6 +38,7 @@ export function RenderItem({item}: RenderItemProps) {
       return (
         <div className={styles.assistantMessage}>
           <ToolExecutionCard
+            callId={item.callId}
             toolName={item.toolName}
             displayName={item.displayName}
             arguments={item.arguments}

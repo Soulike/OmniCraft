@@ -22,6 +22,12 @@ export interface ShellCommandResult {
   timedOut: boolean;
 }
 
+/** Options for {@link ShellCommandRunner.run}. */
+export interface ShellCommandRunOptions {
+  /** Called with each chunk of stdout data during execution. */
+  onStdoutData?: (chunk: string) => void;
+}
+
 /**
  * Executes a shell command in the user's default shell, streaming
  * stdout and stderr to temp files. CWD is written to a separate
@@ -70,7 +76,7 @@ export class ShellCommandRunner {
   }
 
   /** Executes the command. Can only be called once per instance. */
-  async run(): Promise<ShellCommandResult> {
+  async run(options?: ShellCommandRunOptions): Promise<ShellCommandResult> {
     assert(!this.executed, 'run() can only be called once');
     this.executed = true;
 
@@ -94,6 +100,14 @@ export class ShellCommandRunner {
       }
 
       this.pipeStreams(child, stdoutFile.stream, stderrFile.stream);
+
+      if (options?.onStdoutData) {
+        const onData = options.onStdoutData;
+        assert(child.stdout);
+        child.stdout.on('data', (chunk: Buffer) => {
+          onData(chunk.toString());
+        });
+      }
 
       const [exitCode, timedOut] = await this.waitForExit(child);
 
