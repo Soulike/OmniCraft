@@ -73,7 +73,7 @@ export class LlmSession {
     signal?: AbortSignal,
   ): LlmSessionEventStream {
     yield* this.sendMessages(
-      [{role: 'user', content}],
+      [{id: crypto.randomUUID(), createdAt: Date.now(), role: 'user', content}],
       tools,
       systemPrompt,
       signal,
@@ -94,6 +94,8 @@ export class LlmSession {
     signal?: AbortSignal,
   ): LlmSessionEventStream {
     const toolMessages: LlmMessage[] = results.map((result) => ({
+      id: crypto.randomUUID(),
+      createdAt: Date.now(),
       role: 'tool' as const,
       callId: result.callId,
       content: result.content,
@@ -162,6 +164,7 @@ export class LlmSession {
     });
 
     let textContent = '';
+    let assistantCreatedAt = 0;
     const toolCalls: LlmToolCall[] = [];
     const pendingToolCalls = new Map<string, LlmToolCall>();
 
@@ -208,6 +211,7 @@ export class LlmSession {
           };
           break;
         case 'message-start':
+          assistantCreatedAt = Date.now();
           break;
       }
     }
@@ -217,6 +221,8 @@ export class LlmSession {
     }
 
     const assistantMessage: LlmAssistantMessage = {
+      id: crypto.randomUUID(),
+      createdAt: assistantCreatedAt,
       role: 'assistant',
       content: textContent,
       toolCalls,

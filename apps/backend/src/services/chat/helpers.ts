@@ -1,3 +1,5 @@
+import crypto from 'node:crypto';
+
 import type {LlmConfig} from '@/agent-core/llm-api/index.js';
 import {llmApi} from '@/agent-core/llm-api/index.js';
 import {settingsService} from '@/services/settings/index.js';
@@ -28,6 +30,8 @@ export async function generateTitleFromLlm(
     config,
     messages: [
       {
+        id: crypto.randomUUID(),
+        createdAt: Date.now(),
         role: 'user',
         content: [
           'Generate a short title (under 20 characters) for this conversation.',
