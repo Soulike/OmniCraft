@@ -6,23 +6,39 @@ import {transformMessages} from './useMessageList.js';
 describe('transformMessages', () => {
   it('converts a user text message to UserTextRenderItem', () => {
     const messages: ChatMessage[] = [
-      {role: 'user', content: {type: 'text', content: 'Hello'}},
+      {
+        id: null,
+        createdAt: null,
+        role: 'user',
+        content: {type: 'text', content: 'Hello'},
+      },
     ];
     const result = transformMessages(messages);
-    expect(result).toEqual([{type: 'user-text', content: 'Hello'}]);
+    expect(result).toEqual([
+      {type: 'user-text', id: null, content: 'Hello', createdAt: null},
+    ]);
   });
 
   it('converts an assistant text message to AssistantTextRenderItem', () => {
     const messages: ChatMessage[] = [
-      {role: 'assistant', content: {type: 'text', content: 'Hi there'}},
+      {
+        id: null,
+        createdAt: null,
+        role: 'assistant',
+        content: {type: 'text', content: 'Hi there'},
+      },
     ];
     const result = transformMessages(messages);
-    expect(result).toEqual([{type: 'assistant-text', content: 'Hi there'}]);
+    expect(result).toEqual([
+      {type: 'assistant-text', id: null, content: 'Hi there', createdAt: null},
+    ]);
   });
 
   it('pairs tool-execution-start and tool-execution-end by callId across messages', () => {
     const messages: ChatMessage[] = [
       {
+        id: null,
+        createdAt: null,
         role: 'assistant',
         content: {
           type: 'tool-execution-start',
@@ -33,6 +49,8 @@ describe('transformMessages', () => {
         },
       },
       {
+        id: null,
+        createdAt: null,
         role: 'assistant',
         content: {
           type: 'tool-execution-end',
@@ -59,6 +77,8 @@ describe('transformMessages', () => {
   it('marks tool as running when end event is missing', () => {
     const messages: ChatMessage[] = [
       {
+        id: null,
+        createdAt: null,
         role: 'assistant',
         content: {
           type: 'tool-execution-start',
@@ -85,6 +105,8 @@ describe('transformMessages', () => {
   it('marks tool as error when isError is true', () => {
     const messages: ChatMessage[] = [
       {
+        id: null,
+        createdAt: null,
         role: 'assistant',
         content: {
           type: 'tool-execution-start',
@@ -95,6 +117,8 @@ describe('transformMessages', () => {
         },
       },
       {
+        id: null,
+        createdAt: null,
         role: 'assistant',
         content: {
           type: 'tool-execution-end',
@@ -120,8 +144,15 @@ describe('transformMessages', () => {
 
   it('handles mixed text and tool messages in order', () => {
     const messages: ChatMessage[] = [
-      {role: 'assistant', content: {type: 'text', content: 'Let me search'}},
       {
+        id: null,
+        createdAt: null,
+        role: 'assistant',
+        content: {type: 'text', content: 'Let me search'},
+      },
+      {
+        id: null,
+        createdAt: null,
         role: 'assistant',
         content: {
           type: 'tool-execution-start',
@@ -132,6 +163,8 @@ describe('transformMessages', () => {
         },
       },
       {
+        id: null,
+        createdAt: null,
         role: 'assistant',
         content: {
           type: 'tool-execution-end',
@@ -141,6 +174,8 @@ describe('transformMessages', () => {
         },
       },
       {
+        id: null,
+        createdAt: null,
         role: 'assistant',
         content: {type: 'text', content: 'Here is what I found'},
       },
@@ -155,6 +190,8 @@ describe('transformMessages', () => {
   it('skips tool-execution-end messages in the output', () => {
     const messages: ChatMessage[] = [
       {
+        id: null,
+        createdAt: null,
         role: 'assistant',
         content: {
           type: 'tool-execution-end',
