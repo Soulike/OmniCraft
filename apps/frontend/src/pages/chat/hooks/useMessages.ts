@@ -29,8 +29,15 @@ function removeTrailingAssistantMessageIfEmpty(
 function addUserMessage(prev: ChatMessage[], content: string): ChatMessage[] {
   return [
     ...prev,
-    {role: 'user' as const, content: {type: 'text' as const, content}},
     {
+      id: null,
+      createdAt: Date.now(),
+      role: 'user' as const,
+      content: {type: 'text' as const, content},
+    },
+    {
+      id: null,
+      createdAt: null,
       role: 'assistant' as const,
       content: {type: 'text' as const, content: ''},
     },
@@ -56,6 +63,8 @@ function appendAssistantText(
   return [
     ...prev,
     {
+      id: null,
+      createdAt: null,
       role: 'assistant' as const,
       content: {type: 'text' as const, content: token},
     },
@@ -67,7 +76,10 @@ function pushToolStart(
   content: ToolExecutionStartContent,
 ): ChatMessage[] {
   const base = removeTrailingAssistantMessageIfEmpty(prev);
-  return [...base, {role: 'assistant' as const, content}];
+  return [
+    ...base,
+    {id: null, createdAt: null, role: 'assistant' as const, content},
+  ];
 }
 
 function pushToolEnd(
@@ -77,12 +89,45 @@ function pushToolEnd(
   const base = removeTrailingAssistantMessageIfEmpty(prev);
   return [
     ...base,
-    {role: 'assistant', content},
+    {id: null, createdAt: null, role: 'assistant', content},
     {
+      id: null,
+      createdAt: null,
       role: 'assistant' as const,
       content: {type: 'text' as const, content: ''},
     },
   ];
+}
+
+function applyUserMessageStart(
+  prev: ChatMessage[],
+  messageId: string,
+): ChatMessage[] {
+  for (let i = prev.length - 1; i >= 0; i--) {
+    if (prev[i].role === 'user') {
+      const updated = [...prev];
+      updated[i] = {...updated[i], id: messageId};
+      return updated;
+    }
+  }
+  throw new Error('message-start(user) received but no user message found');
+}
+
+function applyAssistantMessageStart(
+  prev: ChatMessage[],
+  messageId: string,
+  createdAt: number,
+): ChatMessage[] {
+  for (let i = prev.length - 1; i >= 0; i--) {
+    if (prev[i].role === 'assistant') {
+      const updated = [...prev];
+      updated[i] = {...updated[i], id: messageId, createdAt};
+      return updated;
+    }
+  }
+  throw new Error(
+    'message-start(assistant) received but no assistant message found',
+  );
 }
 
 /** Manages the chat message history, subscribing to chat events. */
@@ -106,12 +151,26 @@ export function useMessages() {
     const onStreamEnd = () => {
       setMessages(removeTrailingAssistantMessageIfEmpty);
     };
+    const onMessageStart = (data: {
+      role: 'user' | 'assistant';
+      messageId: string;
+      createdAt: number;
+    }) => {
+      if (data.role === 'user') {
+        setMessages((prev) => applyUserMessageStart(prev, data.messageId));
+      } else {
+        setMessages((prev) =>
+          applyAssistantMessageStart(prev, data.messageId, data.createdAt),
+        );
+      }
+    };
 
     eventBus.on('user-message-sent', onUserMessageSent);
     eventBus.on('text-delta', onTextDelta);
     eventBus.on('tool-execute-start', onToolExecuteStart);
     eventBus.on('tool-execute-end', onToolExecuteEnd);
     eventBus.on('stream-end', onStreamEnd);
+    eventBus.on('message-start', onMessageStart);
 
     return () => {
       eventBus.off('user-message-sent', onUserMessageSent);
@@ -119,6 +178,7 @@ export function useMessages() {
       eventBus.off('tool-execute-start', onToolExecuteStart);
       eventBus.off('tool-execute-end', onToolExecuteEnd);
       eventBus.off('stream-end', onStreamEnd);
+      eventBus.off('message-start', onMessageStart);
     };
   }, [eventBus]);
 

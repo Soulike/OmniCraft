@@ -4,12 +4,16 @@ import type {ChatMessage} from '../../../types.js';
 
 export interface UserTextRenderItem {
   type: 'user-text';
+  id: string | null;
   content: string;
+  createdAt: number | null;
 }
 
 export interface AssistantTextRenderItem {
   type: 'assistant-text';
+  id: string | null;
   content: string;
+  createdAt: number | null;
 }
 
 export interface ToolExecutionRenderItem {
@@ -50,9 +54,19 @@ export function transformMessages(
     switch (content.type) {
       case 'text': {
         if (message.role === 'user') {
-          items.push({type: 'user-text', content: content.content});
+          items.push({
+            type: 'user-text',
+            id: message.id,
+            content: content.content,
+            createdAt: message.createdAt,
+          });
         } else {
-          items.push({type: 'assistant-text', content: content.content});
+          items.push({
+            type: 'assistant-text',
+            id: message.id,
+            content: content.content,
+            createdAt: message.createdAt,
+          });
         }
         break;
       }

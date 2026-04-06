@@ -1,3 +1,6 @@
+import clsx from 'clsx';
+
+import {formatTimestamp} from '../../helpers/formatTimestamp.js';
 import type {MessageRenderItem} from '../../hooks/useMessageList.js';
 import {MessageBubble} from '../MessageBubble/index.js';
 import {ToolExecutionCard} from '../ToolExecutionCard/index.js';
@@ -12,13 +15,23 @@ export function RenderItem({item}: RenderItemProps) {
     case 'user-text':
       return (
         <div className={styles.userMessage}>
-          <MessageBubble role='user' content={item.content} />
+          <MessageBubble role='user' id={item.id} content={item.content} />
+          {item.createdAt !== null && (
+            <time className={styles.timestamp}>
+              {formatTimestamp(item.createdAt)}
+            </time>
+          )}
         </div>
       );
     case 'assistant-text':
       return (
         <div className={styles.assistantMessage}>
-          <MessageBubble role='assistant' content={item.content} />
+          <MessageBubble role='assistant' id={item.id} content={item.content} />
+          {item.createdAt !== null && (
+            <time className={clsx(styles.timestamp, styles.timestampRight)}>
+              {formatTimestamp(item.createdAt)}
+            </time>
+          )}
         </div>
       );
     case 'tool-execution':

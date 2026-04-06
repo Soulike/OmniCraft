@@ -33,6 +33,8 @@ export type MessageContent =
 
 /** A chat message for UI rendering. Each message has exactly one content. */
 export interface ChatMessage {
+  id: string | null;
+  createdAt: number | null;
   role: 'user' | 'assistant';
   content: MessageContent;
 }
@@ -47,6 +49,12 @@ export interface ChatEventMap {
   'user-message-sent': {content: string};
   /** A text token arrived from the LLM. */
   'text-delta': {content: string};
+  /** A message has started (metadata from backend). */
+  'message-start': {
+    role: 'user' | 'assistant';
+    messageId: string;
+    createdAt: number;
+  };
   /** A tool started executing. */
   'tool-execute-start': ToolExecutionStartContent;
   /** A tool finished executing. */

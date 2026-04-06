@@ -6,10 +6,15 @@ import {MessageBubbleView} from './MessageBubbleView.js';
 
 interface MessageBubbleProps {
   role: ChatMessage['role'];
+  id: string | null;
   content: string;
 }
 
-export function MessageBubble({role, content}: MessageBubbleProps) {
+export function MessageBubble({
+  role,
+  id: _id, // Reserved for future message editing
+  content,
+}: MessageBubbleProps) {
   const {displayedContent} = useStreamingText(content);
   const displayContent = role === 'assistant' ? displayedContent : content;
   const deferredContent = useDeferredValue(displayContent);
