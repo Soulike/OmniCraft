@@ -74,6 +74,16 @@ export function useStreamChat({
                 isError: event.isError,
               });
               break;
+            case 'message-start':
+              eventBus.emit('message-start', {
+                role: event.role,
+                messageId: event.messageId,
+                createdAt: event.createdAt,
+              });
+              break;
+            case 'tool-execute-delta':
+              // Not handled yet — will be used when tools support streaming output
+              break;
             case 'done':
               if (event.reason === 'max_rounds_reached') {
                 setMaxRoundsReached(true);
