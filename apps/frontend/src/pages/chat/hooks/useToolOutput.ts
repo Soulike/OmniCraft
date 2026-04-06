@@ -7,18 +7,21 @@ const MAX_OUTPUT_BYTES = 8192; // 8 KB
 /**
  * Manages streaming tool output, accumulating delta chunks per callId.
  * Truncates to the most recent 8 KB per tool. Re-renders are throttled
- * to once per animation frame.
+ * to once per animation frame. Each render produces a new Map snapshot
+ * so downstream components detect the change via reference comparison.
  */
 export function useToolOutput() {
   const mapRef = useRef(new Map<string, string>());
   const rafIdRef = useRef<number | null>(null);
-  const [, forceRender] = useState(0);
+  const [snapshot, setSnapshot] = useState<ReadonlyMap<string, string>>(
+    () => new Map(),
+  );
   const eventBus = useChatEventBus();
 
   const scheduleRender = useCallback(() => {
     rafIdRef.current ??= requestAnimationFrame(() => {
       rafIdRef.current = null;
-      forceRender((v) => v + 1);
+      setSnapshot(new Map(mapRef.current));
     });
   }, []);
 
@@ -54,7 +57,8 @@ export function useToolOutput() {
 
   const clearToolOutput = useCallback(() => {
     mapRef.current.clear();
+    setSnapshot(new Map());
   }, []);
 
-  return {toolOutput: mapRef.current, clearToolOutput};
+  return {toolOutput: snapshot, clearToolOutput};
 }
