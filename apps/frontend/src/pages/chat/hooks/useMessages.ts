@@ -103,7 +103,6 @@ function applyUserMessageStart(
   prev: ChatMessage[],
   messageId: string,
 ): ChatMessage[] {
-  // Find the last user message and set its id
   for (let i = prev.length - 1; i >= 0; i--) {
     if (prev[i].role === 'user') {
       const updated = [...prev];
@@ -111,7 +110,7 @@ function applyUserMessageStart(
       return updated;
     }
   }
-  return prev;
+  throw new Error('message-start(user) received but no user message found');
 }
 
 function applyAssistantMessageStart(
@@ -119,7 +118,6 @@ function applyAssistantMessageStart(
   messageId: string,
   createdAt: number,
 ): ChatMessage[] {
-  // Find the last assistant message and set its id and createdAt
   for (let i = prev.length - 1; i >= 0; i--) {
     if (prev[i].role === 'assistant') {
       const updated = [...prev];
@@ -127,7 +125,9 @@ function applyAssistantMessageStart(
       return updated;
     }
   }
-  return prev;
+  throw new Error(
+    'message-start(assistant) received but no assistant message found',
+  );
 }
 
 /** Manages the chat message history, subscribing to chat events. */
