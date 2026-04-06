@@ -68,6 +68,7 @@ export async function* streamOpenAIResponses(
   const client = new OpenAIClient({
     apiKey: config.apiKey,
     baseURL: config.baseUrl,
+    maxRetries: 20,
   });
 
   const input = toInputItems(messages);

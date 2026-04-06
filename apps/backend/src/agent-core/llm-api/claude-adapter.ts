@@ -114,6 +114,7 @@ export async function* streamClaude(
   const client = new Anthropic({
     apiKey: config.apiKey,
     baseURL: config.baseUrl,
+    maxRetries: 20,
   });
 
   const claudeTools = options.tools.map(toClaudeTool);

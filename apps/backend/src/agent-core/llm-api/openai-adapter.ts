@@ -62,6 +62,7 @@ export async function* streamOpenAI(
   const client = new OpenAIClient({
     apiKey: config.apiKey,
     baseURL: config.baseUrl,
+    maxRetries: 20,
   });
 
   const sdkMessages: OpenAI.ChatCompletionMessageParam[] = [];
