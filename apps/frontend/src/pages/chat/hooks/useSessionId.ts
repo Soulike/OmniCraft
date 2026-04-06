@@ -7,12 +7,12 @@ interface SessionConfig {
   extraAllowedPaths?: readonly string[];
 }
 
-/** Manages the chat session lifecycle. Session is created on demand via `resetSession`. */
-export function useSession() {
+/** Manages the session ID lifecycle. Session is created on demand via `createNewSessionId`. */
+export function useSessionId() {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const resetSession = useCallback(async (config: SessionConfig = {}) => {
+  const createNewSessionId = useCallback(async (config: SessionConfig = {}) => {
     setError(null);
     try {
       const id = await createSession(config);
@@ -27,9 +27,20 @@ export function useSession() {
     }
   }, []);
 
-  const clearSessionError = useCallback(() => {
+  const clearSessionId = useCallback(() => {
+    setSessionId(null);
     setError(null);
   }, []);
 
-  return {sessionId, sessionError: error, resetSession, clearSessionError};
+  const clearCreateNewSessionIdError = useCallback(() => {
+    setError(null);
+  }, []);
+
+  return {
+    sessionId,
+    createNewSessionIdError: error,
+    createNewSessionId,
+    clearSessionId,
+    clearCreateNewSessionIdError,
+  };
 }

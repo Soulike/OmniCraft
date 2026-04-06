@@ -6,6 +6,7 @@ import {ChatInput} from './components/ChatInput/index.js';
 import {InfoBar} from './components/InfoBar/index.js';
 import {MessageList} from './components/MessageList/index.js';
 import {SessionSetup} from './components/SessionSetup/index.js';
+import {TitleBarView} from './components/TitleBar/index.js';
 import styles from './styles.module.css';
 import type {ChatMessage} from './types.js';
 
@@ -19,6 +20,8 @@ interface ChatPageViewProps {
   sessionId: string | null;
   onSend: (content: string) => void;
   onStop: () => void;
+  onNewSession: () => void;
+  newSessionDisabled: boolean;
   onDismissError: () => void;
   onDismissMaxRoundsReached: () => void;
 }
@@ -33,6 +36,8 @@ export function ChatPageView({
   sessionId,
   onSend,
   onStop,
+  onNewSession,
+  newSessionDisabled,
   onDismissError,
   onDismissMaxRoundsReached,
 }: ChatPageViewProps) {
@@ -56,7 +61,11 @@ export function ChatPageView({
           onDismiss={onDismissMaxRoundsReached}
         />
       )}
-      <h2 className={styles.title}>{title ?? 'New Session'}</h2>
+      <TitleBarView
+        title={title}
+        onNewSession={onNewSession}
+        newSessionDisabled={newSessionDisabled}
+      />
       <ScrollShadow className={styles.messageListWrapper} ref={scrollRef}>
         {isEmpty && !sessionId ? (
           <div className={styles.emptyState}>
