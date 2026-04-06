@@ -12,13 +12,23 @@ export function RenderItem({item}: RenderItemProps) {
     case 'user-text':
       return (
         <div className={styles.userMessage}>
-          <MessageBubble role='user' content={item.content} />
+          <MessageBubble
+            role='user'
+            id={item.id}
+            content={item.content}
+            createdAt={item.createdAt}
+          />
         </div>
       );
     case 'assistant-text':
       return (
         <div className={styles.assistantMessage}>
-          <MessageBubble role='assistant' content={item.content} />
+          <MessageBubble
+            role='assistant'
+            id={item.id}
+            content={item.content}
+            createdAt={item.createdAt}
+          />
         </div>
       );
     case 'tool-execution':
