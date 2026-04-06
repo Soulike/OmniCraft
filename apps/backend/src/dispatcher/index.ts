@@ -8,6 +8,11 @@ import {router as settingsRouter} from './settings/index.js';
 
 const apiRouter = new Router({prefix: '/api'});
 
+apiRouter.use(async (ctx, next) => {
+  await next();
+  ctx.set('Cache-Control', 'no-store');
+});
+
 apiRouter.use(chatRouter.routes(), chatRouter.allowedMethods());
 apiRouter.use(
   fileAccessSettingsRouter.routes(),
