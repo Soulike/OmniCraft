@@ -10,7 +10,11 @@ interface MessageBubbleProps {
   content: string;
 }
 
-export function MessageBubble({role, id: _id, content}: MessageBubbleProps) {
+export function MessageBubble({
+  role,
+  id: _id, // Reserved for future message editing
+  content,
+}: MessageBubbleProps) {
   const {displayedContent} = useStreamingText(content);
   const displayContent = role === 'assistant' ? displayedContent : content;
   const deferredContent = useDeferredValue(displayContent);

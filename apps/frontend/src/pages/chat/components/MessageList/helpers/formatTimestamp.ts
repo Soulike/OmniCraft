@@ -18,7 +18,7 @@ function isSameDay(a: Date, b: Date): boolean {
   );
 }
 
-/** Formats a Unix ms timestamp for display. Same day: "HH:mm". Other day: "M月D日 HH:mm". */
+/** Formats a Unix ms timestamp for display. Same day: time only. Other day: date + time. Output follows system locale. */
 export function formatTimestamp(timestamp: number): string {
   const date = new Date(timestamp);
   const now = new Date();

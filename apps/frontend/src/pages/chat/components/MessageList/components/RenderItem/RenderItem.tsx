@@ -1,7 +1,7 @@
 import clsx from 'clsx';
 
+import {formatTimestamp} from '../../helpers/formatTimestamp.js';
 import type {MessageRenderItem} from '../../hooks/useMessageList.js';
-import {formatTimestamp} from '../MessageBubble/helpers/formatTimestamp.js';
 import {MessageBubble} from '../MessageBubble/index.js';
 import {ToolExecutionCard} from '../ToolExecutionCard/index.js';
 import styles from './styles.module.css';
