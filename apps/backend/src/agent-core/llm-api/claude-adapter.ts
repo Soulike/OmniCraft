@@ -19,6 +19,7 @@ type AssertCacheControl<T extends {cache_control?: unknown}> = T;
 type _CheckText = AssertCacheControl<Anthropic.TextBlockParam>;
 type _CheckToolUse = AssertCacheControl<Anthropic.ToolUseBlockParam>;
 type _CheckToolResult = AssertCacheControl<Anthropic.ToolResultBlockParam>;
+type _CheckTool = AssertCacheControl<Anthropic.Tool>;
 
 /** Converts our unified LlmMessage to the Anthropic SDK message format. */
 function toSdkMessage(message: LlmMessage): SdkMessageParam {
@@ -116,6 +117,14 @@ export async function* streamClaude(
   });
 
   const claudeTools = options.tools.map(toClaudeTool);
+
+  // Cache the tool list — it's static across all rounds in a session.
+  if (claudeTools.length > 0) {
+    claudeTools[claudeTools.length - 1] = {
+      ...claudeTools[claudeTools.length - 1],
+      cache_control: {type: 'ephemeral'},
+    };
+  }
 
   // Convert messages and add a cache breakpoint on the second-to-last message
   // so the API can cache the conversation prefix that won't change anymore.
