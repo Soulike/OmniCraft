@@ -235,6 +235,12 @@ export class LlmSession {
       yield {type: 'tool-call', toolCall};
     }
 
+    // Fallback if the LLM adapter did not emit a message-start event.
+    if (!assistantId) {
+      assistantId = crypto.randomUUID();
+      assistantCreatedAt = Date.now();
+    }
+
     const assistantMessage: LlmAssistantMessage = {
       id: assistantId,
       createdAt: assistantCreatedAt,
