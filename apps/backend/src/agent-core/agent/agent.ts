@@ -24,6 +24,7 @@ import {FileStatTracker} from './file-stat-tracker.js';
 import type {
   AgentDoneEvent,
   AgentEventStream,
+  AgentMessageStartEvent,
   AgentOptions,
   AgentSnapshot,
   AgentToolExecuteEndEvent,
@@ -121,14 +122,25 @@ export abstract class Agent {
   ): AgentEventStream {
     const maxRounds = await this.getMaxToolRounds();
 
-    let toolCalls = yield* this.consumeStream(
-      this.llmSession.sendUserMessage(
-        userMessage,
-        [...this.getAvailableTools().values()],
-        this.buildSystemPrompt(),
-        signal,
-      ),
+    const {
+      stream: userStream,
+      messageId,
+      createdAt,
+    } = this.llmSession.sendUserMessage(
+      userMessage,
+      [...this.getAvailableTools().values()],
+      this.buildSystemPrompt(),
+      signal,
     );
+
+    yield {
+      type: 'message-start',
+      role: 'user',
+      messageId,
+      createdAt,
+    } satisfies AgentMessageStartEvent;
+
+    let toolCalls = yield* this.consumeStream(userStream);
 
     let round = 0;
     while (toolCalls.length > 0) {
@@ -313,18 +325,34 @@ export abstract class Agent {
   }
 
   /**
-   * Consumes an LLM event stream, yielding text-delta events to the caller
-   * and collecting tool-call events. Returns the collected tool calls.
+   * Consumes an LLM event stream, yielding text-delta and message-start
+   * events to the caller and collecting tool-call events. Returns the
+   * collected tool calls.
    */
   private async *consumeStream(
     stream: LlmSessionEventStream,
-  ): AsyncGenerator<LlmSessionTextDeltaEvent, LlmToolCall[], undefined> {
+  ): AsyncGenerator<
+    LlmSessionTextDeltaEvent | AgentMessageStartEvent,
+    LlmToolCall[],
+    undefined
+  > {
     const toolCalls: LlmToolCall[] = [];
     for await (const event of stream) {
-      if (event.type === 'text-delta') {
-        yield event;
-      } else {
-        toolCalls.push(event.toolCall);
+      switch (event.type) {
+        case 'text-delta':
+          yield event;
+          break;
+        case 'message-start':
+          yield {
+            type: 'message-start',
+            role: 'assistant',
+            messageId: event.messageId,
+            createdAt: event.createdAt,
+          } satisfies AgentMessageStartEvent;
+          break;
+        case 'tool-call':
+          toolCalls.push(event.toolCall);
+          break;
       }
     }
     return toolCalls;

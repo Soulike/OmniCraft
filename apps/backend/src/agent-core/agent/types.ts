@@ -26,6 +26,21 @@ export interface AgentToolExecuteEndEvent {
   isError: boolean;
 }
 
+/** A new message is starting (user or assistant). */
+export interface AgentMessageStartEvent {
+  type: 'message-start';
+  role: 'user' | 'assistant';
+  messageId: string;
+  createdAt: number;
+}
+
+/** Intermediate streaming output from a running tool. */
+export interface AgentToolExecuteDeltaEvent {
+  type: 'tool-execute-delta';
+  callId: string;
+  content: string;
+}
+
 /** The agent has finished processing a user message. */
 export interface AgentDoneEvent {
   type: 'done';
@@ -35,8 +50,10 @@ export interface AgentDoneEvent {
 
 /** All events that the agent can yield to callers. */
 export type AgentEvent =
+  | AgentMessageStartEvent
   | LlmSessionTextDeltaEvent
   | AgentToolExecuteStartEvent
+  | AgentToolExecuteDeltaEvent
   | AgentToolExecuteEndEvent
   | AgentDoneEvent;
 

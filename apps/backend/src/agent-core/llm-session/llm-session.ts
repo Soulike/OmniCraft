@@ -1,3 +1,4 @@
+import assert from 'node:assert';
 import crypto from 'node:crypto';
 
 import {Mutex} from '@/helpers/mutex.js';
@@ -14,6 +15,7 @@ import type {ToolDefinition} from '../tool/types.js';
 import type {
   LlmSessionEventStream,
   LlmSessionSnapshot,
+  SendUserMessageResult,
   ToolResult,
 } from './types.js';
 
@@ -60,24 +62,31 @@ export class LlmSession {
   }
 
   /**
-   * Sends a user message to the LLM and returns a high-level event stream.
+   * Sends a user message to the LLM and returns a result containing
+   * the event stream and the user message's metadata.
    *
-   * Yields `text-delta` events for real-time streaming, then `tool-call`
+   * The stream yields `message-start` for the assistant reply,
+   * `text-delta` events for real-time streaming, then `tool-call`
    * events with fully assembled tool calls (if any). Once fully consumed,
    * the user message and assistant reply are recorded in the history.
    */
-  async *sendUserMessage(
+  sendUserMessage(
     content: string,
     tools: readonly ToolDefinition[],
     systemPrompt: string,
     signal?: AbortSignal,
-  ): LlmSessionEventStream {
-    yield* this.sendMessages(
-      [{id: crypto.randomUUID(), createdAt: Date.now(), role: 'user', content}],
-      tools,
-      systemPrompt,
-      signal,
-    );
+  ): SendUserMessageResult {
+    const userMessage = {
+      id: crypto.randomUUID(),
+      createdAt: Date.now(),
+      role: 'user' as const,
+      content,
+    };
+    return {
+      stream: this.sendMessages([userMessage], tools, systemPrompt, signal),
+      messageId: userMessage.id,
+      createdAt: userMessage.createdAt,
+    };
   }
 
   /**
@@ -164,7 +173,8 @@ export class LlmSession {
     });
 
     let textContent = '';
-    let assistantCreatedAt = 0;
+    let assistantId: string | null = null;
+    let assistantCreatedAt: number | null = null;
     const toolCalls: LlmToolCall[] = [];
     const pendingToolCalls = new Map<string, LlmToolCall>();
 
@@ -212,6 +222,12 @@ export class LlmSession {
           break;
         case 'message-start':
           assistantCreatedAt = Date.now();
+          assistantId = crypto.randomUUID();
+          yield {
+            type: 'message-start',
+            messageId: assistantId,
+            createdAt: assistantCreatedAt,
+          };
           break;
       }
     }
@@ -220,8 +236,13 @@ export class LlmSession {
       yield {type: 'tool-call', toolCall};
     }
 
+    assert(
+      assistantId !== null && assistantCreatedAt !== null,
+      'LLM adapter did not emit message-start event',
+    );
+
     const assistantMessage: LlmAssistantMessage = {
-      id: crypto.randomUUID(),
+      id: assistantId,
       createdAt: assistantCreatedAt,
       role: 'assistant',
       content: textContent,

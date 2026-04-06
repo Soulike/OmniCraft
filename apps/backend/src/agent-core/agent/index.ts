@@ -5,9 +5,11 @@ export type {
   AgentDoneEvent,
   AgentEvent,
   AgentEventStream,
+  AgentMessageStartEvent,
   AgentOptions,
   AgentSnapshot,
   AgentSnapshotOptions,
+  AgentToolExecuteDeltaEvent,
   AgentToolExecuteEndEvent,
   AgentToolExecuteStartEvent,
 } from './types.js';
