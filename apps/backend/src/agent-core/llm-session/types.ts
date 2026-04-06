@@ -24,10 +24,18 @@ export interface LlmSessionToolCallEvent {
   toolCall: LlmToolCall;
 }
 
+/** The LLM has started producing a new assistant message. */
+export interface LlmSessionMessageStartEvent {
+  type: 'message-start';
+  messageId: string;
+  createdAt: number;
+}
+
 /** Events yielded by LlmSession.sendMessage(). */
 export type LlmSessionEvent =
   | LlmSessionTextDeltaEvent
-  | LlmSessionToolCallEvent;
+  | LlmSessionToolCallEvent
+  | LlmSessionMessageStartEvent;
 
 /** An async generator that yields LlmSession events. */
 export type LlmSessionEventStream = AsyncGenerator<
@@ -35,3 +43,10 @@ export type LlmSessionEventStream = AsyncGenerator<
   void,
   undefined
 >;
+
+/** Return value of LlmSession.sendUserMessage(). */
+export interface SendUserMessageResult {
+  stream: LlmSessionEventStream;
+  messageId: string;
+  createdAt: number;
+}

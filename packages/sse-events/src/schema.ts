@@ -30,25 +30,6 @@ export type SseToolExecuteEndEvent = z.infer<
   typeof sseToolExecuteEndEventSchema
 >;
 
-/** A new message is starting. Carries message identity and timestamp. */
-export const sseMessageStartEventSchema = z.object({
-  type: z.literal('message-start'),
-  role: z.enum(['user', 'assistant']),
-  messageId: z.string(),
-  createdAt: z.number(),
-});
-export type SseMessageStartEvent = z.infer<typeof sseMessageStartEventSchema>;
-
-/** Intermediate streaming output from a running tool. */
-export const sseToolExecuteDeltaEventSchema = z.object({
-  type: z.literal('tool-execute-delta'),
-  callId: z.string(),
-  content: z.string(),
-});
-export type SseToolExecuteDeltaEvent = z.infer<
-  typeof sseToolExecuteDeltaEventSchema
->;
-
 /** Token usage statistics shared between backend and frontend. */
 export const sseUsageSchema = z.object({
   inputTokens: z.number(),
@@ -74,10 +55,8 @@ export type SseErrorEvent = z.infer<typeof sseErrorEventSchema>;
 
 /** Validates known SSE event types. Unknown types fail validation. */
 export const sseEventSchema = z.discriminatedUnion('type', [
-  sseMessageStartEventSchema,
   sseTextDeltaEventSchema,
   sseToolExecuteStartEventSchema,
-  sseToolExecuteDeltaEventSchema,
   sseToolExecuteEndEventSchema,
   sseDoneEventSchema,
   sseErrorEventSchema,

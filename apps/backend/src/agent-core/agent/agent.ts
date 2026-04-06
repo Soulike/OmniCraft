@@ -323,7 +323,7 @@ export abstract class Agent {
     for await (const event of stream) {
       if (event.type === 'text-delta') {
         yield event;
-      } else {
+      } else if (event.type === 'tool-call') {
         toolCalls.push(event.toolCall);
       }
     }
