@@ -8,6 +8,7 @@ import {SessionConfigProvider} from './contexts/SessionConfigContext/index.js';
 import {useMessages} from './hooks/useMessages.js';
 import {useSessionConfig} from './hooks/useSessionConfig.js';
 import {useSessionId} from './hooks/useSessionId.js';
+import {useSessionLifecycle} from './hooks/useSessionLifecycle.js';
 import {useSessionTitle} from './hooks/useSessionTitle.js';
 import {useStreamChat} from './hooks/useStreamChat.js';
 
@@ -28,11 +29,12 @@ function ChatPageContent() {
     sessionId,
     createNewSessionIdError,
     createNewSessionId,
+    clearSessionId,
     clearCreateNewSessionIdError,
   } = useSessionId();
 
-  const {messages} = useMessages();
-  const {title} = useSessionTitle();
+  const {messages, clearMessages} = useMessages();
+  const {title, clearTitle} = useSessionTitle();
 
   const {selectedWorkspace, selectedExtraAllowedPaths} = useSessionConfig();
 
@@ -61,6 +63,15 @@ function ChatPageContent() {
     createNewSessionId: createNewSessionIdWithConfig,
   });
 
+  const {startNewSession} = useSessionLifecycle({
+    stopGeneration,
+    clearSessionId,
+    clearMessages,
+    clearTitle,
+    clearStreamError,
+    clearMaxRoundsReached,
+  });
+
   const {containerRef: scrollRef, scrollToBottom} = useAutoScroll();
 
   const displayError = createNewSessionIdError ?? streamError;
@@ -69,6 +80,9 @@ function ChatPageContent() {
     clearCreateNewSessionIdError();
     clearStreamError();
   }, [clearCreateNewSessionIdError, clearStreamError]);
+
+  const newSessionDisabled =
+    (sessionId === null && messages.length === 0) || isStreaming;
 
   return (
     <ChatPageView
@@ -86,6 +100,8 @@ function ChatPageContent() {
         });
       }}
       onStop={stopGeneration}
+      onNewSession={startNewSession}
+      newSessionDisabled={newSessionDisabled}
       onDismissError={dismissError}
       onDismissMaxRoundsReached={clearMaxRoundsReached}
     />
