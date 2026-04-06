@@ -413,25 +413,29 @@ Create `apps/frontend/src/pages/chat/components/TitleBar/styles.module.css`:
 
 ```css
 .container {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
   align-items: center;
   padding: 12px 16px;
 }
 
-.spacer {
-  width: 32px;
-}
-
 .title {
-  flex: 1;
   font-size: 0.85em;
   font-weight: 500;
   text-align: center;
   color: var(--muted);
 }
+
+.left {
+  justify-self: start;
+}
+
+.right {
+  justify-self: end;
+}
 ```
 
-Layout uses a left spacer (same width as the button) so the title stays truly centered, with the button on the right.
+Layout uses CSS Grid `1fr auto 1fr`. Left and right slots are reserved for future use (left-aligned and right-aligned respectively). Title in the center `auto` column stays perfectly centered regardless of side content width.
 
 - [ ] **Step 2: Create the view component**
 
@@ -456,25 +460,27 @@ export function TitleBarView({
 }: TitleBarViewProps) {
   return (
     <div className={styles.container}>
-      <div className={styles.spacer} />
+      <div className={styles.left} />
       <h2 className={styles.title}>{title ?? 'New Session'}</h2>
-      <Tooltip delay={0}>
-        <Tooltip.Trigger>
-          <Button
-            isIconOnly
-            size='sm'
-            variant='ghost'
-            aria-label='New session'
-            isDisabled={newSessionDisabled}
-            onPress={onNewSession}
-          >
-            <MessageSquarePlus size={16} />
-          </Button>
-        </Tooltip.Trigger>
-        <Tooltip.Content>
-          <p>New session</p>
-        </Tooltip.Content>
-      </Tooltip>
+      <div className={styles.right}>
+        <Tooltip delay={0}>
+          <Tooltip.Trigger>
+            <Button
+              isIconOnly
+              size='sm'
+              variant='ghost'
+              aria-label='New session'
+              isDisabled={newSessionDisabled}
+              onPress={onNewSession}
+            >
+              <MessageSquarePlus size={16} />
+            </Button>
+          </Tooltip.Trigger>
+          <Tooltip.Content>
+            <p>New session</p>
+          </Tooltip.Content>
+        </Tooltip>
+      </div>
     </div>
   );
 }
