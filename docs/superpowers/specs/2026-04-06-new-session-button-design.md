@@ -60,7 +60,7 @@ data hooks and exposes high-level actions.
 
 ```ts
 interface UseSessionLifecycleOptions {
-  clearSession: () => void;
+  clearSessionId: () => void;
   clearMessages: () => void;
   clearTitle: () => void;
   stopGeneration: () => void;
@@ -77,7 +77,7 @@ interface SessionLifecycle {
 **`startNewSession` flow**:
 
 1. `stopGeneration()` — abort any in-flight SSE stream
-2. `clearSession()` — set sessionId to null
+2. `clearSessionId()` — set sessionId to null
 3. `clearMessages()` — empty the message array
 4. `clearTitle()` — set title to null
 5. `clearStreamError()` — clear any stream error
@@ -94,18 +94,29 @@ All calls are synchronous state setters, React batches them into one render.
 
 ## Changes to Existing Code
 
-### useSession.ts
+### useSession.ts → useSessionId.ts (rename)
 
-Add `clearSession` — sets sessionId to null and clears error:
+Rename hook from `useSession` to `useSessionId`. Rename all return values:
+
+- `resetSession` → `createNewSessionId`
+- `sessionError` → `createNewSessionIdError`
+- `clearSessionError` → `clearCreateNewSessionIdError`
+
+Add `clearSessionId` — sets sessionId to null and clears error:
 
 ```ts
-const clearSession = useCallback(() => {
+const clearSessionId = useCallback(() => {
   setSessionId(null);
   setError(null);
 }, []);
 ```
 
-Return `clearSession` alongside existing exports.
+Return `clearSessionId` alongside existing exports.
+
+Update consumers:
+
+- `ChatPage.tsx` — import path and destructured names
+- `hooks/useStreamChat.ts` — import type path and type alias
 
 ### useSessionTitle.ts
 
@@ -140,14 +151,15 @@ Already exposes `clearMessages`. No changes needed.
 
 ## File Summary
 
-| File                                    | Action                      |
-| --------------------------------------- | --------------------------- |
-| `components/TitleBar/TitleBarView.tsx`  | Create                      |
-| `components/TitleBar/styles.module.css` | Create                      |
-| `components/TitleBar/index.ts`          | Create                      |
-| `hooks/useSessionLifecycle.ts`          | Create                      |
-| `hooks/useSession.ts`                   | Add `clearSession`          |
-| `hooks/useSessionTitle.ts`              | Add `clearTitle`            |
-| `ChatPageView.tsx`                      | Replace h2 with TitleBar    |
-| `ChatPage.tsx`                          | Wire up useSessionLifecycle |
-| `styles.module.css`                     | Remove `.title`             |
+| File                                    | Action                                                                |
+| --------------------------------------- | --------------------------------------------------------------------- |
+| `components/TitleBar/TitleBarView.tsx`  | Create                                                                |
+| `components/TitleBar/styles.module.css` | Create                                                                |
+| `components/TitleBar/index.ts`          | Create                                                                |
+| `hooks/useSessionLifecycle.ts`          | Create                                                                |
+| `hooks/useSession.ts`                   | Rename to `useSessionId.ts`, add `clearSessionId`, rename all exports |
+| `hooks/useStreamChat.ts`                | Update import type for renamed hook                                   |
+| `hooks/useSessionTitle.ts`              | Add `clearTitle`                                                      |
+| `ChatPageView.tsx`                      | Replace h2 with TitleBar                                              |
+| `ChatPage.tsx`                          | Wire up useSessionLifecycle, update imports                           |
+| `styles.module.css`                     | Remove `.title`                                                       |
