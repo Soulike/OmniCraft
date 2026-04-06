@@ -1,16 +1,16 @@
-import {useCallback, useEffect, useRef, useState} from 'react';
+import type {ReactNode} from 'react';
+import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 
-import {useChatEventBus} from './useChatEventBus.js';
+import {useChatEventBus} from '../../hooks/useChatEventBus.js';
+import {ToolOutputContext} from './ToolOutputContext.js';
 
 const MAX_OUTPUT_LENGTH = 8192; // 8K characters
 
-/**
- * Manages streaming tool output, accumulating delta chunks per callId.
- * Truncates to the most recent 8 KB per tool. Re-renders are throttled
- * to once per animation frame. Each render produces a new Map snapshot
- * so downstream components detect the change via reference comparison.
- */
-export function useToolOutput() {
+interface ToolOutputProviderProps {
+  children: ReactNode;
+}
+
+export function ToolOutputProvider({children}: ToolOutputProviderProps) {
   const mapRef = useRef(new Map<string, string>());
   const rafIdRef = useRef<number | null>(null);
   const [snapshot, setSnapshot] = useState<ReadonlyMap<string, string>>(
@@ -60,5 +60,10 @@ export function useToolOutput() {
     setSnapshot(new Map());
   }, []);
 
-  return {toolOutput: snapshot, clearToolOutput};
+  const contextValue = useMemo(
+    () => ({toolOutput: snapshot, clearToolOutput}),
+    [snapshot, clearToolOutput],
+  );
+
+  return <ToolOutputContext value={contextValue}>{children}</ToolOutputContext>;
 }

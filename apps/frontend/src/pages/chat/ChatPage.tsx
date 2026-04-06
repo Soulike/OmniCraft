@@ -5,20 +5,25 @@ import {useAutoScroll} from '@/hooks/useAutoScroll.js';
 import {ChatPageView} from './ChatPageView.js';
 import {ChatEventBusProvider} from './contexts/ChatEventBusContext/index.js';
 import {SessionConfigProvider} from './contexts/SessionConfigContext/index.js';
+import {
+  ToolOutputProvider,
+  useClearToolOutput,
+} from './contexts/ToolOutputContext/index.js';
 import {useMessages} from './hooks/useMessages.js';
 import {useSessionConfig} from './hooks/useSessionConfig.js';
 import {useSessionId} from './hooks/useSessionId.js';
 import {useSessionLifecycle} from './hooks/useSessionLifecycle.js';
 import {useSessionTitle} from './hooks/useSessionTitle.js';
 import {useStreamChat} from './hooks/useStreamChat.js';
-import {useToolOutput} from './hooks/useToolOutput.js';
 
 /** Chat page container. Wraps content in providers. */
 export function ChatPage() {
   return (
     <ChatEventBusProvider>
       <SessionConfigProvider>
-        <ChatPageContent />
+        <ToolOutputProvider>
+          <ChatPageContent />
+        </ToolOutputProvider>
       </SessionConfigProvider>
     </ChatEventBusProvider>
   );
@@ -36,7 +41,7 @@ function ChatPageContent() {
 
   const {messages, clearMessages} = useMessages();
   const {title, clearTitle} = useSessionTitle();
-  const {toolOutput, clearToolOutput} = useToolOutput();
+  const clearToolOutput = useClearToolOutput();
 
   const {selectedWorkspace, selectedExtraAllowedPaths} = useSessionConfig();
 
@@ -91,7 +96,6 @@ function ChatPageContent() {
     <ChatPageView
       title={title}
       messages={messages}
-      toolOutput={toolOutput}
       isStreaming={isStreaming}
       error={displayError}
       maxRoundsReached={maxRoundsReached}

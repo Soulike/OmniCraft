@@ -4,10 +4,9 @@ import styles from './styles.module.css';
 
 interface MessageListViewProps {
   items: MessageRenderItem[];
-  toolOutput: ReadonlyMap<string, string>;
 }
 
-export function MessageListView({items, toolOutput}: MessageListViewProps) {
+export function MessageListView({items}: MessageListViewProps) {
   if (items.length === 0) {
     return (
       <div className={styles.empty}>
@@ -20,11 +19,7 @@ export function MessageListView({items, toolOutput}: MessageListViewProps) {
     <div className={styles.container}>
       <div className={styles.list}>
         {items.map((item, index) => (
-          <RenderItem
-            key={itemKey(item, index)}
-            item={item}
-            toolOutput={toolOutput}
-          />
+          <RenderItem key={itemKey(item, index)} item={item} />
         ))}
       </div>
     </div>

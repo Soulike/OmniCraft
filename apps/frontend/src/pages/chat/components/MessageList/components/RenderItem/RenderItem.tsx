@@ -8,10 +8,9 @@ import styles from './styles.module.css';
 
 interface RenderItemProps {
   item: MessageRenderItem;
-  toolOutput: ReadonlyMap<string, string>;
 }
 
-export function RenderItem({item, toolOutput}: RenderItemProps) {
+export function RenderItem({item}: RenderItemProps) {
   switch (item.type) {
     case 'user-text':
       return (
@@ -39,12 +38,12 @@ export function RenderItem({item, toolOutput}: RenderItemProps) {
       return (
         <div className={styles.assistantMessage}>
           <ToolExecutionCard
+            callId={item.callId}
             toolName={item.toolName}
             displayName={item.displayName}
             arguments={item.arguments}
             status={item.status}
             result={item.result}
-            output={toolOutput.get(item.callId)}
           />
         </div>
       );
