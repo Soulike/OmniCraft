@@ -1,8 +1,8 @@
 import {
-  getValueResponse,
-  putBatchResponse,
-  putValueResponse,
-} from './validator.js';
+  getSettingValueResponseSchema,
+  putSettingsBatchResponseSchema,
+  putSettingValueResponseSchema,
+} from '@omnicraft/api-schema';
 
 const BASE = '/api/settings';
 
@@ -30,7 +30,7 @@ export async function getSettingValue(keyPath: string): Promise<unknown> {
     );
   }
   const body: unknown = await res.json();
-  return getValueResponse.parse(body).value;
+  return getSettingValueResponseSchema.parse(body).value;
 }
 
 /** Writes a scalar setting value at the given key path. */
@@ -49,7 +49,7 @@ export async function putSettingValue(
     );
   }
   const body: unknown = await res.json();
-  putValueResponse.parse(body);
+  putSettingValueResponseSchema.parse(body);
 }
 
 /** Atomically writes multiple scalar setting values. */
@@ -67,5 +67,5 @@ export async function putSettingValues(
     );
   }
   const body: unknown = await res.json();
-  putBatchResponse.parse(body);
+  putSettingsBatchResponseSchema.parse(body);
 }
