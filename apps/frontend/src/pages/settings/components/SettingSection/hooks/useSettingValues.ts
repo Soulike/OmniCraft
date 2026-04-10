@@ -6,6 +6,7 @@ import type {FieldConfig, SettingFieldValues} from '../types.js';
 
 export function useSettingValues(fields: FieldConfig[]) {
   const [values, setValues] = useState<SettingFieldValues>({});
+  const [savedValues, setSavedValues] = useState<SettingFieldValues>({});
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
 
@@ -19,7 +20,9 @@ export function useSettingValues(fields: FieldConfig[]) {
           return [path, value] as const;
         }),
       );
-      setValues(Object.fromEntries(results));
+      const loaded = Object.fromEntries(results);
+      setValues(loaded);
+      setSavedValues(loaded);
     } catch {
       setLoadError(true);
     } finally {
@@ -35,5 +38,21 @@ export function useSettingValues(fields: FieldConfig[]) {
     setValues((prev) => ({...prev, [fieldPath]: value}));
   }, []);
 
-  return {values, updateValue, isLoading, loadError, reload: load};
+  const markSaved = useCallback((vals: SettingFieldValues) => {
+    setSavedValues({...vals});
+  }, []);
+
+  const isDirty = Object.keys(savedValues).some(
+    (key) => values[key] !== savedValues[key],
+  );
+
+  return {
+    values,
+    updateValue,
+    isLoading,
+    loadError,
+    isDirty,
+    markSaved,
+    reload: load,
+  };
 }

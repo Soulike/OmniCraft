@@ -12,6 +12,7 @@ interface SettingSectionViewProps {
   isLoading: boolean;
   loadError: boolean;
   isSaving: boolean;
+  isDirty: boolean;
   onSave: () => void;
   onRetry: () => void;
 }
@@ -22,6 +23,7 @@ export function SettingSectionView({
   isLoading,
   loadError,
   isSaving,
+  isDirty,
   onSave,
   onRetry,
 }: SettingSectionViewProps) {
@@ -35,7 +37,11 @@ export function SettingSectionView({
       ) : (
         <>
           <div className={styles.fields}>{children}</div>
-          <Button isPending={isSaving} isDisabled={isSaving} onPress={onSave}>
+          <Button
+            isPending={isSaving}
+            isDisabled={!isDirty || isSaving}
+            onPress={onSave}
+          >
             {({isPending}) => (
               <>
                 {isPending && <Spinner color='current' size='sm' />}
