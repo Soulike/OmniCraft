@@ -1,10 +1,15 @@
 import {PassThrough} from 'node:stream';
 
 import Router from '@koa/router';
+import {
+  chatCompletionsRequestSchema,
+  createSessionRequestSchema,
+  generateTitleRequestSchema,
+  type ThinkingLevel,
+} from '@omnicraft/api-schema';
 import {StatusCodes} from 'http-status-codes';
 import {ZodError} from 'zod';
 
-import type {ThinkingLevel} from '@/agent-core/llm-api/index.js';
 import {chatService} from '@/services/chat/index.js';
 
 import {pumpEventStream} from './helpers/sse.js';
@@ -13,11 +18,6 @@ import {
   CHAT_SESSION_COMPLETIONS,
   CHAT_SESSION_GENERATE_TITLE,
 } from './path.js';
-import {
-  chatCompletionsBody,
-  createSessionBody,
-  generateTitleBody,
-} from './validator.js';
 
 const router = new Router();
 
@@ -25,7 +25,7 @@ const router = new Router();
 router.post(CHAT_SESSION, async (ctx) => {
   let options = {};
   try {
-    const body = createSessionBody.parse(ctx.request.body);
+    const body = createSessionRequestSchema.parse(ctx.request.body);
     if (body) {
       options = {
         workspace: body.workspace,
@@ -60,7 +60,7 @@ router.post(CHAT_SESSION_COMPLETIONS, (ctx) => {
   let message: string;
   let thinkingLevel: ThinkingLevel;
   try {
-    const body = chatCompletionsBody.parse(ctx.request.body);
+    const body = chatCompletionsRequestSchema.parse(ctx.request.body);
     message = body.message;
     thinkingLevel = body.thinkingLevel;
   } catch (e) {
@@ -111,7 +111,7 @@ router.post(CHAT_SESSION_GENERATE_TITLE, async (ctx) => {
   let userMessage: string;
   let assistantMessage: string;
   try {
-    const body = generateTitleBody.parse(ctx.request.body);
+    const body = generateTitleRequestSchema.parse(ctx.request.body);
     userMessage = body.userMessage;
     assistantMessage = body.assistantMessage;
   } catch (e) {

@@ -13,6 +13,7 @@
   "dependencies": {
     "@heroui/react": "^3.0.1",
     "@heroui/styles": "^3.0.1",
+    "@omnicraft/api-schema": "workspace:^",
     "@omnicraft/settings-schema": "workspace:^",
     "@omnicraft/sse-events": "workspace:^",
     "@tailwindcss/vite": "^4.2.2",

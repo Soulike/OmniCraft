@@ -1,11 +1,11 @@
 import Router from '@koa/router';
+import {putAllowedPathsRequestSchema} from '@omnicraft/api-schema';
 import {StatusCodes} from 'http-status-codes';
 import {ZodError} from 'zod';
 
 import {fileAccessSettingsService} from '@/services/file-access-settings/index.js';
 
 import {FILE_ACCESS_ALLOWED_PATHS} from './path.js';
-import {putAllowedPathsBody} from './validator.js';
 
 const router = new Router();
 
@@ -20,7 +20,7 @@ router.get(FILE_ACCESS_ALLOWED_PATHS, async (ctx) => {
 router.put(FILE_ACCESS_ALLOWED_PATHS, async (ctx) => {
   let allowedPaths;
   try {
-    const body = putAllowedPathsBody.parse(ctx.request.body);
+    const body = putAllowedPathsRequestSchema.parse(ctx.request.body);
     allowedPaths = body.allowedPaths;
   } catch (e) {
     if (e instanceof ZodError) {

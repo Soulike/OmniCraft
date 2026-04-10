@@ -11,11 +11,12 @@ Each dispatcher module follows this structure:
 ├── index.ts        # Exports the router
 ├── path.ts         # Route path constants
 ├── router.ts       # Route handlers — call service layer
-└── validator.ts    # Zod schemas and helpers for request validation
+└── validator.ts    # (optional) Helpers for request validation (e.g. path parsing)
 ```
 
 ## Conventions
 
-- Every dispatcher module must have a `validator.ts` that defines Zod schemas for request bodies and helpers for parsing/validating path parameters.
-- Router handlers must not contain inline validation logic. All input validation goes through the validator.
+- Request/response Zod schemas live in `@omnicraft/api-schema`. Routers import them directly from the package.
+- A `validator.ts` is only needed when a dispatcher has backend-specific validation helpers (e.g. `parseLeafKeyPath`). Pure re-export files should not exist.
+- Router handlers must not contain inline validation logic. All input validation goes through schemas or validator helpers.
 - Router handlers catch `ZodError` and return 400 with `e.issues`. Unknown errors are re-thrown.

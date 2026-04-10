@@ -1,6 +1,7 @@
 import assert from 'node:assert';
 
 import Anthropic from '@anthropic-ai/sdk';
+import type {ThinkingLevel} from '@omnicraft/api-schema';
 import {z} from 'zod';
 
 import type {ToolDefinition} from '../tool/types.js';
@@ -9,7 +10,6 @@ import type {
   LlmEventStream,
   LlmMessage,
   LlmUsage,
-  ThinkingLevel,
 } from './types.js';
 
 type SdkMessageParam = Anthropic.MessageParam;
@@ -157,9 +157,7 @@ export async function* streamClaude(
   // budget_tokens must be < max_tokens. Ensure max_tokens accommodates the
   // thinking budget plus room for the actual response.
   const maxTokens =
-    thinking?.type === 'enabled'
-      ? thinking.budget_tokens + 4096
-      : 4096;
+    thinking?.type === 'enabled' ? thinking.budget_tokens + 4096 : 4096;
 
   const stream = client.messages.stream(
     {

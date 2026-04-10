@@ -1,3 +1,4 @@
+import type {ThinkingLevel} from '@omnicraft/api-schema';
 import type {SseUsage} from '@omnicraft/sse-events';
 
 import type {ToolDefinition} from '../tool/types.js';
@@ -38,9 +39,6 @@ export type LlmMessage =
   | LlmUserMessage
   | LlmAssistantMessage
   | LlmToolResultMessage;
-
-/** Thinking/reasoning level for models that support extended thinking. */
-export type ThinkingLevel = 'none' | 'low' | 'medium' | 'high';
 
 /** Configuration needed to call an LLM API. */
 export interface LlmConfig {

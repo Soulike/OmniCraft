@@ -1,15 +1,15 @@
 import Router from '@koa/router';
+import {
+  putSettingsBatchRequestSchema,
+  putSettingValueRequestSchema,
+} from '@omnicraft/api-schema';
 import {StatusCodes} from 'http-status-codes';
 import {ZodError} from 'zod';
 
 import {settingsService} from '@/services/settings/index.js';
 
 import {SETTINGS_BATCH, SETTINGS_JSON_SCHEMA, SETTINGS_VALUE} from './path.js';
-import {
-  parseLeafKeyPath,
-  putSettingsBatchBody,
-  putSettingsBody,
-} from './validator.js';
+import {parseLeafKeyPath} from './validator.js';
 
 const router = new Router();
 
@@ -22,7 +22,7 @@ router.get(SETTINGS_JSON_SCHEMA, (ctx) => {
 /** PUT /settings/batch — atomically writes multiple leaf values. */
 router.put(SETTINGS_BATCH, async (ctx) => {
   try {
-    const {entries} = putSettingsBatchBody.parse(ctx.request.body);
+    const {entries} = putSettingsBatchRequestSchema.parse(ctx.request.body);
     await settingsService.setBatch(entries);
     ctx.response.status = StatusCodes.OK;
     ctx.response.body = {success: true};
@@ -57,7 +57,7 @@ router.get(SETTINGS_VALUE, async (ctx) => {
 router.put(SETTINGS_VALUE, async (ctx) => {
   try {
     const keyPath = parseLeafKeyPath(ctx.params.path);
-    const {value} = putSettingsBody.parse(ctx.request.body);
+    const {value} = putSettingValueRequestSchema.parse(ctx.request.body);
     await settingsService.set(keyPath, value);
     ctx.response.status = StatusCodes.OK;
     ctx.response.body = {success: true};

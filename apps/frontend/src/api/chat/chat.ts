@@ -1,11 +1,12 @@
+import {
+  createSessionResponseSchema,
+  generateTitleResponseSchema,
+  type ThinkingLevel,
+} from '@omnicraft/api-schema';
 import type {SseEvent} from '@omnicraft/sse-events';
+import {sseEventSchema} from '@omnicraft/sse-events';
 
 import {parseSseStream} from '../helpers/sse.js';
-import {
-  createSessionResponse,
-  generateTitleResponse,
-  sseEventSchema,
-} from './validator.js';
 
 const BASE = '/api/chat';
 
@@ -32,7 +33,7 @@ export async function createSession(
   }
 
   const json: unknown = await res.json();
-  const {sessionId} = createSessionResponse.parse(json);
+  const {sessionId} = createSessionResponseSchema.parse(json);
   return sessionId;
 }
 
@@ -43,7 +44,7 @@ export async function createSession(
 export async function* streamChatCompletion(
   sessionId: string,
   message: string,
-  thinkingLevel: 'none' | 'low' | 'medium' | 'high',
+  thinkingLevel: ThinkingLevel,
   signal?: AbortSignal,
 ): AsyncGenerator<SseEvent, void, undefined> {
   const res = await fetch(`${BASE}/session/${sessionId}/completions`, {
@@ -84,6 +85,6 @@ export async function generateTitle(
   }
 
   const json: unknown = await res.json();
-  const {title} = generateTitleResponse.parse(json);
+  const {title} = generateTitleResponseSchema.parse(json);
   return title;
 }
