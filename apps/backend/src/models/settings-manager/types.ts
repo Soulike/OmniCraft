@@ -1,15 +1,10 @@
+import {settingValueSchema} from '@omnicraft/api-schema';
 import {z} from 'zod';
 
 import type {SettingsManager} from './settings-manager.js';
 
-/** A scalar setting value for the generic settings API. Non-scalar leaves (e.g. arrays) use dedicated endpoints. */
-export const settingValueSchema = z
-  .unknown()
-  .refine((v) => typeof v !== 'object' || v === null, {
-    message: 'Value must be a scalar, not an object',
-  });
-
-export type SettingValue = z.infer<typeof settingValueSchema>;
+export type {SettingValue} from '@omnicraft/api-schema';
+export {settingValueSchema} from '@omnicraft/api-schema';
 
 /** A single setting entry: a leaf key path and a value. */
 export const settingEntrySchema = z.object({

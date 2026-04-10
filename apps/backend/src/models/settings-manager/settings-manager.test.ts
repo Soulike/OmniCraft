@@ -16,9 +16,13 @@ const testSchema = z.object({
   section: testInnerSchema.prefault({}),
 });
 
-vi.mock('@omnicraft/settings-schema', () => ({
-  settingsSchema: testSchema,
-}));
+vi.mock('@omnicraft/settings-schema', async (importOriginal) => {
+  const actual = await importOriginal();
+  return {
+    ...(actual as object),
+    settingsSchema: testSchema,
+  };
+});
 
 const {SettingsManager} = await import('./settings-manager.js');
 const {SettingsWarning} = await import('./types.js');
