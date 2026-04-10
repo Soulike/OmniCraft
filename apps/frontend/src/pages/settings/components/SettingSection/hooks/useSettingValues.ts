@@ -39,9 +39,9 @@ export function useSettingValues(fields: FieldConfig[]) {
     setValues((prev) => ({...prev, [fieldPath]: value}));
   }, []);
 
-  const markSaved = useCallback((vals: SettingFieldValues) => {
-    setSavedValues({...vals});
-  }, []);
+  const markSaved = useCallback(() => {
+    setSavedValues(values);
+  }, [values]);
 
   const isDirty = !dequal(values, savedValues);
 

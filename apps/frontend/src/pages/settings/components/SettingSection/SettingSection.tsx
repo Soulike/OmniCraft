@@ -41,7 +41,7 @@ export function SettingSection({title, fields, children}: SettingSectionProps) {
     }
     const success = await save(values);
     if (success) {
-      markSaved(values);
+      markSaved();
     }
   }, [validate, save, values, markSaved]);
 
