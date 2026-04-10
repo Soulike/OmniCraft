@@ -39,12 +39,16 @@ export type LlmMessage =
   | LlmAssistantMessage
   | LlmToolResultMessage;
 
+/** Thinking/reasoning level for models that support extended thinking. */
+export type ThinkingLevel = 'none' | 'low' | 'medium' | 'high';
+
 /** Configuration needed to call an LLM API. */
 export interface LlmConfig {
   apiFormat: 'claude' | 'openai' | 'openai-responses';
   apiKey: string;
   baseUrl: string;
   model: string;
+  thinkingLevel: ThinkingLevel;
 }
 
 /** Token usage statistics. Re-exported from the shared SSE events package. */

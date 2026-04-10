@@ -9,6 +9,7 @@ import type {
   LlmCompletionOptions,
   LlmEventStream,
   LlmMessage,
+  ThinkingLevel,
 } from './types.js';
 
 type ResponseInputItem = OpenAI.Responses.ResponseInputItem;
@@ -60,6 +61,14 @@ function toFunctionTool(tool: ToolDefinition): OpenAI.Responses.FunctionTool {
   };
 }
 
+/** Maps a ThinkingLevel to the OpenAI Reasoning config. */
+function toReasoning(
+  level: ThinkingLevel,
+): {effort: 'low' | 'medium' | 'high'} | undefined {
+  if (level === 'none') return undefined;
+  return {effort: level};
+}
+
 /** Streams LLM events from the OpenAI Responses API. */
 export async function* streamOpenAIResponses(
   options: LlmCompletionOptions,
@@ -73,6 +82,7 @@ export async function* streamOpenAIResponses(
 
   const input = toInputItems(messages);
   const tools = options.tools.map(toFunctionTool);
+  const reasoning = toReasoning(config.thinkingLevel);
 
   const stream = await client.responses.create(
     {
@@ -82,6 +92,7 @@ export async function* streamOpenAIResponses(
       store: false,
       ...(systemPrompt ? {instructions: systemPrompt} : {}),
       ...(tools.length > 0 ? {tools} : {}),
+      ...(reasoning ? {reasoning} : {}),
     },
     {signal: options.signal},
   );
