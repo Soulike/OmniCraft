@@ -22,6 +22,7 @@
         "@koa/bodyparser": "^6.1.0",
         "@koa/router": "^15.1.0",
         "@mozilla/readability": "^0.6.0",
+        "@omnicraft/api-schema": "workspace:^",
         "@omnicraft/markdown-frontmatter": "workspace:^",
         "@omnicraft/settings-schema": "workspace:^",
         "@omnicraft/sse-events": "workspace:^",
@@ -60,6 +61,7 @@
       "dependencies": {
         "@heroui/react": "^3.0.1",
         "@heroui/styles": "^3.0.1",
+        "@omnicraft/api-schema": "workspace:^",
         "@omnicraft/settings-schema": "workspace:^",
         "@omnicraft/sse-events": "workspace:^",
         "@tailwindcss/vite": "^4.2.2",
@@ -125,6 +127,18 @@
     },
     "configs/typescript": {
       "name": "@config/typescript",
+    },
+    "packages/api-schema": {
+      "name": "@omnicraft/api-schema",
+      "dependencies": {
+        "@omnicraft/settings-schema": "workspace:^",
+        "zod": "catalog:",
+      },
+      "devDependencies": {
+        "@config/eslint": "workspace:^",
+        "@config/typescript": "workspace:^",
+        "typescript": "catalog:",
+      },
     },
     "packages/markdown-frontmatter": {
       "name": "@omnicraft/markdown-frontmatter",
@@ -388,6 +402,8 @@
     "@nodelib/fs.stat": ["@nodelib/fs.stat@2.0.5", "https://registry.npmmirror.com/@nodelib/fs.stat/-/fs.stat-2.0.5.tgz", {}, "sha512-RkhPPp2zrqDAQA/2jNhnztcPAlv64XdhIp7a7454A5ovI7Bukxgt7MX7udwAu3zg1DcpPU0rz3VV1SeaqvY4+A=="],
 
     "@nodelib/fs.walk": ["@nodelib/fs.walk@1.2.8", "https://registry.npmmirror.com/@nodelib/fs.walk/-/fs.walk-1.2.8.tgz", { "dependencies": { "@nodelib/fs.scandir": "2.1.5", "fastq": "^1.6.0" } }, "sha512-oGB+UxlgWcgQkgwo8GcEGwemoTFt3FIO9ababBmaGwXIoBKZ+GTy0pP185beGg7Llih/NSHSV2XAs1lnznocSg=="],
+
+    "@omnicraft/api-schema": ["@omnicraft/api-schema@workspace:packages/api-schema"],
 
     "@omnicraft/backend": ["@omnicraft/backend@workspace:apps/backend"],
 
