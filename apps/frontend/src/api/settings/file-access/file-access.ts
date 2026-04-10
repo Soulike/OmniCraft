@@ -1,12 +1,11 @@
+import {
+  getAllowedPathsResponseSchema,
+  type InvalidPathEntry,
+  invalidPathsResponseSchema,
+  putAllowedPathsSuccessResponseSchema,
+} from '@omnicraft/api-schema';
 import type {AllowedPathEntry} from '@omnicraft/settings-schema';
 import {StatusCodes} from 'http-status-codes';
-
-import {
-  getAllowedPathsResponse,
-  type InvalidPathEntry,
-  invalidPathsResponse,
-  putAllowedPathsSuccessResponse,
-} from './validator.js';
 
 const BASE = '/api/settings/file-access';
 
@@ -28,7 +27,7 @@ export async function getAllowedPaths(): Promise<AllowedPathEntry[]> {
     throw new Error(`Failed to fetch allowed paths: ${res.status.toString()}`);
   }
   const json: unknown = await res.json();
-  const {allowedPaths} = getAllowedPathsResponse.parse(json);
+  const {allowedPaths} = getAllowedPathsResponseSchema.parse(json);
   return allowedPaths;
 }
 
@@ -43,7 +42,7 @@ export async function putAllowedPaths(
 
   if (res.status === (StatusCodes.UNPROCESSABLE_ENTITY as number)) {
     const json: unknown = await res.json();
-    const {invalidPaths} = invalidPathsResponse.parse(json);
+    const {invalidPaths} = invalidPathsResponseSchema.parse(json);
     throw new InvalidPathsError(invalidPaths);
   }
 
@@ -55,5 +54,5 @@ export async function putAllowedPaths(
   }
 
   const json: unknown = await res.json();
-  putAllowedPathsSuccessResponse.parse(json);
+  putAllowedPathsSuccessResponseSchema.parse(json);
 }
