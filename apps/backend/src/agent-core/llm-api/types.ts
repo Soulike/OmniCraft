@@ -40,8 +40,6 @@ export type LlmMessage =
   | LlmAssistantMessage
   | LlmToolResultMessage;
 
-export type {ThinkingLevel} from '@omnicraft/api-schema';
-
 /** Configuration needed to call an LLM API. */
 export interface LlmConfig {
   apiFormat: 'claude' | 'openai' | 'openai-responses';

@@ -1,5 +1,6 @@
 import assert from 'node:assert';
 
+import type {ThinkingLevel} from '@omnicraft/api-schema';
 import type OpenAI from 'openai';
 import OpenAIClient from 'openai';
 import {z} from 'zod';
@@ -9,7 +10,6 @@ import type {
   LlmCompletionOptions,
   LlmEventStream,
   LlmMessage,
-  ThinkingLevel,
 } from './types.js';
 
 type ResponseInputItem = OpenAI.Responses.ResponseInputItem;

@@ -1,6 +1,8 @@
 import assert from 'node:assert';
 import crypto from 'node:crypto';
 
+import type {ThinkingLevel} from '@omnicraft/api-schema';
+
 import {Mutex} from '@/helpers/mutex.js';
 
 import type {
@@ -9,7 +11,6 @@ import type {
   LlmMessage,
   LlmToolCall,
   LlmUsage,
-  ThinkingLevel,
 } from '../llm-api/index.js';
 import {llmApi} from '../llm-api/index.js';
 import type {ToolDefinition} from '../tool/types.js';

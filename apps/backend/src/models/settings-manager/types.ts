@@ -3,9 +3,6 @@ import {z} from 'zod';
 
 import type {SettingsManager} from './settings-manager.js';
 
-export type {SettingValue} from '@omnicraft/api-schema';
-export {settingValueSchema} from '@omnicraft/api-schema';
-
 /** A single setting entry: a leaf key path and a value. */
 export const settingEntrySchema = z.object({
   keyPath: z.array(z.string()).nonempty(),

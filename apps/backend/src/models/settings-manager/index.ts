@@ -4,6 +4,4 @@ export {
   settingEntrySchema,
   type SettingsManagerCreateResult,
   SettingsWarning,
-  type SettingValue,
-  settingValueSchema,
 } from './types.js';

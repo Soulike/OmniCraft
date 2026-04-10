@@ -1,10 +1,12 @@
 import crypto from 'node:crypto';
 import os from 'node:os';
 
+import type {ThinkingLevel} from '@omnicraft/api-schema';
+
 import {AsyncChannel} from '@/helpers/async-channel.js';
 
 import {agentEventBus} from '../events/index.js';
-import type {LlmConfig, LlmToolCall, ThinkingLevel} from '../llm-api/index.js';
+import type {LlmConfig, LlmToolCall} from '../llm-api/index.js';
 import type {
   LlmSessionEventStream,
   LlmSessionTextDeltaEvent,

@@ -1,10 +1,10 @@
 import assert from 'node:assert';
 import os from 'node:os';
 
+import type {ThinkingLevel} from '@omnicraft/api-schema';
 import type {AllowedPathEntry} from '@omnicraft/settings-schema';
 
 import {CoreAgent} from '@/agent/agents/index.js';
-import type {ThinkingLevel} from '@/agent-core/llm-api/index.js';
 import {logger} from '@/logger.js';
 import {AgentStore} from '@/models/agent-store/index.js';
 import {SettingsManager} from '@/models/settings-manager/index.js';
