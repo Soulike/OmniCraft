@@ -1,7 +1,12 @@
 import {PassThrough} from 'node:stream';
 
 import Router from '@koa/router';
-import type {ThinkingLevel} from '@omnicraft/api-schema';
+import {
+  chatCompletionsRequestSchema,
+  createSessionRequestSchema,
+  generateTitleRequestSchema,
+  type ThinkingLevel,
+} from '@omnicraft/api-schema';
 import {StatusCodes} from 'http-status-codes';
 import {ZodError} from 'zod';
 
@@ -13,11 +18,6 @@ import {
   CHAT_SESSION_COMPLETIONS,
   CHAT_SESSION_GENERATE_TITLE,
 } from './path.js';
-import {
-  chatCompletionsRequestSchema,
-  createSessionRequestSchema,
-  generateTitleRequestSchema,
-} from './validator.js';
 
 const router = new Router();
 

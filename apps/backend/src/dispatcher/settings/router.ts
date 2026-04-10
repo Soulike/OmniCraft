@@ -1,15 +1,15 @@
 import Router from '@koa/router';
+import {
+  putSettingsBatchRequestSchema,
+  putSettingValueRequestSchema,
+} from '@omnicraft/api-schema';
 import {StatusCodes} from 'http-status-codes';
 import {ZodError} from 'zod';
 
 import {settingsService} from '@/services/settings/index.js';
 
 import {SETTINGS_BATCH, SETTINGS_JSON_SCHEMA, SETTINGS_VALUE} from './path.js';
-import {
-  parseLeafKeyPath,
-  putSettingsBatchRequestSchema,
-  putSettingValueRequestSchema,
-} from './validator.js';
+import {parseLeafKeyPath} from './validator.js';
 
 const router = new Router();
 

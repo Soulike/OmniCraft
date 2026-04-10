@@ -2,11 +2,6 @@ import {z} from 'zod';
 
 import {SettingsManager} from '@/models/settings-manager/index.js';
 
-export {
-  putSettingsBatchRequestSchema,
-  putSettingValueRequestSchema,
-} from '@omnicraft/api-schema';
-
 /** Parses a raw path string into a validated leaf key path. */
 export function parseLeafKeyPath(rawPath: string): string[] {
   const keyPath = rawPath.split('/');
