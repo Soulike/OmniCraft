@@ -33,6 +33,7 @@ export function createMockContext(
     fileStatTracker: new FileStatTracker(),
     extraAllowedPaths: [],
     shellState: {cwd: workingDirectory},
+    signal: new AbortController().signal,
     ...overrides,
   };
 }

@@ -120,7 +120,7 @@ export abstract class Agent {
   async *handleUserMessage(
     userMessage: string,
     thinkingLevel: ThinkingLevel,
-    signal?: AbortSignal,
+    signal: AbortSignal,
   ): AgentEventStream {
     const maxRounds = await this.getMaxToolRounds();
 
@@ -147,7 +147,7 @@ export abstract class Agent {
 
     let round = 0;
     while (toolCalls.length > 0) {
-      if (signal?.aborted) return;
+      if (signal.aborted) return;
 
       round++;
       if (round > maxRounds) {
@@ -219,7 +219,9 @@ export abstract class Agent {
         yield event;
       }
 
-      if (signal?.aborted) return;
+      // signal.aborted may have changed during async tool execution
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+      if (signal.aborted) return;
 
       // Submit results in the same order as the original tool calls
       const orderedResults = toolCalls.flatMap((tc) => {
@@ -383,7 +385,7 @@ export abstract class Agent {
     toolCall: LlmToolCall,
     availableTools: ReadonlyMap<string, ToolDefinition>,
     onOutput: (chunk: string) => void,
-    signal?: AbortSignal,
+    signal: AbortSignal,
   ): Promise<{content: string; isError: boolean}> {
     const tool = availableTools.get(toolCall.toolName);
     if (!tool) {
