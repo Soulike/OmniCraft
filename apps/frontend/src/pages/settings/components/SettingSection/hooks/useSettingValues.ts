@@ -1,3 +1,4 @@
+import {dequal} from 'dequal';
 import {useCallback, useEffect, useState} from 'react';
 
 import {getSettingValue} from '@/api/settings/index.js';
@@ -6,6 +7,7 @@ import type {FieldConfig, SettingFieldValues} from '../types.js';
 
 export function useSettingValues(fields: FieldConfig[]) {
   const [values, setValues] = useState<SettingFieldValues>({});
+  const [savedValues, setSavedValues] = useState<SettingFieldValues>({});
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
 
@@ -19,7 +21,9 @@ export function useSettingValues(fields: FieldConfig[]) {
           return [path, value] as const;
         }),
       );
-      setValues(Object.fromEntries(results));
+      const loaded = Object.fromEntries(results);
+      setValues(loaded);
+      setSavedValues(loaded);
     } catch {
       setLoadError(true);
     } finally {
@@ -35,5 +39,19 @@ export function useSettingValues(fields: FieldConfig[]) {
     setValues((prev) => ({...prev, [fieldPath]: value}));
   }, []);
 
-  return {values, updateValue, isLoading, loadError, reload: load};
+  const markSaved = useCallback(() => {
+    setSavedValues(values);
+  }, [values]);
+
+  const isDirty = !dequal(values, savedValues);
+
+  return {
+    values,
+    updateValue,
+    isLoading,
+    loadError,
+    isDirty,
+    markSaved,
+    reload: load,
+  };
 }

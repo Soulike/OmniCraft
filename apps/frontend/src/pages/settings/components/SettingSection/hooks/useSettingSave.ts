@@ -15,8 +15,10 @@ export function useSettingSave(fields: FieldConfig[]) {
         const entries = fields.map(({path}) => ({path, value: values[path]}));
         await putSettingValues(entries);
         toast.success('Settings saved');
+        return true;
       } catch {
         toast.danger('Failed to save settings');
+        return false;
       } finally {
         setIsSaving(false);
       }

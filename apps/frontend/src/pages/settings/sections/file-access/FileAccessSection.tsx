@@ -12,6 +12,7 @@ export function FileAccessSection() {
     isSaving,
     saveError,
     invalidPaths,
+    isDirty,
     save,
     addPath,
     removePath,
@@ -35,6 +36,7 @@ export function FileAccessSection() {
       isSaving={isSaving}
       saveError={saveError}
       invalidPaths={invalidPaths}
+      isDirty={isDirty}
       onAdd={addPath}
       onRemove={removePath}
       onSave={() => {

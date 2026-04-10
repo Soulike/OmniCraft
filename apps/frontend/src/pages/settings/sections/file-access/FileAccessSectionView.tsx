@@ -16,6 +16,7 @@ interface FileAccessSectionViewProps {
   isSaving: boolean;
   saveError: string | null;
   invalidPaths: InvalidPathEntry[];
+  isDirty: boolean;
   onAdd: (entry: AllowedPathEntry) => void;
   onRemove: (index: number) => void;
   onSave: () => void;
@@ -29,6 +30,7 @@ export function FileAccessSectionView({
   isSaving,
   saveError,
   invalidPaths,
+  isDirty,
   onAdd,
   onRemove,
   onSave,
@@ -66,6 +68,7 @@ export function FileAccessSectionView({
           <SaveFooter
             isSaving={isSaving}
             saveError={saveError}
+            isDirty={isDirty}
             onSave={onSave}
           />
         </>

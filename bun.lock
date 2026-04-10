@@ -64,6 +64,7 @@
         "@omnicraft/sse-events": "workspace:^",
         "@tailwindcss/vite": "^4.2.2",
         "clsx": "^2.1.1",
+        "dequal": "^2.0.3",
         "highlight.js": "^11.11.1",
         "http-status-codes": "^2.3.0",
         "lucide-react": "^0.577.0",

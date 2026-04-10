@@ -14,8 +14,15 @@ interface SettingSectionProps {
 }
 
 export function SettingSection({title, fields, children}: SettingSectionProps) {
-  const {values, updateValue, isLoading, loadError, reload} =
-    useSettingValues(fields);
+  const {
+    values,
+    updateValue,
+    isLoading,
+    loadError,
+    isDirty,
+    markSaved,
+    reload,
+  } = useSettingValues(fields);
   const {validationErrors, validate, clearError} = useSettingValidation(fields);
   const {isSaving, save} = useSettingSave(fields);
 
@@ -32,8 +39,11 @@ export function SettingSection({title, fields, children}: SettingSectionProps) {
       toast.danger('Please fix the errors before saving');
       return;
     }
-    await save(values);
-  }, [validate, save, values]);
+    const success = await save(values);
+    if (success) {
+      markSaved();
+    }
+  }, [validate, save, values, markSaved]);
 
   const isDisabled = isLoading || isSaving;
 
@@ -43,6 +53,7 @@ export function SettingSection({title, fields, children}: SettingSectionProps) {
       isLoading={isLoading}
       loadError={loadError}
       isSaving={isSaving}
+      isDirty={isDirty}
       onSave={() => {
         void handleSave();
       }}

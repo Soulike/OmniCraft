@@ -1,4 +1,5 @@
 import type {AllowedPathEntry} from '@omnicraft/settings-schema';
+import {dequal} from 'dequal';
 import {useCallback, useEffect, useState} from 'react';
 
 import {
@@ -10,6 +11,7 @@ import {
 
 export function useAllowedPaths() {
   const [paths, setPaths] = useState<AllowedPathEntry[]>([]);
+  const [savedPaths, setSavedPaths] = useState<AllowedPathEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -22,6 +24,7 @@ export function useAllowedPaths() {
     try {
       const data = await getAllowedPaths();
       setPaths(data);
+      setSavedPaths(data);
     } catch (e) {
       setLoadError(e instanceof Error ? e.message : 'Failed to load');
     } finally {
@@ -66,6 +69,8 @@ export function useAllowedPaths() {
     setInvalidPaths([]);
   }, []);
 
+  const isDirty = !dequal(paths, savedPaths);
+
   return {
     paths,
     isLoading,
@@ -73,6 +78,7 @@ export function useAllowedPaths() {
     isSaving,
     saveError,
     invalidPaths,
+    isDirty,
     save,
     addPath,
     removePath,
