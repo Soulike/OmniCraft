@@ -1,5 +1,7 @@
 import {z} from 'zod';
 
+export const thinkingLevelSchema = z.enum(['none', 'low', 'medium', 'high']);
+
 /** Schema for the POST /chat/session request body. */
 export const createSessionBody = z
   .object({
@@ -11,6 +13,7 @@ export const createSessionBody = z
 /** Schema for the POST /chat/session/:id/completions request body. */
 export const chatCompletionsBody = z.object({
   message: z.string().min(1),
+  thinkingLevel: thinkingLevelSchema,
 });
 
 /** Schema for the POST /chat/session/:id/generate-title request body. */

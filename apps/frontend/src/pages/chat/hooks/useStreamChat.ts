@@ -48,6 +48,7 @@ export function useStreamChat({
         const stream = streamChatCompletion(
           activeSessionId,
           trimmed,
+          'none',
           abortController.signal,
         );
 

@@ -9,6 +9,7 @@ import type {
   LlmCompletionOptions,
   LlmEventStream,
   LlmMessage,
+  ThinkingLevel,
 } from './types.js';
 
 type SdkMessageParam = OpenAI.ChatCompletionMessageParam;
@@ -54,6 +55,14 @@ function toOpenAITool(tool: ToolDefinition): OpenAI.ChatCompletionTool {
   };
 }
 
+/** Maps a ThinkingLevel to the OpenAI reasoning_effort value. */
+function toReasoningEffort(
+  level: ThinkingLevel,
+): 'low' | 'medium' | 'high' | undefined {
+  if (level === 'none') return undefined;
+  return level;
+}
+
 /** Streams LLM events from an OpenAI-compatible API. */
 export async function* streamOpenAI(
   options: LlmCompletionOptions,
@@ -72,6 +81,7 @@ export async function* streamOpenAI(
   sdkMessages.push(...messages.map(toSdkMessage));
 
   const openaiTools = options.tools.map(toOpenAITool);
+  const reasoningEffort = toReasoningEffort(options.thinkingLevel);
 
   const stream = await client.chat.completions.create(
     {
@@ -80,6 +90,7 @@ export async function* streamOpenAI(
       stream: true,
       stream_options: {include_usage: true},
       ...(openaiTools.length > 0 ? {tools: openaiTools} : {}),
+      ...(reasoningEffort ? {reasoning_effort: reasoningEffort} : {}),
     },
     {signal: options.signal},
   );

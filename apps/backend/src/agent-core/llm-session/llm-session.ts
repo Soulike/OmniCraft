@@ -9,6 +9,7 @@ import type {
   LlmMessage,
   LlmToolCall,
   LlmUsage,
+  ThinkingLevel,
 } from '../llm-api/index.js';
 import {llmApi} from '../llm-api/index.js';
 import type {ToolDefinition} from '../tool/types.js';
@@ -74,6 +75,7 @@ export class LlmSession {
     content: string,
     tools: readonly ToolDefinition[],
     systemPrompt: string,
+    thinkingLevel: ThinkingLevel,
     signal?: AbortSignal,
   ): SendUserMessageResult {
     const userMessage = {
@@ -83,7 +85,13 @@ export class LlmSession {
       content,
     };
     return {
-      stream: this.sendMessages([userMessage], tools, systemPrompt, signal),
+      stream: this.sendMessages(
+        [userMessage],
+        tools,
+        systemPrompt,
+        thinkingLevel,
+        signal,
+      ),
       messageId: userMessage.id,
       createdAt: userMessage.createdAt,
     };
@@ -100,6 +108,7 @@ export class LlmSession {
     results: ToolResult[],
     tools: readonly ToolDefinition[],
     systemPrompt: string,
+    thinkingLevel: ThinkingLevel,
     signal?: AbortSignal,
   ): LlmSessionEventStream {
     const toolMessages: LlmMessage[] = results.map((result) => ({
@@ -109,7 +118,13 @@ export class LlmSession {
       callId: result.callId,
       content: result.content,
     }));
-    yield* this.sendMessages(toolMessages, tools, systemPrompt, signal);
+    yield* this.sendMessages(
+      toolMessages,
+      tools,
+      systemPrompt,
+      thinkingLevel,
+      signal,
+    );
   }
 
   /** Returns the accumulated token usage across all LLM calls in this session. */
@@ -136,6 +151,7 @@ export class LlmSession {
     messages: LlmMessage[],
     tools: readonly ToolDefinition[],
     systemPrompt: string,
+    thinkingLevel: ThinkingLevel,
     signal?: AbortSignal,
   ): LlmSessionEventStream {
     const release = await this.mutex.acquire();
@@ -143,7 +159,7 @@ export class LlmSession {
     this.messages.push(...messages);
     let completed = false;
     try {
-      yield* this.streamCompletion(tools, systemPrompt, signal);
+      yield* this.streamCompletion(tools, systemPrompt, thinkingLevel, signal);
       completed = true;
     } finally {
       if (!completed) {
@@ -161,6 +177,7 @@ export class LlmSession {
   private async *streamCompletion(
     tools: readonly ToolDefinition[],
     systemPrompt: string,
+    thinkingLevel: ThinkingLevel,
     signal?: AbortSignal,
   ): LlmSessionEventStream {
     const llmConfig = await this.getConfig();
@@ -169,6 +186,7 @@ export class LlmSession {
       messages: this.messages,
       systemPrompt: systemPrompt || undefined,
       tools,
+      thinkingLevel,
       signal,
     });
 
