@@ -1,0 +1,21 @@
+{
+  "name": "@omnicraft/api-schema",
+  "description": "Shared Zod schemas for OmniCraft HTTP API request and response types",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@omnicraft/settings-schema": "workspace:^",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@config/eslint": "workspace:^",
+    "@config/typescript": "workspace:^",
+    "typescript": "catalog:"
+  }
+}
