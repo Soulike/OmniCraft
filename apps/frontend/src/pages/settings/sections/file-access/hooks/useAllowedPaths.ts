@@ -1,4 +1,5 @@
 import type {AllowedPathEntry} from '@omnicraft/settings-schema';
+import {dequal} from 'dequal';
 import {useCallback, useEffect, useState} from 'react';
 
 import {
@@ -68,7 +69,7 @@ export function useAllowedPaths() {
     setInvalidPaths([]);
   }, []);
 
-  const isDirty = JSON.stringify(paths) !== JSON.stringify(savedPaths);
+  const isDirty = !dequal(paths, savedPaths);
 
   return {
     paths,

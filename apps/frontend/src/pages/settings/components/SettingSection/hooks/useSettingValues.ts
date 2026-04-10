@@ -1,3 +1,4 @@
+import {dequal} from 'dequal';
 import {useCallback, useEffect, useState} from 'react';
 
 import {getSettingValue} from '@/api/settings/index.js';
@@ -42,9 +43,7 @@ export function useSettingValues(fields: FieldConfig[]) {
     setSavedValues({...vals});
   }, []);
 
-  const isDirty = Object.keys(savedValues).some(
-    (key) => values[key] !== savedValues[key],
-  );
+  const isDirty = !dequal(values, savedValues);
 
   return {
     values,
