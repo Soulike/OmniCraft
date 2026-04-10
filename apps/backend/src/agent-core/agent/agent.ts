@@ -119,7 +119,7 @@ export abstract class Agent {
    */
   async *handleUserMessage(
     userMessage: string,
-    signal: AbortSignal = new AbortController().signal,
+    signal: AbortSignal,
   ): AgentEventStream {
     const maxRounds = await this.getMaxToolRounds();
 
