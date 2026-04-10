@@ -12,3 +12,17 @@ export {
   type ThinkingLevel,
   thinkingLevelSchema,
 } from './chat/schema.js';
+export {
+  type GetSettingValueResponse,
+  getSettingValueResponseSchema,
+  type PutSettingsBatchRequest,
+  putSettingsBatchRequestSchema,
+  type PutSettingsBatchResponse,
+  putSettingsBatchResponseSchema,
+  type PutSettingValueRequest,
+  putSettingValueRequestSchema,
+  type PutSettingValueResponse,
+  putSettingValueResponseSchema,
+  type SettingValue,
+  settingValueSchema,
+} from './settings/schema.js';
