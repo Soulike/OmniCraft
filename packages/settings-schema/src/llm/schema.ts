@@ -21,10 +21,4 @@ export const llmSettingsSchema = z.object({
       'Model name for lightweight tasks (e.g. title generation). Falls back to the main model if empty.',
     )
     .default(''),
-  thinkingLevel: z
-    .enum(['none', 'low', 'medium', 'high'])
-    .describe(
-      'Thinking/reasoning level for models that support extended thinking',
-    )
-    .default('none'),
 });

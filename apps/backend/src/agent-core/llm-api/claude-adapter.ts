@@ -153,7 +153,7 @@ export async function* streamClaude(
     );
   }
 
-  const thinking = toThinkingConfig(config.thinkingLevel);
+  const thinking = toThinkingConfig(options.thinkingLevel);
   // When thinking is enabled, budget_tokens must be < max_tokens.
   const maxTokens = thinking ? 16384 : 4096;
 

@@ -81,7 +81,7 @@ export async function* streamOpenAI(
   sdkMessages.push(...messages.map(toSdkMessage));
 
   const openaiTools = options.tools.map(toOpenAITool);
-  const reasoningEffort = toReasoningEffort(config.thinkingLevel);
+  const reasoningEffort = toReasoningEffort(options.thinkingLevel);
 
   const stream = await client.chat.completions.create(
     {

@@ -9,22 +9,15 @@ const FALLBACK_TITLE_MAX_LENGTH = 20;
 /** Returns the current LLM configuration from settings. */
 export async function getLlmConfig(): Promise<LlmConfig> {
   const settings = await settingsService.getAll();
-  const {apiFormat, apiKey, baseUrl, model, thinkingLevel} = settings.llm;
-  return {apiFormat, apiKey, baseUrl, model, thinkingLevel};
+  const {apiFormat, apiKey, baseUrl, model} = settings.llm;
+  return {apiFormat, apiKey, baseUrl, model};
 }
 
 /** Returns LLM configuration for lightweight tasks, falling back to the main model. */
 export async function getLightLlmConfig(): Promise<LlmConfig> {
   const settings = await settingsService.getAll();
-  const {apiFormat, apiKey, baseUrl, model, lightModel, thinkingLevel} =
-    settings.llm;
-  return {
-    apiFormat,
-    apiKey,
-    baseUrl,
-    model: lightModel || model,
-    thinkingLevel,
-  };
+  const {apiFormat, apiKey, baseUrl, model, lightModel} = settings.llm;
+  return {apiFormat, apiKey, baseUrl, model: lightModel || model};
 }
 
 /** Generates a title by calling the light LLM. */
@@ -51,6 +44,7 @@ export async function generateTitleFromLlm(
       },
     ],
     tools: [],
+    thinkingLevel: 'none',
   });
 
   let title = '';

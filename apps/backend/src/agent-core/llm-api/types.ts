@@ -48,7 +48,6 @@ export interface LlmConfig {
   apiKey: string;
   baseUrl: string;
   model: string;
-  thinkingLevel: ThinkingLevel;
 }
 
 /** Token usage statistics. Re-exported from the shared SSE events package. */
@@ -111,5 +110,6 @@ export interface LlmCompletionOptions {
   readonly messages: readonly LlmMessage[];
   readonly systemPrompt?: string;
   readonly tools: readonly ToolDefinition[];
+  readonly thinkingLevel: ThinkingLevel;
   readonly signal?: AbortSignal;
 }

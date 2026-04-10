@@ -4,7 +4,7 @@ import os from 'node:os';
 import {AsyncChannel} from '@/helpers/async-channel.js';
 
 import {agentEventBus} from '../events/index.js';
-import type {LlmConfig, LlmToolCall} from '../llm-api/index.js';
+import type {LlmConfig, LlmToolCall, ThinkingLevel} from '../llm-api/index.js';
 import type {
   LlmSessionEventStream,
   LlmSessionTextDeltaEvent,
@@ -119,6 +119,7 @@ export abstract class Agent {
    */
   async *handleUserMessage(
     userMessage: string,
+    thinkingLevel: ThinkingLevel,
     signal?: AbortSignal,
   ): AgentEventStream {
     const maxRounds = await this.getMaxToolRounds();
@@ -131,6 +132,7 @@ export abstract class Agent {
       userMessage,
       [...this.getAvailableTools().values()],
       this.buildSystemPrompt(),
+      thinkingLevel,
       signal,
     );
 
@@ -230,6 +232,7 @@ export abstract class Agent {
           orderedResults,
           [...this.getAvailableTools().values()],
           this.buildSystemPrompt(),
+          thinkingLevel,
           signal,
         ),
       );

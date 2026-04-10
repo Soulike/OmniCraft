@@ -4,6 +4,7 @@ import Router from '@koa/router';
 import {StatusCodes} from 'http-status-codes';
 import {ZodError} from 'zod';
 
+import type {ThinkingLevel} from '@/agent-core/llm-api/index.js';
 import {chatService} from '@/services/chat/index.js';
 
 import {pumpEventStream} from './helpers/sse.js';
@@ -57,9 +58,11 @@ router.post(CHAT_SESSION_COMPLETIONS, (ctx) => {
   const {id} = ctx.params;
 
   let message: string;
+  let thinkingLevel: ThinkingLevel;
   try {
     const body = chatCompletionsBody.parse(ctx.request.body);
     message = body.message;
+    thinkingLevel = body.thinkingLevel;
   } catch (e) {
     if (e instanceof ZodError) {
       ctx.response.status = StatusCodes.BAD_REQUEST;
@@ -69,7 +72,7 @@ router.post(CHAT_SESSION_COMPLETIONS, (ctx) => {
     throw e;
   }
 
-  const result = chatService.streamCompletion(id, message);
+  const result = chatService.streamCompletion(id, message, thinkingLevel);
   if (!result) {
     ctx.response.status = StatusCodes.NOT_FOUND;
     ctx.response.body = {error: `Session not found: ${id}`};
