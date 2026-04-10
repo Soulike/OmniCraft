@@ -35,7 +35,7 @@ export interface ToolExecutionContext {
   readonly shellState: ShellState;
 
   /** Signal from the agent loop — aborted when the user cancels the request. */
-  readonly signal?: AbortSignal;
+  readonly signal: AbortSignal;
 }
 
 /**
