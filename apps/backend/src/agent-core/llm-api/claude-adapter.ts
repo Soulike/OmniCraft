@@ -9,6 +9,7 @@ import type {
   LlmEventStream,
   LlmMessage,
   LlmUsage,
+  ThinkingLevel,
 } from './types.js';
 
 type SdkMessageParam = Anthropic.MessageParam;
@@ -106,6 +107,22 @@ function toClaudeTool(tool: ToolDefinition): Anthropic.Tool {
   };
 }
 
+/** Maps a ThinkingLevel to the Anthropic ThinkingConfigParam. */
+function toThinkingConfig(
+  level: ThinkingLevel,
+): Anthropic.ThinkingConfigParam | undefined {
+  switch (level) {
+    case 'none':
+      return undefined;
+    case 'low':
+      return {type: 'enabled', budget_tokens: 2048};
+    case 'medium':
+      return {type: 'enabled', budget_tokens: 8192};
+    case 'high':
+      return {type: 'enabled', budget_tokens: 32768};
+  }
+}
+
 /** Streams LLM events from the Anthropic Claude API. */
 export async function* streamClaude(
   options: LlmCompletionOptions,
@@ -136,10 +153,18 @@ export async function* streamClaude(
     );
   }
 
+  const thinking = toThinkingConfig(options.thinkingLevel);
+  // budget_tokens must be < max_tokens. Ensure max_tokens accommodates the
+  // thinking budget plus room for the actual response.
+  const maxTokens =
+    thinking?.type === 'enabled'
+      ? thinking.budget_tokens + 4096
+      : 4096;
+
   const stream = client.messages.stream(
     {
       model: config.model,
-      max_tokens: 4096,
+      max_tokens: maxTokens,
       // Cache the system prompt — it's static across all rounds in a session.
       system: systemPrompt
         ? [
@@ -152,6 +177,7 @@ export async function* streamClaude(
         : undefined,
       messages: sdkMessages,
       tools: claudeTools,
+      ...(thinking ? {thinking} : {}),
     },
     {signal: options.signal},
   );

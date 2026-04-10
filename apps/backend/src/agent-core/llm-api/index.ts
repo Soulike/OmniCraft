@@ -16,4 +16,5 @@ export type {
   LlmToolResultMessage,
   LlmUsage,
   LlmUserMessage,
+  ThinkingLevel,
 } from './types.js';

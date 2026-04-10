@@ -4,6 +4,7 @@ import os from 'node:os';
 import type {AllowedPathEntry} from '@omnicraft/settings-schema';
 
 import {CoreAgent} from '@/agent/agents/index.js';
+import type {ThinkingLevel} from '@/agent-core/llm-api/index.js';
 import {logger} from '@/logger.js';
 import {AgentStore} from '@/models/agent-store/index.js';
 import {SettingsManager} from '@/models/settings-manager/index.js';
@@ -93,12 +94,14 @@ export const chatService = {
   streamCompletion(
     agentId: string,
     userMessage: string,
+    thinkingLevel: ThinkingLevel,
   ): StreamCompletionResult | undefined {
     const agent = AgentStore.getInstance().get(agentId);
     if (!agent) return undefined;
     const abortController = new AbortController();
     const eventStream = agent.handleUserMessage(
       userMessage,
+      thinkingLevel,
       abortController.signal,
     );
     return {

@@ -44,6 +44,7 @@ export async function generateTitleFromLlm(
       },
     ],
     tools: [],
+    thinkingLevel: 'none',
   });
 
   let title = '';

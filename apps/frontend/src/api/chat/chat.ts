@@ -43,12 +43,13 @@ export async function createSession(
 export async function* streamChatCompletion(
   sessionId: string,
   message: string,
+  thinkingLevel: 'none' | 'low' | 'medium' | 'high',
   signal?: AbortSignal,
 ): AsyncGenerator<SseEvent, void, undefined> {
   const res = await fetch(`${BASE}/session/${sessionId}/completions`, {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({message}),
+    body: JSON.stringify({message, thinkingLevel}),
     signal,
   });
 
