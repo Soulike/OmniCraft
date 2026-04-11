@@ -1,5 +1,4 @@
 import type {ThinkingLevel} from '@omnicraft/api-schema';
-import type {SseUsage} from '@omnicraft/sse-events';
 
 import type {ToolDefinition} from '../tool/types.js';
 
@@ -57,8 +56,12 @@ export interface LlmConfig {
   model: string;
 }
 
-/** Token usage statistics. Re-exported from the shared SSE events package. */
-export type LlmUsage = SseUsage;
+/** Token usage statistics for internal LLM session accumulation. */
+export interface LlmUsage {
+  inputTokens: number;
+  outputTokens: number;
+  cacheReadInputTokens: number;
+}
 
 /** The LLM response has started. */
 export interface LlmMessageStartEvent {

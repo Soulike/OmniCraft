@@ -10,3 +10,7 @@
 .rate {
   opacity: 0.7;
 }
+
+.warning {
+  color: var(--warning);
+}
