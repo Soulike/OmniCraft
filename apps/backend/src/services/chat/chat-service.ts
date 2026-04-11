@@ -112,6 +112,22 @@ export const chatService = {
     };
   },
 
+  /**
+   * Delivers a user response to a waiting client-side tool.
+   *
+   * @returns `true` if the interaction was found and resolved,
+   *          `false` if the agent or interaction does not exist.
+   */
+  submitToolResponse(
+    agentId: string,
+    interactionId: string,
+    result: unknown,
+  ): boolean {
+    const agent = AgentStore.getInstance().get(agentId);
+    if (!agent) return false;
+    return agent.submitUserResponse(interactionId, result);
+  },
+
   /** Deletes an agent session. */
   deleteSession(agentId: string): void {
     AgentStore.getInstance().delete(agentId);

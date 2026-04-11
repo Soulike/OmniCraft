@@ -88,3 +88,28 @@ export async function generateTitle(
   const {title} = generateTitleResponseSchema.parse(json);
   return title;
 }
+
+/**
+ * Submits a user response for a client-side tool interaction.
+ *
+ * The `result` is untyped — callers must construct it according to the
+ * tool-specific response schema.
+ */
+export async function submitToolResponse(
+  sessionId: string,
+  interactionId: string,
+  result: unknown,
+): Promise<void> {
+  const res = await fetch(`${BASE}/session/${sessionId}/tool-response`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({interactionId, result}),
+  });
+
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(
+      `Failed to submit tool response (${res.status.toString()}): ${body}`,
+    );
+  }
+}
