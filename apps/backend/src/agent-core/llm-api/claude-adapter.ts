@@ -196,7 +196,6 @@ export async function* streamClaude(
   const thinkingBlockIndices = new Set<number>();
   const thinkingTexts = new Map<number, string>();
   const thinkingSignatures = new Map<number, string>();
-  const thinkingBlocks: LlmThinkingBlock[] = [];
 
   // Accumulate usage across events; Claude reports input in message_start
   // and output in message_delta.
@@ -289,7 +288,6 @@ export async function* streamClaude(
             content: [thinkingTexts.get(event.index) ?? ''],
             signature: thinkingSignatures.get(event.index) ?? '',
           };
-          thinkingBlocks.push(block);
           thinkingBlockIndices.delete(event.index);
           thinkingTexts.delete(event.index);
           thinkingSignatures.delete(event.index);

@@ -115,7 +115,6 @@ export async function* streamOpenAIResponses(
 
   // Track reasoning summary parts for each reasoning item.
   const reasoningSummaryParts = new Map<string, string[]>();
-  const thinkingBlocks: LlmThinkingBlock[] = [];
 
   for await (const event of stream) {
     switch (event.type) {
@@ -201,7 +200,6 @@ export async function* streamOpenAIResponses(
             content: parts,
             signature: event.item.id,
           };
-          thinkingBlocks.push(block);
           reasoningSummaryParts.delete(event.item.id);
           yield {type: 'thinking-end', block};
         }

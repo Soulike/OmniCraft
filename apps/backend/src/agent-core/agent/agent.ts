@@ -350,9 +350,9 @@ export abstract class Agent {
   }
 
   /**
-   * Consumes an LLM event stream, yielding text-delta and message-start
-   * events to the caller and collecting tool-call events. Returns the
-   * collected tool calls.
+   * Consumes an LLM event stream, yielding text, thinking, and
+   * message-start events to the caller and collecting tool-call events.
+   * Returns the collected tool calls.
    */
   private async *consumeStream(
     stream: LlmSessionEventStream,
