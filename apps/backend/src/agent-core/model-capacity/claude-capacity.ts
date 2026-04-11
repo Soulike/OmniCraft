@@ -1,6 +1,9 @@
 import Anthropic from '@anthropic-ai/sdk';
+import pino from 'pino';
 
 import type {LlmConfig} from '../llm-api/types.js';
+
+const logger = pino({name: 'model-capacity'});
 
 const DEFAULT_MAX_OUTPUT_TOKENS = 16_384;
 const DEFAULT_MAX_INPUT_TOKENS = 200_000;
@@ -35,9 +38,13 @@ async function resolve(config: Readonly<LlmConfig>): Promise<CachedCapacity> {
     };
     cache.set(key, capacity);
     return capacity;
-  } catch {
+  } catch (error) {
     // Proxy may not support /v1/models — fall back to safe defaults.
     // Do not cache the fallback so transient failures can self-heal on retry.
+    logger.warn(
+      {model: config.model, baseUrl: config.baseUrl, err: error},
+      'Failed to retrieve model capacity, using defaults',
+    );
     return {
       maxOutputTokens: DEFAULT_MAX_OUTPUT_TOKENS,
       maxInputTokens: DEFAULT_MAX_INPUT_TOKENS,
