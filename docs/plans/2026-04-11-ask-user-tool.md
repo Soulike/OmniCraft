@@ -81,6 +81,19 @@ export const askUserParametersSchema = z.object({
     )
     .describe('One or more questions to present to the user'),
 });
+
+export const askUserBridgeResponseSchema = z.discriminatedUnion('cancelled', [
+  z.object({
+    cancelled: z.literal(false),
+    answers: z.array(
+      z.object({
+        question: z.string(),
+        answer: z.string().nullable(),
+      }),
+    ),
+  }),
+  z.object({cancelled: z.literal(true)}),
+]);
 ```
 
 - [ ] **Step 3: Add result schema**
@@ -108,7 +121,7 @@ In `packages/tool-schemas/src/registry.ts`:
 
 - [ ] **Step 5: Export from package index**
 
-In `packages/tool-schemas/src/index.ts`, add `askUserParametersSchema` to a new named export from `./parameter-schemas.js`, and add `askUserResultSchema` to the existing named exports from `./result-schemas.js`.
+In `packages/tool-schemas/src/index.ts`, add `askUserParametersSchema` and `askUserBridgeResponseSchema` to a new named export from `./parameter-schemas.js`, and add `askUserResultSchema` to the existing named exports from `./result-schemas.js`.
 
 - [ ] **Step 6: Verify types compile**
 
@@ -334,30 +347,17 @@ Create `apps/backend/src/agent/tools/client/ask-user.ts`:
 
 ```typescript
 import {
+  askUserBridgeResponseSchema,
   askUserParametersSchema,
   type ToolFailureData,
   TOOL_NAME,
 } from '@omnicraft/tool-schemas';
-import {z} from 'zod';
 
 import type {
   ToolDefinition,
   ToolExecuteFailureResult,
   ToolExecuteSuccessResult,
 } from '@/agent-core/tool/types.js';
-
-const askUserBridgeResponseSchema = z.discriminatedUnion('cancelled', [
-  z.object({
-    cancelled: z.literal(false),
-    answers: z.array(
-      z.object({
-        question: z.string(),
-        answer: z.string().nullable(),
-      }),
-    ),
-  }),
-  z.object({cancelled: z.literal(true)}),
-]);
 
 interface AskUserResult {
   answers: Array<{question: string; answer: string | null}>;
