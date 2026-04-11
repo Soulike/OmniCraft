@@ -8,6 +8,7 @@ import {z} from 'zod';
 
 import {FileContentCache} from '../agent/file-content-cache.js';
 import {FileStatTracker} from '../agent/file-stat-tracker.js';
+import {UserInteractionBridge} from '../user-interaction/index.js';
 import type {ToolDefinition, ToolExecutionContext} from './types.js';
 
 /** Creates a minimal mock ToolDefinition. */
@@ -43,6 +44,7 @@ export function createMockContext(
     onSubAgentEvent: () => {
       // noop — mock context ignores subagent events
     },
+    userInteractionBridge: new UserInteractionBridge(),
     ...overrides,
   };
 }

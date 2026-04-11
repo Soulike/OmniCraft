@@ -5,6 +5,7 @@ import {
   chatCompletionsRequestSchema,
   createSessionRequestSchema,
   generateTitleRequestSchema,
+  submitToolResponseRequestSchema,
   type ThinkingLevel,
 } from '@omnicraft/api-schema';
 import {StatusCodes} from 'http-status-codes';
@@ -17,6 +18,7 @@ import {
   CHAT_SESSION,
   CHAT_SESSION_COMPLETIONS,
   CHAT_SESSION_GENERATE_TITLE,
+  CHAT_SESSION_TOOL_RESPONSE,
 } from './path.js';
 
 const router = new Router();
@@ -129,6 +131,36 @@ router.post(CHAT_SESSION_GENERATE_TITLE, async (ctx) => {
     assistantMessage,
   );
   ctx.response.body = {title};
+});
+
+/** POST /chat/session/:id/tool-response — submits a user response for a client-side tool. */
+router.post(CHAT_SESSION_TOOL_RESPONSE, (ctx) => {
+  const {id} = ctx.params;
+
+  let interactionId: string;
+  let result: unknown;
+  try {
+    const body = submitToolResponseRequestSchema.parse(ctx.request.body);
+    interactionId = body.interactionId;
+    result = body.result;
+  } catch (e) {
+    if (e instanceof ZodError) {
+      ctx.response.status = StatusCodes.BAD_REQUEST;
+      ctx.response.body = {error: e.issues};
+      return;
+    }
+    throw e;
+  }
+
+  const found = chatService.submitToolResponse(id, interactionId, result);
+  if (!found) {
+    ctx.response.status = StatusCodes.NOT_FOUND;
+    ctx.response.body = {error: `Session or interaction not found`};
+    return;
+  }
+
+  ctx.response.status = StatusCodes.OK;
+  ctx.response.body = {ok: true};
 });
 
 export {router};
