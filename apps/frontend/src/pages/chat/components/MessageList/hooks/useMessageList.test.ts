@@ -56,7 +56,7 @@ describe('transformMessages', () => {
           type: 'tool-execution-end',
           callId: 'c1',
           result: 'found it',
-          isError: false,
+          status: 'success',
         },
       },
     ];
@@ -102,7 +102,47 @@ describe('transformMessages', () => {
     ]);
   });
 
-  it('marks tool as error when isError is true', () => {
+  it('marks tool as failure when status is failure', () => {
+    const messages: ChatMessage[] = [
+      {
+        id: null,
+        createdAt: null,
+        role: 'assistant',
+        content: {
+          type: 'tool-execution-start',
+          callId: 'c1',
+          toolName: 'run_command',
+          displayName: 'Run Command',
+          arguments: '{"command":"exit 1"}',
+        },
+      },
+      {
+        id: null,
+        createdAt: null,
+        role: 'assistant',
+        content: {
+          type: 'tool-execution-end',
+          callId: 'c1',
+          result: 'Exit code: 1',
+          status: 'failure',
+        },
+      },
+    ];
+    const result = transformMessages(messages);
+    expect(result).toEqual([
+      {
+        type: 'tool-execution',
+        callId: 'c1',
+        toolName: 'run_command',
+        displayName: 'Run Command',
+        arguments: '{"command":"exit 1"}',
+        status: 'failure',
+        result: 'Exit code: 1',
+      },
+    ]);
+  });
+
+  it('marks tool as error when status is error', () => {
     const messages: ChatMessage[] = [
       {
         id: null,
@@ -124,7 +164,7 @@ describe('transformMessages', () => {
           type: 'tool-execution-end',
           callId: 'c1',
           result: 'Error: failed',
-          isError: true,
+          status: 'error',
         },
       },
     ];
@@ -170,7 +210,7 @@ describe('transformMessages', () => {
           type: 'tool-execution-end',
           callId: 'c1',
           result: 'result',
-          isError: false,
+          status: 'success',
         },
       },
       {
@@ -197,7 +237,7 @@ describe('transformMessages', () => {
           type: 'tool-execution-end',
           callId: 'c1',
           result: 'orphan result',
-          isError: false,
+          status: 'success',
         },
       },
     ];

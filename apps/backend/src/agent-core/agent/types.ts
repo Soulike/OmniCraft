@@ -28,7 +28,7 @@ export interface AgentToolExecuteEndEvent {
   type: 'tool-execute-end';
   callId: string;
   result: string;
-  isError: boolean;
+  status: 'success' | 'failure' | 'error';
 }
 
 /** A new message is starting (user or assistant). */

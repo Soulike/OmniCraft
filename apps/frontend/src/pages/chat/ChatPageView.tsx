@@ -1,4 +1,5 @@
 import {ScrollShadow} from '@heroui/react';
+import type {ThinkingLevel} from '@omnicraft/api-schema';
 import type {RefObject} from 'react';
 
 import {ChatAlert} from './components/ChatAlert/index.js';
@@ -18,7 +19,7 @@ interface ChatPageViewProps {
   maxRoundsReached: boolean;
   scrollRef: RefObject<HTMLDivElement | null>;
   sessionId: string | null;
-  onSend: (content: string) => void;
+  onSend: (content: string, thinkingLevel: ThinkingLevel) => void;
   onStop: () => void;
   onNewSession: () => void;
   newSessionDisabled: boolean;

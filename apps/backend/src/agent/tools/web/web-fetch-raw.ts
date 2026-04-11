@@ -2,6 +2,7 @@ import {z} from 'zod';
 
 import type {
   ToolDefinition,
+  ToolExecuteResult,
   ToolExecutionContext,
 } from '@/agent-core/tool/index.js';
 import {writeToTempFile} from '@/helpers/fs.js';
@@ -33,9 +34,9 @@ export const webFetchRawTool: ToolDefinition<typeof parameters> = {
   async execute(
     args: WebFetchRawArgs,
     _context: ToolExecutionContext,
-  ): Promise<string> {
+  ): Promise<ToolExecuteResult> {
     const urlError = validateUrl(args.url);
-    if (urlError) return urlError;
+    if (urlError) return {content: urlError, status: 'failure'};
 
     let body: string;
     try {
@@ -50,7 +51,10 @@ export const webFetchRawTool: ToolDefinition<typeof parameters> = {
       body = result.body;
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
-      return `Error: Failed to fetch URL: ${message}`;
+      return {
+        content: `Error: Failed to fetch URL: ${message}`,
+        status: 'failure',
+      };
     }
 
     const header = `URL: ${args.url}`;
@@ -61,11 +65,17 @@ export const webFetchRawTool: ToolDefinition<typeof parameters> = {
         filePath = await writeToTempFile(body, '.md');
       } catch (error: unknown) {
         const message = error instanceof Error ? error.message : String(error);
-        return `Error: Failed to save content to temporary file: ${message}`;
+        return {
+          content: `Error: Failed to save content to temporary file: ${message}`,
+          status: 'failure',
+        };
       }
-      return `${header}\nContent saved to file: ${filePath}`;
+      return {
+        content: `${header}\nContent saved to file: ${filePath}`,
+        status: 'success',
+      };
     }
 
-    return `${header}\n\n${body}`;
+    return {content: `${header}\n\n${body}`, status: 'success'};
   },
 };

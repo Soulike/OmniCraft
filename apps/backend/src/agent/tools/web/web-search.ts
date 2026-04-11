@@ -3,6 +3,7 @@ import {z} from 'zod';
 
 import type {
   ToolDefinition,
+  ToolExecuteResult,
   ToolExecutionContext,
 } from '@/agent-core/tool/index.js';
 import {SettingsManager} from '@/models/settings-manager/index.js';
@@ -54,13 +55,17 @@ export const webSearchTool: ToolDefinition<typeof parameters> = {
   async execute(
     args: WebSearchArgs,
     _context: ToolExecutionContext,
-  ): Promise<string> {
+  ): Promise<ToolExecuteResult> {
     // 1. Read API key from settings
     const settings = await SettingsManager.getInstance().getAll();
     const apiKey = settings.search.tavilyApiKey;
 
     if (!apiKey) {
-      return 'Error: Tavily API key is not configured. Set it in Settings > Search.';
+      return {
+        content:
+          'Error: Tavily API key is not configured. Set it in Settings > Search.',
+        status: 'failure',
+      };
     }
 
     // 2. Call Tavily
@@ -74,18 +79,21 @@ export const webSearchTool: ToolDefinition<typeof parameters> = {
       });
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
-      return `Error: Search failed: ${message}`;
+      return {content: `Error: Search failed: ${message}`, status: 'failure'};
     }
 
     // 3. Format response
     if (response.results.length === 0) {
-      return `No results found for "${args.query}"`;
+      return {
+        content: `No results found for "${args.query}"`,
+        status: 'success',
+      };
     }
 
     const header = `Found ${response.results.length.toString()} results for "${args.query}":`;
     const formatted = response.results
       .map((r, i) => formatResult(i, r))
       .join('\n\n');
-    return `${header}\n\n${formatted}`;
+    return {content: `${header}\n\n${formatted}`, status: 'success'};
   },
 };

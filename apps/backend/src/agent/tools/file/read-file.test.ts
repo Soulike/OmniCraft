@@ -45,10 +45,11 @@ describe('readFileTool', () => {
         context,
       );
 
-      expect(result).toContain('File: hello.txt (3 lines)');
-      expect(result).toContain('1\tline1');
-      expect(result).toContain('2\tline2');
-      expect(result).toContain('3\tline3');
+      expect(result.content).toContain('File: hello.txt (3 lines)');
+      expect(result.content).toContain('1\tline1');
+      expect(result.content).toContain('2\tline2');
+      expect(result.content).toContain('3\tline3');
+      expect(result.status).toBe('success');
     });
 
     it('reads partial file with startLine', async () => {
@@ -58,10 +59,11 @@ describe('readFileTool', () => {
         context,
       );
 
-      expect(result).toContain('(5 lines, showing lines 3-5)');
-      expect(result).toContain('3\tc');
-      expect(result).toContain('5\te');
-      expect(result).not.toContain('1\ta');
+      expect(result.content).toContain('(5 lines, showing lines 3-5)');
+      expect(result.content).toContain('3\tc');
+      expect(result.content).toContain('5\te');
+      expect(result.content).not.toContain('1\ta');
+      expect(result.status).toBe('success');
     });
 
     it('reads partial file with startLine and lineCount', async () => {
@@ -71,10 +73,11 @@ describe('readFileTool', () => {
         context,
       );
 
-      expect(result).toContain('(5 lines, showing lines 2-3)');
-      expect(result).toContain('2\tb');
-      expect(result).toContain('3\tc');
-      expect(result).not.toContain('4\td');
+      expect(result.content).toContain('(5 lines, showing lines 2-3)');
+      expect(result.content).toContain('2\tb');
+      expect(result.content).toContain('3\tc');
+      expect(result.content).not.toContain('4\td');
+      expect(result.status).toBe('success');
     });
 
     it('resolves relative paths against workingDirectory', async () => {
@@ -84,15 +87,17 @@ describe('readFileTool', () => {
         context,
       );
 
-      expect(result).toContain('File: sub/file.txt');
-      expect(result).toContain('content');
+      expect(result.content).toContain('File: sub/file.txt');
+      expect(result.content).toContain('content');
+      expect(result.status).toBe('success');
     });
 
     it('accepts absolute paths within workingDirectory', async () => {
       const absPath = await writeFile('abs.txt', 'data');
       const result = await readFileTool.execute({filePath: absPath}, context);
 
-      expect(result).toContain('data');
+      expect(result.content).toContain('data');
+      expect(result.status).toBe('success');
     });
 
     it('right-aligns line numbers', async () => {
@@ -105,8 +110,9 @@ describe('readFileTool', () => {
         context,
       );
 
-      expect(result).toContain('  1\tline1');
-      expect(result).toContain('  2\tline2');
+      expect(result.content).toContain('  1\tline1');
+      expect(result.content).toContain('  2\tline2');
+      expect(result.status).toBe('success');
     });
     it('handles empty file', async () => {
       await writeFile('empty.txt', '');
@@ -115,7 +121,8 @@ describe('readFileTool', () => {
         context,
       );
 
-      expect(result).toContain('File: empty.txt (0 lines)');
+      expect(result.content).toContain('File: empty.txt (0 lines)');
+      expect(result.status).toBe('success');
     });
 
     it('returns empty content when startLine exceeds total lines', async () => {
@@ -125,7 +132,8 @@ describe('readFileTool', () => {
         context,
       );
 
-      expect(result).toContain('(3 lines, showing lines 100-3)');
+      expect(result.content).toContain('(3 lines, showing lines 100-3)');
+      expect(result.status).toBe('success');
     });
 
     it('tracks file stat after successful read', async () => {
@@ -134,12 +142,12 @@ describe('readFileTool', () => {
 
       await readFileTool.execute({filePath: 'tracked.txt'}, context);
 
-      const result = context.fileStatTracker.canModify(
+      const checkResult = context.fileStatTracker.canModify(
         path.join(tmpDir, 'tracked.txt'),
         stat.size,
         stat.mtimeMs,
       );
-      expect(result).toBe('ok');
+      expect(checkResult).toBe('ok');
     });
   });
 
@@ -166,7 +174,8 @@ describe('readFileTool', () => {
 
       const result = await readFileTool.execute({filePath}, extraContext);
 
-      expect(result).toContain('extra content');
+      expect(result.content).toContain('extra content');
+      expect(result.status).toBe('success');
     });
 
     it('allows reading a file in an extra read-write path', async () => {
@@ -181,7 +190,8 @@ describe('readFileTool', () => {
 
       const result = await readFileTool.execute({filePath}, extraContext);
 
-      expect(result).toContain('rw content');
+      expect(result.content).toContain('rw content');
+      expect(result.status).toBe('success');
     });
 
     it('rejects reading a file outside all allowed paths', async () => {
@@ -197,7 +207,8 @@ describe('readFileTool', () => {
 
       const result = await readFileTool.execute({filePath}, extraContext);
 
-      expect(result).toContain('Error: Access denied');
+      expect(result.content).toContain('Error: Access denied');
+      expect(result.status).toBe('failure');
 
       await fs.rm(otherDir, {recursive: true, force: true});
     });
@@ -210,7 +221,8 @@ describe('readFileTool', () => {
         context,
       );
 
-      expect(result).toContain('Error: Access denied');
+      expect(result.content).toContain('Error: Access denied');
+      expect(result.status).toBe('failure');
     });
 
     it('rejects path traversal attacks', async () => {
@@ -219,7 +231,8 @@ describe('readFileTool', () => {
         context,
       );
 
-      expect(result).toContain('Error: Access denied');
+      expect(result.content).toContain('Error: Access denied');
+      expect(result.status).toBe('failure');
     });
 
     it('returns error for nonexistent file', async () => {
@@ -228,14 +241,16 @@ describe('readFileTool', () => {
         context,
       );
 
-      expect(result).toContain('Error: File not found');
+      expect(result.content).toContain('Error: File not found');
+      expect(result.status).toBe('failure');
     });
 
     it('returns error for directories', async () => {
       await fs.mkdir(path.join(tmpDir, 'adir'));
       const result = await readFileTool.execute({filePath: 'adir'}, context);
 
-      expect(result).toContain('Error: Not a file');
+      expect(result.content).toContain('Error: Not a file');
+      expect(result.status).toBe('failure');
     });
 
     it('returns error for binary files', async () => {
@@ -249,7 +264,8 @@ describe('readFileTool', () => {
         context,
       );
 
-      expect(result).toContain('Error: Binary file detected');
+      expect(result.content).toContain('Error: Binary file detected');
+      expect(result.status).toBe('failure');
     });
 
     it('returns error when result exceeds 32KB', async () => {
@@ -262,9 +278,10 @@ describe('readFileTool', () => {
         context,
       );
 
-      expect(result).toContain('Error: Read result exceeds');
-      expect(result).toContain('byte limit');
-      expect(result).toContain('Use startLine and lineCount');
+      expect(result.content).toContain('Error: Read result exceeds');
+      expect(result.content).toContain('byte limit');
+      expect(result.content).toContain('Use startLine and lineCount');
+      expect(result.status).toBe('failure');
     });
   });
 });

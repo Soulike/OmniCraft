@@ -1,21 +1,24 @@
+import type {ThinkingLevel} from '@omnicraft/api-schema';
 import {useCallback, useState} from 'react';
 
 import {ChatInputView} from './ChatInputView.js';
+import {useThinkingLevel} from './hooks/useThinkingLevel.js';
 
 interface ChatInputProps {
   isStreaming: boolean;
-  onSend: (content: string) => void;
+  onSend: (content: string, thinkingLevel: ThinkingLevel) => void;
   onStop: () => void;
 }
 
 export function ChatInput({isStreaming, onSend, onStop}: ChatInputProps) {
   const [input, setInput] = useState('');
+  const {thinkingLevel, setThinkingLevel} = useThinkingLevel();
 
   const handleSend = useCallback(() => {
     if (!input.trim()) return;
-    onSend(input);
+    onSend(input, thinkingLevel);
     setInput('');
-  }, [input, onSend]);
+  }, [input, thinkingLevel, onSend]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -31,10 +34,12 @@ export function ChatInput({isStreaming, onSend, onStop}: ChatInputProps) {
     <ChatInputView
       input={input}
       isStreaming={isStreaming}
+      thinkingLevel={thinkingLevel}
       onInputChange={setInput}
       onKeyDown={handleKeyDown}
       onSend={handleSend}
       onStop={onStop}
+      onThinkingLevelChange={setThinkingLevel}
     />
   );
 }

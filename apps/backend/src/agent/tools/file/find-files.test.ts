@@ -45,10 +45,11 @@ describe('findFilesTool', () => {
 
       const result = await findFilesTool.execute({pattern: '**/*.ts'}, context);
 
-      expect(result).toContain('Found 2 files');
-      expect(result).toContain('a.ts');
-      expect(result).toContain('b.ts');
-      expect(result).not.toContain('c.js');
+      expect(result.content).toContain('Found 2 files');
+      expect(result.content).toContain('a.ts');
+      expect(result.content).toContain('b.ts');
+      expect(result.content).not.toContain('c.js');
+      expect(result.status).toBe('success');
     });
 
     it('finds files in subdirectories', async () => {
@@ -60,9 +61,10 @@ describe('findFilesTool', () => {
         context,
       );
 
-      expect(result).toContain('Found 2 files');
-      expect(result).toContain('src/foo.ts');
-      expect(result).toContain('src/bar/baz.ts');
+      expect(result.content).toContain('Found 2 files');
+      expect(result.content).toContain('src/foo.ts');
+      expect(result.content).toContain('src/bar/baz.ts');
+      expect(result.status).toBe('success');
     });
 
     it('returns results sorted alphabetically', async () => {
@@ -72,9 +74,10 @@ describe('findFilesTool', () => {
 
       const result = await findFilesTool.execute({pattern: '**/*.ts'}, context);
 
-      const lines = result.split('\n');
+      const lines = result.content.split('\n');
       const filePaths = lines.filter((l) => l.endsWith('.ts'));
       expect(filePaths).toEqual(['a.ts', 'b.ts', 'c.ts']);
+      expect(result.status).toBe('success');
     });
 
     it('matches dotfiles when dot is in pattern', async () => {
@@ -84,9 +87,10 @@ describe('findFilesTool', () => {
 
       const result = await findFilesTool.execute({pattern: '.*'}, context);
 
-      expect(result).toContain('.env');
-      expect(result).toContain('.gitignore');
-      expect(result).not.toContain('readme.md');
+      expect(result.content).toContain('.env');
+      expect(result.content).toContain('.gitignore');
+      expect(result.content).not.toContain('readme.md');
+      expect(result.status).toBe('success');
     });
 
     it('searches within a custom path', async () => {
@@ -98,8 +102,9 @@ describe('findFilesTool', () => {
         context,
       );
 
-      expect(result).toContain('a.ts');
-      expect(result).not.toContain('b.ts');
+      expect(result.content).toContain('a.ts');
+      expect(result.content).not.toContain('b.ts');
+      expect(result.status).toBe('success');
     });
 
     it('searches with an absolute custom path', async () => {
@@ -111,8 +116,9 @@ describe('findFilesTool', () => {
         context,
       );
 
-      expect(result).toContain('a.ts');
-      expect(result).not.toContain('b.ts');
+      expect(result.content).toContain('a.ts');
+      expect(result.content).not.toContain('b.ts');
+      expect(result.status).toBe('success');
     });
 
     it('supports brace expansion (or semantics)', async () => {
@@ -125,9 +131,10 @@ describe('findFilesTool', () => {
         context,
       );
 
-      expect(result).toContain('a.ts');
-      expect(result).toContain('b.tsx');
-      expect(result).not.toContain('c.js');
+      expect(result.content).toContain('a.ts');
+      expect(result.content).toContain('b.tsx');
+      expect(result.content).not.toContain('c.js');
+      expect(result.status).toBe('success');
     });
 
     it('returns no-match message when nothing found', async () => {
@@ -136,7 +143,8 @@ describe('findFilesTool', () => {
         context,
       );
 
-      expect(result).toContain('No files found matching');
+      expect(result.content).toContain('No files found matching');
+      expect(result.status).toBe('success');
     });
 
     it('truncates results exceeding 100 entries', async () => {
@@ -147,9 +155,10 @@ describe('findFilesTool', () => {
 
       const result = await findFilesTool.execute({pattern: '**/*.ts'}, context);
 
-      expect(result).toContain('Found 100+ files');
-      expect(result).toContain('showing first 100');
-      expect(result).toContain('Use a more specific pattern');
+      expect(result.content).toContain('Found 100+ files');
+      expect(result.content).toContain('showing first 100');
+      expect(result.content).toContain('Use a more specific pattern');
+      expect(result.status).toBe('success');
     });
   });
 
@@ -178,7 +187,8 @@ describe('findFilesTool', () => {
         extraContext,
       );
 
-      expect(result).toContain('lib.ts');
+      expect(result.content).toContain('lib.ts');
+      expect(result.status).toBe('success');
     });
 
     it('allows searching in an extra read-write path', async () => {
@@ -195,7 +205,8 @@ describe('findFilesTool', () => {
         extraContext,
       );
 
-      expect(result).toContain('rw.ts');
+      expect(result.content).toContain('rw.ts');
+      expect(result.status).toBe('success');
     });
   });
 
@@ -217,10 +228,11 @@ describe('findFilesTool', () => {
 
       vi.restoreAllMocks();
 
-      expect(result).toContain('search timed out after 30s');
-      expect(result).toContain('Results may be incomplete');
+      expect(result.content).toContain('search timed out after 30s');
+      expect(result.content).toContain('Results may be incomplete');
       // Should have collected at least 1 file before timeout
-      expect(result).toContain('.ts');
+      expect(result.content).toContain('.ts');
+      expect(result.status).toBe('failure');
     });
 
     it('rejects path outside workingDirectory', async () => {
@@ -229,7 +241,8 @@ describe('findFilesTool', () => {
         context,
       );
 
-      expect(result).toContain('Error: Access denied');
+      expect(result.content).toContain('Error: Access denied');
+      expect(result.status).toBe('failure');
     });
 
     it('rejects path traversal attacks', async () => {
@@ -238,7 +251,8 @@ describe('findFilesTool', () => {
         context,
       );
 
-      expect(result).toContain('Error: Access denied');
+      expect(result.content).toContain('Error: Access denied');
+      expect(result.status).toBe('failure');
     });
 
     it('returns error for nonexistent directory', async () => {
@@ -247,7 +261,8 @@ describe('findFilesTool', () => {
         context,
       );
 
-      expect(result).toContain('Error: Directory not found');
+      expect(result.content).toContain('Error: Directory not found');
+      expect(result.status).toBe('failure');
     });
 
     it('returns error when path is a file', async () => {
@@ -258,7 +273,8 @@ describe('findFilesTool', () => {
         context,
       );
 
-      expect(result).toContain('Error: Not a directory');
+      expect(result.content).toContain('Error: Not a directory');
+      expect(result.status).toBe('failure');
     });
   });
 });

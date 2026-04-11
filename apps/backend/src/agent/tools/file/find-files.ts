@@ -8,6 +8,7 @@ import {z} from 'zod';
 
 import type {
   ToolDefinition,
+  ToolExecuteResult,
   ToolExecutionContext,
 } from '@/agent-core/tool/index.js';
 
@@ -46,7 +47,7 @@ export const findFilesTool: ToolDefinition<typeof parameters> = {
   async execute(
     args: FindFilesArgs,
     context: ToolExecutionContext,
-  ): Promise<string> {
+  ): Promise<ToolExecuteResult> {
     const {workingDirectory} = context;
 
     // 1. Resolve search directory
@@ -60,7 +61,11 @@ export const findFilesTool: ToolDefinition<typeof parameters> = {
       context.extraAllowedPaths,
     );
     if (accessResult === AccessCheckResult.ERROR_OUTSIDE_ALLOWED_DIRECTORIES) {
-      return 'Error: Access denied: path is outside the allowed directories';
+      return {
+        content:
+          'Error: Access denied: path is outside the allowed directories',
+        status: 'failure',
+      };
     }
 
     // 3. Verify directory exists
@@ -68,11 +73,17 @@ export const findFilesTool: ToolDefinition<typeof parameters> = {
     try {
       stat = await fs.stat(searchDir);
     } catch {
-      return `Error: Directory not found: ${args.path}`;
+      return {
+        content: `Error: Directory not found: ${args.path}`,
+        status: 'failure',
+      };
     }
 
     if (!stat.isDirectory()) {
-      return `Error: Not a directory: ${args.path}`;
+      return {
+        content: `Error: Not a directory: ${args.path}`,
+        status: 'failure',
+      };
     }
 
     // 4. Run fast-glob with stream
@@ -101,7 +112,7 @@ export const findFilesTool: ToolDefinition<typeof parameters> = {
     } catch (error: unknown) {
       if (entries.length === 0) {
         const message = error instanceof Error ? error.message : String(error);
-        return `Error: ${message}`;
+        return {content: `Error: ${message}`, status: 'failure'};
       }
     }
 
@@ -113,26 +124,38 @@ export const findFilesTool: ToolDefinition<typeof parameters> = {
     const hitLimit = entries.length >= MAX_RESULTS;
 
     if (entries.length === 0 && timedOut) {
-      return `No files found matching "${args.pattern}" in ${displayPath} (search timed out after 30s).`;
+      return {
+        content: `No files found matching "${args.pattern}" in ${displayPath} (search timed out after 30s).`,
+        status: 'failure',
+      };
     }
 
     if (entries.length === 0) {
-      return `No files found matching "${args.pattern}" in ${displayPath}.`;
+      return {
+        content: `No files found matching "${args.pattern}" in ${displayPath}.`,
+        status: 'success',
+      };
     }
 
     const body = entries.join('\n');
 
     if (timedOut) {
       const header = `Found ${entries.length} files matching "${args.pattern}" in ${displayPath} (search timed out after 30s):`;
-      return `${header}\n${body}\nResults may be incomplete. Use a more specific pattern to narrow down.`;
+      return {
+        content: `${header}\n${body}\nResults may be incomplete. Use a more specific pattern to narrow down.`,
+        status: 'failure',
+      };
     }
 
     if (hitLimit) {
       const header = `Found ${MAX_RESULTS}+ files matching "${args.pattern}" in ${displayPath} (showing first ${MAX_RESULTS}):`;
-      return `${header}\n${body}\nUse a more specific pattern to narrow down.`;
+      return {
+        content: `${header}\n${body}\nUse a more specific pattern to narrow down.`,
+        status: 'success',
+      };
     }
 
     const header = `Found ${entries.length} files matching "${args.pattern}" in ${displayPath}:`;
-    return `${header}\n${body}`;
+    return {content: `${header}\n${body}`, status: 'success'};
   },
 };

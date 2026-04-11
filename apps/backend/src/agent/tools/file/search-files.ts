@@ -11,6 +11,7 @@ import {z} from 'zod';
 
 import type {
   ToolDefinition,
+  ToolExecuteResult,
   ToolExecutionContext,
 } from '@/agent-core/tool/index.js';
 
@@ -100,7 +101,7 @@ export const searchFilesTool: ToolDefinition<typeof parameters> = {
   async execute(
     args: SearchFilesArgs,
     context: ToolExecutionContext,
-  ): Promise<string> {
+  ): Promise<ToolExecuteResult> {
     const {workingDirectory} = context;
 
     // 1. Resolve search directory
@@ -114,7 +115,11 @@ export const searchFilesTool: ToolDefinition<typeof parameters> = {
       context.extraAllowedPaths,
     );
     if (accessResult === AccessCheckResult.ERROR_OUTSIDE_ALLOWED_DIRECTORIES) {
-      return 'Error: Access denied: path is outside the allowed directories';
+      return {
+        content:
+          'Error: Access denied: path is outside the allowed directories',
+        status: 'failure',
+      };
     }
 
     // 3. Verify directory exists
@@ -122,16 +127,26 @@ export const searchFilesTool: ToolDefinition<typeof parameters> = {
     try {
       stat = await fs.stat(searchDir);
     } catch {
-      return `Error: Directory not found: ${args.path}`;
+      return {
+        content: `Error: Directory not found: ${args.path}`,
+        status: 'failure',
+      };
     }
 
     if (!stat.isDirectory()) {
-      return `Error: Not a directory: ${args.path}`;
+      return {
+        content: `Error: Not a directory: ${args.path}`,
+        status: 'failure',
+      };
     }
 
     // 4. Compile regex
     if (!isSafeRegex(args.pattern)) {
-      return 'Error: Regex pattern rejected — potential catastrophic backtracking';
+      return {
+        content:
+          'Error: Regex pattern rejected — potential catastrophic backtracking',
+        status: 'failure',
+      };
     }
 
     let regex: RegExp;
@@ -139,7 +154,10 @@ export const searchFilesTool: ToolDefinition<typeof parameters> = {
       regex = new RegExp(args.pattern);
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
-      return `Error: Invalid regex pattern: ${message}`;
+      return {
+        content: `Error: Invalid regex pattern: ${message}`,
+        status: 'failure',
+      };
     }
 
     // 5. Enumerate files and search concurrently
@@ -205,7 +223,7 @@ export const searchFilesTool: ToolDefinition<typeof parameters> = {
     } catch (error: unknown) {
       if (totalMatches === 0) {
         const message = error instanceof Error ? error.message : String(error);
-        return `Error: ${message}`;
+        return {content: `Error: ${message}`, status: 'failure'};
       }
     }
 
@@ -225,11 +243,17 @@ export const searchFilesTool: ToolDefinition<typeof parameters> = {
     const hitLimit = totalMatches >= MAX_MATCHES;
 
     if (totalMatches === 0 && timedOut) {
-      return `No matches found for /${args.pattern}/ in ${displayPath} (search timed out after 30s).`;
+      return {
+        content: `No matches found for /${args.pattern}/ in ${displayPath} (search timed out after 30s).`,
+        status: 'failure',
+      };
     }
 
     if (totalMatches === 0) {
-      return `No matches found for /${args.pattern}/ in ${displayPath}.`;
+      return {
+        content: `No matches found for /${args.pattern}/ in ${displayPath}.`,
+        status: 'success',
+      };
     }
 
     const lines: string[] = [];
@@ -247,15 +271,21 @@ export const searchFilesTool: ToolDefinition<typeof parameters> = {
 
     if (timedOut) {
       const header = `Found ${count} matches for /${args.pattern}/ in ${displayPath} (search timed out after 30s):`;
-      return `${header}\n${body}\nResults may be incomplete. Use a more specific pattern to narrow down.`;
+      return {
+        content: `${header}\n${body}\nResults may be incomplete. Use a more specific pattern to narrow down.`,
+        status: 'failure',
+      };
     }
 
     if (hitLimit) {
       const header = `Found ${MAX_MATCHES}+ matches for /${args.pattern}/ in ${displayPath} (showing first ${MAX_MATCHES}):`;
-      return `${header}\n${body}\nUse a more specific pattern to narrow down.`;
+      return {
+        content: `${header}\n${body}\nUse a more specific pattern to narrow down.`,
+        status: 'success',
+      };
     }
 
     const header = `Found ${count} matches for /${args.pattern}/ in ${displayPath}:`;
-    return `${header}\n${body}`;
+    return {content: `${header}\n${body}`, status: 'success'};
   },
 };

@@ -8,6 +8,7 @@ import {z} from 'zod';
 import {FileStatCheckResult} from '@/agent-core/agent/index.js';
 import type {
   ToolDefinition,
+  ToolExecuteResult,
   ToolExecutionContext,
 } from '@/agent-core/tool/index.js';
 
@@ -55,7 +56,7 @@ export const editFileTool: ToolDefinition<typeof parameters> = {
   async execute(
     args: EditFileArgs,
     context: ToolExecutionContext,
-  ): Promise<string> {
+  ): Promise<ToolExecuteResult> {
     const {workingDirectory} = context;
 
     // 1. Resolve path
@@ -69,10 +70,17 @@ export const editFileTool: ToolDefinition<typeof parameters> = {
       context.extraAllowedPaths,
     );
     if (accessResult === AccessCheckResult.ERROR_OUTSIDE_ALLOWED_DIRECTORIES) {
-      return 'Error: Access denied: path is outside the allowed directories';
+      return {
+        content:
+          'Error: Access denied: path is outside the allowed directories',
+        status: 'failure',
+      };
     }
     if (accessResult === AccessCheckResult.ERROR_READ_ONLY) {
-      return 'Error: Access denied: path is read-only';
+      return {
+        content: 'Error: Access denied: path is read-only',
+        status: 'failure',
+      };
     }
 
     // 3. Read file
@@ -80,15 +88,24 @@ export const editFileTool: ToolDefinition<typeof parameters> = {
     try {
       stat = await fs.stat(absolutePath);
     } catch {
-      return `Error: File not found: ${args.filePath}`;
+      return {
+        content: `Error: File not found: ${args.filePath}`,
+        status: 'failure',
+      };
     }
 
     if (!stat.isFile()) {
-      return `Error: Not a file: ${args.filePath}`;
+      return {
+        content: `Error: Not a file: ${args.filePath}`,
+        status: 'failure',
+      };
     }
 
     if (stat.size > MAX_FILE_SIZE) {
-      return `Error: File exceeds ${MAX_FILE_SIZE} byte limit`;
+      return {
+        content: `Error: File exceeds ${MAX_FILE_SIZE} byte limit`,
+        status: 'failure',
+      };
     }
 
     const checkResult = context.fileStatTracker.canModify(
@@ -97,10 +114,17 @@ export const editFileTool: ToolDefinition<typeof parameters> = {
       stat.mtimeMs,
     );
     if (checkResult === FileStatCheckResult.NOT_READ) {
-      return 'Error: Read the file before modifying it';
+      return {
+        content: 'Error: Read the file before modifying it',
+        status: 'failure',
+      };
     }
     if (checkResult === FileStatCheckResult.MODIFIED_SINCE_LAST_READ) {
-      return 'Error: File has been modified since last read. Read the file again before modifying it';
+      return {
+        content:
+          'Error: File has been modified since last read. Read the file again before modifying it',
+        status: 'failure',
+      };
     }
 
     let oldContent: string;
@@ -108,26 +132,35 @@ export const editFileTool: ToolDefinition<typeof parameters> = {
       oldContent = await fs.readFile(absolutePath, 'utf-8');
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
-      return `Error: ${message}`;
+      return {content: `Error: ${message}`, status: 'failure'};
     }
 
     // 4. Check for no-op replacement
     if (args.oldString === args.newString) {
-      return 'Error: oldString and newString are identical. No changes needed.';
+      return {
+        content:
+          'Error: oldString and newString are identical. No changes needed.',
+        status: 'failure',
+      };
     }
 
     // 5. Count occurrences
     const matchCount = countOccurrences(oldContent, args.oldString);
 
     if (matchCount === 0) {
-      return `Error: old string not found in ${args.filePath}`;
+      return {
+        content: `Error: old string not found in ${args.filePath}`,
+        status: 'failure',
+      };
     }
 
     if (matchCount > 1 && !args.replaceAll) {
-      return (
-        `Error: Found ${matchCount} matches in ${args.filePath}. ` +
-        'Provide more context to make a unique match, or set replaceAll to replace all occurrences.'
-      );
+      return {
+        content:
+          `Error: Found ${matchCount} matches in ${args.filePath}. ` +
+          'Provide more context to make a unique match, or set replaceAll to replace all occurrences.',
+        status: 'failure',
+      };
     }
 
     // 5. Perform replacement
@@ -140,7 +173,7 @@ export const editFileTool: ToolDefinition<typeof parameters> = {
       await fs.writeFile(absolutePath, newContent, 'utf-8');
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
-      return `Error: ${message}`;
+      return {content: `Error: ${message}`, status: 'failure'};
     }
 
     // Track new file stat
@@ -154,9 +187,12 @@ export const editFileTool: ToolDefinition<typeof parameters> = {
 
     if (Buffer.byteLength(diff) > MAX_DIFF_SIZE) {
       const truncated = diff.slice(0, MAX_DIFF_SIZE);
-      return `${header}\n${truncated}\n... Diff truncated. Read the file to review the modified sections.`;
+      return {
+        content: `${header}\n${truncated}\n... Diff truncated. Read the file to review the modified sections.`,
+        status: 'success',
+      };
     }
 
-    return `${header}\n${diff}`;
+    return {content: `${header}\n${diff}`, status: 'success'};
   },
 };

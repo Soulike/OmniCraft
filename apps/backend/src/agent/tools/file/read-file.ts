@@ -6,6 +6,7 @@ import {z} from 'zod';
 
 import type {
   ToolDefinition,
+  ToolExecuteResult,
   ToolExecutionContext,
 } from '@/agent-core/tool/index.js';
 
@@ -54,7 +55,7 @@ export const readFileTool: ToolDefinition<typeof parameters> = {
   async execute(
     args: ReadFileArgs,
     context: ToolExecutionContext,
-  ): Promise<string> {
+  ): Promise<ToolExecuteResult> {
     const {workingDirectory, fileCache} = context;
 
     // 1. Resolve path
@@ -68,7 +69,11 @@ export const readFileTool: ToolDefinition<typeof parameters> = {
       context.extraAllowedPaths,
     );
     if (accessResult === AccessCheckResult.ERROR_OUTSIDE_ALLOWED_DIRECTORIES) {
-      return 'Error: Access denied: path is outside the allowed directories';
+      return {
+        content:
+          'Error: Access denied: path is outside the allowed directories',
+        status: 'failure',
+      };
     }
 
     // 3. Stat
@@ -76,20 +81,32 @@ export const readFileTool: ToolDefinition<typeof parameters> = {
     try {
       stat = await fs.stat(absolutePath);
     } catch {
-      return `Error: File not found: ${args.filePath}`;
+      return {
+        content: `Error: File not found: ${args.filePath}`,
+        status: 'failure',
+      };
     }
 
     if (!stat.isFile()) {
-      return `Error: Not a file: ${args.filePath}`;
+      return {
+        content: `Error: Not a file: ${args.filePath}`,
+        status: 'failure',
+      };
     }
 
     // 4. Binary check
     try {
       if (await isBinaryFile(absolutePath)) {
-        return `Error: Binary file detected: ${args.filePath}. Only text files are supported.`;
+        return {
+          content: `Error: Binary file detected: ${args.filePath}. Only text files are supported.`,
+          status: 'failure',
+        };
       }
     } catch {
-      return `Error: Unable to check if file is binary: ${args.filePath}`;
+      return {
+        content: `Error: Unable to check if file is binary: ${args.filePath}`,
+        status: 'failure',
+      };
     }
 
     // 5–6. Get content and extract lines
@@ -129,13 +146,15 @@ export const readFileTool: ToolDefinition<typeof parameters> = {
       }
     } catch (error: unknown) {
       if (error instanceof ReadSizeLimitError) {
-        return (
-          `Error: ${error.message}. ` +
-          `Use startLine and lineCount to read a smaller portion.`
-        );
+        return {
+          content:
+            `Error: ${error.message}. ` +
+            `Use startLine and lineCount to read a smaller portion.`,
+          status: 'failure',
+        };
       }
       const message = error instanceof Error ? error.message : String(error);
-      return `Error: ${message}`;
+      return {content: `Error: ${message}`, status: 'failure'};
     }
 
     const endLine = args.lineCount
@@ -158,6 +177,6 @@ export const readFileTool: ToolDefinition<typeof parameters> = {
     // 8. Track file stat for modification safety
     context.fileStatTracker.set(absolutePath, stat.size, stat.mtimeMs);
 
-    return `${header}\n${formatted}`;
+    return {content: `${header}\n${formatted}`, status: 'success'};
   },
 };
