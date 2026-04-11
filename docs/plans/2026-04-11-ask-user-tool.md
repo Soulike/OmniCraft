@@ -685,6 +685,15 @@ git commit -m "refactor(frontend): make useSessionId context-backed for deep acc
 - Create: `apps/frontend/src/pages/chat/components/MessageList/components/AskUserCard/hooks/useQuestions.ts`
 - Create: `apps/frontend/src/pages/chat/components/MessageList/components/AskUserCard/hooks/useFormState.ts`
 - Create: `apps/frontend/src/pages/chat/components/MessageList/components/AskUserCard/hooks/useSubmitActions.ts`
+- Create: `apps/frontend/src/pages/chat/components/MessageList/components/AskUserCard/components/CompletedCard/CompletedCard.tsx`
+- Create: `apps/frontend/src/pages/chat/components/MessageList/components/AskUserCard/components/CompletedCard/styles.module.css`
+- Create: `apps/frontend/src/pages/chat/components/MessageList/components/AskUserCard/components/CompletedCard/index.ts`
+- Create: `apps/frontend/src/pages/chat/components/MessageList/components/AskUserCard/components/CancelledCard/CancelledCard.tsx`
+- Create: `apps/frontend/src/pages/chat/components/MessageList/components/AskUserCard/components/CancelledCard/styles.module.css`
+- Create: `apps/frontend/src/pages/chat/components/MessageList/components/AskUserCard/components/CancelledCard/index.ts`
+- Create: `apps/frontend/src/pages/chat/components/MessageList/components/AskUserCard/components/QuestionItem/QuestionItem.tsx`
+- Create: `apps/frontend/src/pages/chat/components/MessageList/components/AskUserCard/components/QuestionItem/styles.module.css`
+- Create: `apps/frontend/src/pages/chat/components/MessageList/components/AskUserCard/components/QuestionItem/index.ts`
 - Create: `apps/frontend/src/pages/chat/components/MessageList/components/AskUserCard/AskUserCardView.tsx`
 - Create: `apps/frontend/src/pages/chat/components/MessageList/components/AskUserCard/AskUserCard.tsx`
 - Create: `apps/frontend/src/pages/chat/components/MessageList/components/AskUserCard/styles.module.css`
@@ -880,22 +889,286 @@ export function useSubmitActions({
 }
 ```
 
-- [ ] **Step 5: Create the view component**
+- [ ] **Step 5: Create CompletedCard subcomponent**
+
+Create `apps/frontend/src/pages/chat/components/MessageList/components/AskUserCard/components/CompletedCard/CompletedCard.tsx`:
+
+```typescript
+import {CircleCheck} from 'lucide-react';
+
+import type {AnswerEntry} from '../../types.js';
+import styles from './styles.module.css';
+
+interface CompletedCardProps {
+  answers: AnswerEntry[];
+}
+
+export function CompletedCard({answers}: CompletedCardProps) {
+  return (
+    <div className={styles.card}>
+      <div className={styles.header}>
+        <CircleCheck size={16} className={styles.statusIcon} />
+        <span className={styles.headerTitle}>Questions Answered</span>
+      </div>
+      <div className={styles.body}>
+        {answers.map(({question, answer}, i) => (
+          <div key={i} className={styles.answerBlock}>
+            <span className={styles.question}>{question}</span>
+            <span className={styles.answer}>{answer ?? '(no answer)'}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+```
+
+Create `apps/frontend/src/pages/chat/components/MessageList/components/AskUserCard/components/CompletedCard/styles.module.css`:
+
+```css
+.card {
+  border-radius: 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  overflow: hidden;
+  width: 400px;
+  max-width: 100%;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+}
+
+.statusIcon {
+  color: var(--success);
+  flex-shrink: 0;
+}
+
+.headerTitle {
+  font-weight: 600;
+  font-size: 0.875rem;
+}
+
+.body {
+  padding: 0 12px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.answerBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.question {
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.answer {
+  font-size: 0.8125rem;
+  color: var(--muted);
+  padding-left: 4px;
+}
+```
+
+Create `apps/frontend/src/pages/chat/components/MessageList/components/AskUserCard/components/CompletedCard/index.ts`:
+
+```typescript
+export {CompletedCard} from './CompletedCard.js';
+```
+
+- [ ] **Step 6: Create CancelledCard subcomponent**
+
+Create `apps/frontend/src/pages/chat/components/MessageList/components/AskUserCard/components/CancelledCard/CancelledCard.tsx`:
+
+```typescript
+import {CircleAlert} from 'lucide-react';
+
+import styles from './styles.module.css';
+
+interface CancelledCardProps {
+  message: string | null;
+}
+
+export function CancelledCard({message}: CancelledCardProps) {
+  return (
+    <div className={styles.card}>
+      <div className={styles.header}>
+        <CircleAlert size={16} className={styles.statusIcon} />
+        <span className={styles.headerTitle}>
+          {message ?? 'User declined to answer.'}
+        </span>
+      </div>
+    </div>
+  );
+}
+```
+
+Create `apps/frontend/src/pages/chat/components/MessageList/components/AskUserCard/components/CancelledCard/styles.module.css`:
+
+```css
+.card {
+  border-radius: 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  overflow: hidden;
+  width: 400px;
+  max-width: 100%;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+}
+
+.statusIcon {
+  color: var(--warning);
+  flex-shrink: 0;
+}
+
+.headerTitle {
+  font-weight: 600;
+  font-size: 0.875rem;
+}
+```
+
+Create `apps/frontend/src/pages/chat/components/MessageList/components/AskUserCard/components/CancelledCard/index.ts`:
+
+```typescript
+export {CancelledCard} from './CancelledCard.js';
+```
+
+- [ ] **Step 7: Create QuestionItem subcomponent**
+
+Create `apps/frontend/src/pages/chat/components/MessageList/components/AskUserCard/components/QuestionItem/QuestionItem.tsx`:
+
+```typescript
+import {Input, Label, Radio, RadioGroup, TextField} from '@heroui/react';
+
+import type {FormState} from '../../hooks/useFormState.js';
+import type {Question} from '../../types.js';
+import styles from './styles.module.css';
+
+const OTHER_VALUE = '__other__';
+
+interface QuestionItemProps {
+  question: Question;
+  index: number;
+  formState: FormState;
+  disabled: boolean;
+}
+
+export function QuestionItem({
+  question,
+  index,
+  formState,
+  disabled,
+}: QuestionItemProps) {
+  return (
+    <div className={styles.questionBlock}>
+      <span className={styles.questionText}>{question.question}</span>
+      {question.options.length > 0 ? (
+        <RadioGroup
+          isDisabled={disabled}
+          value={formState.selectedOptionByIndex.get(index) ?? ''}
+          onChange={(value) => {
+            if (value === OTHER_VALUE) {
+              formState.switchToCustom(index);
+            } else {
+              formState.selectOption(index, value);
+            }
+          }}
+        >
+          {question.options.map((option) => (
+            <Radio key={option} value={option}>
+              <Radio.Control>
+                <Radio.Indicator />
+              </Radio.Control>
+              <Radio.Content>
+                <Label>{option}</Label>
+              </Radio.Content>
+            </Radio>
+          ))}
+          <Radio value={OTHER_VALUE}>
+            <Radio.Control>
+              <Radio.Indicator />
+            </Radio.Control>
+            <Radio.Content>
+              <Label>Other</Label>
+            </Radio.Content>
+          </Radio>
+        </RadioGroup>
+      ) : null}
+      {(question.options.length === 0 ||
+        formState.isCustomByIndex.get(index)) && (
+        <TextField
+          isDisabled={disabled}
+          value={formState.customTextByIndex.get(index) ?? ''}
+          onChange={(value) => {
+            formState.setCustomText(index, value);
+          }}
+        >
+          <Label className={styles.srOnly}>Your answer</Label>
+          <Input placeholder='Type your answer...' />
+        </TextField>
+      )}
+    </div>
+  );
+}
+```
+
+Create `apps/frontend/src/pages/chat/components/MessageList/components/AskUserCard/components/QuestionItem/styles.module.css`:
+
+```css
+.questionBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.questionText {
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+```
+
+Create `apps/frontend/src/pages/chat/components/MessageList/components/AskUserCard/components/QuestionItem/index.ts`:
+
+```typescript
+export {QuestionItem} from './QuestionItem.js';
+```
+
+- [ ] **Step 8: Create AskUserCardView**
 
 Create `apps/frontend/src/pages/chat/components/MessageList/components/AskUserCard/AskUserCardView.tsx`:
 
 ```typescript
-import {
-  Button,
-  Input,
-  Label,
-  Radio,
-  RadioGroup,
-  Spinner,
-  TextField,
-} from '@heroui/react';
-import {CircleAlert, CircleCheck, MessageCircleQuestion} from 'lucide-react';
+import {Button, Spinner} from '@heroui/react';
+import {MessageCircleQuestion} from 'lucide-react';
 
+import {CancelledCard} from './components/CancelledCard/index.js';
+import {CompletedCard} from './components/CompletedCard/index.js';
+import {QuestionItem} from './components/QuestionItem/index.js';
 import type {FormState} from './hooks/useFormState.js';
 import type {SubmitActions} from './hooks/useSubmitActions.js';
 import type {AnswerEntry, Question} from './types.js';
@@ -912,8 +1185,6 @@ interface AskUserCardViewProps {
   failureMessage: string | null;
 }
 
-const OTHER_VALUE = '__other__';
-
 export function AskUserCardView({
   questions,
   formState,
@@ -923,11 +1194,11 @@ export function AskUserCardView({
   failureMessage,
 }: AskUserCardViewProps) {
   if (effectiveStatus === 'done' && completedAnswers) {
-    return <CompletedView answers={completedAnswers} />;
+    return <CompletedCard answers={completedAnswers} />;
   }
 
   if (effectiveStatus === 'failure' || effectiveStatus === 'error') {
-    return <CancelledView message={failureMessage} />;
+    return <CancelledCard message={failureMessage} />;
   }
 
   const disabled = effectiveStatus === 'submitting';
@@ -940,115 +1211,29 @@ export function AskUserCardView({
       </div>
       <div className={styles.body}>
         {questions.map((q, i) => (
-          <div key={i} className={styles.questionBlock}>
-            <span className={styles.questionText}>{q.question}</span>
-            {q.options.length > 0 ? (
-              <RadioGroup
-                isDisabled={disabled}
-                value={formState.selectedOptionByIndex.get(i) ?? ''}
-                onChange={(value) => {
-                  if (value === OTHER_VALUE) {
-                    formState.switchToCustom(i);
-                  } else {
-                    formState.selectOption(i, value);
-                  }
-                }}
-              >
-                {q.options.map((option) => (
-                  <Radio key={option} value={option}>
-                    <Radio.Control>
-                      <Radio.Indicator />
-                    </Radio.Control>
-                    <Radio.Content>
-                      <Label>{option}</Label>
-                    </Radio.Content>
-                  </Radio>
-                ))}
-                <Radio value={OTHER_VALUE}>
-                  <Radio.Control>
-                    <Radio.Indicator />
-                  </Radio.Control>
-                  <Radio.Content>
-                    <Label>Other</Label>
-                  </Radio.Content>
-                </Radio>
-              </RadioGroup>
-            ) : null}
-            {(q.options.length === 0 || formState.isCustomByIndex.get(i)) && (
-              <TextField
-                isDisabled={disabled}
-                value={formState.customTextByIndex.get(i) ?? ''}
-                onChange={(value) => {
-                  formState.setCustomText(i, value);
-                }}
-              >
-                <Label className={styles.srOnly}>Your answer</Label>
-                <Input placeholder='Type your answer...' />
-              </TextField>
-            )}
-          </div>
+          <QuestionItem
+            key={i}
+            question={q}
+            index={i}
+            formState={formState}
+            disabled={disabled}
+          />
         ))}
       </div>
       <div className={styles.footer}>
-        <Button
-          variant='ghost'
-          isDisabled={disabled}
-          onPress={submitActions.handleCancel}
-        >
+        <Button variant='ghost' isDisabled={disabled} onPress={submitActions.handleCancel}>
           Cancel
         </Button>
-        <Button
-          variant='solid'
-          isDisabled={disabled}
-          onPress={submitActions.handleSubmit}
-        >
+        <Button variant='solid' isDisabled={disabled} onPress={submitActions.handleSubmit}>
           {effectiveStatus === 'submitting' ? <Spinner size='sm' /> : 'Submit'}
         </Button>
       </div>
     </div>
   );
 }
-
-function CompletedView({
-  answers,
-}: {
-  answers: AnswerEntry[];
-}) {
-  return (
-    <div className={styles.card}>
-      <div className={styles.header}>
-        <CircleCheck size={16} className={styles.statusDone} />
-        <span className={styles.headerTitle}>Questions Answered</span>
-      </div>
-      <div className={styles.body}>
-        {answers.map(({question, answer}, i) => (
-          <div key={i} className={styles.answerBlock}>
-            <span className={styles.questionText}>{question}</span>
-            <span className={styles.answerText}>
-              {answer ?? '(no answer)'}
-            </span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function CancelledView({message}: {message: string | null}) {
-  return (
-    <div className={styles.card}>
-      <div className={styles.header}>
-        <CircleAlert size={16} className={styles.statusFailure} />
-        <span className={styles.headerTitle}>
-          {message ?? 'User declined to answer.'}
-        </span>
-      </div>
-    </div>
-  );
-}
 ```
 
-- [ ] **Step 6: Create styles**
+- [ ] **Step 9: Create AskUserCardView styles**
 
 Create `apps/frontend/src/pages/chat/components/MessageList/components/AskUserCard/styles.module.css`:
 
@@ -1087,17 +1272,6 @@ Create `apps/frontend/src/pages/chat/components/MessageList/components/AskUserCa
   gap: 16px;
 }
 
-.questionBlock {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.questionText {
-  font-size: 0.875rem;
-  font-weight: 500;
-}
-
 .footer {
   display: flex;
   justify-content: flex-end;
@@ -1105,43 +1279,9 @@ Create `apps/frontend/src/pages/chat/components/MessageList/components/AskUserCa
   padding: 8px 12px;
   border-top: 1px solid var(--border);
 }
-
-.statusDone {
-  color: var(--success);
-  flex-shrink: 0;
-}
-
-.statusFailure {
-  color: var(--warning);
-  flex-shrink: 0;
-}
-
-.answerBlock {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.answerText {
-  font-size: 0.8125rem;
-  color: var(--muted);
-  padding-left: 4px;
-}
-
-.srOnly {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-  border-width: 0;
-}
 ```
 
-- [ ] **Step 7: Create the container component**
+- [ ] **Step 10: Create the container component**
 
 Create `apps/frontend/src/pages/chat/components/MessageList/components/AskUserCard/AskUserCard.tsx`:
 
@@ -1205,7 +1345,7 @@ export function AskUserCard({
 }
 ```
 
-- [ ] **Step 8: Create barrel export**
+- [ ] **Step 11: Create barrel export**
 
 Create `apps/frontend/src/pages/chat/components/MessageList/components/AskUserCard/index.ts`:
 
@@ -1213,13 +1353,13 @@ Create `apps/frontend/src/pages/chat/components/MessageList/components/AskUserCa
 export {AskUserCard} from './AskUserCard.js';
 ```
 
-- [ ] **Step 9: Verify types compile**
+- [ ] **Step 12: Verify types compile**
 
 Run: `bun run --filter 'frontend' check`
 
 Expected: No type errors.
 
-- [ ] **Step 10: Commit**
+- [ ] **Step 13: Commit**
 
 ```bash
 git add apps/frontend/src/pages/chat/components/MessageList/components/AskUserCard/
