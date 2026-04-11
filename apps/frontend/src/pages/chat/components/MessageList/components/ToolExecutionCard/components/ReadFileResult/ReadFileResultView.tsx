@@ -1,5 +1,3 @@
-import {CodeView} from '@/components/CodeView/index.js';
-
 import styles from './styles.module.css';
 
 interface ReadFileResultViewProps {
@@ -30,12 +28,19 @@ export function ReadFileResultView({
           lines {startLine}–{startLine + lineCount - 1} of {totalLines}
         </span>
       </div>
-      <CodeView lineCount={lineCount} startLine={startLine}>
-        <code
-          className='hljs'
-          dangerouslySetInnerHTML={{__html: highlightedHtml}}
-        />
-      </CodeView>
+      <div className={styles.body}>
+        <div className={styles.lineNumbers} aria-hidden='true'>
+          {Array.from({length: lineCount}, (_, i) => (
+            <span key={i}>{startLine + i}</span>
+          ))}
+        </div>
+        <pre className={styles.pre}>
+          <code
+            className='hljs'
+            dangerouslySetInnerHTML={{__html: highlightedHtml}}
+          />
+        </pre>
+      </div>
     </div>
   );
 }
