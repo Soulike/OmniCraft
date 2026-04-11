@@ -1,0 +1,54 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.summary {
+  font-size: 0.8125rem;
+  color: var(--foreground);
+}
+
+.pattern {
+  font-family: monospace;
+  font-size: 0.8125rem;
+  color: var(--accent);
+}
+
+.basePath {
+  font-size: 0.6875rem;
+  color: var(--muted);
+  font-family: monospace;
+}
+
+.truncated {
+  font-size: 0.75rem;
+  color: var(--warning);
+  font-style: italic;
+}
+
+.fileList {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 4px 0;
+}
+
+.filePath {
+  font-family: monospace;
+  font-size: 0.8125rem;
+  color: var(--foreground);
+  padding: 2px 8px;
+  border-radius: 4px;
+  line-height: 1.5;
+}
+
+.filePath:hover {
+  background: color-mix(in oklch, var(--accent) 5%, transparent);
+}
