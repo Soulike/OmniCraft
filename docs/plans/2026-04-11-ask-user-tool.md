@@ -57,9 +57,24 @@ export const toolNameSchema = z.enum([
 ]);
 ```
 
-- [ ] **Step 2: Add result schema**
+- [ ] **Step 2: Add parameters schema**
 
-In `packages/tool-schemas/src/result-schemas.ts`, add at the end (before the `toolFailureDataSchema`):
+In `packages/tool-schemas/src/result-schemas.ts`, add the parameters schema (shared between backend tool and frontend validation):
+
+```typescript
+export const askUserParametersSchema = z.object({
+  questions: z.array(
+    z.object({
+      question: z.string(),
+      options: z.array(z.string()),
+    }),
+  ),
+});
+```
+
+- [ ] **Step 3: Add result schema**
+
+In the same file, add:
 
 ```typescript
 export const askUserResultSchema = z.object({
@@ -72,7 +87,7 @@ export const askUserResultSchema = z.object({
 });
 ```
 
-- [ ] **Step 3: Register in schema registry**
+- [ ] **Step 4: Register in schema registry**
 
 In `packages/tool-schemas/src/registry.ts`:
 
@@ -80,11 +95,11 @@ In `packages/tool-schemas/src/registry.ts`:
 2. Add to `toolResultSchemas`: `[TOOL_NAME.ASK_USER]: askUserResultSchema,`
 3. Add `askUserResultSchema` to the `toolResultDataSchema` union
 
-- [ ] **Step 4: Export from package index**
+- [ ] **Step 5: Export from package index**
 
-In `packages/tool-schemas/src/index.ts`, add `askUserResultSchema` to the named exports from `./result-schemas.js`.
+In `packages/tool-schemas/src/index.ts`, add both `askUserParametersSchema` and `askUserResultSchema` to the named exports from `./result-schemas.js`.
 
-- [ ] **Step 5: Verify types compile**
+- [ ] **Step 6: Verify types compile**
 
 Run: `bun run --filter '@omnicraft/tool-schemas' check`
 
@@ -307,7 +322,11 @@ Expected: FAIL — module `./ask-user.js` not found.
 Create `apps/backend/src/agent/tools/client/ask-user.ts`:
 
 ```typescript
-import {type ToolFailureData, TOOL_NAME} from '@omnicraft/tool-schemas';
+import {
+  askUserParametersSchema,
+  type ToolFailureData,
+  TOOL_NAME,
+} from '@omnicraft/tool-schemas';
 import {z} from 'zod';
 
 import type {
@@ -316,14 +335,9 @@ import type {
   ToolExecuteSuccessResult,
 } from '@/agent-core/tool/types.js';
 
-const parameters = z.object({
-  questions: z.array(
-    z.object({
-      question: z.string().describe('The question text to display to the user'),
-      options: z
-        .array(z.string())
-        .describe('Predefined answer options. Empty array for free-text only.'),
-    }),
+const parameters = askUserParametersSchema.extend({
+  questions: askUserParametersSchema.shape.questions.describe(
+    'One or more questions to present to the user',
   ),
 });
 
@@ -672,20 +686,21 @@ git commit -m "refactor(frontend): make useSessionId context-backed for deep acc
 Create `apps/frontend/src/pages/chat/components/MessageList/components/AskUserCard/hooks/useQuestions.ts`:
 
 ```typescript
+import {askUserParametersSchema} from '@omnicraft/tool-schemas';
 import {useMemo} from 'react';
+import type {z} from 'zod';
 
-export interface Question {
-  question: string;
-  options: string[];
-}
+export type Question = z.infer<
+  typeof askUserParametersSchema
+>['questions'][number];
 
-/** Parses the tool arguments JSON into a Question array. */
+/** Parses and validates the tool arguments JSON into a Question array. */
 export function useQuestions(toolArguments: string): Question[] {
   return useMemo(() => {
     try {
       const parsed: unknown = JSON.parse(toolArguments);
-      const obj = parsed as {questions?: Question[]};
-      return obj.questions ?? [];
+      const result = askUserParametersSchema.safeParse(parsed);
+      return result.success ? result.data.questions : [];
     } catch {
       return [];
     }
