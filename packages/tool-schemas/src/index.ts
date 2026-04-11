@@ -1,3 +1,7 @@
+export {
+  askUserBridgeResponseSchema,
+  askUserParametersSchema,
+} from './parameter-schemas.js';
 export type {
   AnyToolResultData,
   ToolFailureData,
@@ -5,6 +9,7 @@ export type {
 } from './registry.js';
 export {toolResultDataSchema, toolResultSchemas} from './registry.js';
 export {
+  askUserResultSchema,
   editFileResultSchema,
   findFilesResultSchema,
   getCurrentTimeResultSchema,
