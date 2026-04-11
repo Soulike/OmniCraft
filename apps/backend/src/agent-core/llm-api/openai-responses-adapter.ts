@@ -138,6 +138,8 @@ export async function* streamOpenAIResponses(
             callId: event.item.call_id,
             toolName: event.item.name,
           };
+        } else if (event.item.type === 'reasoning') {
+          yield {type: 'thinking-start'};
         }
         break;
 
@@ -180,7 +182,6 @@ export async function* streamOpenAIResponses(
 
       // Reasoning events — stream thinking content and collect for history.
       case 'response.reasoning_summary_part.added':
-        yield {type: 'thinking-start'};
         break;
       case 'response.reasoning_summary_text.delta':
         yield {type: 'thinking-delta', content: event.delta};
