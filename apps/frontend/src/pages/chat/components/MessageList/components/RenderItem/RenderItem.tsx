@@ -1,7 +1,9 @@
+import {TOOL_NAME} from '@omnicraft/tool-schemas';
 import clsx from 'clsx';
 
 import {formatTimestamp} from '../../helpers/formatTimestamp.js';
 import type {MessageRenderItem} from '../../hooks/useMessageList.js';
+import {AskUserCard} from '../AskUserCard/index.js';
 import {MessageBubble} from '../MessageBubble/index.js';
 import {ThinkingBlock} from '../ThinkingBlock/index.js';
 import {ToolExecutionCard} from '../ToolExecutionCard/index.js';
@@ -36,6 +38,41 @@ export function RenderItem({item}: RenderItemProps) {
         </div>
       );
     case 'tool-execution':
+      if (item.toolName === TOOL_NAME.ASK_USER) {
+        if (item.status === 'running') {
+          return (
+            <div className={styles.assistantMessage}>
+              <AskUserCard
+                callId={item.callId}
+                arguments={item.arguments}
+                status='running'
+              />
+            </div>
+          );
+        }
+        if (item.status === 'done') {
+          return (
+            <div className={styles.assistantMessage}>
+              <AskUserCard
+                callId={item.callId}
+                arguments={item.arguments}
+                status='done'
+                data={item.data}
+              />
+            </div>
+          );
+        }
+        return (
+          <div className={styles.assistantMessage}>
+            <AskUserCard
+              callId={item.callId}
+              arguments={item.arguments}
+              status={item.status}
+              data={item.data}
+            />
+          </div>
+        );
+      }
       return (
         <div className={styles.assistantMessage}>
           <ToolExecutionCard
