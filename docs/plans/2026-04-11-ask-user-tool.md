@@ -63,12 +63,20 @@ In `packages/tool-schemas/src/result-schemas.ts`, add the parameters schema (sha
 
 ```typescript
 export const askUserParametersSchema = z.object({
-  questions: z.array(
-    z.object({
-      question: z.string(),
-      options: z.array(z.string()),
-    }),
-  ),
+  questions: z
+    .array(
+      z.object({
+        question: z
+          .string()
+          .describe('The question text to display to the user'),
+        options: z
+          .array(z.string())
+          .describe(
+            'Predefined answer options. Empty array for free-text only.',
+          ),
+      }),
+    )
+    .describe('One or more questions to present to the user'),
 });
 ```
 
@@ -335,12 +343,6 @@ import type {
   ToolExecuteSuccessResult,
 } from '@/agent-core/tool/types.js';
 
-const parameters = askUserParametersSchema.extend({
-  questions: askUserParametersSchema.shape.questions.describe(
-    'One or more questions to present to the user',
-  ),
-});
-
 const askUserBridgeResponseSchema = z.discriminatedUnion('cancelled', [
   z.object({
     cancelled: z.literal(false),
@@ -358,12 +360,15 @@ interface AskUserResult {
   answers: Array<{question: string; answer: string | null}>;
 }
 
-export const askUserTool: ToolDefinition<typeof parameters, AskUserResult> = {
+export const askUserTool: ToolDefinition<
+  typeof askUserParametersSchema,
+  AskUserResult
+> = {
   name: TOOL_NAME.ASK_USER,
   displayName: 'Ask User',
   description:
     'Ask the user one or more questions when you need clarification, preferences, or decisions that cannot be inferred from context. Use this tool when the task is ambiguous, multiple valid approaches exist, or user input is required to proceed. Each question can have predefined options for the user to select from, and the user can also type a custom answer. Do not use this tool for rhetorical questions or information you can determine yourself.',
-  parameters,
+  parameters: askUserParametersSchema,
   suppressToolEvents: false,
 
   async execute(
