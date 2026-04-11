@@ -4,19 +4,17 @@ import {Lightbulb} from 'lucide-react';
 
 import styles from './styles.module.css';
 
-const THINKING_LEVEL_OPTIONS: readonly {
-  id: ThinkingLevel;
-  label: string;
-}[] = [
-  {id: 'none', label: 'None'},
-  {id: 'low', label: 'Low'},
-  {id: 'medium', label: 'Medium'},
-  {id: 'high', label: 'High'},
-];
+const THINKING_LEVEL_LABELS: Record<ThinkingLevel, string> = {
+  none: 'None',
+  low: 'Low',
+  medium: 'Medium',
+  high: 'High',
+};
 
-function getLabel(id: ThinkingLevel): string {
-  return THINKING_LEVEL_OPTIONS.find((o) => o.id === id)?.label ?? 'None';
-}
+const THINKING_LEVELS = Object.entries(THINKING_LEVEL_LABELS) as [
+  ThinkingLevel,
+  string,
+][];
 
 interface ThinkingLevelSelectProps {
   value: ThinkingLevel;
@@ -45,20 +43,16 @@ export function ThinkingLevelSelect({
         <Select.Value>
           <span className={styles.value}>
             <Lightbulb size={14} />
-            {`Thinking: ${getLabel(value)}`}
+            {`Thinking: ${THINKING_LEVEL_LABELS[value]}`}
           </span>
         </Select.Value>
         <Select.Indicator />
       </Select.Trigger>
       <Select.Popover>
         <ListBox>
-          {THINKING_LEVEL_OPTIONS.map((option) => (
-            <ListBox.Item
-              key={option.id}
-              id={option.id}
-              textValue={option.label}
-            >
-              {option.label}
+          {THINKING_LEVELS.map(([id, label]) => (
+            <ListBox.Item key={id} id={id} textValue={label}>
+              {label}
               <ListBox.ItemIndicator />
             </ListBox.Item>
           ))}
