@@ -14,6 +14,7 @@ import type {
   SseToolExecuteStartEvent,
   SseUsage,
 } from '@omnicraft/sse-events';
+import type {AnyToolResultData} from '@omnicraft/tool-schemas';
 
 import {AsyncChannel} from '@/helpers/async-channel.js';
 
@@ -202,6 +203,7 @@ export abstract class Agent {
           callId: toolCall.callId,
           result: result.content,
           status: result.status,
+          data: result.data,
         } satisfies SseToolExecuteEndEvent;
         toolResults.set(toolCall.callId, {
           callId: toolCall.callId,
@@ -411,13 +413,15 @@ export abstract class Agent {
     availableTools: ReadonlyMap<string, ToolDefinition>,
     onOutput: (chunk: string) => void,
     signal: AbortSignal,
-  ): Promise<{content: string; status: 'success' | 'failure' | 'error'}> {
+  ): Promise<{
+    content: string;
+    status: 'success' | 'failure' | 'error';
+    data: AnyToolResultData;
+  }> {
     const tool = availableTools.get(toolCall.toolName);
     if (!tool) {
-      return {
-        content: `Error: Unknown tool: ${toolCall.toolName}`,
-        status: 'error',
-      };
+      const message = `Unknown tool: ${toolCall.toolName}`;
+      return {content: `Error: ${message}`, status: 'error', data: {message}};
     }
 
     const context: ToolExecutionContext = {
@@ -435,10 +439,14 @@ export abstract class Agent {
         JSON.parse(toolCall.arguments),
       );
       const result = await tool.execute(parsedArgs, context, onOutput);
-      return {content: result.content, status: result.status};
+      return {
+        content: result.content,
+        status: result.status,
+        data: result.data as AnyToolResultData,
+      };
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
-      return {content: `Error: ${message}`, status: 'error'};
+      return {content: `Error: ${message}`, status: 'error', data: {message}};
     }
   }
 }
