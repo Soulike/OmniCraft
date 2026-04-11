@@ -1,13 +1,16 @@
+import type {AnyToolResultData, ToolName} from '@omnicraft/tool-schemas';
+
 import {useToolOutput} from '../../../../contexts/ToolOutputContext/index.js';
 import {ToolExecutionCardView} from './ToolExecutionCardView.js';
 
 interface ToolExecutionCardProps {
   callId: string;
-  toolName: string;
+  toolName: ToolName;
   displayName: string;
   arguments: string;
   status: 'running' | 'done' | 'failure' | 'error';
   result?: string;
+  data?: AnyToolResultData;
 }
 
 export function ToolExecutionCard({
@@ -17,6 +20,7 @@ export function ToolExecutionCard({
   arguments: toolArguments,
   status,
   result,
+  data,
 }: ToolExecutionCardProps) {
   const output = useToolOutput(callId);
 
@@ -28,6 +32,7 @@ export function ToolExecutionCard({
       status={status}
       result={result}
       output={output}
+      data={data}
     />
   );
 }

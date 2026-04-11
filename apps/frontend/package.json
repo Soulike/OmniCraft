@@ -16,6 +16,7 @@
     "@omnicraft/api-schema": "workspace:^",
     "@omnicraft/settings-schema": "workspace:^",
     "@omnicraft/sse-events": "workspace:^",
+    "@omnicraft/tool-schemas": "workspace:^",
     "@tailwindcss/vite": "^4.2.2",
     "clsx": "^2.1.1",
     "dequal": "^2.0.3",
