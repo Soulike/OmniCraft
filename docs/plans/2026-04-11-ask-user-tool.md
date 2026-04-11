@@ -1286,47 +1286,42 @@ Create `apps/frontend/src/pages/chat/components/MessageList/components/AskUserCa
 Create `apps/frontend/src/pages/chat/components/MessageList/components/AskUserCard/AskUserCard.tsx`:
 
 ```typescript
-import type {AnyToolResultData, ToolName} from '@omnicraft/tool-schemas';
+import type {ToolFailureData, ToolResultData} from '@omnicraft/tool-schemas';
 
 import {AskUserCardView} from './AskUserCardView.js';
 import {useFormState} from './hooks/useFormState.js';
 import {useQuestions} from './hooks/useQuestions.js';
 import {useSubmitActions} from './hooks/useSubmitActions.js';
-import type {AnswerEntry} from './types.js';
 
-type CardStatus = 'running' | 'done' | 'failure' | 'error';
+type AskUserCardProps =
+  | {callId: string; arguments: string; status: 'running'}
+  | {
+      callId: string;
+      arguments: string;
+      status: 'done';
+      data: ToolResultData<'ask_user'>;
+    }
+  | {
+      callId: string;
+      arguments: string;
+      status: 'failure' | 'error';
+      data: ToolFailureData;
+    };
 
-interface AskUserCardProps {
-  callId: string;
-  toolName: ToolName;
-  displayName: string;
-  arguments: string;
-  status: CardStatus;
-  result?: string;
-  data?: AnyToolResultData;
-}
-
-export function AskUserCard({
-  callId,
-  arguments: toolArguments,
-  status,
-  data,
-}: AskUserCardProps) {
-  const questions = useQuestions(toolArguments);
+export function AskUserCard(props: AskUserCardProps) {
+  const questions = useQuestions(props.arguments);
   const formState = useFormState(questions);
   const submitActions = useSubmitActions({
-    callId,
+    callId: props.callId,
     collectAnswers: formState.collectAnswers,
   });
 
-  const completedAnswers: AnswerEntry[] | null =
-    status === 'done' && data && 'answers' in data
-      ? (data.answers as AnswerEntry[])
-      : null;
+  const completedAnswers =
+    props.status === 'done' ? props.data.answers : null;
 
-  const failureMessage: string | null =
-    status === 'failure' && data && 'message' in data
-      ? (data.message as string)
+  const failureMessage =
+    props.status === 'failure' || props.status === 'error'
+      ? props.data.message
       : null;
 
   return (
@@ -1334,7 +1329,7 @@ export function AskUserCard({
       questions={questions}
       formState={formState}
       submitActions={submitActions}
-      status={status}
+      status={props.status}
       completedAnswers={completedAnswers}
       failureMessage={failureMessage}
     />
@@ -1420,29 +1415,52 @@ export function RenderItem({item}: RenderItemProps) {
         </div>
       );
     case 'tool-execution':
-      return (
-        <div className={styles.assistantMessage}>
-          {item.toolName === TOOL_NAME.ASK_USER ? (
+      if (item.toolName === TOOL_NAME.ASK_USER) {
+        if (item.status === 'running') {
+          return (
+            <div className={styles.assistantMessage}>
+              <AskUserCard
+                callId={item.callId}
+                arguments={item.arguments}
+                status='running'
+              />
+            </div>
+          );
+        }
+        if (item.status === 'done') {
+          return (
+            <div className={styles.assistantMessage}>
+              <AskUserCard
+                callId={item.callId}
+                arguments={item.arguments}
+                status='done'
+                data={item.data}
+              />
+            </div>
+          );
+        }
+        return (
+          <div className={styles.assistantMessage}>
             <AskUserCard
               callId={item.callId}
-              toolName={item.toolName}
-              displayName={item.displayName}
               arguments={item.arguments}
               status={item.status}
-              result={'result' in item ? item.result : undefined}
-              data={'data' in item ? item.data : undefined}
+              data={item.data}
             />
-          ) : (
-            <ToolExecutionCard
-              callId={item.callId}
-              toolName={item.toolName}
-              displayName={item.displayName}
-              arguments={item.arguments}
-              status={item.status}
-              result={'result' in item ? item.result : undefined}
-              data={'data' in item ? item.data : undefined}
-            />
-          )}
+          </div>
+        );
+      }
+      return (
+        <div className={styles.assistantMessage}>
+          <ToolExecutionCard
+            callId={item.callId}
+            toolName={item.toolName}
+            displayName={item.displayName}
+            arguments={item.arguments}
+            status={item.status}
+            result={'result' in item ? item.result : undefined}
+            data={'data' in item ? item.data : undefined}
+          />
         </div>
       );
     case 'thinking':
