@@ -1,6 +1,6 @@
 import {Disclosure, ScrollShadow, Spinner} from '@heroui/react';
 import clsx from 'clsx';
-import {CircleCheck, CircleX} from 'lucide-react';
+import {CircleAlert, CircleCheck, CircleX} from 'lucide-react';
 import {useMemo} from 'react';
 
 import styles from './styles.module.css';
@@ -9,7 +9,7 @@ interface ToolExecutionCardViewProps {
   toolName: string;
   displayName: string;
   arguments: string;
-  status: 'running' | 'done' | 'error';
+  status: 'running' | 'done' | 'failure' | 'error';
   result?: string;
   output?: string;
 }
@@ -45,6 +45,12 @@ export function ToolExecutionCardView({
                 size={STATUS_ICON_SIZE}
               />
             )}
+            {status === 'failure' && (
+              <CircleAlert
+                className={styles.statusFailure}
+                size={STATUS_ICON_SIZE}
+              />
+            )}
             {status === 'error' && (
               <CircleX className={styles.statusError} size={STATUS_ICON_SIZE} />
             )}
@@ -75,6 +81,7 @@ export function ToolExecutionCardView({
                 <span className={styles.label}>Result</span>
                 <ScrollShadow
                   className={clsx(styles.pre, {
+                    [styles.preFailure]: status === 'failure',
                     [styles.preError]: status === 'error',
                   })}
                 >

@@ -56,7 +56,7 @@ describe('transformMessages', () => {
           type: 'tool-execution-end',
           callId: 'c1',
           result: 'found it',
-          isError: false,
+          status: 'success',
         },
       },
     ];
@@ -102,7 +102,7 @@ describe('transformMessages', () => {
     ]);
   });
 
-  it('marks tool as error when isError is true', () => {
+  it('marks tool as error when status is error', () => {
     const messages: ChatMessage[] = [
       {
         id: null,
@@ -124,7 +124,7 @@ describe('transformMessages', () => {
           type: 'tool-execution-end',
           callId: 'c1',
           result: 'Error: failed',
-          isError: true,
+          status: 'error',
         },
       },
     ];
@@ -170,7 +170,7 @@ describe('transformMessages', () => {
           type: 'tool-execution-end',
           callId: 'c1',
           result: 'result',
-          isError: false,
+          status: 'success',
         },
       },
       {
@@ -197,7 +197,7 @@ describe('transformMessages', () => {
           type: 'tool-execution-end',
           callId: 'c1',
           result: 'orphan result',
-          isError: false,
+          status: 'success',
         },
       },
     ];

@@ -36,8 +36,9 @@ describe('webFetchRawTool', () => {
         {url: serverUrl(server)},
         createMockContext(),
       );
-      expect(result).toContain('<html>');
-      expect(result).toContain('<h1>Hello World</h1>');
+      expect(result.content).toContain('<html>');
+      expect(result.content).toContain('<h1>Hello World</h1>');
+      expect(result.status).toBe('success');
     });
 
     it('does not add a Title: line header', async () => {
@@ -45,7 +46,8 @@ describe('webFetchRawTool', () => {
         {url: serverUrl(server)},
         createMockContext(),
       );
-      expect(result).not.toMatch(/^Title:/m);
+      expect(result.content).not.toMatch(/^Title:/m);
+      expect(result.status).toBe('success');
     });
   });
 
@@ -67,7 +69,8 @@ describe('webFetchRawTool', () => {
         {url: serverUrl(server)},
         createMockContext(),
       );
-      expect(result).toContain(jsonBody);
+      expect(result.content).toContain(jsonBody);
+      expect(result.status).toBe('success');
     });
   });
 
@@ -77,8 +80,9 @@ describe('webFetchRawTool', () => {
         {url: 'ftp://files.example.com/data'},
         createMockContext(),
       );
-      expect(result).toMatch(/Error/i);
-      expect(result).toContain('ftp:');
+      expect(result.content).toMatch(/Error/i);
+      expect(result.content).toContain('ftp:');
+      expect(result.status).toBe('failure');
     });
   });
 
@@ -102,7 +106,8 @@ describe('webFetchRawTool', () => {
         {url: serverUrl(server)},
         createMockContext(),
       );
-      expect(result).toMatch(/Error/i);
+      expect(result.content).toMatch(/Error/i);
+      expect(result.status).toBe('failure');
     });
   });
 
@@ -117,8 +122,9 @@ describe('webFetchRawTool', () => {
           {url: serverUrl(server)},
           createMockContext(),
         );
-        expect(result).toContain('Content saved to file:');
-        expect(result).toContain('URL:');
+        expect(result.content).toContain('Content saved to file:');
+        expect(result.content).toContain('URL:');
+        expect(result.status).toBe('success');
       } finally {
         await stopServer(server);
       }

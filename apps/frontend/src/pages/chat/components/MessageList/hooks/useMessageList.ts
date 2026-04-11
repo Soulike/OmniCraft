@@ -22,7 +22,7 @@ export interface ToolExecutionRenderItem {
   toolName: string;
   displayName: string;
   arguments: string;
-  status: 'running' | 'done' | 'error';
+  status: 'running' | 'done' | 'failure' | 'error';
   result?: string;
 }
 
@@ -36,12 +36,15 @@ export function transformMessages(
   messages: ChatMessage[],
 ): MessageRenderItem[] {
   // First pass: collect tool-execution-end events by callId
-  const endEvents = new Map<string, {result: string; isError: boolean}>();
+  const endEvents = new Map<
+    string,
+    {result: string; status: 'success' | 'failure' | 'error'}
+  >();
   for (const message of messages) {
     if (message.content.type === 'tool-execution-end') {
       endEvents.set(message.content.callId, {
         result: message.content.result,
-        isError: message.content.isError,
+        status: message.content.status,
       });
     }
   }
@@ -79,7 +82,12 @@ export function transformMessages(
             toolName: content.toolName,
             displayName: content.displayName,
             arguments: content.arguments,
-            status: endEvent.isError ? 'error' : 'done',
+            status:
+              endEvent.status === 'success'
+                ? 'done'
+                : endEvent.status === 'failure'
+                  ? 'failure'
+                  : 'error',
             result: endEvent.result,
           });
         } else {

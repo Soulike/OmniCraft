@@ -1,6 +1,10 @@
 import {z} from 'zod';
 
-import type {ToolDefinition, ToolExecutionContext} from './types.js';
+import type {
+  ToolDefinition,
+  ToolExecuteResult,
+  ToolExecutionContext,
+} from './types.js';
 
 const parameters = z.object({
   name: z.string().describe('Name of the skill to load'),
@@ -16,11 +20,14 @@ export const loadSkillTool: ToolDefinition<typeof parameters> = {
   async execute(
     args: z.infer<typeof parameters>,
     context: ToolExecutionContext,
-  ): Promise<string> {
+  ): Promise<ToolExecuteResult> {
     const skill = context.availableSkills.get(args.name);
     if (!skill) {
-      return `Error: Skill "${args.name}" not found.`;
+      return {
+        content: `Error: Skill "${args.name}" not found.`,
+        status: 'failure',
+      };
     }
-    return skill.getContent();
+    return {content: await skill.getContent(), status: 'success'};
   },
 };

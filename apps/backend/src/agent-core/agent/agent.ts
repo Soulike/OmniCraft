@@ -199,7 +199,7 @@ export abstract class Agent {
           type: 'tool-execute-end' as const,
           callId: toolCall.callId,
           result: result.content,
-          isError: result.isError,
+          status: result.status,
         } satisfies AgentToolExecuteEndEvent;
         toolResults.set(toolCall.callId, {
           callId: toolCall.callId,
@@ -388,12 +388,12 @@ export abstract class Agent {
     availableTools: ReadonlyMap<string, ToolDefinition>,
     onOutput: (chunk: string) => void,
     signal: AbortSignal,
-  ): Promise<{content: string; isError: boolean}> {
+  ): Promise<{content: string; status: 'success' | 'failure' | 'error'}> {
     const tool = availableTools.get(toolCall.toolName);
     if (!tool) {
       return {
         content: `Error: Unknown tool: ${toolCall.toolName}`,
-        isError: true,
+        status: 'error',
       };
     }
 
@@ -411,11 +411,11 @@ export abstract class Agent {
       const parsedArgs: unknown = tool.parameters.parse(
         JSON.parse(toolCall.arguments),
       );
-      const content = await tool.execute(parsedArgs, context, onOutput);
-      return {content, isError: false};
+      const result = await tool.execute(parsedArgs, context, onOutput);
+      return {content: result.content, status: result.status};
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
-      return {content: `Error: ${message}`, isError: true};
+      return {content: `Error: ${message}`, status: 'error'};
     }
   }
 }

@@ -7,6 +7,7 @@ import {z} from 'zod';
 import {FileStatCheckResult} from '@/agent-core/agent/index.js';
 import type {
   ToolDefinition,
+  ToolExecuteResult,
   ToolExecutionContext,
 } from '@/agent-core/tool/index.js';
 
@@ -35,12 +36,15 @@ export const writeFileTool: ToolDefinition<typeof parameters> = {
   async execute(
     args: WriteFileArgs,
     context: ToolExecutionContext,
-  ): Promise<string> {
+  ): Promise<ToolExecuteResult> {
     const {workingDirectory} = context;
 
     // 1. Check content size
     if (Buffer.byteLength(args.content) > MAX_CONTENT_SIZE) {
-      return `Error: Content exceeds ${MAX_CONTENT_SIZE} byte limit`;
+      return {
+        content: `Error: Content exceeds ${MAX_CONTENT_SIZE} byte limit`,
+        status: 'failure',
+      };
     }
 
     // 2. Resolve path
@@ -54,10 +58,17 @@ export const writeFileTool: ToolDefinition<typeof parameters> = {
       context.extraAllowedPaths,
     );
     if (accessResult === AccessCheckResult.ERROR_OUTSIDE_ALLOWED_DIRECTORIES) {
-      return 'Error: Access denied: path is outside the allowed directories';
+      return {
+        content:
+          'Error: Access denied: path is outside the allowed directories',
+        status: 'failure',
+      };
     }
     if (accessResult === AccessCheckResult.ERROR_READ_ONLY) {
-      return 'Error: Access denied: path is read-only';
+      return {
+        content: 'Error: Access denied: path is read-only',
+        status: 'failure',
+      };
     }
 
     // 4. Check if file exists — if so, verify it was read first
@@ -75,15 +86,26 @@ export const writeFileTool: ToolDefinition<typeof parameters> = {
         existingStat.mtimeMs,
       );
       if (checkResult === FileStatCheckResult.NOT_READ) {
-        return 'Error: Read the file before modifying it';
+        return {
+          content: 'Error: Read the file before modifying it',
+          status: 'failure',
+        };
       }
       if (checkResult === FileStatCheckResult.MODIFIED_SINCE_LAST_READ) {
-        return 'Error: File has been modified since last read. Read the file again before modifying it';
+        return {
+          content:
+            'Error: File has been modified since last read. Read the file again before modifying it',
+          status: 'failure',
+        };
       }
     } else {
       const checkResult = context.fileStatTracker.canModify(absolutePath, 0, 0);
       if (checkResult === FileStatCheckResult.MODIFIED_SINCE_LAST_READ) {
-        return 'Error: File has been deleted since last read. Verify that the write is still intended after deletion, then retry.';
+        return {
+          content:
+            'Error: File has been deleted since last read. Verify that the write is still intended after deletion, then retry.',
+          status: 'failure',
+        };
       }
     }
 
@@ -95,7 +117,7 @@ export const writeFileTool: ToolDefinition<typeof parameters> = {
       await fs.writeFile(absolutePath, args.content, 'utf-8');
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
-      return `Error: ${message}`;
+      return {content: `Error: ${message}`, status: 'failure'};
     }
 
     // Track new file stat
@@ -105,6 +127,9 @@ export const writeFileTool: ToolDefinition<typeof parameters> = {
 
     // 7. Count lines and return success
     const lineCount = await countLines(Buffer.from(args.content));
-    return `File written: ${args.filePath} (${lineCount} lines)`;
+    return {
+      content: `File written: ${args.filePath} (${lineCount} lines)`,
+      status: 'success',
+    };
   },
 };

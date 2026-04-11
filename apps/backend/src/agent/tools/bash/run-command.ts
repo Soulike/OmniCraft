@@ -5,6 +5,7 @@ import {z} from 'zod';
 
 import type {
   ToolDefinition,
+  ToolExecuteResult,
   ToolExecutionContext,
 } from '@/agent-core/tool/index.js';
 import {ShellCommandRunner} from '@/helpers/shell-command-runner.js';
@@ -67,7 +68,7 @@ export const runCommandTool: ToolDefinition<typeof parameters> = {
     args: RunCommandArgs,
     context: ToolExecutionContext,
     onOutput?: (chunk: string) => void,
-  ): Promise<string> {
+  ): Promise<ToolExecuteResult> {
     const {shellState, workingDirectory, signal} = context;
     const timeout = args.timeout ?? DEFAULT_TIMEOUT_MS;
 
@@ -124,9 +125,10 @@ export const runCommandTool: ToolDefinition<typeof parameters> = {
     output = output.trim();
 
     if (!output) {
-      return '(No output)';
+      return {content: '(No output)', status: 'success'};
     }
 
-    return output;
+    const failed = result.timedOut || result.exitCode !== 0;
+    return {content: output, status: failed ? 'failure' : 'success'};
   },
 };

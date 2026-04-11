@@ -126,9 +126,10 @@ describe('searchFilesTool', () => {
         context,
       );
 
-      expect(result).toContain('Found 2 matches');
-      expect(result).toContain('a.ts:1: import foo');
-      expect(result).toContain('b.ts:1: import baz');
+      expect(result.content).toContain('Found 2 matches');
+      expect(result.content).toContain('a.ts:1: import foo');
+      expect(result.content).toContain('b.ts:1: import baz');
+      expect(result.status).toBe('success');
     });
 
     it('filters by filePattern', async () => {
@@ -140,8 +141,9 @@ describe('searchFilesTool', () => {
         context,
       );
 
-      expect(result).toContain('a.ts');
-      expect(result).not.toContain('b.js');
+      expect(result.content).toContain('a.ts');
+      expect(result.content).not.toContain('b.js');
+      expect(result.status).toBe('success');
     });
 
     it('searches within a custom path', async () => {
@@ -153,8 +155,9 @@ describe('searchFilesTool', () => {
         context,
       );
 
-      expect(result).toContain('a.ts');
-      expect(result).not.toContain('b.ts');
+      expect(result.content).toContain('a.ts');
+      expect(result.content).not.toContain('b.ts');
+      expect(result.status).toBe('success');
     });
 
     it('returns no-match message when nothing found', async () => {
@@ -162,7 +165,8 @@ describe('searchFilesTool', () => {
 
       const result = await searchFilesTool.execute({pattern: 'xyz'}, context);
 
-      expect(result).toContain('No matches found');
+      expect(result.content).toContain('No matches found');
+      expect(result.status).toBe('success');
     });
 
     it('skips binary files', async () => {
@@ -176,8 +180,9 @@ describe('searchFilesTool', () => {
 
       const result = await searchFilesTool.execute({pattern: 'A'}, context);
 
-      expect(result).toContain('text.ts');
-      expect(result).not.toContain('binary.bin');
+      expect(result.content).toContain('text.ts');
+      expect(result.content).not.toContain('binary.bin');
+      expect(result.status).toBe('success');
     });
 
     it('sorts results by file path', async () => {
@@ -187,10 +192,11 @@ describe('searchFilesTool', () => {
 
       const result = await searchFilesTool.execute({pattern: 'match'}, context);
 
-      const lines = result.split('\n').filter((l) => /:\d+:/.test(l));
+      const lines = result.content.split('\n').filter((l) => /:\d+:/.test(l));
       expect(lines[0]).toContain('a.ts');
       expect(lines[1]).toContain('b.ts');
       expect(lines[2]).toContain('c.ts');
+      expect(result.status).toBe('success');
     });
 
     it('truncates at 100 matches', async () => {
@@ -204,8 +210,9 @@ describe('searchFilesTool', () => {
 
       const result = await searchFilesTool.execute({pattern: 'match'}, context);
 
-      expect(result).toContain('100+');
-      expect(result).toContain('showing first 100');
+      expect(result.content).toContain('100+');
+      expect(result.content).toContain('showing first 100');
+      expect(result.status).toBe('success');
     });
 
     it('returns partial results on timeout', async () => {
@@ -222,7 +229,8 @@ describe('searchFilesTool', () => {
 
       vi.restoreAllMocks();
 
-      expect(result).toContain('timed out after 30s');
+      expect(result.content).toContain('timed out after 30s');
+      expect(result.status).toBe('failure');
     });
   });
 
@@ -233,7 +241,8 @@ describe('searchFilesTool', () => {
         context,
       );
 
-      expect(result).toContain('Error: Access denied');
+      expect(result.content).toContain('Error: Access denied');
+      expect(result.status).toBe('failure');
     });
 
     it('returns error for nonexistent directory', async () => {
@@ -242,7 +251,8 @@ describe('searchFilesTool', () => {
         context,
       );
 
-      expect(result).toContain('Error: Directory not found');
+      expect(result.content).toContain('Error: Directory not found');
+      expect(result.status).toBe('failure');
     });
 
     it('returns error for invalid regex', async () => {
@@ -250,7 +260,8 @@ describe('searchFilesTool', () => {
 
       const result = await searchFilesTool.execute({pattern: 'a**'}, context);
 
-      expect(result).toContain('Error: Invalid regex pattern');
+      expect(result.content).toContain('Error: Invalid regex pattern');
+      expect(result.status).toBe('failure');
     });
 
     it('rejects unsafe regex patterns', async () => {
@@ -261,7 +272,8 @@ describe('searchFilesTool', () => {
         context,
       );
 
-      expect(result).toContain('Error: Regex pattern rejected');
+      expect(result.content).toContain('Error: Regex pattern rejected');
+      expect(result.status).toBe('failure');
     });
 
     it('returns error when path is a file', async () => {
@@ -272,7 +284,8 @@ describe('searchFilesTool', () => {
         context,
       );
 
-      expect(result).toContain('Error: Not a directory');
+      expect(result.content).toContain('Error: Not a directory');
+      expect(result.status).toBe('failure');
     });
 
     it('rejects path traversal attacks', async () => {
@@ -281,7 +294,8 @@ describe('searchFilesTool', () => {
         context,
       );
 
-      expect(result).toContain('Error: Access denied');
+      expect(result.content).toContain('Error: Access denied');
+      expect(result.status).toBe('failure');
     });
   });
 
@@ -310,8 +324,9 @@ describe('searchFilesTool', () => {
         extraContext,
       );
 
-      expect(result).toContain('lib.ts');
-      expect(result).toContain('findme');
+      expect(result.content).toContain('lib.ts');
+      expect(result.content).toContain('findme');
+      expect(result.status).toBe('success');
     });
 
     it('allows searching in an extra read-write path', async () => {
@@ -328,7 +343,8 @@ describe('searchFilesTool', () => {
         extraContext,
       );
 
-      expect(result).toContain('rw.ts');
+      expect(result.content).toContain('rw.ts');
+      expect(result.status).toBe('success');
     });
   });
 });

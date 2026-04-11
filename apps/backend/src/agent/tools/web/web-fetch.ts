@@ -5,6 +5,7 @@ import {z} from 'zod';
 
 import type {
   ToolDefinition,
+  ToolExecuteResult,
   ToolExecutionContext,
 } from '@/agent-core/tool/index.js';
 import {writeToTempFile} from '@/helpers/fs.js';
@@ -99,9 +100,9 @@ export const webFetchTool: ToolDefinition<typeof parameters> = {
   async execute(
     args: WebFetchArgs,
     _context: ToolExecutionContext,
-  ): Promise<string> {
+  ): Promise<ToolExecuteResult> {
     const urlError = validateUrl(args.url);
-    if (urlError) return urlError;
+    if (urlError) return {content: urlError, status: 'failure'};
 
     let body: string;
     let contentType: string;
@@ -118,7 +119,10 @@ export const webFetchTool: ToolDefinition<typeof parameters> = {
       contentType = result.contentType;
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
-      return `Error: Failed to fetch URL: ${message}`;
+      return {
+        content: `Error: Failed to fetch URL: ${message}`,
+        status: 'failure',
+      };
     }
 
     const includeFullPage = args.includeFullPage ?? false;
@@ -144,16 +148,25 @@ export const webFetchTool: ToolDefinition<typeof parameters> = {
         filePath = await writeToTempFile(content, '.md');
       } catch (error: unknown) {
         const message = error instanceof Error ? error.message : String(error);
-        return `Error: Failed to save content to temporary file: ${message}`;
+        return {
+          content: `Error: Failed to save content to temporary file: ${message}`,
+          status: 'failure',
+        };
       }
-      return formatResponse(
-        args.url,
-        title,
-        `Content saved to file: ${filePath}`,
-        note,
-      );
+      return {
+        content: formatResponse(
+          args.url,
+          title,
+          `Content saved to file: ${filePath}`,
+          note,
+        ),
+        status: 'success',
+      };
     }
 
-    return formatResponse(args.url, title, content, note);
+    return {
+      content: formatResponse(args.url, title, content, note),
+      status: 'success',
+    };
   },
 };

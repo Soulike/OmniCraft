@@ -13,7 +13,8 @@ describe('getCurrentTimeTool', () => {
   it('returns a valid ISO 8601 date string', async () => {
     const result = await getCurrentTimeTool.execute({}, createMockContext());
 
-    expect(new Date(result).toISOString()).toBe(result);
+    expect(result.status).toBe('success');
+    expect(new Date(result.content).toISOString()).toBe(result.content);
   });
 
   it('returns approximately the current time', async () => {
@@ -21,7 +22,7 @@ describe('getCurrentTimeTool', () => {
     const result = await getCurrentTimeTool.execute({}, createMockContext());
     const after = Date.now();
 
-    const resultTime = new Date(result).getTime();
+    const resultTime = new Date(result.content).getTime();
     expect(resultTime).toBeGreaterThanOrEqual(before);
     expect(resultTime).toBeLessThanOrEqual(after);
   });

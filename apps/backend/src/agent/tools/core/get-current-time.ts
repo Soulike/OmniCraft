@@ -1,6 +1,9 @@
 import {z} from 'zod';
 
-import type {ToolDefinition} from '@/agent-core/tool/index.js';
+import type {
+  ToolDefinition,
+  ToolExecuteResult,
+} from '@/agent-core/tool/index.js';
 
 const parameters = z.object({});
 
@@ -13,7 +16,7 @@ export const getCurrentTimeTool: ToolDefinition<typeof parameters> = {
     'You do not have access to the current time by default — ' +
     'call this tool whenever the user asks anything that depends on the current date, time, day of week, or timezone.',
   parameters,
-  execute(): string {
-    return new Date().toISOString();
+  execute(): ToolExecuteResult {
+    return {content: new Date().toISOString(), status: 'success'};
   },
 };
