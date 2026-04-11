@@ -1,0 +1,70 @@
+.container {
+  display: flex;
+  flex-direction: column;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding-bottom: 6px;
+}
+
+.filePath {
+  font-family: monospace;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--foreground);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lineInfo {
+  font-size: 0.6875rem;
+  color: var(--muted);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.body {
+  display: flex;
+  overflow-x: auto;
+  padding: 8px 0;
+  font-family: monospace;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  background: var(--background);
+  border-radius: 6px;
+}
+
+.lineNumbers {
+  display: flex;
+  flex-direction: column;
+  padding-left: 8px;
+  padding-right: 8px;
+  text-align: right;
+  user-select: none;
+  flex-shrink: 0;
+  color: var(--muted);
+  opacity: 0.5;
+}
+
+.pre {
+  margin: 0;
+  padding: 0;
+  padding-right: 8px;
+  flex: 1;
+  min-width: 0;
+  font: inherit;
+  line-height: inherit;
+}
+
+.pre :global(code.hljs) {
+  display: inline;
+  background: transparent;
+  padding: 0;
+  font: inherit;
+  line-height: inherit;
+}
