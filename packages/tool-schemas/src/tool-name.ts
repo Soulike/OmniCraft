@@ -18,6 +18,16 @@ export const TOOL_NAME = {
 export type ToolName = (typeof TOOL_NAME)[keyof typeof TOOL_NAME];
 
 /** Zod schema for runtime validation of tool names. */
-export const toolNameSchema = z.enum(
-  Object.values(TOOL_NAME) as [string, ...string[]],
-);
+export const toolNameSchema = z.enum([
+  TOOL_NAME.READ_FILE,
+  TOOL_NAME.WRITE_FILE,
+  TOOL_NAME.EDIT_FILE,
+  TOOL_NAME.FIND_FILES,
+  TOOL_NAME.SEARCH_FILES,
+  TOOL_NAME.RUN_COMMAND,
+  TOOL_NAME.GET_CURRENT_TIME,
+  TOOL_NAME.WEB_FETCH,
+  TOOL_NAME.WEB_FETCH_RAW,
+  TOOL_NAME.WEB_SEARCH,
+  TOOL_NAME.LOAD_SKILL,
+]);
