@@ -3,6 +3,7 @@ import type {AllowedPathEntry} from '@omnicraft/settings-schema';
 import {CoreSkillRegistry} from '@/agent/skills/index.js';
 import {
   BashToolRegistry,
+  ClientToolRegistry,
   CoreToolRegistry,
   FileToolRegistry,
   SubAgentToolRegistry,
@@ -30,6 +31,7 @@ export class MainAgent extends Agent {
         WebToolRegistry.getInstance(),
         BashToolRegistry.getInstance(),
         SubAgentToolRegistry.getInstance(),
+        ClientToolRegistry.getInstance(),
       ],
       skillRegistries: [CoreSkillRegistry.getInstance()],
       baseSystemPrompt: 'You are a helpful assistant.',
