@@ -37,8 +37,9 @@ describe('writeFileTool', () => {
         context,
       );
 
-      expect(result).toContain('File written: hello.txt');
-      expect(result).toContain('1 lines');
+      expect(result.content).toContain('File written: hello.txt');
+      expect(result.content).toContain('1 lines');
+      expect(result.status).toBe('success');
       const written = await fs.readFile(
         path.join(tmpDir, 'hello.txt'),
         'utf-8',
@@ -57,7 +58,8 @@ describe('writeFileTool', () => {
         context,
       );
 
-      expect(result).toContain('File written: existing.txt');
+      expect(result.content).toContain('File written: existing.txt');
+      expect(result.status).toBe('success');
       const written = await fs.readFile(filePath, 'utf-8');
       expect(written).toBe('new content');
     });
@@ -68,7 +70,10 @@ describe('writeFileTool', () => {
         context,
       );
 
-      expect(result).toContain('File written: deep/nested/dir/file.txt');
+      expect(result.content).toContain(
+        'File written: deep/nested/dir/file.txt',
+      );
+      expect(result.status).toBe('success');
       const written = await fs.readFile(
         path.join(tmpDir, 'deep/nested/dir/file.txt'),
         'utf-8',
@@ -82,7 +87,8 @@ describe('writeFileTool', () => {
         context,
       );
 
-      expect(result).toContain('3 lines');
+      expect(result.content).toContain('3 lines');
+      expect(result.status).toBe('success');
     });
 
     it('handles empty content', async () => {
@@ -91,8 +97,9 @@ describe('writeFileTool', () => {
         context,
       );
 
-      expect(result).toContain('File written: empty.txt');
-      expect(result).toContain('0 lines');
+      expect(result.content).toContain('File written: empty.txt');
+      expect(result.content).toContain('0 lines');
+      expect(result.status).toBe('success');
     });
 
     it('accepts absolute paths within workingDirectory', async () => {
@@ -102,7 +109,8 @@ describe('writeFileTool', () => {
         context,
       );
 
-      expect(result).toContain('File written:');
+      expect(result.content).toContain('File written:');
+      expect(result.status).toBe('success');
       const written = await fs.readFile(absPath, 'utf-8');
       expect(written).toBe('absolute');
     });
@@ -118,7 +126,8 @@ describe('writeFileTool', () => {
         context,
       );
 
-      expect(result).toContain('File written:');
+      expect(result.content).toContain('File written:');
+      expect(result.status).toBe('success');
     });
   });
 
@@ -146,7 +155,8 @@ describe('writeFileTool', () => {
         extraContext,
       );
 
-      expect(result).toContain('File written:');
+      expect(result.content).toContain('File written:');
+      expect(result.status).toBe('success');
       const written = await fs.readFile(filePath, 'utf-8');
       expect(written).toBe('extra content');
     });
@@ -164,7 +174,10 @@ describe('writeFileTool', () => {
         extraContext,
       );
 
-      expect(result).toContain('Error: Access denied: path is read-only');
+      expect(result.content).toContain(
+        'Error: Access denied: path is read-only',
+      );
+      expect(result.status).toBe('failure');
     });
   });
 
@@ -175,9 +188,10 @@ describe('writeFileTool', () => {
         context,
       );
 
-      expect(result).toContain(
+      expect(result.content).toContain(
         'Error: Access denied: path is outside the allowed directories',
       );
+      expect(result.status).toBe('failure');
     });
 
     it('rejects path traversal attacks', async () => {
@@ -186,7 +200,8 @@ describe('writeFileTool', () => {
         context,
       );
 
-      expect(result).toContain('Error: Access denied');
+      expect(result.content).toContain('Error: Access denied');
+      expect(result.status).toBe('failure');
     });
 
     it('rejects content exceeding 1MB', async () => {
@@ -196,7 +211,8 @@ describe('writeFileTool', () => {
         context,
       );
 
-      expect(result).toContain('Error: Content exceeds');
+      expect(result.content).toContain('Error: Content exceeds');
+      expect(result.status).toBe('failure');
     });
 
     it('rejects overwriting a file that was not read', async () => {
@@ -207,7 +223,10 @@ describe('writeFileTool', () => {
         context,
       );
 
-      expect(result).toContain('Error: Read the file before modifying it');
+      expect(result.content).toContain(
+        'Error: Read the file before modifying it',
+      );
+      expect(result.status).toBe('failure');
     });
 
     it('rejects overwriting a file modified since last read', async () => {
@@ -221,7 +240,10 @@ describe('writeFileTool', () => {
         context,
       );
 
-      expect(result).toContain('Error: File has been modified since last read');
+      expect(result.content).toContain(
+        'Error: File has been modified since last read',
+      );
+      expect(result.status).toBe('failure');
     });
 
     it('allows creating a new file without prior read', async () => {
@@ -230,7 +252,8 @@ describe('writeFileTool', () => {
         context,
       );
 
-      expect(result).toContain('File written:');
+      expect(result.content).toContain('File written:');
+      expect(result.status).toBe('success');
     });
 
     it('rejects writing a previously read file that was deleted', async () => {
@@ -245,7 +268,10 @@ describe('writeFileTool', () => {
         context,
       );
 
-      expect(result).toContain('Error: File has been deleted since last read');
+      expect(result.content).toContain(
+        'Error: File has been deleted since last read',
+      );
+      expect(result.status).toBe('failure');
     });
   });
 });

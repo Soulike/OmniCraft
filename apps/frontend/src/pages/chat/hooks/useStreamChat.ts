@@ -73,7 +73,7 @@ export function useStreamChat({
                 type: 'tool-execution-end',
                 callId: event.callId,
                 result: event.result,
-                isError: event.isError,
+                status: event.status,
               });
               break;
             case 'message-start':

@@ -38,13 +38,22 @@ export interface ToolExecutionContext {
   readonly signal: AbortSignal;
 }
 
+/** Status of a tool execution result reported by the tool itself. */
+export type ToolExecuteStatus = 'success' | 'failure';
+
+/** Structured result returned by a tool's execute method. */
+export interface ToolExecuteResult {
+  readonly content: string;
+  readonly status: ToolExecuteStatus;
+}
+
 /**
  * A stateless, singleton tool definition.
  *
  * - `parameters`: Zod schema used for type inference, runtime validation,
  *   and JSON Schema generation for LLM APIs.
  * - `execute`: Receives validated args from the LLM and execution context
- *   from the Agent. Returns a text result.
+ *   from the Agent. Returns a structured result with content and status.
  */
 export interface ToolDefinition<T extends z.ZodType = z.ZodType> {
   readonly name: string;
@@ -56,5 +65,5 @@ export interface ToolDefinition<T extends z.ZodType = z.ZodType> {
     args: z.infer<T>,
     context: ToolExecutionContext,
     onOutput?: (chunk: string) => void,
-  ): Promise<string> | string;
+  ): Promise<ToolExecuteResult> | ToolExecuteResult;
 }

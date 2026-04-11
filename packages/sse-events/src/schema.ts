@@ -24,7 +24,7 @@ export const sseToolExecuteEndEventSchema = z.object({
   type: z.literal('tool-execute-end'),
   callId: z.string(),
   result: z.string(),
-  isError: z.boolean(),
+  status: z.enum(['success', 'failure', 'error']),
 });
 export type SseToolExecuteEndEvent = z.infer<
   typeof sseToolExecuteEndEventSchema

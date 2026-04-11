@@ -22,7 +22,7 @@ export interface ToolExecutionEndContent {
   type: 'tool-execution-end';
   callId: string;
   result: string;
-  isError: boolean;
+  status: 'success' | 'failure' | 'error';
 }
 
 /** A single content entry in a chat message. */

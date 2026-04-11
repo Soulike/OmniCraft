@@ -40,8 +40,9 @@ describe('loadSkillTool', () => {
       }),
     );
 
-    expect(result).toContain('# Test Skill');
-    expect(result).toContain('Do this.');
+    expect(result.content).toContain('# Test Skill');
+    expect(result.content).toContain('Do this.');
+    expect(result.status).toBe('success');
   });
 
   it('returns error message when skill is not found', async () => {
@@ -50,7 +51,8 @@ describe('loadSkillTool', () => {
       createMockContext(),
     );
 
-    expect(result).toContain('not found');
-    expect(result).toContain('nonexistent');
+    expect(result.content).toContain('not found');
+    expect(result.content).toContain('nonexistent');
+    expect(result.status).toBe('failure');
   });
 });

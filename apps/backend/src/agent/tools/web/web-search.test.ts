@@ -22,7 +22,8 @@ describe('webSearchTool', () => {
       {query: 'test query'},
       createMockContext(),
     );
-    expect(result).toContain('Error:');
-    expect(result).toContain('Tavily API key is not configured');
+    expect(result.content).toContain('Error:');
+    expect(result.content).toContain('Tavily API key is not configured');
+    expect(result.status).toBe('failure');
   });
 });

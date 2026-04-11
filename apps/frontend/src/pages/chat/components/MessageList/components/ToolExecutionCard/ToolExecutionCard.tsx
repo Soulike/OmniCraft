@@ -6,7 +6,7 @@ interface ToolExecutionCardProps {
   toolName: string;
   displayName: string;
   arguments: string;
-  status: 'running' | 'done' | 'error';
+  status: 'running' | 'done' | 'failure' | 'error';
   result?: string;
 }
 

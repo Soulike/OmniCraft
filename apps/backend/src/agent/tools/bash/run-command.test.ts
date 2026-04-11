@@ -36,7 +36,8 @@ describe('runCommandTool', () => {
   describe('output formatting', () => {
     it('returns "(No output)" for silent successful commands', async () => {
       const result = await runCommandTool.execute({command: 'true'}, context);
-      expect(result).toBe('(No output)');
+      expect(result.content).toBe('(No output)');
+      expect(result.status).toBe('success');
     });
 
     it('includes exit code for failed commands', async () => {
@@ -44,7 +45,8 @@ describe('runCommandTool', () => {
         {command: 'exit 42'},
         context,
       );
-      expect(result).toContain('Exit code: 42');
+      expect(result.content).toContain('Exit code: 42');
+      expect(result.status).toBe('failure');
     });
 
     it('includes stderr section when present', async () => {
@@ -52,8 +54,9 @@ describe('runCommandTool', () => {
         {command: 'echo error >&2'},
         context,
       );
-      expect(result).toContain('(stderr)');
-      expect(result).toContain('error');
+      expect(result.content).toContain('(stderr)');
+      expect(result.content).toContain('error');
+      expect(result.status).toBe('success');
     });
 
     it('includes timeout message', async () => {
@@ -61,7 +64,8 @@ describe('runCommandTool', () => {
         {command: 'sleep 30', timeout: 500},
         context,
       );
-      expect(result).toContain('Command timed out');
+      expect(result.content).toContain('Command timed out');
+      expect(result.status).toBe('failure');
     });
 
     it('saves large output to a temp file', async () => {
@@ -69,7 +73,8 @@ describe('runCommandTool', () => {
         {command: 'head -c 41000 /dev/urandom | base64'},
         context,
       );
-      expect(result).toContain('Output saved to file:');
+      expect(result.content).toContain('Output saved to file:');
+      expect(result.status).toBe('success');
     });
   });
 
@@ -87,15 +92,17 @@ describe('runCommandTool', () => {
       await fs.mkdir(subDir);
 
       const result = await runCommandTool.execute({command: 'cd sub'}, context);
-      expect(result).toContain('Working directory:');
-      expect(result).toContain(subDir);
+      expect(result.content).toContain('Working directory:');
+      expect(result.content).toContain(subDir);
+      expect(result.status).toBe('success');
     });
 
     it('resets CWD when command navigates outside workingDirectory', async () => {
       const result = await runCommandTool.execute({command: 'cd /'}, context);
 
       expect(context.shellState.cwd).toBe(tmpDir);
-      expect(result).toContain('Working directory reset to:');
+      expect(result.content).toContain('Working directory reset to:');
+      expect(result.status).toBe('success');
     });
 
     it('uses tracked CWD for subsequent commands', async () => {
@@ -104,7 +111,8 @@ describe('runCommandTool', () => {
 
       await runCommandTool.execute({command: 'cd sub'}, context);
       const result = await runCommandTool.execute({command: 'pwd'}, context);
-      expect(result).toContain(subDir);
+      expect(result.content).toContain(subDir);
+      expect(result.status).toBe('success');
     });
   });
 });

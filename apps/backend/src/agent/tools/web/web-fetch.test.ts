@@ -53,8 +53,9 @@ describe('webFetchTool', () => {
           {url: serverUrl(server), includeFullPage: false},
           context,
         );
-        expect(result).toContain('URL:');
-        expect(result).toContain('Hello World');
+        expect(result.content).toContain('URL:');
+        expect(result.content).toContain('Hello World');
+        expect(result.status).toBe('success');
       } finally {
         await stopServer(server);
       }
@@ -81,8 +82,9 @@ describe('webFetchTool', () => {
           {url: serverUrl(server), includeFullPage: true},
           context,
         );
-        expect(result).toContain('URL:');
-        expect(result).toContain('Main Content');
+        expect(result.content).toContain('URL:');
+        expect(result.content).toContain('Main Content');
+        expect(result.status).toBe('success');
       } finally {
         await stopServer(server);
       }
@@ -100,10 +102,11 @@ describe('webFetchTool', () => {
           {url: serverUrl(server)},
           context,
         );
-        expect(result).toContain('URL:');
-        expect(result).not.toContain('Title:');
-        expect(result).toContain('"key"');
-        expect(result).toContain('"value"');
+        expect(result.content).toContain('URL:');
+        expect(result.content).not.toContain('Title:');
+        expect(result.content).toContain('"key"');
+        expect(result.content).toContain('"value"');
+        expect(result.status).toBe('success');
       } finally {
         await stopServer(server);
       }
@@ -116,7 +119,8 @@ describe('webFetchTool', () => {
         {url: 'ftp://files.example.com/data'},
         context,
       );
-      expect(result).toContain('ftp:');
+      expect(result.content).toContain('ftp:');
+      expect(result.status).toBe('failure');
     });
 
     it('returns an error for non-text content types', async () => {
@@ -128,7 +132,8 @@ describe('webFetchTool', () => {
           {url: serverUrl(server)},
           context,
         );
-        expect(result).toContain('Unsupported content type');
+        expect(result.content).toContain('Unsupported content type');
+        expect(result.status).toBe('failure');
       } finally {
         await stopServer(server);
       }
@@ -139,7 +144,8 @@ describe('webFetchTool', () => {
         {url: 'http://127.0.0.1:1'},
         context,
       );
-      expect(result).toContain('Failed to fetch URL');
+      expect(result.content).toContain('Failed to fetch URL');
+      expect(result.status).toBe('failure');
     });
   });
 
@@ -155,8 +161,9 @@ describe('webFetchTool', () => {
           {url: serverUrl(server)},
           context,
         );
-        expect(result).toContain('Content saved to file:');
-        expect(result).toContain('URL:');
+        expect(result.content).toContain('Content saved to file:');
+        expect(result.content).toContain('URL:');
+        expect(result.status).toBe('success');
       } finally {
         await stopServer(server);
       }
@@ -174,7 +181,8 @@ describe('webFetchTool', () => {
           {url: serverUrl(server)},
           context,
         );
-        expect(result).toContain('Note: Article extraction failed');
+        expect(result.content).toContain('Note: Article extraction failed');
+        expect(result.status).toBe('success');
       } finally {
         await stopServer(server);
       }
