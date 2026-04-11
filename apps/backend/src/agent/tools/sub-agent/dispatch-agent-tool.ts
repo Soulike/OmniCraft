@@ -1,10 +1,12 @@
 import path from 'node:path';
 
 import {thinkingLevelSchema} from '@omnicraft/api-schema';
+import type {AllowedPathEntry} from '@omnicraft/settings-schema';
 import type {SseBaseEvent} from '@omnicraft/sse-events';
 import {z} from 'zod';
 
 import {GeneralSubAgent} from '@/agent/agents/index.js';
+import type {Agent} from '@/agent-core/agent/index.js';
 import type {LlmConfig} from '@/agent-core/llm-api/index.js';
 import type {
   ToolDefinition,
@@ -14,8 +16,28 @@ import type {
 import {AccessCheckResult, checkAccess} from '@/helpers/path-access.js';
 import {settingsService} from '@/services/settings/index.js';
 
+type SubAgentFactory = (
+  getConfig: () => Promise<LlmConfig>,
+  workingDirectory: string,
+  extraAllowedPaths: readonly AllowedPathEntry[],
+) => Agent;
+
+const subAgentFactories: Record<string, SubAgentFactory> = {
+  general: (getConfig, workingDirectory, extraAllowedPaths) =>
+    new GeneralSubAgent(getConfig, workingDirectory, extraAllowedPaths),
+};
+
+const agentTypeSchema = z.enum(
+  Object.keys(subAgentFactories) as [string, ...string[]],
+);
+
 const parameters = z.object({
   task: z.string().min(1).describe('The task description for the subagent'),
+  agentType: agentTypeSchema
+    .optional()
+    .describe(
+      `Type of subagent to dispatch. Available: ${Object.keys(subAgentFactories).join(', ')}. Defaults to 'general'.`,
+    ),
   model: z
     .enum(['default', 'light'])
     .optional()
@@ -35,7 +57,7 @@ const parameters = z.object({
     ),
 });
 
-/** Tool that dispatches a GeneralSubAgent to handle a subtask autonomously. */
+/** Tool that dispatches a subagent to handle a subtask autonomously. */
 export const dispatchAgentTool: ToolDefinition<typeof parameters> = {
   name: 'dispatch_agent',
   displayName: 'Dispatch Agent',
@@ -49,7 +71,12 @@ export const dispatchAgentTool: ToolDefinition<typeof parameters> = {
     args: z.infer<typeof parameters>,
     context: ToolExecutionContext,
   ): Promise<ToolExecuteResult> {
-    const {task, model = 'default', thinkingLevel = 'none'} = args;
+    const {
+      task,
+      agentType = 'general',
+      model = 'default',
+      thinkingLevel = 'none',
+    } = args;
 
     // Validate and resolve working directory
     let workingDirectory = context.workingDirectory;
@@ -93,7 +120,8 @@ export const dispatchAgentTool: ToolDefinition<typeof parameters> = {
       });
 
     // Create and run subagent
-    const subagent = new GeneralSubAgent(
+    const factory = subAgentFactories[agentType];
+    const subagent = factory(
       getConfig,
       workingDirectory,
       context.extraAllowedPaths,
@@ -114,7 +142,7 @@ export const dispatchAgentTool: ToolDefinition<typeof parameters> = {
 
       let lastReplyText = '';
       for await (const event of eventStream) {
-        // GeneralSubAgent cannot emit subagent events (no SubAgentToolRegistry),
+        // Subagents cannot emit subagent events (no SubAgentToolRegistry),
         // so all events are base events. Cast is safe by construction.
         context.onSubAgentEvent({
           type: 'subagent-output',
