@@ -20,6 +20,7 @@ export const getCurrentTimeTool: ToolDefinition<
     'call this tool whenever the user asks anything that depends on the current date, time, day of week, or timezone.',
   parameters,
   resultSchema: getCurrentTimeResultSchema,
+  suppressToolEvents: false,
   execute() {
     const iso = new Date().toISOString();
     return {data: {iso}, content: iso, status: 'success'};

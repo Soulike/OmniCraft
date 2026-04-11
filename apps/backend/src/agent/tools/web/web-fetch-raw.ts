@@ -36,6 +36,7 @@ export const webFetchRawTool: ToolDefinition<
     'need unprocessed content (e.g., inspecting raw HTML structure).',
   parameters,
   resultSchema: webFetchRawResultSchema,
+  suppressToolEvents: false,
   async execute(args: WebFetchRawArgs, _context: ToolExecutionContext) {
     const urlError = validateUrl(args.url);
     if (urlError) {

@@ -4,7 +4,7 @@ import os from 'node:os';
 import type {ThinkingLevel} from '@omnicraft/api-schema';
 import type {AllowedPathEntry} from '@omnicraft/settings-schema';
 
-import {CoreAgent} from '@/agent/agents/index.js';
+import {MainAgent} from '@/agent/agents/index.js';
 import {logger} from '@/logger.js';
 import {AgentStore} from '@/models/agent-store/index.js';
 import {SettingsManager} from '@/models/settings-manager/index.js';
@@ -26,7 +26,7 @@ interface CreateSessionOptions {
 /** Service layer for chat operations. */
 export const chatService = {
   /**
-   * Creates a new Agent Session with a CoreAgent.
+   * Creates a new Agent Session with a MainAgent.
    * Validates LLM configuration before creating the session.
    * If workspace is provided, validates it against settings; otherwise uses os.tmpdir().
    */
@@ -79,7 +79,7 @@ export const chatService = {
       );
     }
 
-    const agent = new CoreAgent(
+    const agent = new MainAgent(
       getLlmConfig,
       workingDirectory,
       resolvedExtraFilePathEntries,

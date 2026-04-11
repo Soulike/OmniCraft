@@ -13,6 +13,7 @@ export const TOOL_NAME = {
   WEB_FETCH_RAW: 'web_fetch_raw',
   WEB_SEARCH: 'web_search',
   LOAD_SKILL: 'load_skill',
+  DISPATCH_AGENT: 'dispatch_agent',
 } as const;
 
 export type ToolName = (typeof TOOL_NAME)[keyof typeof TOOL_NAME];
@@ -30,4 +31,5 @@ export const toolNameSchema = z.enum([
   TOOL_NAME.WEB_FETCH_RAW,
   TOOL_NAME.WEB_SEARCH,
   TOOL_NAME.LOAD_SKILL,
+  TOOL_NAME.DISPATCH_AGENT,
 ]);

@@ -11,8 +11,8 @@ import type {
   ToolDefinition,
   ToolExecutionContext,
 } from '@/agent-core/tool/index.js';
+import {AccessCheckResult, checkAccess} from '@/helpers/path-access.js';
 
-import {AccessCheckResult, checkAccess} from './helpers.js';
 import {searchFilesTool} from './search-files.js';
 
 const MAX_RESULTS = 100;
@@ -47,6 +47,7 @@ export const findFilesTool: ToolDefinition<typeof parameters, FindFilesResult> =
       `To search file contents instead, use ${searchFilesTool.name}.`,
     parameters,
     resultSchema: findFilesResultSchema,
+    suppressToolEvents: false,
     async execute(args: FindFilesArgs, context: ToolExecutionContext) {
       const {workingDirectory} = context;
 

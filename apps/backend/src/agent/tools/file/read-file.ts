@@ -9,10 +9,9 @@ import type {
   ToolDefinition,
   ToolExecutionContext,
 } from '@/agent-core/tool/index.js';
+import {AccessCheckResult, checkAccess} from '@/helpers/path-access.js';
 
 import {
-  AccessCheckResult,
-  checkAccess,
   countLines,
   formatWithLineNumbers,
   isBinaryFile,
@@ -54,6 +53,7 @@ export const readFileTool: ToolDefinition<typeof parameters, ReadFileResult> = {
     'Only text files within the working directory are allowed.',
   parameters,
   resultSchema: readFileResultSchema,
+  suppressToolEvents: false,
   async execute(args: ReadFileArgs, context: ToolExecutionContext) {
     const {workingDirectory, fileCache} = context;
 

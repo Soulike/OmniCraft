@@ -95,6 +95,68 @@ export const sseErrorEventSchema = z.object({
 });
 export type SseErrorEvent = z.infer<typeof sseErrorEventSchema>;
 
+// ---------------------------------------------------------------------------
+// Base event union (all events except error and subagent events).
+// Used as the inner event type for subagent-output to prevent recursion.
+// ---------------------------------------------------------------------------
+
+/** Union of base SSE events that can appear inside a subagent-output wrapper. */
+export const sseBaseEventSchema = z.discriminatedUnion('type', [
+  sseMessageStartEventSchema,
+  sseTextDeltaEventSchema,
+  sseThinkingStartEventSchema,
+  sseThinkingDeltaEventSchema,
+  sseThinkingEndEventSchema,
+  sseToolExecuteStartEventSchema,
+  sseToolExecuteDeltaEventSchema,
+  sseToolExecuteEndEventSchema,
+  sseDoneEventSchema,
+]);
+export type SseBaseEvent = z.infer<typeof sseBaseEventSchema>;
+
+// ---------------------------------------------------------------------------
+// Subagent events
+// ---------------------------------------------------------------------------
+
+/** A subagent has been dispatched to handle a subtask. */
+export const sseSubagentDispatchEventSchema = z.object({
+  type: z.literal('subagent-dispatch'),
+  agentId: z.string(),
+  task: z.string(),
+});
+export type SseSubagentDispatchEvent = z.infer<
+  typeof sseSubagentDispatchEventSchema
+>;
+
+/** A forwarded event from a running subagent. */
+export const sseSubagentOutputEventSchema = z.object({
+  type: z.literal('subagent-output'),
+  agentId: z.string(),
+  event: sseBaseEventSchema,
+});
+export type SseSubagentOutputEvent = z.infer<
+  typeof sseSubagentOutputEventSchema
+>;
+
+/** A subagent has finished its work. */
+export const sseSubagentCompleteEventSchema = z.object({
+  type: z.literal('subagent-complete'),
+  agentId: z.string(),
+});
+export type SseSubagentCompleteEvent = z.infer<
+  typeof sseSubagentCompleteEventSchema
+>;
+
+/** Union of all subagent-related events. */
+export type SseSubAgentEvent =
+  | SseSubagentDispatchEvent
+  | SseSubagentOutputEvent
+  | SseSubagentCompleteEvent;
+
+// ---------------------------------------------------------------------------
+// Full event union
+// ---------------------------------------------------------------------------
+
 /** Validates known SSE event types. Unknown types fail validation. */
 export const sseEventSchema = z.discriminatedUnion('type', [
   sseMessageStartEventSchema,
@@ -107,6 +169,9 @@ export const sseEventSchema = z.discriminatedUnion('type', [
   sseToolExecuteEndEventSchema,
   sseDoneEventSchema,
   sseErrorEventSchema,
+  sseSubagentDispatchEventSchema,
+  sseSubagentOutputEventSchema,
+  sseSubagentCompleteEventSchema,
 ]);
 
 /** Union of all known SSE events. */

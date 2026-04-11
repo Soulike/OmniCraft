@@ -5,6 +5,7 @@ import {
   BashToolRegistry,
   CoreToolRegistry,
   FileToolRegistry,
+  SubAgentToolRegistry,
   WebToolRegistry,
 } from '@/agent/tools/index.js';
 import {Agent} from '@/agent-core/agent/index.js';
@@ -12,10 +13,11 @@ import type {LlmConfig} from '@/agent-core/llm-api/index.js';
 import {settingsService} from '@/services/settings/index.js';
 
 /**
- * Default agent with core tools and skills.
- * Used as the standard agent type for chat sessions.
+ * Primary agent with all tools and skills.
+ * Used as the main entry point for chat sessions.
+ * Includes subagent dispatch capability.
  */
-export class CoreAgent extends Agent {
+export class MainAgent extends Agent {
   constructor(
     getConfig: () => Promise<LlmConfig>,
     workingDirectory: string,
@@ -27,6 +29,7 @@ export class CoreAgent extends Agent {
         FileToolRegistry.getInstance(),
         WebToolRegistry.getInstance(),
         BashToolRegistry.getInstance(),
+        SubAgentToolRegistry.getInstance(),
       ],
       skillRegistries: [CoreSkillRegistry.getInstance()],
       baseSystemPrompt: 'You are a helpful assistant.',

@@ -1,4 +1,5 @@
 import type {AllowedPathEntry} from '@omnicraft/settings-schema';
+import type {SseSubAgentEvent} from '@omnicraft/sse-events';
 import type {ToolFailureData} from '@omnicraft/tool-schemas';
 import type {z} from 'zod';
 
@@ -37,6 +38,9 @@ export interface ToolExecutionContext {
 
   /** Signal from the agent loop — aborted when the user cancels the request. */
   readonly signal: AbortSignal;
+
+  /** Callback to inject subagent events into the parent agent's SSE stream. */
+  readonly onSubAgentEvent: (event: SseSubAgentEvent) => void;
 }
 
 /** Successful tool execution — carries typed structured data. */
@@ -77,6 +81,11 @@ export interface ToolDefinition<
   readonly parameters: TParams;
   /** Zod schema describing the structured success result data. */
   readonly resultSchema: z.ZodType<TResult>;
+  /**
+   * When true, the agent loop skips emitting tool-execute-start/delta/end
+   * SSE events for this tool. The tool result is still submitted to the LLM.
+   */
+  readonly suppressToolEvents: boolean;
   execute(
     args: z.infer<TParams>,
     context: ToolExecutionContext,

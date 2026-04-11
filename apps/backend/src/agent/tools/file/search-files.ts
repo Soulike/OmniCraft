@@ -14,8 +14,9 @@ import type {
   ToolDefinition,
   ToolExecutionContext,
 } from '@/agent-core/tool/index.js';
+import {AccessCheckResult, checkAccess} from '@/helpers/path-access.js';
 
-import {AccessCheckResult, checkAccess, isBinaryFile} from './helpers.js';
+import {isBinaryFile} from './helpers.js';
 
 const MAX_MATCHES = 100;
 const MAX_CONCURRENCY = 10;
@@ -103,6 +104,7 @@ export const searchFilesTool: ToolDefinition<
     'Use this to find where a function, variable, string, or pattern is used across the codebase.',
   parameters,
   resultSchema: searchFilesResultSchema,
+  suppressToolEvents: false,
   async execute(args: SearchFilesArgs, context: ToolExecutionContext) {
     const {workingDirectory} = context;
 

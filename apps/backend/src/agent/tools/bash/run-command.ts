@@ -8,9 +8,8 @@ import type {
   ToolDefinition,
   ToolExecutionContext,
 } from '@/agent-core/tool/index.js';
+import {isSubPathOrSelf} from '@/helpers/path-access.js';
 import {ShellCommandRunner} from '@/helpers/shell-command-runner.js';
-
-import {isSubPathOrSelf} from '../file/helpers.js';
 
 const DEFAULT_TIMEOUT_MS = 120_000;
 const MAX_TIMEOUT_MS = 600_000;
@@ -80,6 +79,7 @@ export const runCommandTool: ToolDefinition<
     'Shell state (env vars, aliases) does not persist.',
   parameters,
   resultSchema: runCommandResultSchema,
+  suppressToolEvents: false,
   async execute(
     args: RunCommandArgs,
     context: ToolExecutionContext,

@@ -5,6 +5,7 @@ import type {ThinkingLevel} from '@omnicraft/api-schema';
 import type {
   SseDoneEvent,
   SseMessageStartEvent,
+  SseSubAgentEvent,
   SseTextDeltaEvent,
   SseThinkingDeltaEvent,
   SseThinkingEndEvent,
@@ -166,9 +167,10 @@ export abstract class Agent {
 
       const availableTools = this.getAvailableTools();
 
-      // Emit all tool-execute-start events up front
+      // Emit all tool-execute-start events up front (skip suppressed tools)
       for (const toolCall of toolCalls) {
         const tool = availableTools.get(toolCall.toolName);
+        if (tool?.suppressToolEvents) continue;
         yield {
           type: 'tool-execute-start',
           callId: toolCall.callId,
@@ -180,37 +182,34 @@ export abstract class Agent {
       }
 
       // Execute all tools in parallel, streaming end events as each completes
-      const channel = new AsyncChannel<
-        SseToolExecuteEndEvent | SseToolExecuteDeltaEvent
+      const toolSseEventChannel = new AsyncChannel<
+        SseToolExecuteEndEvent | SseToolExecuteDeltaEvent | SseSubAgentEvent
       >();
       const toolResults = new Map<string, ToolResult>();
 
       const executions = toolCalls.map(async (toolCall) => {
-        const onOutput = (chunk: string) => {
-          channel.push({
-            type: 'tool-execute-delta',
-            callId: toolCall.callId,
-            content: chunk,
-          } satisfies SseToolExecuteDeltaEvent);
-        };
         const result = await this.executeTool(
           toolCall,
           availableTools,
-          onOutput,
+          toolSseEventChannel,
           signal,
         );
-        const endEvent = {
-          type: 'tool-execute-end' as const,
-          callId: toolCall.callId,
-          result: result.content,
-          status: result.status,
-          data: result.data,
-        } satisfies SseToolExecuteEndEvent;
+
+        const tool = availableTools.get(toolCall.toolName);
+        if (!tool?.suppressToolEvents) {
+          toolSseEventChannel.push({
+            type: 'tool-execute-end' as const,
+            callId: toolCall.callId,
+            result: result.content,
+            status: result.status,
+            data: result.data,
+          } satisfies SseToolExecuteEndEvent);
+        }
+
         toolResults.set(toolCall.callId, {
           callId: toolCall.callId,
           content: result.content,
         });
-        channel.push(endEvent);
       });
 
       void Promise.all(executions)
@@ -219,10 +218,10 @@ export abstract class Agent {
           // This catch prevents an unhandled rejection from hanging the channel.
         })
         .finally(() => {
-          channel.close();
+          toolSseEventChannel.close();
         });
 
-      for await (const event of channel) {
+      for await (const event of toolSseEventChannel) {
         yield event;
       }
 
@@ -408,11 +407,14 @@ export abstract class Agent {
 
   /**
    * Executes a single tool call. Returns the result content and execution status.
+   * Assembles onOutput and onSubAgentEvent callbacks from the channel.
    */
   private async executeTool(
     toolCall: LlmToolCall,
     availableTools: ReadonlyMap<string, ToolDefinition>,
-    onOutput: (chunk: string) => void,
+    toolSseEventChannel: AsyncChannel<
+      SseToolExecuteEndEvent | SseToolExecuteDeltaEvent | SseSubAgentEvent
+    >,
     signal: AbortSignal,
   ): Promise<{
     content: string;
@@ -425,6 +427,16 @@ export abstract class Agent {
       return {content: `Error: ${message}`, status: 'error', data: {message}};
     }
 
+    const onOutput = tool.suppressToolEvents
+      ? undefined
+      : (chunk: string) => {
+          toolSseEventChannel.push({
+            type: 'tool-execute-delta',
+            callId: toolCall.callId,
+            content: chunk,
+          } satisfies SseToolExecuteDeltaEvent);
+        };
+
     const context: ToolExecutionContext = {
       availableSkills: this.getAvailableSkills(),
       workingDirectory: this.workingDirectory,
@@ -433,6 +445,9 @@ export abstract class Agent {
       extraAllowedPaths: this.extraAllowedPaths,
       shellState: this.shellState,
       signal,
+      onSubAgentEvent: (event) => {
+        toolSseEventChannel.push(event);
+      },
     };
 
     try {

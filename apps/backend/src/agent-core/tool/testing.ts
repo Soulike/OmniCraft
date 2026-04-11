@@ -20,6 +20,7 @@ export function createMockTool(name: string): ToolDefinition {
     description: `Mock tool: ${name}`,
     parameters: z.object({}),
     resultSchema: mockResultSchema,
+    suppressToolEvents: false,
     execute: () =>
       Promise.resolve({
         data: {mock: true},
@@ -42,6 +43,9 @@ export function createMockContext(
     extraAllowedPaths: [],
     shellState: {cwd: workingDirectory},
     signal: new AbortController().signal,
+    onSubAgentEvent: () => {
+      // noop — mock context ignores subagent events
+    },
     ...overrides,
   };
 }

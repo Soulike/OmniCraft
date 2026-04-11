@@ -80,5 +80,9 @@ export const loadSkillResultSchema = z.object({
   content: z.string(),
 });
 
+export const dispatchAgentResultSchema = z.object({
+  summary: z.string(),
+});
+
 /** Structured data for failure/error results. */
 export const toolFailureDataSchema = z.object({message: z.string()});

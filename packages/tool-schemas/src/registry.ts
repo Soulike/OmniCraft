@@ -1,6 +1,7 @@
 import {z} from 'zod';
 
 import {
+  dispatchAgentResultSchema,
   editFileResultSchema,
   findFilesResultSchema,
   getCurrentTimeResultSchema,
@@ -29,6 +30,7 @@ export const toolResultSchemas = {
   [TOOL_NAME.WEB_FETCH_RAW]: webFetchRawResultSchema,
   [TOOL_NAME.WEB_SEARCH]: webSearchResultSchema,
   [TOOL_NAME.LOAD_SKILL]: loadSkillResultSchema,
+  [TOOL_NAME.DISPATCH_AGENT]: dispatchAgentResultSchema,
 } as const;
 
 /** Infer the success result data type for a given tool name. */
@@ -51,6 +53,7 @@ export const toolResultDataSchema = z.union([
   webFetchRawResultSchema,
   webSearchResultSchema,
   loadSkillResultSchema,
+  dispatchAgentResultSchema,
   toolFailureDataSchema,
 ]);
 

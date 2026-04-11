@@ -5,6 +5,7 @@ export type {
 } from './registry.js';
 export {toolResultDataSchema, toolResultSchemas} from './registry.js';
 export {
+  dispatchAgentResultSchema,
   editFileResultSchema,
   findFilesResultSchema,
   getCurrentTimeResultSchema,
