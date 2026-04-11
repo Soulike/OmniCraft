@@ -1180,7 +1180,7 @@ interface AskUserCardViewProps {
   questions: Question[];
   formState: FormState;
   submitActions: SubmitActions;
-  effectiveStatus: CardStatus | 'submitting';
+  status: CardStatus;
   completedAnswers: AnswerEntry[] | null;
   failureMessage: string | null;
 }
@@ -1189,19 +1189,19 @@ export function AskUserCardView({
   questions,
   formState,
   submitActions,
-  effectiveStatus,
+  status,
   completedAnswers,
   failureMessage,
 }: AskUserCardViewProps) {
-  if (effectiveStatus === 'done' && completedAnswers) {
+  if (status === 'done' && completedAnswers) {
     return <CompletedCard answers={completedAnswers} />;
   }
 
-  if (effectiveStatus === 'failure' || effectiveStatus === 'error') {
+  if (status === 'failure' || status === 'error') {
     return <CancelledCard message={failureMessage} />;
   }
 
-  const disabled = effectiveStatus === 'submitting';
+  const disabled = submitActions.submitting;
 
   return (
     <div className={styles.card}>
@@ -1225,7 +1225,7 @@ export function AskUserCardView({
           Cancel
         </Button>
         <Button variant='solid' isDisabled={disabled} onPress={submitActions.handleSubmit}>
-          {effectiveStatus === 'submitting' ? <Spinner size='sm' /> : 'Submit'}
+          {submitActions.submitting ? <Spinner size='sm' /> : 'Submit'}
         </Button>
       </div>
     </div>
@@ -1319,9 +1319,6 @@ export function AskUserCard({
     collectAnswers: formState.collectAnswers,
   });
 
-  const effectiveStatus: CardStatus | 'submitting' =
-    submitActions.submitting && status === 'running' ? 'submitting' : status;
-
   const completedAnswers: AnswerEntry[] | null =
     status === 'done' && data && 'answers' in data
       ? (data.answers as AnswerEntry[])
@@ -1337,7 +1334,7 @@ export function AskUserCard({
       questions={questions}
       formState={formState}
       submitActions={submitActions}
-      effectiveStatus={effectiveStatus}
+      status={status}
       completedAnswers={completedAnswers}
       failureMessage={failureMessage}
     />
