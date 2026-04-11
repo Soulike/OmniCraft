@@ -349,9 +349,11 @@ Create `apps/backend/src/agent/tools/client/ask-user.ts`:
 import {
   askUserBridgeResponseSchema,
   askUserParametersSchema,
+  askUserResultSchema,
   type ToolFailureData,
   TOOL_NAME,
 } from '@omnicraft/tool-schemas';
+import type {z} from 'zod';
 
 import type {
   ToolDefinition,
@@ -359,9 +361,7 @@ import type {
   ToolExecuteSuccessResult,
 } from '@/agent-core/tool/types.js';
 
-interface AskUserResult {
-  answers: Array<{question: string; answer: string | null}>;
-}
+type AskUserResult = z.infer<typeof askUserResultSchema>;
 
 export const askUserTool: ToolDefinition<
   typeof askUserParametersSchema,
