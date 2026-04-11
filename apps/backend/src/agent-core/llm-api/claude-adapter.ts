@@ -149,12 +149,14 @@ class ThinkingBlockAccumulator {
 
   appendText(index: number, delta: string): void {
     const block = this.blocks.get(index);
-    if (block) block.text += delta;
+    assert(block, `No thinking block at index ${index.toString()}`);
+    block.text += delta;
   }
 
   appendSignature(index: number, delta: string): void {
     const block = this.blocks.get(index);
-    if (block) block.signature += delta;
+    assert(block, `No thinking block at index ${index.toString()}`);
+    block.signature += delta;
   }
 
   finish(index: number): LlmThinkingBlock {
