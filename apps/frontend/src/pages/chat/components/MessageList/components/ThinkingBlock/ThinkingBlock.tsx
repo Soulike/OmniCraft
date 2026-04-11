@@ -1,3 +1,5 @@
+import {useDeferredValue} from 'react';
+
 import {useStreamingText} from '@/hooks/useStreamingText.js';
 
 import {useThinkingBlock} from './hooks/useThinkingBlock.js';
@@ -11,10 +13,11 @@ interface ThinkingBlockProps {
 export function ThinkingBlock({content, done}: ThinkingBlockProps) {
   const {isExpanded, onExpandedChange} = useThinkingBlock({done});
   const {displayedContent} = useStreamingText(content);
+  const deferredContent = useDeferredValue(displayedContent);
 
   return (
     <ThinkingBlockView
-      content={displayedContent}
+      content={deferredContent}
       done={done}
       isExpanded={isExpanded}
       onExpandedChange={onExpandedChange}
