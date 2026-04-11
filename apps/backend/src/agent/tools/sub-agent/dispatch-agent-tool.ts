@@ -2,7 +2,6 @@ import path from 'node:path';
 
 import {thinkingLevelSchema} from '@omnicraft/api-schema';
 import type {SseBaseEvent} from '@omnicraft/sse-events';
-import {dispatchAgentResultSchema, TOOL_NAME} from '@omnicraft/tool-schemas';
 import {z} from 'zod';
 
 import {GeneralSubAgent} from '@/agent/agents/index.js';
@@ -73,6 +72,10 @@ const parameters = z.object({
     ),
 });
 
+const dispatchAgentResultSchema = z.object({
+  summary: z.string(),
+});
+
 type DispatchAgentResult = z.infer<typeof dispatchAgentResultSchema>;
 
 /** Tool that dispatches a subagent to handle a subtask autonomously. */
@@ -80,7 +83,7 @@ export const dispatchAgentTool: ToolDefinition<
   typeof parameters,
   DispatchAgentResult
 > = {
-  name: TOOL_NAME.DISPATCH_AGENT,
+  name: 'dispatch_agent',
   displayName: 'Dispatch Agent',
   description: buildToolDescription(),
   parameters,
