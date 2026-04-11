@@ -1,3 +1,4 @@
+import assert from 'node:assert';
 import http from 'node:http';
 
 import {afterAll, beforeAll, describe, expect, it} from 'vitest';
@@ -39,6 +40,9 @@ describe('webFetchRawTool', () => {
       expect(result.content).toContain('<html>');
       expect(result.content).toContain('<h1>Hello World</h1>');
       expect(result.status).toBe('success');
+      assert(result.status === 'success');
+      expect(result.data.url).toBe(serverUrl(server));
+      expect(result.data.content).toBeTruthy();
     });
 
     it('does not add a Title: line header', async () => {
@@ -48,6 +52,8 @@ describe('webFetchRawTool', () => {
       );
       expect(result.content).not.toMatch(/^Title:/m);
       expect(result.status).toBe('success');
+      assert(result.status === 'success');
+      expect(result.data.content).toBeTruthy();
     });
   });
 
@@ -71,6 +77,9 @@ describe('webFetchRawTool', () => {
       );
       expect(result.content).toContain(jsonBody);
       expect(result.status).toBe('success');
+      assert(result.status === 'success');
+      expect(result.data.url).toBe(serverUrl(server));
+      expect(result.data.content).toBe(jsonBody);
     });
   });
 
@@ -83,6 +92,8 @@ describe('webFetchRawTool', () => {
       expect(result.content).toMatch(/Error/i);
       expect(result.content).toContain('ftp:');
       expect(result.status).toBe('failure');
+      assert(result.status === 'failure');
+      expect(result.data.message).toBeTruthy();
     });
   });
 
@@ -108,6 +119,8 @@ describe('webFetchRawTool', () => {
       );
       expect(result.content).toMatch(/Error/i);
       expect(result.status).toBe('failure');
+      assert(result.status === 'failure');
+      expect(result.data.message).toBeTruthy();
     });
   });
 
@@ -125,6 +138,9 @@ describe('webFetchRawTool', () => {
         expect(result.content).toContain('Content saved to file:');
         expect(result.content).toContain('URL:');
         expect(result.status).toBe('success');
+        assert(result.status === 'success');
+        expect(result.data.url).toBe(serverUrl(server));
+        expect(result.data.content).toBeTruthy();
       } finally {
         await stopServer(server);
       }

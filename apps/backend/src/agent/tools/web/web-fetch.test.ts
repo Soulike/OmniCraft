@@ -1,3 +1,4 @@
+import assert from 'node:assert';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -56,6 +57,9 @@ describe('webFetchTool', () => {
         expect(result.content).toContain('URL:');
         expect(result.content).toContain('Hello World');
         expect(result.status).toBe('success');
+        assert(result.status === 'success');
+        expect(result.data.url).toBe(serverUrl(server));
+        expect(result.data.content).toBeTruthy();
       } finally {
         await stopServer(server);
       }
@@ -85,6 +89,9 @@ describe('webFetchTool', () => {
         expect(result.content).toContain('URL:');
         expect(result.content).toContain('Main Content');
         expect(result.status).toBe('success');
+        assert(result.status === 'success');
+        expect(result.data.url).toBe(serverUrl(server));
+        expect(result.data.content).toBeTruthy();
       } finally {
         await stopServer(server);
       }
@@ -107,6 +114,9 @@ describe('webFetchTool', () => {
         expect(result.content).toContain('"key"');
         expect(result.content).toContain('"value"');
         expect(result.status).toBe('success');
+        assert(result.status === 'success');
+        expect(result.data.url).toBe(serverUrl(server));
+        expect(result.data.content).toBeTruthy();
       } finally {
         await stopServer(server);
       }
@@ -121,6 +131,8 @@ describe('webFetchTool', () => {
       );
       expect(result.content).toContain('ftp:');
       expect(result.status).toBe('failure');
+      assert(result.status === 'failure');
+      expect(result.data.message).toBeTruthy();
     });
 
     it('returns an error for non-text content types', async () => {
@@ -134,6 +146,8 @@ describe('webFetchTool', () => {
         );
         expect(result.content).toContain('Unsupported content type');
         expect(result.status).toBe('failure');
+        assert(result.status === 'failure');
+        expect(result.data.message).toBeTruthy();
       } finally {
         await stopServer(server);
       }
@@ -146,6 +160,8 @@ describe('webFetchTool', () => {
       );
       expect(result.content).toContain('Failed to fetch URL');
       expect(result.status).toBe('failure');
+      assert(result.status === 'failure');
+      expect(result.data.message).toBeTruthy();
     });
   });
 
@@ -164,6 +180,9 @@ describe('webFetchTool', () => {
         expect(result.content).toContain('Content saved to file:');
         expect(result.content).toContain('URL:');
         expect(result.status).toBe('success');
+        assert(result.status === 'success');
+        expect(result.data.url).toBe(serverUrl(server));
+        expect(result.data.content).toBeTruthy();
       } finally {
         await stopServer(server);
       }
@@ -183,6 +202,8 @@ describe('webFetchTool', () => {
         );
         expect(result.content).toContain('Note: Article extraction failed');
         expect(result.status).toBe('success');
+        assert(result.status === 'success');
+        expect(result.data.url).toBe(serverUrl(server));
       } finally {
         await stopServer(server);
       }

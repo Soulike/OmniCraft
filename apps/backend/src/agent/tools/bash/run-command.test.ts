@@ -1,3 +1,4 @@
+import assert from 'node:assert';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -38,6 +39,9 @@ describe('runCommandTool', () => {
       const result = await runCommandTool.execute({command: 'true'}, context);
       expect(result.content).toBe('(No output)');
       expect(result.status).toBe('success');
+      assert(result.status === 'success');
+      expect(result.data.command).toBe('true');
+      expect(result.data.exitCode).toBe(0);
     });
 
     it('includes exit code for failed commands', async () => {
@@ -47,6 +51,8 @@ describe('runCommandTool', () => {
       );
       expect(result.content).toContain('Exit code: 42');
       expect(result.status).toBe('failure');
+      assert(result.status === 'failure');
+      expect(result.data.message).toBeTruthy();
     });
 
     it('includes stderr section when present', async () => {
@@ -57,6 +63,9 @@ describe('runCommandTool', () => {
       expect(result.content).toContain('(stderr)');
       expect(result.content).toContain('error');
       expect(result.status).toBe('success');
+      assert(result.status === 'success');
+      expect(result.data.exitCode).toBe(0);
+      expect(result.data.stderr).toBeTruthy();
     });
 
     it('includes timeout message', async () => {
@@ -66,6 +75,8 @@ describe('runCommandTool', () => {
       );
       expect(result.content).toContain('Command timed out');
       expect(result.status).toBe('failure');
+      assert(result.status === 'failure');
+      expect(result.data.message).toBeTruthy();
     });
 
     it('saves large output to a temp file', async () => {
@@ -75,6 +86,8 @@ describe('runCommandTool', () => {
       );
       expect(result.content).toContain('Output saved to file:');
       expect(result.status).toBe('success');
+      assert(result.status === 'success');
+      expect(result.data.exitCode).toBe(0);
     });
   });
 
@@ -95,6 +108,8 @@ describe('runCommandTool', () => {
       expect(result.content).toContain('Working directory:');
       expect(result.content).toContain(subDir);
       expect(result.status).toBe('success');
+      assert(result.status === 'success');
+      expect(result.data.cwd).toBe(subDir);
     });
 
     it('resets CWD when command navigates outside workingDirectory', async () => {
@@ -103,6 +118,8 @@ describe('runCommandTool', () => {
       expect(context.shellState.cwd).toBe(tmpDir);
       expect(result.content).toContain('Working directory reset to:');
       expect(result.status).toBe('success');
+      assert(result.status === 'success');
+      expect(result.data.cwd).toBe(tmpDir);
     });
 
     it('uses tracked CWD for subsequent commands', async () => {
@@ -113,6 +130,8 @@ describe('runCommandTool', () => {
       const result = await runCommandTool.execute({command: 'pwd'}, context);
       expect(result.content).toContain(subDir);
       expect(result.status).toBe('success');
+      assert(result.status === 'success');
+      expect(result.data.cwd).toBe(subDir);
     });
   });
 });
