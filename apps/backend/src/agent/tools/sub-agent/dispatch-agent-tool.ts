@@ -35,23 +35,6 @@ const agentTypeSchema = z.enum(
   Object.keys(subAgentInfos) as [SubAgentType, ...SubAgentType[]],
 );
 
-function createSubAgent(
-  agentType: SubAgentType,
-  getConfig: () => Promise<LlmConfig>,
-  workingDirectory: string,
-  extraAllowedPaths: ToolExecutionContext['extraAllowedPaths'],
-): Agent {
-  switch (agentType) {
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- will have more cases
-    case 'general':
-      return new GeneralSubAgent(
-        getConfig,
-        workingDirectory,
-        extraAllowedPaths,
-      );
-  }
-}
-
 function buildToolDescription(): string {
   const header =
     'Dispatches a subagent to handle a subtask autonomously. ' +
@@ -148,13 +131,18 @@ export const dispatchAgentTool: ToolDefinition<typeof parameters> = {
         model: selectedModel,
       });
 
-    // Create and run subagent
-    const subagent = createSubAgent(
-      agentType,
-      getConfig,
-      workingDirectory,
-      context.extraAllowedPaths,
-    );
+    // Create subagent
+    let subagent: Agent;
+    switch (agentType) {
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- will have more cases
+      case 'general':
+        subagent = new GeneralSubAgent(
+          getConfig,
+          workingDirectory,
+          context.extraAllowedPaths,
+        );
+        break;
+    }
 
     context.onSubAgentEvent({
       type: 'subagent-dispatch',
