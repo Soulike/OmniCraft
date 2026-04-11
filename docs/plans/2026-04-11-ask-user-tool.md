@@ -659,83 +659,29 @@ git commit -m "refactor(frontend): make useSessionId context-backed for deep acc
 
 **Files:**
 
-- Create: `apps/frontend/src/pages/chat/components/MessageList/components/AskUserCard/hooks/useAskUserCard.ts`
+- Create: `apps/frontend/src/pages/chat/components/MessageList/components/AskUserCard/hooks/useQuestions.ts`
+- Create: `apps/frontend/src/pages/chat/components/MessageList/components/AskUserCard/hooks/useFormState.ts`
+- Create: `apps/frontend/src/pages/chat/components/MessageList/components/AskUserCard/hooks/useSubmitActions.ts`
 - Create: `apps/frontend/src/pages/chat/components/MessageList/components/AskUserCard/AskUserCardView.tsx`
 - Create: `apps/frontend/src/pages/chat/components/MessageList/components/AskUserCard/AskUserCard.tsx`
 - Create: `apps/frontend/src/pages/chat/components/MessageList/components/AskUserCard/styles.module.css`
 - Create: `apps/frontend/src/pages/chat/components/MessageList/components/AskUserCard/index.ts`
 
-- [ ] **Step 1: Create the view model hook**
+- [ ] **Step 1: Create useQuestions hook — parses tool arguments**
 
-Create `apps/frontend/src/pages/chat/components/MessageList/components/AskUserCard/hooks/useAskUserCard.ts`:
+Create `apps/frontend/src/pages/chat/components/MessageList/components/AskUserCard/hooks/useQuestions.ts`:
 
 ```typescript
-import type {ToolFailureData, ToolResultData} from '@omnicraft/tool-schemas';
-import {useCallback, useMemo, useState} from 'react';
+import {useMemo} from 'react';
 
-import {submitToolResponse} from '@/api/chat/index.js';
-
-import {useSessionId} from '../../../../../hooks/useSessionId.js';
-
-interface Question {
+export interface Question {
   question: string;
   options: string[];
 }
 
-interface AnswerEntry {
-  question: string;
-  answer: string | null;
-}
-
-type CardStatus = 'running' | 'done' | 'failure' | 'error';
-
-interface UseAskUserCardParams {
-  callId: string;
-  arguments: string;
-  status: CardStatus;
-  data?: ToolResultData<'ask_user'> | ToolFailureData;
-}
-
-export interface UseAskUserCardReturn {
-  /** Parsed questions from tool arguments. */
-  questions: Question[];
-  /** Current selected values, keyed by question index. */
-  selections: ReadonlyMap<number, string>;
-  /** Custom text input values, keyed by question index. */
-  customTexts: ReadonlyMap<number, string>;
-  /** Whether each question is using the custom "Other" option. */
-  isCustom: ReadonlyMap<number, boolean>;
-  /** Whether the form is currently being submitted. */
-  submitting: boolean;
-  /** Effective status considering local submitting state. */
-  effectiveStatus: CardStatus | 'submitting';
-  /** Completed answers (from tool-execute-end data). */
-  completedAnswers: AnswerEntry[] | null;
-  /** Failure message (from tool-execute-end data). */
-  failureMessage: string | null;
-  /** Select a predefined option for a question. */
-  selectOption: (questionIndex: number, option: string) => void;
-  /** Switch to custom "Other" input for a question. */
-  switchToCustom: (questionIndex: number) => void;
-  /** Update custom text for a question. */
-  setCustomText: (questionIndex: number, text: string) => void;
-  /** Submit the questionnaire. */
-  handleSubmit: () => void;
-  /** Cancel the questionnaire. */
-  handleCancel: () => void;
-}
-
-const OTHER_VALUE = '__other__';
-
-export function useAskUserCard({
-  callId,
-  arguments: toolArguments,
-  status,
-  data,
-}: UseAskUserCardParams): UseAskUserCardReturn {
-  const {sessionId} = useSessionId();
-
-  const questions: Question[] = useMemo(() => {
+/** Parses the tool arguments JSON into a Question array. */
+export function useQuestions(toolArguments: string): Question[] {
+  return useMemo(() => {
     try {
       const parsed: unknown = JSON.parse(toolArguments);
       const obj = parsed as {questions?: Question[]};
@@ -744,7 +690,44 @@ export function useAskUserCard({
       return [];
     }
   }, [toolArguments]);
+}
+```
 
+- [ ] **Step 2: Create useFormState hook — manages selections and custom text**
+
+Create `apps/frontend/src/pages/chat/components/MessageList/components/AskUserCard/hooks/useFormState.ts`:
+
+```typescript
+import {useCallback, useState} from 'react';
+
+import type {Question} from './useQuestions.js';
+
+export interface AnswerEntry {
+  question: string;
+  answer: string | null;
+}
+
+const OTHER_VALUE = '__other__';
+
+export interface FormState {
+  /** Current selected values, keyed by question index. */
+  selections: ReadonlyMap<number, string>;
+  /** Custom text input values, keyed by question index. */
+  customTexts: ReadonlyMap<number, string>;
+  /** Whether each question is using the custom "Other" option. */
+  isCustom: ReadonlyMap<number, boolean>;
+  /** Select a predefined option for a question. */
+  selectOption: (questionIndex: number, option: string) => void;
+  /** Switch to custom "Other" input for a question. */
+  switchToCustom: (questionIndex: number) => void;
+  /** Update custom text for a question. */
+  setCustomText: (questionIndex: number, text: string) => void;
+  /** Collect current form state into an AnswerEntry array. */
+  collectAnswers: () => AnswerEntry[];
+}
+
+/** Manages the form selection state for the questionnaire. */
+export function useFormState(questions: Question[]): FormState {
   const [selections, setSelections] = useState<Map<number, string>>(
     () => new Map(),
   );
@@ -754,7 +737,6 @@ export function useAskUserCard({
   const [isCustom, setIsCustom] = useState<Map<number, boolean>>(
     () => new Map(),
   );
-  const [submitting, setSubmitting] = useState(false);
 
   const selectOption = useCallback((questionIndex: number, option: string) => {
     setSelections((prev) => new Map(prev).set(questionIndex, option));
@@ -770,11 +752,8 @@ export function useAskUserCard({
     setCustomTexts((prev) => new Map(prev).set(questionIndex, text));
   }, []);
 
-  const handleSubmit = useCallback(() => {
-    if (!sessionId || submitting) return;
-    setSubmitting(true);
-
-    const answers: AnswerEntry[] = questions.map((q, i) => {
+  const collectAnswers = useCallback((): AnswerEntry[] => {
+    return questions.map((q, i) => {
       if (isCustom.get(i)) {
         const text = customTexts.get(i)?.trim();
         return {question: q.question, answer: text || null};
@@ -785,20 +764,61 @@ export function useAskUserCard({
       }
       return {question: q.question, answer: null};
     });
+  }, [questions, selections, customTexts, isCustom]);
 
+  return {
+    selections,
+    customTexts,
+    isCustom,
+    selectOption,
+    switchToCustom,
+    setCustomText,
+    collectAnswers,
+  };
+}
+```
+
+- [ ] **Step 3: Create useSubmitActions hook — handles submit and cancel**
+
+Create `apps/frontend/src/pages/chat/components/MessageList/components/AskUserCard/hooks/useSubmitActions.ts`:
+
+```typescript
+import {useCallback, useState} from 'react';
+
+import {submitToolResponse} from '@/api/chat/index.js';
+
+import {useSessionId} from '../../../../../hooks/useSessionId.js';
+import type {AnswerEntry} from './useFormState.js';
+
+interface UseSubmitActionsParams {
+  callId: string;
+  collectAnswers: () => AnswerEntry[];
+}
+
+export interface SubmitActions {
+  submitting: boolean;
+  handleSubmit: () => void;
+  handleCancel: () => void;
+}
+
+/** Handles submitting or cancelling the questionnaire via the bridge API. */
+export function useSubmitActions({
+  callId,
+  collectAnswers,
+}: UseSubmitActionsParams): SubmitActions {
+  const {sessionId} = useSessionId();
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleSubmit = useCallback(() => {
+    if (!sessionId || submitting) return;
+    setSubmitting(true);
+
+    const answers = collectAnswers();
     void submitToolResponse(sessionId, callId, {
       cancelled: false,
       answers,
     });
-  }, [
-    sessionId,
-    callId,
-    questions,
-    selections,
-    customTexts,
-    isCustom,
-    submitting,
-  ]);
+  }, [sessionId, callId, collectAnswers, submitting]);
 
   const handleCancel = useCallback(() => {
     if (!sessionId || submitting) return;
@@ -807,38 +827,11 @@ export function useAskUserCard({
     void submitToolResponse(sessionId, callId, {cancelled: true});
   }, [sessionId, callId, submitting]);
 
-  const effectiveStatus: CardStatus | 'submitting' =
-    submitting && status === 'running' ? 'submitting' : status;
-
-  const completedAnswers: AnswerEntry[] | null =
-    status === 'done' && data && 'answers' in data
-      ? (data.answers as AnswerEntry[])
-      : null;
-
-  const failureMessage: string | null =
-    status === 'failure' && data && 'message' in data
-      ? (data.message as string)
-      : null;
-
-  return {
-    questions,
-    selections,
-    customTexts,
-    isCustom,
-    submitting,
-    effectiveStatus,
-    completedAnswers,
-    failureMessage,
-    selectOption,
-    switchToCustom,
-    setCustomText,
-    handleSubmit,
-    handleCancel,
-  };
+  return {submitting, handleSubmit, handleCancel};
 }
 ```
 
-- [ ] **Step 2: Create the view component**
+- [ ] **Step 4: Create the view component**
 
 Create `apps/frontend/src/pages/chat/components/MessageList/components/AskUserCard/AskUserCardView.tsx`:
 
@@ -854,40 +847,31 @@ import {
 } from '@heroui/react';
 import {CircleAlert, CircleCheck, MessageCircleQuestion} from 'lucide-react';
 
-import type {UseAskUserCardReturn} from './hooks/useAskUserCard.js';
+import type {AnswerEntry, FormState} from './hooks/useFormState.js';
+import type {Question} from './hooks/useQuestions.js';
+import type {SubmitActions} from './hooks/useSubmitActions.js';
 import styles from './styles.module.css';
 
-type AskUserCardViewProps = Pick<
-  UseAskUserCardReturn,
-  | 'questions'
-  | 'selections'
-  | 'customTexts'
-  | 'isCustom'
-  | 'effectiveStatus'
-  | 'completedAnswers'
-  | 'failureMessage'
-  | 'selectOption'
-  | 'switchToCustom'
-  | 'setCustomText'
-  | 'handleSubmit'
-  | 'handleCancel'
->;
+type CardStatus = 'running' | 'done' | 'failure' | 'error';
+
+interface AskUserCardViewProps {
+  questions: Question[];
+  formState: FormState;
+  submitActions: SubmitActions;
+  effectiveStatus: CardStatus | 'submitting';
+  completedAnswers: AnswerEntry[] | null;
+  failureMessage: string | null;
+}
 
 const OTHER_VALUE = '__other__';
 
 export function AskUserCardView({
   questions,
-  selections,
-  customTexts,
-  isCustom,
+  formState,
+  submitActions,
   effectiveStatus,
   completedAnswers,
   failureMessage,
-  selectOption,
-  switchToCustom,
-  setCustomText,
-  handleSubmit,
-  handleCancel,
 }: AskUserCardViewProps) {
   if (effectiveStatus === 'done' && completedAnswers) {
     return <CompletedView answers={completedAnswers} />;
@@ -897,8 +881,7 @@ export function AskUserCardView({
     return <CancelledView message={failureMessage} />;
   }
 
-  const disabled =
-    effectiveStatus === 'submitting';
+  const disabled = effectiveStatus === 'submitting';
 
   return (
     <div className={styles.card}>
@@ -913,12 +896,12 @@ export function AskUserCardView({
             {q.options.length > 0 ? (
               <RadioGroup
                 isDisabled={disabled}
-                value={selections.get(i) ?? ''}
+                value={formState.selections.get(i) ?? ''}
                 onChange={(value) => {
                   if (value === OTHER_VALUE) {
-                    switchToCustom(i);
+                    formState.switchToCustom(i);
                   } else {
-                    selectOption(i, value);
+                    formState.selectOption(i, value);
                   }
                 }}
               >
@@ -942,12 +925,12 @@ export function AskUserCardView({
                 </Radio>
               </RadioGroup>
             ) : null}
-            {(q.options.length === 0 || isCustom.get(i)) && (
+            {(q.options.length === 0 || formState.isCustom.get(i)) && (
               <TextField
                 isDisabled={disabled}
-                value={customTexts.get(i) ?? ''}
+                value={formState.customTexts.get(i) ?? ''}
                 onChange={(value) => {
-                  setCustomText(i, value);
+                  formState.setCustomText(i, value);
                 }}
               >
                 <Label className={styles.srOnly}>Your answer</Label>
@@ -961,14 +944,14 @@ export function AskUserCardView({
         <Button
           variant='ghost'
           isDisabled={disabled}
-          onPress={handleCancel}
+          onPress={submitActions.handleCancel}
         >
           Cancel
         </Button>
         <Button
           variant='solid'
           isDisabled={disabled}
-          onPress={handleSubmit}
+          onPress={submitActions.handleSubmit}
         >
           {effectiveStatus === 'submitting' ? <Spinner size='sm' /> : 'Submit'}
         </Button>
@@ -980,7 +963,7 @@ export function AskUserCardView({
 function CompletedView({
   answers,
 }: {
-  answers: Array<{question: string; answer: string | null}>;
+  answers: AnswerEntry[];
 }) {
   return (
     <div className={styles.card}>
@@ -1109,7 +1092,7 @@ Create `apps/frontend/src/pages/chat/components/MessageList/components/AskUserCa
 }
 ```
 
-- [ ] **Step 4: Create the container component**
+- [ ] **Step 6: Create the container component**
 
 Create `apps/frontend/src/pages/chat/components/MessageList/components/AskUserCard/AskUserCard.tsx`:
 
@@ -1117,14 +1100,19 @@ Create `apps/frontend/src/pages/chat/components/MessageList/components/AskUserCa
 import type {AnyToolResultData, ToolName} from '@omnicraft/tool-schemas';
 
 import {AskUserCardView} from './AskUserCardView.js';
-import {useAskUserCard} from './hooks/useAskUserCard.js';
+import type {AnswerEntry} from './hooks/useFormState.js';
+import {useFormState} from './hooks/useFormState.js';
+import {useQuestions} from './hooks/useQuestions.js';
+import {useSubmitActions} from './hooks/useSubmitActions.js';
+
+type CardStatus = 'running' | 'done' | 'failure' | 'error';
 
 interface AskUserCardProps {
   callId: string;
   toolName: ToolName;
   displayName: string;
   arguments: string;
-  status: 'running' | 'done' | 'failure' | 'error';
+  status: CardStatus;
   result?: string;
   data?: AnyToolResultData;
 }
@@ -1135,18 +1123,40 @@ export function AskUserCard({
   status,
   data,
 }: AskUserCardProps) {
-  const viewModel = useAskUserCard({
+  const questions = useQuestions(toolArguments);
+  const formState = useFormState(questions);
+  const submitActions = useSubmitActions({
     callId,
-    arguments: toolArguments,
-    status,
-    data,
+    collectAnswers: formState.collectAnswers,
   });
 
-  return <AskUserCardView {...viewModel} />;
+  const effectiveStatus: CardStatus | 'submitting' =
+    submitActions.submitting && status === 'running' ? 'submitting' : status;
+
+  const completedAnswers: AnswerEntry[] | null =
+    status === 'done' && data && 'answers' in data
+      ? (data.answers as AnswerEntry[])
+      : null;
+
+  const failureMessage: string | null =
+    status === 'failure' && data && 'message' in data
+      ? (data.message as string)
+      : null;
+
+  return (
+    <AskUserCardView
+      questions={questions}
+      formState={formState}
+      submitActions={submitActions}
+      effectiveStatus={effectiveStatus}
+      completedAnswers={completedAnswers}
+      failureMessage={failureMessage}
+    />
+  );
 }
 ```
 
-- [ ] **Step 5: Create barrel export**
+- [ ] **Step 7: Create barrel export**
 
 Create `apps/frontend/src/pages/chat/components/MessageList/components/AskUserCard/index.ts`:
 
@@ -1154,13 +1164,13 @@ Create `apps/frontend/src/pages/chat/components/MessageList/components/AskUserCa
 export {AskUserCard} from './AskUserCard.js';
 ```
 
-- [ ] **Step 6: Verify types compile**
+- [ ] **Step 8: Verify types compile**
 
 Run: `bun run --filter 'frontend' check`
 
 Expected: No type errors.
 
-- [ ] **Step 7: Commit**
+- [ ] **Step 9: Commit**
 
 ```bash
 git add apps/frontend/src/pages/chat/components/MessageList/components/AskUserCard/
