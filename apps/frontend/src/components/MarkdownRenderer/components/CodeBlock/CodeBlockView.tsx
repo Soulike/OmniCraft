@@ -2,6 +2,8 @@ import {Button, Surface, Tooltip} from '@heroui/react';
 import {Check, Copy} from 'lucide-react';
 import type {ReactNode} from 'react';
 
+import {CodeView} from '@/components/CodeView/index.js';
+
 import styles from './styles.module.css';
 
 interface CodeBlockViewProps {
@@ -38,14 +40,7 @@ export function CodeBlockView({
           </Tooltip.Content>
         </Tooltip>
       </div>
-      <div className={styles.body}>
-        <div className={styles.lineNumbers} aria-hidden='true'>
-          {Array.from({length: lineCount}, (_, i) => (
-            <span key={i}>{i + 1}</span>
-          ))}
-        </div>
-        <pre className={styles.pre}>{codeContent}</pre>
-      </div>
+      <CodeView lineCount={lineCount}>{codeContent}</CodeView>
     </Surface>
   );
 }
