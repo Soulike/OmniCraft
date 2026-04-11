@@ -1,6 +1,9 @@
 import {useMemo} from 'react';
+import {z} from 'zod';
 
 import {ReadFileResult} from '../ReadFileResult/index.js';
+
+const writeFileArgsSchema = z.object({content: z.string()});
 
 interface WriteFileResultProps {
   filePath: string;
@@ -28,9 +31,10 @@ export function WriteFileResult({
 
 function extractContent(jsonString: string): string | undefined {
   try {
-    const parsed = JSON.parse(jsonString) as Record<string, unknown>;
-    if (typeof parsed.content === 'string') {
-      return parsed.content;
+    const parsed: unknown = JSON.parse(jsonString);
+    const result = writeFileArgsSchema.safeParse(parsed);
+    if (result.success) {
+      return result.data.content;
     }
     console.warn(
       'WriteFileResult: expected "content" field in arguments, falling back to raw display',

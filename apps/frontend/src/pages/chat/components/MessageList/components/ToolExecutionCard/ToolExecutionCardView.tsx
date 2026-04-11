@@ -161,6 +161,18 @@ function renderToolResult(
 ): ReactNode {
   if (!data) return null;
 
+  try {
+    return renderToolResultUnsafe(toolName, data, toolArguments);
+  } catch {
+    return null;
+  }
+}
+
+function renderToolResultUnsafe(
+  toolName: ToolName,
+  data: AnyToolResultData,
+  toolArguments: string,
+): ReactNode {
   switch (toolName) {
     case 'read_file': {
       const d = readFileResultSchema.parse(data);
