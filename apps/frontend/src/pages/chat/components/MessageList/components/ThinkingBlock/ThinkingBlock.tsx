@@ -1,5 +1,4 @@
-import {useEffect, useState} from 'react';
-
+import {useThinkingBlock} from './hooks/useThinkingBlock.js';
 import {ThinkingBlockView} from './ThinkingBlockView.js';
 
 interface ThinkingBlockProps {
@@ -8,18 +7,14 @@ interface ThinkingBlockProps {
 }
 
 export function ThinkingBlock({content, done}: ThinkingBlockProps) {
-  const [isExpanded, setIsExpanded] = useState(!done);
-
-  useEffect(() => {
-    if (done) setIsExpanded(false);
-  }, [done]);
+  const {isExpanded, onExpandedChange} = useThinkingBlock({done});
 
   return (
     <ThinkingBlockView
       content={content}
       done={done}
       isExpanded={isExpanded}
-      onExpandedChange={setIsExpanded}
+      onExpandedChange={onExpandedChange}
     />
   );
 }
