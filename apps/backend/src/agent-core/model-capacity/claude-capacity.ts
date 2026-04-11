@@ -7,6 +7,20 @@ import type {LlmConfig} from '../llm-api/types.js';
 const DEFAULT_MAX_OUTPUT_TOKENS = 16_384;
 const DEFAULT_MAX_INPUT_TOKENS = 200_000;
 
+/**
+ * Known Claude model capacities. Checked before the SDK call so that
+ * proxies that don't implement `/v1/models/{id}` still get correct limits.
+ */
+const KNOWN_MODELS = new Map([
+  ['claude-opus-4.6-1m', {maxOutputTokens: 64_000, maxInputTokens: 1_000_000}],
+  ['claude-opus-4.6', {maxOutputTokens: 32_000, maxInputTokens: 200_000}],
+  ['claude-sonnet-4.6', {maxOutputTokens: 32_000, maxInputTokens: 200_000}],
+  ['claude-sonnet-4', {maxOutputTokens: 16_000, maxInputTokens: 216_000}],
+  ['claude-sonnet-4.5', {maxOutputTokens: 32_000, maxInputTokens: 200_000}],
+  ['claude-opus-4.5', {maxOutputTokens: 32_000, maxInputTokens: 200_000}],
+  ['claude-haiku-4.5', {maxOutputTokens: 64_000, maxInputTokens: 200_000}],
+]);
+
 interface CachedCapacity {
   maxOutputTokens: number;
   maxInputTokens: number;
@@ -24,6 +38,14 @@ async function resolve(config: Readonly<LlmConfig>): Promise<CachedCapacity> {
   const key = cacheKey(config);
   const cached = cache.get(key);
   if (cached) return cached;
+
+  // Check the static table first — works even when the proxy doesn't
+  // support the Anthropic /v1/models/{id} endpoint.
+  const known = KNOWN_MODELS.get(config.model);
+  if (known) {
+    cache.set(key, known);
+    return known;
+  }
 
   try {
     const client = new Anthropic({
