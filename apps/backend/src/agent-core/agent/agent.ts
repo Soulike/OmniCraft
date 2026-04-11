@@ -381,7 +381,7 @@ export abstract class Agent {
   }
 
   /**
-   * Executes a single tool call. Returns the result content and whether it errored.
+   * Executes a single tool call. Returns the result content and execution status.
    */
   private async executeTool(
     toolCall: LlmToolCall,
