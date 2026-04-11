@@ -1,8 +1,8 @@
+import {TOOL_NAME, webFetchRawResultSchema} from '@omnicraft/tool-schemas';
 import {z} from 'zod';
 
 import type {
   ToolDefinition,
-  ToolExecuteResult,
   ToolExecutionContext,
 } from '@/agent-core/tool/index.js';
 import {writeToTempFile} from '@/helpers/fs.js';
@@ -22,21 +22,25 @@ const parameters = z.object({
 });
 
 type WebFetchRawArgs = z.infer<typeof parameters>;
+type WebFetchRawResult = z.infer<typeof webFetchRawResultSchema>;
 
-export const webFetchRawTool: ToolDefinition<typeof parameters> = {
-  name: 'web_fetch_raw',
+export const webFetchRawTool: ToolDefinition<
+  typeof parameters,
+  WebFetchRawResult
+> = {
+  name: TOOL_NAME.WEB_FETCH_RAW,
   displayName: 'Web Fetch Raw',
   description:
     'Fetches a URL and returns the raw text content with no conversion. ' +
     `Prefer ${webFetchTool.name} for most use cases; only use this tool when you ` +
     'need unprocessed content (e.g., inspecting raw HTML structure).',
   parameters,
-  async execute(
-    args: WebFetchRawArgs,
-    _context: ToolExecutionContext,
-  ): Promise<ToolExecuteResult> {
+  resultSchema: webFetchRawResultSchema,
+  async execute(args: WebFetchRawArgs, _context: ToolExecutionContext) {
     const urlError = validateUrl(args.url);
-    if (urlError) return {content: urlError, status: 'failure'};
+    if (urlError) {
+      return {data: {message: urlError}, content: urlError, status: 'failure'};
+    }
 
     let body: string;
     try {
@@ -52,6 +56,7 @@ export const webFetchRawTool: ToolDefinition<typeof parameters> = {
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
       return {
+        data: {message: `Failed to fetch URL: ${message}`},
         content: `Error: Failed to fetch URL: ${message}`,
         status: 'failure',
       };
@@ -66,16 +71,23 @@ export const webFetchRawTool: ToolDefinition<typeof parameters> = {
       } catch (error: unknown) {
         const message = error instanceof Error ? error.message : String(error);
         return {
+          data: {
+            message: `Failed to save content to temporary file: ${message}`,
+          },
           content: `Error: Failed to save content to temporary file: ${message}`,
           status: 'failure',
         };
       }
+      const fileMessage = `Content saved to file: ${filePath}`;
+      const data: WebFetchRawResult = {url: args.url, content: fileMessage};
       return {
-        content: `${header}\nContent saved to file: ${filePath}`,
+        data,
+        content: `${header}\n${fileMessage}`,
         status: 'success',
       };
     }
 
-    return {content: `${header}\n\n${body}`, status: 'success'};
+    const data: WebFetchRawResult = {url: args.url, content: body};
+    return {data, content: `${header}\n\n${body}`, status: 'success'};
   },
 };

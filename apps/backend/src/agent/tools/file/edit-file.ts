@@ -2,13 +2,13 @@ import type {Stats} from 'node:fs';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
+import {editFileResultSchema, TOOL_NAME} from '@omnicraft/tool-schemas';
 import {createPatch} from 'diff';
 import {z} from 'zod';
 
 import {FileStatCheckResult} from '@/agent-core/agent/index.js';
 import type {
   ToolDefinition,
-  ToolExecuteResult,
   ToolExecutionContext,
 } from '@/agent-core/tool/index.js';
 
@@ -33,6 +33,7 @@ const parameters = z.object({
 });
 
 type EditFileArgs = z.infer<typeof parameters>;
+type EditFileResult = z.infer<typeof editFileResultSchema>;
 
 /** Counts non-overlapping occurrences of a substring in a string. */
 function countOccurrences(content: string, search: string): number {
@@ -46,17 +47,15 @@ function countOccurrences(content: string, search: string): number {
 }
 
 /** Built-in tool that makes targeted string replacements in a file. */
-export const editFileTool: ToolDefinition<typeof parameters> = {
-  name: 'edit_file',
+export const editFileTool: ToolDefinition<typeof parameters, EditFileResult> = {
+  name: TOOL_NAME.EDIT_FILE,
   displayName: 'Edit File',
   description:
     'Replaces a specific string in a file. ' +
     'Requires the old string to uniquely match unless replaceAll is set.',
   parameters,
-  async execute(
-    args: EditFileArgs,
-    context: ToolExecutionContext,
-  ): Promise<ToolExecuteResult> {
+  resultSchema: editFileResultSchema,
+  async execute(args: EditFileArgs, context: ToolExecutionContext) {
     const {workingDirectory} = context;
 
     // 1. Resolve path
@@ -71,6 +70,9 @@ export const editFileTool: ToolDefinition<typeof parameters> = {
     );
     if (accessResult === AccessCheckResult.ERROR_OUTSIDE_ALLOWED_DIRECTORIES) {
       return {
+        data: {
+          message: 'Access denied: path is outside the allowed directories',
+        },
         content:
           'Error: Access denied: path is outside the allowed directories',
         status: 'failure',
@@ -78,6 +80,7 @@ export const editFileTool: ToolDefinition<typeof parameters> = {
     }
     if (accessResult === AccessCheckResult.ERROR_READ_ONLY) {
       return {
+        data: {message: 'Access denied: path is read-only'},
         content: 'Error: Access denied: path is read-only',
         status: 'failure',
       };
@@ -89,6 +92,7 @@ export const editFileTool: ToolDefinition<typeof parameters> = {
       stat = await fs.stat(absolutePath);
     } catch {
       return {
+        data: {message: `File not found: ${args.filePath}`},
         content: `Error: File not found: ${args.filePath}`,
         status: 'failure',
       };
@@ -96,6 +100,7 @@ export const editFileTool: ToolDefinition<typeof parameters> = {
 
     if (!stat.isFile()) {
       return {
+        data: {message: `Not a file: ${args.filePath}`},
         content: `Error: Not a file: ${args.filePath}`,
         status: 'failure',
       };
@@ -103,6 +108,7 @@ export const editFileTool: ToolDefinition<typeof parameters> = {
 
     if (stat.size > MAX_FILE_SIZE) {
       return {
+        data: {message: `File exceeds ${MAX_FILE_SIZE} byte limit`},
         content: `Error: File exceeds ${MAX_FILE_SIZE} byte limit`,
         status: 'failure',
       };
@@ -115,12 +121,17 @@ export const editFileTool: ToolDefinition<typeof parameters> = {
     );
     if (checkResult === FileStatCheckResult.NOT_READ) {
       return {
+        data: {message: 'Read the file before modifying it'},
         content: 'Error: Read the file before modifying it',
         status: 'failure',
       };
     }
     if (checkResult === FileStatCheckResult.MODIFIED_SINCE_LAST_READ) {
       return {
+        data: {
+          message:
+            'File has been modified since last read. Read the file again before modifying it',
+        },
         content:
           'Error: File has been modified since last read. Read the file again before modifying it',
         status: 'failure',
@@ -132,12 +143,15 @@ export const editFileTool: ToolDefinition<typeof parameters> = {
       oldContent = await fs.readFile(absolutePath, 'utf-8');
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
-      return {content: `Error: ${message}`, status: 'failure'};
+      return {data: {message}, content: `Error: ${message}`, status: 'failure'};
     }
 
     // 4. Check for no-op replacement
     if (args.oldString === args.newString) {
       return {
+        data: {
+          message: 'oldString and newString are identical. No changes needed.',
+        },
         content:
           'Error: oldString and newString are identical. No changes needed.',
         status: 'failure',
@@ -149,6 +163,7 @@ export const editFileTool: ToolDefinition<typeof parameters> = {
 
     if (matchCount === 0) {
       return {
+        data: {message: `old string not found in ${args.filePath}`},
         content: `Error: old string not found in ${args.filePath}`,
         status: 'failure',
       };
@@ -156,6 +171,11 @@ export const editFileTool: ToolDefinition<typeof parameters> = {
 
     if (matchCount > 1 && !args.replaceAll) {
       return {
+        data: {
+          message:
+            `Found ${matchCount} matches in ${args.filePath}. ` +
+            'Provide more context to make a unique match, or set replaceAll to replace all occurrences.',
+        },
         content:
           `Error: Found ${matchCount} matches in ${args.filePath}. ` +
           'Provide more context to make a unique match, or set replaceAll to replace all occurrences.',
@@ -173,7 +193,7 @@ export const editFileTool: ToolDefinition<typeof parameters> = {
       await fs.writeFile(absolutePath, newContent, 'utf-8');
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
-      return {content: `Error: ${message}`, status: 'failure'};
+      return {data: {message}, content: `Error: ${message}`, status: 'failure'};
     }
 
     // Track new file stat
@@ -187,12 +207,25 @@ export const editFileTool: ToolDefinition<typeof parameters> = {
 
     if (Buffer.byteLength(diff) > MAX_DIFF_SIZE) {
       const truncated = diff.slice(0, MAX_DIFF_SIZE);
+      const data: EditFileResult = {
+        filePath: args.filePath,
+        matchCount,
+        diff,
+        truncated: true,
+      };
       return {
+        data,
         content: `${header}\n${truncated}\n... Diff truncated. Read the file to review the modified sections.`,
         status: 'success',
       };
     }
 
-    return {content: `${header}\n${diff}`, status: 'success'};
+    const data: EditFileResult = {
+      filePath: args.filePath,
+      matchCount,
+      diff,
+      truncated: false,
+    };
+    return {data, content: `${header}\n${diff}`, status: 'success'};
   },
 };

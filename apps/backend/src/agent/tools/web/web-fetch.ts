@@ -1,11 +1,11 @@
 import {Readability} from '@mozilla/readability';
+import {TOOL_NAME, webFetchResultSchema} from '@omnicraft/tool-schemas';
 import {parseHTML} from 'linkedom';
 import TurndownService from 'turndown';
 import {z} from 'zod';
 
 import type {
   ToolDefinition,
-  ToolExecuteResult,
   ToolExecutionContext,
 } from '@/agent-core/tool/index.js';
 import {writeToTempFile} from '@/helpers/fs.js';
@@ -89,20 +89,22 @@ function formatResponse(
   return lines.join('\n');
 }
 
-export const webFetchTool: ToolDefinition<typeof parameters> = {
-  name: 'web_fetch',
+type WebFetchResult = z.infer<typeof webFetchResultSchema>;
+
+export const webFetchTool: ToolDefinition<typeof parameters, WebFetchResult> = {
+  name: TOOL_NAME.WEB_FETCH,
   displayName: 'Web Fetch',
   description:
     'Fetches a URL and returns its content in a readable format. ' +
     'HTML pages are converted to Markdown with article extraction. ' +
     'Other text content (JSON, plain text, XML) is returned as-is.',
   parameters,
-  async execute(
-    args: WebFetchArgs,
-    _context: ToolExecutionContext,
-  ): Promise<ToolExecuteResult> {
+  resultSchema: webFetchResultSchema,
+  async execute(args: WebFetchArgs, _context: ToolExecutionContext) {
     const urlError = validateUrl(args.url);
-    if (urlError) return {content: urlError, status: 'failure'};
+    if (urlError) {
+      return {data: {message: urlError}, content: urlError, status: 'failure'};
+    }
 
     let body: string;
     let contentType: string;
@@ -120,6 +122,7 @@ export const webFetchTool: ToolDefinition<typeof parameters> = {
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
       return {
+        data: {message: `Failed to fetch URL: ${message}`},
         content: `Error: Failed to fetch URL: ${message}`,
         status: 'failure',
       };
@@ -149,22 +152,29 @@ export const webFetchTool: ToolDefinition<typeof parameters> = {
       } catch (error: unknown) {
         const message = error instanceof Error ? error.message : String(error);
         return {
+          data: {
+            message: `Failed to save content to temporary file: ${message}`,
+          },
           content: `Error: Failed to save content to temporary file: ${message}`,
           status: 'failure',
         };
       }
+      const fileMessage = `Content saved to file: ${filePath}`;
+      const data: WebFetchResult = {
+        url: args.url,
+        title,
+        content: fileMessage,
+      };
       return {
-        content: formatResponse(
-          args.url,
-          title,
-          `Content saved to file: ${filePath}`,
-          note,
-        ),
+        data,
+        content: formatResponse(args.url, title, fileMessage, note),
         status: 'success',
       };
     }
 
+    const data: WebFetchResult = {url: args.url, title, content};
     return {
+      data,
       content: formatResponse(args.url, title, content, note),
       status: 'success',
     };

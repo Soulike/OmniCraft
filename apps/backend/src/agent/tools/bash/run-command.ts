@@ -1,11 +1,11 @@
 import {realpathSync} from 'node:fs';
 import fs from 'node:fs/promises';
 
+import {runCommandResultSchema, TOOL_NAME} from '@omnicraft/tool-schemas';
 import {z} from 'zod';
 
 import type {
   ToolDefinition,
-  ToolExecuteResult,
   ToolExecutionContext,
 } from '@/agent-core/tool/index.js';
 import {ShellCommandRunner} from '@/helpers/shell-command-runner.js';
@@ -30,6 +30,7 @@ const parameters = z.object({
 });
 
 type RunCommandArgs = z.infer<typeof parameters>;
+type RunCommandResult = z.infer<typeof runCommandResultSchema>;
 
 type ResolvedOutput =
   | {type: 'inline'; content: string}
@@ -54,9 +55,23 @@ async function resolveOutputFile(filePath: string): Promise<ResolvedOutput> {
   return {type: 'file', filePath};
 }
 
+function resolvedOutputToString(resolved: ResolvedOutput): string {
+  switch (resolved.type) {
+    case 'inline':
+      return resolved.content;
+    case 'file':
+      return `Output saved to file: ${resolved.filePath}`;
+    case 'empty':
+      return '';
+  }
+}
+
 /** Built-in tool that executes a shell command. */
-export const runCommandTool: ToolDefinition<typeof parameters> = {
-  name: 'run_command',
+export const runCommandTool: ToolDefinition<
+  typeof parameters,
+  RunCommandResult
+> = {
+  name: TOOL_NAME.RUN_COMMAND,
   displayName: 'Run Command',
   description:
     'Executes a shell command and returns its output. ' +
@@ -64,11 +79,12 @@ export const runCommandTool: ToolDefinition<typeof parameters> = {
     'The working directory persists across calls. ' +
     'Shell state (env vars, aliases) does not persist.',
   parameters,
+  resultSchema: runCommandResultSchema,
   async execute(
     args: RunCommandArgs,
     context: ToolExecutionContext,
     onOutput?: (chunk: string) => void,
-  ): Promise<ToolExecuteResult> {
+  ) {
     const {shellState, workingDirectory, signal} = context;
     const timeout = args.timeout ?? DEFAULT_TIMEOUT_MS;
 
@@ -125,10 +141,34 @@ export const runCommandTool: ToolDefinition<typeof parameters> = {
     output = output.trim();
 
     if (!output) {
-      return {content: '(No output)', status: 'success'};
+      const data: RunCommandResult = {
+        command: args.command,
+        exitCode: result.exitCode,
+        timedOut: result.timedOut,
+        cwd: shellState.cwd,
+        stdout: '',
+        stderr: '',
+      };
+      return {data, content: '(No output)', status: 'success'};
     }
 
     const failed = result.timedOut || result.exitCode !== 0;
-    return {content: output, status: failed ? 'failure' : 'success'};
+    if (failed) {
+      return {
+        data: {message: output},
+        content: output,
+        status: 'failure',
+      };
+    }
+
+    const data: RunCommandResult = {
+      command: args.command,
+      exitCode: result.exitCode,
+      timedOut: result.timedOut,
+      cwd: shellState.cwd,
+      stdout: resolvedOutputToString(stdout),
+      stderr: resolvedOutputToString(stderr),
+    };
+    return {data, content: output, status: 'success'};
   },
 };

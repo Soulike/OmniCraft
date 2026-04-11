@@ -2,11 +2,11 @@ import type {Stats} from 'node:fs';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
+import {readFileResultSchema, TOOL_NAME} from '@omnicraft/tool-schemas';
 import {z} from 'zod';
 
 import type {
   ToolDefinition,
-  ToolExecuteResult,
   ToolExecutionContext,
 } from '@/agent-core/tool/index.js';
 
@@ -42,20 +42,19 @@ const parameters = z.object({
 });
 
 type ReadFileArgs = z.infer<typeof parameters>;
+type ReadFileResult = z.infer<typeof readFileResultSchema>;
 
 /** Built-in tool that reads text file contents with line numbers. */
-export const readFileTool: ToolDefinition<typeof parameters> = {
-  name: 'read_file',
+export const readFileTool: ToolDefinition<typeof parameters, ReadFileResult> = {
+  name: TOOL_NAME.READ_FILE,
   displayName: 'Read File',
   description:
     'Reads a text file and returns its contents with line numbers. ' +
     'Supports partial reads via startLine and lineCount parameters. ' +
     'Only text files within the working directory are allowed.',
   parameters,
-  async execute(
-    args: ReadFileArgs,
-    context: ToolExecutionContext,
-  ): Promise<ToolExecuteResult> {
+  resultSchema: readFileResultSchema,
+  async execute(args: ReadFileArgs, context: ToolExecutionContext) {
     const {workingDirectory, fileCache} = context;
 
     // 1. Resolve path
@@ -70,6 +69,9 @@ export const readFileTool: ToolDefinition<typeof parameters> = {
     );
     if (accessResult === AccessCheckResult.ERROR_OUTSIDE_ALLOWED_DIRECTORIES) {
       return {
+        data: {
+          message: 'Access denied: path is outside the allowed directories',
+        },
         content:
           'Error: Access denied: path is outside the allowed directories',
         status: 'failure',
@@ -82,6 +84,7 @@ export const readFileTool: ToolDefinition<typeof parameters> = {
       stat = await fs.stat(absolutePath);
     } catch {
       return {
+        data: {message: `File not found: ${args.filePath}`},
         content: `Error: File not found: ${args.filePath}`,
         status: 'failure',
       };
@@ -89,6 +92,7 @@ export const readFileTool: ToolDefinition<typeof parameters> = {
 
     if (!stat.isFile()) {
       return {
+        data: {message: `Not a file: ${args.filePath}`},
         content: `Error: Not a file: ${args.filePath}`,
         status: 'failure',
       };
@@ -98,12 +102,18 @@ export const readFileTool: ToolDefinition<typeof parameters> = {
     try {
       if (await isBinaryFile(absolutePath)) {
         return {
+          data: {
+            message: `Binary file detected: ${args.filePath}. Only text files are supported.`,
+          },
           content: `Error: Binary file detected: ${args.filePath}. Only text files are supported.`,
           status: 'failure',
         };
       }
     } catch {
       return {
+        data: {
+          message: `Unable to check if file is binary: ${args.filePath}`,
+        },
         content: `Error: Unable to check if file is binary: ${args.filePath}`,
         status: 'failure',
       };
@@ -147,6 +157,11 @@ export const readFileTool: ToolDefinition<typeof parameters> = {
     } catch (error: unknown) {
       if (error instanceof ReadSizeLimitError) {
         return {
+          data: {
+            message:
+              `${error.message}. ` +
+              `Use startLine and lineCount to read a smaller portion.`,
+          },
           content:
             `Error: ${error.message}. ` +
             `Use startLine and lineCount to read a smaller portion.`,
@@ -154,7 +169,7 @@ export const readFileTool: ToolDefinition<typeof parameters> = {
         };
       }
       const message = error instanceof Error ? error.message : String(error);
-      return {content: `Error: ${message}`, status: 'failure'};
+      return {data: {message}, content: `Error: ${message}`, status: 'failure'};
     }
 
     const endLine = args.lineCount
@@ -177,6 +192,14 @@ export const readFileTool: ToolDefinition<typeof parameters> = {
     // 8. Track file stat for modification safety
     context.fileStatTracker.set(absolutePath, stat.size, stat.mtimeMs);
 
-    return {content: `${header}\n${formatted}`, status: 'success'};
+    const data: ReadFileResult = {
+      filePath: args.filePath,
+      totalLines,
+      startLine,
+      endLine,
+      content: selectedLines.join('\n'),
+    };
+
+    return {data, content: `${header}\n${formatted}`, status: 'success'};
   },
 };
