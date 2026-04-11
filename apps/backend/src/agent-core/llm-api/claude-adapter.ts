@@ -34,7 +34,7 @@ function toSdkMessage(message: LlmMessage): SdkMessageParam {
       for (const block of message.thinking) {
         content.push({
           type: 'thinking',
-          thinking: block.content[0] ?? '',
+          thinking: block.content[0],
           signature: block.signature,
         });
       }
