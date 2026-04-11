@@ -1,4 +1,3 @@
-import assert from 'node:assert';
 import crypto from 'node:crypto';
 import os from 'node:os';
 
@@ -72,14 +71,6 @@ export abstract class Agent {
 
   /** Mutable shell state, shared by shell-related tools. */
   private readonly shellState: ShellState;
-
-  /**
-   * Event channel for the current tool-execution round.
-   * Set at the start of each round, closed when all tools finish.
-   */
-  private toolEventChannel: AsyncChannel<
-    SseToolExecuteEndEvent | SseToolExecuteDeltaEvent | SseSubAgentEvent
-  > | null = null;
 
   constructor(
     getConfig: () => Promise<LlmConfig>,
@@ -189,12 +180,18 @@ export abstract class Agent {
       }
 
       // Execute all tools in parallel, streaming end events as each completes
-      this.toolEventChannel = new AsyncChannel();
-      const channel = this.toolEventChannel;
+      const channel = new AsyncChannel<
+        SseToolExecuteEndEvent | SseToolExecuteDeltaEvent | SseSubAgentEvent
+      >();
       const toolResults = new Map<string, ToolResult>();
 
       const executions = toolCalls.map(async (toolCall) => {
-        const result = await this.executeTool(toolCall, availableTools, signal);
+        const result = await this.executeTool(
+          toolCall,
+          availableTools,
+          channel,
+          signal,
+        );
 
         const tool = availableTools.get(toolCall.toolName);
         if (!tool?.suppressToolEvents) {
@@ -224,8 +221,6 @@ export abstract class Agent {
       for await (const event of channel) {
         yield event;
       }
-
-      this.toolEventChannel = null;
 
       // signal.aborted may have changed during async tool execution
       // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
@@ -414,14 +409,11 @@ export abstract class Agent {
   private async executeTool(
     toolCall: LlmToolCall,
     availableTools: ReadonlyMap<string, ToolDefinition>,
+    channel: AsyncChannel<
+      SseToolExecuteEndEvent | SseToolExecuteDeltaEvent | SseSubAgentEvent
+    >,
     signal: AbortSignal,
   ): Promise<{content: string; status: 'success' | 'failure' | 'error'}> {
-    assert(
-      this.toolEventChannel,
-      'executeTool called outside of a tool-execution round',
-    );
-    const channel = this.toolEventChannel;
-
     const tool = availableTools.get(toolCall.toolName);
     if (!tool) {
       return {
