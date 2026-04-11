@@ -28,6 +28,10 @@ export class UserInteractionBridge {
    *                pending entry is cleaned up and the Promise rejects.
    */
   waitForResponse(id: string, signal?: AbortSignal): Promise<unknown> {
+    if (this.pending.has(id)) {
+      throw new Error(`Duplicate interaction ID: ${id}`);
+    }
+
     return new Promise<unknown>((resolve, reject) => {
       this.pending.set(id, {resolve, reject});
 

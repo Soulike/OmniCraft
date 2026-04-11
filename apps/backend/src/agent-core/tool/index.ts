@@ -1,4 +1,3 @@
-export {UserInteractionBridge} from '../user-interaction/index.js';
 export {loadSkillTool} from './load-skill.js';
 export {ToolRegistry} from './tool-registry.js';
 export type {
