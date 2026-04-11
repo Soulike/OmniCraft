@@ -1,11 +1,6 @@
-import type {LlmUsage} from '../llm-api/index.js';
+import type {SseErrorEvent, SseEvent} from '@omnicraft/sse-events';
+
 import type {LlmSessionSnapshot} from '../llm-session/index.js';
-import type {
-  LlmSessionTextDeltaEvent,
-  LlmSessionThinkingDeltaEvent,
-  LlmSessionThinkingEndEvent,
-  LlmSessionThinkingStartEvent,
-} from '../llm-session/index.js';
 import type {SkillRegistry} from '../skill/index.js';
 import type {AllowedPathEntry} from '../tool/index.js';
 import type {ToolRegistry} from '../tool/index.js';
@@ -14,56 +9,8 @@ import type {ToolRegistry} from '../tool/index.js';
 // Agent Event Types
 // ---------------------------------------------------------------------------
 
-/** The agent has started executing a tool call. */
-export interface AgentToolExecuteStartEvent {
-  type: 'tool-execute-start';
-  callId: string;
-  toolName: string;
-  displayName: string;
-  arguments: string;
-}
-
-/** The agent has finished executing a tool call. */
-export interface AgentToolExecuteEndEvent {
-  type: 'tool-execute-end';
-  callId: string;
-  result: string;
-  status: 'success' | 'failure' | 'error';
-}
-
-/** A new message is starting (user or assistant). */
-export interface AgentMessageStartEvent {
-  type: 'message-start';
-  role: 'user' | 'assistant';
-  messageId: string;
-  createdAt: number;
-}
-
-/** Intermediate streaming output from a running tool. */
-export interface AgentToolExecuteDeltaEvent {
-  type: 'tool-execute-delta';
-  callId: string;
-  content: string;
-}
-
-/** The agent has finished processing a user message. */
-export interface AgentDoneEvent {
-  type: 'done';
-  reason: 'complete' | 'max_rounds_reached';
-  usage: LlmUsage;
-}
-
 /** All events that the agent can yield to callers. */
-export type AgentEvent =
-  | AgentMessageStartEvent
-  | LlmSessionTextDeltaEvent
-  | LlmSessionThinkingStartEvent
-  | LlmSessionThinkingDeltaEvent
-  | LlmSessionThinkingEndEvent
-  | AgentToolExecuteStartEvent
-  | AgentToolExecuteDeltaEvent
-  | AgentToolExecuteEndEvent
-  | AgentDoneEvent;
+export type AgentEvent = Exclude<SseEvent, SseErrorEvent>;
 
 /** An async generator that yields agent streaming events. */
 export type AgentEventStream = AsyncGenerator<AgentEvent, void, undefined>;

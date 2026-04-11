@@ -1,4 +1,8 @@
-import type {SseUsage} from '@omnicraft/sse-events';
+import type {
+  SseToolExecuteEndEvent,
+  SseToolExecuteStartEvent,
+  SseUsage,
+} from '@omnicraft/sse-events';
 
 import type {EventBus} from '@/helpers/event-bus.js';
 
@@ -8,28 +12,11 @@ export interface TextContent {
   content: string;
 }
 
-/** A tool has started executing. */
-export interface ToolExecutionStartContent {
-  type: 'tool-execution-start';
-  callId: string;
-  toolName: string;
-  displayName: string;
-  arguments: string;
-}
-
-/** A tool has finished executing. */
-export interface ToolExecutionEndContent {
-  type: 'tool-execution-end';
-  callId: string;
-  result: string;
-  status: 'success' | 'failure' | 'error';
-}
-
 /** A single content entry in a chat message. */
 export type MessageContent =
   | TextContent
-  | ToolExecutionStartContent
-  | ToolExecutionEndContent;
+  | SseToolExecuteStartEvent
+  | SseToolExecuteEndEvent;
 
 /** A chat message for UI rendering. Each message has exactly one content. */
 export interface ChatMessage {
@@ -56,9 +43,9 @@ export interface ChatEventMap {
     createdAt: number;
   };
   /** A tool started executing. */
-  'tool-execute-start': ToolExecutionStartContent;
+  'tool-execute-start': SseToolExecuteStartEvent;
   /** A tool finished executing. */
-  'tool-execute-end': ToolExecutionEndContent;
+  'tool-execute-end': SseToolExecuteEndEvent;
   /** Intermediate streaming output from a running tool. */
   'tool-execute-delta': {callId: string; content: string};
   /** The stream completed (LLM finished or max rounds reached). */

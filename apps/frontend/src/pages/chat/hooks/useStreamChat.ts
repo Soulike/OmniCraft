@@ -60,21 +60,10 @@ export function useStreamChat({
               eventBus.emit('text-delta', {content: event.content});
               break;
             case 'tool-execute-start':
-              eventBus.emit('tool-execute-start', {
-                type: 'tool-execution-start',
-                callId: event.callId,
-                toolName: event.toolName,
-                displayName: event.displayName,
-                arguments: event.arguments,
-              });
+              eventBus.emit('tool-execute-start', event);
               break;
             case 'tool-execute-end':
-              eventBus.emit('tool-execute-end', {
-                type: 'tool-execution-end',
-                callId: event.callId,
-                result: event.result,
-                status: event.status,
-              });
+              eventBus.emit('tool-execute-end', event);
               break;
             case 'message-start':
               eventBus.emit('message-start', {

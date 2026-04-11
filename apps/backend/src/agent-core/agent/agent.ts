@@ -2,19 +2,23 @@ import crypto from 'node:crypto';
 import os from 'node:os';
 
 import type {ThinkingLevel} from '@omnicraft/api-schema';
+import type {
+  SseDoneEvent,
+  SseMessageStartEvent,
+  SseTextDeltaEvent,
+  SseThinkingDeltaEvent,
+  SseThinkingEndEvent,
+  SseThinkingStartEvent,
+  SseToolExecuteDeltaEvent,
+  SseToolExecuteEndEvent,
+  SseToolExecuteStartEvent,
+} from '@omnicraft/sse-events';
 
 import {AsyncChannel} from '@/helpers/async-channel.js';
 
 import {agentEventBus} from '../events/index.js';
 import type {LlmConfig, LlmToolCall} from '../llm-api/index.js';
-import type {
-  LlmSessionEventStream,
-  LlmSessionTextDeltaEvent,
-  LlmSessionThinkingDeltaEvent,
-  LlmSessionThinkingEndEvent,
-  LlmSessionThinkingStartEvent,
-  ToolResult,
-} from '../llm-session/index.js';
+import type {LlmSessionEventStream, ToolResult} from '../llm-session/index.js';
 import {LlmSession} from '../llm-session/index.js';
 import type {SkillDefinition} from '../skill/index.js';
 import type {
@@ -26,16 +30,7 @@ import type {
 import {loadSkillTool} from '../tool/index.js';
 import {FileContentCache} from './file-content-cache.js';
 import {FileStatTracker} from './file-stat-tracker.js';
-import type {
-  AgentDoneEvent,
-  AgentEventStream,
-  AgentMessageStartEvent,
-  AgentOptions,
-  AgentSnapshot,
-  AgentToolExecuteDeltaEvent,
-  AgentToolExecuteEndEvent,
-  AgentToolExecuteStartEvent,
-} from './types.js';
+import type {AgentEventStream, AgentOptions, AgentSnapshot} from './types.js';
 
 /**
  * Base class for all agents.
@@ -146,7 +141,7 @@ export abstract class Agent {
       role: 'user',
       messageId,
       createdAt,
-    } satisfies AgentMessageStartEvent;
+    } satisfies SseMessageStartEvent;
 
     let toolCalls = yield* this.consumeStream(userStream);
 
@@ -160,7 +155,7 @@ export abstract class Agent {
           type: 'done',
           reason: 'max_rounds_reached',
           usage: this.llmSession.getUsage(),
-        } satisfies AgentDoneEvent;
+        } satisfies SseDoneEvent;
         return;
       }
 
@@ -175,12 +170,12 @@ export abstract class Agent {
           toolName: toolCall.toolName,
           displayName: tool?.displayName ?? toolCall.toolName,
           arguments: toolCall.arguments,
-        } satisfies AgentToolExecuteStartEvent;
+        } satisfies SseToolExecuteStartEvent;
       }
 
       // Execute all tools in parallel, streaming end events as each completes
       const channel = new AsyncChannel<
-        AgentToolExecuteEndEvent | AgentToolExecuteDeltaEvent
+        SseToolExecuteEndEvent | SseToolExecuteDeltaEvent
       >();
       const toolResults = new Map<string, ToolResult>();
 
@@ -190,7 +185,7 @@ export abstract class Agent {
             type: 'tool-execute-delta',
             callId: toolCall.callId,
             content: chunk,
-          } satisfies AgentToolExecuteDeltaEvent);
+          } satisfies SseToolExecuteDeltaEvent);
         };
         const result = await this.executeTool(
           toolCall,
@@ -203,7 +198,7 @@ export abstract class Agent {
           callId: toolCall.callId,
           result: result.content,
           status: result.status,
-        } satisfies AgentToolExecuteEndEvent;
+        } satisfies SseToolExecuteEndEvent;
         toolResults.set(toolCall.callId, {
           callId: toolCall.callId,
           content: result.content,
@@ -249,7 +244,7 @@ export abstract class Agent {
       type: 'done',
       reason: 'complete',
       usage: this.llmSession.getUsage(),
-    } satisfies AgentDoneEvent;
+    } satisfies SseDoneEvent;
   }
 
   // -------------------------------------------------------------------------
@@ -357,11 +352,11 @@ export abstract class Agent {
   private async *consumeStream(
     stream: LlmSessionEventStream,
   ): AsyncGenerator<
-    | LlmSessionTextDeltaEvent
-    | LlmSessionThinkingStartEvent
-    | LlmSessionThinkingDeltaEvent
-    | LlmSessionThinkingEndEvent
-    | AgentMessageStartEvent,
+    | SseTextDeltaEvent
+    | SseThinkingStartEvent
+    | SseThinkingDeltaEvent
+    | SseThinkingEndEvent
+    | SseMessageStartEvent,
     LlmToolCall[],
     undefined
   > {
@@ -380,7 +375,7 @@ export abstract class Agent {
             role: 'assistant',
             messageId: event.messageId,
             createdAt: event.createdAt,
-          } satisfies AgentMessageStartEvent;
+          } satisfies SseMessageStartEvent;
           break;
         case 'tool-call':
           toolCalls.push(event.toolCall);

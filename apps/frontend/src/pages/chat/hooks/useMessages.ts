@@ -1,10 +1,10 @@
+import type {
+  SseToolExecuteEndEvent,
+  SseToolExecuteStartEvent,
+} from '@omnicraft/sse-events';
 import {useCallback, useEffect, useState} from 'react';
 
-import type {
-  ChatMessage,
-  ToolExecutionEndContent,
-  ToolExecutionStartContent,
-} from '../types.js';
+import type {ChatMessage} from '../types.js';
 import {useChatEventBus} from './useChatEventBus.js';
 
 /**
@@ -73,7 +73,7 @@ function appendAssistantText(
 
 function pushToolStart(
   prev: ChatMessage[],
-  content: ToolExecutionStartContent,
+  content: SseToolExecuteStartEvent,
 ): ChatMessage[] {
   const base = removeTrailingAssistantMessageIfEmpty(prev);
   return [
@@ -84,7 +84,7 @@ function pushToolStart(
 
 function pushToolEnd(
   prev: ChatMessage[],
-  content: ToolExecutionEndContent,
+  content: SseToolExecuteEndEvent,
 ): ChatMessage[] {
   const base = removeTrailingAssistantMessageIfEmpty(prev);
   return [
@@ -142,10 +142,10 @@ export function useMessages() {
     const onTextDelta = (data: {content: string}) => {
       setMessages((prev) => appendAssistantText(prev, data.content));
     };
-    const onToolExecuteStart = (data: ToolExecutionStartContent) => {
+    const onToolExecuteStart = (data: SseToolExecuteStartEvent) => {
       setMessages((prev) => pushToolStart(prev, data));
     };
-    const onToolExecuteEnd = (data: ToolExecutionEndContent) => {
+    const onToolExecuteEnd = (data: SseToolExecuteEndEvent) => {
       setMessages((prev) => pushToolEnd(prev, data));
     };
     const onStreamEnd = () => {

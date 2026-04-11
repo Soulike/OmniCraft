@@ -41,7 +41,7 @@ export function transformMessages(
     {result: string; status: 'success' | 'failure' | 'error'}
   >();
   for (const message of messages) {
-    if (message.content.type === 'tool-execution-end') {
+    if (message.content.type === 'tool-execute-end') {
       endEvents.set(message.content.callId, {
         result: message.content.result,
         status: message.content.status,
@@ -73,7 +73,7 @@ export function transformMessages(
         }
         break;
       }
-      case 'tool-execution-start': {
+      case 'tool-execute-start': {
         const endEvent = endEvents.get(content.callId);
         if (endEvent) {
           items.push({
@@ -102,7 +102,7 @@ export function transformMessages(
         }
         break;
       }
-      case 'tool-execution-end':
+      case 'tool-execute-end':
         // Already handled via the start event pairing above
         break;
     }
