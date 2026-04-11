@@ -43,13 +43,7 @@ export async function* streamClaude(
   }
 
   const thinking = toThinkingConfig(options.thinkingLevel);
-  // budget_tokens must be < max_tokens; clamp in case the fallback is small.
-  const maxOutputTokens = await modelCapacity.getMaxOutputTokens(
-    options.config,
-  );
-  const thinkingBudget =
-    thinking?.type === 'enabled' ? thinking.budget_tokens : 0;
-  const maxTokens = Math.max(maxOutputTokens, thinkingBudget + 1);
+  const maxTokens = await modelCapacity.getMaxOutputTokens(options.config);
 
   const stream = client.messages.stream(
     {
