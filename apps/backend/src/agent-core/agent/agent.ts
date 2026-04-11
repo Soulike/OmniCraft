@@ -12,6 +12,7 @@ import type {
   SseToolExecuteDeltaEvent,
   SseToolExecuteEndEvent,
   SseToolExecuteStartEvent,
+  SseUsage,
 } from '@omnicraft/sse-events';
 
 import {AsyncChannel} from '@/helpers/async-channel.js';
@@ -20,6 +21,7 @@ import {agentEventBus} from '../events/index.js';
 import type {LlmConfig, LlmToolCall} from '../llm-api/index.js';
 import type {LlmSessionEventStream, ToolResult} from '../llm-session/index.js';
 import {LlmSession} from '../llm-session/index.js';
+import {modelCapacity} from '../model-capacity/index.js';
 import type {SkillDefinition} from '../skill/index.js';
 import type {
   AllowedPathEntry,
@@ -54,6 +56,7 @@ export abstract class Agent {
   private readonly skillRegistries: AgentOptions['skillRegistries'];
   private readonly baseSystemPrompt: string;
   private readonly getMaxToolRounds: AgentOptions['getMaxToolRounds'];
+  private readonly getConfig: () => Promise<LlmConfig>;
 
   private readonly workingDirectory: string;
 
@@ -77,6 +80,7 @@ export abstract class Agent {
     this.skillRegistries = options.skillRegistries;
     this.baseSystemPrompt = options.baseSystemPrompt;
     this.getMaxToolRounds = options.getMaxToolRounds;
+    this.getConfig = getConfig;
 
     this.extraAllowedPaths = [
       {path: os.tmpdir(), mode: 'read-write' as const},
@@ -154,7 +158,7 @@ export abstract class Agent {
         yield {
           type: 'done',
           reason: 'max_rounds_reached',
-          usage: this.llmSession.getUsage(),
+          usage: await this.buildSseUsage(),
         } satisfies SseDoneEvent;
         return;
       }
@@ -243,13 +247,27 @@ export abstract class Agent {
     yield {
       type: 'done',
       reason: 'complete',
-      usage: this.llmSession.getUsage(),
+      usage: await this.buildSseUsage(),
     } satisfies SseDoneEvent;
   }
 
   // -------------------------------------------------------------------------
   // Private helpers
   // -------------------------------------------------------------------------
+
+  /**
+   * Builds the full SseUsage object by combining LLM session token counts
+   * with model metadata from the config.
+   */
+  private async buildSseUsage(): Promise<SseUsage> {
+    const config = await this.getConfig();
+    const maxInputTokens = await modelCapacity.getMaxInputTokens(config);
+    return {
+      model: config.model,
+      maxInputTokens,
+      ...this.llmSession.getUsage(),
+    };
+  }
 
   /**
    * Merges tools from all registries, deduplicates by reference identity.

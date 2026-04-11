@@ -7,16 +7,26 @@ interface UsageInfoProps {
   usage: SseUsage;
 }
 
+const CONTEXT_WARNING_THRESHOLD = 0.8;
+
 export function UsageInfo({usage}: UsageInfoProps) {
   const cacheRate =
     usage.inputTokens > 0
       ? Math.round((usage.cacheReadInputTokens / usage.inputTokens) * 100)
       : 0;
 
+  const contextRatio =
+    usage.maxInputTokens > 0 ? usage.inputTokens / usage.maxInputTokens : 0;
+  const contextPercent = Math.round(contextRatio * 100);
+  const isContextHigh = contextRatio > CONTEXT_WARNING_THRESHOLD;
+
   return (
     <div className={styles.container}>
-      <span className={styles.item}>
-        Input: {formatTokenCount(usage.inputTokens)}
+      <span className={styles.item}>{usage.model}</span>
+      <span className={`${styles.item} ${isContextHigh ? styles.warning : ''}`}>
+        Input: {formatTokenCount(usage.inputTokens)} /{' '}
+        {formatTokenCount(usage.maxInputTokens)}
+        <span className={styles.rate}> ({contextPercent}%)</span>
       </span>
       <span className={styles.item}>
         Output: {formatTokenCount(usage.outputTokens)}
