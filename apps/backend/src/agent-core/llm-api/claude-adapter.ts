@@ -9,6 +9,7 @@ import type {
   LlmCompletionOptions,
   LlmEventStream,
   LlmMessage,
+  LlmThinkingBlock,
   LlmUsage,
 } from './types.js';
 
@@ -29,6 +30,14 @@ function toSdkMessage(message: LlmMessage): SdkMessageParam {
       return {role: 'user', content: message.content};
     case 'assistant': {
       const content: Anthropic.ContentBlockParam[] = [];
+      // Thinking blocks must come before text/tool_use blocks.
+      for (const block of message.thinking) {
+        content.push({
+          type: 'thinking',
+          thinking: block.content[0],
+          signature: block.signature,
+        });
+      }
       if (message.content) {
         content.push({type: 'text', text: message.content});
       }
@@ -123,6 +132,41 @@ function toThinkingConfig(
   }
 }
 
+/** Accumulates thinking text and signature deltas for a single content block. */
+class ThinkingBlockAccumulator {
+  private readonly blocks = new Map<
+    number,
+    {text: string; signature: string}
+  >();
+
+  start(index: number): void {
+    this.blocks.set(index, {text: '', signature: ''});
+  }
+
+  has(index: number): boolean {
+    return this.blocks.has(index);
+  }
+
+  appendText(index: number, delta: string): void {
+    const block = this.blocks.get(index);
+    assert(block, `No thinking block at index ${index.toString()}`);
+    block.text += delta;
+  }
+
+  appendSignature(index: number, delta: string): void {
+    const block = this.blocks.get(index);
+    assert(block, `No thinking block at index ${index.toString()}`);
+    block.signature += delta;
+  }
+
+  finish(index: number): LlmThinkingBlock {
+    const block = this.blocks.get(index);
+    assert(block, `No thinking block at index ${index.toString()}`);
+    this.blocks.delete(index);
+    return {content: [block.text], signature: block.signature};
+  }
+}
+
 /** Streams LLM events from the Anthropic Claude API. */
 export async function* streamClaude(
   options: LlmCompletionOptions,
@@ -183,6 +227,9 @@ export async function* streamClaude(
   // Claude uses content block indices; track index → callId mapping.
   const blockCallIds = new Map<number, string>();
 
+  // Track thinking block indices and their accumulated data.
+  const thinkingAccumulator = new ThinkingBlockAccumulator();
+
   // Accumulate usage across events; Claude reports input in message_start
   // and output in message_delta.
   let usage: LlmUsage = {
@@ -231,6 +278,9 @@ export async function* streamClaude(
             callId: event.content_block.id,
             toolName: event.content_block.name,
           };
+        } else if (event.content_block.type === 'thinking') {
+          thinkingAccumulator.start(event.index);
+          yield {type: 'thinking-start'};
         }
         break;
       }
@@ -248,6 +298,14 @@ export async function* streamClaude(
             callId,
             argumentsDelta: event.delta.partial_json,
           };
+        } else if (event.delta.type === 'thinking_delta') {
+          thinkingAccumulator.appendText(event.index, event.delta.thinking);
+          yield {type: 'thinking-delta', content: event.delta.thinking};
+        } else if (event.delta.type === 'signature_delta') {
+          thinkingAccumulator.appendSignature(
+            event.index,
+            event.delta.signature,
+          );
         }
         break;
       }
@@ -256,6 +314,10 @@ export async function* streamClaude(
         if (callId) {
           yield {type: 'tool-call-end', callId};
           blockCallIds.delete(event.index);
+        }
+        if (thinkingAccumulator.has(event.index)) {
+          const block = thinkingAccumulator.finish(event.index);
+          yield {type: 'thinking-end', block};
         }
         break;
       }

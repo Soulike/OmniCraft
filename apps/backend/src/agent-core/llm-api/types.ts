@@ -10,6 +10,14 @@ export interface LlmToolCall {
   arguments: string;
 }
 
+/** A thinking/reasoning block from the assistant, abstracted across providers. */
+export interface LlmThinkingBlock {
+  /** The thinking/reasoning text, one element per "part". */
+  content: string[];
+  /** Opaque token for multi-turn continuity (Claude signature / OpenAI reasoning item id). */
+  signature: string;
+}
+
 /** Common fields shared by all LLM messages. */
 interface LlmMessageBase {
   id: string;
@@ -26,6 +34,7 @@ export interface LlmUserMessage extends LlmMessageBase {
 export interface LlmAssistantMessage extends LlmMessageBase {
   role: 'assistant';
   toolCalls: LlmToolCall[];
+  thinking: LlmThinkingBlock[];
 }
 
 /** A tool execution result, linked to a specific tool call. */
@@ -70,6 +79,23 @@ export interface LlmTextDeltaEvent {
   content: string;
 }
 
+/** Thinking/reasoning has started. */
+export interface LlmThinkingStartEvent {
+  type: 'thinking-start';
+}
+
+/** A thinking/reasoning content delta from the LLM. */
+export interface LlmThinkingDeltaEvent {
+  type: 'thinking-delta';
+  content: string;
+}
+
+/** A thinking/reasoning block has completed. Carries the full block for history. */
+export interface LlmThinkingEndEvent {
+  type: 'thinking-end';
+  block: LlmThinkingBlock;
+}
+
 /** A tool call has started. */
 export interface LlmToolCallStartEvent {
   type: 'tool-call-start';
@@ -95,6 +121,9 @@ export type LlmEvent =
   | LlmMessageStartEvent
   | LlmMessageEndEvent
   | LlmTextDeltaEvent
+  | LlmThinkingStartEvent
+  | LlmThinkingDeltaEvent
+  | LlmThinkingEndEvent
   | LlmToolCallStartEvent
   | LlmToolCallDeltaEvent
   | LlmToolCallEndEvent;

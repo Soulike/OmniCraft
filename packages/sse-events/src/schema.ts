@@ -65,6 +65,25 @@ export const sseDoneEventSchema = z.object({
 });
 export type SseDoneEvent = z.infer<typeof sseDoneEventSchema>;
 
+/** Thinking/reasoning has started. */
+export const sseThinkingStartEventSchema = z.object({
+  type: z.literal('thinking-start'),
+});
+export type SseThinkingStartEvent = z.infer<typeof sseThinkingStartEventSchema>;
+
+/** A thinking/reasoning content delta from the LLM. */
+export const sseThinkingDeltaEventSchema = z.object({
+  type: z.literal('thinking-delta'),
+  content: z.string(),
+});
+export type SseThinkingDeltaEvent = z.infer<typeof sseThinkingDeltaEventSchema>;
+
+/** Thinking/reasoning has ended. */
+export const sseThinkingEndEventSchema = z.object({
+  type: z.literal('thinking-end'),
+});
+export type SseThinkingEndEvent = z.infer<typeof sseThinkingEndEventSchema>;
+
 /** An error occurred during streaming. */
 export const sseErrorEventSchema = z.object({
   type: z.literal('error'),
@@ -76,6 +95,9 @@ export type SseErrorEvent = z.infer<typeof sseErrorEventSchema>;
 export const sseEventSchema = z.discriminatedUnion('type', [
   sseMessageStartEventSchema,
   sseTextDeltaEventSchema,
+  sseThinkingStartEventSchema,
+  sseThinkingDeltaEventSchema,
+  sseThinkingEndEventSchema,
   sseToolExecuteStartEventSchema,
   sseToolExecuteDeltaEventSchema,
   sseToolExecuteEndEventSchema,

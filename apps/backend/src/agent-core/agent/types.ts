@@ -1,6 +1,11 @@
 import type {LlmUsage} from '../llm-api/index.js';
 import type {LlmSessionSnapshot} from '../llm-session/index.js';
-import type {LlmSessionTextDeltaEvent} from '../llm-session/index.js';
+import type {
+  LlmSessionTextDeltaEvent,
+  LlmSessionThinkingDeltaEvent,
+  LlmSessionThinkingEndEvent,
+  LlmSessionThinkingStartEvent,
+} from '../llm-session/index.js';
 import type {SkillRegistry} from '../skill/index.js';
 import type {AllowedPathEntry} from '../tool/index.js';
 import type {ToolRegistry} from '../tool/index.js';
@@ -52,6 +57,9 @@ export interface AgentDoneEvent {
 export type AgentEvent =
   | AgentMessageStartEvent
   | LlmSessionTextDeltaEvent
+  | LlmSessionThinkingStartEvent
+  | LlmSessionThinkingDeltaEvent
+  | LlmSessionThinkingEndEvent
   | AgentToolExecuteStartEvent
   | AgentToolExecuteDeltaEvent
   | AgentToolExecuteEndEvent

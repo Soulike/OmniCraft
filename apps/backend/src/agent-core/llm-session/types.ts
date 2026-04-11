@@ -18,6 +18,22 @@ export interface LlmSessionTextDeltaEvent {
   content: string;
 }
 
+/** Thinking/reasoning has started. */
+export interface LlmSessionThinkingStartEvent {
+  type: 'thinking-start';
+}
+
+/** A thinking/reasoning content delta from the LLM. */
+export interface LlmSessionThinkingDeltaEvent {
+  type: 'thinking-delta';
+  content: string;
+}
+
+/** Thinking/reasoning has ended. */
+export interface LlmSessionThinkingEndEvent {
+  type: 'thinking-end';
+}
+
 /** A fully assembled tool call from the LLM. */
 export interface LlmSessionToolCallEvent {
   type: 'tool-call';
@@ -34,6 +50,9 @@ export interface LlmSessionMessageStartEvent {
 /** Events yielded by LlmSession.sendMessage(). */
 export type LlmSessionEvent =
   | LlmSessionTextDeltaEvent
+  | LlmSessionThinkingStartEvent
+  | LlmSessionThinkingDeltaEvent
+  | LlmSessionThinkingEndEvent
   | LlmSessionToolCallEvent
   | LlmSessionMessageStartEvent;
 
