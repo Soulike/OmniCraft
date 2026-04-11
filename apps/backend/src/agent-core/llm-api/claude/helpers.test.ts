@@ -1,6 +1,6 @@
 import {describe, expect, it} from 'vitest';
 
-import {addCacheBreakpoint} from './claude-adapter.js';
+import {addCacheBreakpoint} from './helpers.js';
 
 describe('addCacheBreakpoint', () => {
   it('converts string content to array with cache_control', () => {
