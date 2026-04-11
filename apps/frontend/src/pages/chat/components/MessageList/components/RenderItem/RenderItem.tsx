@@ -3,6 +3,7 @@ import clsx from 'clsx';
 import {formatTimestamp} from '../../helpers/formatTimestamp.js';
 import type {MessageRenderItem} from '../../hooks/useMessageList.js';
 import {MessageBubble} from '../MessageBubble/index.js';
+import {ThinkingBlock} from '../ThinkingBlock/index.js';
 import {ToolExecutionCard} from '../ToolExecutionCard/index.js';
 import styles from './styles.module.css';
 
@@ -45,6 +46,12 @@ export function RenderItem({item}: RenderItemProps) {
             status={item.status}
             result={item.result}
           />
+        </div>
+      );
+    case 'thinking':
+      return (
+        <div className={styles.assistantMessage}>
+          <ThinkingBlock content={item.content} done={item.done} />
         </div>
       );
   }
