@@ -1,12 +1,10 @@
 import path from 'node:path';
 
 import {thinkingLevelSchema} from '@omnicraft/api-schema';
-import type {AllowedPathEntry} from '@omnicraft/settings-schema';
 import type {SseBaseEvent} from '@omnicraft/sse-events';
 import {z} from 'zod';
 
 import {GeneralSubAgent} from '@/agent/agents/index.js';
-import type {Agent} from '@/agent-core/agent/index.js';
 import type {LlmConfig} from '@/agent-core/llm-api/index.js';
 import type {
   ToolDefinition,
@@ -16,16 +14,14 @@ import type {
 import {AccessCheckResult, checkAccess} from '@/helpers/path-access.js';
 import {settingsService} from '@/services/settings/index.js';
 
-type SubAgentFactory = (
-  getConfig: () => Promise<LlmConfig>,
-  workingDirectory: string,
-  extraAllowedPaths: readonly AllowedPathEntry[],
-) => Agent;
+type SubAgentConstructor = new (
+  ...args: ConstructorParameters<typeof GeneralSubAgent>
+) => InstanceType<typeof GeneralSubAgent>;
 
 interface SubAgentTypeInfo {
   name: string;
   description: string;
-  factory: SubAgentFactory;
+  constructor: SubAgentConstructor;
 }
 
 const subAgentTypes: Record<string, SubAgentTypeInfo> = {
@@ -34,8 +30,7 @@ const subAgentTypes: Record<string, SubAgentTypeInfo> = {
     description:
       'General-purpose agent for autonomous multi-step tasks. ' +
       'Use for any work that no other specialized subagent can handle.',
-    factory: (getConfig, workingDirectory, extraAllowedPaths) =>
-      new GeneralSubAgent(getConfig, workingDirectory, extraAllowedPaths),
+    constructor: GeneralSubAgent,
   },
 };
 
@@ -140,8 +135,8 @@ export const dispatchAgentTool: ToolDefinition<typeof parameters> = {
       });
 
     // Create and run subagent
-    const {factory} = subAgentTypes[agentType];
-    const subagent = factory(
+    const {constructor: SubAgent} = subAgentTypes[agentType];
+    const subagent = new SubAgent(
       getConfig,
       workingDirectory,
       context.extraAllowedPaths,
