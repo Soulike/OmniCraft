@@ -5,7 +5,7 @@ import clsx from 'clsx';
 
 import styles from '../../styles.module.css';
 import {HighlightedJson} from '../HighlightedJson/index.js';
-import {renderToolResult} from './renderToolResult.js';
+import {renderToolResult} from './helpers/renderToolResult.js';
 
 interface ResultSectionViewProps {
   toolName: ToolName;
