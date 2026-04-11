@@ -129,7 +129,7 @@ Run: `bun run --filter '@omnicraft/tool-schemas' check`
 
 Expected: No type errors.
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 7: Commit**
 
 ```bash
 git add packages/tool-schemas/src/
@@ -681,6 +681,7 @@ git commit -m "refactor(frontend): make useSessionId context-backed for deep acc
 
 **Files:**
 
+- Create: `apps/frontend/src/pages/chat/components/MessageList/components/AskUserCard/types.ts`
 - Create: `apps/frontend/src/pages/chat/components/MessageList/components/AskUserCard/hooks/useQuestions.ts`
 - Create: `apps/frontend/src/pages/chat/components/MessageList/components/AskUserCard/hooks/useFormState.ts`
 - Create: `apps/frontend/src/pages/chat/components/MessageList/components/AskUserCard/hooks/useSubmitActions.ts`
@@ -689,18 +690,33 @@ git commit -m "refactor(frontend): make useSessionId context-backed for deep acc
 - Create: `apps/frontend/src/pages/chat/components/MessageList/components/AskUserCard/styles.module.css`
 - Create: `apps/frontend/src/pages/chat/components/MessageList/components/AskUserCard/index.ts`
 
-- [ ] **Step 1: Create useQuestions hook — parses tool arguments**
+- [ ] **Step 1: Create shared types**
+
+Create `apps/frontend/src/pages/chat/components/MessageList/components/AskUserCard/types.ts`:
+
+```typescript
+import type {askUserParametersSchema} from '@omnicraft/tool-schemas';
+import type {z} from 'zod';
+
+export type Question = z.infer<
+  typeof askUserParametersSchema
+>['questions'][number];
+
+export interface AnswerEntry {
+  question: string;
+  answer: string | null;
+}
+```
+
+- [ ] **Step 2: Create useQuestions hook — parses tool arguments**
 
 Create `apps/frontend/src/pages/chat/components/MessageList/components/AskUserCard/hooks/useQuestions.ts`:
 
 ```typescript
 import {askUserParametersSchema} from '@omnicraft/tool-schemas';
 import {useMemo} from 'react';
-import type {z} from 'zod';
 
-export type Question = z.infer<
-  typeof askUserParametersSchema
->['questions'][number];
+import type {Question} from '../types.js';
 
 /** Parses and validates the tool arguments JSON into a Question array. */
 export function useQuestions(toolArguments: string): Question[] {
@@ -716,19 +732,14 @@ export function useQuestions(toolArguments: string): Question[] {
 }
 ```
 
-- [ ] **Step 2: Create useFormState hook — manages selections and custom text**
+- [ ] **Step 3: Create useFormState hook — manages selections and custom text**
 
 Create `apps/frontend/src/pages/chat/components/MessageList/components/AskUserCard/hooks/useFormState.ts`:
 
 ```typescript
 import {useCallback, useState} from 'react';
 
-import type {Question} from './useQuestions.js';
-
-export interface AnswerEntry {
-  question: string;
-  answer: string | null;
-}
+import type {AnswerEntry, Question} from '../types.js';
 
 const OTHER_VALUE = '__other__';
 
@@ -801,7 +812,7 @@ export function useFormState(questions: Question[]): FormState {
 }
 ```
 
-- [ ] **Step 3: Create useSubmitActions hook — handles submit and cancel**
+- [ ] **Step 4: Create useSubmitActions hook — handles submit and cancel**
 
 Create `apps/frontend/src/pages/chat/components/MessageList/components/AskUserCard/hooks/useSubmitActions.ts`:
 
@@ -811,7 +822,7 @@ import {useCallback, useState} from 'react';
 import {submitToolResponse} from '@/api/chat/index.js';
 
 import {useSessionId} from '../../../../../hooks/useSessionId.js';
-import type {AnswerEntry} from './useFormState.js';
+import type {AnswerEntry} from '../types.js';
 
 interface UseSubmitActionsParams {
   callId: string;
@@ -854,7 +865,7 @@ export function useSubmitActions({
 }
 ```
 
-- [ ] **Step 4: Create the view component**
+- [ ] **Step 5: Create the view component**
 
 Create `apps/frontend/src/pages/chat/components/MessageList/components/AskUserCard/AskUserCardView.tsx`:
 
@@ -870,9 +881,9 @@ import {
 } from '@heroui/react';
 import {CircleAlert, CircleCheck, MessageCircleQuestion} from 'lucide-react';
 
-import type {AnswerEntry, FormState} from './hooks/useFormState.js';
-import type {Question} from './hooks/useQuestions.js';
+import type {FormState} from './hooks/useFormState.js';
 import type {SubmitActions} from './hooks/useSubmitActions.js';
+import type {AnswerEntry, Question} from './types.js';
 import styles from './styles.module.css';
 
 type CardStatus = 'running' | 'done' | 'failure' | 'error';
@@ -1022,7 +1033,7 @@ function CancelledView({message}: {message: string | null}) {
 }
 ```
 
-- [ ] **Step 3: Create styles**
+- [ ] **Step 6: Create styles**
 
 Create `apps/frontend/src/pages/chat/components/MessageList/components/AskUserCard/styles.module.css`:
 
@@ -1115,7 +1126,7 @@ Create `apps/frontend/src/pages/chat/components/MessageList/components/AskUserCa
 }
 ```
 
-- [ ] **Step 6: Create the container component**
+- [ ] **Step 7: Create the container component**
 
 Create `apps/frontend/src/pages/chat/components/MessageList/components/AskUserCard/AskUserCard.tsx`:
 
@@ -1123,10 +1134,10 @@ Create `apps/frontend/src/pages/chat/components/MessageList/components/AskUserCa
 import type {AnyToolResultData, ToolName} from '@omnicraft/tool-schemas';
 
 import {AskUserCardView} from './AskUserCardView.js';
-import type {AnswerEntry} from './hooks/useFormState.js';
 import {useFormState} from './hooks/useFormState.js';
 import {useQuestions} from './hooks/useQuestions.js';
 import {useSubmitActions} from './hooks/useSubmitActions.js';
+import type {AnswerEntry} from './types.js';
 
 type CardStatus = 'running' | 'done' | 'failure' | 'error';
 
@@ -1179,7 +1190,7 @@ export function AskUserCard({
 }
 ```
 
-- [ ] **Step 7: Create barrel export**
+- [ ] **Step 8: Create barrel export**
 
 Create `apps/frontend/src/pages/chat/components/MessageList/components/AskUserCard/index.ts`:
 
@@ -1187,13 +1198,13 @@ Create `apps/frontend/src/pages/chat/components/MessageList/components/AskUserCa
 export {AskUserCard} from './AskUserCard.js';
 ```
 
-- [ ] **Step 8: Verify types compile**
+- [ ] **Step 9: Verify types compile**
 
 Run: `bun run --filter 'frontend' check`
 
 Expected: No type errors.
 
-- [ ] **Step 9: Commit**
+- [ ] **Step 10: Commit**
 
 ```bash
 git add apps/frontend/src/pages/chat/components/MessageList/components/AskUserCard/
