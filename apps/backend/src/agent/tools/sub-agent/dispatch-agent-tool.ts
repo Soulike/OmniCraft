@@ -135,7 +135,12 @@ export const dispatchAgentTool: ToolDefinition<typeof parameters> = {
         agentId: subagent.id,
       });
 
-      return {content: lastReplyText, status: 'success'};
+      return {
+        content:
+          lastReplyText ||
+          'Subagent completed the task but produced no text summary.',
+        status: 'success',
+      };
     } catch (error: unknown) {
       context.onSubAgentEvent({
         type: 'subagent-complete',
