@@ -1,3 +1,5 @@
+import assert from 'node:assert';
+
 import {describe, expect, it} from 'vitest';
 
 import {createMockContext} from '@/agent-core/tool/testing.js';
@@ -14,7 +16,9 @@ describe('getCurrentTimeTool', () => {
     const result = await getCurrentTimeTool.execute({}, createMockContext());
 
     expect(result.status).toBe('success');
+    assert(result.status === 'success');
     expect(new Date(result.content).toISOString()).toBe(result.content);
+    expect(result.data.iso).toBe(result.content);
   });
 
   it('returns approximately the current time', async () => {
@@ -25,5 +29,7 @@ describe('getCurrentTimeTool', () => {
     const resultTime = new Date(result.content).getTime();
     expect(resultTime).toBeGreaterThanOrEqual(before);
     expect(resultTime).toBeLessThanOrEqual(after);
+    assert(result.status === 'success');
+    expect(result.data.iso).toBe(result.content);
   });
 });

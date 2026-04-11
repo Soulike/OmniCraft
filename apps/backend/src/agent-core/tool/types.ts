@@ -1,5 +1,6 @@
 import type {AllowedPathEntry} from '@omnicraft/settings-schema';
 import type {SseSubAgentEvent} from '@omnicraft/sse-events';
+import type {ToolFailureData} from '@omnicraft/tool-schemas';
 import type {z} from 'zod';
 
 import type {FileContentCache} from '../agent/file-content-cache.js';
@@ -42,14 +43,24 @@ export interface ToolExecutionContext {
   readonly onSubAgentEvent: (event: SseSubAgentEvent) => void;
 }
 
-/** Status of a tool execution result reported by the tool itself. */
-export type ToolExecuteStatus = 'success' | 'failure';
-
-/** Structured result returned by a tool's execute method. */
-export interface ToolExecuteResult {
+/** Successful tool execution — carries typed structured data. */
+export interface ToolExecuteSuccessResult<T> {
+  readonly data: T;
   readonly content: string;
-  readonly status: ToolExecuteStatus;
+  readonly status: 'success';
 }
+
+/** Failed tool execution — carries an error message. */
+export interface ToolExecuteFailureResult {
+  readonly data: ToolFailureData;
+  readonly content: string;
+  readonly status: 'failure';
+}
+
+/** Discriminated union of tool execution outcomes. */
+export type ToolExecuteResult<T> =
+  | ToolExecuteSuccessResult<T>
+  | ToolExecuteFailureResult;
 
 /**
  * A stateless, singleton tool definition.
@@ -59,20 +70,23 @@ export interface ToolExecuteResult {
  * - `execute`: Receives validated args from the LLM and execution context
  *   from the Agent. Returns a structured result with content and status.
  */
-export interface ToolDefinition<T extends z.ZodType = z.ZodType> {
+export interface ToolDefinition<
+  TParams extends z.ZodType = z.ZodType,
+  TResult = unknown,
+> {
   readonly name: string;
   /** Human-readable name for UI display. */
   readonly displayName: string;
   readonly description: string;
-  readonly parameters: T;
+  readonly parameters: TParams;
   /**
    * When true, the agent loop skips emitting tool-execute-start/delta/end
    * SSE events for this tool. The tool result is still submitted to the LLM.
    */
   readonly suppressToolEvents: boolean;
   execute(
-    args: z.infer<T>,
+    args: z.infer<TParams>,
     context: ToolExecutionContext,
     onOutput?: (chunk: string) => void,
-  ): Promise<ToolExecuteResult> | ToolExecuteResult;
+  ): Promise<ToolExecuteResult<TResult>> | ToolExecuteResult<TResult>;
 }

@@ -5,13 +5,13 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import readline from 'node:readline';
 
+import {searchFilesResultSchema, TOOL_NAME} from '@omnicraft/tool-schemas';
 import fg from 'fast-glob';
 import isSafeRegex from 'safe-regex2';
 import {z} from 'zod';
 
 import type {
   ToolDefinition,
-  ToolExecuteResult,
   ToolExecutionContext,
 } from '@/agent-core/tool/index.js';
 import {AccessCheckResult, checkAccess} from '@/helpers/path-access.js';
@@ -90,20 +90,21 @@ const parameters = z.object({
 });
 
 type SearchFilesArgs = z.infer<typeof parameters>;
+type SearchFilesResult = z.infer<typeof searchFilesResultSchema>;
 
 /** Built-in tool that searches file contents for a regex pattern. */
-export const searchFilesTool: ToolDefinition<typeof parameters> = {
-  name: 'search_files',
+export const searchFilesTool: ToolDefinition<
+  typeof parameters,
+  SearchFilesResult
+> = {
+  name: TOOL_NAME.SEARCH_FILES,
   displayName: 'Search Files',
   description:
     'Searches file contents for a regex pattern and returns matching lines with file paths and line numbers. ' +
     'Use this to find where a function, variable, string, or pattern is used across the codebase.',
   parameters,
   suppressToolEvents: false,
-  async execute(
-    args: SearchFilesArgs,
-    context: ToolExecutionContext,
-  ): Promise<ToolExecuteResult> {
+  async execute(args: SearchFilesArgs, context: ToolExecutionContext) {
     const {workingDirectory} = context;
 
     // 1. Resolve search directory
@@ -118,6 +119,9 @@ export const searchFilesTool: ToolDefinition<typeof parameters> = {
     );
     if (accessResult === AccessCheckResult.ERROR_OUTSIDE_ALLOWED_DIRECTORIES) {
       return {
+        data: {
+          message: 'Access denied: path is outside the allowed directories',
+        },
         content:
           'Error: Access denied: path is outside the allowed directories',
         status: 'failure',
@@ -130,6 +134,7 @@ export const searchFilesTool: ToolDefinition<typeof parameters> = {
       stat = await fs.stat(searchDir);
     } catch {
       return {
+        data: {message: `Directory not found: ${args.path}`},
         content: `Error: Directory not found: ${args.path}`,
         status: 'failure',
       };
@@ -137,6 +142,7 @@ export const searchFilesTool: ToolDefinition<typeof parameters> = {
 
     if (!stat.isDirectory()) {
       return {
+        data: {message: `Not a directory: ${args.path}`},
         content: `Error: Not a directory: ${args.path}`,
         status: 'failure',
       };
@@ -145,6 +151,10 @@ export const searchFilesTool: ToolDefinition<typeof parameters> = {
     // 4. Compile regex
     if (!isSafeRegex(args.pattern)) {
       return {
+        data: {
+          message:
+            'Regex pattern rejected — potential catastrophic backtracking',
+        },
         content:
           'Error: Regex pattern rejected — potential catastrophic backtracking',
         status: 'failure',
@@ -157,6 +167,7 @@ export const searchFilesTool: ToolDefinition<typeof parameters> = {
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
       return {
+        data: {message: `Invalid regex pattern: ${message}`},
         content: `Error: Invalid regex pattern: ${message}`,
         status: 'failure',
       };
@@ -225,7 +236,11 @@ export const searchFilesTool: ToolDefinition<typeof parameters> = {
     } catch (error: unknown) {
       if (totalMatches === 0) {
         const message = error instanceof Error ? error.message : String(error);
-        return {content: `Error: ${message}`, status: 'failure'};
+        return {
+          data: {message},
+          content: `Error: ${message}`,
+          status: 'failure',
+        };
       }
     }
 
@@ -244,15 +259,34 @@ export const searchFilesTool: ToolDefinition<typeof parameters> = {
     const displayPath = args.path ?? workingDirectory;
     const hitLimit = totalMatches >= MAX_MATCHES;
 
+    // Build flat matches for structured data
+    const flatMatches = results.flatMap((r) =>
+      r.matches.map((m) => ({
+        file: r.filePath,
+        line: m.line,
+        content: m.content,
+      })),
+    );
+
     if (totalMatches === 0 && timedOut) {
       return {
+        data: {
+          message: `No matches found for /${args.pattern}/ in ${displayPath} (search timed out after 30s).`,
+        },
         content: `No matches found for /${args.pattern}/ in ${displayPath} (search timed out after 30s).`,
         status: 'failure',
       };
     }
 
     if (totalMatches === 0) {
+      const data: SearchFilesResult = {
+        pattern: args.pattern,
+        basePath: displayPath,
+        matches: [],
+        truncated: false,
+      };
       return {
+        data,
         content: `No matches found for /${args.pattern}/ in ${displayPath}.`,
         status: 'success',
       };
@@ -274,6 +308,9 @@ export const searchFilesTool: ToolDefinition<typeof parameters> = {
     if (timedOut) {
       const header = `Found ${count} matches for /${args.pattern}/ in ${displayPath} (search timed out after 30s):`;
       return {
+        data: {
+          message: `${header} Results may be incomplete. Use a more specific pattern to narrow down.`,
+        },
         content: `${header}\n${body}\nResults may be incomplete. Use a more specific pattern to narrow down.`,
         status: 'failure',
       };
@@ -281,13 +318,26 @@ export const searchFilesTool: ToolDefinition<typeof parameters> = {
 
     if (hitLimit) {
       const header = `Found ${MAX_MATCHES}+ matches for /${args.pattern}/ in ${displayPath} (showing first ${MAX_MATCHES}):`;
+      const data: SearchFilesResult = {
+        pattern: args.pattern,
+        basePath: displayPath,
+        matches: flatMatches.slice(0, MAX_MATCHES),
+        truncated: true,
+      };
       return {
+        data,
         content: `${header}\n${body}\nUse a more specific pattern to narrow down.`,
         status: 'success',
       };
     }
 
     const header = `Found ${count} matches for /${args.pattern}/ in ${displayPath}:`;
-    return {content: `${header}\n${body}`, status: 'success'};
+    const data: SearchFilesResult = {
+      pattern: args.pattern,
+      basePath: displayPath,
+      matches: flatMatches,
+      truncated: false,
+    };
+    return {data, content: `${header}\n${body}`, status: 'success'};
   },
 };

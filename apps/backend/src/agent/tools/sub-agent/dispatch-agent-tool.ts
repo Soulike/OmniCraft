@@ -72,8 +72,15 @@ const parameters = z.object({
     ),
 });
 
+interface DispatchAgentResult {
+  summary: string;
+}
+
 /** Tool that dispatches a subagent to handle a subtask autonomously. */
-export const dispatchAgentTool: ToolDefinition<typeof parameters> = {
+export const dispatchAgentTool: ToolDefinition<
+  typeof parameters,
+  DispatchAgentResult
+> = {
   name: 'dispatch_agent',
   displayName: 'Dispatch Agent',
   description: buildToolDescription(),
@@ -82,7 +89,7 @@ export const dispatchAgentTool: ToolDefinition<typeof parameters> = {
   async execute(
     args: z.infer<typeof parameters>,
     context: ToolExecutionContext,
-  ): Promise<ToolExecuteResult> {
+  ): Promise<ToolExecuteResult<DispatchAgentResult>> {
     const {
       task,
       agentType = 'general',
@@ -105,6 +112,9 @@ export const dispatchAgentTool: ToolDefinition<typeof parameters> = {
       );
       if (accessResult !== AccessCheckResult.OK) {
         return {
+          data: {
+            message: `working directory "${resolved}" is not in allowed paths`,
+          },
           content: `Error: working directory "${resolved}" is not in allowed paths`,
           status: 'failure',
         };
@@ -180,10 +190,12 @@ export const dispatchAgentTool: ToolDefinition<typeof parameters> = {
         agentId: subagent.id,
       });
 
+      const summary =
+        lastReplyText ||
+        'Subagent completed the task but produced no text summary.';
       return {
-        content:
-          lastReplyText ||
-          'Subagent completed the task but produced no text summary.',
+        data: {summary},
+        content: summary,
         status: 'success',
       };
     } catch (error: unknown) {
@@ -193,7 +205,11 @@ export const dispatchAgentTool: ToolDefinition<typeof parameters> = {
       });
 
       const message = error instanceof Error ? error.message : String(error);
-      return {content: `Subagent error: ${message}`, status: 'failure'};
+      return {
+        data: {message: `Subagent error: ${message}`},
+        content: `Subagent error: ${message}`,
+        status: 'failure',
+      };
     }
   },
 };

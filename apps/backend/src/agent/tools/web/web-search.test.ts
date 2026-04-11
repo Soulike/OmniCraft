@@ -1,3 +1,5 @@
+import assert from 'node:assert';
+
 import {describe, expect, it, vi} from 'vitest';
 
 import {createMockContext} from '@/agent-core/tool/testing.js';
@@ -25,5 +27,7 @@ describe('webSearchTool', () => {
     expect(result.content).toContain('Error:');
     expect(result.content).toContain('Tavily API key is not configured');
     expect(result.status).toBe('failure');
+    assert(result.status === 'failure');
+    expect(result.data.message).toBeTruthy();
   });
 });

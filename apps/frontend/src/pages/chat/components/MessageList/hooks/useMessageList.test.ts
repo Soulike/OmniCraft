@@ -43,8 +43,8 @@ describe('transformMessages', () => {
         content: {
           type: 'tool-execute-start',
           callId: 'c1',
-          toolName: 'search',
-          displayName: 'Search',
+          toolName: 'search_files',
+          displayName: 'Search Files',
           arguments: '{"q":"test"}',
         },
       },
@@ -57,6 +57,7 @@ describe('transformMessages', () => {
           callId: 'c1',
           result: 'found it',
           status: 'success',
+          data: {pattern: 'test', basePath: '.', matches: [], truncated: false},
         },
       },
     ];
@@ -65,11 +66,12 @@ describe('transformMessages', () => {
       {
         type: 'tool-execution',
         callId: 'c1',
-        toolName: 'search',
-        displayName: 'Search',
+        toolName: 'search_files',
+        displayName: 'Search Files',
         arguments: '{"q":"test"}',
         status: 'done',
         result: 'found it',
+        data: {pattern: 'test', basePath: '.', matches: [], truncated: false},
       },
     ]);
   });
@@ -83,8 +85,8 @@ describe('transformMessages', () => {
         content: {
           type: 'tool-execute-start',
           callId: 'c1',
-          toolName: 'search',
-          displayName: 'Search',
+          toolName: 'search_files',
+          displayName: 'Search Files',
           arguments: '{}',
         },
       },
@@ -94,8 +96,8 @@ describe('transformMessages', () => {
       {
         type: 'tool-execution',
         callId: 'c1',
-        toolName: 'search',
-        displayName: 'Search',
+        toolName: 'search_files',
+        displayName: 'Search Files',
         arguments: '{}',
         status: 'running',
       },
@@ -125,6 +127,7 @@ describe('transformMessages', () => {
           callId: 'c1',
           result: 'Exit code: 1',
           status: 'failure',
+          data: {message: 'Exit code: 1'},
         },
       },
     ];
@@ -138,6 +141,7 @@ describe('transformMessages', () => {
         arguments: '{"command":"exit 1"}',
         status: 'failure',
         result: 'Exit code: 1',
+        data: {message: 'Exit code: 1'},
       },
     ]);
   });
@@ -151,8 +155,8 @@ describe('transformMessages', () => {
         content: {
           type: 'tool-execute-start',
           callId: 'c1',
-          toolName: 'search',
-          displayName: 'Search',
+          toolName: 'search_files',
+          displayName: 'Search Files',
           arguments: '{}',
         },
       },
@@ -165,6 +169,7 @@ describe('transformMessages', () => {
           callId: 'c1',
           result: 'Error: failed',
           status: 'error',
+          data: {message: 'failed'},
         },
       },
     ];
@@ -173,11 +178,12 @@ describe('transformMessages', () => {
       {
         type: 'tool-execution',
         callId: 'c1',
-        toolName: 'search',
-        displayName: 'Search',
+        toolName: 'search_files',
+        displayName: 'Search Files',
         arguments: '{}',
         status: 'error',
         result: 'Error: failed',
+        data: {message: 'failed'},
       },
     ]);
   });
@@ -197,8 +203,8 @@ describe('transformMessages', () => {
         content: {
           type: 'tool-execute-start',
           callId: 'c1',
-          toolName: 'search',
-          displayName: 'Search',
+          toolName: 'search_files',
+          displayName: 'Search Files',
           arguments: '{}',
         },
       },
@@ -211,6 +217,7 @@ describe('transformMessages', () => {
           callId: 'c1',
           result: 'result',
           status: 'success',
+          data: {pattern: '', basePath: '.', matches: [], truncated: false},
         },
       },
       {
@@ -238,6 +245,7 @@ describe('transformMessages', () => {
           callId: 'c1',
           result: 'orphan result',
           status: 'success',
+          data: {pattern: '', basePath: '.', matches: [], truncated: false},
         },
       },
     ];
@@ -346,8 +354,8 @@ describe('transformMessages', () => {
         content: {
           type: 'tool-execute-start',
           callId: 'c1',
-          toolName: 'search',
-          displayName: 'Search',
+          toolName: 'search_files',
+          displayName: 'Search Files',
           arguments: '{}',
         },
       },
@@ -360,6 +368,7 @@ describe('transformMessages', () => {
           callId: 'c1',
           result: 'found',
           status: 'success',
+          data: {pattern: '', basePath: '.', matches: [], truncated: false},
         },
       },
       {

@@ -1,15 +1,18 @@
+import {getCurrentTimeResultSchema, TOOL_NAME} from '@omnicraft/tool-schemas';
 import {z} from 'zod';
 
-import type {
-  ToolDefinition,
-  ToolExecuteResult,
-} from '@/agent-core/tool/index.js';
+import type {ToolDefinition} from '@/agent-core/tool/index.js';
 
 const parameters = z.object({});
 
+type GetCurrentTimeResult = z.infer<typeof getCurrentTimeResultSchema>;
+
 /** Built-in tool that returns the current date and time. */
-export const getCurrentTimeTool: ToolDefinition<typeof parameters> = {
-  name: 'get_current_time',
+export const getCurrentTimeTool: ToolDefinition<
+  typeof parameters,
+  GetCurrentTimeResult
+> = {
+  name: TOOL_NAME.GET_CURRENT_TIME,
   displayName: 'Get Current Time',
   description:
     'Returns the current date and time in ISO 8601 format. ' +
@@ -17,7 +20,8 @@ export const getCurrentTimeTool: ToolDefinition<typeof parameters> = {
     'call this tool whenever the user asks anything that depends on the current date, time, day of week, or timezone.',
   parameters,
   suppressToolEvents: false,
-  execute(): ToolExecuteResult {
-    return {content: new Date().toISOString(), status: 'success'};
+  execute() {
+    const iso = new Date().toISOString();
+    return {data: {iso}, content: iso, status: 'success'};
   },
 };

@@ -1,3 +1,4 @@
+import assert from 'node:assert';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -51,6 +52,11 @@ describe('editFileTool', () => {
 
       expect(result.content).toContain('File edited:');
       expect(result.status).toBe('success');
+      assert(result.status === 'success');
+      expect(result.data.filePath).toBe('tracked.ts');
+      expect(result.data.matchCount).toBe(1);
+      expect(result.data.diff).toBeTruthy();
+      expect(result.data.truncated).toBe(false);
     });
 
     it('replaces a unique string', async () => {
@@ -76,6 +82,11 @@ describe('editFileTool', () => {
       expect(result.content).toContain('-const x = 1;');
       expect(result.content).toContain('+const x = 42;');
       expect(result.status).toBe('success');
+      assert(result.status === 'success');
+      expect(result.data.filePath).toBe('test.ts');
+      expect(result.data.matchCount).toBe(1);
+      expect(result.data.diff).toBeTruthy();
+      expect(result.data.truncated).toBe(false);
       const written = await fs.readFile(path.join(tmpDir, 'test.ts'), 'utf-8');
       expect(written).toBe('const x = 42;\nconst y = 2;\n');
     });
@@ -101,6 +112,9 @@ describe('editFileTool', () => {
 
       expect(result.content).toContain('3 replacement(s)');
       expect(result.status).toBe('success');
+      assert(result.status === 'success');
+      expect(result.data.matchCount).toBe(3);
+      expect(result.data.truncated).toBe(false);
       const written = await fs.readFile(path.join(tmpDir, 'test.ts'), 'utf-8');
       expect(written).toBe('qux\nbar\nqux\nbaz\nqux\n');
     });
@@ -124,6 +138,9 @@ describe('editFileTool', () => {
       expect(result.content).toContain('-old line');
       expect(result.content).toContain('+new line');
       expect(result.status).toBe('success');
+      assert(result.status === 'success');
+      expect(result.data.diff).toBeTruthy();
+      expect(result.data.truncated).toBe(false);
     });
 
     it('truncates large diffs at 4KB', async () => {
@@ -146,6 +163,9 @@ describe('editFileTool', () => {
       expect(result.content).toContain('Diff truncated');
       expect(result.content).toContain('Read the file to review');
       expect(result.status).toBe('success');
+      assert(result.status === 'success');
+      expect(result.data.truncated).toBe(true);
+      expect(result.data.diff).toBeTruthy();
     });
 
     it('accepts absolute paths within workingDirectory', async () => {
@@ -160,6 +180,9 @@ describe('editFileTool', () => {
 
       expect(result.content).toContain('File edited:');
       expect(result.status).toBe('success');
+      assert(result.status === 'success');
+      expect(result.data.filePath).toBeTruthy();
+      expect(result.data.diff).toBeTruthy();
     });
   });
 
@@ -194,6 +217,9 @@ describe('editFileTool', () => {
 
       expect(result.content).toContain('File edited:');
       expect(result.status).toBe('success');
+      assert(result.status === 'success');
+      expect(result.data.filePath).toBeTruthy();
+      expect(result.data.diff).toBeTruthy();
       const written = await fs.readFile(filePath, 'utf-8');
       expect(written).toBe('new content');
     });
@@ -217,6 +243,8 @@ describe('editFileTool', () => {
         'Error: Access denied: path is read-only',
       );
       expect(result.status).toBe('failure');
+      assert(result.status === 'failure');
+      expect(result.data.message).toBeTruthy();
     });
   });
 
@@ -231,6 +259,8 @@ describe('editFileTool', () => {
         'Error: Access denied: path is outside the allowed directories',
       );
       expect(result.status).toBe('failure');
+      assert(result.status === 'failure');
+      expect(result.data.message).toBeTruthy();
     });
 
     it('rejects path traversal attacks', async () => {
@@ -241,6 +271,8 @@ describe('editFileTool', () => {
 
       expect(result.content).toContain('Error: Access denied');
       expect(result.status).toBe('failure');
+      assert(result.status === 'failure');
+      expect(result.data.message).toBeTruthy();
     });
 
     it('returns error for nonexistent file', async () => {
@@ -251,6 +283,8 @@ describe('editFileTool', () => {
 
       expect(result.content).toContain('Error: File not found');
       expect(result.status).toBe('failure');
+      assert(result.status === 'failure');
+      expect(result.data.message).toBeTruthy();
     });
 
     it('returns error for directories', async () => {
@@ -263,6 +297,8 @@ describe('editFileTool', () => {
 
       expect(result.content).toContain('Error: Not a file');
       expect(result.status).toBe('failure');
+      assert(result.status === 'failure');
+      expect(result.data.message).toBeTruthy();
     });
 
     it('returns error when oldString not found', async () => {
@@ -281,6 +317,8 @@ describe('editFileTool', () => {
 
       expect(result.content).toContain('Error: old string not found');
       expect(result.status).toBe('failure');
+      assert(result.status === 'failure');
+      expect(result.data.message).toBeTruthy();
     });
 
     it('rejects no-op replacement when oldString equals newString', async () => {
@@ -297,6 +335,8 @@ describe('editFileTool', () => {
         'Error: oldString and newString are identical',
       );
       expect(result.status).toBe('failure');
+      assert(result.status === 'failure');
+      expect(result.data.message).toBeTruthy();
     });
 
     it('returns error on multiple matches without replaceAll', async () => {
@@ -316,6 +356,8 @@ describe('editFileTool', () => {
       expect(result.content).toContain('Error: Found 2 matches');
       expect(result.content).toContain('replaceAll');
       expect(result.status).toBe('failure');
+      assert(result.status === 'failure');
+      expect(result.data.message).toBeTruthy();
     });
 
     it('rejects files exceeding 10MB', async () => {
@@ -331,6 +373,8 @@ describe('editFileTool', () => {
 
       expect(result.content).toContain('Error: File exceeds');
       expect(result.status).toBe('failure');
+      assert(result.status === 'failure');
+      expect(result.data.message).toBeTruthy();
     });
 
     it('rejects editing a file that was not read', async () => {
@@ -345,6 +389,8 @@ describe('editFileTool', () => {
         'Error: Read the file before modifying it',
       );
       expect(result.status).toBe('failure');
+      assert(result.status === 'failure');
+      expect(result.data.message).toBeTruthy();
     });
 
     it('rejects editing a file modified since last read', async () => {
@@ -361,6 +407,8 @@ describe('editFileTool', () => {
         'Error: File has been modified since last read',
       );
       expect(result.status).toBe('failure');
+      assert(result.status === 'failure');
+      expect(result.data.message).toBeTruthy();
     });
   });
 });

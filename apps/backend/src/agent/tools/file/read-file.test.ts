@@ -1,3 +1,4 @@
+import assert from 'node:assert';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -50,6 +51,12 @@ describe('readFileTool', () => {
       expect(result.content).toContain('2\tline2');
       expect(result.content).toContain('3\tline3');
       expect(result.status).toBe('success');
+      assert(result.status === 'success');
+      expect(result.data.filePath).toBe('hello.txt');
+      expect(result.data.totalLines).toBe(3);
+      expect(result.data.startLine).toBe(1);
+      expect(result.data.endLine).toBe(3);
+      expect(result.data.content).toBeTruthy();
     });
 
     it('reads partial file with startLine', async () => {
@@ -64,6 +71,10 @@ describe('readFileTool', () => {
       expect(result.content).toContain('5\te');
       expect(result.content).not.toContain('1\ta');
       expect(result.status).toBe('success');
+      assert(result.status === 'success');
+      expect(result.data.totalLines).toBe(5);
+      expect(result.data.startLine).toBe(3);
+      expect(result.data.endLine).toBe(5);
     });
 
     it('reads partial file with startLine and lineCount', async () => {
@@ -78,6 +89,10 @@ describe('readFileTool', () => {
       expect(result.content).toContain('3\tc');
       expect(result.content).not.toContain('4\td');
       expect(result.status).toBe('success');
+      assert(result.status === 'success');
+      expect(result.data.totalLines).toBe(5);
+      expect(result.data.startLine).toBe(2);
+      expect(result.data.endLine).toBe(3);
     });
 
     it('resolves relative paths against workingDirectory', async () => {
@@ -90,6 +105,9 @@ describe('readFileTool', () => {
       expect(result.content).toContain('File: sub/file.txt');
       expect(result.content).toContain('content');
       expect(result.status).toBe('success');
+      assert(result.status === 'success');
+      expect(result.data.filePath).toContain('sub/file.txt');
+      expect(result.data.content).toBeTruthy();
     });
 
     it('accepts absolute paths within workingDirectory', async () => {
@@ -98,6 +116,9 @@ describe('readFileTool', () => {
 
       expect(result.content).toContain('data');
       expect(result.status).toBe('success');
+      assert(result.status === 'success');
+      expect(result.data.filePath).toBeTruthy();
+      expect(result.data.content).toBeTruthy();
     });
 
     it('right-aligns line numbers', async () => {
@@ -113,6 +134,10 @@ describe('readFileTool', () => {
       expect(result.content).toContain('  1\tline1');
       expect(result.content).toContain('  2\tline2');
       expect(result.status).toBe('success');
+      assert(result.status === 'success');
+      expect(result.data.totalLines).toBe(100);
+      expect(result.data.startLine).toBe(1);
+      expect(result.data.endLine).toBe(2);
     });
     it('handles empty file', async () => {
       await writeFile('empty.txt', '');
@@ -123,6 +148,8 @@ describe('readFileTool', () => {
 
       expect(result.content).toContain('File: empty.txt (0 lines)');
       expect(result.status).toBe('success');
+      assert(result.status === 'success');
+      expect(result.data.totalLines).toBe(0);
     });
 
     it('returns empty content when startLine exceeds total lines', async () => {
@@ -134,6 +161,10 @@ describe('readFileTool', () => {
 
       expect(result.content).toContain('(3 lines, showing lines 100-3)');
       expect(result.status).toBe('success');
+      assert(result.status === 'success');
+      expect(result.data.totalLines).toBe(3);
+      expect(result.data.startLine).toBe(100);
+      expect(result.data.endLine).toBe(3);
     });
 
     it('tracks file stat after successful read', async () => {
@@ -176,6 +207,8 @@ describe('readFileTool', () => {
 
       expect(result.content).toContain('extra content');
       expect(result.status).toBe('success');
+      assert(result.status === 'success');
+      expect(result.data.content).toBeTruthy();
     });
 
     it('allows reading a file in an extra read-write path', async () => {
@@ -192,6 +225,8 @@ describe('readFileTool', () => {
 
       expect(result.content).toContain('rw content');
       expect(result.status).toBe('success');
+      assert(result.status === 'success');
+      expect(result.data.content).toBeTruthy();
     });
 
     it('rejects reading a file outside all allowed paths', async () => {
@@ -209,6 +244,8 @@ describe('readFileTool', () => {
 
       expect(result.content).toContain('Error: Access denied');
       expect(result.status).toBe('failure');
+      assert(result.status === 'failure');
+      expect(result.data.message).toBeTruthy();
 
       await fs.rm(otherDir, {recursive: true, force: true});
     });
@@ -223,6 +260,8 @@ describe('readFileTool', () => {
 
       expect(result.content).toContain('Error: Access denied');
       expect(result.status).toBe('failure');
+      assert(result.status === 'failure');
+      expect(result.data.message).toBeTruthy();
     });
 
     it('rejects path traversal attacks', async () => {
@@ -233,6 +272,8 @@ describe('readFileTool', () => {
 
       expect(result.content).toContain('Error: Access denied');
       expect(result.status).toBe('failure');
+      assert(result.status === 'failure');
+      expect(result.data.message).toBeTruthy();
     });
 
     it('returns error for nonexistent file', async () => {
@@ -243,6 +284,8 @@ describe('readFileTool', () => {
 
       expect(result.content).toContain('Error: File not found');
       expect(result.status).toBe('failure');
+      assert(result.status === 'failure');
+      expect(result.data.message).toBeTruthy();
     });
 
     it('returns error for directories', async () => {
@@ -251,6 +294,8 @@ describe('readFileTool', () => {
 
       expect(result.content).toContain('Error: Not a file');
       expect(result.status).toBe('failure');
+      assert(result.status === 'failure');
+      expect(result.data.message).toBeTruthy();
     });
 
     it('returns error for binary files', async () => {
@@ -266,6 +311,8 @@ describe('readFileTool', () => {
 
       expect(result.content).toContain('Error: Binary file detected');
       expect(result.status).toBe('failure');
+      assert(result.status === 'failure');
+      expect(result.data.message).toBeTruthy();
     });
 
     it('returns error when result exceeds 32KB', async () => {
@@ -282,6 +329,8 @@ describe('readFileTool', () => {
       expect(result.content).toContain('byte limit');
       expect(result.content).toContain('Use startLine and lineCount');
       expect(result.status).toBe('failure');
+      assert(result.status === 'failure');
+      expect(result.data.message).toBeTruthy();
     });
   });
 });

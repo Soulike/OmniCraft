@@ -27,6 +27,7 @@
     "@koa/router": "^15.1.0",
     "@mozilla/readability": "^0.6.0",
     "@omnicraft/api-schema": "workspace:^",
+    "@omnicraft/tool-schemas": "workspace:^",
     "@omnicraft/markdown-frontmatter": "workspace:^",
     "@omnicraft/settings-schema": "workspace:^",
     "@omnicraft/sse-events": "workspace:^",

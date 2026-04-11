@@ -1,4 +1,5 @@
 import {Disclosure, ScrollShadow, Spinner} from '@heroui/react';
+import type {AnyToolResultData, ToolName} from '@omnicraft/tool-schemas';
 import clsx from 'clsx';
 import {CircleAlert, CircleCheck, CircleX} from 'lucide-react';
 import {useMemo} from 'react';
@@ -6,12 +7,13 @@ import {useMemo} from 'react';
 import styles from './styles.module.css';
 
 interface ToolExecutionCardViewProps {
-  toolName: string;
+  toolName: ToolName;
   displayName: string;
   arguments: string;
   status: 'running' | 'done' | 'failure' | 'error';
   result?: string;
   output?: string;
+  data?: AnyToolResultData;
 }
 
 const STATUS_ICON_SIZE = 16;
@@ -23,6 +25,7 @@ export function ToolExecutionCardView({
   status,
   result,
   output,
+  data: _data,
 }: ToolExecutionCardViewProps) {
   const formattedArguments = useMemo(
     () => formatJson(toolArguments),

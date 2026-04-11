@@ -1,3 +1,9 @@
+import type {
+  AnyToolResultData,
+  ToolFailureData,
+  ToolName,
+  ToolResultData,
+} from '@omnicraft/tool-schemas';
 import {useMemo} from 'react';
 
 import type {ChatMessage} from '../../../types.js';
@@ -16,15 +22,43 @@ export interface AssistantTextRenderItem {
   createdAt: number | null;
 }
 
-export interface ToolExecutionRenderItem {
+interface RunningToolExecutionRenderItem {
   type: 'tool-execution';
   callId: string;
-  toolName: string;
+  toolName: ToolName;
   displayName: string;
   arguments: string;
-  status: 'running' | 'done' | 'failure' | 'error';
-  result?: string;
+  status: 'running';
 }
+
+interface FailedToolExecutionRenderItem {
+  type: 'tool-execution';
+  callId: string;
+  toolName: ToolName;
+  displayName: string;
+  arguments: string;
+  status: 'failure' | 'error';
+  result: string;
+  data: ToolFailureData;
+}
+
+type DoneToolExecutionRenderItem = {
+  [K in ToolName]: {
+    type: 'tool-execution';
+    callId: string;
+    toolName: K;
+    displayName: string;
+    arguments: string;
+    status: 'done';
+    result: string;
+    data: ToolResultData<K>;
+  };
+}[ToolName];
+
+export type ToolExecutionRenderItem =
+  | RunningToolExecutionRenderItem
+  | FailedToolExecutionRenderItem
+  | DoneToolExecutionRenderItem;
 
 export interface ThinkingRenderItem {
   type: 'thinking';
@@ -45,13 +79,18 @@ export function transformMessages(
   // First pass: collect tool-execute-end events by callId
   const endEvents = new Map<
     string,
-    {result: string; status: 'success' | 'failure' | 'error'}
+    {
+      result: string;
+      status: 'success' | 'failure' | 'error';
+      data: AnyToolResultData;
+    }
   >();
   for (const message of messages) {
     if (message.content.type === 'tool-execute-end') {
       endEvents.set(message.content.callId, {
         result: message.content.result,
         status: message.content.status,
+        data: message.content.data,
       });
     }
   }
@@ -96,7 +135,8 @@ export function transformMessages(
                   ? 'failure'
                   : 'error',
             result: endEvent.result,
-          });
+            data: endEvent.data,
+          } as ToolExecutionRenderItem);
         } else {
           items.push({
             type: 'tool-execution',

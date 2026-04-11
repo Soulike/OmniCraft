@@ -44,7 +44,8 @@ export function RenderItem({item}: RenderItemProps) {
             displayName={item.displayName}
             arguments={item.arguments}
             status={item.status}
-            result={item.result}
+            result={'result' in item ? item.result : undefined}
+            data={'data' in item ? item.data : undefined}
           />
         </div>
       );

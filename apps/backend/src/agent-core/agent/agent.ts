@@ -1,3 +1,4 @@
+import assert from 'node:assert';
 import crypto from 'node:crypto';
 import os from 'node:os';
 
@@ -15,6 +16,7 @@ import type {
   SseToolExecuteStartEvent,
   SseUsage,
 } from '@omnicraft/sse-events';
+import type {AnyToolResultData, ToolName} from '@omnicraft/tool-schemas';
 
 import {AsyncChannel} from '@/helpers/async-channel.js';
 
@@ -166,15 +168,15 @@ export abstract class Agent {
 
       const availableTools = this.getAvailableTools();
 
-      // Emit all tool-execute-start events up front (skip suppressed tools)
+      // Emit all tool-execute-start events up front (skip unknown/suppressed tools)
       for (const toolCall of toolCalls) {
         const tool = availableTools.get(toolCall.toolName);
-        if (tool?.suppressToolEvents) continue;
+        if (!tool || tool.suppressToolEvents) continue;
         yield {
           type: 'tool-execute-start',
           callId: toolCall.callId,
-          toolName: toolCall.toolName,
-          displayName: tool?.displayName ?? toolCall.toolName,
+          toolName: tool.name as ToolName,
+          displayName: tool.displayName,
           arguments: toolCall.arguments,
         } satisfies SseToolExecuteStartEvent;
       }
@@ -185,29 +187,41 @@ export abstract class Agent {
       >();
       const toolResults = new Map<string, ToolResult>();
 
-      const executions = toolCalls.map(async (toolCall) => {
-        const result = await this.executeTool(
-          toolCall,
-          availableTools,
-          toolSseEventChannel,
-          signal,
-        );
-
-        const tool = availableTools.get(toolCall.toolName);
-        if (!tool?.suppressToolEvents) {
-          toolSseEventChannel.push({
-            type: 'tool-execute-end' as const,
-            callId: toolCall.callId,
-            result: result.content,
-            status: result.status,
-          } satisfies SseToolExecuteEndEvent);
-        }
-
+      // Handle unknown tools immediately — no SSE events, just error for LLM
+      for (const toolCall of toolCalls) {
+        if (availableTools.has(toolCall.toolName)) continue;
         toolResults.set(toolCall.callId, {
           callId: toolCall.callId,
-          content: result.content,
+          content: `Error: Unknown tool: ${toolCall.toolName}`,
         });
-      });
+      }
+
+      const executions = toolCalls
+        .filter((tc) => availableTools.has(tc.toolName))
+        .map(async (toolCall) => {
+          const result = await this.executeTool(
+            toolCall,
+            availableTools,
+            toolSseEventChannel,
+            signal,
+          );
+
+          const tool = availableTools.get(toolCall.toolName);
+          if (!tool?.suppressToolEvents) {
+            toolSseEventChannel.push({
+              type: 'tool-execute-end' as const,
+              callId: toolCall.callId,
+              result: result.content,
+              status: result.status,
+              data: result.data,
+            } satisfies SseToolExecuteEndEvent);
+          }
+
+          toolResults.set(toolCall.callId, {
+            callId: toolCall.callId,
+            content: result.content,
+          });
+        });
 
       void Promise.all(executions)
         .catch(() => {
@@ -413,14 +427,13 @@ export abstract class Agent {
       SseToolExecuteEndEvent | SseToolExecuteDeltaEvent | SseSubAgentEvent
     >,
     signal: AbortSignal,
-  ): Promise<{content: string; status: 'success' | 'failure' | 'error'}> {
+  ): Promise<{
+    content: string;
+    status: 'success' | 'failure' | 'error';
+    data: AnyToolResultData;
+  }> {
     const tool = availableTools.get(toolCall.toolName);
-    if (!tool) {
-      return {
-        content: `Error: Unknown tool: ${toolCall.toolName}`,
-        status: 'error',
-      };
-    }
+    assert(tool, `executeTool called with unknown tool: ${toolCall.toolName}`);
 
     const onOutput = tool.suppressToolEvents
       ? undefined
@@ -450,10 +463,14 @@ export abstract class Agent {
         JSON.parse(toolCall.arguments),
       );
       const result = await tool.execute(parsedArgs, context, onOutput);
-      return {content: result.content, status: result.status};
+      return {
+        content: result.content,
+        status: result.status,
+        data: result.data as AnyToolResultData,
+      };
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
-      return {content: `Error: ${message}`, status: 'error'};
+      return {content: `Error: ${message}`, status: 'error', data: {message}};
     }
   }
 }

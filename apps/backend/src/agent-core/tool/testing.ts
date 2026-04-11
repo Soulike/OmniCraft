@@ -18,7 +18,12 @@ export function createMockTool(name: string): ToolDefinition {
     description: `Mock tool: ${name}`,
     parameters: z.object({}),
     suppressToolEvents: false,
-    execute: () => Promise.resolve({content: 'ok', status: 'success' as const}),
+    execute: () =>
+      Promise.resolve({
+        data: {mock: true},
+        content: 'ok',
+        status: 'success' as const,
+      }),
   };
 }
 
