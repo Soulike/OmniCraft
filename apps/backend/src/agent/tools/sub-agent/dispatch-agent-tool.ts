@@ -32,8 +32,8 @@ const subAgentTypes: Record<string, SubAgentTypeInfo> = {
   general: {
     name: 'General',
     description:
-      'General-purpose agent with file, web, bash, and search tools. ' +
-      'Use for autonomous multi-step tasks such as code changes, research, or analysis.',
+      'General-purpose agent for autonomous multi-step tasks ' +
+      'such as code changes, research, or analysis.',
     factory: (getConfig, workingDirectory, extraAllowedPaths) =>
       new GeneralSubAgent(getConfig, workingDirectory, extraAllowedPaths),
   },
