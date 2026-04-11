@@ -1,3 +1,4 @@
+import assert from 'node:assert';
 import crypto from 'node:crypto';
 import os from 'node:os';
 
@@ -71,6 +72,14 @@ export abstract class Agent {
 
   /** Mutable shell state, shared by shell-related tools. */
   private readonly shellState: ShellState;
+
+  /**
+   * Event channel for the current tool-execution round.
+   * Set at the start of each round, closed when all tools finish.
+   */
+  private toolEventChannel: AsyncChannel<
+    SseToolExecuteEndEvent | SseToolExecuteDeltaEvent | SseSubAgentEvent
+  > | null = null;
 
   constructor(
     getConfig: () => Promise<LlmConfig>,
@@ -180,45 +189,21 @@ export abstract class Agent {
       }
 
       // Execute all tools in parallel, streaming end events as each completes
-      const channel = new AsyncChannel<
-        SseToolExecuteEndEvent | SseToolExecuteDeltaEvent | SseSubAgentEvent
-      >();
+      this.toolEventChannel = new AsyncChannel();
+      const channel = this.toolEventChannel;
       const toolResults = new Map<string, ToolResult>();
 
       const executions = toolCalls.map(async (toolCall) => {
+        const result = await this.executeTool(toolCall, availableTools, signal);
+
         const tool = availableTools.get(toolCall.toolName);
-        const suppressed = tool?.suppressToolEvents ?? false;
-
-        const onOutput = suppressed
-          ? undefined
-          : (chunk: string) => {
-              channel.push({
-                type: 'tool-execute-delta',
-                callId: toolCall.callId,
-                content: chunk,
-              } satisfies SseToolExecuteDeltaEvent);
-            };
-
-        const onSubAgentEvent = (event: SseSubAgentEvent) => {
-          channel.push(event);
-        };
-
-        const result = await this.executeTool(
-          toolCall,
-          availableTools,
-          onOutput,
-          onSubAgentEvent,
-          signal,
-        );
-
-        if (!suppressed) {
-          const endEvent = {
+        if (!tool?.suppressToolEvents) {
+          channel.push({
             type: 'tool-execute-end' as const,
             callId: toolCall.callId,
             result: result.content,
             status: result.status,
-          } satisfies SseToolExecuteEndEvent;
-          channel.push(endEvent);
+          } satisfies SseToolExecuteEndEvent);
         }
 
         toolResults.set(toolCall.callId, {
@@ -239,6 +224,8 @@ export abstract class Agent {
       for await (const event of channel) {
         yield event;
       }
+
+      this.toolEventChannel = null;
 
       // signal.aborted may have changed during async tool execution
       // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
@@ -422,14 +409,19 @@ export abstract class Agent {
 
   /**
    * Executes a single tool call. Returns the result content and execution status.
+   * Assembles onOutput and onSubAgentEvent callbacks from this.toolEventChannel.
    */
   private async executeTool(
     toolCall: LlmToolCall,
     availableTools: ReadonlyMap<string, ToolDefinition>,
-    onOutput: ((chunk: string) => void) | undefined,
-    onSubAgentEvent: (event: SseSubAgentEvent) => void,
     signal: AbortSignal,
   ): Promise<{content: string; status: 'success' | 'failure' | 'error'}> {
+    assert(
+      this.toolEventChannel,
+      'executeTool called outside of a tool-execution round',
+    );
+    const channel = this.toolEventChannel;
+
     const tool = availableTools.get(toolCall.toolName);
     if (!tool) {
       return {
@@ -437,6 +429,16 @@ export abstract class Agent {
         status: 'error',
       };
     }
+
+    const onOutput = tool.suppressToolEvents
+      ? undefined
+      : (chunk: string) => {
+          channel.push({
+            type: 'tool-execute-delta',
+            callId: toolCall.callId,
+            content: chunk,
+          } satisfies SseToolExecuteDeltaEvent);
+        };
 
     const context: ToolExecutionContext = {
       availableSkills: this.getAvailableSkills(),
@@ -446,7 +448,9 @@ export abstract class Agent {
       extraAllowedPaths: this.extraAllowedPaths,
       shellState: this.shellState,
       signal,
-      onSubAgentEvent,
+      onSubAgentEvent: (event) => {
+        channel.push(event);
+      },
     };
 
     try {
