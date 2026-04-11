@@ -34,14 +34,14 @@ describe('transformMessages', () => {
     ]);
   });
 
-  it('pairs tool-execution-start and tool-execution-end by callId across messages', () => {
+  it('pairs tool-execute-start and tool-execute-end by callId across messages', () => {
     const messages: ChatMessage[] = [
       {
         id: null,
         createdAt: null,
         role: 'assistant',
         content: {
-          type: 'tool-execution-start',
+          type: 'tool-execute-start',
           callId: 'c1',
           toolName: 'search',
           displayName: 'Search',
@@ -53,7 +53,7 @@ describe('transformMessages', () => {
         createdAt: null,
         role: 'assistant',
         content: {
-          type: 'tool-execution-end',
+          type: 'tool-execute-end',
           callId: 'c1',
           result: 'found it',
           status: 'success',
@@ -81,7 +81,7 @@ describe('transformMessages', () => {
         createdAt: null,
         role: 'assistant',
         content: {
-          type: 'tool-execution-start',
+          type: 'tool-execute-start',
           callId: 'c1',
           toolName: 'search',
           displayName: 'Search',
@@ -109,7 +109,7 @@ describe('transformMessages', () => {
         createdAt: null,
         role: 'assistant',
         content: {
-          type: 'tool-execution-start',
+          type: 'tool-execute-start',
           callId: 'c1',
           toolName: 'run_command',
           displayName: 'Run Command',
@@ -121,7 +121,7 @@ describe('transformMessages', () => {
         createdAt: null,
         role: 'assistant',
         content: {
-          type: 'tool-execution-end',
+          type: 'tool-execute-end',
           callId: 'c1',
           result: 'Exit code: 1',
           status: 'failure',
@@ -149,7 +149,7 @@ describe('transformMessages', () => {
         createdAt: null,
         role: 'assistant',
         content: {
-          type: 'tool-execution-start',
+          type: 'tool-execute-start',
           callId: 'c1',
           toolName: 'search',
           displayName: 'Search',
@@ -161,7 +161,7 @@ describe('transformMessages', () => {
         createdAt: null,
         role: 'assistant',
         content: {
-          type: 'tool-execution-end',
+          type: 'tool-execute-end',
           callId: 'c1',
           result: 'Error: failed',
           status: 'error',
@@ -195,7 +195,7 @@ describe('transformMessages', () => {
         createdAt: null,
         role: 'assistant',
         content: {
-          type: 'tool-execution-start',
+          type: 'tool-execute-start',
           callId: 'c1',
           toolName: 'search',
           displayName: 'Search',
@@ -207,7 +207,7 @@ describe('transformMessages', () => {
         createdAt: null,
         role: 'assistant',
         content: {
-          type: 'tool-execution-end',
+          type: 'tool-execute-end',
           callId: 'c1',
           result: 'result',
           status: 'success',
@@ -227,14 +227,14 @@ describe('transformMessages', () => {
     expect(result[2].type).toBe('assistant-text');
   });
 
-  it('skips tool-execution-end messages in the output', () => {
+  it('skips tool-execute-end messages in the output', () => {
     const messages: ChatMessage[] = [
       {
         id: null,
         createdAt: null,
         role: 'assistant',
         content: {
-          type: 'tool-execution-end',
+          type: 'tool-execute-end',
           callId: 'c1',
           result: 'orphan result',
           status: 'success',

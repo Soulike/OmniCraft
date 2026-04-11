@@ -1,4 +1,11 @@
-import type {SseUsage} from '@omnicraft/sse-events';
+import type {
+  SseMessageStartEvent,
+  SseTextDeltaEvent,
+  SseToolExecuteDeltaEvent,
+  SseToolExecuteEndEvent,
+  SseToolExecuteStartEvent,
+  SseUsage,
+} from '@omnicraft/sse-events';
 
 import type {EventBus} from '@/helpers/event-bus.js';
 
@@ -8,28 +15,11 @@ export interface TextContent {
   content: string;
 }
 
-/** A tool has started executing. */
-export interface ToolExecutionStartContent {
-  type: 'tool-execution-start';
-  callId: string;
-  toolName: string;
-  displayName: string;
-  arguments: string;
-}
-
-/** A tool has finished executing. */
-export interface ToolExecutionEndContent {
-  type: 'tool-execution-end';
-  callId: string;
-  result: string;
-  status: 'success' | 'failure' | 'error';
-}
-
 /** A single content entry in a chat message. */
 export type MessageContent =
   | TextContent
-  | ToolExecutionStartContent
-  | ToolExecutionEndContent;
+  | SseToolExecuteStartEvent
+  | SseToolExecuteEndEvent;
 
 /** A chat message for UI rendering. Each message has exactly one content. */
 export interface ChatMessage {
@@ -48,19 +38,15 @@ export interface ChatEventMap {
   /** User sent a message. */
   'user-message-sent': {content: string};
   /** A text token arrived from the LLM. */
-  'text-delta': {content: string};
+  'text-delta': SseTextDeltaEvent;
   /** A message has started (metadata from backend). */
-  'message-start': {
-    role: 'user' | 'assistant';
-    messageId: string;
-    createdAt: number;
-  };
+  'message-start': SseMessageStartEvent;
   /** A tool started executing. */
-  'tool-execute-start': ToolExecutionStartContent;
+  'tool-execute-start': SseToolExecuteStartEvent;
   /** A tool finished executing. */
-  'tool-execute-end': ToolExecutionEndContent;
+  'tool-execute-end': SseToolExecuteEndEvent;
   /** Intermediate streaming output from a running tool. */
-  'tool-execute-delta': {callId: string; content: string};
+  'tool-execute-delta': SseToolExecuteDeltaEvent;
   /** The stream completed (LLM finished or max rounds reached). */
   'stream-done': {
     sessionId: string;
