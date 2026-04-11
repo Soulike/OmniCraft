@@ -1,8 +1,13 @@
 export type {
+  SseBaseEvent,
   SseDoneEvent,
   SseErrorEvent,
   SseEvent,
   SseMessageStartEvent,
+  SseSubagentCompleteEvent,
+  SseSubagentDispatchEvent,
+  SseSubAgentEvent,
+  SseSubagentOutputEvent,
   SseTextDeltaEvent,
   SseThinkingDeltaEvent,
   SseThinkingEndEvent,
@@ -13,10 +18,14 @@ export type {
   SseUsage,
 } from './schema.js';
 export {
+  sseBaseEventSchema,
   sseDoneEventSchema,
   sseErrorEventSchema,
   sseEventSchema,
   sseMessageStartEventSchema,
+  sseSubagentCompleteEventSchema,
+  sseSubagentDispatchEventSchema,
+  sseSubagentOutputEventSchema,
   sseTextDeltaEventSchema,
   sseThinkingDeltaEventSchema,
   sseThinkingEndEventSchema,

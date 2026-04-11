@@ -5,6 +5,7 @@ import {
   BashToolRegistry,
   CoreToolRegistry,
   FileToolRegistry,
+  SubAgentToolRegistry,
   WebToolRegistry,
 } from '@/agent/tools/index.js';
 import {getDataDir} from '@/helpers/env.js';
@@ -35,6 +36,7 @@ function initToolRegistries(): void {
   FileToolRegistry.create();
   WebToolRegistry.create();
   BashToolRegistry.create();
+  SubAgentToolRegistry.create();
 }
 
 /** Initializes skill registries and loads skill files. */

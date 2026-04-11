@@ -33,6 +33,7 @@ export const writeFileTool: ToolDefinition<typeof parameters> = {
     'Creates a new file or overwrites an existing file. ' +
     'Prefer editing over overwriting when modifying existing files.',
   parameters,
+  suppressToolEvents: false,
   async execute(
     args: WriteFileArgs,
     context: ToolExecutionContext,

@@ -5,6 +5,7 @@ import type {ThinkingLevel} from '@omnicraft/api-schema';
 import type {
   SseDoneEvent,
   SseMessageStartEvent,
+  SseSubAgentEvent,
   SseTextDeltaEvent,
   SseThinkingDeltaEvent,
   SseThinkingEndEvent,
@@ -165,9 +166,10 @@ export abstract class Agent {
 
       const availableTools = this.getAvailableTools();
 
-      // Emit all tool-execute-start events up front
+      // Emit all tool-execute-start events up front (skip suppressed tools)
       for (const toolCall of toolCalls) {
         const tool = availableTools.get(toolCall.toolName);
+        if (tool?.suppressToolEvents) continue;
         yield {
           type: 'tool-execute-start',
           callId: toolCall.callId,
@@ -179,35 +181,50 @@ export abstract class Agent {
 
       // Execute all tools in parallel, streaming end events as each completes
       const channel = new AsyncChannel<
-        SseToolExecuteEndEvent | SseToolExecuteDeltaEvent
+        SseToolExecuteEndEvent | SseToolExecuteDeltaEvent | SseSubAgentEvent
       >();
       const toolResults = new Map<string, ToolResult>();
 
       const executions = toolCalls.map(async (toolCall) => {
-        const onOutput = (chunk: string) => {
-          channel.push({
-            type: 'tool-execute-delta',
-            callId: toolCall.callId,
-            content: chunk,
-          } satisfies SseToolExecuteDeltaEvent);
+        const tool = availableTools.get(toolCall.toolName);
+        const suppressed = tool?.suppressToolEvents ?? false;
+
+        const onOutput = suppressed
+          ? undefined
+          : (chunk: string) => {
+              channel.push({
+                type: 'tool-execute-delta',
+                callId: toolCall.callId,
+                content: chunk,
+              } satisfies SseToolExecuteDeltaEvent);
+            };
+
+        const onSubAgentEvent = (event: SseSubAgentEvent) => {
+          channel.push(event);
         };
+
         const result = await this.executeTool(
           toolCall,
           availableTools,
           onOutput,
+          onSubAgentEvent,
           signal,
         );
-        const endEvent = {
-          type: 'tool-execute-end' as const,
-          callId: toolCall.callId,
-          result: result.content,
-          status: result.status,
-        } satisfies SseToolExecuteEndEvent;
+
+        if (!suppressed) {
+          const endEvent = {
+            type: 'tool-execute-end' as const,
+            callId: toolCall.callId,
+            result: result.content,
+            status: result.status,
+          } satisfies SseToolExecuteEndEvent;
+          channel.push(endEvent);
+        }
+
         toolResults.set(toolCall.callId, {
           callId: toolCall.callId,
           content: result.content,
         });
-        channel.push(endEvent);
       });
 
       void Promise.all(executions)
@@ -409,7 +426,8 @@ export abstract class Agent {
   private async executeTool(
     toolCall: LlmToolCall,
     availableTools: ReadonlyMap<string, ToolDefinition>,
-    onOutput: (chunk: string) => void,
+    onOutput: ((chunk: string) => void) | undefined,
+    onSubAgentEvent: (event: SseSubAgentEvent) => void,
     signal: AbortSignal,
   ): Promise<{content: string; status: 'success' | 'failure' | 'error'}> {
     const tool = availableTools.get(toolCall.toolName);
@@ -428,6 +446,7 @@ export abstract class Agent {
       extraAllowedPaths: this.extraAllowedPaths,
       shellState: this.shellState,
       signal,
+      onSubAgentEvent,
     };
 
     try {
