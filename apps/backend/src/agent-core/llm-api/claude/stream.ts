@@ -43,8 +43,7 @@ export async function* streamClaude(
   }
 
   const thinking = toThinkingConfig(options.thinkingLevel);
-  // Use the model's actual max output tokens instead of a hardcoded value.
-  // Math.max ensures budget_tokens < max_tokens even if the fallback is small.
+  // budget_tokens must be < max_tokens; clamp in case the fallback is small.
   const maxOutputTokens = await modelCapacity.getMaxOutputTokens(
     options.config,
   );
