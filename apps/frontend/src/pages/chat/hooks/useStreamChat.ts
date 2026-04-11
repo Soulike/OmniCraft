@@ -57,7 +57,7 @@ export function useStreamChat({
           switch (event.type) {
             case 'text-delta':
               assistantText += event.content;
-              eventBus.emit('text-delta', {content: event.content});
+              eventBus.emit('text-delta', event);
               break;
             case 'tool-execute-start':
               eventBus.emit('tool-execute-start', event);
@@ -66,17 +66,15 @@ export function useStreamChat({
               eventBus.emit('tool-execute-end', event);
               break;
             case 'message-start':
-              eventBus.emit('message-start', {
-                role: event.role,
-                messageId: event.messageId,
-                createdAt: event.createdAt,
-              });
+              eventBus.emit('message-start', event);
               break;
             case 'tool-execute-delta':
-              eventBus.emit('tool-execute-delta', {
-                callId: event.callId,
-                content: event.content,
-              });
+              eventBus.emit('tool-execute-delta', event);
+              break;
+            case 'thinking-start':
+            case 'thinking-delta':
+            case 'thinking-end':
+              // Not consumed by the frontend yet.
               break;
             case 'done':
               if (event.reason === 'max_rounds_reached') {

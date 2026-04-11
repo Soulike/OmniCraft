@@ -1,4 +1,7 @@
 import type {
+  SseMessageStartEvent,
+  SseTextDeltaEvent,
+  SseToolExecuteDeltaEvent,
   SseToolExecuteEndEvent,
   SseToolExecuteStartEvent,
   SseUsage,
@@ -35,19 +38,15 @@ export interface ChatEventMap {
   /** User sent a message. */
   'user-message-sent': {content: string};
   /** A text token arrived from the LLM. */
-  'text-delta': {content: string};
+  'text-delta': SseTextDeltaEvent;
   /** A message has started (metadata from backend). */
-  'message-start': {
-    role: 'user' | 'assistant';
-    messageId: string;
-    createdAt: number;
-  };
+  'message-start': SseMessageStartEvent;
   /** A tool started executing. */
   'tool-execute-start': SseToolExecuteStartEvent;
   /** A tool finished executing. */
   'tool-execute-end': SseToolExecuteEndEvent;
   /** Intermediate streaming output from a running tool. */
-  'tool-execute-delta': {callId: string; content: string};
+  'tool-execute-delta': SseToolExecuteDeltaEvent;
   /** The stream completed (LLM finished or max rounds reached). */
   'stream-done': {
     sessionId: string;

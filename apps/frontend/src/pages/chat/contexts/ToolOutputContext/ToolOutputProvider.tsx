@@ -1,3 +1,7 @@
+import type {
+  SseToolExecuteDeltaEvent,
+  SseToolExecuteEndEvent,
+} from '@omnicraft/sse-events';
 import type {ReactNode} from 'react';
 import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 
@@ -26,7 +30,7 @@ export function ToolOutputProvider({children}: ToolOutputProviderProps) {
   }, []);
 
   useEffect(() => {
-    const onDelta = (data: {callId: string; content: string}) => {
+    const onDelta = (data: SseToolExecuteDeltaEvent) => {
       const current = mapRef.current.get(data.callId) ?? '';
       const updated = current + data.content;
       mapRef.current.set(
@@ -38,7 +42,7 @@ export function ToolOutputProvider({children}: ToolOutputProviderProps) {
       scheduleRender();
     };
 
-    const onEnd = (data: {callId: string}) => {
+    const onEnd = (data: SseToolExecuteEndEvent) => {
       mapRef.current.delete(data.callId);
       scheduleRender();
     };

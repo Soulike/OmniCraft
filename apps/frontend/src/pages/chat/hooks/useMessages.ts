@@ -1,4 +1,6 @@
 import type {
+  SseMessageStartEvent,
+  SseTextDeltaEvent,
   SseToolExecuteEndEvent,
   SseToolExecuteStartEvent,
 } from '@omnicraft/sse-events';
@@ -139,7 +141,7 @@ export function useMessages() {
     const onUserMessageSent = (data: {content: string}) => {
       setMessages((prev) => addUserMessage(prev, data.content));
     };
-    const onTextDelta = (data: {content: string}) => {
+    const onTextDelta = (data: SseTextDeltaEvent) => {
       setMessages((prev) => appendAssistantText(prev, data.content));
     };
     const onToolExecuteStart = (data: SseToolExecuteStartEvent) => {
@@ -151,11 +153,7 @@ export function useMessages() {
     const onStreamEnd = () => {
       setMessages(removeTrailingAssistantMessageIfEmpty);
     };
-    const onMessageStart = (data: {
-      role: 'user' | 'assistant';
-      messageId: string;
-      createdAt: number;
-    }) => {
+    const onMessageStart = (data: SseMessageStartEvent) => {
       if (data.role === 'user') {
         setMessages((prev) => applyUserMessageStart(prev, data.messageId));
       } else {
