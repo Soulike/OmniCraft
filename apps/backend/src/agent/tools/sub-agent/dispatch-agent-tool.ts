@@ -35,9 +35,7 @@ const parameters = z.object({
   task: z.string().min(1).describe('The task description for the subagent'),
   agentType: agentTypeSchema
     .optional()
-    .describe(
-      `Type of subagent to dispatch. Available: ${Object.keys(subAgentFactories).join(', ')}. Defaults to 'general'.`,
-    ),
+    .describe("Type of subagent to dispatch. Defaults to 'general'."),
   model: z
     .enum(['default', 'light'])
     .optional()
