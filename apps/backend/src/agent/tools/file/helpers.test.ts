@@ -4,12 +4,12 @@ import path from 'node:path';
 
 import {afterEach, beforeEach, describe, expect, it} from 'vitest';
 
+import {isSubPath, isSubPathOrSelf} from '@/helpers/path-access.js';
+
 import {
   countLines,
   formatWithLineNumbers,
   isBinaryFile,
-  isSubPath,
-  isSubPathOrSelf,
   readLineRange,
   ReadSizeLimitError,
 } from './helpers.js';

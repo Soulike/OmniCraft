@@ -9,10 +9,9 @@ import type {
   ToolExecuteResult,
   ToolExecutionContext,
 } from '@/agent-core/tool/index.js';
+import {AccessCheckResult, checkAccess} from '@/helpers/path-access.js';
 
 import {
-  AccessCheckResult,
-  checkAccess,
   countLines,
   formatWithLineNumbers,
   isBinaryFile,

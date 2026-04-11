@@ -11,8 +11,7 @@ import type {
   ToolExecuteResult,
   ToolExecutionContext,
 } from '@/agent-core/tool/index.js';
-
-import {AccessCheckResult, checkAccess} from './helpers.js';
+import {AccessCheckResult, checkAccess} from '@/helpers/path-access.js';
 
 const MAX_DIFF_SIZE = 4_096; // 4KB
 const MAX_FILE_SIZE = 10_485_760; // 10MB

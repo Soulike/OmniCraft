@@ -10,8 +10,9 @@ import type {
   ToolExecuteResult,
   ToolExecutionContext,
 } from '@/agent-core/tool/index.js';
+import {AccessCheckResult, checkAccess} from '@/helpers/path-access.js';
 
-import {AccessCheckResult, checkAccess, countLines} from './helpers.js';
+import {countLines} from './helpers.js';
 
 const MAX_CONTENT_SIZE = 1_048_576; // 1MB
 

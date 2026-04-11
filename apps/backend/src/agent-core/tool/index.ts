@@ -7,10 +7,4 @@ export type {
   ToolExecuteStatus,
   ToolExecutionContext,
 } from './types.js';
-export {
-  AccessCheckResult,
-  checkAccess,
-  isSubPath,
-  isSubPathOrSelf,
-} from '@/helpers/path-access.js';
 export type {AllowedPathEntry} from '@omnicraft/settings-schema';

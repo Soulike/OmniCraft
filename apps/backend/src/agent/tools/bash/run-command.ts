@@ -8,7 +8,7 @@ import type {
   ToolExecuteResult,
   ToolExecutionContext,
 } from '@/agent-core/tool/index.js';
-import {isSubPathOrSelf} from '@/agent-core/tool/index.js';
+import {isSubPathOrSelf} from '@/helpers/path-access.js';
 import {ShellCommandRunner} from '@/helpers/shell-command-runner.js';
 
 const DEFAULT_TIMEOUT_MS = 120_000;

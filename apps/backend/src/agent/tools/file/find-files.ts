@@ -11,8 +11,8 @@ import type {
   ToolExecuteResult,
   ToolExecutionContext,
 } from '@/agent-core/tool/index.js';
+import {AccessCheckResult, checkAccess} from '@/helpers/path-access.js';
 
-import {AccessCheckResult, checkAccess} from './helpers.js';
 import {searchFilesTool} from './search-files.js';
 
 const MAX_RESULTS = 100;

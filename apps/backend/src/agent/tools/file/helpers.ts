@@ -3,13 +3,6 @@ import fs from 'node:fs/promises';
 import readline from 'node:readline';
 import {Readable} from 'node:stream';
 
-export {
-  AccessCheckResult,
-  checkAccess,
-  isSubPath,
-  isSubPathOrSelf,
-} from '@/agent-core/tool/index.js';
-
 const BINARY_DETECTION_SIZE = 8_192; // 8KB
 
 /** Thrown when readLineRange exceeds the maxBytes limit. */

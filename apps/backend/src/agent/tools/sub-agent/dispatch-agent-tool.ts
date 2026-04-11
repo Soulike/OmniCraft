@@ -11,7 +11,7 @@ import type {
   ToolExecuteResult,
   ToolExecutionContext,
 } from '@/agent-core/tool/index.js';
-import {AccessCheckResult, checkAccess} from '@/agent-core/tool/index.js';
+import {AccessCheckResult, checkAccess} from '@/helpers/path-access.js';
 import {settingsService} from '@/services/settings/index.js';
 
 const parameters = z.object({
