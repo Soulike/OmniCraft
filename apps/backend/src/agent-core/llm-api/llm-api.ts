@@ -1,5 +1,5 @@
 import {streamClaude} from './claude/index.js';
-import {streamOpenAI} from './openai-adapter.js';
+import {streamOpenAI} from './openai/index.js';
 import {streamOpenAIResponses} from './openai-responses-adapter.js';
 import type {LlmCompletionOptions, LlmEventStream} from './types.js';
 
