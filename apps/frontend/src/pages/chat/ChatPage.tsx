@@ -101,8 +101,8 @@ function ChatPageContent() {
       maxRoundsReached={maxRoundsReached}
       scrollRef={scrollRef}
       sessionId={sessionId}
-      onSend={(content) => {
-        void sendMessage(content);
+      onSend={(content, thinkingLevel) => {
+        void sendMessage(content, thinkingLevel);
         requestAnimationFrame(() => {
           scrollToBottom();
         });
