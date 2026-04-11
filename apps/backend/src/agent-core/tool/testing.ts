@@ -10,6 +10,8 @@ import {FileContentCache} from '../agent/file-content-cache.js';
 import {FileStatTracker} from '../agent/file-stat-tracker.js';
 import type {ToolDefinition, ToolExecutionContext} from './types.js';
 
+const mockResultSchema = z.object({mock: z.literal(true)});
+
 /** Creates a minimal mock ToolDefinition. */
 export function createMockTool(name: string): ToolDefinition {
   return {
@@ -17,7 +19,13 @@ export function createMockTool(name: string): ToolDefinition {
     displayName: `Mock: ${name}`,
     description: `Mock tool: ${name}`,
     parameters: z.object({}),
-    execute: () => Promise.resolve({content: 'ok', status: 'success' as const}),
+    resultSchema: mockResultSchema,
+    execute: () =>
+      Promise.resolve({
+        data: {mock: true},
+        content: 'ok',
+        status: 'success' as const,
+      }),
   };
 }
 

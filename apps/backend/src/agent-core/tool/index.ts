@@ -3,8 +3,9 @@ export {ToolRegistry} from './tool-registry.js';
 export type {
   ShellState,
   ToolDefinition,
+  ToolExecuteFailureResult,
   ToolExecuteResult,
-  ToolExecuteStatus,
+  ToolExecuteSuccessResult,
   ToolExecutionContext,
 } from './types.js';
 export type {AllowedPathEntry} from '@omnicraft/settings-schema';
