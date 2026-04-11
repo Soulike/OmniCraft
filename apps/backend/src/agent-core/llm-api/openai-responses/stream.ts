@@ -2,7 +2,7 @@ import assert from 'node:assert';
 
 import OpenAIClient from 'openai';
 
-import {getOpenAIMaxOutputTokens} from '../../model-capacity/openai-capacity.js';
+import {modelCapacity} from '../../model-capacity/index.js';
 import type {
   LlmCompletionOptions,
   LlmEventStream,
@@ -24,7 +24,9 @@ export async function* streamOpenAIResponses(
   const input = toInputItems(messages);
   const tools = options.tools.map(toFunctionTool);
   const reasoning = toReasoning(options.thinkingLevel);
-  const maxOutputTokens = getOpenAIMaxOutputTokens(options.config);
+  const maxOutputTokens = await modelCapacity.getMaxOutputTokens(
+    options.config,
+  );
 
   const stream = await client.responses.create(
     {
