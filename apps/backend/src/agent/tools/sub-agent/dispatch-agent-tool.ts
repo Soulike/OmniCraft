@@ -22,14 +22,39 @@ type SubAgentFactory = (
   extraAllowedPaths: readonly AllowedPathEntry[],
 ) => Agent;
 
-const subAgentFactories: Record<string, SubAgentFactory> = {
-  general: (getConfig, workingDirectory, extraAllowedPaths) =>
-    new GeneralSubAgent(getConfig, workingDirectory, extraAllowedPaths),
+interface SubAgentTypeInfo {
+  name: string;
+  description: string;
+  factory: SubAgentFactory;
+}
+
+const subAgentTypes: Record<string, SubAgentTypeInfo> = {
+  general: {
+    name: 'General',
+    description:
+      'General-purpose agent with file, web, bash, and search tools. ' +
+      'Use for autonomous multi-step tasks such as code changes, research, or analysis.',
+    factory: (getConfig, workingDirectory, extraAllowedPaths) =>
+      new GeneralSubAgent(getConfig, workingDirectory, extraAllowedPaths),
+  },
 };
 
 const agentTypeSchema = z.enum(
-  Object.keys(subAgentFactories) as [string, ...string[]],
+  Object.keys(subAgentTypes) as [string, ...string[]],
 );
+
+function buildToolDescription(): string {
+  const header =
+    'Dispatches a subagent to handle a subtask autonomously. ' +
+    'Subagents cannot dispatch further subagents. ' +
+    'Use this when a task can be delegated and worked on independently.';
+
+  const typeDescriptions = Object.entries(subAgentTypes)
+    .map(([key, info]) => `- ${key} (${info.name}): ${info.description}`)
+    .join('\n');
+
+  return `${header}\n\nAvailable agent types:\n${typeDescriptions}`;
+}
 
 const parameters = z.object({
   task: z.string().min(1).describe('The task description for the subagent'),
@@ -59,10 +84,7 @@ const parameters = z.object({
 export const dispatchAgentTool: ToolDefinition<typeof parameters> = {
   name: 'dispatch_agent',
   displayName: 'Dispatch Agent',
-  description:
-    'Dispatches a subagent to handle a subtask autonomously. ' +
-    'The subagent has access to the same tools (file, web, bash, etc.) but cannot dispatch further subagents. ' +
-    'Use this when a task can be delegated and worked on independently.',
+  description: buildToolDescription(),
   parameters,
   suppressToolEvents: true,
   async execute(
@@ -118,7 +140,7 @@ export const dispatchAgentTool: ToolDefinition<typeof parameters> = {
       });
 
     // Create and run subagent
-    const factory = subAgentFactories[agentType];
+    const {factory} = subAgentTypes[agentType];
     const subagent = factory(
       getConfig,
       workingDirectory,
