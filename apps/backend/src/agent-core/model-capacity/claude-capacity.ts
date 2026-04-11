@@ -37,12 +37,11 @@ async function resolve(config: Readonly<LlmConfig>): Promise<CachedCapacity> {
     return capacity;
   } catch {
     // Proxy may not support /v1/models — fall back to safe defaults.
-    const fallback: CachedCapacity = {
+    // Do not cache the fallback so transient failures can self-heal on retry.
+    return {
       maxOutputTokens: DEFAULT_MAX_OUTPUT_TOKENS,
       maxInputTokens: DEFAULT_MAX_INPUT_TOKENS,
     };
-    cache.set(key, fallback);
-    return fallback;
   }
 }
 
