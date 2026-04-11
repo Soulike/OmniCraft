@@ -1,3 +1,4 @@
+import type {ThinkingLevel} from '@omnicraft/api-schema';
 import {useCallback, useRef, useState} from 'react';
 
 import {streamChatCompletion} from '@/api/chat/index.js';
@@ -24,7 +25,7 @@ export function useStreamChat({
   const eventBus = useChatEventBus();
 
   const sendMessage = useCallback(
-    async (content: string) => {
+    async (content: string, thinkingLevel: ThinkingLevel) => {
       if (isStreaming) return;
 
       const trimmed = content.trim();
@@ -48,7 +49,7 @@ export function useStreamChat({
         const stream = streamChatCompletion(
           activeSessionId,
           trimmed,
-          'none',
+          thinkingLevel,
           abortController.signal,
         );
 
