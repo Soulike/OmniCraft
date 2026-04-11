@@ -1,6 +1,6 @@
-import {streamClaude} from './claude-adapter.js';
-import {streamOpenAI} from './openai-adapter.js';
-import {streamOpenAIResponses} from './openai-responses-adapter.js';
+import {streamClaude} from './claude/index.js';
+import {streamOpenAI} from './openai/index.js';
+import {streamOpenAIResponses} from './openai-responses/index.js';
 import type {LlmCompletionOptions, LlmEventStream} from './types.js';
 
 /** External API layer for LLM communication. */
