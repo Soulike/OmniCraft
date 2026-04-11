@@ -821,6 +821,7 @@ export function useFormState(questions: Question[]): FormState {
 Create `apps/frontend/src/pages/chat/components/MessageList/components/AskUserCard/hooks/useSubmitActions.ts`:
 
 ```typescript
+import {toast} from '@heroui/react';
 import {useCallback, useState} from 'react';
 
 import {submitToolResponse} from '@/api/chat/index.js';
@@ -847,22 +848,32 @@ export function useSubmitActions({
   const {sessionId} = useSessionId();
   const [submitting, setSubmitting] = useState(false);
 
-  const handleSubmit = useCallback(() => {
+  const handleSubmit = useCallback(async () => {
     if (!sessionId || submitting) return;
     setSubmitting(true);
 
     const answers = collectAnswers();
-    void submitToolResponse(sessionId, callId, {
-      cancelled: false,
-      answers,
-    });
+    try {
+      await submitToolResponse(sessionId, callId, {
+        cancelled: false,
+        answers,
+      });
+    } catch {
+      setSubmitting(false);
+      toast.error('Failed to submit response. Please try again.');
+    }
   }, [sessionId, callId, collectAnswers, submitting]);
 
-  const handleCancel = useCallback(() => {
+  const handleCancel = useCallback(async () => {
     if (!sessionId || submitting) return;
     setSubmitting(true);
 
-    void submitToolResponse(sessionId, callId, {cancelled: true});
+    try {
+      await submitToolResponse(sessionId, callId, {cancelled: true});
+    } catch {
+      setSubmitting(false);
+      toast.error('Failed to cancel. Please try again.');
+    }
   }, [sessionId, callId, submitting]);
 
   return {submitting, handleSubmit, handleCancel};
