@@ -26,10 +26,17 @@ export interface ToolExecutionRenderItem {
   result?: string;
 }
 
+export interface ThinkingRenderItem {
+  type: 'thinking';
+  content: string;
+  done: boolean;
+}
+
 export type MessageRenderItem =
   | UserTextRenderItem
   | AssistantTextRenderItem
-  | ToolExecutionRenderItem;
+  | ToolExecutionRenderItem
+  | ThinkingRenderItem;
 
 /** Converts a ChatMessage[] into renderable MessageRenderItem[]. */
 export function transformMessages(
@@ -105,6 +112,15 @@ export function transformMessages(
       case 'tool-execute-end':
         // Already handled via the start event pairing above
         break;
+      case 'thinking': {
+        if (content.done && content.content.trim() === '') break;
+        items.push({
+          type: 'thinking',
+          content: content.content,
+          done: content.done,
+        });
+        break;
+      }
     }
   }
 
