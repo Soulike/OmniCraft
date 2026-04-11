@@ -9,6 +9,7 @@ import type {
   LlmAssistantMessage,
   LlmConfig,
   LlmMessage,
+  LlmThinkingBlock,
   LlmToolCall,
   LlmUsage,
 } from '../llm-api/index.js';
@@ -195,6 +196,7 @@ export class LlmSession {
     let assistantId: string | null = null;
     let assistantCreatedAt: number | null = null;
     const toolCalls: LlmToolCall[] = [];
+    const thinkingBlocks: LlmThinkingBlock[] = [];
     const pendingToolCalls = new Map<string, LlmToolCall>();
 
     for await (const event of eventStream) {
@@ -202,6 +204,16 @@ export class LlmSession {
         case 'text-delta':
           textContent += event.content;
           yield {type: 'text-delta', content: event.content};
+          break;
+        case 'thinking-start':
+          yield {type: 'thinking-start'};
+          break;
+        case 'thinking-delta':
+          yield {type: 'thinking-delta', content: event.content};
+          break;
+        case 'thinking-end':
+          thinkingBlocks.push(event.block);
+          yield {type: 'thinking-end'};
           break;
         case 'tool-call-start':
           pendingToolCalls.set(event.callId, {
@@ -266,6 +278,7 @@ export class LlmSession {
       role: 'assistant',
       content: textContent,
       toolCalls,
+      thinking: thinkingBlocks,
     };
     this.messages.push(assistantMessage);
   }

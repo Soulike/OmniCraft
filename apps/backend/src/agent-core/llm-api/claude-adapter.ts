@@ -9,6 +9,7 @@ import type {
   LlmCompletionOptions,
   LlmEventStream,
   LlmMessage,
+  LlmThinkingBlock,
   LlmUsage,
 } from './types.js';
 
@@ -29,6 +30,14 @@ function toSdkMessage(message: LlmMessage): SdkMessageParam {
       return {role: 'user', content: message.content};
     case 'assistant': {
       const content: Anthropic.ContentBlockParam[] = [];
+      // Thinking blocks must come before text/tool_use blocks.
+      for (const block of message.thinking) {
+        content.push({
+          type: 'thinking',
+          thinking: block.content[0] ?? '',
+          signature: block.signature,
+        });
+      }
       if (message.content) {
         content.push({type: 'text', text: message.content});
       }
@@ -183,6 +192,12 @@ export async function* streamClaude(
   // Claude uses content block indices; track index → callId mapping.
   const blockCallIds = new Map<number, string>();
 
+  // Track thinking block indices and their accumulated data.
+  const thinkingBlockIndices = new Set<number>();
+  const thinkingTexts = new Map<number, string>();
+  const thinkingSignatures = new Map<number, string>();
+  const thinkingBlocks: LlmThinkingBlock[] = [];
+
   // Accumulate usage across events; Claude reports input in message_start
   // and output in message_delta.
   let usage: LlmUsage = {
@@ -231,6 +246,11 @@ export async function* streamClaude(
             callId: event.content_block.id,
             toolName: event.content_block.name,
           };
+        } else if (event.content_block.type === 'thinking') {
+          thinkingBlockIndices.add(event.index);
+          thinkingTexts.set(event.index, '');
+          thinkingSignatures.set(event.index, '');
+          yield {type: 'thinking-start'};
         }
         break;
       }
@@ -248,6 +268,13 @@ export async function* streamClaude(
             callId,
             argumentsDelta: event.delta.partial_json,
           };
+        } else if (event.delta.type === 'thinking_delta') {
+          const prev = thinkingTexts.get(event.index) ?? '';
+          thinkingTexts.set(event.index, prev + event.delta.thinking);
+          yield {type: 'thinking-delta', content: event.delta.thinking};
+        } else if (event.delta.type === 'signature_delta') {
+          const prev = thinkingSignatures.get(event.index) ?? '';
+          thinkingSignatures.set(event.index, prev + event.delta.signature);
         }
         break;
       }
@@ -256,6 +283,17 @@ export async function* streamClaude(
         if (callId) {
           yield {type: 'tool-call-end', callId};
           blockCallIds.delete(event.index);
+        }
+        if (thinkingBlockIndices.has(event.index)) {
+          const block: LlmThinkingBlock = {
+            content: [thinkingTexts.get(event.index) ?? ''],
+            signature: thinkingSignatures.get(event.index) ?? '',
+          };
+          thinkingBlocks.push(block);
+          thinkingBlockIndices.delete(event.index);
+          thinkingTexts.delete(event.index);
+          thinkingSignatures.delete(event.index);
+          yield {type: 'thinking-end', block};
         }
         break;
       }

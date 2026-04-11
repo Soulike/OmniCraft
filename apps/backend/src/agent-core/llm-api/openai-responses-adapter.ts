@@ -10,6 +10,7 @@ import type {
   LlmCompletionOptions,
   LlmEventStream,
   LlmMessage,
+  LlmThinkingBlock,
 } from './types.js';
 
 type ResponseInputItem = OpenAI.Responses.ResponseInputItem;
@@ -24,6 +25,17 @@ function toInputItems(messages: readonly LlmMessage[]): ResponseInputItem[] {
         items.push({type: 'message', role: 'user', content: message.content});
         break;
       case 'assistant': {
+        // Reasoning items must come before the assistant message.
+        for (const block of message.thinking) {
+          items.push({
+            type: 'reasoning',
+            id: block.signature,
+            summary: block.content.map((text) => ({
+              type: 'summary_text' as const,
+              text,
+            })),
+          });
+        }
         if (message.content) {
           items.push({role: 'assistant', content: message.content});
         }
@@ -64,9 +76,9 @@ function toFunctionTool(tool: ToolDefinition): OpenAI.Responses.FunctionTool {
 /** Maps a ThinkingLevel to the OpenAI Reasoning config. */
 function toReasoning(
   level: ThinkingLevel,
-): {effort: 'low' | 'medium' | 'high'} | undefined {
+): {effort: 'low' | 'medium' | 'high'; summary: 'auto'} | undefined {
   if (level === 'none') return undefined;
-  return {effort: level};
+  return {effort: level, summary: 'auto'};
 }
 
 /** Streams LLM events from the OpenAI Responses API. */
@@ -101,6 +113,10 @@ export async function* streamOpenAIResponses(
   // but our unified protocol uses call_id. The two are different identifiers.
   const callIdByItemId = new Map<string, string>();
 
+  // Track reasoning summary parts for each reasoning item.
+  const reasoningSummaryParts = new Map<string, string[]>();
+  const thinkingBlocks: LlmThinkingBlock[] = [];
+
   for await (const event of stream) {
     switch (event.type) {
       case 'response.created':
@@ -133,19 +149,6 @@ export async function* streamOpenAIResponses(
         break;
       }
 
-      case 'response.output_item.done':
-        if (event.item.type === 'function_call') {
-          assert(
-            event.item.id,
-            'Expected item.id on function_call output item',
-          );
-          const callId = callIdByItemId.get(event.item.id);
-          assert(callId, `Missing call_id for item ${event.item.id}`);
-          yield {type: 'tool-call-end', callId};
-          callIdByItemId.delete(event.item.id);
-        }
-        break;
-
       case 'response.completed':
       case 'response.incomplete': {
         const usage = event.response.usage;
@@ -176,14 +179,46 @@ export async function* streamOpenAIResponses(
         yield {type: 'text-delta', content: event.delta};
         break;
 
-      // Reasoning events — not surfaced yet but available for future
-      // "show thinking" support.
+      // Reasoning events — stream thinking content and collect for history.
+      case 'response.reasoning_summary_part.added':
+        yield {type: 'thinking-start'};
+        break;
+      case 'response.reasoning_summary_text.delta':
+        yield {type: 'thinking-delta', content: event.delta};
+        break;
+      case 'response.reasoning_summary_part.done': {
+        const parts = reasoningSummaryParts.get(event.item_id) ?? [];
+        parts.push(event.part.text);
+        reasoningSummaryParts.set(event.item_id, parts);
+        break;
+      }
+      case 'response.reasoning_summary_text.done':
+        break;
+      case 'response.output_item.done':
+        if (event.item.type === 'reasoning') {
+          const parts = reasoningSummaryParts.get(event.item.id) ?? [];
+          const block: LlmThinkingBlock = {
+            content: parts,
+            signature: event.item.id,
+          };
+          thinkingBlocks.push(block);
+          reasoningSummaryParts.delete(event.item.id);
+          yield {type: 'thinking-end', block};
+        }
+        if (event.item.type === 'function_call') {
+          assert(
+            event.item.id,
+            'Expected item.id on function_call output item',
+          );
+          const callId = callIdByItemId.get(event.item.id);
+          assert(callId, `Missing call_id for item ${event.item.id}`);
+          yield {type: 'tool-call-end', callId};
+          callIdByItemId.delete(event.item.id);
+        }
+        break;
+
       case 'response.reasoning_text.delta':
       case 'response.reasoning_text.done':
-      case 'response.reasoning_summary_text.delta':
-      case 'response.reasoning_summary_text.done':
-      case 'response.reasoning_summary_part.added':
-      case 'response.reasoning_summary_part.done':
         break;
 
       // Events below are not relevant for our streaming protocol.

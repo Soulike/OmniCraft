@@ -10,6 +10,9 @@ import type {LlmConfig, LlmToolCall} from '../llm-api/index.js';
 import type {
   LlmSessionEventStream,
   LlmSessionTextDeltaEvent,
+  LlmSessionThinkingDeltaEvent,
+  LlmSessionThinkingEndEvent,
+  LlmSessionThinkingStartEvent,
   ToolResult,
 } from '../llm-session/index.js';
 import {LlmSession} from '../llm-session/index.js';
@@ -354,7 +357,11 @@ export abstract class Agent {
   private async *consumeStream(
     stream: LlmSessionEventStream,
   ): AsyncGenerator<
-    LlmSessionTextDeltaEvent | AgentMessageStartEvent,
+    | LlmSessionTextDeltaEvent
+    | LlmSessionThinkingStartEvent
+    | LlmSessionThinkingDeltaEvent
+    | LlmSessionThinkingEndEvent
+    | AgentMessageStartEvent,
     LlmToolCall[],
     undefined
   > {
@@ -362,6 +369,9 @@ export abstract class Agent {
     for await (const event of stream) {
       switch (event.type) {
         case 'text-delta':
+        case 'thinking-start':
+        case 'thinking-delta':
+        case 'thinking-end':
           yield event;
           break;
         case 'message-start':
