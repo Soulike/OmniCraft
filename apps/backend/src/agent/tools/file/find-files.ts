@@ -11,8 +11,8 @@ import type {
   ToolExecuteResult,
   ToolExecutionContext,
 } from '@/agent-core/tool/index.js';
+import {AccessCheckResult, checkAccess} from '@/helpers/path-access.js';
 
-import {AccessCheckResult, checkAccess} from './helpers.js';
 import {searchFilesTool} from './search-files.js';
 
 const MAX_RESULTS = 100;
@@ -44,6 +44,7 @@ export const findFilesTool: ToolDefinition<typeof parameters> = {
     'Use this to locate files by name or extension (e.g., find all TypeScript files, locate a config file). ' +
     `To search file contents instead, use ${searchFilesTool.name}.`,
   parameters,
+  suppressToolEvents: false,
   async execute(
     args: FindFilesArgs,
     context: ToolExecutionContext,

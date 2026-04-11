@@ -14,8 +14,9 @@ import type {
   ToolExecuteResult,
   ToolExecutionContext,
 } from '@/agent-core/tool/index.js';
+import {AccessCheckResult, checkAccess} from '@/helpers/path-access.js';
 
-import {AccessCheckResult, checkAccess, isBinaryFile} from './helpers.js';
+import {isBinaryFile} from './helpers.js';
 
 const MAX_MATCHES = 100;
 const MAX_CONCURRENCY = 10;
@@ -98,6 +99,7 @@ export const searchFilesTool: ToolDefinition<typeof parameters> = {
     'Searches file contents for a regex pattern and returns matching lines with file paths and line numbers. ' +
     'Use this to find where a function, variable, string, or pattern is used across the codebase.',
   parameters,
+  suppressToolEvents: false,
   async execute(
     args: SearchFilesArgs,
     context: ToolExecutionContext,

@@ -31,6 +31,7 @@ export const webFetchRawTool: ToolDefinition<typeof parameters> = {
     `Prefer ${webFetchTool.name} for most use cases; only use this tool when you ` +
     'need unprocessed content (e.g., inspecting raw HTML structure).',
   parameters,
+  suppressToolEvents: false,
   async execute(
     args: WebFetchRawArgs,
     _context: ToolExecutionContext,

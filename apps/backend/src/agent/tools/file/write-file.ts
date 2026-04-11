@@ -10,8 +10,9 @@ import type {
   ToolExecuteResult,
   ToolExecutionContext,
 } from '@/agent-core/tool/index.js';
+import {AccessCheckResult, checkAccess} from '@/helpers/path-access.js';
 
-import {AccessCheckResult, checkAccess, countLines} from './helpers.js';
+import {countLines} from './helpers.js';
 
 const MAX_CONTENT_SIZE = 1_048_576; // 1MB
 
@@ -33,6 +34,7 @@ export const writeFileTool: ToolDefinition<typeof parameters> = {
     'Creates a new file or overwrites an existing file. ' +
     'Prefer editing over overwriting when modifying existing files.',
   parameters,
+  suppressToolEvents: false,
   async execute(
     args: WriteFileArgs,
     context: ToolExecutionContext,

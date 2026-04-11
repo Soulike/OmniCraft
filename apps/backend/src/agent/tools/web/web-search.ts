@@ -52,6 +52,7 @@ export const webSearchTool: ToolDefinition<typeof parameters> = {
     'that may require up-to-date information beyond your training data. ' +
     'Prefer this over guessing when you are unsure about facts.',
   parameters,
+  suppressToolEvents: false,
   async execute(
     args: WebSearchArgs,
     _context: ToolExecutionContext,

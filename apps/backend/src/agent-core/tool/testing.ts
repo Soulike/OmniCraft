@@ -17,6 +17,7 @@ export function createMockTool(name: string): ToolDefinition {
     displayName: `Mock: ${name}`,
     description: `Mock tool: ${name}`,
     parameters: z.object({}),
+    suppressToolEvents: false,
     execute: () => Promise.resolve({content: 'ok', status: 'success' as const}),
   };
 }
@@ -34,6 +35,9 @@ export function createMockContext(
     extraAllowedPaths: [],
     shellState: {cwd: workingDirectory},
     signal: new AbortController().signal,
+    onSubAgentEvent: () => {
+      // noop — mock context ignores subagent events
+    },
     ...overrides,
   };
 }
