@@ -34,5 +34,7 @@ function itemKey(item: MessageRenderItem, index: number): string {
     case 'user-text':
     case 'assistant-text':
       return item.id ?? `${item.type}-${index.toString()}`;
+    case 'thinking':
+      return `thinking-${index.toString()}`;
   }
 }

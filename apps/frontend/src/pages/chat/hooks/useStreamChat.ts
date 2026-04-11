@@ -72,9 +72,13 @@ export function useStreamChat({
               eventBus.emit('tool-execute-delta', event);
               break;
             case 'thinking-start':
+              eventBus.emit('thinking-start', event);
+              break;
             case 'thinking-delta':
+              eventBus.emit('thinking-delta', event);
+              break;
             case 'thinking-end':
-              // Not consumed by the frontend yet.
+              eventBus.emit('thinking-end', event);
               break;
             case 'done':
               if (event.reason === 'max_rounds_reached') {

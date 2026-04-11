@@ -249,4 +249,141 @@ describe('transformMessages', () => {
     const result = transformMessages([]);
     expect(result).toEqual([]);
   });
+
+  it('converts a streaming thinking message to ThinkingRenderItem', () => {
+    const messages: ChatMessage[] = [
+      {
+        id: null,
+        createdAt: null,
+        role: 'assistant',
+        content: {type: 'thinking', content: 'considering...', done: false},
+      },
+    ];
+    const result = transformMessages(messages);
+    expect(result).toEqual([
+      {type: 'thinking', content: 'considering...', done: false},
+    ]);
+  });
+
+  it('converts a completed thinking message to ThinkingRenderItem', () => {
+    const messages: ChatMessage[] = [
+      {
+        id: null,
+        createdAt: null,
+        role: 'assistant',
+        content: {type: 'thinking', content: 'I thought about it.', done: true},
+      },
+    ];
+    const result = transformMessages(messages);
+    expect(result).toEqual([
+      {type: 'thinking', content: 'I thought about it.', done: true},
+    ]);
+  });
+
+  it('filters out empty completed thinking messages', () => {
+    const messages: ChatMessage[] = [
+      {
+        id: null,
+        createdAt: null,
+        role: 'assistant',
+        content: {type: 'thinking', content: '', done: true},
+      },
+    ];
+    const result = transformMessages(messages);
+    expect(result).toEqual([]);
+  });
+
+  it('filters out whitespace-only completed thinking messages', () => {
+    const messages: ChatMessage[] = [
+      {
+        id: null,
+        createdAt: null,
+        role: 'assistant',
+        content: {type: 'thinking', content: '   \n  ', done: true},
+      },
+    ];
+    const result = transformMessages(messages);
+    expect(result).toEqual([]);
+  });
+
+  it('handles thinking followed by text in order', () => {
+    const messages: ChatMessage[] = [
+      {
+        id: null,
+        createdAt: null,
+        role: 'assistant',
+        content: {type: 'thinking', content: 'Let me think...', done: true},
+      },
+      {
+        id: null,
+        createdAt: null,
+        role: 'assistant',
+        content: {type: 'text', content: 'Here is the answer'},
+      },
+    ];
+    const result = transformMessages(messages);
+    expect(result).toHaveLength(2);
+    expect(result[0]).toEqual({
+      type: 'thinking',
+      content: 'Let me think...',
+      done: true,
+    });
+    expect(result[1].type).toBe('assistant-text');
+  });
+
+  it('handles thinking interleaved with tool execution', () => {
+    const messages: ChatMessage[] = [
+      {
+        id: null,
+        createdAt: null,
+        role: 'assistant',
+        content: {type: 'thinking', content: 'I need to search', done: true},
+      },
+      {
+        id: null,
+        createdAt: null,
+        role: 'assistant',
+        content: {
+          type: 'tool-execute-start',
+          callId: 'c1',
+          toolName: 'search',
+          displayName: 'Search',
+          arguments: '{}',
+        },
+      },
+      {
+        id: null,
+        createdAt: null,
+        role: 'assistant',
+        content: {
+          type: 'tool-execute-end',
+          callId: 'c1',
+          result: 'found',
+          status: 'success',
+        },
+      },
+      {
+        id: null,
+        createdAt: null,
+        role: 'assistant',
+        content: {
+          type: 'thinking',
+          content: 'Now I can answer',
+          done: true,
+        },
+      },
+      {
+        id: null,
+        createdAt: null,
+        role: 'assistant',
+        content: {type: 'text', content: 'The answer is...'},
+      },
+    ];
+    const result = transformMessages(messages);
+    expect(result).toHaveLength(4);
+    expect(result[0].type).toBe('thinking');
+    expect(result[1].type).toBe('tool-execution');
+    expect(result[2].type).toBe('thinking');
+    expect(result[3].type).toBe('assistant-text');
+  });
 });

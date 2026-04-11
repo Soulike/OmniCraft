@@ -1,6 +1,9 @@
 import type {
   SseMessageStartEvent,
   SseTextDeltaEvent,
+  SseThinkingDeltaEvent,
+  SseThinkingEndEvent,
+  SseThinkingStartEvent,
   SseToolExecuteDeltaEvent,
   SseToolExecuteEndEvent,
   SseToolExecuteStartEvent,
@@ -15,9 +18,17 @@ export interface TextContent {
   content: string;
 }
 
+/** Thinking/reasoning content from the LLM. */
+export interface ThinkingContent {
+  type: 'thinking';
+  content: string;
+  done: boolean;
+}
+
 /** A single content entry in a chat message. */
 export type MessageContent =
   | TextContent
+  | ThinkingContent
   | SseToolExecuteStartEvent
   | SseToolExecuteEndEvent;
 
@@ -47,6 +58,12 @@ export interface ChatEventMap {
   'tool-execute-end': SseToolExecuteEndEvent;
   /** Intermediate streaming output from a running tool. */
   'tool-execute-delta': SseToolExecuteDeltaEvent;
+  /** Thinking/reasoning has started. */
+  'thinking-start': SseThinkingStartEvent;
+  /** A thinking/reasoning content delta. */
+  'thinking-delta': SseThinkingDeltaEvent;
+  /** Thinking/reasoning has ended. */
+  'thinking-end': SseThinkingEndEvent;
   /** The stream completed (LLM finished or max rounds reached). */
   'stream-done': {
     sessionId: string;
