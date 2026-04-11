@@ -159,8 +159,7 @@ router.post(CHAT_SESSION_TOOL_RESPONSE, (ctx) => {
     return;
   }
 
-  ctx.response.status = StatusCodes.OK;
-  ctx.response.body = {ok: true};
+  ctx.response.status = StatusCodes.NO_CONTENT;
 });
 
 export {router};
