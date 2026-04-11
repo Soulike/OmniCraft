@@ -13,17 +13,17 @@ import {
 } from '@omnicraft/tool-schemas';
 import type {ReactNode} from 'react';
 
+import {EditFileResult} from '../../EditFileResult/index.js';
+import {FindFilesResult} from '../../FindFilesResult/index.js';
+import {GetCurrentTimeResult} from '../../GetCurrentTimeResult/index.js';
 import {HighlightedJson} from '../../HighlightedJson/index.js';
-import {EditFileResult} from '../EditFileResult/index.js';
-import {FindFilesResult} from '../FindFilesResult/index.js';
-import {GetCurrentTimeResult} from '../GetCurrentTimeResult/index.js';
-import {LoadSkillResult} from '../LoadSkillResult/index.js';
-import {ReadFileResult} from '../ReadFileResult/index.js';
-import {RunCommandResult} from '../RunCommandResult/index.js';
-import {SearchFilesResult} from '../SearchFilesResult/index.js';
-import {WebFetchResult} from '../WebFetchResult/index.js';
-import {WebSearchResult} from '../WebSearchResult/index.js';
-import {WriteFileResult} from '../WriteFileResult/index.js';
+import {LoadSkillResult} from '../../LoadSkillResult/index.js';
+import {ReadFileResult} from '../../ReadFileResult/index.js';
+import {RunCommandResult} from '../../RunCommandResult/index.js';
+import {SearchFilesResult} from '../../SearchFilesResult/index.js';
+import {WebFetchResult} from '../../WebFetchResult/index.js';
+import {WebSearchResult} from '../../WebSearchResult/index.js';
+import {WriteFileResult} from '../../WriteFileResult/index.js';
 
 export function renderToolResult(
   toolName: ToolName,
