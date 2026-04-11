@@ -15,6 +15,7 @@ import type {
   SseUsage,
 } from '@omnicraft/sse-events';
 import type {AnyToolResultData} from '@omnicraft/tool-schemas';
+import {toolNameSchema} from '@omnicraft/tool-schemas';
 
 import {AsyncChannel} from '@/helpers/async-channel.js';
 
@@ -169,10 +170,11 @@ export abstract class Agent {
       // Emit all tool-execute-start events up front
       for (const toolCall of toolCalls) {
         const tool = availableTools.get(toolCall.toolName);
+        const toolName = toolNameSchema.parse(toolCall.toolName);
         yield {
           type: 'tool-execute-start',
           callId: toolCall.callId,
-          toolName: toolCall.toolName,
+          toolName,
           displayName: tool?.displayName ?? toolCall.toolName,
           arguments: toolCall.arguments,
         } satisfies SseToolExecuteStartEvent;
