@@ -57,6 +57,7 @@ describe('transformMessages', () => {
           callId: 'c1',
           result: 'found it',
           status: 'success',
+          data: {pattern: 'test', basePath: '.', matches: [], truncated: false},
         },
       },
     ];
@@ -70,6 +71,7 @@ describe('transformMessages', () => {
         arguments: '{"q":"test"}',
         status: 'done',
         result: 'found it',
+        data: {pattern: 'test', basePath: '.', matches: [], truncated: false},
       },
     ]);
   });
@@ -125,6 +127,7 @@ describe('transformMessages', () => {
           callId: 'c1',
           result: 'Exit code: 1',
           status: 'failure',
+          data: {message: 'Exit code: 1'},
         },
       },
     ];
@@ -138,6 +141,7 @@ describe('transformMessages', () => {
         arguments: '{"command":"exit 1"}',
         status: 'failure',
         result: 'Exit code: 1',
+        data: {message: 'Exit code: 1'},
       },
     ]);
   });
@@ -165,6 +169,7 @@ describe('transformMessages', () => {
           callId: 'c1',
           result: 'Error: failed',
           status: 'error',
+          data: {message: 'failed'},
         },
       },
     ];
@@ -178,6 +183,7 @@ describe('transformMessages', () => {
         arguments: '{}',
         status: 'error',
         result: 'Error: failed',
+        data: {message: 'failed'},
       },
     ]);
   });
@@ -211,6 +217,7 @@ describe('transformMessages', () => {
           callId: 'c1',
           result: 'result',
           status: 'success',
+          data: {message: 'result'},
         },
       },
       {
@@ -238,6 +245,7 @@ describe('transformMessages', () => {
           callId: 'c1',
           result: 'orphan result',
           status: 'success',
+          data: {message: 'orphan'},
         },
       },
     ];
@@ -360,6 +368,7 @@ describe('transformMessages', () => {
           callId: 'c1',
           result: 'found',
           status: 'success',
+          data: {message: 'found'},
         },
       },
       {
