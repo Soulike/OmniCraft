@@ -19,7 +19,6 @@ export const getCurrentTimeTool: ToolDefinition<
     'You do not have access to the current time by default — ' +
     'call this tool whenever the user asks anything that depends on the current date, time, day of week, or timezone.',
   parameters,
-  resultSchema: getCurrentTimeResultSchema,
   suppressToolEvents: false,
   execute() {
     const iso = new Date().toISOString();

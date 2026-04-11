@@ -53,7 +53,6 @@ export const editFileTool: ToolDefinition<typeof parameters, EditFileResult> = {
     'Replaces a specific string in a file. ' +
     'Requires the old string to uniquely match unless replaceAll is set.',
   parameters,
-  resultSchema: editFileResultSchema,
   suppressToolEvents: false,
   async execute(args: EditFileArgs, context: ToolExecutionContext) {
     const {workingDirectory} = context;

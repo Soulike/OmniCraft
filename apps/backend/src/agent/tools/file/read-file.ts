@@ -52,7 +52,6 @@ export const readFileTool: ToolDefinition<typeof parameters, ReadFileResult> = {
     'Supports partial reads via startLine and lineCount parameters. ' +
     'Only text files within the working directory are allowed.',
   parameters,
-  resultSchema: readFileResultSchema,
   suppressToolEvents: false,
   async execute(args: ReadFileArgs, context: ToolExecutionContext) {
     const {workingDirectory, fileCache} = context;

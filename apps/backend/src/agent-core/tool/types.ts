@@ -79,8 +79,6 @@ export interface ToolDefinition<
   readonly displayName: string;
   readonly description: string;
   readonly parameters: TParams;
-  /** Zod schema describing the structured success result data. */
-  readonly resultSchema: z.ZodType<TResult>;
   /**
    * When true, the agent loop skips emitting tool-execute-start/delta/end
    * SSE events for this tool. The tool result is still submitted to the LLM.

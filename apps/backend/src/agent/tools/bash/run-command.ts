@@ -78,7 +78,6 @@ export const runCommandTool: ToolDefinition<
     'The working directory persists across calls. ' +
     'Shell state (env vars, aliases) does not persist.',
   parameters,
-  resultSchema: runCommandResultSchema,
   suppressToolEvents: false,
   async execute(
     args: RunCommandArgs,

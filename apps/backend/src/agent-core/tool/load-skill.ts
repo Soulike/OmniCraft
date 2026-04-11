@@ -21,7 +21,6 @@ export const loadSkillTool: ToolDefinition<typeof parameters, LoadSkillResult> =
     description:
       'Loads the full content of a skill by name. Use this to access detailed instructions for a specific skill listed in the system prompt.',
     parameters,
-    resultSchema: loadSkillResultSchema,
     suppressToolEvents: false,
     async execute(
       args: z.infer<typeof parameters>,

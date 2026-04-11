@@ -46,7 +46,6 @@ export const findFilesTool: ToolDefinition<typeof parameters, FindFilesResult> =
       'Use this to locate files by name or extension (e.g., find all TypeScript files, locate a config file). ' +
       `To search file contents instead, use ${searchFilesTool.name}.`,
     parameters,
-    resultSchema: findFilesResultSchema,
     suppressToolEvents: false,
     async execute(args: FindFilesArgs, context: ToolExecutionContext) {
       const {workingDirectory} = context;

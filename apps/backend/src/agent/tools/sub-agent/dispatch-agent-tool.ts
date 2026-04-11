@@ -72,11 +72,9 @@ const parameters = z.object({
     ),
 });
 
-const dispatchAgentResultSchema = z.object({
-  summary: z.string(),
-});
-
-type DispatchAgentResult = z.infer<typeof dispatchAgentResultSchema>;
+interface DispatchAgentResult {
+  summary: string;
+}
 
 /** Tool that dispatches a subagent to handle a subtask autonomously. */
 export const dispatchAgentTool: ToolDefinition<
@@ -87,7 +85,6 @@ export const dispatchAgentTool: ToolDefinition<
   displayName: 'Dispatch Agent',
   description: buildToolDescription(),
   parameters,
-  resultSchema: dispatchAgentResultSchema,
   suppressToolEvents: true,
   async execute(
     args: z.infer<typeof parameters>,

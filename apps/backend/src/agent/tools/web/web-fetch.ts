@@ -99,7 +99,6 @@ export const webFetchTool: ToolDefinition<typeof parameters, WebFetchResult> = {
     'HTML pages are converted to Markdown with article extraction. ' +
     'Other text content (JSON, plain text, XML) is returned as-is.',
   parameters,
-  resultSchema: webFetchResultSchema,
   suppressToolEvents: false,
   async execute(args: WebFetchArgs, _context: ToolExecutionContext) {
     const urlError = validateUrl(args.url);
