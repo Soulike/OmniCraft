@@ -100,7 +100,7 @@ export const askUserTool: ToolDefinition<typeof parameters, AskUserResult> = {
   name: TOOL_NAME.ASK_USER,
   displayName: 'Ask User',
   description:
-    'Ask the user one or more questions. Each question can have predefined options. The user can select an option or type a custom answer.',
+    'Ask the user one or more questions when you need clarification, preferences, or decisions that cannot be inferred from context. Use this tool when the task is ambiguous, multiple valid approaches exist, or user input is required to proceed. Each question can have predefined options for the user to select from, and the user can also type a custom answer. Do not use this tool for rhetorical questions or information you can determine yourself.',
   parameters,
   suppressToolEvents: false,
   async execute(args, context) {
