@@ -2,6 +2,7 @@ import assert from 'node:assert';
 
 import Anthropic from '@anthropic-ai/sdk';
 
+import {modelCapacity} from '../../model-capacity/index.js';
 import type {LlmCompletionOptions, LlmEventStream, LlmUsage} from '../types.js';
 import {
   addCacheBreakpoint,
@@ -42,10 +43,13 @@ export async function* streamClaude(
   }
 
   const thinking = toThinkingConfig(options.thinkingLevel);
-  // budget_tokens must be < max_tokens. Ensure max_tokens accommodates the
-  // thinking budget plus room for the actual response.
-  const maxTokens =
-    thinking?.type === 'enabled' ? thinking.budget_tokens + 4096 : 4096;
+  const maxTokens = await modelCapacity.getMaxOutputTokens(options.config);
+  if (thinking?.type === 'enabled') {
+    assert(
+      thinking.budget_tokens < maxTokens,
+      `Thinking budget (${thinking.budget_tokens.toString()}) must be less than max_tokens (${maxTokens.toString()})`,
+    );
+  }
 
   const stream = client.messages.stream(
     {
