@@ -1,6 +1,7 @@
 import type {
   SseMessageStartEvent,
   SseTextDeltaEvent,
+  SseThinkingDeltaEvent,
   SseToolExecuteEndEvent,
   SseToolExecuteStartEvent,
 } from '@omnicraft/sse-events';
@@ -101,6 +102,53 @@ function pushToolEnd(
   ];
 }
 
+function pushThinkingStart(prev: ChatMessage[]): ChatMessage[] {
+  const base = removeTrailingAssistantMessageIfEmpty(prev);
+  return [
+    ...base,
+    {
+      id: null,
+      createdAt: null,
+      role: 'assistant' as const,
+      content: {type: 'thinking' as const, content: '', done: false},
+    },
+  ];
+}
+
+function appendThinkingDelta(
+  prev: ChatMessage[],
+  token: string,
+): ChatMessage[] {
+  const last = prev[prev.length - 1];
+  if (last.role === 'assistant' && last.content.type === 'thinking') {
+    return [
+      ...prev.slice(0, -1),
+      {
+        ...last,
+        content: {...last.content, content: last.content.content + token},
+      },
+    ];
+  }
+  return prev;
+}
+
+function finishThinking(prev: ChatMessage[]): ChatMessage[] {
+  const last = prev[prev.length - 1];
+  if (last.role === 'assistant' && last.content.type === 'thinking') {
+    return [
+      ...prev.slice(0, -1),
+      {...last, content: {...last.content, done: true}},
+      {
+        id: null,
+        createdAt: null,
+        role: 'assistant' as const,
+        content: {type: 'text' as const, content: ''},
+      },
+    ];
+  }
+  return prev;
+}
+
 function applyUserMessageStart(
   prev: ChatMessage[],
   messageId: string,
@@ -162,6 +210,15 @@ export function useMessages() {
         );
       }
     };
+    const onThinkingStart = () => {
+      setMessages(pushThinkingStart);
+    };
+    const onThinkingDelta = (data: SseThinkingDeltaEvent) => {
+      setMessages((prev) => appendThinkingDelta(prev, data.content));
+    };
+    const onThinkingEnd = () => {
+      setMessages(finishThinking);
+    };
 
     eventBus.on('user-message-sent', onUserMessageSent);
     eventBus.on('text-delta', onTextDelta);
@@ -169,6 +226,9 @@ export function useMessages() {
     eventBus.on('tool-execute-end', onToolExecuteEnd);
     eventBus.on('stream-end', onStreamEnd);
     eventBus.on('message-start', onMessageStart);
+    eventBus.on('thinking-start', onThinkingStart);
+    eventBus.on('thinking-delta', onThinkingDelta);
+    eventBus.on('thinking-end', onThinkingEnd);
 
     return () => {
       eventBus.off('user-message-sent', onUserMessageSent);
@@ -177,6 +237,9 @@ export function useMessages() {
       eventBus.off('tool-execute-end', onToolExecuteEnd);
       eventBus.off('stream-end', onStreamEnd);
       eventBus.off('message-start', onMessageStart);
+      eventBus.off('thinking-start', onThinkingStart);
+      eventBus.off('thinking-delta', onThinkingDelta);
+      eventBus.off('thinking-end', onThinkingEnd);
     };
   }, [eventBus]);
 
