@@ -1,3 +1,4 @@
+import {toolNameSchema, toolResultDataSchema} from '@omnicraft/tool-schemas';
 import {z} from 'zod';
 
 /** A text content delta from the LLM. */
@@ -11,7 +12,7 @@ export type SseTextDeltaEvent = z.infer<typeof sseTextDeltaEventSchema>;
 export const sseToolExecuteStartEventSchema = z.object({
   type: z.literal('tool-execute-start'),
   callId: z.string(),
-  toolName: z.string(),
+  toolName: toolNameSchema,
   displayName: z.string(),
   arguments: z.string(),
 });
@@ -25,6 +26,7 @@ export const sseToolExecuteEndEventSchema = z.object({
   callId: z.string(),
   result: z.string(),
   status: z.enum(['success', 'failure', 'error']),
+  data: toolResultDataSchema,
 });
 export type SseToolExecuteEndEvent = z.infer<
   typeof sseToolExecuteEndEventSchema
