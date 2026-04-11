@@ -35,7 +35,7 @@ export type MessageRenderItem =
 export function transformMessages(
   messages: ChatMessage[],
 ): MessageRenderItem[] {
-  // First pass: collect tool-execution-end events by callId
+  // First pass: collect tool-execute-end events by callId
   const endEvents = new Map<
     string,
     {result: string; status: 'success' | 'failure' | 'error'}
