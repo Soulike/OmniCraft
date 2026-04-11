@@ -9,6 +9,8 @@ export {
   generateTitleRequestSchema,
   type GenerateTitleResponse,
   generateTitleResponseSchema,
+  type SubmitToolResponseRequest,
+  submitToolResponseRequestSchema,
   type ThinkingLevel,
   thinkingLevelSchema,
 } from './chat/schema.js';

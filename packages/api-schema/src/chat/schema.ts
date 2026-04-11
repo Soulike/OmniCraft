@@ -46,3 +46,19 @@ export const generateTitleResponseSchema = z.object({
 });
 
 export type GenerateTitleResponse = z.infer<typeof generateTitleResponseSchema>;
+
+/**
+ * Schema for the POST /chat/session/:id/tool-response request body.
+ *
+ * The `result` field is untyped (`unknown`) because each client-side tool
+ * defines its own response schema. The frontend must construct the value
+ * according to that schema, and the tool's `execute` must validate it.
+ */
+export const submitToolResponseRequestSchema = z.object({
+  interactionId: z.string().min(1),
+  result: z.unknown(),
+});
+
+export type SubmitToolResponseRequest = z.infer<
+  typeof submitToolResponseRequestSchema
+>;

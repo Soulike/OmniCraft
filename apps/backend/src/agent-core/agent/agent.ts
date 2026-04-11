@@ -33,6 +33,7 @@ import type {
   ToolExecutionContext,
 } from '../tool/index.js';
 import {loadSkillTool} from '../tool/index.js';
+import {UserInteractionBridge} from '../user-interaction/index.js';
 import {FileContentCache} from './file-content-cache.js';
 import {FileStatTracker} from './file-stat-tracker.js';
 import type {AgentEventStream, AgentOptions, AgentSnapshot} from './types.js';
@@ -74,6 +75,9 @@ export abstract class Agent {
   /** Mutable shell state, shared by shell-related tools. */
   private readonly shellState: ShellState;
 
+  /** Bridge for client-side tools that await user interaction. */
+  private readonly userInteractionBridge = new UserInteractionBridge();
+
   constructor(
     getConfig: () => Promise<LlmConfig>,
     options: AgentOptions,
@@ -104,6 +108,16 @@ export abstract class Agent {
     this.shellState = {cwd: this.workingDirectory};
 
     agentEventBus.emit('agent-created', this);
+  }
+
+  /**
+   * Delivers a user response to a waiting client-side tool.
+   * Called by the HTTP handler when the frontend submits a tool response.
+   *
+   * @returns `true` if a pending interaction was found and resolved.
+   */
+  submitUserResponse(id: string, result: unknown): boolean {
+    return this.userInteractionBridge.submitResponse(id, result);
   }
 
   /** Returns a serializable snapshot of this agent. */
@@ -456,6 +470,7 @@ export abstract class Agent {
       onSubAgentEvent: (event) => {
         toolSseEventChannel.push(event);
       },
+      userInteractionBridge: this.userInteractionBridge,
     };
 
     try {

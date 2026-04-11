@@ -6,6 +6,7 @@ import type {z} from 'zod';
 import type {FileContentCache} from '../agent/file-content-cache.js';
 import type {FileStatTracker} from '../agent/file-stat-tracker.js';
 import type {SkillDefinition} from '../skill/skill-definition.js';
+import type {UserInteractionBridge} from '../user-interaction/index.js';
 
 /** Mutable shell state tracked per-agent across tool calls. */
 export interface ShellState {
@@ -41,6 +42,13 @@ export interface ToolExecutionContext {
 
   /** Callback to inject subagent events into the parent agent's SSE stream. */
   readonly onSubAgentEvent: (event: SseSubAgentEvent) => void;
+
+  /**
+   * Bridge for client-side tools that need to await user interaction.
+   * Tools call `bridge.waitForResponse(id, signal)` to pause execution
+   * until the frontend submits a response via the HTTP endpoint.
+   */
+  readonly userInteractionBridge: UserInteractionBridge;
 }
 
 /** Successful tool execution — carries typed structured data. */
