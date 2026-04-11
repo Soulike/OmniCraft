@@ -20,7 +20,7 @@ export function WriteFileResult({
 
   return (
     <ReadFileResult
-      content={content ?? toolArguments}
+      content={content}
       endLine={lineCount}
       filePath={filePath}
       startLine={1}
@@ -29,7 +29,7 @@ export function WriteFileResult({
   );
 }
 
-function extractContent(jsonString: string): string | undefined {
+function extractContent(jsonString: string): string {
   try {
     const parsed: unknown = JSON.parse(jsonString);
     const result = writeFileArgsSchema.safeParse(parsed);
@@ -39,8 +39,8 @@ function extractContent(jsonString: string): string | undefined {
     console.warn(
       'WriteFileResult: expected "content" field in arguments, falling back to raw display',
     );
-    return undefined;
+    return jsonString;
   } catch {
-    return undefined;
+    return jsonString;
   }
 }
