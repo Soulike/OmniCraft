@@ -4,7 +4,6 @@ import {toolFailureDataSchema} from '@omnicraft/tool-schemas';
 import clsx from 'clsx';
 
 import styles from '../../styles.module.css';
-import {HighlightedJson} from '../HighlightedJson/index.js';
 import {renderToolResult} from './helpers/renderToolResult.js';
 
 interface ResultSectionViewProps {
@@ -41,13 +40,11 @@ export function ResultSectionView({
     );
   }
 
-  const customView = renderToolResult(toolName, data, toolArguments);
-
   return (
     <div className={styles.section}>
       <span className={styles.label}>Result</span>
       <ScrollShadow className={styles.pre}>
-        {customView ?? <HighlightedJson jsonString={result} />}
+        {renderToolResult(toolName, result, data, toolArguments)}
       </ScrollShadow>
     </div>
   );
@@ -55,6 +52,6 @@ export function ResultSectionView({
 
 function extractFailureMessage(data: AnyToolResultData | undefined): string {
   if (!data) return 'Unknown error';
-  const result = toolFailureDataSchema.safeParse(data);
-  return result.success ? result.data.message : 'Unknown error';
+  const parsed = toolFailureDataSchema.safeParse(data);
+  return parsed.success ? parsed.data.message : 'Unknown error';
 }

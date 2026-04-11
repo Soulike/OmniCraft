@@ -13,6 +13,7 @@ import {
 } from '@omnicraft/tool-schemas';
 import type {ReactNode} from 'react';
 
+import {HighlightedJson} from '../../HighlightedJson/index.js';
 import {EditFileResult} from '../EditFileResult/index.js';
 import {FindFilesResult} from '../FindFilesResult/index.js';
 import {GetCurrentTimeResult} from '../GetCurrentTimeResult/index.js';
@@ -26,15 +27,18 @@ import {WriteFileResult} from '../WriteFileResult/index.js';
 
 export function renderToolResult(
   toolName: ToolName,
+  result: string,
   data: AnyToolResultData | undefined,
   toolArguments: string,
 ): ReactNode {
-  if (!data) return null;
+  if (!data) {
+    return <HighlightedJson jsonString={result} />;
+  }
 
   try {
     return renderToolResultUnsafe(toolName, data, toolArguments);
   } catch {
-    return null;
+    return <HighlightedJson jsonString={result} />;
   }
 }
 
@@ -129,6 +133,6 @@ function renderToolResultUnsafe(
       return <LoadSkillResult content={d.content} name={d.name} />;
     }
     case 'web_fetch_raw':
-      return null;
+      return <HighlightedJson jsonString={JSON.stringify(data, null, 2)} />;
   }
 }
