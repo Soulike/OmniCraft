@@ -1,7 +1,8 @@
 import {useDeferredValue} from 'react';
 
+import {useStreamingText} from '@/hooks/useStreamingText.js';
+
 import type {ChatMessage} from '../../../../types.js';
-import {useStreamingText} from './hooks/useStreamingText.js';
 import {MessageBubbleView} from './MessageBubbleView.js';
 
 interface MessageBubbleProps {
