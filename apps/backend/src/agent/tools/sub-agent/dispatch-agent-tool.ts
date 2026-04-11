@@ -5,6 +5,7 @@ import type {SseBaseEvent} from '@omnicraft/sse-events';
 import {z} from 'zod';
 
 import {GeneralSubAgent} from '@/agent/agents/index.js';
+import type {Agent} from '@/agent-core/agent/index.js';
 import type {LlmConfig} from '@/agent-core/llm-api/index.js';
 import type {
   ToolDefinition,
@@ -14,29 +15,42 @@ import type {
 import {AccessCheckResult, checkAccess} from '@/helpers/path-access.js';
 import {settingsService} from '@/services/settings/index.js';
 
-type SubAgentConstructor = new (
-  ...args: ConstructorParameters<typeof GeneralSubAgent>
-) => InstanceType<typeof GeneralSubAgent>;
-
-interface SubAgentTypeInfo {
+interface SubAgentInfo {
   name: string;
   description: string;
-  constructor: SubAgentConstructor;
 }
 
-const subAgentTypes: Record<string, SubAgentTypeInfo> = {
+const subAgentInfos = {
   general: {
     name: 'General',
     description:
       'General-purpose agent for autonomous multi-step tasks. ' +
       'Use for any work that no other specialized subagent can handle.',
-    constructor: GeneralSubAgent,
   },
-};
+} as const satisfies Record<string, SubAgentInfo>;
+
+type SubAgentType = keyof typeof subAgentInfos;
 
 const agentTypeSchema = z.enum(
-  Object.keys(subAgentTypes) as [string, ...string[]],
+  Object.keys(subAgentInfos) as [SubAgentType, ...SubAgentType[]],
 );
+
+function createSubAgent(
+  agentType: SubAgentType,
+  getConfig: () => Promise<LlmConfig>,
+  workingDirectory: string,
+  extraAllowedPaths: ToolExecutionContext['extraAllowedPaths'],
+): Agent {
+  switch (agentType) {
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- will have more cases
+    case 'general':
+      return new GeneralSubAgent(
+        getConfig,
+        workingDirectory,
+        extraAllowedPaths,
+      );
+  }
+}
 
 function buildToolDescription(): string {
   const header =
@@ -44,7 +58,7 @@ function buildToolDescription(): string {
     'Subagents cannot dispatch further subagents. ' +
     'Use this when a task can be delegated and worked on independently.';
 
-  const typeDescriptions = Object.entries(subAgentTypes)
+  const typeDescriptions = Object.entries(subAgentInfos)
     .map(([key, info]) => `- ${key} (${info.name}): ${info.description}`)
     .join('\n');
 
@@ -135,8 +149,8 @@ export const dispatchAgentTool: ToolDefinition<typeof parameters> = {
       });
 
     // Create and run subagent
-    const {constructor: SubAgent} = subAgentTypes[agentType];
-    const subagent = new SubAgent(
+    const subagent = createSubAgent(
+      agentType,
       getConfig,
       workingDirectory,
       context.extraAllowedPaths,
