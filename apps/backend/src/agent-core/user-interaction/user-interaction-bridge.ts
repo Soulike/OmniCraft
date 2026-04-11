@@ -12,7 +12,11 @@
 export class UserInteractionBridge {
   private readonly pending = new Map<
     string,
-    {resolve: (value: unknown) => void; reject: (reason: unknown) => void}
+    {
+      resolve: (value: unknown) => void;
+      reject: (reason: unknown) => void;
+      cleanup: () => void;
+    }
   >();
 
   /**
@@ -32,22 +36,26 @@ export class UserInteractionBridge {
       throw new Error(`Duplicate interaction ID: ${id}`);
     }
 
-    return new Promise<unknown>((resolve, reject) => {
-      this.pending.set(id, {resolve, reject});
+    const {promise, resolve, reject} = Promise.withResolvers<unknown>();
 
-      signal?.addEventListener(
-        'abort',
-        () => {
-          this.pending.delete(id);
-          reject(
-            signal.reason instanceof Error
-              ? signal.reason
-              : new Error('Aborted'),
-          );
-        },
-        {once: true},
+    const onAbort = () => {
+      this.pending.delete(id);
+      reject(
+        signal?.reason instanceof Error ? signal.reason : new Error('Aborted'),
       );
+    };
+
+    signal?.addEventListener('abort', onAbort, {once: true});
+
+    this.pending.set(id, {
+      resolve,
+      reject,
+      cleanup: () => {
+        signal?.removeEventListener('abort', onAbort);
+      },
     });
+
+    return promise;
   }
 
   /**
@@ -63,6 +71,7 @@ export class UserInteractionBridge {
     if (!entry) return false;
 
     this.pending.delete(id);
+    entry.cleanup();
     entry.resolve(result);
     return true;
   }
