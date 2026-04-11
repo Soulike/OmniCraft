@@ -1,0 +1,44 @@
+.card {
+  border-radius: 12px;
+  overflow: hidden;
+  width: 400px;
+  max-width: 100%;
+}
+
+.streaming {
+  border: 1px dashed color-mix(in oklch, var(--accent) 40%, transparent);
+}
+
+.done {
+  border: 1px dashed var(--border);
+}
+
+.trigger {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 12px;
+  cursor: pointer;
+  background: none;
+  border: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+
+.label {
+  font-weight: 600;
+  font-size: 0.875rem;
+  color: var(--muted);
+}
+
+.body {
+  padding: 0 12px 12px;
+}
+
+.content {
+  font-size: 0.8125rem;
+  line-height: 1.6;
+  color: var(--muted);
+}
