@@ -17,6 +17,7 @@
 **Files:**
 
 - Modify: `packages/tool-schemas/src/tool-name.ts`
+- Create: `packages/tool-schemas/src/parameter-schemas.ts`
 - Modify: `packages/tool-schemas/src/result-schemas.ts`
 - Modify: `packages/tool-schemas/src/registry.ts`
 - Modify: `packages/tool-schemas/src/index.ts`
@@ -59,9 +60,11 @@ export const toolNameSchema = z.enum([
 
 - [ ] **Step 2: Add parameters schema**
 
-In `packages/tool-schemas/src/result-schemas.ts`, add the parameters schema (shared between backend tool and frontend validation):
+Create a new file `packages/tool-schemas/src/parameter-schemas.ts`:
 
 ```typescript
+import {z} from 'zod';
+
 export const askUserParametersSchema = z.object({
   questions: z
     .array(
@@ -82,7 +85,7 @@ export const askUserParametersSchema = z.object({
 
 - [ ] **Step 3: Add result schema**
 
-In the same file, add:
+In `packages/tool-schemas/src/result-schemas.ts`, add:
 
 ```typescript
 export const askUserResultSchema = z.object({
@@ -105,7 +108,7 @@ In `packages/tool-schemas/src/registry.ts`:
 
 - [ ] **Step 5: Export from package index**
 
-In `packages/tool-schemas/src/index.ts`, add both `askUserParametersSchema` and `askUserResultSchema` to the named exports from `./result-schemas.js`.
+In `packages/tool-schemas/src/index.ts`, add `askUserParametersSchema` to a new named export from `./parameter-schemas.js`, and add `askUserResultSchema` to the existing named exports from `./result-schemas.js`.
 
 - [ ] **Step 6: Verify types compile**
 
