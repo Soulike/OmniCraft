@@ -3,7 +3,7 @@ import {useCallback, useState} from 'react';
 
 import {submitToolResponse} from '@/api/chat/index.js';
 
-import {useSessionId} from '../../../../../hooks/useSessionId.js';
+import {useSessionId} from '../../../../../../../hooks/useSessionId.js';
 import type {AnswerEntry} from '../types.js';
 
 interface UseSubmitActionsParams {
