@@ -45,7 +45,7 @@ export class CodingSubAgent extends Agent {
   private readonly cwd: string;
 
   /** Claude Agent SDK session ID, captured from the init message. */
-  private codingSessionId: string | undefined;
+  private claudeCodeSessionId: string | undefined;
 
   constructor(
     workingDirectory: string,
@@ -66,7 +66,7 @@ export class CodingSubAgent extends Agent {
     );
 
     this.cwd = snapshot?.options.workingDirectory ?? workingDirectory;
-    this.codingSessionId = snapshot?.options.codingSessionId;
+    this.claudeCodeSessionId = snapshot?.options.claudeCodeSessionId;
   }
 
   override toSnapshot(): AgentSnapshot {
@@ -75,7 +75,7 @@ export class CodingSubAgent extends Agent {
       ...base,
       options: {
         ...base.options,
-        codingSessionId: this.codingSessionId,
+        claudeCodeSessionId: this.claudeCodeSessionId,
       },
     };
   }
@@ -118,12 +118,12 @@ export class CodingSubAgent extends Agent {
         permissionMode: 'bypassPermissions',
         allowDangerouslySkipPermissions: true,
         includePartialMessages: true,
-        ...(this.codingSessionId ? {resume: this.codingSessionId} : {}),
+        ...(this.claudeCodeSessionId ? {resume: this.claudeCodeSessionId} : {}),
       },
     })) {
       // Capture session ID from the init message for future resumption.
       if (message.type === 'system' && message.subtype === 'init') {
-        this.codingSessionId = message.session_id;
+        this.claudeCodeSessionId = message.session_id;
       }
 
       // Stream text deltas from partial messages for real-time frontend display.
