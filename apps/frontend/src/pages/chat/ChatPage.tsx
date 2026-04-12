@@ -5,10 +5,10 @@ import {useAutoScroll} from '@/hooks/useAutoScroll.js';
 
 import {ChatPageView} from './ChatPageView.js';
 import {
-  ChatEventBusProvider,
   type ChatEventMap,
   type ChatMessage,
 } from './components/StreamingMessageDisplay/index.js';
+import {ChatEventBusProvider} from './contexts/ChatEventBusContext/index.js';
 import {SessionConfigProvider} from './contexts/SessionConfigContext/index.js';
 import {useSessionConfig} from './hooks/useSessionConfig.js';
 import {useSessionId} from './hooks/useSessionId.js';

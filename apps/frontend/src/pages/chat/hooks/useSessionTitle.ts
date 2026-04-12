@@ -2,10 +2,8 @@ import {useCallback, useEffect, useRef, useState} from 'react';
 
 import {generateTitle} from '@/api/chat/index.js';
 
-import {
-  type ChatEventMap,
-  useChatEventBus,
-} from '../components/StreamingMessageDisplay/index.js';
+import type {ChatEventMap} from '../components/StreamingMessageDisplay/index.js';
+import {useChatEventBus} from './useChatEventBus.js';
 
 /**
  * Manages the session title. Subscribes to `stream-done` and generates

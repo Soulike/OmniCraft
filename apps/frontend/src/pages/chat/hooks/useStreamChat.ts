@@ -3,7 +3,7 @@ import {useCallback, useRef, useState} from 'react';
 
 import {streamChatCompletion} from '@/api/chat/index.js';
 
-import {useChatEventBus} from '../components/StreamingMessageDisplay/index.js';
+import {useChatEventBus} from './useChatEventBus.js';
 import type {useSessionId} from './useSessionId.js';
 
 type SessionIdHook = ReturnType<typeof useSessionId>;
