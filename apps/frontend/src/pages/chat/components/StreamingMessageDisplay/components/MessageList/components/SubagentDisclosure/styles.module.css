@@ -1,0 +1,61 @@
+.card {
+  border-radius: 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  overflow: hidden;
+  width: 600px;
+  max-width: 100%;
+}
+
+.running {
+  border-color: color-mix(in oklch, var(--accent) 40%, transparent);
+}
+
+.trigger {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 12px;
+  cursor: pointer;
+  background: none;
+  border: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+
+.botIcon {
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+.task {
+  font-weight: 600;
+  font-size: 0.875rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.statusComplete {
+  color: var(--success);
+  flex-shrink: 0;
+}
+
+.statusError {
+  color: var(--danger);
+  flex-shrink: 0;
+}
+
+.body {
+  padding: 0 12px 12px;
+}
+
+.content {
+  background: var(--background);
+  border-radius: 8px;
+  padding: 12px;
+  max-height: 400px;
+  overflow: auto;
+}
