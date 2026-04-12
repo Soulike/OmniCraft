@@ -3,6 +3,8 @@
   "private": true,
   "scripts": {
     "prepare": "test -d node_modules/husky && husky",
+    "format": "prettier --write --ignore-unknown .",
+    "format:check": "prettier --check --ignore-unknown .",
     "dev": "bun run --filter './apps/*' dev",
     "build:frontend": "bun run --filter '@omnicraft/frontend' build",
     "start": "bun run build:frontend && bun run --filter '@omnicraft/backend' start"
