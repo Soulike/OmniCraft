@@ -1,6 +1,7 @@
 export {
   askUserBridgeResponseSchema,
   askUserParametersSchema,
+  writeFileParametersSchema,
 } from './parameter-schemas.js';
 export type {
   AnyToolResultData,
