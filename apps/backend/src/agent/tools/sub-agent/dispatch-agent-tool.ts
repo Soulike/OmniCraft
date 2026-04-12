@@ -4,7 +4,7 @@ import {thinkingLevelSchema} from '@omnicraft/api-schema';
 import type {SseBaseEvent} from '@omnicraft/sse-events';
 import {z} from 'zod';
 
-import {GeneralSubAgent} from '@/agent/agents/index.js';
+import {CodingSubAgent, GeneralSubAgent} from '@/agent/agents/index.js';
 import type {Agent} from '@/agent-core/agent/index.js';
 import type {LlmConfig} from '@/agent-core/llm-api/index.js';
 import type {
@@ -26,6 +26,12 @@ const subAgentInfos = {
     description:
       'General-purpose agent for autonomous multi-step tasks. ' +
       'Use for any work that no other specialized subagent can handle.',
+  },
+  coding: {
+    name: 'Coding',
+    description:
+      'Coding agent powered by Claude Code for autonomous software engineering tasks. ' +
+      'Excels at code reading, writing, debugging, and refactoring.',
   },
 } as const satisfies Record<string, SubAgentInfo>;
 
@@ -144,10 +150,15 @@ export const dispatchAgentTool: ToolDefinition<
     // Create subagent
     let subagent: Agent;
     switch (agentType) {
-      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- will have more cases
       case 'general':
         subagent = new GeneralSubAgent(
           getConfig,
+          workingDirectory,
+          context.extraAllowedPaths,
+        );
+        break;
+      case 'coding':
+        subagent = new CodingSubAgent(
           workingDirectory,
           context.extraAllowedPaths,
         );
