@@ -1,3 +1,4 @@
+import assert from 'node:assert';
 import crypto from 'node:crypto';
 
 import type {ThinkingLevel} from '@omnicraft/api-schema';
@@ -163,7 +164,12 @@ export class CodingSubAgent extends Agent {
 
         // Capture result and usage from SDK completion.
         if (message.type === 'result') {
-          const [model, modelUsage] = Object.entries(message.modelUsage)[0];
+          const entries = Object.entries(message.modelUsage);
+          assert(
+            entries.length > 0,
+            'Expected at least one model in modelUsage',
+          );
+          const [model, modelUsage] = entries[0];
           usage = {
             model,
             maxInputTokens: modelUsage.contextWindow,
@@ -175,7 +181,10 @@ export class CodingSubAgent extends Agent {
           if (message.subtype === 'success') {
             resultText = message.result;
           } else {
-            // Surface SDK errors so the dispatch tool can report them.
+            // The throw prevents the `done` event from being yielded, so the
+            // frontend will not receive usage data for failed invocations.
+            // This matches the general subagent behavior — the dispatch tool's
+            // catch block emits `subagent-complete` and returns a failure result.
             const errors = message.errors.join('; ');
             throw new Error(
               `Coding agent failed (${message.subtype}): ${errors || 'unknown error'}`,
