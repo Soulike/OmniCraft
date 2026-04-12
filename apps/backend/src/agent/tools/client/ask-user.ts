@@ -43,7 +43,7 @@ export const askUserTool: ToolDefinition<
       return {
         data,
         content:
-          'User declined to answer these questions. Do NOT re-ask the same questions in any form (text, rephrased, or otherwise). Simply acknowledge briefly and ask the user how they would like to proceed.',
+          'User declined the questionnaire — they likely want to provide additional context before answering. Respond in one short sentence asking what information they would like to add. Do NOT re-ask the declined questions, do NOT assume any answers, and do NOT proceed with the task. After the user provides more context, you may call ask_user again with an improved questionnaire.',
         status: 'failure',
       };
     }
