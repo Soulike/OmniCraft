@@ -142,6 +142,7 @@ export type SseSubagentOutputEvent = z.infer<
 export const sseSubagentCompleteEventSchema = z.object({
   type: z.literal('subagent-complete'),
   agentId: z.string(),
+  status: z.enum(['success', 'failure']),
 });
 export type SseSubagentCompleteEvent = z.infer<
   typeof sseSubagentCompleteEventSchema
