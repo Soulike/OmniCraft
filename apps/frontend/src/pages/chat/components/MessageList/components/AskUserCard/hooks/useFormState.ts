@@ -10,10 +10,12 @@ export interface FormState {
   customTextByIndex: ReadonlyMap<number, string>;
   /** Whether each question is using the custom "Other" option. */
   isCustomByIndex: ReadonlyMap<number, boolean>;
-  /** Select a predefined option for a question. */
-  selectOption: (questionIndex: number, option: string) => void;
+  /** Select or deselect an option for a question. */
+  toggleOption: (questionIndex: number, option: string) => void;
   /** Switch to custom "Other" input for a question. */
   switchToCustom: (questionIndex: number) => void;
+  /** Clear the "Other" selection for a question. */
+  clearCustom: (questionIndex: number) => void;
   /** Update custom text for a question. */
   setCustomText: (questionIndex: number, text: string) => void;
   /** Collect current form state into an AnswerEntry array. */
@@ -32,10 +34,17 @@ export function useFormState(questions: Question[]): FormState {
     () => new Map(),
   );
 
-  const selectOption = useCallback((questionIndex: number, option: string) => {
-    setSelectedOptionByIndex((prev) =>
-      new Map(prev).set(questionIndex, option),
-    );
+  const toggleOption = useCallback((questionIndex: number, option: string) => {
+    setSelectedOptionByIndex((prev) => {
+      const current = prev.get(questionIndex);
+      const next = new Map(prev);
+      if (current === option) {
+        next.delete(questionIndex);
+      } else {
+        next.set(questionIndex, option);
+      }
+      return next;
+    });
     setIsCustomByIndex((prev) => new Map(prev).set(questionIndex, false));
   }, []);
 
@@ -44,6 +53,20 @@ export function useFormState(questions: Question[]): FormState {
       new Map(prev).set(questionIndex, OTHER_VALUE),
     );
     setIsCustomByIndex((prev) => new Map(prev).set(questionIndex, true));
+  }, []);
+
+  const clearCustom = useCallback((questionIndex: number) => {
+    setSelectedOptionByIndex((prev) => {
+      const next = new Map(prev);
+      next.delete(questionIndex);
+      return next;
+    });
+    setIsCustomByIndex((prev) => new Map(prev).set(questionIndex, false));
+    setCustomTextByIndex((prev) => {
+      const next = new Map(prev);
+      next.delete(questionIndex);
+      return next;
+    });
   }, []);
 
   const setCustomText = useCallback((questionIndex: number, text: string) => {
@@ -68,8 +91,9 @@ export function useFormState(questions: Question[]): FormState {
     selectedOptionByIndex,
     customTextByIndex,
     isCustomByIndex,
-    selectOption,
+    toggleOption,
     switchToCustom,
+    clearCustom,
     setCustomText,
     collectAnswers,
   };

@@ -1,5 +1,6 @@
-import {Button, Spinner} from '@heroui/react';
+import {Button, Separator, Spinner} from '@heroui/react';
 import {MessageCircleQuestion} from 'lucide-react';
+import {Fragment} from 'react';
 
 import {CancelledCard} from './components/CancelledCard/index.js';
 import {CompletedCard} from './components/CompletedCard/index.js';
@@ -46,13 +47,15 @@ export function AskUserCardView({
       </div>
       <div className={styles.body}>
         {questions.map((q, i) => (
-          <QuestionItem
-            key={q.question}
-            question={q}
-            index={i}
-            formState={formState}
-            disabled={disabled}
-          />
+          <Fragment key={q.question}>
+            {i > 0 && <Separator />}
+            <QuestionItem
+              question={q}
+              index={i}
+              formState={formState}
+              disabled={disabled}
+            />
+          </Fragment>
         ))}
       </div>
       <div className={styles.footer}>

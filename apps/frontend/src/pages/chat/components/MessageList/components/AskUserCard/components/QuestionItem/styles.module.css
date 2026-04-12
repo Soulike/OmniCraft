@@ -1,12 +1,32 @@
 .questionBlock {
+  --question-font-size: 0.9375rem;
+
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 12px;
+}
+
+.questionHeader {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.questionNumber {
+  font-size: var(--question-font-size);
+  font-weight: 600;
+  color: var(--accent);
 }
 
 .questionText {
-  font-size: 0.875rem;
+  font-size: var(--question-font-size);
   font-weight: 500;
+}
+
+.optionList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .srOnly {

@@ -1,6 +1,5 @@
-import {Input, Label, Radio, RadioGroup, TextField} from '@heroui/react';
+import {Checkbox, Input, Label, TextField} from '@heroui/react';
 
-import {OTHER_VALUE} from '../../constants.js';
 import type {FormState} from '../../hooks/useFormState.js';
 import type {Question} from '../../types.js';
 import styles from './styles.module.css';
@@ -18,44 +17,63 @@ export function QuestionItem({
   formState,
   disabled,
 }: QuestionItemProps) {
+  const selected = formState.selectedOptionByIndex.get(index);
+  const isCustom = formState.isCustomByIndex.get(index) ?? false;
+
   return (
     <div className={styles.questionBlock}>
-      <span className={styles.questionText}>{question.question}</span>
+      <div className={styles.questionHeader}>
+        <span className={styles.questionNumber}>{index + 1}.</span>
+        <span className={styles.questionText}>{question.question}</span>
+      </div>
       {question.options.length > 0 ? (
-        <RadioGroup
-          isDisabled={disabled}
-          value={formState.selectedOptionByIndex.get(index) ?? ''}
-          onChange={(value) => {
-            if (value === OTHER_VALUE) {
-              formState.switchToCustom(index);
-            } else {
-              formState.selectOption(index, value);
-            }
-          }}
-        >
+        <div className={styles.optionList}>
           {question.options.map((option) => (
-            <Radio key={option} value={option}>
-              <Radio.Control>
-                <Radio.Indicator />
-              </Radio.Control>
-              <Radio.Content>
+            <Checkbox
+              key={option}
+              variant='secondary'
+              isDisabled={disabled}
+              isSelected={selected === option && !isCustom}
+              onChange={(checked) => {
+                if (checked) {
+                  formState.toggleOption(index, option);
+                } else {
+                  formState.toggleOption(index, option);
+                }
+              }}
+            >
+              <Checkbox.Control>
+                <Checkbox.Indicator />
+              </Checkbox.Control>
+              <Checkbox.Content>
                 <Label>{option}</Label>
-              </Radio.Content>
-            </Radio>
+              </Checkbox.Content>
+            </Checkbox>
           ))}
-          <Radio value={OTHER_VALUE}>
-            <Radio.Control>
-              <Radio.Indicator />
-            </Radio.Control>
-            <Radio.Content>
+          <Checkbox
+            variant='secondary'
+            isDisabled={disabled}
+            isSelected={isCustom}
+            onChange={(checked) => {
+              if (checked) {
+                formState.switchToCustom(index);
+              } else {
+                formState.clearCustom(index);
+              }
+            }}
+          >
+            <Checkbox.Control>
+              <Checkbox.Indicator />
+            </Checkbox.Control>
+            <Checkbox.Content>
               <Label>Other</Label>
-            </Radio.Content>
-          </Radio>
-        </RadioGroup>
+            </Checkbox.Content>
+          </Checkbox>
+        </div>
       ) : null}
-      {(question.options.length === 0 ||
-        formState.isCustomByIndex.get(index)) && (
+      {(question.options.length === 0 || isCustom) && (
         <TextField
+          variant='secondary'
           isDisabled={disabled}
           value={formState.customTextByIndex.get(index) ?? ''}
           onChange={(value) => {

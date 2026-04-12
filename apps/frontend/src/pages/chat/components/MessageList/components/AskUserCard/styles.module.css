@@ -3,15 +3,15 @@
   background: var(--surface);
   border: 1px solid var(--border);
   overflow: hidden;
-  width: 400px;
+  width: 520px;
   max-width: 100%;
 }
 
 .header {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 10px 12px;
+  gap: 10px;
+  padding: 14px 16px;
   border-bottom: 1px solid var(--border);
 }
 
@@ -22,20 +22,20 @@
 
 .headerTitle {
   font-weight: 600;
-  font-size: 0.875rem;
+  font-size: 0.9375rem;
 }
 
 .body {
-  padding: 12px;
+  padding: 20px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 20px;
 }
 
 .footer {
   display: flex;
   justify-content: flex-end;
   gap: 8px;
-  padding: 8px 12px;
+  padding: 12px 16px;
   border-top: 1px solid var(--border);
 }
