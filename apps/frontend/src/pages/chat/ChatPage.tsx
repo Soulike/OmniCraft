@@ -1,15 +1,12 @@
 import {useCallback, useState} from 'react';
 
-import {EventBus} from '@/helpers/event-bus.js';
 import {useAutoScroll} from '@/hooks/useAutoScroll.js';
 
 import {ChatPageView} from './ChatPageView.js';
-import {
-  type ChatEventMap,
-  type ChatMessage,
-} from './components/StreamingMessageDisplay/index.js';
+import type {ChatMessage} from './components/StreamingMessageDisplay/index.js';
 import {ChatEventBusProvider} from './contexts/ChatEventBusContext/index.js';
 import {SessionConfigProvider} from './contexts/SessionConfigContext/index.js';
+import {useChatEventBus} from './hooks/useChatEventBus.js';
 import {useSessionConfig} from './hooks/useSessionConfig.js';
 import {useSessionId} from './hooks/useSessionId.js';
 import {useSessionLifecycle} from './hooks/useSessionLifecycle.js';
@@ -18,19 +15,19 @@ import {useStreamChat} from './hooks/useStreamChat.js';
 
 /** Chat page container. Wraps content in providers. */
 export function ChatPage() {
-  const [eventBus] = useState(() => new EventBus<ChatEventMap>());
-
   return (
-    <ChatEventBusProvider eventBus={eventBus}>
+    <ChatEventBusProvider>
       <SessionConfigProvider>
-        <ChatPageContent eventBus={eventBus} />
+        <ChatPageContent />
       </SessionConfigProvider>
     </ChatEventBusProvider>
   );
 }
 
 /** Inner content that uses contexts. */
-function ChatPageContent({eventBus}: {eventBus: EventBus<ChatEventMap>}) {
+function ChatPageContent() {
+  const eventBus = useChatEventBus();
+
   const {
     sessionId,
     createNewSessionIdError,
