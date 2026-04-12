@@ -42,8 +42,7 @@ export const askUserTool: ToolDefinition<
       const data: ToolFailureData = {message: 'User declined to answer.'};
       return {
         data,
-        content:
-          'User declined the questionnaire — they likely want to provide additional context before answering. Respond in one short sentence asking what information they would like to add. Do NOT re-ask the declined questions, do NOT assume any answers, and do NOT proceed with the task. After the user provides more context, you may call ask_user again with an improved questionnaire.',
+        content: `User declined the questionnaire — they likely want to provide additional context before answering. Respond in one short sentence asking what information they would like to add. Do NOT re-ask the declined questions, do NOT assume any answers, and do NOT proceed with the task. After the user provides more context, you may call ${TOOL_NAME.ASK_USER} again with an improved questionnaire.`,
         status: 'failure',
       };
     }
