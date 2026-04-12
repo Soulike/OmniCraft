@@ -1,5 +1,13 @@
 import {z} from 'zod';
 
+export const writeFileParametersSchema = z.object({
+  filePath: z
+    .string()
+    .min(1)
+    .describe('File path, absolute or relative to working directory'),
+  content: z.string().describe('File content to write'),
+});
+
 export const askUserParametersSchema = z.object({
   questions: z
     .array(
