@@ -31,7 +31,9 @@ export function SubagentDisclosureView({
       <Disclosure>
         <Disclosure.Heading>
           <Disclosure.Trigger className={styles.trigger}>
-            {status === 'running' && <Spinner size='sm' />}
+            {status === 'running' && (
+              <Spinner size='sm' className={styles.spinner} />
+            )}
             {status === 'complete' && (
               <CircleCheck
                 className={styles.statusComplete}

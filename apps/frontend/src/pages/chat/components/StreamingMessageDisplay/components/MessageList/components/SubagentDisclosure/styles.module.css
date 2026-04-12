@@ -25,6 +25,12 @@
   text-align: left;
 }
 
+.spinner {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+}
+
 .botIcon {
   color: var(--accent);
   flex-shrink: 0;
