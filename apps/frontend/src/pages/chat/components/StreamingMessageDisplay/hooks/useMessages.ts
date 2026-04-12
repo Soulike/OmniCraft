@@ -5,7 +5,7 @@ import type {
   SseToolExecuteEndEvent,
   SseToolExecuteStartEvent,
 } from '@omnicraft/sse-events';
-import {useCallback, useEffect, useState} from 'react';
+import {useEffect, useState} from 'react';
 
 import type {ChatMessage} from '../types.js';
 import {useChatEventBus} from './useChatEventBus.js';
@@ -219,6 +219,9 @@ export function useMessages() {
     const onThinkingEnd = () => {
       setMessages(finishThinking);
     };
+    const onReset = () => {
+      setMessages([]);
+    };
 
     eventBus.on('user-message-sent', onUserMessageSent);
     eventBus.on('text-delta', onTextDelta);
@@ -229,6 +232,7 @@ export function useMessages() {
     eventBus.on('thinking-start', onThinkingStart);
     eventBus.on('thinking-delta', onThinkingDelta);
     eventBus.on('thinking-end', onThinkingEnd);
+    eventBus.on('reset', onReset);
 
     return () => {
       eventBus.off('user-message-sent', onUserMessageSent);
@@ -240,12 +244,9 @@ export function useMessages() {
       eventBus.off('thinking-start', onThinkingStart);
       eventBus.off('thinking-delta', onThinkingDelta);
       eventBus.off('thinking-end', onThinkingEnd);
+      eventBus.off('reset', onReset);
     };
   }, [eventBus]);
 
-  const clearMessages = useCallback(() => {
-    setMessages([]);
-  }, []);
-
-  return {messages, clearMessages};
+  return {messages};
 }
