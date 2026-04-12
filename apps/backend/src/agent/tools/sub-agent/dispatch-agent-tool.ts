@@ -188,6 +188,7 @@ export const dispatchAgentTool: ToolDefinition<
       context.onSubAgentEvent({
         type: 'subagent-complete',
         agentId: subagent.id,
+        status: 'success',
       });
 
       const summary =
@@ -202,6 +203,7 @@ export const dispatchAgentTool: ToolDefinition<
       context.onSubAgentEvent({
         type: 'subagent-complete',
         agentId: subagent.id,
+        status: 'failure',
       });
 
       const message = error instanceof Error ? error.message : String(error);
