@@ -1,9 +1,9 @@
 import {toast} from '@heroui/react';
-import {useCallback, useState} from 'react';
+import {use, useCallback, useState} from 'react';
 
 import {submitToolResponse} from '@/api/chat/index.js';
 
-import {useSessionId} from '../../../../../../../hooks/useSessionId.js';
+import {SessionIdContext} from '../../../../../contexts/SessionIdContext/index.js';
 import type {AnswerEntry} from '../types.js';
 
 interface UseSubmitActionsParams {
@@ -22,7 +22,7 @@ export function useSubmitActions({
   callId,
   collectAnswers,
 }: UseSubmitActionsParams): SubmitActions {
-  const {sessionId} = useSessionId();
+  const sessionId = use(SessionIdContext);
   const [submitting, setSubmitting] = useState(false);
 
   const handleSubmit = useCallback(() => {

@@ -80,6 +80,7 @@ export function ChatPageView({
         )}
         <StreamingMessageDisplay
           eventBus={eventBus}
+          sessionId={sessionId}
           onMessagesChange={onMessagesChange}
         />
       </ScrollShadow>

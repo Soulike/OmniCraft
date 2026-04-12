@@ -1,6 +1,7 @@
 import {useEffect, useLayoutEffect, useRef} from 'react';
 
 import {ChatEventBusProvider} from './contexts/ChatEventBusContext/index.js';
+import {SessionIdContext} from './contexts/SessionIdContext/index.js';
 import {ToolOutputProvider} from './contexts/ToolOutputContext/index.js';
 import {useMessages} from './hooks/useMessages.js';
 import {StreamingMessageDisplayView} from './StreamingMessageDisplayView.js';
@@ -8,18 +9,22 @@ import type {ChatEventBus, ChatMessage} from './types.js';
 
 interface StreamingMessageDisplayProps {
   eventBus: ChatEventBus;
+  sessionId: string | null;
   onMessagesChange?: (messages: readonly ChatMessage[]) => void;
 }
 
 export function StreamingMessageDisplay({
   eventBus,
+  sessionId,
   onMessagesChange,
 }: StreamingMessageDisplayProps) {
   return (
     <ChatEventBusProvider eventBus={eventBus}>
-      <ToolOutputProvider>
-        <StreamingMessageDisplayInner onMessagesChange={onMessagesChange} />
-      </ToolOutputProvider>
+      <SessionIdContext value={sessionId}>
+        <ToolOutputProvider>
+          <StreamingMessageDisplayInner onMessagesChange={onMessagesChange} />
+        </ToolOutputProvider>
+      </SessionIdContext>
     </ChatEventBusProvider>
   );
 }
