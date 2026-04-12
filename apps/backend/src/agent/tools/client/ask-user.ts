@@ -43,7 +43,7 @@ export const askUserTool: ToolDefinition<
       return {
         data,
         content:
-          'User declined to answer. Respond briefly to acknowledge, then ask the user if there is anything else they would like to add or clarify. Do not proceed with assumptions or lengthy responses.',
+          'User declined to answer these questions. Do NOT re-ask the same questions in any form (text, rephrased, or otherwise). Simply acknowledge briefly and ask the user how they would like to proceed.',
         status: 'failure',
       };
     }
