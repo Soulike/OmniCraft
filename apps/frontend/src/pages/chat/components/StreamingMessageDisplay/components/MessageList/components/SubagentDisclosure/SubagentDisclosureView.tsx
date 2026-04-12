@@ -1,7 +1,7 @@
-import {Disclosure, Spinner} from '@heroui/react';
+import {Disclosure, ScrollShadow, Spinner} from '@heroui/react';
 import clsx from 'clsx';
 import {Bot, CircleCheck, CircleX} from 'lucide-react';
-import {lazy, Suspense} from 'react';
+import {lazy, type RefObject, Suspense} from 'react';
 
 import type {ChatEventBus} from '../../../../types.js';
 import styles from './styles.module.css';
@@ -15,6 +15,7 @@ interface SubagentDisclosureViewProps {
   task: string;
   status: 'running' | 'complete' | 'error';
   eventBus: ChatEventBus;
+  scrollRef: RefObject<HTMLDivElement | null>;
 }
 
 const STATUS_ICON_SIZE = 16;
@@ -23,6 +24,7 @@ export function SubagentDisclosureView({
   task,
   status,
   eventBus,
+  scrollRef,
 }: SubagentDisclosureViewProps) {
   return (
     <div className={clsx(styles.card, status === 'running' && styles.running)}>
@@ -46,11 +48,11 @@ export function SubagentDisclosureView({
         </Disclosure.Heading>
         <Disclosure.Content>
           <Disclosure.Body className={styles.body}>
-            <div className={styles.content}>
+            <ScrollShadow className={styles.content} ref={scrollRef}>
               <Suspense>
                 <StreamingMessageDisplay eventBus={eventBus} sessionId={null} />
               </Suspense>
-            </div>
+            </ScrollShadow>
           </Disclosure.Body>
         </Disclosure.Content>
       </Disclosure>

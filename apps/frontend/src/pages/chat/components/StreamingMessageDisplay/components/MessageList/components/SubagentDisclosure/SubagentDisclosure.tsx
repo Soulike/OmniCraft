@@ -1,3 +1,5 @@
+import {useAutoScroll} from '@/hooks/useAutoScroll.js';
+
 import type {ChatEventBus} from '../../../../types.js';
 import {SubagentDisclosureView} from './SubagentDisclosureView.js';
 
@@ -12,7 +14,14 @@ export function SubagentDisclosure({
   status,
   eventBus,
 }: SubagentDisclosureProps) {
+  const {containerRef} = useAutoScroll();
+
   return (
-    <SubagentDisclosureView task={task} status={status} eventBus={eventBus} />
+    <SubagentDisclosureView
+      task={task}
+      status={status}
+      eventBus={eventBus}
+      scrollRef={containerRef}
+    />
   );
 }
