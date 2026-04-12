@@ -175,9 +175,16 @@ function applyAssistantMessageStart(
       return updated;
     }
   }
-  throw new Error(
-    'message-start(assistant) received but no assistant message found',
-  );
+  // No assistant message yet (e.g. subagent stream). Create a placeholder.
+  return [
+    ...prev,
+    {
+      id: messageId,
+      createdAt,
+      role: 'assistant' as const,
+      content: {type: 'text' as const, content: ''},
+    },
+  ];
 }
 
 function pushSubagentStart(
