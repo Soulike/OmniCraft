@@ -6,14 +6,16 @@ import {useQuestions} from './hooks/useQuestions.js';
 import {useSubmitActions} from './hooks/useSubmitActions.js';
 
 type AskUserCardProps =
-  | {callId: string; arguments: string; status: 'running'}
+  | {sessionId: string; callId: string; arguments: string; status: 'running'}
   | {
+      sessionId: string;
       callId: string;
       arguments: string;
       status: 'done';
       data: ToolResultData<'ask_user'>;
     }
   | {
+      sessionId: string;
       callId: string;
       arguments: string;
       status: 'failure' | 'error';
@@ -24,6 +26,7 @@ export function AskUserCard(props: AskUserCardProps) {
   const questions = useQuestions(props.arguments);
   const formState = useFormState(questions);
   const submitActions = useSubmitActions({
+    sessionId: props.sessionId,
     callId: props.callId,
     collectAnswers: formState.collectAnswers,
   });

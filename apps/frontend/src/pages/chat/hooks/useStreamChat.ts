@@ -92,6 +92,10 @@ export function useStreamChat({
                 usage: event.usage,
               });
               break;
+            case 'subagent-dispatch':
+            case 'subagent-output':
+            case 'subagent-complete':
+              break;
             case 'error':
               eventBus.emit('stream-error', {message: event.message});
               setStreamError(event.message);
