@@ -1,12 +1,16 @@
-import {type ReactNode, useState} from 'react';
+import type {ReactNode} from 'react';
+import {useState} from 'react';
 
 import {EventBus} from '@/helpers/event-bus.js';
 
-import type {ChatEventBus, ChatEventMap} from '../../types.js';
+import type {ChatEventMap} from '../../components/StreamingMessageDisplay/index.js';
 import {ChatEventBusContext} from './ChatEventBusContext.js';
 
-export function ChatEventBusProvider({children}: {children: ReactNode}) {
-  const [bus] = useState<ChatEventBus>(() => new EventBus<ChatEventMap>());
+interface ChatEventBusProviderProps {
+  children: ReactNode;
+}
 
+export function ChatEventBusProvider({children}: ChatEventBusProviderProps) {
+  const [bus] = useState(() => new EventBus<ChatEventMap>());
   return <ChatEventBusContext value={bus}>{children}</ChatEventBusContext>;
 }

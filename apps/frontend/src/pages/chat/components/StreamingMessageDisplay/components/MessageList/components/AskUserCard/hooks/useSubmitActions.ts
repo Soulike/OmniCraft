@@ -3,10 +3,10 @@ import {useCallback, useState} from 'react';
 
 import {submitToolResponse} from '@/api/chat/index.js';
 
-import {useSessionId} from '../../../../../hooks/useSessionId.js';
 import type {AnswerEntry} from '../types.js';
 
 interface UseSubmitActionsParams {
+  sessionId: string;
   callId: string;
   collectAnswers: () => AnswerEntry[];
 }
@@ -19,14 +19,14 @@ export interface SubmitActions {
 
 /** Handles submitting or cancelling the questionnaire via the bridge API. */
 export function useSubmitActions({
+  sessionId,
   callId,
   collectAnswers,
 }: UseSubmitActionsParams): SubmitActions {
-  const {sessionId} = useSessionId();
   const [submitting, setSubmitting] = useState(false);
 
   const handleSubmit = useCallback(() => {
-    if (!sessionId || submitting) return;
+    if (submitting) return;
     setSubmitting(true);
 
     const answers = collectAnswers();
@@ -40,7 +40,7 @@ export function useSubmitActions({
   }, [sessionId, callId, collectAnswers, submitting]);
 
   const handleCancel = useCallback(() => {
-    if (!sessionId || submitting) return;
+    if (submitting) return;
     setSubmitting(true);
 
     submitToolResponse(sessionId, callId, {cancelled: true}).catch(() => {

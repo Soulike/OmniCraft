@@ -6,11 +6,8 @@ import {ChatPageView} from './ChatPageView.js';
 import {ChatEventBusProvider} from './contexts/ChatEventBusContext/index.js';
 import {SessionConfigProvider} from './contexts/SessionConfigContext/index.js';
 import {SessionIdProvider} from './contexts/SessionIdContext/index.js';
-import {
-  ToolOutputProvider,
-  useClearToolOutput,
-} from './contexts/ToolOutputContext/index.js';
-import {useMessages} from './hooks/useMessages.js';
+import {useChatEventBus} from './hooks/useChatEventBus.js';
+import {useMessageCount} from './hooks/useMessageCount.js';
 import {useSessionConfig} from './hooks/useSessionConfig.js';
 import {useSessionId} from './hooks/useSessionId.js';
 import {useSessionLifecycle} from './hooks/useSessionLifecycle.js';
@@ -23,9 +20,7 @@ export function ChatPage() {
     <SessionIdProvider>
       <ChatEventBusProvider>
         <SessionConfigProvider>
-          <ToolOutputProvider>
-            <ChatPageContent />
-          </ToolOutputProvider>
+          <ChatPageContent />
         </SessionConfigProvider>
       </ChatEventBusProvider>
     </SessionIdProvider>
@@ -34,6 +29,8 @@ export function ChatPage() {
 
 /** Inner content that uses contexts. */
 function ChatPageContent() {
+  const eventBus = useChatEventBus();
+
   const {
     sessionId,
     createNewSessionIdError,
@@ -42,9 +39,8 @@ function ChatPageContent() {
     clearCreateNewSessionIdError,
   } = useSessionId();
 
-  const {messages, clearMessages} = useMessages();
+  const {messageCount, onMessagesChange} = useMessageCount();
   const {title, clearTitle} = useSessionTitle();
-  const clearToolOutput = useClearToolOutput();
 
   const {selectedWorkspace, selectedExtraAllowedPaths} = useSessionConfig();
 
@@ -73,14 +69,17 @@ function ChatPageContent() {
     createNewSessionId: createNewSessionIdWithConfig,
   });
 
+  const resetDisplay = useCallback(() => {
+    eventBus.emit('reset');
+  }, [eventBus]);
+
   const {startNewSession} = useSessionLifecycle({
     stopGeneration,
     clearSessionId,
-    clearMessages,
+    resetDisplay,
     clearTitle,
     clearStreamError,
     clearMaxRoundsReached,
-    clearToolOutput,
   });
 
   const {containerRef: scrollRef, scrollToBottom} = useAutoScroll();
@@ -92,18 +91,20 @@ function ChatPageContent() {
     clearStreamError();
   }, [clearCreateNewSessionIdError, clearStreamError]);
 
-  const newSessionDisabled =
-    (sessionId === null && messages.length === 0) || isStreaming;
+  const isEmpty = messageCount === 0;
+  const newSessionDisabled = (sessionId === null && isEmpty) || isStreaming;
 
   return (
     <ChatPageView
       title={title}
-      messages={messages}
+      eventBus={eventBus}
+      isEmpty={isEmpty}
       isStreaming={isStreaming}
       error={displayError}
       maxRoundsReached={maxRoundsReached}
       scrollRef={scrollRef}
       sessionId={sessionId}
+      onMessagesChange={onMessagesChange}
       onSend={(content, thinkingLevel) => {
         void sendMessage(content, thinkingLevel);
         requestAnimationFrame(() => {

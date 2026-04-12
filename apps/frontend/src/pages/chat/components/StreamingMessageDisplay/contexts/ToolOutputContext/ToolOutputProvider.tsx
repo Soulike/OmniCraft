@@ -47,27 +47,30 @@ export function ToolOutputProvider({children}: ToolOutputProviderProps) {
       scheduleRender();
     };
 
+    const onReset = () => {
+      mapRef.current.clear();
+      if (rafIdRef.current !== null) {
+        cancelAnimationFrame(rafIdRef.current);
+        rafIdRef.current = null;
+      }
+      setSnapshot(new Map());
+    };
+
     eventBus.on('tool-execute-delta', onDelta);
     eventBus.on('tool-execute-end', onEnd);
+    eventBus.on('reset', onReset);
 
     return () => {
       eventBus.off('tool-execute-delta', onDelta);
       eventBus.off('tool-execute-end', onEnd);
+      eventBus.off('reset', onReset);
       if (rafIdRef.current !== null) {
         cancelAnimationFrame(rafIdRef.current);
       }
     };
   }, [eventBus, scheduleRender]);
 
-  const clearToolOutput = useCallback(() => {
-    mapRef.current.clear();
-    setSnapshot(new Map());
-  }, []);
-
-  const contextValue = useMemo(
-    () => ({toolOutput: snapshot, clearToolOutput}),
-    [snapshot, clearToolOutput],
-  );
+  const contextValue = useMemo(() => ({toolOutput: snapshot}), [snapshot]);
 
   return <ToolOutputContext value={contextValue}>{children}</ToolOutputContext>;
 }

@@ -2,7 +2,7 @@ import {useCallback, useEffect, useRef, useState} from 'react';
 
 import {generateTitle} from '@/api/chat/index.js';
 
-import type {ChatEventMap} from '../types.js';
+import type {ChatEventMap} from '../components/StreamingMessageDisplay/index.js';
 import {useChatEventBus} from './useChatEventBus.js';
 
 /**
