@@ -22,15 +22,16 @@
     "vitest": "catalog:"
   },
   "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "^0.2.101",
     "@anthropic-ai/sdk": "^0.80.0",
     "@koa/bodyparser": "^6.1.0",
     "@koa/router": "^15.1.0",
     "@mozilla/readability": "^0.6.0",
     "@omnicraft/api-schema": "workspace:^",
-    "@omnicraft/tool-schemas": "workspace:^",
     "@omnicraft/markdown-frontmatter": "workspace:^",
     "@omnicraft/settings-schema": "workspace:^",
     "@omnicraft/sse-events": "workspace:^",
+    "@omnicraft/tool-schemas": "workspace:^",
     "@tavily/core": "^0.7.2",
     "diff": "^8.0.4",
     "fast-glob": "^3.3.3",
