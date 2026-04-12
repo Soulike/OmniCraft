@@ -2,7 +2,11 @@ import type {Stats} from 'node:fs';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
-import {TOOL_NAME, writeFileResultSchema} from '@omnicraft/tool-schemas';
+import {
+  TOOL_NAME,
+  writeFileParametersSchema,
+  writeFileResultSchema,
+} from '@omnicraft/tool-schemas';
 import {z} from 'zod';
 
 import {FileStatCheckResult} from '@/agent-core/agent/index.js';
@@ -16,13 +20,7 @@ import {countLines} from './helpers.js';
 
 const MAX_CONTENT_SIZE = 1_048_576; // 1MB
 
-const parameters = z.object({
-  filePath: z
-    .string()
-    .min(1)
-    .describe('File path, absolute or relative to working directory'),
-  content: z.string().describe('File content to write'),
-});
+const parameters = writeFileParametersSchema;
 
 type WriteFileArgs = z.infer<typeof parameters>;
 type WriteFileResult = z.infer<typeof writeFileResultSchema>;

@@ -339,6 +339,122 @@ describe('transformMessages', () => {
     expect(result[1].type).toBe('assistant-text');
   });
 
+  it('pairs ask_user tool start and end events', () => {
+    const messages: ChatMessage[] = [
+      {
+        id: null,
+        createdAt: null,
+        role: 'assistant',
+        content: {
+          type: 'tool-execute-start',
+          callId: 'c1',
+          toolName: 'ask_user',
+          displayName: 'Ask User',
+          arguments:
+            '{"questions":[{"question":"City?","options":["NYC","SF"]}]}',
+        },
+      },
+      {
+        id: null,
+        createdAt: null,
+        role: 'assistant',
+        content: {
+          type: 'tool-execute-end',
+          callId: 'c1',
+          result: 'Q: City?\nA: SF',
+          status: 'success',
+          data: {
+            answers: [{question: 'City?', answer: 'SF'}],
+          },
+        },
+      },
+    ];
+    const result = transformMessages(messages);
+    expect(result).toEqual([
+      {
+        type: 'tool-execution',
+        callId: 'c1',
+        toolName: 'ask_user',
+        displayName: 'Ask User',
+        arguments:
+          '{"questions":[{"question":"City?","options":["NYC","SF"]}]}',
+        status: 'done',
+        result: 'Q: City?\nA: SF',
+        data: {answers: [{question: 'City?', answer: 'SF'}]},
+      },
+    ]);
+  });
+
+  it('marks ask_user as running when no end event exists', () => {
+    const messages: ChatMessage[] = [
+      {
+        id: null,
+        createdAt: null,
+        role: 'assistant',
+        content: {
+          type: 'tool-execute-start',
+          callId: 'c1',
+          toolName: 'ask_user',
+          displayName: 'Ask User',
+          arguments: '{"questions":[{"question":"Name?","options":[]}]}',
+        },
+      },
+    ];
+    const result = transformMessages(messages);
+    expect(result).toEqual([
+      {
+        type: 'tool-execution',
+        callId: 'c1',
+        toolName: 'ask_user',
+        displayName: 'Ask User',
+        arguments: '{"questions":[{"question":"Name?","options":[]}]}',
+        status: 'running',
+      },
+    ]);
+  });
+
+  it('marks ask_user as failure when user cancels', () => {
+    const messages: ChatMessage[] = [
+      {
+        id: null,
+        createdAt: null,
+        role: 'assistant',
+        content: {
+          type: 'tool-execute-start',
+          callId: 'c1',
+          toolName: 'ask_user',
+          displayName: 'Ask User',
+          arguments: '{"questions":[{"question":"City?","options":["A"]}]}',
+        },
+      },
+      {
+        id: null,
+        createdAt: null,
+        role: 'assistant',
+        content: {
+          type: 'tool-execute-end',
+          callId: 'c1',
+          result: 'User declined to answer.',
+          status: 'failure',
+          data: {message: 'User declined to answer.'},
+        },
+      },
+    ];
+    const result = transformMessages(messages);
+    expect(result).toEqual([
+      {
+        type: 'tool-execution',
+        callId: 'c1',
+        toolName: 'ask_user',
+        displayName: 'Ask User',
+        arguments: '{"questions":[{"question":"City?","options":["A"]}]}',
+        status: 'failure',
+        result: 'User declined to answer.',
+        data: {message: 'User declined to answer.'},
+      },
+    ]);
+  });
+
   it('handles thinking interleaved with tool execution', () => {
     const messages: ChatMessage[] = [
       {

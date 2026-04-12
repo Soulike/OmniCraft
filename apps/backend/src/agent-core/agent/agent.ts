@@ -460,6 +460,7 @@ export abstract class Agent {
         };
 
     const context: ToolExecutionContext = {
+      callId: toolCall.callId,
       availableSkills: this.getAvailableSkills(),
       workingDirectory: this.workingDirectory,
       fileCache: this.fileCache,
