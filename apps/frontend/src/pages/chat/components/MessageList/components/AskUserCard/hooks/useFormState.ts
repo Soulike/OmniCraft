@@ -1,8 +1,7 @@
 import {useCallback, useState} from 'react';
 
 import type {AnswerEntry, Question} from '../types.js';
-
-const OTHER_VALUE = '__other__';
+import {OTHER_VALUE} from '../types.js';
 
 export interface FormState {
   /** Selected option value per question index. */
