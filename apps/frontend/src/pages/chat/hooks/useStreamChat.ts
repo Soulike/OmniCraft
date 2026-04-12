@@ -3,7 +3,7 @@ import {useCallback, useRef, useState} from 'react';
 
 import {streamChatCompletion} from '@/api/chat/index.js';
 
-import {useChatEventBus} from './useChatEventBus.js';
+import {useChatEventBus} from '../components/StreamingMessageDisplay/index.js';
 import type {useSessionId} from './useSessionId.js';
 
 type SessionIdHook = ReturnType<typeof useSessionId>;
@@ -91,6 +91,10 @@ export function useStreamChat({
                 reason: event.reason,
                 usage: event.usage,
               });
+              break;
+            case 'subagent-dispatch':
+            case 'subagent-output':
+            case 'subagent-complete':
               break;
             case 'error':
               eventBus.emit('stream-error', {message: event.message});

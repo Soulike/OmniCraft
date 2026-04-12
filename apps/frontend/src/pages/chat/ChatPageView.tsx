@@ -5,20 +5,25 @@ import type {RefObject} from 'react';
 import {ChatAlert} from './components/ChatAlert/index.js';
 import {ChatInput} from './components/ChatInput/index.js';
 import {InfoBar} from './components/InfoBar/index.js';
-import {MessageList} from './components/MessageList/index.js';
 import {SessionSetup} from './components/SessionSetup/index.js';
+import {
+  type ChatEventBus,
+  type ChatMessage,
+  StreamingMessageDisplay,
+} from './components/StreamingMessageDisplay/index.js';
 import {TitleBarView} from './components/TitleBar/index.js';
 import styles from './styles.module.css';
-import type {ChatMessage} from './types.js';
 
 interface ChatPageViewProps {
   title: string | null;
-  messages: ChatMessage[];
+  eventBus: ChatEventBus;
+  isEmpty: boolean;
   isStreaming: boolean;
   error: string | null;
   maxRoundsReached: boolean;
   scrollRef: RefObject<HTMLDivElement | null>;
   sessionId: string | null;
+  onMessagesChange: (messages: readonly ChatMessage[]) => void;
   onSend: (content: string, thinkingLevel: ThinkingLevel) => void;
   onStop: () => void;
   onNewSession: () => void;
@@ -29,12 +34,14 @@ interface ChatPageViewProps {
 
 export function ChatPageView({
   title,
-  messages,
+  eventBus,
+  isEmpty,
   isStreaming,
   error,
   maxRoundsReached,
   scrollRef,
   sessionId,
+  onMessagesChange,
   onSend,
   onStop,
   onNewSession,
@@ -42,8 +49,6 @@ export function ChatPageView({
   onDismissError,
   onDismissMaxRoundsReached,
 }: ChatPageViewProps) {
-  const isEmpty = messages.length === 0;
-
   return (
     <div className={styles.page}>
       {error && (
@@ -68,13 +73,15 @@ export function ChatPageView({
         newSessionDisabled={newSessionDisabled}
       />
       <ScrollShadow className={styles.messageListWrapper} ref={scrollRef}>
-        {isEmpty && !sessionId ? (
+        {isEmpty && !sessionId && (
           <div className={styles.emptyState}>
             <SessionSetup />
           </div>
-        ) : (
-          <MessageList messages={messages} />
         )}
+        <StreamingMessageDisplay
+          eventBus={eventBus}
+          onMessagesChange={onMessagesChange}
+        />
       </ScrollShadow>
       {sessionId && <InfoBar />}
       <ChatInput isStreaming={isStreaming} onSend={onSend} onStop={onStop} />
