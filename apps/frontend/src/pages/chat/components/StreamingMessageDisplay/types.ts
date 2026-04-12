@@ -1,4 +1,5 @@
 import type {
+  SseDoneEvent,
   SseMessageStartEvent,
   SseTextDeltaEvent,
   SseThinkingDeltaEvent,
@@ -7,7 +8,6 @@ import type {
   SseToolExecuteDeltaEvent,
   SseToolExecuteEndEvent,
   SseToolExecuteStartEvent,
-  SseUsage,
 } from '@omnicraft/sse-events';
 
 import type {EventBus} from '@/helpers/event-bus.js';
@@ -25,12 +25,22 @@ export interface ThinkingContent {
   done: boolean;
 }
 
+/** Subagent execution content. */
+export interface SubagentContent {
+  type: 'subagent';
+  agentId: string;
+  task: string;
+  status: 'running' | 'complete' | 'error';
+  eventBus: ChatEventBus;
+}
+
 /** A single content entry in a chat message. */
 export type MessageContent =
   | TextContent
   | ThinkingContent
   | SseToolExecuteStartEvent
-  | SseToolExecuteEndEvent;
+  | SseToolExecuteEndEvent
+  | SubagentContent;
 
 /** A chat message for UI rendering. Each message has exactly one content. */
 export interface ChatMessage {
@@ -64,13 +74,13 @@ export interface ChatEventMap {
   'thinking-delta': SseThinkingDeltaEvent;
   /** Thinking/reasoning has ended. */
   'thinking-end': SseThinkingEndEvent;
-  /** The stream completed (LLM finished or max rounds reached). */
-  'stream-done': {
+  /** SSE done event pass-through. Universal for agent and subagent. */
+  done: SseDoneEvent;
+  /** Main agent turn completed. Carries session context for title generation. */
+  'turn-done': {
     sessionId: string;
     userMessage: string;
     assistantMessage: string;
-    reason: string;
-    usage: SseUsage;
   };
   /** An error occurred during streaming. */
   'stream-error': {message: string};
@@ -78,6 +88,17 @@ export interface ChatEventMap {
   'stream-end': undefined;
   /** Reset all display state (messages, tool output). */
   reset: undefined;
+  /** A subagent was dispatched. */
+  'subagent-dispatched': {
+    agentId: string;
+    task: string;
+    eventBus: ChatEventBus;
+  };
+  /** A subagent completed its work. */
+  'subagent-completed': {
+    agentId: string;
+    status: 'success' | 'failure';
+  };
 }
 
 /** Typed event bus for the chat page. */
