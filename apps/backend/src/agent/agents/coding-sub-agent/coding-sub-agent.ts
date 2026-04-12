@@ -109,7 +109,7 @@ export class CodingSubAgent extends Agent {
         cacheReadInputTokens: 0,
       };
 
-      for await (const message of query({
+      const messageStream = query({
         prompt: userMessage,
         options: {
           cwd: this.cwd,
@@ -121,7 +121,9 @@ export class CodingSubAgent extends Agent {
             ? {resume: this.claudeCodeSessionId}
             : {}),
         },
-      })) {
+      });
+
+      for await (const message of messageStream) {
         // Capture session ID from the init message for future resumption.
         if (message.type === 'system' && message.subtype === 'init') {
           this.claudeCodeSessionId = message.session_id;
