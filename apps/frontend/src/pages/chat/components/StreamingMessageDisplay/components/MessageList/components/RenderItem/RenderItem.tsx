@@ -1,6 +1,8 @@
 import {TOOL_NAME} from '@omnicraft/tool-schemas';
 import clsx from 'clsx';
+import {use} from 'react';
 
+import {SessionIdContext} from '../../../../contexts/SessionIdContext/index.js';
 import {formatTimestamp} from '../../helpers/formatTimestamp.js';
 import type {MessageRenderItem} from '../../hooks/useMessageList.js';
 import {AskUserCard} from '../AskUserCard/index.js';
@@ -37,12 +39,17 @@ export function RenderItem({item}: RenderItemProps) {
           )}
         </div>
       );
-    case 'tool-execution':
+    case 'tool-execution': {
       if (item.toolName === TOOL_NAME.ASK_USER) {
+        const sessionId = use(SessionIdContext);
+        if (sessionId === null) {
+          throw new Error('AskUserCard requires a sessionId');
+        }
         if (item.status === 'running') {
           return (
             <div className={styles.assistantMessage}>
               <AskUserCard
+                sessionId={sessionId}
                 callId={item.callId}
                 arguments={item.arguments}
                 status='running'
@@ -54,6 +61,7 @@ export function RenderItem({item}: RenderItemProps) {
           return (
             <div className={styles.assistantMessage}>
               <AskUserCard
+                sessionId={sessionId}
                 callId={item.callId}
                 arguments={item.arguments}
                 status='done'
@@ -65,6 +73,7 @@ export function RenderItem({item}: RenderItemProps) {
         return (
           <div className={styles.assistantMessage}>
             <AskUserCard
+              sessionId={sessionId}
               callId={item.callId}
               arguments={item.arguments}
               status={item.status}
@@ -86,6 +95,7 @@ export function RenderItem({item}: RenderItemProps) {
           />
         </div>
       );
+    }
     case 'thinking':
       return (
         <div className={styles.assistantMessage}>
