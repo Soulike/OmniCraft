@@ -1,0 +1,88 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.summary {
+  font-size: 0.8125rem;
+  color: var(--foreground);
+}
+
+.pattern {
+  font-family: monospace;
+  font-size: 0.8125rem;
+  color: var(--accent);
+}
+
+.basePath {
+  font-size: 0.6875rem;
+  color: var(--muted);
+  font-family: monospace;
+}
+
+.truncated {
+  font-size: 0.75rem;
+  color: var(--warning);
+  font-style: italic;
+}
+
+.groups {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.group {
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--background);
+}
+
+.fileHeader {
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.fileName {
+  font-family: monospace;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--foreground);
+}
+
+.matchRow {
+  display: flex;
+  gap: 8px;
+  padding: 2px 8px;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+}
+
+.matchRow:hover {
+  background: color-mix(in oklch, var(--accent) 5%, transparent);
+}
+
+.lineNumber {
+  flex-shrink: 0;
+  min-width: 3ch;
+  text-align: right;
+  color: var(--muted);
+  font-family: monospace;
+  font-size: 0.75rem;
+  user-select: none;
+}
+
+.matchContent {
+  font-family: monospace;
+  font-size: 0.8125rem;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--foreground);
+}

@@ -1,0 +1,88 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.command {
+  font-family: monospace;
+  font-size: 0.8125rem;
+  color: var(--foreground);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.cwd {
+  font-size: 0.6875rem;
+  color: var(--muted);
+  font-family: monospace;
+}
+
+.badges {
+  display: flex;
+  gap: 6px;
+}
+
+.badgeSuccess,
+.badgeError,
+.badgeTimeout {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 8px;
+  border-radius: 9999px;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  font-family: monospace;
+}
+
+.badgeSuccess {
+  background: color-mix(in oklch, var(--success) 15%, transparent);
+  color: var(--success);
+}
+
+.badgeError {
+  background: color-mix(in oklch, var(--danger) 15%, transparent);
+  color: var(--danger);
+}
+
+.badgeTimeout {
+  background: color-mix(in oklch, var(--warning) 15%, transparent);
+  color: var(--warning);
+}
+
+.outputSection {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.outputLabel {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.output,
+.stderr {
+  margin: 0;
+  padding: 8px;
+  background: var(--background);
+  border-radius: 6px;
+  font-family: monospace;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.stderr {
+  color: var(--warning);
+}

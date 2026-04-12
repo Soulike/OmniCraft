@@ -1,0 +1,14 @@
+.pre {
+  margin: 0;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* Override highlight.js defaults that conflict with the parent ScrollShadow */
+.pre code {
+  font-family: monospace;
+  padding: 0;
+  background: transparent;
+}

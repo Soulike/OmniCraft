@@ -17,8 +17,22 @@ export default defineConfig({
     ViteImageOptimizer(),
   ],
   resolve: {
-    alias: {
-      '@': path.resolve(__dirname, './src'),
+    alias: [
+      {find: '@', replacement: path.resolve(__dirname, './src')},
+      {find: /^highlight.js$/, replacement: 'highlight.js/lib/common'},
+    ],
+  },
+  build: {
+    rolldownOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('node_modules/highlight.js/')) return 'hljs';
+          if (id.includes('node_modules/diff2html/')) return 'diff2html';
+          if (id.includes('node_modules/react-markdown/'))
+            return 'react-markdown';
+          return undefined;
+        },
+      },
     },
   },
   server: {

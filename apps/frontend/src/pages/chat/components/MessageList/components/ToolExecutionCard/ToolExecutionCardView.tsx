@@ -1,9 +1,9 @@
 import {Disclosure, ScrollShadow, Spinner} from '@heroui/react';
 import type {AnyToolResultData, ToolName} from '@omnicraft/tool-schemas';
-import clsx from 'clsx';
 import {CircleAlert, CircleCheck, CircleX} from 'lucide-react';
-import {useMemo} from 'react';
 
+import {HighlightedJson} from './components/HighlightedJson/index.js';
+import {ResultSection} from './components/ResultSection/index.js';
 import styles from './styles.module.css';
 
 interface ToolExecutionCardViewProps {
@@ -25,17 +25,8 @@ export function ToolExecutionCardView({
   status,
   result,
   output,
-  data: _data,
+  data,
 }: ToolExecutionCardViewProps) {
-  const formattedArguments = useMemo(
-    () => formatJson(toolArguments),
-    [toolArguments],
-  );
-  const formattedResult = useMemo(
-    () => (result !== undefined ? formatJson(result) : undefined),
-    [result],
-  );
-
   return (
     <div className={styles.card}>
       <Disclosure>
@@ -70,7 +61,7 @@ export function ToolExecutionCardView({
             <div className={styles.section}>
               <span className={styles.label}>Arguments</span>
               <ScrollShadow className={styles.pre}>
-                {formattedArguments}
+                <HighlightedJson jsonString={toolArguments} />
               </ScrollShadow>
             </div>
             {output !== undefined && result === undefined && (
@@ -79,31 +70,16 @@ export function ToolExecutionCardView({
                 <ScrollShadow className={styles.pre}>{output}</ScrollShadow>
               </div>
             )}
-            {formattedResult !== undefined && (
-              <div className={styles.section}>
-                <span className={styles.label}>Result</span>
-                <ScrollShadow
-                  className={clsx(styles.pre, {
-                    [styles.preFailure]: status === 'failure',
-                    [styles.preError]: status === 'error',
-                  })}
-                >
-                  {formattedResult}
-                </ScrollShadow>
-              </div>
-            )}
+            <ResultSection
+              data={data}
+              result={result}
+              status={status}
+              toolArguments={toolArguments}
+              toolName={toolName}
+            />
           </Disclosure.Body>
         </Disclosure.Content>
       </Disclosure>
     </div>
   );
-}
-
-/** Attempts to pretty-print a JSON string. Falls back to the raw string. */
-function formatJson(jsonString: string): string {
-  try {
-    return JSON.stringify(JSON.parse(jsonString) as unknown, null, 2);
-  } catch {
-    return jsonString;
-  }
 }
