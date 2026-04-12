@@ -1,12 +1,12 @@
-import {useCallback, useState} from 'react';
+import {useCallback} from 'react';
 
 import {useAutoScroll} from '@/hooks/useAutoScroll.js';
 
 import {ChatPageView} from './ChatPageView.js';
-import type {ChatMessage} from './components/StreamingMessageDisplay/index.js';
 import {ChatEventBusProvider} from './contexts/ChatEventBusContext/index.js';
 import {SessionConfigProvider} from './contexts/SessionConfigContext/index.js';
 import {useChatEventBus} from './hooks/useChatEventBus.js';
+import {useMessageCount} from './hooks/useMessageCount.js';
 import {useSessionConfig} from './hooks/useSessionConfig.js';
 import {useSessionId} from './hooks/useSessionId.js';
 import {useSessionLifecycle} from './hooks/useSessionLifecycle.js';
@@ -36,7 +36,7 @@ function ChatPageContent() {
     clearCreateNewSessionIdError,
   } = useSessionId();
 
-  const [messageCount, setMessageCount] = useState(0);
+  const {messageCount, onMessagesChange} = useMessageCount();
   const {title, clearTitle} = useSessionTitle();
 
   const {selectedWorkspace, selectedExtraAllowedPaths} = useSessionConfig();
@@ -90,10 +90,6 @@ function ChatPageContent() {
 
   const isEmpty = messageCount === 0;
   const newSessionDisabled = (sessionId === null && isEmpty) || isStreaming;
-
-  const onMessagesChange = useCallback((messages: readonly ChatMessage[]) => {
-    setMessageCount(messages.length);
-  }, []);
 
   return (
     <ChatPageView
