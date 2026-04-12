@@ -131,16 +131,22 @@ export class CodingSubAgent extends Agent {
         if (message.type === 'stream_event') {
           const event = message.event;
 
-          if (
-            event.type === 'content_block_start' &&
-            event.content_block.type === 'text'
-          ) {
-            yield {
-              type: 'message-start',
-              role: 'assistant',
-              messageId: crypto.randomUUID(),
-              createdAt: Date.now(),
-            } satisfies SseMessageStartEvent;
+          if (event.type === 'content_block_start') {
+            if (event.content_block.type === 'text') {
+              yield {
+                type: 'message-start',
+                role: 'assistant',
+                messageId: crypto.randomUUID(),
+                createdAt: Date.now(),
+              } satisfies SseMessageStartEvent;
+            }
+
+            if (event.content_block.type === 'tool_use') {
+              yield {
+                type: 'text-delta',
+                content: `\n[Tool: ${event.content_block.name}]\n`,
+              } satisfies SseTextDeltaEvent;
+            }
           }
 
           if (
