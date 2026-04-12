@@ -1,0 +1,91 @@
+.card {
+  border-radius: 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  overflow: hidden;
+  width: 600px;
+  max-width: 100%;
+}
+
+.running {
+  border-color: color-mix(in oklch, var(--accent) 40%, transparent);
+}
+
+.trigger {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 12px;
+  cursor: pointer;
+  background: none;
+  border: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+
+.spinner {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+}
+
+.botIcon {
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+.task {
+  font-weight: 600;
+  font-size: 0.875rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.statusComplete {
+  color: var(--success);
+  flex-shrink: 0;
+}
+
+.statusError {
+  color: var(--danger);
+  flex-shrink: 0;
+}
+
+.body {
+  padding: 0 12px 12px;
+}
+
+.taskDetail {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.taskText {
+  margin: 0;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  color: var(--foreground);
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 200px;
+}
+
+.content {
+  background: var(--background);
+  border-radius: 8px;
+  padding: 12px;
+  max-height: 400px;
+}

@@ -6,7 +6,7 @@ import type {ChatEventMap} from '../components/StreamingMessageDisplay/index.js'
 import {useChatEventBus} from './useChatEventBus.js';
 
 /**
- * Manages the session title. Subscribes to `stream-done` and generates
+ * Manages the session title. Subscribes to `turn-done` and generates
  * a title after the first assistant reply. Fire-and-forget — errors are
  * logged but not surfaced to the user.
  */
@@ -16,7 +16,7 @@ export function useSessionTitle() {
   const titleRequestedRef = useRef(false);
 
   useEffect(() => {
-    const onStreamDone = (data: ChatEventMap['stream-done']) => {
+    const onTurnDone = (data: ChatEventMap['turn-done']) => {
       if (titleRequestedRef.current) return;
       if (!data.assistantMessage) return;
 
@@ -35,9 +35,9 @@ export function useSessionTitle() {
       );
     };
 
-    eventBus.on('stream-done', onStreamDone);
+    eventBus.on('turn-done', onTurnDone);
     return () => {
-      eventBus.off('stream-done', onStreamDone);
+      eventBus.off('turn-done', onTurnDone);
     };
   }, [eventBus]);
 

@@ -4,6 +4,7 @@ export type {
   ChatEventMap,
   ChatMessage,
   MessageContent,
+  SubagentContent,
   TextContent,
   ThinkingContent,
 } from './types.js';

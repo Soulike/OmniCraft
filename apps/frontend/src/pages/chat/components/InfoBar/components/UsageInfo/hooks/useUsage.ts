@@ -3,7 +3,7 @@ import {useEffect, useState} from 'react';
 
 import {useChatEventBus} from '../../../../../hooks/useChatEventBus.js';
 
-/** Tracks cumulative token usage from stream-done events. */
+/** Tracks cumulative token usage from done events. */
 export function useUsage() {
   const [usage, setUsage] = useState<SseUsage | null>(null);
   const eventBus = useChatEventBus();
@@ -12,9 +12,9 @@ export function useUsage() {
     const handler = (data: {usage: SseUsage}) => {
       setUsage(data.usage);
     };
-    eventBus.on('stream-done', handler);
+    eventBus.on('done', handler);
     return () => {
-      eventBus.off('stream-done', handler);
+      eventBus.off('done', handler);
     };
   }, [eventBus]);
 

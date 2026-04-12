@@ -1,6 +1,6 @@
 import {describe, expect, it} from 'vitest';
 
-import type {ChatMessage} from '../../../types.js';
+import type {ChatEventBus, ChatMessage} from '../../../types.js';
 import {transformMessages} from './useMessageList.js';
 
 describe('transformMessages', () => {
@@ -510,5 +510,61 @@ describe('transformMessages', () => {
     expect(result[1].type).toBe('tool-execution');
     expect(result[2].type).toBe('thinking');
     expect(result[3].type).toBe('assistant-text');
+  });
+
+  it('converts a running subagent message to SubagentRenderItem', () => {
+    const mockBus = {} as ChatEventBus;
+    const messages: ChatMessage[] = [
+      {
+        id: null,
+        createdAt: null,
+        role: 'assistant',
+        content: {
+          type: 'subagent',
+          agentId: 'agent-1',
+          task: 'Search config files',
+          status: 'running',
+          eventBus: mockBus,
+        },
+      },
+    ];
+    const result = transformMessages(messages);
+    expect(result).toEqual([
+      {
+        type: 'subagent',
+        agentId: 'agent-1',
+        task: 'Search config files',
+        status: 'running',
+        eventBus: mockBus,
+      },
+    ]);
+  });
+
+  it('converts a completed subagent message to SubagentRenderItem', () => {
+    const mockBus = {} as ChatEventBus;
+    const messages: ChatMessage[] = [
+      {
+        id: null,
+        createdAt: null,
+        role: 'assistant',
+        content: {
+          type: 'subagent',
+          agentId: 'agent-1',
+          task: 'Search config files',
+          status: 'complete',
+          eventBus: mockBus,
+        },
+      },
+    ];
+    const result = transformMessages(messages);
+    expect(result).toEqual([
+      {
+        type: 'subagent',
+        agentId: 'agent-1',
+        task: 'Search config files',
+        status: 'complete',
+        eventBus: mockBus,
+      },
+    ]);
   });
 });

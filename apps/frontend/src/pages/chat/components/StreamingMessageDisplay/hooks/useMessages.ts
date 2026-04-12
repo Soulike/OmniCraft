@@ -7,7 +7,7 @@ import type {
 } from '@omnicraft/sse-events';
 import {useEffect, useState} from 'react';
 
-import type {ChatMessage} from '../types.js';
+import type {ChatEventBus, ChatMessage} from '../types.js';
 import {useChatEventBus} from './useChatEventBus.js';
 
 /**
@@ -175,9 +175,68 @@ function applyAssistantMessageStart(
       return updated;
     }
   }
-  throw new Error(
-    'message-start(assistant) received but no assistant message found',
-  );
+  // No assistant message yet (e.g. subagent stream). Create a placeholder.
+  return [
+    ...prev,
+    {
+      id: messageId,
+      createdAt,
+      role: 'assistant' as const,
+      content: {type: 'text' as const, content: ''},
+    },
+  ];
+}
+
+function pushSubagentStart(
+  prev: ChatMessage[],
+  data: {agentId: string; task: string; eventBus: ChatEventBus},
+): ChatMessage[] {
+  const base = removeTrailingAssistantMessageIfEmpty(prev);
+  return [
+    ...base,
+    {
+      id: null,
+      createdAt: null,
+      role: 'assistant' as const,
+      content: {
+        type: 'subagent' as const,
+        agentId: data.agentId,
+        task: data.task,
+        status: 'running' as const,
+        eventBus: data.eventBus,
+      },
+    },
+    {
+      id: null,
+      createdAt: null,
+      role: 'assistant' as const,
+      content: {type: 'text' as const, content: ''},
+    },
+  ];
+}
+
+function updateSubagentStatus(
+  prev: ChatMessage[],
+  data: {agentId: string; status: 'success' | 'failure'},
+): ChatMessage[] {
+  return prev.map((msg) => {
+    if (
+      msg.content.type === 'subagent' &&
+      msg.content.agentId === data.agentId
+    ) {
+      return {
+        ...msg,
+        content: {
+          ...msg.content,
+          status:
+            data.status === 'success'
+              ? ('complete' as const)
+              : ('error' as const),
+        },
+      };
+    }
+    return msg;
+  });
 }
 
 /** Manages the chat message history, subscribing to chat events. */
@@ -222,6 +281,19 @@ export function useMessages() {
     const onReset = () => {
       setMessages([]);
     };
+    const onSubagentDispatched = (data: {
+      agentId: string;
+      task: string;
+      eventBus: ChatEventBus;
+    }) => {
+      setMessages((prev) => pushSubagentStart(prev, data));
+    };
+    const onSubagentCompleted = (data: {
+      agentId: string;
+      status: 'success' | 'failure';
+    }) => {
+      setMessages((prev) => updateSubagentStatus(prev, data));
+    };
 
     eventBus.on('user-message-sent', onUserMessageSent);
     eventBus.on('text-delta', onTextDelta);
@@ -233,6 +305,8 @@ export function useMessages() {
     eventBus.on('thinking-delta', onThinkingDelta);
     eventBus.on('thinking-end', onThinkingEnd);
     eventBus.on('reset', onReset);
+    eventBus.on('subagent-dispatched', onSubagentDispatched);
+    eventBus.on('subagent-completed', onSubagentCompleted);
 
     return () => {
       eventBus.off('user-message-sent', onUserMessageSent);
@@ -245,6 +319,8 @@ export function useMessages() {
       eventBus.off('thinking-delta', onThinkingDelta);
       eventBus.off('thinking-end', onThinkingEnd);
       eventBus.off('reset', onReset);
+      eventBus.off('subagent-dispatched', onSubagentDispatched);
+      eventBus.off('subagent-completed', onSubagentCompleted);
     };
   }, [eventBus]);
 
