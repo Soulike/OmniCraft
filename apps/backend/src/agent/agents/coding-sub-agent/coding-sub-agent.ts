@@ -103,6 +103,14 @@ export class CodingSubAgent extends Agent {
         }
       }
 
+      // Emit tool use summaries as text so the frontend shows tool activity.
+      if (message.type === 'tool_use_summary') {
+        yield {
+          type: 'text-delta',
+          content: `\n${message.summary}\n`,
+        } satisfies SseTextDeltaEvent;
+      }
+
       // Capture the final result text from a successful completion.
       if (message.type === 'result' && message.subtype === 'success') {
         resultText = message.result;
