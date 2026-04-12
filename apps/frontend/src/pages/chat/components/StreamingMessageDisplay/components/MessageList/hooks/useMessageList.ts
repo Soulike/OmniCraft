@@ -6,7 +6,7 @@ import type {
 } from '@omnicraft/tool-schemas';
 import {useMemo} from 'react';
 
-import type {ChatMessage} from '../../../types.js';
+import type {ChatEventBus, ChatMessage} from '../../../types.js';
 
 export interface UserTextRenderItem {
   type: 'user-text';
@@ -66,11 +66,20 @@ export interface ThinkingRenderItem {
   done: boolean;
 }
 
+export interface SubagentRenderItem {
+  type: 'subagent';
+  agentId: string;
+  task: string;
+  status: 'running' | 'complete' | 'error';
+  eventBus: ChatEventBus;
+}
+
 export type MessageRenderItem =
   | UserTextRenderItem
   | AssistantTextRenderItem
   | ToolExecutionRenderItem
-  | ThinkingRenderItem;
+  | ThinkingRenderItem
+  | SubagentRenderItem;
 
 /** Converts a ChatMessage[] into renderable MessageRenderItem[]. */
 export function transformMessages(
@@ -161,6 +170,16 @@ export function transformMessages(
           type: 'thinking',
           content: content.content,
           done: content.done,
+        });
+        break;
+      }
+      case 'subagent': {
+        items.push({
+          type: 'subagent',
+          agentId: content.agentId,
+          task: content.task,
+          status: content.status,
+          eventBus: content.eventBus,
         });
         break;
       }
