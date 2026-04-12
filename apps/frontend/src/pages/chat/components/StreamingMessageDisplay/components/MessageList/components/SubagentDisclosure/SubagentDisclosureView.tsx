@@ -48,6 +48,10 @@ export function SubagentDisclosureView({
         </Disclosure.Heading>
         <Disclosure.Content>
           <Disclosure.Body className={styles.body}>
+            <div className={styles.taskDetail}>
+              <span className={styles.label}>Task</span>
+              <p className={styles.taskText}>{task}</p>
+            </div>
             <ScrollShadow className={styles.content} ref={scrollRef}>
               <Suspense>
                 <StreamingMessageDisplay eventBus={eventBus} sessionId={null} />
