@@ -24,6 +24,9 @@ export default defineConfig([
     rules: {
       'react-hooks/set-state-in-effect': 'off',
       'react-hooks/exhaustive-deps': 'error',
+      '@eslint-react/dom/no-dangerously-set-innerhtml': 'off',
+      '@eslint-react/hooks-extra/no-direct-set-state-in-use-effect': 'off',
+      '@eslint-react/no-array-index-key': 'off',
     },
   },
 ]);

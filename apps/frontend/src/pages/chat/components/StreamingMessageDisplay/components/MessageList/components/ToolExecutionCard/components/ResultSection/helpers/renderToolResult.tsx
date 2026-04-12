@@ -134,5 +134,9 @@ function renderToolResultUnsafe(
     }
     case 'web_fetch_raw':
       return <HighlightedJson jsonString={JSON.stringify(data, null, 2)} />;
+    case 'ask_user':
+      throw new Error(
+        'ask_user is a client-side tool and should not reach renderToolResult',
+      );
   }
 }
