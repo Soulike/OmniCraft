@@ -36,5 +36,7 @@ function itemKey(item: MessageRenderItem, index: number): string {
       return item.id ?? `${item.type}-${index.toString()}`;
     case 'thinking':
       return `thinking-${index.toString()}`;
+    case 'subagent':
+      return `subagent-${index.toString()}`;
   }
 }
