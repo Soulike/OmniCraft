@@ -2,7 +2,10 @@ import type {ThinkingLevel} from '@omnicraft/api-schema';
 import {useCallback, useRef, useState} from 'react';
 
 import {streamChatCompletion} from '@/api/chat/index.js';
+import {EventBus} from '@/helpers/event-bus.js';
 
+import type {ChatEventMap} from '../components/StreamingMessageDisplay/index.js';
+import {routeBaseEventToBus} from '../helpers/route-base-event-to-bus.js';
 import {useChatEventBus} from './useChatEventBus.js';
 import type {useSessionId} from './useSessionId.js';
 
@@ -22,6 +25,7 @@ export function useStreamChat({
   const [streamError, setStreamError] = useState<string | null>(null);
   const [maxRoundsReached, setMaxRoundsReached] = useState(false);
   const abortControllerRef = useRef<AbortController | null>(null);
+  const subagentBusMapRef = useRef(new Map<string, EventBus<ChatEventMap>>());
   const eventBus = useChatEventBus();
 
   const sendMessage = useCallback(
@@ -57,49 +61,52 @@ export function useStreamChat({
           switch (event.type) {
             case 'text-delta':
               assistantText += event.content;
-              eventBus.emit('text-delta', event);
-              break;
-            case 'tool-execute-start':
-              eventBus.emit('tool-execute-start', event);
-              break;
-            case 'tool-execute-end':
-              eventBus.emit('tool-execute-end', event);
-              break;
-            case 'message-start':
-              eventBus.emit('message-start', event);
-              break;
-            case 'tool-execute-delta':
-              eventBus.emit('tool-execute-delta', event);
-              break;
-            case 'thinking-start':
-              eventBus.emit('thinking-start', event);
-              break;
-            case 'thinking-delta':
-              eventBus.emit('thinking-delta', event);
-              break;
-            case 'thinking-end':
-              eventBus.emit('thinking-end', event);
+              routeBaseEventToBus(event, eventBus);
               break;
             case 'done':
               if (event.reason === 'max_rounds_reached') {
                 setMaxRoundsReached(true);
               }
-              eventBus.emit('stream-done', {
-                sessionId: activeSessionId,
-                userMessage: trimmed,
-                assistantMessage: assistantText,
-                reason: event.reason,
-                usage: event.usage,
-              });
+              routeBaseEventToBus(event, eventBus);
               break;
-            case 'subagent-dispatch':
-            case 'subagent-output':
-            case 'subagent-complete':
+            case 'message-start':
+            case 'tool-execute-start':
+            case 'tool-execute-end':
+            case 'tool-execute-delta':
+            case 'thinking-start':
+            case 'thinking-delta':
+            case 'thinking-end':
+              routeBaseEventToBus(event, eventBus);
               break;
             case 'error':
               eventBus.emit('stream-error', {message: event.message});
               setStreamError(event.message);
               break;
+            case 'subagent-dispatch': {
+              const bus = new EventBus<ChatEventMap>();
+              subagentBusMapRef.current.set(event.agentId, bus);
+              eventBus.emit('subagent-dispatched', {
+                agentId: event.agentId,
+                task: event.task,
+                eventBus: bus,
+              });
+              break;
+            }
+            case 'subagent-output': {
+              const bus = subagentBusMapRef.current.get(event.agentId);
+              if (bus) routeBaseEventToBus(event.event, bus);
+              break;
+            }
+            case 'subagent-complete': {
+              const bus = subagentBusMapRef.current.get(event.agentId);
+              if (bus) bus.emit('stream-end');
+              eventBus.emit('subagent-completed', {
+                agentId: event.agentId,
+                status: event.status,
+              });
+              subagentBusMapRef.current.delete(event.agentId);
+              break;
+            }
           }
         }
       } catch (e: unknown) {
@@ -113,6 +120,13 @@ export function useStreamChat({
           setStreamError(message);
         }
       } finally {
+        if (assistantText) {
+          eventBus.emit('turn-done', {
+            sessionId: activeSessionId,
+            userMessage: trimmed,
+            assistantMessage: assistantText,
+          });
+        }
         abortControllerRef.current = null;
         eventBus.emit('stream-end');
         setIsStreaming(false);
