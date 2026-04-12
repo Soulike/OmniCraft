@@ -16,6 +16,9 @@ export interface ShellState {
 
 /** Execution context provided by the Agent to each Tool at call time. */
 export interface ToolExecutionContext {
+  /** The unique call ID for this tool invocation, from the LLM API response. */
+  readonly callId: string;
+
   /** All skills available to the current Agent, merged and deduplicated. */
   readonly availableSkills: ReadonlyMap<string, SkillDefinition>;
 

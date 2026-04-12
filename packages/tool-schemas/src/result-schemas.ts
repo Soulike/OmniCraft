@@ -80,5 +80,14 @@ export const loadSkillResultSchema = z.object({
   content: z.string(),
 });
 
+export const askUserResultSchema = z.object({
+  answers: z.array(
+    z.object({
+      question: z.string(),
+      answer: z.string().nullable(),
+    }),
+  ),
+});
+
 /** Structured data for failure/error results. */
 export const toolFailureDataSchema = z.object({message: z.string()});

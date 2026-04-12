@@ -1,0 +1,49 @@
+.card {
+  border-radius: 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  overflow: hidden;
+  width: 400px;
+  max-width: 100%;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+}
+
+.statusIcon {
+  color: var(--success);
+  flex-shrink: 0;
+}
+
+.headerTitle {
+  font-weight: 600;
+  font-size: 0.875rem;
+}
+
+.body {
+  padding: 0 12px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.answerBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.question {
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.answer {
+  font-size: 0.8125rem;
+  color: var(--muted);
+  padding-left: 4px;
+}

@@ -136,6 +136,9 @@ export function transformMessages(
                   : 'error',
             result: endEvent.result,
             data: endEvent.data,
+            // Cast required: DoneToolExecutionRenderItem is a mapped type correlating
+            // toolName with data, but we assemble from separate SSE events so
+            // TypeScript cannot verify this correlation statically.
           } as ToolExecutionRenderItem);
         } else {
           items.push({

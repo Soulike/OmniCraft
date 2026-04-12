@@ -34,6 +34,7 @@ export function createMockContext(
 ): ToolExecutionContext {
   const workingDirectory = overrides?.workingDirectory ?? os.tmpdir();
   return {
+    callId: 'mock-call-id',
     availableSkills: new Map(),
     workingDirectory,
     fileCache: new FileContentCache(),
