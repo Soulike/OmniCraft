@@ -9,8 +9,20 @@ import type {
 } from '@omnicraft/sse-events';
 
 import {Agent} from '@/agent-core/agent/index.js';
-import type {AgentEventStream} from '@/agent-core/agent/types.js';
+import type {
+  AgentEventStream,
+  AgentSnapshot,
+} from '@/agent-core/agent/types.js';
 import type {LlmConfig} from '@/agent-core/llm-api/index.js';
+
+/** Minimal config for the unused base-class LLM session. */
+const noopConfig = (): Promise<LlmConfig> =>
+  Promise.resolve({
+    apiFormat: 'claude' as const,
+    apiKey: '',
+    baseUrl: '',
+    model: '',
+  });
 
 /**
  * Coding subagent powered by Claude Agent SDK (Claude Code).
@@ -19,6 +31,10 @@ import type {LlmConfig} from '@/agent-core/llm-api/index.js';
  * Claude Code process. The Agent base class's LLM loop is never used;
  * {@link handleUserMessage} is overridden to call the Claude Agent SDK's
  * `query()` function instead.
+ *
+ * The SDK session ID is captured on first run and can be persisted via
+ * {@link toSnapshot} so that future calls to {@link handleUserMessage}
+ * resume the same Claude Code conversation.
  */
 export class CodingSubAgent extends Agent {
   /**
@@ -27,29 +43,40 @@ export class CodingSubAgent extends Agent {
    */
   private readonly cwd: string;
 
+  /** Claude Agent SDK session ID, captured from the init message. */
+  private codingSessionId: string | undefined;
+
   constructor(
     workingDirectory: string,
     extraAllowedPaths: readonly AllowedPathEntry[] = [],
+    snapshot?: AgentSnapshot,
   ) {
-    // Minimal config — the base class LLM session is never used.
-    const noopConfig = (): Promise<LlmConfig> =>
-      Promise.resolve({
-        apiFormat: 'claude' as const,
-        apiKey: '',
-        baseUrl: '',
-        model: '',
-      });
+    super(
+      noopConfig,
+      {
+        toolRegistries: [],
+        skillRegistries: [],
+        baseSystemPrompt: '',
+        getMaxToolRounds: () => 0,
+        workingDirectory,
+        extraAllowedPaths,
+      },
+      snapshot,
+    );
 
-    super(noopConfig, {
-      toolRegistries: [],
-      skillRegistries: [],
-      baseSystemPrompt: '',
-      getMaxToolRounds: () => 0,
-      workingDirectory,
-      extraAllowedPaths,
-    });
+    this.cwd = snapshot?.options.workingDirectory ?? workingDirectory;
+    this.codingSessionId = snapshot?.options.codingSessionId;
+  }
 
-    this.cwd = workingDirectory;
+  override toSnapshot(): AgentSnapshot {
+    const base = super.toSnapshot();
+    return {
+      ...base,
+      options: {
+        ...base.options,
+        codingSessionId: this.codingSessionId,
+      },
+    };
   }
 
   override async *handleUserMessage(
@@ -74,8 +101,14 @@ export class CodingSubAgent extends Agent {
         permissionMode: 'bypassPermissions',
         allowDangerouslySkipPermissions: true,
         includePartialMessages: true,
+        ...(this.codingSessionId ? {resume: this.codingSessionId} : {}),
       },
     })) {
+      // Capture session ID from the init message for future resumption.
+      if (message.type === 'system' && message.subtype === 'init') {
+        this.codingSessionId = message.session_id;
+      }
+
       // Stream text deltas from partial messages for real-time frontend display.
       if (message.type === 'stream_event') {
         const event = message.event;

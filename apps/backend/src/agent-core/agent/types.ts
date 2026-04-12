@@ -22,6 +22,8 @@ export type AgentEventStream = AsyncGenerator<AgentEvent, void, undefined>;
 /** Serializable agent configuration persisted in snapshots. */
 export interface AgentSnapshotOptions {
   workingDirectory: string;
+  /** Claude Agent SDK session ID for resuming CodingSubAgent sessions. */
+  codingSessionId?: string;
 }
 
 /** Serializable snapshot of an Agent, used for persistence. */
