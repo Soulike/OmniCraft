@@ -42,7 +42,8 @@ export const askUserTool: ToolDefinition<
       const data: ToolFailureData = {message: 'User declined to answer.'};
       return {
         data,
-        content: 'User declined to answer.',
+        content:
+          'User declined to answer. Respond briefly to acknowledge, then ask the user if there is anything else they would like to add or clarify. Do not proceed with assumptions or lengthy responses.',
         status: 'failure',
       };
     }
