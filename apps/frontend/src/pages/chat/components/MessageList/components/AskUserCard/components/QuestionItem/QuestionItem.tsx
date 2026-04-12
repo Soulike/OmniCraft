@@ -1,8 +1,8 @@
 import {Input, Label, Radio, RadioGroup, TextField} from '@heroui/react';
 
+import {OTHER_VALUE} from '../../constants.js';
 import type {FormState} from '../../hooks/useFormState.js';
 import type {Question} from '../../types.js';
-import {OTHER_VALUE} from '../../types.js';
 import styles from './styles.module.css';
 
 interface QuestionItemProps {
