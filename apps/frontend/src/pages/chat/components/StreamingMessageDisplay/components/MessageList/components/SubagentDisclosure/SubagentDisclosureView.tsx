@@ -50,7 +50,7 @@ export function SubagentDisclosureView({
           <Disclosure.Body className={styles.body}>
             <div className={styles.taskDetail}>
               <span className={styles.label}>Task</span>
-              <p className={styles.taskText}>{task}</p>
+              <ScrollShadow className={styles.taskText}>{task}</ScrollShadow>
             </div>
             <ScrollShadow className={styles.content} ref={scrollRef}>
               <Suspense>

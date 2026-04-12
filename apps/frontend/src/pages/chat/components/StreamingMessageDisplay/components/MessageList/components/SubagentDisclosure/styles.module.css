@@ -74,6 +74,7 @@
   color: var(--foreground);
   white-space: pre-wrap;
   word-break: break-word;
+  max-height: 200px;
 }
 
 .content {
