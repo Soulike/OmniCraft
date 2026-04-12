@@ -4,7 +4,7 @@
 
 ![Logo with Brand](./assets/logo-with-brand-dark.png)
 
-**OmniCraft** is a general-purpose, event-driven orchestration engine for building closed-loop agentic workflows. It moves beyond traditional "fire-and-forget" AI generation by treating task execution as an iterative craft. 
+**OmniCraft** is a general-purpose, event-driven orchestration engine for building closed-loop agentic workflows. It moves beyond traditional "fire-and-forget" AI generation by treating task execution as an iterative craft.
 
 Whether it's writing code, generating content, or analyzing data, OmniCraft empowers you to orchestrate distinct agents with pluggable skills, seamlessly connecting internal AI execution with real-world, asynchronous review systems (e.g., GitHub PRs, ADO Work Items, or email threads).
 

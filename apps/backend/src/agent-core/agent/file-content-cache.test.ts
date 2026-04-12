@@ -97,7 +97,9 @@ describe('FileContentCache', () => {
     });
 
     it('is a no-op for unknown paths', () => {
-      expect(() => { cache.invalidate('/no/such/path'); }).not.toThrow();
+      expect(() => {
+        cache.invalidate('/no/such/path');
+      }).not.toThrow();
     });
   });
 

@@ -1,4 +1,4 @@
-import {isValidElement,type ReactNode} from 'react';
+import {isValidElement, type ReactNode} from 'react';
 
 function hasChildren(props: unknown): props is {children: ReactNode} {
   return typeof props === 'object' && props !== null && 'children' in props;

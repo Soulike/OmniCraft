@@ -88,7 +88,9 @@ describe('FileStatTracker', () => {
   it('delete on untracked file does not throw', () => {
     const tracker = new FileStatTracker();
 
-    expect(() => { tracker.delete('/a/b.ts'); }).not.toThrow();
+    expect(() => {
+      tracker.delete('/a/b.ts');
+    }).not.toThrow();
   });
 
   it('tracks multiple files independently', () => {

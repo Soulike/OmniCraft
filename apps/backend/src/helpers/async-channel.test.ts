@@ -122,7 +122,9 @@ describe('AsyncChannel', () => {
       const channel = new AsyncChannel<number>();
       channel.close();
 
-      expect(() => { channel.push(42); }).not.toThrow();
+      expect(() => {
+        channel.push(42);
+      }).not.toThrow();
     });
   });
 

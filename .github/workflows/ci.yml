@@ -39,6 +39,22 @@ jobs:
               - bun.lock
               - package.json
 
+  lint-format:
+    name: Lint & Format
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ./.github/actions/setup
+
+      - name: Format check
+        run: bun run format:check
+
+      - name: Lint backend
+        run: bun run --filter '@omnicraft/backend' lint
+
+      - name: Lint frontend
+        run: bun run --filter '@omnicraft/frontend' lint
+
   backend:
     name: Backend
     needs: changes
@@ -73,15 +89,16 @@ jobs:
     name: CI Result
     runs-on: ubuntu-latest
     if: always()
-    needs: [changes, backend, frontend]
+    needs: [changes, lint-format, backend, frontend]
     steps:
       - name: Check results
         run: |
-          if [[ "$CHANGES" == "failure" || "$CHANGES" == "cancelled" || "$BACKEND" == "failure" || "$BACKEND" == "cancelled" || "$FRONTEND" == "failure" || "$FRONTEND" == "cancelled" ]]; then
+          if [[ "$CHANGES" == "failure" || "$CHANGES" == "cancelled" || "$LINT_FORMAT" == "failure" || "$LINT_FORMAT" == "cancelled" || "$BACKEND" == "failure" || "$BACKEND" == "cancelled" || "$FRONTEND" == "failure" || "$FRONTEND" == "cancelled" ]]; then
             echo "CI failed."
             exit 1
           fi
         env:
           CHANGES: ${{ needs.changes.result }}
+          LINT_FORMAT: ${{ needs.lint-format.result }}
           BACKEND: ${{ needs.backend.result }}
           FRONTEND: ${{ needs.frontend.result }}
