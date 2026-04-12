@@ -7,6 +7,7 @@ import {formatTimestamp} from '../../helpers/formatTimestamp.js';
 import type {MessageRenderItem} from '../../hooks/useMessageList.js';
 import {AskUserCard} from '../AskUserCard/index.js';
 import {MessageBubble} from '../MessageBubble/index.js';
+import {SubagentDisclosure} from '../SubagentDisclosure/index.js';
 import {ThinkingBlock} from '../ThinkingBlock/index.js';
 import {ToolExecutionCard} from '../ToolExecutionCard/index.js';
 import styles from './styles.module.css';
@@ -100,6 +101,16 @@ export function RenderItem({item}: RenderItemProps) {
       return (
         <div className={styles.assistantMessage}>
           <ThinkingBlock content={item.content} done={item.done} />
+        </div>
+      );
+    case 'subagent':
+      return (
+        <div className={styles.assistantMessage}>
+          <SubagentDisclosure
+            task={item.task}
+            status={item.status}
+            eventBus={item.eventBus}
+          />
         </div>
       );
   }
