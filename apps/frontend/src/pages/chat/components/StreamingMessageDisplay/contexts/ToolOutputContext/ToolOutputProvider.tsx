@@ -70,15 +70,7 @@ export function ToolOutputProvider({children}: ToolOutputProviderProps) {
     };
   }, [eventBus, scheduleRender]);
 
-  const clearToolOutput = useCallback(() => {
-    mapRef.current.clear();
-    setSnapshot(new Map());
-  }, []);
-
-  const contextValue = useMemo(
-    () => ({toolOutput: snapshot, clearToolOutput}),
-    [snapshot, clearToolOutput],
-  );
+  const contextValue = useMemo(() => ({toolOutput: snapshot}), [snapshot]);
 
   return <ToolOutputContext value={contextValue}>{children}</ToolOutputContext>;
 }
