@@ -6,6 +6,7 @@ import type {
   SseDoneEvent,
   SseMessageStartEvent,
   SseTextDeltaEvent,
+  SseUsage,
 } from '@omnicraft/sse-events';
 
 import {Agent} from '@/agent-core/agent/index.js';
@@ -84,14 +85,30 @@ export class CodingSubAgent extends Agent {
     _thinkingLevel: ThinkingLevel,
     signal: AbortSignal,
   ): AgentEventStream {
+    // Dynamic import to avoid loading the SDK when no coding subagent is used.
     const {query} = await import('@anthropic-ai/claude-agent-sdk');
 
     const abortController = new AbortController();
-    signal.addEventListener('abort', () => {
+    if (signal.aborted) {
       abortController.abort();
-    });
+    } else {
+      signal.addEventListener(
+        'abort',
+        () => {
+          abortController.abort();
+        },
+        {once: true},
+      );
+    }
 
     let resultText = '';
+    let usage: SseUsage = {
+      model: 'claude-code',
+      maxInputTokens: 0,
+      inputTokens: 0,
+      outputTokens: 0,
+      cacheReadInputTokens: 0,
+    };
 
     for await (const message of query({
       prompt: userMessage,
@@ -144,9 +161,26 @@ export class CodingSubAgent extends Agent {
         } satisfies SseTextDeltaEvent;
       }
 
-      // Capture the final result text from a successful completion.
-      if (message.type === 'result' && message.subtype === 'success') {
-        resultText = message.result;
+      // Capture result and usage from SDK completion.
+      if (message.type === 'result') {
+        const [model, modelUsage] = Object.entries(message.modelUsage)[0];
+        usage = {
+          model,
+          maxInputTokens: modelUsage.contextWindow,
+          inputTokens: modelUsage.inputTokens,
+          outputTokens: modelUsage.outputTokens,
+          cacheReadInputTokens: modelUsage.cacheReadInputTokens,
+        };
+
+        if (message.subtype === 'success') {
+          resultText = message.result;
+        } else {
+          // Surface SDK errors so the dispatch tool can report them.
+          const errors = message.errors.join('; ');
+          throw new Error(
+            `Coding agent failed (${message.subtype}): ${errors || 'unknown error'}`,
+          );
+        }
       }
     }
 
@@ -170,13 +204,7 @@ export class CodingSubAgent extends Agent {
     yield {
       type: 'done',
       reason: 'complete',
-      usage: {
-        model: 'claude-code',
-        maxInputTokens: 0,
-        inputTokens: 0,
-        outputTokens: 0,
-        cacheReadInputTokens: 0,
-      },
+      usage,
     } satisfies SseDoneEvent;
   }
 }
