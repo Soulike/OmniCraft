@@ -1078,8 +1078,7 @@ import type {ChatEventBus} from '../../../../types.js';
 import styles from './styles.module.css';
 
 const StreamingMessageDisplay = lazy(async () => {
-  const {StreamingMessageDisplay} =
-    await import('../../../../StreamingMessageDisplay.js');
+  const {StreamingMessageDisplay} = await import('../../../../index.js');
   return {default: StreamingMessageDisplay};
 });
 
