@@ -1,7 +1,7 @@
 import type {SseUsage} from '@omnicraft/sse-events';
 import {useEffect, useState} from 'react';
 
-import type {ChatEventBus} from '../components/StreamingMessageDisplay/index.js';
+import type {ChatEventBus} from '../../StreamingMessageDisplay/index.js';
 
 /** Tracks token usage from done events on the given event bus. */
 export function useUsage(eventBus: ChatEventBus) {

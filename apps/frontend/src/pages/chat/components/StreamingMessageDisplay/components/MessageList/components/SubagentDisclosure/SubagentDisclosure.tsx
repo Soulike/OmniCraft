@@ -1,7 +1,6 @@
 import type {ThinkingLevel} from '@omnicraft/api-schema';
 
 import {useAutoScroll} from '@/hooks/useAutoScroll.js';
-import {useUsage} from '@/pages/chat/hooks/useUsage.js';
 
 import type {ChatEventBus} from '../../../../types.js';
 import {SubagentDisclosureView} from './SubagentDisclosureView.js';
@@ -24,7 +23,6 @@ export function SubagentDisclosure({
   eventBus,
 }: SubagentDisclosureProps) {
   const {containerRef} = useAutoScroll();
-  const {usage} = useUsage(eventBus);
 
   return (
     <SubagentDisclosureView
@@ -34,7 +32,6 @@ export function SubagentDisclosure({
       workingDirectory={workingDirectory}
       status={status}
       eventBus={eventBus}
-      usage={usage}
       scrollRef={containerRef}
     />
   );

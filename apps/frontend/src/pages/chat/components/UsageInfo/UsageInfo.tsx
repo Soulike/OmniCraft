@@ -1,40 +1,16 @@
-import type {SseUsage} from '@omnicraft/sse-events';
-
-import {formatTokenCount} from './helpers/format-token-count.js';
-import styles from './styles.module.css';
+import type {ChatEventBus} from '../StreamingMessageDisplay/index.js';
+import {useUsage} from './hooks/useUsage.js';
+import {UsageInfoView} from './UsageInfoView.js';
 
 interface UsageInfoProps {
-  usage: SseUsage;
+  eventBus: ChatEventBus;
+  className?: string;
 }
 
-const CONTEXT_WARNING_THRESHOLD = 0.8;
+export function UsageInfo({eventBus, className}: UsageInfoProps) {
+  const {usage} = useUsage(eventBus);
 
-export function UsageInfo({usage}: UsageInfoProps) {
-  const cacheRate =
-    usage.inputTokens > 0
-      ? Math.round((usage.cacheReadInputTokens / usage.inputTokens) * 100)
-      : 0;
+  if (!usage) return null;
 
-  const contextRatio =
-    usage.maxInputTokens > 0 ? usage.inputTokens / usage.maxInputTokens : 0;
-  const contextPercent = Math.round(contextRatio * 100);
-  const isContextHigh = contextRatio > CONTEXT_WARNING_THRESHOLD;
-
-  return (
-    <div className={styles.container}>
-      <span className={styles.item}>{usage.model}</span>
-      <span className={`${styles.item} ${isContextHigh ? styles.warning : ''}`}>
-        Input: {formatTokenCount(usage.inputTokens)} /{' '}
-        {formatTokenCount(usage.maxInputTokens)}
-        <span className={styles.rate}> ({contextPercent}%)</span>
-      </span>
-      <span className={styles.item}>
-        Output: {formatTokenCount(usage.outputTokens)}
-      </span>
-      <span className={styles.item}>
-        Cached: {formatTokenCount(usage.cacheReadInputTokens)}
-        <span className={styles.rate}> ({cacheRate}%)</span>
-      </span>
-    </div>
-  );
+  return <UsageInfoView usage={usage} className={className} />;
 }

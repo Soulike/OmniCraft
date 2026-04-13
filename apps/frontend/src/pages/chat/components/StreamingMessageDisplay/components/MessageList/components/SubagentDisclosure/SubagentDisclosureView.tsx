@@ -1,6 +1,5 @@
 import {Disclosure, ScrollShadow, Spinner} from '@heroui/react';
 import type {ThinkingLevel} from '@omnicraft/api-schema';
-import type {SseUsage} from '@omnicraft/sse-events';
 import clsx from 'clsx';
 import {Bot, CircleCheck, CircleX} from 'lucide-react';
 import {lazy, type RefObject, Suspense} from 'react';
@@ -21,7 +20,6 @@ interface SubagentDisclosureViewProps {
   workingDirectory: string;
   status: 'running' | 'complete' | 'error';
   eventBus: ChatEventBus;
-  usage: SseUsage | null;
   scrollRef: RefObject<HTMLDivElement | null>;
 }
 
@@ -34,7 +32,6 @@ export function SubagentDisclosureView({
   workingDirectory,
   status,
   eventBus,
-  usage,
   scrollRef,
 }: SubagentDisclosureViewProps) {
   return (
@@ -93,11 +90,7 @@ export function SubagentDisclosureView({
           </Disclosure.Content>
         </Disclosure>
       </div>
-      {usage && (
-        <div className={styles.usageWrapper}>
-          <UsageInfo usage={usage} />
-        </div>
-      )}
+      <UsageInfo eventBus={eventBus} className={styles.usage} />
     </div>
   );
 }

@@ -1,6 +1,6 @@
 import type {AllowedPathEntry} from '@omnicraft/settings-schema';
-import type {SseUsage} from '@omnicraft/sse-events';
 
+import type {ChatEventBus} from '../StreamingMessageDisplay/index.js';
 import {UsageInfo} from '../UsageInfo/index.js';
 import {AccessInfo} from './components/AccessInfo/index.js';
 import styles from './styles.module.css';
@@ -8,13 +8,13 @@ import styles from './styles.module.css';
 interface InfoBarViewProps {
   readonly selectedWorkspace: string | undefined;
   readonly selectedExtraAllowedPathEntries: readonly AllowedPathEntry[];
-  readonly usage: SseUsage | null;
+  readonly eventBus: ChatEventBus;
 }
 
 export function InfoBarView({
   selectedWorkspace,
   selectedExtraAllowedPathEntries,
-  usage,
+  eventBus,
 }: InfoBarViewProps) {
   return (
     <div className={styles.container}>
@@ -24,7 +24,9 @@ export function InfoBarView({
           extraPaths={selectedExtraAllowedPathEntries}
         />
       </div>
-      <div className={styles.right}>{usage && <UsageInfo usage={usage} />}</div>
+      <div className={styles.right}>
+        <UsageInfo eventBus={eventBus} />
+      </div>
     </div>
   );
 }
