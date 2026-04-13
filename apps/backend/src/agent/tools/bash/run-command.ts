@@ -1,7 +1,12 @@
 import {realpathSync} from 'node:fs';
 import fs from 'node:fs/promises';
 
-import {runCommandResultSchema, TOOL_NAME} from '@omnicraft/tool-schemas';
+import {
+  RUN_COMMAND_DEFAULT_TIMEOUT_MS,
+  runCommandParametersSchema,
+  runCommandResultSchema,
+  TOOL_NAME,
+} from '@omnicraft/tool-schemas';
 import {z} from 'zod';
 
 import type {
@@ -11,22 +16,10 @@ import type {
 import {isSubPathOrSelf} from '@/helpers/path-access.js';
 import {ShellCommandRunner} from '@/helpers/shell-command-runner.js';
 
-const DEFAULT_TIMEOUT_MS = 120_000;
-const MAX_TIMEOUT_MS = 600_000;
+const DEFAULT_TIMEOUT_MS = RUN_COMMAND_DEFAULT_TIMEOUT_MS;
 const MAX_INLINE_BYTES = 32_768; // 32KB
 
-const parameters = z.object({
-  command: z.string().min(1).describe('The shell command to execute'),
-  timeout: z
-    .number()
-    .int()
-    .min(1)
-    .max(MAX_TIMEOUT_MS)
-    .optional()
-    .describe(
-      `Timeout in milliseconds (default: ${DEFAULT_TIMEOUT_MS}, max: ${MAX_TIMEOUT_MS})`,
-    ),
-});
+const parameters = runCommandParametersSchema;
 
 type RunCommandArgs = z.infer<typeof parameters>;
 type RunCommandResult = z.infer<typeof runCommandResultSchema>;

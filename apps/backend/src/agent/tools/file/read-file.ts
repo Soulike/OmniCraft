@@ -2,7 +2,11 @@ import type {Stats} from 'node:fs';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
-import {readFileResultSchema, TOOL_NAME} from '@omnicraft/tool-schemas';
+import {
+  readFileParametersSchema,
+  readFileResultSchema,
+  TOOL_NAME,
+} from '@omnicraft/tool-schemas';
 import {z} from 'zod';
 
 import type {
@@ -22,23 +26,7 @@ import {
 const MAX_RETURN_SIZE = 32_768; // 32KB
 const MAX_FULL_READ_FILE_SIZE = 1_048_576; // 1MB
 
-const parameters = z.object({
-  filePath: z
-    .string()
-    .describe('File path, absolute or relative to working directory'),
-  startLine: z
-    .number()
-    .int()
-    .min(1)
-    .optional()
-    .describe('Start line number (1-based), defaults to 1'),
-  lineCount: z
-    .number()
-    .int()
-    .min(1)
-    .optional()
-    .describe('Number of lines to read, defaults to end of file'),
-});
+const parameters = readFileParametersSchema;
 
 type ReadFileArgs = z.infer<typeof parameters>;
 type ReadFileResult = z.infer<typeof readFileResultSchema>;

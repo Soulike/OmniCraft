@@ -5,7 +5,11 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import readline from 'node:readline';
 
-import {searchFilesResultSchema, TOOL_NAME} from '@omnicraft/tool-schemas';
+import {
+  searchFilesParametersSchema,
+  searchFilesResultSchema,
+  TOOL_NAME,
+} from '@omnicraft/tool-schemas';
 import fg from 'fast-glob';
 import isSafeRegex from 'safe-regex2';
 import {z} from 'zod';
@@ -68,26 +72,7 @@ export async function searchFile(
   return matches;
 }
 
-const parameters = z.object({
-  pattern: z
-    .string()
-    .min(1)
-    .describe(
-      'Pattern string compiled to a JavaScript RegExp and matched with .test() per line',
-    ),
-  path: z
-    .string()
-    .optional()
-    .describe(
-      'Search root directory (relative or absolute), defaults to working directory',
-    ),
-  filePattern: z
-    .string()
-    .optional()
-    .describe(
-      'Glob pattern to filter files, e.g. "**/*.ts", defaults to "**/*"',
-    ),
-});
+const parameters = searchFilesParametersSchema;
 
 type SearchFilesArgs = z.infer<typeof parameters>;
 type SearchFilesResult = z.infer<typeof searchFilesResultSchema>;

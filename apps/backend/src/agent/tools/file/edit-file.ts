@@ -2,7 +2,11 @@ import type {Stats} from 'node:fs';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
-import {editFileResultSchema, TOOL_NAME} from '@omnicraft/tool-schemas';
+import {
+  editFileParametersSchema,
+  editFileResultSchema,
+  TOOL_NAME,
+} from '@omnicraft/tool-schemas';
 import {createPatch} from 'diff';
 import {z} from 'zod';
 
@@ -16,20 +20,7 @@ import {AccessCheckResult, checkAccess} from '@/helpers/path-access.js';
 const MAX_DIFF_SIZE = 4_096; // 4KB
 const MAX_FILE_SIZE = 10_485_760; // 10MB
 
-const parameters = z.object({
-  filePath: z
-    .string()
-    .min(1)
-    .describe('File path, absolute or relative to working directory'),
-  oldString: z.string().min(1).describe('The exact string to find and replace'),
-  newString: z.string().describe('The replacement string'),
-  replaceAll: z
-    .boolean()
-    .optional()
-    .describe(
-      'Replace all occurrences. Defaults to false (requires unique match)',
-    ),
-});
+const parameters = editFileParametersSchema;
 
 type EditFileArgs = z.infer<typeof parameters>;
 type EditFileResult = z.infer<typeof editFileResultSchema>;

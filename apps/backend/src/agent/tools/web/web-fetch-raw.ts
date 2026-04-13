@@ -1,4 +1,8 @@
-import {TOOL_NAME, webFetchRawResultSchema} from '@omnicraft/tool-schemas';
+import {
+  TOOL_NAME,
+  webFetchRawParametersSchema,
+  webFetchRawResultSchema,
+} from '@omnicraft/tool-schemas';
 import {z} from 'zod';
 
 import type {
@@ -17,9 +21,7 @@ import {fetchBody} from './helpers.js';
 import {validateUrl} from './url-validator.js';
 import {webFetchTool} from './web-fetch.js';
 
-const parameters = z.object({
-  url: z.url().describe('The URL to fetch.'),
-});
+const parameters = webFetchRawParametersSchema;
 
 type WebFetchRawArgs = z.infer<typeof parameters>;
 type WebFetchRawResult = z.infer<typeof webFetchRawResultSchema>;

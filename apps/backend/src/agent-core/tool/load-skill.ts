@@ -1,4 +1,8 @@
-import {loadSkillResultSchema, TOOL_NAME} from '@omnicraft/tool-schemas';
+import {
+  loadSkillParametersSchema,
+  loadSkillResultSchema,
+  TOOL_NAME,
+} from '@omnicraft/tool-schemas';
 import {z} from 'zod';
 
 import type {
@@ -7,9 +11,7 @@ import type {
   ToolExecutionContext,
 } from './types.js';
 
-const parameters = z.object({
-  name: z.string().describe('Name of the skill to load'),
-});
+const parameters = loadSkillParametersSchema;
 
 type LoadSkillResult = z.infer<typeof loadSkillResultSchema>;
 
