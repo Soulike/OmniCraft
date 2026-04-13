@@ -1,5 +1,4 @@
 import {ParameterRow} from '../ParameterRow/index.js';
-
 import styles from './styles.module.css';
 
 interface SearchFilesParametersViewProps {

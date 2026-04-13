@@ -1,0 +1,33 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.code {
+  font-family: monospace;
+  font-size: 0.8125rem;
+  color: var(--foreground);
+}
+
+.old {
+  font-family: monospace;
+  font-size: 0.8125rem;
+  color: var(--danger);
+  background: color-mix(in oklch, var(--danger) 10%, transparent);
+  padding: 2px 6px;
+  border-radius: 4px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.new {
+  font-family: monospace;
+  font-size: 0.8125rem;
+  color: var(--success);
+  background: color-mix(in oklch, var(--success) 10%, transparent);
+  padding: 2px 6px;
+  border-radius: 4px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
