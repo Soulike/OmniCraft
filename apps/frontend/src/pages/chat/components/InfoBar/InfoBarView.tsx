@@ -1,8 +1,8 @@
 import type {AllowedPathEntry} from '@omnicraft/settings-schema';
 import type {SseUsage} from '@omnicraft/sse-events';
 
+import {UsageInfo} from '../UsageInfo/index.js';
 import {AccessInfo} from './components/AccessInfo/index.js';
-import {UsageInfo} from './components/UsageInfo/index.js';
 import styles from './styles.module.css';
 
 interface InfoBarViewProps {

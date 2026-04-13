@@ -1,11 +1,13 @@
+import {useChatEventBus} from '../../hooks/useChatEventBus.js';
 import {useSessionConfig} from '../../hooks/useSessionConfig.js';
-import {useUsage} from './components/UsageInfo/hooks/useUsage.js';
+import {useUsage} from '../UsageInfo/index.js';
 import {InfoBarView} from './InfoBarView.js';
 
 export function InfoBar() {
   const {selectedWorkspace, selectedExtraAllowedPathEntries} =
     useSessionConfig();
-  const {usage} = useUsage();
+  const eventBus = useChatEventBus();
+  const {usage} = useUsage(eventBus);
 
   return (
     <InfoBarView

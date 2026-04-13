@@ -1,12 +1,11 @@
 import type {SseUsage} from '@omnicraft/sse-events';
 import {useEffect, useState} from 'react';
 
-import {useChatEventBus} from '../../../../../hooks/useChatEventBus.js';
+import type {ChatEventBus} from '../../StreamingMessageDisplay/index.js';
 
-/** Tracks cumulative token usage from done events. */
-export function useUsage() {
+/** Tracks token usage from done events on the given event bus. */
+export function useUsage(eventBus: ChatEventBus) {
   const [usage, setUsage] = useState<SseUsage | null>(null);
-  const eventBus = useChatEventBus();
 
   useEffect(() => {
     const handler = (data: {usage: SseUsage}) => {
