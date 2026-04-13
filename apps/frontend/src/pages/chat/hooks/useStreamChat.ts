@@ -120,6 +120,13 @@ export function useStreamChat({
           setStreamError(message);
         }
       } finally {
+        // Complete any subagents still running (e.g. after user stops generation).
+        for (const [agentId, bus] of subagentBusMapRef.current) {
+          bus.emit('stream-end');
+          eventBus.emit('subagent-completed', {agentId, status: 'failure'});
+        }
+        subagentBusMapRef.current.clear();
+
         if (assistantText) {
           eventBus.emit('turn-done', {
             sessionId: activeSessionId,
