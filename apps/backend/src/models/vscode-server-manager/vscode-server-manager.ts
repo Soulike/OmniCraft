@@ -1,6 +1,10 @@
 import assert from 'node:assert';
 import {type ChildProcess, spawn} from 'node:child_process';
+import {type IncomingMessage, ServerResponse} from 'node:http';
 import readline from 'node:readline';
+import type {Duplex} from 'node:stream';
+
+import httpProxy from 'http-proxy';
 
 import {logger as rootLogger} from '@/logger.js';
 
@@ -14,6 +18,7 @@ export class VscodeServerManager {
 
   private readonly port: number;
   private process: ChildProcess | null = null;
+  private proxy: httpProxy | null = null;
   private available = false;
   private shuttingDown = false;
   private readonly restartTimestamps: number[] = [];
@@ -55,23 +60,60 @@ export class VscodeServerManager {
     return this.available;
   }
 
-  /** Starts the `code serve-web` process. */
+  /** Starts the `code serve-web` process and creates the reverse proxy. */
   start(): void {
     if (this.port === 0) {
       // Port 0 means "don't actually start" -- used in tests.
       return;
     }
+
+    this.proxy = httpProxy.createProxyServer({
+      target: `http://127.0.0.1:${this.port.toString()}`,
+      ws: true,
+      changeOrigin: true,
+    });
+
+    this.proxy.on('error', (err, _req, res) => {
+      log.warn({err}, 'VSCode proxy error');
+      if (res instanceof ServerResponse) {
+        res.writeHead(502, {'Content-Type': 'text/plain'});
+        res.end('VSCode server unavailable');
+      }
+    });
+
     this.spawn();
   }
 
-  /** Stops the process gracefully. */
+  /** Stops the process and proxy gracefully. */
   stop(): void {
     this.shuttingDown = true;
     if (this.process) {
       this.process.kill();
       this.process = null;
     }
+    if (this.proxy) {
+      this.proxy.close();
+      this.proxy = null;
+    }
     this.available = false;
+  }
+
+  /** Proxies an HTTP request to the VSCode server. */
+  proxyRequest(req: IncomingMessage, res: ServerResponse): Promise<void> {
+    assert(this.proxy !== null, 'Proxy not initialized — call start() first');
+    const proxy = this.proxy;
+    return new Promise((resolve, reject) => {
+      res.on('close', resolve);
+      proxy.web(req, res, {}, (err: Error) => {
+        reject(err);
+      });
+    });
+  }
+
+  /** Proxies a WebSocket upgrade request to the VSCode server. */
+  proxyWebSocket(req: IncomingMessage, socket: Duplex, head: Buffer): void {
+    assert(this.proxy !== null, 'Proxy not initialized — call start() first');
+    this.proxy.ws(req, socket, head);
   }
 
   private spawn(): void {
