@@ -55,11 +55,11 @@ Update the emit site in `apps/backend/src/agent/tools/sub-agent/dispatch-agent-t
 
 #### Frontend: Reuse `useUsage` hook
 
-Refactor the existing `useUsage` hook (currently in `InfoBar/components/UsageInfo/hooks/`) to accept `eventBus` as a parameter instead of calling `useChatEventBus()` internally. Move it alongside the extracted `UsageInfo` component. Both `InfoBar` and `SubagentDisclosure` pass their respective event bus to the same hook.
+There are two identical `useUsage` hooks: one in `chat/hooks/useUsage.ts` (unused) and one in `InfoBar/components/UsageInfo/hooks/useUsage.ts` (used by InfoBar). Delete the unused duplicate in `chat/hooks/`. Refactor the remaining one to accept `eventBus` as a parameter instead of calling `useChatEventBus()` internally. Move it alongside the extracted `UsageInfo` component. Both `InfoBar` and `SubagentDisclosure` pass their respective event bus to the same hook.
 
 #### Frontend: Extract `UsageInfo` to shared location
 
-Move `UsageInfo` component (and its `format-token-count` helper) from `InfoBar/components/UsageInfo/` to `apps/frontend/src/pages/chat/components/UsageInfo/`. This makes it importable by both `InfoBar` and `SubagentDisclosure`. The `useUsage` hook stays with `InfoBar` (it uses the main chat event bus). Update `InfoBar` imports to point to the new location.
+Move `UsageInfo` component (and its `format-token-count` helper and `useUsage` hook) from `InfoBar/components/UsageInfo/` to `apps/frontend/src/pages/chat/components/UsageInfo/`. This makes it importable by both `InfoBar` and `SubagentDisclosure`. Update `InfoBar` imports to point to the new location.
 
 #### Frontend: UI Components
 
@@ -80,7 +80,8 @@ Wrap the card + usage row in a container `<div>` so they sit together as a unit.
 | Schema             | `packages/sse-events/package.json`                                | Add `@omnicraft/api-schema` dependency                                                   |
 | Schema             | `packages/sse-events/src/schema.ts`                               | Add `agentType`, `thinkingLevel`, `workingDirectory` to `sseSubagentDispatchEventSchema` |
 | Backend            | `apps/backend/src/agent/tools/sub-agent/dispatch-agent-tool.ts`   | Include new fields in the emitted `subagent-dispatch` event                              |
-| Frontend component | `apps/frontend/.../chat/components/UsageInfo/`                    | **Extract** from `InfoBar/components/UsageInfo/` to shared location                      |
+| Frontend hook      | `apps/frontend/.../chat/hooks/useUsage.ts`                        | **Delete** unused duplicate                                                              |
+| Frontend component | `apps/frontend/.../chat/components/UsageInfo/`                    | **Extract** from `InfoBar/components/UsageInfo/` (component, hook, and helper)           |
 | Frontend component | `apps/frontend/.../InfoBar/`                                      | Update imports to use extracted `UsageInfo`                                              |
 | Frontend types     | `apps/frontend/.../StreamingMessageDisplay/types.ts`              | Add fields to `SubagentContent` and `ChatEventMap['subagent-dispatched']`                |
 | Frontend hook      | `apps/frontend/.../useStreamChat.ts`                              | Pass new fields from SSE event to bus emit                                               |
