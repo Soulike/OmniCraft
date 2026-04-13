@@ -1,15 +1,17 @@
 import type {SseUsage} from '@omnicraft/sse-events';
+import clsx from 'clsx';
 
 import {formatTokenCount} from './helpers/format-token-count.js';
 import styles from './styles.module.css';
 
-interface UsageInfoProps {
+interface UsageInfoViewProps {
   usage: SseUsage;
+  className?: string;
 }
 
 const CONTEXT_WARNING_THRESHOLD = 0.8;
 
-export function UsageInfo({usage}: UsageInfoProps) {
+export function UsageInfoView({usage, className}: UsageInfoViewProps) {
   const cacheRate =
     usage.inputTokens > 0
       ? Math.round((usage.cacheReadInputTokens / usage.inputTokens) * 100)
@@ -21,7 +23,7 @@ export function UsageInfo({usage}: UsageInfoProps) {
   const isContextHigh = contextRatio > CONTEXT_WARNING_THRESHOLD;
 
   return (
-    <div className={styles.container}>
+    <div className={clsx(styles.container, className)}>
       <span className={styles.item}>{usage.model}</span>
       <span className={`${styles.item} ${isContextHigh ? styles.warning : ''}`}>
         Input: {formatTokenCount(usage.inputTokens)} /{' '}
