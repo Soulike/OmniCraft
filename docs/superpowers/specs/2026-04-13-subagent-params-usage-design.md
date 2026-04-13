@@ -30,10 +30,12 @@ sseSubagentDispatchEventSchema = z.object({
   agentId: z.string(),
   task: z.string(),
   agentType: z.string(), // 'general' | 'coding'
-  thinkingLevel: z.string(), // 'none' | 'low' | 'medium' | 'high'
+  thinkingLevel: thinkingLevelSchema, // from @omnicraft/api-schema
   workingDirectory: z.string(), // absolute path
 });
 ```
+
+Add `@omnicraft/api-schema` as a dependency of `@omnicraft/sse-events` to import `thinkingLevelSchema`.
 
 Update the emit site in `apps/backend/src/agent/tools/sub-agent/dispatch-agent-tool.ts` (around line 168) to include the new fields from the resolved `args`.
 
