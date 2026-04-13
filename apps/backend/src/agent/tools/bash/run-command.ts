@@ -2,7 +2,6 @@ import {realpathSync} from 'node:fs';
 import fs from 'node:fs/promises';
 
 import {
-  RUN_COMMAND_DEFAULT_TIMEOUT_MS,
   runCommandParametersSchema,
   runCommandResultSchema,
   TOOL_NAME,
@@ -16,7 +15,7 @@ import type {
 import {isSubPathOrSelf} from '@/helpers/path-access.js';
 import {ShellCommandRunner} from '@/helpers/shell-command-runner.js';
 
-const DEFAULT_TIMEOUT_MS = RUN_COMMAND_DEFAULT_TIMEOUT_MS;
+const DEFAULT_TIMEOUT_MS = 120_000;
 const MAX_INLINE_BYTES = 32_768; // 32KB
 
 const parameters = runCommandParametersSchema;

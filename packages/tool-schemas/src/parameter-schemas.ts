@@ -89,8 +89,8 @@ export const searchFilesParametersSchema = z.object({
 
 // --- run_command ---
 
-export const RUN_COMMAND_DEFAULT_TIMEOUT_MS = 120_000;
-export const RUN_COMMAND_MAX_TIMEOUT_MS = 600_000;
+const DEFAULT_TIMEOUT_MS = 120_000;
+const MAX_TIMEOUT_MS = 600_000;
 
 export const runCommandParametersSchema = z.object({
   command: z.string().min(1).describe('The shell command to execute'),
@@ -98,10 +98,10 @@ export const runCommandParametersSchema = z.object({
     .number()
     .int()
     .min(1)
-    .max(RUN_COMMAND_MAX_TIMEOUT_MS)
+    .max(MAX_TIMEOUT_MS)
     .optional()
     .describe(
-      `Timeout in milliseconds (default: ${RUN_COMMAND_DEFAULT_TIMEOUT_MS}, max: ${RUN_COMMAND_MAX_TIMEOUT_MS})`,
+      `Timeout in milliseconds (default: ${DEFAULT_TIMEOUT_MS}, max: ${MAX_TIMEOUT_MS})`,
     ),
 });
 

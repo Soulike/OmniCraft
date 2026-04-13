@@ -5,8 +5,6 @@ export {
   findFilesParametersSchema,
   loadSkillParametersSchema,
   readFileParametersSchema,
-  RUN_COMMAND_DEFAULT_TIMEOUT_MS,
-  RUN_COMMAND_MAX_TIMEOUT_MS,
   runCommandParametersSchema,
   searchFilesParametersSchema,
   webFetchParametersSchema,
