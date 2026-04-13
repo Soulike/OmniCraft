@@ -80,8 +80,6 @@ export function SubagentDisclosureView({
                 </Suspense>
               </ScrollShadow>
             </Disclosure.Body>
-          </Disclosure.Content>
-          <Disclosure.Content>
             <div className={styles.footer}>
               <span className={styles.paramTag}>
                 Type: <span className={styles.paramValue}>{agentType}</span>
