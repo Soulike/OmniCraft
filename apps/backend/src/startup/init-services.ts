@@ -9,10 +9,11 @@ import {
   SubAgentToolRegistry,
   WebToolRegistry,
 } from '@/agent/tools/index.js';
-import {getDataDir} from '@/helpers/env.js';
+import {getDataDir, getVscodePort} from '@/helpers/env.js';
 import {logger} from '@/logger.js';
 import {AgentStore} from '@/models/agent-store/index.js';
 import {SettingsManager} from '@/models/settings-manager/index.js';
+import {VscodeServerManager} from '@/models/vscode-server-manager/index.js';
 
 /** Initializes all services that require async setup before the server starts. */
 export async function initServices(): Promise<void> {
@@ -20,6 +21,7 @@ export async function initServices(): Promise<void> {
   AgentStore.create();
   initToolRegistries();
   initSkillRegistries();
+  initVscodeServer();
 }
 
 /** Initializes the SettingsManager singleton. */
@@ -45,4 +47,10 @@ function initToolRegistries(): void {
 function initSkillRegistries(): void {
   CoreSkillRegistry.create();
   // No skill files to load yet — framework only.
+}
+
+/** Initializes and starts the VSCode web server. */
+function initVscodeServer(): void {
+  const manager = VscodeServerManager.create(getVscodePort());
+  manager.start();
 }
