@@ -93,7 +93,11 @@ export function SubagentDisclosureView({
           </Disclosure.Content>
         </Disclosure>
       </div>
-      {usage && <UsageInfo usage={usage} />}
+      {usage && (
+        <div className={styles.usageWrapper}>
+          <UsageInfo usage={usage} />
+        </div>
+      )}
     </div>
   );
 }

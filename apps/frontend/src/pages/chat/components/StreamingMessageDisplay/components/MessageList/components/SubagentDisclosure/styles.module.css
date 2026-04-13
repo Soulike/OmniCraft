@@ -126,3 +126,9 @@
   color: var(--foreground);
   font-weight: 500;
 }
+
+.usageWrapper {
+  font-size: 0.75rem;
+  color: var(--muted);
+  padding: 6px 4px 0;
+}
