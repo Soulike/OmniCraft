@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@omnicraft/api-schema": "workspace:*",
     "@omnicraft/tool-schemas": "workspace:^",
     "zod": "catalog:"
   },
