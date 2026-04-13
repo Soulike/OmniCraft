@@ -1,3 +1,4 @@
+import type {ThinkingLevel} from '@omnicraft/api-schema';
 import type {
   AnyToolResultData,
   ToolFailureData,
@@ -70,6 +71,9 @@ export interface SubagentRenderItem {
   type: 'subagent';
   agentId: string;
   task: string;
+  agentType: string;
+  thinkingLevel: ThinkingLevel;
+  workingDirectory: string;
   status: 'running' | 'complete' | 'error';
   eventBus: ChatEventBus;
 }
@@ -178,6 +182,9 @@ export function transformMessages(
           type: 'subagent',
           agentId: content.agentId,
           task: content.task,
+          agentType: content.agentType,
+          thinkingLevel: content.thinkingLevel,
+          workingDirectory: content.workingDirectory,
           status: content.status,
           eventBus: content.eventBus,
         });

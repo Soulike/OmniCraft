@@ -1,3 +1,4 @@
+import type {ThinkingLevel} from '@omnicraft/api-schema';
 import type {
   SseMessageStartEvent,
   SseTextDeltaEvent,
@@ -189,7 +190,14 @@ function applyAssistantMessageStart(
 
 function pushSubagentStart(
   prev: ChatMessage[],
-  data: {agentId: string; task: string; eventBus: ChatEventBus},
+  data: {
+    agentId: string;
+    task: string;
+    agentType: string;
+    thinkingLevel: ThinkingLevel;
+    workingDirectory: string;
+    eventBus: ChatEventBus;
+  },
 ): ChatMessage[] {
   const base = removeTrailingAssistantMessageIfEmpty(prev);
   return [
@@ -202,6 +210,9 @@ function pushSubagentStart(
         type: 'subagent' as const,
         agentId: data.agentId,
         task: data.task,
+        agentType: data.agentType,
+        thinkingLevel: data.thinkingLevel,
+        workingDirectory: data.workingDirectory,
         status: 'running' as const,
         eventBus: data.eventBus,
       },
