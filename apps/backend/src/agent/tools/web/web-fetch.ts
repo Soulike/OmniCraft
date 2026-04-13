@@ -1,5 +1,9 @@
 import {Readability} from '@mozilla/readability';
-import {TOOL_NAME, webFetchResultSchema} from '@omnicraft/tool-schemas';
+import {
+  TOOL_NAME,
+  webFetchParametersSchema,
+  webFetchResultSchema,
+} from '@omnicraft/tool-schemas';
 import {parseHTML} from 'linkedom';
 import TurndownService from 'turndown';
 import {z} from 'zod';
@@ -19,16 +23,7 @@ import {
 import {fetchBody} from './helpers.js';
 import {validateUrl} from './url-validator.js';
 
-const parameters = z.object({
-  url: z.url().describe('The URL to fetch.'),
-  includeFullPage: z
-    .boolean()
-    .optional()
-    .describe(
-      'Defaults to false. When false, only the main article content is extracted. ' +
-        'Set to true to include the full page content if extraction is incomplete or missing information.',
-    ),
-});
+const parameters = webFetchParametersSchema;
 
 type WebFetchArgs = z.infer<typeof parameters>;
 
