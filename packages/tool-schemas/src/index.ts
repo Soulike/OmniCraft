@@ -1,6 +1,15 @@
 export {
   askUserBridgeResponseSchema,
   askUserParametersSchema,
+  editFileParametersSchema,
+  findFilesParametersSchema,
+  loadSkillParametersSchema,
+  readFileParametersSchema,
+  runCommandParametersSchema,
+  searchFilesParametersSchema,
+  webFetchParametersSchema,
+  webFetchRawParametersSchema,
+  webSearchParametersSchema,
   writeFileParametersSchema,
 } from './parameter-schemas.js';
 export type {

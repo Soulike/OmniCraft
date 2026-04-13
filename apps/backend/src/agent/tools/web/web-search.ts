@@ -1,4 +1,8 @@
-import {TOOL_NAME, webSearchResultSchema} from '@omnicraft/tool-schemas';
+import {
+  TOOL_NAME,
+  webSearchParametersSchema,
+  webSearchResultSchema,
+} from '@omnicraft/tool-schemas';
 import {tavily, type TavilySearchResponse} from '@tavily/core';
 import {z} from 'zod';
 
@@ -8,24 +12,7 @@ import type {
 } from '@/agent-core/tool/index.js';
 import {SettingsManager} from '@/models/settings-manager/index.js';
 
-const parameters = z.object({
-  query: z.string().describe('Search keywords.'),
-  maxResults: z
-    .number()
-    .int()
-    .min(1)
-    .max(20)
-    .optional()
-    .describe('Number of results to return. Defaults to 5.'),
-  includeDomains: z
-    .array(z.string())
-    .optional()
-    .describe('Only search these domains.'),
-  excludeDomains: z
-    .array(z.string())
-    .optional()
-    .describe('Exclude these domains from results.'),
-});
+const parameters = webSearchParametersSchema;
 
 type WebSearchArgs = z.infer<typeof parameters>;
 type WebSearchResult = z.infer<typeof webSearchResultSchema>;

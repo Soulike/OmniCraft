@@ -3,7 +3,11 @@ import type {Stats} from 'node:fs';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
-import {findFilesResultSchema, TOOL_NAME} from '@omnicraft/tool-schemas';
+import {
+  findFilesParametersSchema,
+  findFilesResultSchema,
+  TOOL_NAME,
+} from '@omnicraft/tool-schemas';
 import fg from 'fast-glob';
 import {z} from 'zod';
 
@@ -18,20 +22,7 @@ import {searchFilesTool} from './search-files.js';
 const MAX_RESULTS = 100;
 const TIMEOUT_MS = 30_000;
 
-const parameters = z.object({
-  pattern: z
-    .string()
-    .min(1)
-    .describe(
-      'Glob pattern to match files, e.g. "**/*.ts", "src/{components,hooks}/**/*.ts"',
-    ),
-  path: z
-    .string()
-    .optional()
-    .describe(
-      'Search root directory (relative or absolute), defaults to working directory',
-    ),
-});
+const parameters = findFilesParametersSchema;
 
 type FindFilesArgs = z.infer<typeof parameters>;
 type FindFilesResult = z.infer<typeof findFilesResultSchema>;
