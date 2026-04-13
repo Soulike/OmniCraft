@@ -2,7 +2,7 @@ import {Disclosure, ScrollShadow, Spinner} from '@heroui/react';
 import type {AnyToolResultData, ToolName} from '@omnicraft/tool-schemas';
 import {CircleAlert, CircleCheck, CircleX} from 'lucide-react';
 
-import {HighlightedJson} from './components/HighlightedJson/index.js';
+import {ParametersSection} from './components/ParametersSection/index.js';
 import {ResultSection} from './components/ResultSection/index.js';
 import styles from './styles.module.css';
 
@@ -59,9 +59,12 @@ export function ToolExecutionCardView({
               <code className={styles.code}>{toolName}</code>
             </div>
             <div className={styles.section}>
-              <span className={styles.label}>Arguments</span>
+              <span className={styles.label}>Parameters</span>
               <ScrollShadow className={styles.pre}>
-                <HighlightedJson jsonString={toolArguments} />
+                <ParametersSection
+                  toolArguments={toolArguments}
+                  toolName={toolName}
+                />
               </ScrollShadow>
             </div>
             {output !== undefined && result === undefined && (
