@@ -1,6 +1,6 @@
 import {useChatEventBus} from '../../hooks/useChatEventBus.js';
 import {useSessionConfig} from '../../hooks/useSessionConfig.js';
-import {useUsage} from '../UsageInfo/index.js';
+import {useUsage} from '../../hooks/useUsage.js';
 import {InfoBarView} from './InfoBarView.js';
 
 export function InfoBar() {

@@ -1,8 +1,8 @@
 import type {ThinkingLevel} from '@omnicraft/api-schema';
 
 import {useAutoScroll} from '@/hooks/useAutoScroll.js';
+import {useUsage} from '@/pages/chat/hooks/useUsage.js';
 
-import {useUsage} from '../../../../../UsageInfo/index.js';
 import type {ChatEventBus} from '../../../../types.js';
 import {SubagentDisclosureView} from './SubagentDisclosureView.js';
 
