@@ -28,6 +28,7 @@ interface ChatPageViewProps {
   onStop: () => void;
   onNewSession: () => void;
   newSessionDisabled: boolean;
+  onOpenVscode: (() => void) | null;
   onDismissError: () => void;
   onDismissMaxRoundsReached: () => void;
 }
@@ -46,6 +47,7 @@ export function ChatPageView({
   onStop,
   onNewSession,
   newSessionDisabled,
+  onOpenVscode,
   onDismissError,
   onDismissMaxRoundsReached,
 }: ChatPageViewProps) {
@@ -71,6 +73,7 @@ export function ChatPageView({
         title={title}
         onNewSession={onNewSession}
         newSessionDisabled={newSessionDisabled}
+        onOpenVscode={onOpenVscode}
       />
       <ScrollShadow className={styles.messageListWrapper} ref={scrollRef}>
         {isEmpty && !sessionId && (
