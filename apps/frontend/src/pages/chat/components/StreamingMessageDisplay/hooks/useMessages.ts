@@ -298,6 +298,10 @@ export function useMessages() {
       setMessages((prev) => pushToolEnd(prev, data));
     };
     const onStreamEnd = () => {
+      // When the user stops generation, the SSE connection is severed and
+      // backend completion events (tool-execute-end, thinking-end) will
+      // never arrive. Finalize any in-progress items so the UI does not
+      // stay stuck in a "running" state.
       setMessages((prev) => {
         const withThinking = finishThinking(prev);
         const withTools = completeUnfinishedTools(withThinking);
