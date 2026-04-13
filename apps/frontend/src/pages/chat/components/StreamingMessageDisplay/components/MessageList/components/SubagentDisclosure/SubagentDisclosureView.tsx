@@ -1,4 +1,5 @@
 import {Disclosure, ScrollShadow, Spinner} from '@heroui/react';
+import type {ThinkingLevel} from '@omnicraft/api-schema';
 import type {SseUsage} from '@omnicraft/sse-events';
 import clsx from 'clsx';
 import {Bot, CircleCheck, CircleX} from 'lucide-react';
@@ -16,7 +17,7 @@ const StreamingMessageDisplay = lazy(async () => {
 interface SubagentDisclosureViewProps {
   task: string;
   agentType: string;
-  thinkingLevel: string;
+  thinkingLevel: ThinkingLevel;
   workingDirectory: string;
   status: 'running' | 'complete' | 'error';
   eventBus: ChatEventBus;

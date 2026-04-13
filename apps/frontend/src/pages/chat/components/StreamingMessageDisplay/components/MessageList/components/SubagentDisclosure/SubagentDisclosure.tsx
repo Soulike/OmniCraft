@@ -1,3 +1,5 @@
+import type {ThinkingLevel} from '@omnicraft/api-schema';
+
 import {useAutoScroll} from '@/hooks/useAutoScroll.js';
 
 import {useUsage} from '../../../../../UsageInfo/index.js';
@@ -7,7 +9,7 @@ import {SubagentDisclosureView} from './SubagentDisclosureView.js';
 interface SubagentDisclosureProps {
   task: string;
   agentType: string;
-  thinkingLevel: string;
+  thinkingLevel: ThinkingLevel;
   workingDirectory: string;
   status: 'running' | 'complete' | 'error';
   eventBus: ChatEventBus;
