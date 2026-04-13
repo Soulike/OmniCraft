@@ -299,7 +299,8 @@ export function useMessages() {
     };
     const onStreamEnd = () => {
       setMessages((prev) => {
-        const withTools = completeUnfinishedTools(prev);
+        const withThinking = finishThinking(prev);
+        const withTools = completeUnfinishedTools(withThinking);
         return removeTrailingAssistantMessageIfEmpty(withTools);
       });
     };
