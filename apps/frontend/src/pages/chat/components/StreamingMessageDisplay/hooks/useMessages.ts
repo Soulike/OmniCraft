@@ -295,6 +295,9 @@ export function useMessages() {
     const onSubagentDispatched = (data: {
       agentId: string;
       task: string;
+      agentType: string;
+      thinkingLevel: ThinkingLevel;
+      workingDirectory: string;
       eventBus: ChatEventBus;
     }) => {
       setMessages((prev) => pushSubagentStart(prev, data));

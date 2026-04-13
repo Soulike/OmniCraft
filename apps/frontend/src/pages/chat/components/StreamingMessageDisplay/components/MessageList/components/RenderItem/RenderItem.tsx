@@ -108,6 +108,9 @@ export function RenderItem({item}: RenderItemProps) {
         <div className={styles.assistantMessage}>
           <SubagentDisclosure
             task={item.task}
+            agentType={item.agentType}
+            thinkingLevel={item.thinkingLevel}
+            workingDirectory={item.workingDirectory}
             status={item.status}
             eventBus={item.eventBus}
           />
