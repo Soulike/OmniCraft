@@ -66,9 +66,9 @@ This reverse proxy is essential for remote access — when the backend runs on a
 
 ## Environment Variables
 
-| Variable      | Default | Description                            |
-| ------------- | ------- | -------------------------------------- |
-| `VSCODE_PORT` | `18927` | Port for `code serve-web` to listen on |
+| Variable      | Default | Description                                       |
+| ------------- | ------- | ------------------------------------------------- |
+| `VSCODE_PORT` | —       | Required. Port for `code serve-web` to listen on. |
 
 ## Dependencies
 

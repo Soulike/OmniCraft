@@ -22,12 +22,10 @@
 In `apps/backend/src/helpers/env.ts`, add:
 
 ```typescript
-/** Returns the port for `code serve-web` from `VSCODE_PORT` env or defaults to `18927`. */
+/** Returns the port for `code serve-web` from the required `VSCODE_PORT` env var. */
 export function getVscodePort(): number {
   const raw = process.env.VSCODE_PORT;
-  if (raw === undefined) {
-    return 18927;
-  }
+  assert(raw !== undefined, 'VSCODE_PORT is required in .env');
   const port = Number(raw);
   assert(
     !Number.isNaN(port) && port > 0,
@@ -42,9 +40,8 @@ export function getVscodePort(): number {
 Append to `apps/backend/.env.example`:
 
 ```
-# Port for the embedded VSCode web server (code serve-web).
-# Defaults to 18927 if not set.
-# VSCODE_PORT=18927
+# Port for the embedded VSCode web server (code serve-web). Required.
+VSCODE_PORT=18927
 ```
 
 - [ ] **Step 3: Commit**
@@ -116,8 +113,11 @@ Create `apps/backend/src/models/vscode-server-manager/vscode-server-manager.ts`:
 ```typescript
 import assert from 'node:assert';
 import {type ChildProcess, spawn} from 'node:child_process';
+import readline from 'node:readline';
 
-import {logger} from '@/logger.js';
+import {logger as rootLogger} from '@/logger.js';
+
+const log = rootLogger.child({component: 'vscode-server'});
 
 const MAX_RESTARTS = 3;
 const RESTART_WINDOW_MS = 30_000;
@@ -168,11 +168,6 @@ export class VscodeServerManager {
     return this.available;
   }
 
-  /** Returns the port the server listens on. */
-  getPort(): number {
-    return this.port;
-  }
-
   /** Starts the `code serve-web` process. */
   start(): void {
     if (this.port === 0) {
@@ -201,26 +196,27 @@ export class VscodeServerManager {
       '--accept-server-license-terms',
     ];
 
-    logger.info({port: this.port}, 'Starting code serve-web');
+    log.info({port: this.port}, 'Starting code serve-web');
 
     let child: ChildProcess;
     try {
-      child = spawn('code', args, {stdio: 'ignore'});
+      child = spawn('code', args, {stdio: ['ignore', 'pipe', 'pipe']});
     } catch {
-      logger.warn('VSCode CLI (code) not found — VSCode server unavailable');
+      log.warn('VSCode CLI (code) not found — VSCode server unavailable');
       this.available = false;
       return;
     }
 
     this.process = child;
+    this.pipeOutput(child);
 
     child.on('spawn', () => {
       this.available = true;
-      logger.info({port: this.port}, 'code serve-web started');
+      log.info({port: this.port}, 'code serve-web started');
     });
 
     child.on('error', (err) => {
-      logger.warn({err}, 'code serve-web failed to start');
+      log.warn({err}, 'code serve-web failed to start');
       this.available = false;
       this.process = null;
     });
@@ -234,10 +230,26 @@ export class VscodeServerManager {
       }
 
       if (code !== 0) {
-        logger.warn({exitCode: code}, 'code serve-web exited unexpectedly');
+        log.warn({exitCode: code}, 'code serve-web exited unexpectedly');
         this.maybeRestart();
       }
     });
+  }
+
+  /** Pipes child process stdout/stderr through the logger line by line. */
+  private pipeOutput(child: ChildProcess): void {
+    if (child.stdout) {
+      const rl = readline.createInterface({input: child.stdout});
+      rl.on('line', (line) => {
+        log.info(line);
+      });
+    }
+    if (child.stderr) {
+      const rl = readline.createInterface({input: child.stderr});
+      rl.on('line', (line) => {
+        log.warn(line);
+      });
+    }
   }
 
   private maybeRestart(): void {
@@ -253,13 +265,13 @@ export class VscodeServerManager {
     }
 
     if (this.restartTimestamps.length > MAX_RESTARTS) {
-      logger.error(
+      log.error(
         `code serve-web crashed ${MAX_RESTARTS.toString()} times in ${(RESTART_WINDOW_MS / 1000).toString()}s — giving up`,
       );
       return;
     }
 
-    logger.info('Restarting code serve-web...');
+    log.info('Restarting code serve-web...');
     this.spawn();
   }
 }
@@ -346,15 +358,61 @@ git commit -m "feat(backend): start VscodeServerManager on backend boot"
 
 ---
 
-### Task 4: Install `http-proxy` and add reverse proxy dispatcher
+### Task 4: Add VSCode status response schema to `@omnicraft/api-schema`
+
+**Files:**
+
+- Create: `packages/api-schema/src/vscode/schema.ts`
+- Modify: `packages/api-schema/src/index.ts`
+
+- [ ] **Step 1: Create `schema.ts`**
+
+Create `packages/api-schema/src/vscode/schema.ts`:
+
+```typescript
+import {z} from 'zod';
+
+/** Schema for the GET /vscode/status response body. */
+export const getVscodeStatusResponseSchema = z.object({
+  available: z.boolean(),
+});
+
+export type GetVscodeStatusResponse = z.infer<
+  typeof getVscodeStatusResponseSchema
+>;
+```
+
+- [ ] **Step 2: Export from `index.ts`**
+
+In `packages/api-schema/src/index.ts`, add:
+
+```typescript
+export {
+  type GetVscodeStatusResponse,
+  getVscodeStatusResponseSchema,
+} from './vscode/schema.js';
+```
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add packages/api-schema/src/vscode/ packages/api-schema/src/index.ts
+git commit -m "feat(api-schema): add VSCode status response schema"
+```
+
+---
+
+### Task 5: Install `http-proxy` and add proxy capabilities to `VscodeServerManager`
 
 **Files:**
 
 - Modify: `apps/backend/package.json` (via `bun add`)
+- Modify: `apps/backend/src/models/vscode-server-manager/vscode-server-manager.ts`
 - Create: `apps/backend/src/dispatcher/vscode/path.ts`
 - Create: `apps/backend/src/dispatcher/vscode/router.ts`
 - Create: `apps/backend/src/dispatcher/vscode/index.ts`
 - Modify: `apps/backend/src/dispatcher/index.ts`
+- Modify: `apps/backend/src/index.ts`
 
 - [ ] **Step 1: Install `http-proxy` and its types**
 
@@ -362,23 +420,117 @@ git commit -m "feat(backend): start VscodeServerManager on backend boot"
 cd apps/backend && bun add http-proxy && bun add -d @types/http-proxy
 ```
 
-- [ ] **Step 2: Create `path.ts`**
+- [ ] **Step 2: Add proxy methods to `VscodeServerManager`**
+
+In `apps/backend/src/models/vscode-server-manager/vscode-server-manager.ts`, add imports at the top:
+
+```typescript
+import {type IncomingMessage, ServerResponse} from 'node:http';
+import type {Duplex} from 'node:stream';
+
+import httpProxy from 'http-proxy';
+```
+
+Add a new field and update the constructor area:
+
+```typescript
+private proxy: httpProxy | null = null;
+```
+
+Replace the `start()` method to also create the proxy:
+
+```typescript
+  /** Starts the `code serve-web` process and creates the reverse proxy. */
+  start(): void {
+    if (this.port === 0) {
+      // Port 0 means "don't actually start" — used in tests.
+      return;
+    }
+
+    this.proxy = httpProxy.createProxyServer({
+      target: `http://127.0.0.1:${this.port.toString()}`,
+      ws: true,
+      changeOrigin: true,
+    });
+
+    this.proxy.on('error', (err, _req, res) => {
+      log.warn({err}, 'VSCode proxy error');
+      if (res instanceof ServerResponse) {
+        res.writeHead(502, {'Content-Type': 'text/plain'});
+        res.end('VSCode server unavailable');
+      }
+    });
+
+    this.spawn();
+  }
+```
+
+Update the `stop()` method to close the proxy:
+
+```typescript
+  /** Stops the process and proxy gracefully. */
+  stop(): void {
+    this.shuttingDown = true;
+    if (this.process) {
+      this.process.kill();
+      this.process = null;
+    }
+    if (this.proxy) {
+      this.proxy.close();
+      this.proxy = null;
+    }
+    this.available = false;
+  }
+```
+
+Add two public proxy methods:
+
+```typescript
+  /** Proxies an HTTP request to the VSCode server. */
+  proxyRequest(req: IncomingMessage, res: ServerResponse): Promise<void> {
+    assert(this.proxy !== null, 'Proxy not initialized — call start() first');
+    const {promise, resolve, reject} = Promise.withResolvers<void>();
+    this.proxy.web(req, res, {}, (err) => {
+      if (err) {
+        reject(err);
+      } else {
+        resolve();
+      }
+    });
+    return promise;
+  }
+
+  /** Proxies a WebSocket upgrade request to the VSCode server. */
+  proxyWebSocket(req: IncomingMessage, socket: Duplex, head: Buffer): void {
+    assert(this.proxy !== null, 'Proxy not initialized — call start() first');
+    this.proxy.ws(req, socket, head);
+  }
+```
+
+- [ ] **Step 3: Create `path.ts`**
 
 Create `apps/backend/src/dispatcher/vscode/path.ts`:
 
 ```typescript
 export const VSCODE_STATUS = '/vscode/status';
 export const VSCODE_PROXY = '/vscode/(.*)';
+
+/**
+ * Full path prefix for VSCode WebSocket upgrade matching (includes `/api`).
+ * Used by the server-level upgrade handler since upgrade events
+ * arrive before Koa routing strips the `/api` prefix.
+ */
+export const VSCODE_WS_PREFIX = '/api/vscode';
 ```
 
-- [ ] **Step 3: Create `router.ts`**
+- [ ] **Step 4: Create `router.ts`**
 
 Create `apps/backend/src/dispatcher/vscode/router.ts`:
 
 ```typescript
-import httpProxy from 'http-proxy';
 import Router from '@koa/router';
 import {StatusCodes} from 'http-status-codes';
+import type {GetVscodeStatusResponse} from '@omnicraft/api-schema';
 
 import {VscodeServerManager} from '@/models/vscode-server-manager/index.js';
 
@@ -388,97 +540,60 @@ const router = new Router();
 
 router.get(VSCODE_STATUS, (ctx) => {
   const manager = VscodeServerManager.getInstance();
+  const body: GetVscodeStatusResponse = {available: manager.isAvailable()};
   ctx.response.status = StatusCodes.OK;
-  ctx.response.body = {available: manager.isAvailable()};
+  ctx.response.body = body;
 });
 
-/** Creates a proxy server and attaches WebSocket upgrade handling. */
-export function createVscodeProxy(): {
-  router: Router;
-  handleUpgrade: (
-    req: import('node:http').IncomingMessage,
-    socket: import('node:stream').Duplex,
-    head: Buffer,
-  ) => void;
-} {
+router.all(VSCODE_PROXY, async (ctx) => {
   const manager = VscodeServerManager.getInstance();
-  const port = manager.getPort();
-
-  const proxy = httpProxy.createProxyServer({
-    target: `http://127.0.0.1:${port.toString()}`,
-    ws: true,
-    changeOrigin: true,
-  });
-
-  proxy.on('error', (err, _req, res) => {
-    if (res && 'writeHead' in res && typeof res.writeHead === 'function') {
-      res.writeHead(502, {'Content-Type': 'text/plain'});
-      res.end('VSCode server unavailable');
-    }
-  });
-
-  // HTTP proxy route — matches all methods.
-  router.all(VSCODE_PROXY, (ctx) => {
-    const manager = VscodeServerManager.getInstance();
-    if (!manager.isAvailable()) {
-      ctx.response.status = StatusCodes.SERVICE_UNAVAILABLE;
-      ctx.response.body = {error: 'VSCode server is not available'};
-      return;
-    }
-
-    // Strip the /vscode prefix so the upstream receives the original path.
-    ctx.req.url = '/' + (ctx.params[0] as string);
-
-    return new Promise<void>((resolve, reject) => {
-      proxy.web(ctx.req, ctx.res, {}, (err) => {
-        if (err) {
-          reject(err);
-        } else {
-          // Mark response as handled so Koa doesn't try to set headers.
-          ctx.respond = false;
-          resolve();
-        }
-      });
-    });
-  });
-
-  /** Handle WebSocket upgrade for paths under /api/vscode/. */
-  function handleUpgrade(
-    req: import('node:http').IncomingMessage,
-    socket: import('node:stream').Duplex,
-    head: Buffer,
-  ): void {
-    const url = req.url;
-    if (!url?.startsWith('/api/vscode/')) {
-      return;
-    }
-
-    const manager = VscodeServerManager.getInstance();
-    if (!manager.isAvailable()) {
-      socket.destroy();
-      return;
-    }
-
-    // Strip the /api/vscode prefix.
-    req.url = url.replace('/api/vscode', '');
-    proxy.ws(req, socket, head);
+  if (!manager.isAvailable()) {
+    ctx.response.status = StatusCodes.SERVICE_UNAVAILABLE;
+    ctx.response.body = {error: 'VSCode server is not available'};
+    return;
   }
 
-  return {router, handleUpgrade};
-}
+  // Strip the /vscode prefix so upstream receives the original path.
+  ctx.req.url = '/' + (ctx.params[0] as string);
+  ctx.respond = false;
+  await manager.proxyRequest(ctx.req, ctx.res);
+});
 
 export {router};
 ```
 
-- [ ] **Step 4: Create `index.ts`**
+- [ ] **Step 5: Create `index.ts`**
 
 Create `apps/backend/src/dispatcher/vscode/index.ts`:
 
 ```typescript
-export {createVscodeProxy, router} from './router.js';
+import type {Server} from 'node:http';
+
+import {VscodeServerManager} from '@/models/vscode-server-manager/index.js';
+
+import {VSCODE_WS_PREFIX} from './path.js';
+
+export {router} from './router.js';
+
+/** Attaches the WebSocket upgrade handler for VSCode proxy to the server. */
+export function attachVscodeUpgrade(server: Server): void {
+  const manager = VscodeServerManager.getInstance();
+  server.on('upgrade', (req, socket, head) => {
+    if (!req.url?.startsWith(VSCODE_WS_PREFIX + '/')) {
+      return;
+    }
+    if (!manager.isAvailable()) {
+      socket.destroy();
+      return;
+    }
+    // Strip the prefix so upstream receives the original path.
+    req.url = req.url.slice(VSCODE_WS_PREFIX.length);
+    manager.proxyWebSocket(req, socket, head);
+  });
+}
 ```
 
-- [ ] **Step 5: Register vscode router in dispatcher**
+- [ ] **Step 6: Register vscode router in dispatcher**
 
 In `apps/backend/src/dispatcher/index.ts`, add the import and router registration:
 
@@ -492,48 +607,27 @@ Add after the existing `apiRouter.use(...)` calls:
 apiRouter.use(vscodeRouter.routes(), vscodeRouter.allowedMethods());
 ```
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 7: Wire up WebSocket upgrade in `index.ts`**
 
-```bash
-git add apps/backend/src/dispatcher/vscode/ apps/backend/src/dispatcher/index.ts apps/backend/package.json apps/backend/bun.lock
-git commit -m "feat(backend): add VSCode reverse proxy dispatcher"
-```
-
-Note: `bun.lock` may be at the workspace root. Stage whichever lockfile changed.
-
----
-
-### Task 5: Wire up WebSocket upgrade in `index.ts`
-
-**Files:**
-
-- Modify: `apps/backend/src/index.ts`
-
-- [ ] **Step 1: Add WebSocket upgrade handling**
-
-In `apps/backend/src/index.ts`, import `createVscodeProxy` and attach the upgrade handler to the HTTP server.
+In `apps/backend/src/index.ts`, change `app.listen(...)` to capture the server instance, and attach the VSCode upgrade handler.
 
 Add import:
 
 ```typescript
-import {createVscodeProxy} from '@/dispatcher/vscode/index.js';
+import {attachVscodeUpgrade} from '@/dispatcher/vscode/index.js';
 ```
 
-Change `app.listen(...)` to capture the server instance, and add upgrade handling:
+Update `app.listen(...)` and add upgrade handling after it:
 
 ```typescript
 const server = app.listen(port, () => {
   logger.info(`Server is listening on port ${port.toString()}`);
 });
 
-// Attach WebSocket upgrade handler for VSCode proxy.
-const {handleUpgrade} = createVscodeProxy();
-server.on('upgrade', (req, socket, head) => {
-  handleUpgrade(req, socket, head);
-});
+attachVscodeUpgrade(server);
 ```
 
-- [ ] **Step 2: Verify the backend starts without errors**
+- [ ] **Step 8: Verify the backend starts without errors**
 
 Run: `cd apps/backend && bun run dev`
 
@@ -541,12 +635,14 @@ Check logs for: "Starting code serve-web" (or "VSCode CLI (code) not found" if `
 
 Stop with Ctrl+C.
 
-- [ ] **Step 3: Commit**
+- [ ] **Step 9: Commit**
 
 ```bash
-git add apps/backend/src/index.ts
-git commit -m "feat(backend): wire WebSocket upgrade for VSCode proxy"
+git add apps/backend/src/models/vscode-server-manager/ apps/backend/src/dispatcher/vscode/ apps/backend/src/dispatcher/index.ts apps/backend/src/index.ts apps/backend/package.json
+git commit -m "feat(backend): add VSCode reverse proxy with http-proxy"
 ```
+
+Note: also stage the lockfile (`bun.lock` at workspace root or `apps/backend/`).
 
 ---
 
@@ -562,15 +658,21 @@ git commit -m "feat(backend): wire WebSocket upgrade for VSCode proxy"
 Create `apps/frontend/src/api/vscode/vscode.ts`:
 
 ```typescript
+import {
+  type GetVscodeStatusResponse,
+  getVscodeStatusResponseSchema,
+} from '@omnicraft/api-schema';
+
 const BASE = '/api/vscode';
 
 /** Checks if the VSCode server is available. */
-export async function getVscodeStatus(): Promise<{available: boolean}> {
+export async function getVscodeStatus(): Promise<GetVscodeStatusResponse> {
   const res = await fetch(`${BASE}/status`);
   if (!res.ok) {
     return {available: false};
   }
-  return res.json() as Promise<{available: boolean}>;
+  const body: unknown = await res.json();
+  return getVscodeStatusResponseSchema.parse(body);
 }
 
 /** Returns the URL to open VSCode in a new tab for the given workspace folder. */
