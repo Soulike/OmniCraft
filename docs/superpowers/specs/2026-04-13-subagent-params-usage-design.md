@@ -16,7 +16,7 @@ The subagent disclosure card gains two new display areas:
 
 3. **Usage row** — sits **outside** the disclosure card, directly below it. Visible whether collapsed or expanded. Appears once the first `done` event arrives. Shows: model name, input tokens / max tokens (%), output tokens, cached tokens (%).
 
-Usage accumulates across multiple `done` events into a cumulative total (summing `inputTokens`, `outputTokens`, `cacheReadInputTokens`; `maxInputTokens` and `model` taken from the latest event).
+Usage data comes from the last `done` event (the API/backend handles accumulation).
 
 ### Data Flow
 
@@ -53,17 +53,9 @@ Update the emit site in `apps/backend/src/agent/tools/sub-agent/dispatch-agent-t
 
 6. **`RenderItem.tsx`** — pass the new fields to `SubagentDisclosure`.
 
-#### Frontend: Usage accumulation
+#### Frontend: Reuse `useUsage` hook
 
-Create a `useSubagentUsage` hook that subscribes to the subagent's `ChatEventBus` `done` events and accumulates a cumulative `SseUsage`:
-
-- `inputTokens` += each event's `inputTokens`
-- `outputTokens` += each event's `outputTokens`
-- `cacheReadInputTokens` += each event's `cacheReadInputTokens`
-- `maxInputTokens` = latest event's `maxInputTokens`
-- `model` = latest event's `model`
-
-Returns `SseUsage | null` (null until first `done` event).
+Refactor the existing `useUsage` hook (currently in `InfoBar/components/UsageInfo/hooks/`) to accept `eventBus` as a parameter instead of calling `useChatEventBus()` internally. Move it alongside the extracted `UsageInfo` component. Both `InfoBar` and `SubagentDisclosure` pass their respective event bus to the same hook.
 
 #### Frontend: Extract `UsageInfo` to shared location
 
@@ -71,7 +63,7 @@ Move `UsageInfo` component (and its `format-token-count` helper) from `InfoBar/c
 
 #### Frontend: UI Components
 
-**`SubagentDisclosure`** — receives new props: `agentType`, `thinkingLevel`, `workingDirectory`, and the subagent's `eventBus` for usage tracking. Composes `useSubagentUsage(eventBus)`.
+**`SubagentDisclosure`** — receives new props: `agentType`, `thinkingLevel`, `workingDirectory`, and the subagent's `eventBus` for usage tracking. Composes `useUsage(eventBus)`.
 
 **`SubagentDisclosureView`** — render changes:
 
@@ -94,7 +86,7 @@ Wrap the card + usage row in a container `<div>` so they sit together as a unit.
 | Frontend hook      | `apps/frontend/.../useStreamChat.ts`                              | Pass new fields from SSE event to bus emit                                               |
 | Frontend hook      | `apps/frontend/.../useMessages.ts`                                | Pass new fields into `SubagentContent` in `pushSubagentStart`                            |
 | Frontend hook      | `apps/frontend/.../useMessageList.ts`                             | Add fields to `SubagentRenderItem`, pass through in `transformMessages`                  |
-| Frontend hook      | `apps/frontend/.../SubagentDisclosure/hooks/useSubagentUsage.ts`  | **New file.** Accumulates cumulative usage from `done` events                            |
+| Frontend hook      | `apps/frontend/.../chat/components/UsageInfo/hooks/useUsage.ts`   | Accept `eventBus` as parameter instead of using context                                  |
 | Frontend component | `apps/frontend/.../RenderItem/RenderItem.tsx`                     | Pass new props to `SubagentDisclosure`                                                   |
 | Frontend component | `apps/frontend/.../SubagentDisclosure/SubagentDisclosure.tsx`     | Accept new props, compose `useSubagentUsage`                                             |
 | Frontend component | `apps/frontend/.../SubagentDisclosure/SubagentDisclosureView.tsx` | Render working dir, params footer, usage row                                             |
