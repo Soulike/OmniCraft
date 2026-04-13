@@ -65,6 +65,10 @@ Create a `useSubagentUsage` hook that subscribes to the subagent's `ChatEventBus
 
 Returns `SseUsage | null` (null until first `done` event).
 
+#### Frontend: Extract `UsageInfo` to shared location
+
+Move `UsageInfo` component (and its `format-token-count` helper) from `InfoBar/components/UsageInfo/` to `apps/frontend/src/pages/chat/components/UsageInfo/`. This makes it importable by both `InfoBar` and `SubagentDisclosure`. The `useUsage` hook stays with `InfoBar` (it uses the main chat event bus). Update `InfoBar` imports to point to the new location.
+
 #### Frontend: UI Components
 
 **`SubagentDisclosure`** — receives new props: `agentType`, `thinkingLevel`, `workingDirectory`, and the subagent's `eventBus` for usage tracking. Composes `useSubagentUsage(eventBus)`.
@@ -73,7 +77,7 @@ Returns `SseUsage | null` (null until first `done` event).
 
 - Task section: add `workingDirectory` below task text (monospace, muted).
 - New params footer bar inside the card: two tag chips for Type and Thinking.
-- Usage row rendered **outside** the `<Disclosure>` card, below it. Uses the existing `UsageInfo` component. Conditionally rendered (only when usage is non-null).
+- Usage row rendered **outside** the `<Disclosure>` card, below it. Reuses the extracted `UsageInfo` component. Conditionally rendered (only when usage is non-null).
 
 Wrap the card + usage row in a container `<div>` so they sit together as a unit.
 
@@ -81,8 +85,11 @@ Wrap the card + usage row in a container `<div>` so they sit together as a unit.
 
 | Layer              | File                                                              | Change                                                                                   |
 | ------------------ | ----------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| Schema             | `packages/sse-events/package.json`                                | Add `@omnicraft/api-schema` dependency                                                   |
 | Schema             | `packages/sse-events/src/schema.ts`                               | Add `agentType`, `thinkingLevel`, `workingDirectory` to `sseSubagentDispatchEventSchema` |
 | Backend            | `apps/backend/src/agent/tools/sub-agent/dispatch-agent-tool.ts`   | Include new fields in the emitted `subagent-dispatch` event                              |
+| Frontend component | `apps/frontend/.../chat/components/UsageInfo/`                    | **Extract** from `InfoBar/components/UsageInfo/` to shared location                      |
+| Frontend component | `apps/frontend/.../InfoBar/`                                      | Update imports to use extracted `UsageInfo`                                              |
 | Frontend types     | `apps/frontend/.../StreamingMessageDisplay/types.ts`              | Add fields to `SubagentContent` and `ChatEventMap['subagent-dispatched']`                |
 | Frontend hook      | `apps/frontend/.../useStreamChat.ts`                              | Pass new fields from SSE event to bus emit                                               |
 | Frontend hook      | `apps/frontend/.../useMessages.ts`                                | Pass new fields into `SubagentContent` in `pushSubagentStart`                            |
