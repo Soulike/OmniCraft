@@ -169,6 +169,9 @@ export const dispatchAgentTool: ToolDefinition<
       type: 'subagent-dispatch',
       agentId: subagent.id,
       task,
+      agentType,
+      thinkingLevel,
+      workingDirectory,
     });
 
     try {
