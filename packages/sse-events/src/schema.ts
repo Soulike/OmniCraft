@@ -1,3 +1,4 @@
+import {thinkingLevelSchema} from '@omnicraft/api-schema';
 import {toolNameSchema, toolResultDataSchema} from '@omnicraft/tool-schemas';
 import {z} from 'zod';
 
@@ -123,6 +124,9 @@ export const sseSubagentDispatchEventSchema = z.object({
   type: z.literal('subagent-dispatch'),
   agentId: z.string(),
   task: z.string(),
+  agentType: z.string(),
+  thinkingLevel: thinkingLevelSchema,
+  workingDirectory: z.string(),
 });
 export type SseSubagentDispatchEvent = z.infer<
   typeof sseSubagentDispatchEventSchema

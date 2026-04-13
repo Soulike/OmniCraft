@@ -1,3 +1,4 @@
+import type {ThinkingLevel} from '@omnicraft/api-schema';
 import type {
   SseDoneEvent,
   SseMessageStartEvent,
@@ -30,6 +31,9 @@ export interface SubagentContent {
   type: 'subagent';
   agentId: string;
   task: string;
+  agentType: string;
+  thinkingLevel: ThinkingLevel;
+  workingDirectory: string;
   status: 'running' | 'complete' | 'error';
   eventBus: ChatEventBus;
 }
@@ -92,6 +96,9 @@ export interface ChatEventMap {
   'subagent-dispatched': {
     agentId: string;
     task: string;
+    agentType: string;
+    thinkingLevel: ThinkingLevel;
+    workingDirectory: string;
     eventBus: ChatEventBus;
   };
   /** A subagent completed its work. */

@@ -88,6 +88,9 @@ export function useStreamChat({
               eventBus.emit('subagent-dispatched', {
                 agentId: event.agentId,
                 task: event.task,
+                agentType: event.agentType,
+                thinkingLevel: event.thinkingLevel,
+                workingDirectory: event.workingDirectory,
                 eventBus: bus,
               });
               break;
