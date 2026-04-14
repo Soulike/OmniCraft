@@ -6,7 +6,6 @@ import Koa from 'koa';
 import pinoLogger from 'koa-pino-logger';
 
 import {dispatcher} from '@/dispatcher/index.js';
-import {attachVscodeUpgrade} from '@/dispatcher/vscode/index.js';
 import {fileExists} from '@/helpers/fs.js';
 import {ShellCommandRunner} from '@/helpers/shell-command-runner.js';
 import {logger} from '@/logger.js';
@@ -44,11 +43,9 @@ if (await fileExists(frontendDistPath)) {
   );
 }
 
-const server = app.listen(port, () => {
+app.listen(port, () => {
   logger.info(`Server is listening on port ${port.toString()}`);
 });
-
-attachVscodeUpgrade(server);
 
 process.on('exit', () => {
   ShellCommandRunner.killAll();

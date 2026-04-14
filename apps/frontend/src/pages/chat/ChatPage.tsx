@@ -46,16 +46,23 @@ function ChatPageContent() {
 
   const {selectedWorkspace, selectedExtraAllowedPaths} = useSessionConfig();
 
-  const {available: vscodeAvailable} = useVscodeStatus();
+  const {
+    available: vscodeAvailable,
+    port: vscodePort,
+    connectionToken: vscodeToken,
+  } = useVscodeStatus();
 
   const onOpenVscode = useMemo(() => {
     if (!vscodeAvailable || selectedWorkspace === undefined) {
       return null;
     }
     return () => {
-      window.open(getVscodeUrl(selectedWorkspace), '_blank');
+      window.open(
+        getVscodeUrl(vscodePort, vscodeToken, selectedWorkspace),
+        '_blank',
+      );
     };
-  }, [vscodeAvailable, selectedWorkspace]);
+  }, [vscodeAvailable, vscodePort, vscodeToken, selectedWorkspace]);
 
   const createNewSessionIdWithConfig = useCallback(
     async () =>
