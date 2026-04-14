@@ -83,6 +83,10 @@ export class VscodeServerManager {
       }
     });
 
+    this.proxy.on('proxyRes', (proxyRes) => {
+      delete proxyRes.headers['content-security-policy'];
+    });
+
     this.spawn();
   }
 
