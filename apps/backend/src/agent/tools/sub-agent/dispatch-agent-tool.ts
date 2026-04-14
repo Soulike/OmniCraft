@@ -165,6 +165,10 @@ export const dispatchAgentTool: ToolDefinition<
         break;
     }
 
+    // Link parent abort signal to subagent
+    const onAbort = () => { subagent.abort(); };
+    context.signal.addEventListener('abort', onAbort, {once: true});
+
     context.onSubAgentEvent({
       type: 'subagent-dispatch',
       agentId: subagent.id,
@@ -175,14 +179,14 @@ export const dispatchAgentTool: ToolDefinition<
     });
 
     try {
-      const eventStream = subagent.handleUserMessage(
-        task,
-        thinkingLevel,
-        context.signal,
-      );
-
+      // Subscribe before starting — ensures the reader is in place before events flow.
       let lastReplyText = '';
-      for await (const event of eventStream) {
+      let completed = false;
+      const eventIter = subagent.subscribe({signal: context.signal});
+
+      subagent.handleUserMessage(task, thinkingLevel);
+
+      for await (const event of eventIter) {
         // Subagents cannot emit subagent events (no SubAgentToolRegistry),
         // so all events are base events. Cast is safe by construction.
         context.onSubAgentEvent({
@@ -197,21 +201,35 @@ export const dispatchAgentTool: ToolDefinition<
         if (event.type === 'text-delta') {
           lastReplyText += event.content;
         }
+        // Subagent's sseLog is never sealed — break on done to end iteration.
+        // If the parent aborts, the reader ends silently (no done seen).
+        if (event.type === 'done') {
+          completed = true;
+          break;
+        }
       }
 
       context.onSubAgentEvent({
         type: 'subagent-complete',
         agentId: subagent.id,
-        status: 'success',
+        status: completed ? 'success' : 'failure',
       });
 
-      const summary =
-        lastReplyText ||
-        'Subagent completed the task but produced no text summary.';
+      if (completed) {
+        const summary =
+          lastReplyText ||
+          'Subagent completed the task but produced no text summary.';
+        return {
+          data: {summary},
+          content: summary,
+          status: 'success',
+        };
+      }
+
       return {
-        data: {summary},
-        content: summary,
-        status: 'success',
+        data: {message: 'Subagent was aborted'},
+        content: 'Subagent was aborted.',
+        status: 'failure',
       };
     } catch (error: unknown) {
       context.onSubAgentEvent({
@@ -226,6 +244,8 @@ export const dispatchAgentTool: ToolDefinition<
         content: `Subagent error: ${message}`,
         status: 'failure',
       };
+    } finally {
+      context.signal.removeEventListener('abort', onAbort);
     }
   },
 };
