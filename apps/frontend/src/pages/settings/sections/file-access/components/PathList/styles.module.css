@@ -19,11 +19,6 @@
   word-break: break-all;
 }
 
-.entryError {
-  color: var(--color-danger);
-  font-size: 12px;
-}
-
 .entryActions {
   display: flex;
   align-items: center;
