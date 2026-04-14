@@ -218,7 +218,7 @@ export abstract class Agent {
     } satisfies SseDoneEvent;
   }
 
-  private async *runAgentLoop(
+  protected async *runAgentLoop(
     userMessage: string,
     thinkingLevel: ThinkingLevel,
     signal: AbortSignal,
@@ -330,7 +330,6 @@ export abstract class Agent {
         });
 
       for await (const event of toolSseEventChannel) {
-         
         if (event.type === 'tool-execute-end') {
           inFlightToolCalls.delete(event.callId);
         }

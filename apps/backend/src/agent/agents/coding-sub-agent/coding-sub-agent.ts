@@ -81,7 +81,7 @@ export class CodingSubAgent extends Agent {
     };
   }
 
-  override async *handleUserMessage(
+  protected override async *runAgentLoop(
     userMessage: string,
     _thinkingLevel: ThinkingLevel,
     signal: AbortSignal,
@@ -89,142 +89,134 @@ export class CodingSubAgent extends Agent {
     // Dynamic import to avoid loading the SDK when no coding subagent is used.
     const {query} = await import('@anthropic-ai/claude-agent-sdk');
 
-    const abortController = new AbortController();
-    const onAbort = (): void => {
-      abortController.abort();
-    };
+    const sdkAbortController = new AbortController();
     if (signal.aborted) {
-      abortController.abort();
+      sdkAbortController.abort();
     } else {
-      signal.addEventListener('abort', onAbort, {once: true});
+      signal.addEventListener('abort', () => { sdkAbortController.abort(); }, {
+        once: true,
+      });
     }
 
-    try {
-      let resultText = '';
-      let usage: SseUsage = {
-        model: 'claude-code',
-        maxInputTokens: 0,
-        inputTokens: 0,
-        outputTokens: 0,
-        cacheReadInputTokens: 0,
-      };
+    let resultText = '';
+    let usage: SseUsage = {
+      model: 'claude-code',
+      maxInputTokens: 0,
+      inputTokens: 0,
+      outputTokens: 0,
+      cacheReadInputTokens: 0,
+    };
 
-      const messageStream = query({
-        prompt: userMessage,
-        options: {
-          cwd: this.cwd,
-          abortController,
-          permissionMode: 'bypassPermissions',
-          allowDangerouslySkipPermissions: true,
-          includePartialMessages: true,
-          ...(this.claudeCodeSessionId
-            ? {resume: this.claudeCodeSessionId}
-            : {}),
-        },
-      });
+    const messageStream = query({
+      prompt: userMessage,
+      options: {
+        cwd: this.cwd,
+        abortController: sdkAbortController,
+        permissionMode: 'bypassPermissions',
+        allowDangerouslySkipPermissions: true,
+        includePartialMessages: true,
+        ...(this.claudeCodeSessionId ? {resume: this.claudeCodeSessionId} : {}),
+      },
+    });
 
-      for await (const message of messageStream) {
-        // Capture session ID from the init message for future resumption.
-        if (message.type === 'system' && message.subtype === 'init') {
-          this.claudeCodeSessionId = message.session_id;
-        }
+    for await (const message of messageStream) {
+      // Capture session ID from the init message for future resumption.
+      if (message.type === 'system' && message.subtype === 'init') {
+        this.claudeCodeSessionId = message.session_id;
+      }
 
-        // Stream text deltas from partial messages for real-time frontend display.
-        if (message.type === 'stream_event') {
-          const event = message.event;
+      // Stream text deltas from partial messages for real-time frontend display.
+      if (message.type === 'stream_event') {
+        const event = message.event;
 
-          if (event.type === 'content_block_start') {
-            if (event.content_block.type === 'text') {
-              yield {
-                type: 'message-start',
-                role: 'assistant',
-                messageId: crypto.randomUUID(),
-                createdAt: Date.now(),
-              } satisfies SseMessageStartEvent;
-            }
-
-            if (event.content_block.type === 'tool_use') {
-              yield {
-                type: 'text-delta',
-                content: `\n[Tool: ${event.content_block.name}]\n`,
-              } satisfies SseTextDeltaEvent;
-            }
+        if (event.type === 'content_block_start') {
+          if (event.content_block.type === 'text') {
+            yield {
+              type: 'message-start',
+              role: 'assistant',
+              messageId: crypto.randomUUID(),
+              createdAt: Date.now(),
+              content: '',
+            } satisfies SseMessageStartEvent;
           }
 
-          if (
-            event.type === 'content_block_delta' &&
-            event.delta.type === 'text_delta'
-          ) {
+          if (event.content_block.type === 'tool_use') {
             yield {
               type: 'text-delta',
-              content: event.delta.text,
+              content: `\n[Tool: ${event.content_block.name}]\n`,
             } satisfies SseTextDeltaEvent;
           }
         }
 
-        // Emit tool use summaries as text so the frontend shows tool activity.
-        if (message.type === 'tool_use_summary') {
+        if (
+          event.type === 'content_block_delta' &&
+          event.delta.type === 'text_delta'
+        ) {
           yield {
             type: 'text-delta',
-            content: `\n${message.summary}\n`,
+            content: event.delta.text,
           } satisfies SseTextDeltaEvent;
-        }
-
-        // Capture result and usage from SDK completion.
-        if (message.type === 'result') {
-          const entries = Object.entries(message.modelUsage);
-          assert(
-            entries.length > 0,
-            'Expected at least one model in modelUsage',
-          );
-          const [model, modelUsage] = entries[0];
-          usage = {
-            model,
-            maxInputTokens: modelUsage.contextWindow,
-            inputTokens: modelUsage.inputTokens,
-            outputTokens: modelUsage.outputTokens,
-            cacheReadInputTokens: modelUsage.cacheReadInputTokens,
-          };
-
-          if (message.subtype === 'success') {
-            resultText = message.result;
-          } else {
-            // The throw prevents the `done` event from being yielded, so the
-            // frontend will not receive usage data for failed invocations.
-            // This matches the general subagent behavior — the dispatch tool's
-            // catch block emits `subagent-complete` and returns a failure result.
-            const errors = message.errors.join('; ');
-            throw new Error(
-              `Coding agent failed (${message.subtype}): ${errors || 'unknown error'}`,
-            );
-          }
         }
       }
 
-      // Yield the clean result as the final assistant message so that the
-      // dispatch tool's `lastReplyText` accumulator ends up with just the
-      // summary, not all intermediate streaming text.
-      if (resultText) {
-        yield {
-          type: 'message-start',
-          role: 'assistant',
-          messageId: crypto.randomUUID(),
-          createdAt: Date.now(),
-        } satisfies SseMessageStartEvent;
-
+      // Emit tool use summaries as text so the frontend shows tool activity.
+      if (message.type === 'tool_use_summary') {
         yield {
           type: 'text-delta',
-          content: resultText,
+          content: `\n${message.summary}\n`,
         } satisfies SseTextDeltaEvent;
       }
 
-      yield {
-        type: 'done',
-        reason: 'complete',
-        usage,
-      } satisfies SseDoneEvent;
-    } finally {
-      signal.removeEventListener('abort', onAbort);
+      // Capture result and usage from SDK completion.
+      if (message.type === 'result') {
+        const entries = Object.entries(message.modelUsage);
+        assert(entries.length > 0, 'Expected at least one model in modelUsage');
+        const [model, modelUsage] = entries[0];
+        usage = {
+          model,
+          maxInputTokens: modelUsage.contextWindow,
+          inputTokens: modelUsage.inputTokens,
+          outputTokens: modelUsage.outputTokens,
+          cacheReadInputTokens: modelUsage.cacheReadInputTokens,
+        };
+
+        if (message.subtype === 'success') {
+          resultText = message.result;
+        } else {
+          // The throw prevents the `done` event from being yielded, so the
+          // frontend will not receive usage data for failed invocations.
+          // This matches the general subagent behavior — the dispatch tool's
+          // catch block emits `subagent-complete` and returns a failure result.
+          const errors = message.errors.join('; ');
+          throw new Error(
+            `Coding agent failed (${message.subtype}): ${errors || 'unknown error'}`,
+          );
+        }
+      }
     }
+
+    // Yield the clean result as the final assistant message so that the
+    // dispatch tool's `lastReplyText` accumulator ends up with just the
+    // summary, not all intermediate streaming text.
+    if (resultText) {
+      yield {
+        type: 'message-start',
+        role: 'assistant',
+        messageId: crypto.randomUUID(),
+        createdAt: Date.now(),
+        content: '',
+      } satisfies SseMessageStartEvent;
+
+      yield {
+        type: 'text-delta',
+        content: resultText,
+      } satisfies SseTextDeltaEvent;
+    }
+
+    yield {
+      type: 'done',
+      reason: 'complete',
+      usage,
+    } satisfies SseDoneEvent;
   }
 }
