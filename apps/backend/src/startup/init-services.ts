@@ -9,7 +9,6 @@ import {
   SubAgentToolRegistry,
   WebToolRegistry,
 } from '@/agent/tools/index.js';
-import {VSCODE_BASE_PATH} from '@/dispatcher/vscode/path.js';
 import {getDataDir, getVscodePort} from '@/helpers/env.js';
 import {logger} from '@/logger.js';
 import {AgentStore} from '@/models/agent-store/index.js';
@@ -52,6 +51,6 @@ function initSkillRegistries(): void {
 
 /** Initializes and starts the VSCode web server. */
 function initVscodeServer(): void {
-  const manager = VscodeServerManager.create(getVscodePort(), VSCODE_BASE_PATH);
+  const manager = VscodeServerManager.create(getVscodePort());
   manager.start();
 }

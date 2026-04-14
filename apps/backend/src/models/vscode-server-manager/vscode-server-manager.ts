@@ -1,10 +1,7 @@
 import assert from 'node:assert';
 import {type ChildProcess, spawn} from 'node:child_process';
-import {type IncomingMessage, ServerResponse} from 'node:http';
+import {randomBytes} from 'node:crypto';
 import readline from 'node:readline';
-import type {Duplex} from 'node:stream';
-
-import httpProxy from 'http-proxy';
 
 import {logger as rootLogger} from '@/logger.js';
 
@@ -17,25 +14,24 @@ export class VscodeServerManager {
   private static instance: VscodeServerManager | null = null;
 
   private readonly port: number;
-  private readonly basePath: string;
+  private readonly connectionToken: string;
   private process: ChildProcess | null = null;
-  private proxy: httpProxy | null = null;
   private available = false;
   private shuttingDown = false;
   private readonly restartTimestamps: number[] = [];
 
-  private constructor(port: number, basePath: string) {
+  private constructor(port: number) {
     this.port = port;
-    this.basePath = basePath;
+    this.connectionToken = randomBytes(32).toString('hex');
   }
 
   /** Creates the singleton instance. Does not start the process -- call `start()` separately. */
-  static create(port: number, basePath: string): VscodeServerManager {
+  static create(port: number): VscodeServerManager {
     assert(
       VscodeServerManager.instance === null,
       'VscodeServerManager is already initialized.',
     );
-    const manager = new VscodeServerManager(port, basePath);
+    const manager = new VscodeServerManager(port);
     VscodeServerManager.instance = manager;
     return manager;
   }
@@ -62,73 +58,45 @@ export class VscodeServerManager {
     return this.available;
   }
 
-  /** Starts the `code serve-web` process and creates the reverse proxy. */
+  /** Returns the port the VSCode server listens on. */
+  getPort(): number {
+    return this.port;
+  }
+
+  /** Returns the connection token used to authenticate with the VSCode server. */
+  getConnectionToken(): string {
+    return this.connectionToken;
+  }
+
+  /** Starts the `code serve-web` process. */
   start(): void {
     if (this.port === 0) {
       // Port 0 means "don't actually start" -- used in tests.
       return;
     }
 
-    this.proxy = httpProxy.createProxyServer({
-      target: `http://127.0.0.1:${this.port.toString()}`,
-      ws: true,
-    });
-
-    this.proxy.on('error', (err, _req, res) => {
-      log.warn({err}, 'VSCode proxy error');
-      if (res instanceof ServerResponse) {
-        res.writeHead(502, {'Content-Type': 'text/plain'});
-        res.end('VSCode server unavailable');
-      }
-    });
-
-    this.proxy.on('proxyRes', (proxyRes) => {
-      delete proxyRes.headers['content-security-policy'];
-    });
-
     this.spawn();
   }
 
-  /** Stops the process and proxy gracefully. */
+  /** Stops the process gracefully. */
   stop(): void {
     this.shuttingDown = true;
     if (this.process) {
       this.process.kill();
       this.process = null;
     }
-    if (this.proxy) {
-      this.proxy.close();
-      this.proxy = null;
-    }
     this.available = false;
-  }
-
-  /** Proxies an HTTP request to the VSCode server. */
-  proxyRequest(req: IncomingMessage, res: ServerResponse): Promise<void> {
-    assert(this.proxy !== null, 'Proxy not initialized — call start() first');
-    const proxy = this.proxy;
-    return new Promise((resolve, reject) => {
-      res.on('close', resolve);
-      proxy.web(req, res, {}, (err: Error) => {
-        reject(err);
-      });
-    });
-  }
-
-  /** Proxies a WebSocket upgrade request to the VSCode server. */
-  proxyWebSocket(req: IncomingMessage, socket: Duplex, head: Buffer): void {
-    assert(this.proxy !== null, 'Proxy not initialized — call start() first');
-    this.proxy.ws(req, socket, head);
   }
 
   private spawn(): void {
     const args = [
       'serve-web',
-      '--without-connection-token',
+      '--connection-token',
+      this.connectionToken,
+      '--host',
+      '0.0.0.0',
       '--port',
       this.port.toString(),
-      '--server-base-path',
-      this.basePath,
       '--accept-server-license-terms',
     ];
 
