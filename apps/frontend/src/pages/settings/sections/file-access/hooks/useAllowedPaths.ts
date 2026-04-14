@@ -44,8 +44,10 @@ export function useAllowedPaths() {
       } catch (e) {
         if (e instanceof InvalidPathsError) {
           setInvalidPaths([...e.invalidPaths]);
+        } else {
+          toast.danger('Failed to save allowed paths');
         }
-        toast.danger('Failed to save allowed paths');
+        await load();
       } finally {
         setIsSaving(false);
       }

@@ -8,10 +8,16 @@ import styles from './styles.module.css';
 interface PathListProps {
   paths: readonly AllowedPathEntry[];
   invalidPaths: readonly InvalidPathEntry[];
+  isSaving: boolean;
   onRemove: (index: number) => void;
 }
 
-export function PathList({paths, invalidPaths, onRemove}: PathListProps) {
+export function PathList({
+  paths,
+  invalidPaths,
+  isSaving,
+  onRemove,
+}: PathListProps) {
   if (paths.length === 0) {
     return (
       <p className={styles.emptyState}>No allowed paths configured yet.</p>
@@ -47,6 +53,7 @@ export function PathList({paths, invalidPaths, onRemove}: PathListProps) {
                 <Button
                   size='sm'
                   variant='danger'
+                  isDisabled={isSaving}
                   onPress={() => {
                     onRemove(i);
                   }}

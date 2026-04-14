@@ -12,6 +12,7 @@ interface FileAccessSectionViewProps {
   paths: AllowedPathEntry[];
   isLoading: boolean;
   loadError: string | null;
+  isSaving: boolean;
   invalidPaths: InvalidPathEntry[];
   onAdd: (entry: AllowedPathEntry) => void;
   onRemove: (index: number) => void;
@@ -22,6 +23,7 @@ export function FileAccessSectionView({
   paths,
   isLoading,
   loadError,
+  isSaving,
   invalidPaths,
   onAdd,
   onRemove,
@@ -53,9 +55,10 @@ export function FileAccessSectionView({
           <PathList
             paths={paths}
             invalidPaths={invalidPaths}
+            isSaving={isSaving}
             onRemove={onRemove}
           />
-          <AddPathForm onAdd={onAdd} />
+          <AddPathForm onAdd={onAdd} isSaving={isSaving} />
         </>
       )}
     </div>
