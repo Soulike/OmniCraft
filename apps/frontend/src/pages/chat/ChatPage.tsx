@@ -1,5 +1,6 @@
-import {useCallback} from 'react';
+import {useCallback, useMemo} from 'react';
 
+import {getVscodeUrl} from '@/api/vscode/index.js';
 import {useAutoScroll} from '@/hooks/useAutoScroll.js';
 
 import {ChatPageView} from './ChatPageView.js';
@@ -13,6 +14,7 @@ import {useSessionId} from './hooks/useSessionId.js';
 import {useSessionLifecycle} from './hooks/useSessionLifecycle.js';
 import {useSessionTitle} from './hooks/useSessionTitle.js';
 import {useStreamChat} from './hooks/useStreamChat.js';
+import {useVscodeStatus} from './hooks/useVscodeStatus.js';
 
 /** Chat page container. Wraps content in providers. */
 export function ChatPage() {
@@ -43,6 +45,23 @@ function ChatPageContent() {
   const {title, clearTitle} = useSessionTitle();
 
   const {selectedWorkspace, selectedExtraAllowedPaths} = useSessionConfig();
+
+  const {
+    available: vscodeAvailable,
+    port: vscodePort,
+    connectionToken: vscodeToken,
+  } = useVscodeStatus();
+
+  const vscodeUrl = useMemo(() => {
+    if (
+      sessionId === null ||
+      !vscodeAvailable ||
+      selectedWorkspace === undefined
+    ) {
+      return null;
+    }
+    return getVscodeUrl(vscodePort, vscodeToken, selectedWorkspace);
+  }, [sessionId, vscodeAvailable, vscodePort, vscodeToken, selectedWorkspace]);
 
   const createNewSessionIdWithConfig = useCallback(
     async () =>
@@ -114,6 +133,7 @@ function ChatPageContent() {
       onStop={stopGeneration}
       onNewSession={startNewSession}
       newSessionDisabled={newSessionDisabled}
+      vscodeUrl={vscodeUrl}
       onDismissError={dismissError}
       onDismissMaxRoundsReached={clearMaxRoundsReached}
     />

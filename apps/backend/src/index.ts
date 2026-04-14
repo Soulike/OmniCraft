@@ -10,6 +10,7 @@ import {fileExists} from '@/helpers/fs.js';
 import {ShellCommandRunner} from '@/helpers/shell-command-runner.js';
 import {logger} from '@/logger.js';
 import {serveSpa} from '@/middleware/serve-spa.js';
+import {VscodeServerManager} from '@/models/vscode-server-manager/index.js';
 import {initServices} from '@/startup/index.js';
 
 const port = Number(process.env.PORT);
@@ -48,4 +49,5 @@ app.listen(port, () => {
 
 process.on('exit', () => {
   ShellCommandRunner.killAll();
+  VscodeServerManager.resetInstance();
 });

@@ -18,4 +18,7 @@
 
 .right {
   justify-self: end;
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
