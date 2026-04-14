@@ -6,7 +6,6 @@ export function FileAccessSection() {
     paths,
     isLoading,
     loadError,
-    isSaving,
     invalidPaths,
     addPath,
     removePath,
@@ -18,7 +17,6 @@ export function FileAccessSection() {
       paths={paths}
       isLoading={isLoading}
       loadError={loadError}
-      isSaving={isSaving}
       invalidPaths={invalidPaths}
       onAdd={addPath}
       onRemove={removePath}

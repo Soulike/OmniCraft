@@ -6,20 +6,15 @@ import {LoadError} from '@/components/LoadError/index.js';
 
 import {AddPathForm} from './components/AddPathForm/index.js';
 import {PathList} from './components/PathList/index.js';
-import {SaveFooter} from './components/SaveFooter/index.js';
 import styles from './styles.module.css';
 
 interface FileAccessSectionViewProps {
   paths: AllowedPathEntry[];
   isLoading: boolean;
   loadError: string | null;
-  isSaving: boolean;
-  saveError: string | null;
   invalidPaths: InvalidPathEntry[];
-  isDirty: boolean;
   onAdd: (entry: AllowedPathEntry) => void;
   onRemove: (index: number) => void;
-  onSave: () => void;
   onRetry: () => void;
 }
 
@@ -27,13 +22,9 @@ export function FileAccessSectionView({
   paths,
   isLoading,
   loadError,
-  isSaving,
-  saveError,
   invalidPaths,
-  isDirty,
   onAdd,
   onRemove,
-  onSave,
   onRetry,
 }: FileAccessSectionViewProps) {
   return (
@@ -65,12 +56,6 @@ export function FileAccessSectionView({
             onRemove={onRemove}
           />
           <AddPathForm onAdd={onAdd} />
-          <SaveFooter
-            isSaving={isSaving}
-            saveError={saveError}
-            isDirty={isDirty}
-            onSave={onSave}
-          />
         </>
       )}
     </div>
