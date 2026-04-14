@@ -40,3 +40,7 @@ export {
   type SettingValue,
   settingValueSchema,
 } from './settings/schema.js';
+export {
+  type GetVscodeStatusResponse,
+  getVscodeStatusResponseSchema,
+} from './vscode/schema.js';

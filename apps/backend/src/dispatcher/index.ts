@@ -5,6 +5,7 @@ import {router as chatRouter} from './chat/index.js';
 import {router as fileAccessSettingsRouter} from './file-access-settings/index.js';
 import {router as healthRouter} from './health/index.js';
 import {router as settingsRouter} from './settings/index.js';
+import {router as vscodeRouter} from './vscode/index.js';
 
 const apiRouter = new Router({prefix: '/api'});
 
@@ -20,6 +21,7 @@ apiRouter.use(
 );
 apiRouter.use(healthRouter.routes(), healthRouter.allowedMethods());
 apiRouter.use(settingsRouter.routes(), settingsRouter.allowedMethods());
+apiRouter.use(vscodeRouter.routes(), vscodeRouter.allowedMethods());
 
 export function dispatcher() {
   return compose([apiRouter.routes(), apiRouter.allowedMethods()]);
