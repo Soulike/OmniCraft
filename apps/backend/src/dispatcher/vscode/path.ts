@@ -1,5 +1,5 @@
 export const VSCODE_STATUS = '/vscode/status';
-export const VSCODE_PROXY = '/vscode/(.*)';
+export const VSCODE_PROXY = '/vscode/{*path}';
 
 /**
  * Full path prefix for VSCode WebSocket upgrade matching (includes `/api`).

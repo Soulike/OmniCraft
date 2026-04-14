@@ -24,7 +24,7 @@ router.all(VSCODE_PROXY, async (ctx) => {
   }
 
   // Strip the /vscode prefix so upstream receives the original path.
-  ctx.req.url = '/' + ctx.params[0];
+  ctx.req.url = '/' + (ctx.params.path);
   ctx.respond = false;
   await manager.proxyRequest(ctx.req, ctx.res);
 });
