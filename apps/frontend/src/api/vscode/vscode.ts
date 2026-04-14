@@ -21,9 +21,9 @@ export function getVscodeUrl(
   connectionToken: string,
   workspace: string,
 ): string {
-  const params = new URLSearchParams({
-    tkn: connectionToken,
-    folder: workspace,
-  });
-  return `http://${window.location.hostname}:${port.toString()}/?${params.toString()}`;
+  const url = new URL(window.location.origin);
+  url.port = port.toString();
+  url.searchParams.set('tkn', connectionToken);
+  url.searchParams.set('folder', workspace);
+  return url.toString();
 }
