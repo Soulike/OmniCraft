@@ -1,6 +1,8 @@
 export {
+  abortCompletion,
   createSession,
   generateTitle,
-  streamChatCompletion,
+  sendMessage,
   submitToolResponse,
+  subscribeEvents,
 } from './chat.js';

@@ -26,7 +26,7 @@ export const router = createBrowserRouter([
         element: null,
       },
       {
-        path: ROUTES.chat(),
+        path: `${ROUTES.chat()}/:sessionId?`,
         element: <ChatPage />,
       },
       {

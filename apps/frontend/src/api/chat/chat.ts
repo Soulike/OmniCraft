@@ -38,30 +38,62 @@ export async function createSession(
 }
 
 /**
- * Sends a message to a chat session and yields SSE events.
- * Uses fetch() + ReadableStream since EventSource does not support POST.
+ * Sends a message to a chat session. The agent processes it in the background.
+ * Use {@link subscribeEvents} to receive events.
  */
-export async function* streamChatCompletion(
+export async function sendMessage(
   sessionId: string,
   message: string,
   thinkingLevel: ThinkingLevel,
-  signal?: AbortSignal,
-): AsyncGenerator<SseEvent, void, undefined> {
+): Promise<void> {
   const res = await fetch(`${BASE}/session/${sessionId}/completions`, {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
     body: JSON.stringify({message, thinkingLevel}),
-    signal,
   });
 
   if (!res.ok) {
     const body = await res.text();
     throw new Error(`Chat request failed (${res.status.toString()}): ${body}`);
   }
+}
+
+/**
+ * Subscribes to SSE events from a chat session.
+ * Replays from {@link from} index, then tails live events.
+ */
+export async function* subscribeEvents(
+  sessionId: string,
+  from: number,
+  signal?: AbortSignal,
+): AsyncGenerator<SseEvent, void, undefined> {
+  const url = `${BASE}/session/${sessionId}/events?from=${from.toString()}`;
+  const res = await fetch(url, {signal});
+
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(
+      `Event subscription failed (${res.status.toString()}): ${body}`,
+    );
+  }
 
   for await (const data of parseSseStream(res)) {
     const parsed: unknown = JSON.parse(data);
     yield sseEventSchema.parse(parsed);
+  }
+}
+
+/** Aborts the currently running agent turn. */
+export async function abortCompletion(sessionId: string): Promise<void> {
+  const res = await fetch(`${BASE}/session/${sessionId}/abort`, {
+    method: 'POST',
+  });
+
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(
+      `Failed to abort completion (${res.status.toString()}): ${body}`,
+    );
   }
 }
 
