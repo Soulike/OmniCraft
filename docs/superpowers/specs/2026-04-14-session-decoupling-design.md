@@ -34,14 +34,15 @@ reason: z.enum(['complete', 'max_rounds_reached', 'aborted']);
 #### New properties
 
 - `readonly sseLog: AgentSseLog` — created in constructor, lives for the Agent's lifetime. All turns append to the same log.
-- `private abortController: AbortController | null` — created per-turn in `handleUserMessage()`, cleared when turn ends.
+- `private abortController: AbortController | null` — created per-turn, cleared when turn ends.
+- `private readonly mutex: Mutex` — serializes turns. Only one turn runs at a time; subsequent calls queue behind it.
 
 #### Method changes
 
 **`handleUserMessage(message, thinkingLevel)`**
 
 - Signature: remove `signal` parameter. Return `void` instead of `AgentEventStream`.
-- Behavior: create `AbortController`, launch background pump (`void this.pump(...)`).
+- Behavior: fire-and-forget — calls `void this.runTurn(message, thinkingLevel)`.
 - The current generator logic moves to a private method `runAgentLoop(message, thinkingLevel, signal)`.
 
 **`subscribe(options?): AsyncIterable<SseEvent>`** (new)
@@ -53,6 +54,24 @@ reason: z.enum(['complete', 'max_rounds_reached', 'aborted']);
 - Calls `this.abortController?.abort()`.
 - Does NOT close readers or write events directly. The pump handles event completion (see below).
 
+#### Turn serialization
+
+```typescript
+private async runTurn(message: string, thinkingLevel: ThinkingLevel): Promise<void> {
+  await this.mutex.acquire();
+  try {
+    this.abortController = new AbortController();
+    const stream = this.runAgentLoop(message, thinkingLevel, this.abortController.signal);
+    await this.pump(stream);
+  } finally {
+    this.abortController = null;
+    this.mutex.release();
+  }
+}
+```
+
+Multiple `handleUserMessage()` calls are safe — each fires `void this.runTurn()` which queues behind the Mutex. No 409 rejection needed; turns execute sequentially.
+
 #### Background pump
 
 ```typescript
@@ -63,8 +82,6 @@ private async pump(stream: AgentEventStream): Promise<void> {
     }
   } catch (e) {
     this.sseLog.append({ type: 'error', message: 'An internal error occurred' });
-  } finally {
-    this.abortController = null;
   }
 }
 ```
@@ -73,7 +90,7 @@ private async pump(stream: AgentEventStream): Promise<void> {
 
 When the Agent is aborted, `signal.aborted` becomes true. The `runAgentLoop` generator checks this at each iteration and returns early. Before returning, it must:
 
-1. Emit `tool-execute-end` events (status: `'error'`, result: `'Aborted'`) for any in-flight tool calls that have emitted `tool-execute-start` but not yet `tool-execute-end`.
+1. Emit `tool-execute-end` events (status: `'error'`, result: `'Aborted'`) for any in-flight tool calls that have emitted `tool-execute-start` but not yet `tool-execute-end`. This requires tracking emitted start callIds and removing them as end events are yielded.
 2. Emit `done` with `reason: 'aborted'`.
 
 This ensures the sseLog always contains a complete, consistent event sequence — no dangling tool starts, and always a `done` event to signal turn completion.
@@ -86,7 +103,7 @@ This ensures the sseLog always contains a complete, consistent event sequence �
 
 - No longer returns SSE. Calls `chatService.streamCompletion()` which calls `agent.handleUserMessage()`.
 - Returns `202 Accepted` with empty body.
-- Rejects with `409 Conflict` if Agent is already running (abortController is not null).
+- No concurrent rejection — the Agent's internal Mutex serializes turns. Multiple calls queue safely.
 
 #### `GET /session/:id/events` (new)
 
@@ -105,7 +122,7 @@ This ensures the sseLog always contains a complete, consistent event sequence �
 
 **File:** `apps/backend/src/services/chat/chat-service.ts`
 
-- `streamCompletion()`: no longer returns `{eventStream, abort}`. Calls `agent.handleUserMessage(message, thinkingLevel)`. Returns void (or a result indicating success/already-running).
+- `streamCompletion()`: no longer returns `{eventStream, abort}`. Calls `agent.handleUserMessage(message, thinkingLevel)`. Returns void.
 - Add `subscribe(agentId, options)`: retrieves Agent, returns `agent.subscribe(options)`.
 - Add `abortCompletion(agentId)`: retrieves Agent, calls `agent.abort()`.
 
@@ -152,10 +169,25 @@ This ensures the sseLog always contains a complete, consistent event sequence �
   - Last event is `done` → show send button (idle)
   - Receiving non-done events → show stop button (running)
   - No events yet → show send button (new conversation)
+- The `stream-end` event is removed. `done` is the authoritative signal for turn completion.
 
 #### Restoring a session
 
 - User navigates to `/chat/:sessionId` → connect `/events?from=0` → replay all historical events → UI rebuilds the full conversation → if last event is `done`, show send button; if Agent is still running, events keep flowing, show stop button.
+
+### 9. Subagent Dispatch Tool Adaptation
+
+**File:** `apps/backend/src/agent/tools/sub-agent/dispatch-agent-tool.ts`
+
+The dispatch tool currently iterates the subagent's generator directly. After the refactor, it adapts to the push-based pattern:
+
+1. Call `subagent.handleUserMessage(task, thinkingLevel)` — starts background pump.
+2. Link parent abort signal to subagent: `context.signal.addEventListener('abort', () => subagent.abort())`.
+3. Subscribe to subagent events: iterate `subagent.subscribe({ signal })`.
+4. Forward events via `context.onSubAgentEvent()` as before.
+5. Break out of the reader when a `done` event is received — since the sseLog is never sealed, the reader would otherwise wait forever.
+
+On abort: the parent's signal fires → `subagent.abort()` is called → subagent's `runAgentLoop` emits abort completion events (`tool-execute-end` + `done(aborted)`) → dispatch tool sees `done` and breaks → dispatch tool emits `subagent-complete` with appropriate status.
 
 ## Verification
 
