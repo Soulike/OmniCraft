@@ -52,7 +52,7 @@ function ChatPageContent() {
     connectionToken: vscodeToken,
   } = useVscodeStatus();
 
-  const onOpenVscode = useMemo(() => {
+  const vscodeUrl = useMemo(() => {
     if (
       sessionId === null ||
       !vscodeAvailable ||
@@ -60,12 +60,7 @@ function ChatPageContent() {
     ) {
       return null;
     }
-    return () => {
-      window.open(
-        getVscodeUrl(vscodePort, vscodeToken, selectedWorkspace),
-        '_blank',
-      );
-    };
+    return getVscodeUrl(vscodePort, vscodeToken, selectedWorkspace);
   }, [sessionId, vscodeAvailable, vscodePort, vscodeToken, selectedWorkspace]);
 
   const createNewSessionIdWithConfig = useCallback(
@@ -138,7 +133,7 @@ function ChatPageContent() {
       onStop={stopGeneration}
       onNewSession={startNewSession}
       newSessionDisabled={newSessionDisabled}
-      onOpenVscode={onOpenVscode}
+      vscodeUrl={vscodeUrl}
       onDismissError={dismissError}
       onDismissMaxRoundsReached={clearMaxRoundsReached}
     />

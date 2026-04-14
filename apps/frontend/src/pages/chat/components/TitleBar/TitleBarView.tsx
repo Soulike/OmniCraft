@@ -7,32 +7,33 @@ interface TitleBarViewProps {
   title: string | null;
   onNewSession: () => void;
   newSessionDisabled: boolean;
-  onOpenVscode: (() => void) | null;
+  vscodeUrl: string | null;
 }
 
 export function TitleBarView({
   title,
   onNewSession,
   newSessionDisabled,
-  onOpenVscode,
+  vscodeUrl,
 }: TitleBarViewProps) {
   return (
     <div className={styles.container}>
       <div className={styles.left} />
       <h2 className={styles.title}>{title ?? 'New Session'}</h2>
       <div className={styles.right}>
-        {onOpenVscode !== null && (
+        {vscodeUrl !== null && (
           <Tooltip delay={0}>
             <Tooltip.Trigger>
-              <Button
-                isIconOnly
-                size='sm'
-                variant='ghost'
-                aria-label='Open in VSCode'
-                onPress={onOpenVscode}
-              >
-                <Code size={16} />
-              </Button>
+              <a href={vscodeUrl} target='_blank' rel='noreferrer'>
+                <Button
+                  isIconOnly
+                  size='sm'
+                  variant='ghost'
+                  aria-label='Open in VSCode'
+                >
+                  <Code size={16} />
+                </Button>
+              </a>
             </Tooltip.Trigger>
             <Tooltip.Content>
               <p>Open workspace in VSCode</p>
