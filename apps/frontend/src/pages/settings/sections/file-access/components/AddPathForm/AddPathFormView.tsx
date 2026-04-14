@@ -5,6 +5,7 @@ import styles from './styles.module.css';
 interface AddPathFormViewProps {
   readonly newPath: string;
   readonly newMode: 'read' | 'read-write';
+  readonly isSaving: boolean;
   readonly onPathChange: (value: string) => void;
   readonly onModeChange: (value: string) => void;
   readonly onAdd: () => void;
@@ -13,6 +14,7 @@ interface AddPathFormViewProps {
 export function AddPathFormView({
   newPath,
   newMode,
+  isSaving,
   onPathChange,
   onModeChange,
   onAdd,
@@ -52,7 +54,7 @@ export function AddPathFormView({
           </ListBox>
         </Select.Popover>
       </Select>
-      <Button isDisabled={!newPath.trim()} onPress={onAdd}>
+      <Button isDisabled={!newPath.trim() || isSaving} onPress={onAdd}>
         Add
       </Button>
     </div>

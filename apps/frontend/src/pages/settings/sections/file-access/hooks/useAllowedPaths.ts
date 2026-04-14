@@ -1,5 +1,4 @@
 import type {AllowedPathEntry} from '@omnicraft/settings-schema';
-import {dequal} from 'dequal';
 import {useCallback, useEffect, useState} from 'react';
 
 import {
@@ -9,14 +8,16 @@ import {
   putAllowedPaths,
 } from '@/api/settings/file-access/index.js';
 
+export type SaveResult =
+  | {success: true}
+  | {success: false; invalidPaths: InvalidPathEntry[]}
+  | {success: false; error: string};
+
 export function useAllowedPaths() {
   const [paths, setPaths] = useState<AllowedPathEntry[]>([]);
-  const [savedPaths, setSavedPaths] = useState<AllowedPathEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
-  const [saveError, setSaveError] = useState<string | null>(null);
-  const [invalidPaths, setInvalidPaths] = useState<InvalidPathEntry[]>([]);
 
   const load = useCallback(async () => {
     setIsLoading(true);
@@ -24,7 +25,6 @@ export function useAllowedPaths() {
     try {
       const data = await getAllowedPaths();
       setPaths(data);
-      setSavedPaths(data);
     } catch (e) {
       setLoadError(e instanceof Error ? e.message : 'Failed to load');
     } finally {
@@ -37,21 +37,22 @@ export function useAllowedPaths() {
   }, [load]);
 
   const save = useCallback(
-    async (entries: AllowedPathEntry[]) => {
+    async (entries: AllowedPathEntry[]): Promise<SaveResult> => {
       setIsSaving(true);
-      setSaveError(null);
-      setInvalidPaths([]);
       try {
         await putAllowedPaths(entries);
         await load();
-        return true;
+        return {success: true};
       } catch (e) {
         if (e instanceof InvalidPathsError) {
-          setInvalidPaths([...e.invalidPaths]);
-        } else {
-          setSaveError(e instanceof Error ? e.message : 'Failed to save');
+          await load();
+          return {success: false, invalidPaths: [...e.invalidPaths]};
         }
-        return false;
+        await load();
+        return {
+          success: false,
+          error: e instanceof Error ? e.message : 'Failed to save',
+        };
       } finally {
         setIsSaving(false);
       }
@@ -59,27 +60,21 @@ export function useAllowedPaths() {
     [load],
   );
 
-  const addPath = useCallback((entry: AllowedPathEntry) => {
-    setPaths((prev) => [...prev, entry]);
-    setInvalidPaths([]);
-  }, []);
+  const addPath = useCallback(
+    (entry: AllowedPathEntry) => save([...paths, entry]),
+    [paths, save],
+  );
 
-  const removePath = useCallback((index: number) => {
-    setPaths((prev) => prev.filter((_, i) => i !== index));
-    setInvalidPaths([]);
-  }, []);
-
-  const isDirty = !dequal(paths, savedPaths);
+  const removePath = useCallback(
+    (index: number) => save(paths.filter((_, i) => i !== index)),
+    [paths, save],
+  );
 
   return {
     paths,
     isLoading,
     loadError,
     isSaving,
-    saveError,
-    invalidPaths,
-    isDirty,
-    save,
     addPath,
     removePath,
     reload: load,
