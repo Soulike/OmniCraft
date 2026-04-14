@@ -72,7 +72,6 @@ export class VscodeServerManager {
     this.proxy = httpProxy.createProxyServer({
       target: `http://127.0.0.1:${this.port.toString()}`,
       ws: true,
-      changeOrigin: true,
     });
 
     this.proxy.on('error', (err, _req, res) => {
