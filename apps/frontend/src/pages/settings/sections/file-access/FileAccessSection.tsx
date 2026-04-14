@@ -1,6 +1,3 @@
-import {toast} from '@heroui/react';
-import {useCallback} from 'react';
-
 import {FileAccessSectionView} from './FileAccessSectionView.js';
 import {useAllowedPaths} from './hooks/useAllowedPaths.js';
 
@@ -10,23 +7,11 @@ export function FileAccessSection() {
     isLoading,
     loadError,
     isSaving,
-    saveError,
     invalidPaths,
-    isDirty,
-    save,
     addPath,
     removePath,
     reload,
   } = useAllowedPaths();
-
-  const handleSave = useCallback(async () => {
-    const success = await save(paths);
-    if (success) {
-      toast.success('Allowed paths saved');
-    } else {
-      toast.danger('Failed to save allowed paths');
-    }
-  }, [save, paths]);
 
   return (
     <FileAccessSectionView
@@ -34,14 +19,9 @@ export function FileAccessSection() {
       isLoading={isLoading}
       loadError={loadError}
       isSaving={isSaving}
-      saveError={saveError}
       invalidPaths={invalidPaths}
-      isDirty={isDirty}
       onAdd={addPath}
       onRemove={removePath}
-      onSave={() => {
-        void handleSave();
-      }}
       onRetry={() => {
         void reload();
       }}
