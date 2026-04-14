@@ -51,6 +51,6 @@ function initSkillRegistries(): void {
 
 /** Initializes and starts the VSCode web server. */
 function initVscodeServer(): void {
-  const manager = VscodeServerManager.create(getVscodePort());
+  const manager = VscodeServerManager.create(getVscodePort(), '/api/vscode');
   manager.start();
 }

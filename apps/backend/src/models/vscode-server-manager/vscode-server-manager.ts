@@ -17,23 +17,25 @@ export class VscodeServerManager {
   private static instance: VscodeServerManager | null = null;
 
   private readonly port: number;
+  private readonly basePath: string;
   private process: ChildProcess | null = null;
   private proxy: httpProxy | null = null;
   private available = false;
   private shuttingDown = false;
   private readonly restartTimestamps: number[] = [];
 
-  private constructor(port: number) {
+  private constructor(port: number, basePath: string) {
     this.port = port;
+    this.basePath = basePath;
   }
 
   /** Creates the singleton instance. Does not start the process -- call `start()` separately. */
-  static create(port: number): VscodeServerManager {
+  static create(port: number, basePath: string): VscodeServerManager {
     assert(
       VscodeServerManager.instance === null,
       'VscodeServerManager is already initialized.',
     );
-    const manager = new VscodeServerManager(port);
+    const manager = new VscodeServerManager(port, basePath);
     VscodeServerManager.instance = manager;
     return manager;
   }
@@ -122,6 +124,8 @@ export class VscodeServerManager {
       '--without-connection-token',
       '--port',
       this.port.toString(),
+      '--server-base-path',
+      this.basePath,
       '--accept-server-license-terms',
     ];
 
