@@ -1,5 +1,5 @@
+import {toast} from '@heroui/react';
 import type {AllowedPathEntry} from '@omnicraft/settings-schema';
-import {dequal} from 'dequal';
 import {useCallback, useEffect, useState} from 'react';
 
 import {
@@ -11,11 +11,9 @@ import {
 
 export function useAllowedPaths() {
   const [paths, setPaths] = useState<AllowedPathEntry[]>([]);
-  const [savedPaths, setSavedPaths] = useState<AllowedPathEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
-  const [saveError, setSaveError] = useState<string | null>(null);
   const [invalidPaths, setInvalidPaths] = useState<InvalidPathEntry[]>([]);
 
   const load = useCallback(async () => {
@@ -24,7 +22,6 @@ export function useAllowedPaths() {
     try {
       const data = await getAllowedPaths();
       setPaths(data);
-      setSavedPaths(data);
     } catch (e) {
       setLoadError(e instanceof Error ? e.message : 'Failed to load');
     } finally {
@@ -39,19 +36,16 @@ export function useAllowedPaths() {
   const save = useCallback(
     async (entries: AllowedPathEntry[]) => {
       setIsSaving(true);
-      setSaveError(null);
       setInvalidPaths([]);
       try {
         await putAllowedPaths(entries);
         await load();
-        return true;
+        toast.success('Allowed paths saved');
       } catch (e) {
         if (e instanceof InvalidPathsError) {
           setInvalidPaths([...e.invalidPaths]);
-        } else {
-          setSaveError(e instanceof Error ? e.message : 'Failed to save');
         }
-        return false;
+        toast.danger('Failed to save allowed paths');
       } finally {
         setIsSaving(false);
       }
@@ -59,27 +53,30 @@ export function useAllowedPaths() {
     [load],
   );
 
-  const addPath = useCallback((entry: AllowedPathEntry) => {
-    setPaths((prev) => [...prev, entry]);
-    setInvalidPaths([]);
-  }, []);
+  const addPath = useCallback(
+    (entry: AllowedPathEntry) => {
+      const next = [...paths, entry];
+      setPaths(next);
+      void save(next);
+    },
+    [paths, save],
+  );
 
-  const removePath = useCallback((index: number) => {
-    setPaths((prev) => prev.filter((_, i) => i !== index));
-    setInvalidPaths([]);
-  }, []);
-
-  const isDirty = !dequal(paths, savedPaths);
+  const removePath = useCallback(
+    (index: number) => {
+      const next = paths.filter((_, i) => i !== index);
+      setPaths(next);
+      void save(next);
+    },
+    [paths, save],
+  );
 
   return {
     paths,
     isLoading,
     loadError,
     isSaving,
-    saveError,
     invalidPaths,
-    isDirty,
-    save,
     addPath,
     removePath,
     reload: load,
