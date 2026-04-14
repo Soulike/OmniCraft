@@ -53,7 +53,11 @@ function ChatPageContent() {
   } = useVscodeStatus();
 
   const onOpenVscode = useMemo(() => {
-    if (!vscodeAvailable || selectedWorkspace === undefined) {
+    if (
+      sessionId === null ||
+      !vscodeAvailable ||
+      selectedWorkspace === undefined
+    ) {
       return null;
     }
     return () => {
@@ -62,7 +66,7 @@ function ChatPageContent() {
         '_blank',
       );
     };
-  }, [vscodeAvailable, vscodePort, vscodeToken, selectedWorkspace]);
+  }, [sessionId, vscodeAvailable, vscodePort, vscodeToken, selectedWorkspace]);
 
   const createNewSessionIdWithConfig = useCallback(
     async () =>
