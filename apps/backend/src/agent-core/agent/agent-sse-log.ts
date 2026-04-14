@@ -16,44 +16,21 @@ export interface AgentSseLogReaderOptions {
  * can independently iterate over the log via {@link createReader},
  * replaying historical events and then blocking for new ones.
  *
- * Call {@link seal} when no more events will be appended. All waiting
- * readers will drain remaining events and end iteration.
+ * Readers end only via {@link AbortSignal}; the log has no "sealed" state.
  */
 export class AgentSseLog {
   private readonly events: SseEvent[] = [];
   private readonly waiters = new Set<() => void>();
-  private isSealedFlag = false;
 
-  /** Number of events in the log. */
   get length(): number {
     return this.events.length;
   }
 
-  /** Whether the log has been sealed (no more appends allowed). */
-  get sealed(): boolean {
-    return this.isSealedFlag;
-  }
-
-  /** Appends an event to the log and wakes all waiting readers. */
   append(event: SseEvent): void {
-    if (this.isSealedFlag) {
-      throw new Error('Cannot append to a sealed AgentSseLog');
-    }
     this.events.push(event);
     this.notifyWaiters();
   }
 
-  /** Marks the log as complete. No more events can be appended. */
-  seal(): void {
-    this.isSealedFlag = true;
-    this.notifyWaiters();
-  }
-
-  /**
-   * Creates a reader that replays events from {@link startIndex},
-   * then blocks waiting for new events until the log is sealed
-   * or the signal is aborted. Abort ends iteration silently.
-   */
   createReader(options?: AgentSseLogReaderOptions): AsyncIterable<SseEvent> {
     const startIndex = options?.startIndex ?? 0;
     assert(startIndex >= 0, 'startIndex must be non-negative');
@@ -70,26 +47,18 @@ export class AgentSseLog {
     if (signal?.aborted) return;
 
     for (;;) {
-      // Yield all available events from cursor onward.
       while (cursor < this.events.length) {
         yield this.events[cursor];
         cursor++;
         if (signal?.aborted) return;
       }
 
-      // All caught up. If sealed, we're done.
-      if (this.isSealedFlag) return;
-
-      // Wait for new events, seal, or abort.
+      // Wait for new events or abort.
       const aborted = await this.waitForChange(signal);
       if (aborted) return;
     }
   }
 
-  /**
-   * Returns a promise that resolves when a waiter notification fires
-   * or the signal aborts. Returns `true` if aborted, `false` otherwise.
-   */
   private waitForChange(signal?: AbortSignal): Promise<boolean> {
     return new Promise<boolean>((resolve) => {
       const cleanup = (): void => {
