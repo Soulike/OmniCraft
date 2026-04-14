@@ -1,0 +1,16 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.command {
+  font-family: monospace;
+  font-size: 0.8125rem;
+  color: var(--foreground);
+  background: var(--background);
+  padding: 2px 8px;
+  border-radius: 4px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}

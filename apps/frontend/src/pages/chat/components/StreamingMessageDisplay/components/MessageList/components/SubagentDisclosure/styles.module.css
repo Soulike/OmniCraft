@@ -1,3 +1,8 @@
+.wrapper {
+  display: flex;
+  flex-direction: column;
+}
+
 .card {
   border-radius: 12px;
   background: var(--surface);
@@ -83,9 +88,47 @@
   max-height: 200px;
 }
 
+.workingDir {
+  font-size: 0.75rem;
+  color: var(--muted);
+  font-family: ui-monospace, 'SF Mono', 'Fira Code', monospace;
+  margin-top: 2px;
+}
+
 .content {
   background: var(--background);
   border-radius: 8px;
   padding: 12px;
   max-height: 400px;
+}
+
+.footer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-top: 1px solid var(--border);
+  background: color-mix(in oklch, var(--surface) 90%, var(--background));
+}
+
+.paramTag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: color-mix(in oklch, var(--foreground) 8%, transparent);
+  border-radius: 6px;
+  padding: 3px 8px;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.paramValue {
+  color: var(--foreground);
+  font-weight: 500;
+}
+
+.usage {
+  font-size: 0.75rem;
+  color: var(--muted);
+  padding: 6px 4px 0;
 }

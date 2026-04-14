@@ -88,6 +88,9 @@ export function useStreamChat({
               eventBus.emit('subagent-dispatched', {
                 agentId: event.agentId,
                 task: event.task,
+                agentType: event.agentType,
+                thinkingLevel: event.thinkingLevel,
+                workingDirectory: event.workingDirectory,
                 eventBus: bus,
               });
               break;
@@ -120,6 +123,13 @@ export function useStreamChat({
           setStreamError(message);
         }
       } finally {
+        // Complete any subagents still running (e.g. after user stops generation).
+        for (const [agentId, bus] of subagentBusMapRef.current) {
+          bus.emit('stream-end');
+          eventBus.emit('subagent-completed', {agentId, status: 'failure'});
+        }
+        subagentBusMapRef.current.clear();
+
         if (assistantText) {
           eventBus.emit('turn-done', {
             sessionId: activeSessionId,

@@ -173,6 +173,7 @@
     "packages/sse-events": {
       "name": "@omnicraft/sse-events",
       "dependencies": {
+        "@omnicraft/api-schema": "workspace:^",
         "@omnicraft/tool-schemas": "workspace:^",
         "zod": "catalog:",
       },

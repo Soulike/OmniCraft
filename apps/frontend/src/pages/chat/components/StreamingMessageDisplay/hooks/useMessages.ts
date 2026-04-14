@@ -1,3 +1,4 @@
+import type {ThinkingLevel} from '@omnicraft/api-schema';
 import type {
   SseMessageStartEvent,
   SseTextDeltaEvent,
@@ -189,7 +190,14 @@ function applyAssistantMessageStart(
 
 function pushSubagentStart(
   prev: ChatMessage[],
-  data: {agentId: string; task: string; eventBus: ChatEventBus},
+  data: {
+    agentId: string;
+    task: string;
+    agentType: string;
+    thinkingLevel: ThinkingLevel;
+    workingDirectory: string;
+    eventBus: ChatEventBus;
+  },
 ): ChatMessage[] {
   const base = removeTrailingAssistantMessageIfEmpty(prev);
   return [
@@ -202,6 +210,9 @@ function pushSubagentStart(
         type: 'subagent' as const,
         agentId: data.agentId,
         task: data.task,
+        agentType: data.agentType,
+        thinkingLevel: data.thinkingLevel,
+        workingDirectory: data.workingDirectory,
         status: 'running' as const,
         eventBus: data.eventBus,
       },
@@ -213,6 +224,46 @@ function pushSubagentStart(
       content: {type: 'text' as const, content: ''},
     },
   ];
+}
+
+/**
+ * Appends synthetic tool-execute-end messages for any tool-execute-start
+ * that has no matching end event (e.g. stream was aborted mid-execution).
+ */
+function completeUnfinishedTools(prev: ChatMessage[]): ChatMessage[] {
+  const completedCallIds = new Set<string>();
+  for (const msg of prev) {
+    if (msg.content.type === 'tool-execute-end') {
+      completedCallIds.add(msg.content.callId);
+    }
+  }
+
+  const unfinishedCallIds: string[] = [];
+  for (const msg of prev) {
+    if (
+      msg.content.type === 'tool-execute-start' &&
+      !completedCallIds.has(msg.content.callId)
+    ) {
+      unfinishedCallIds.push(msg.content.callId);
+    }
+  }
+
+  if (unfinishedCallIds.length === 0) return prev;
+
+  const syntheticEnds: ChatMessage[] = unfinishedCallIds.map((callId) => ({
+    id: null,
+    createdAt: null,
+    role: 'assistant' as const,
+    content: {
+      type: 'tool-execute-end' as const,
+      callId,
+      result: 'Aborted',
+      status: 'error' as const,
+      data: {message: 'Aborted'},
+    },
+  }));
+
+  return [...prev, ...syntheticEnds];
 }
 
 function updateSubagentStatus(
@@ -258,7 +309,15 @@ export function useMessages() {
       setMessages((prev) => pushToolEnd(prev, data));
     };
     const onStreamEnd = () => {
-      setMessages(removeTrailingAssistantMessageIfEmpty);
+      // When the user stops generation, the SSE connection is severed and
+      // backend completion events (tool-execute-end, thinking-end) will
+      // never arrive. Finalize any in-progress items so the UI does not
+      // stay stuck in a "running" state.
+      setMessages((prev) => {
+        const withThinking = finishThinking(prev);
+        const withTools = completeUnfinishedTools(withThinking);
+        return removeTrailingAssistantMessageIfEmpty(withTools);
+      });
     };
     const onMessageStart = (data: SseMessageStartEvent) => {
       if (data.role === 'user') {
@@ -284,6 +343,9 @@ export function useMessages() {
     const onSubagentDispatched = (data: {
       agentId: string;
       task: string;
+      agentType: string;
+      thinkingLevel: ThinkingLevel;
+      workingDirectory: string;
       eventBus: ChatEventBus;
     }) => {
       setMessages((prev) => pushSubagentStart(prev, data));
