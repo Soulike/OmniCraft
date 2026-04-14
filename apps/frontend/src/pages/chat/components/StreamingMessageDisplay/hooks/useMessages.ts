@@ -152,16 +152,32 @@ function finishThinking(prev: ChatMessage[]): ChatMessage[] {
 
 function applyUserMessageStart(
   prev: ChatMessage[],
-  messageId: string,
+  event: SseMessageStartEvent,
 ): ChatMessage[] {
+  // Look for a user message without an ID (created by user-message-sent)
   for (let i = prev.length - 1; i >= 0; i--) {
-    if (prev[i].role === 'user') {
+    if (prev[i].role === 'user' && prev[i].id === null) {
       const updated = [...prev];
-      updated[i] = {...updated[i], id: messageId};
+      updated[i] = {...updated[i], id: event.messageId};
       return updated;
     }
   }
-  throw new Error('message-start(user) received but no user message found');
+  // Replay: no user-message-sent was fired. Create from event content.
+  return [
+    ...prev,
+    {
+      id: event.messageId,
+      createdAt: event.createdAt,
+      role: 'user' as const,
+      content: {type: 'text' as const, content: event.content},
+    },
+    {
+      id: null,
+      createdAt: null,
+      role: 'assistant' as const,
+      content: {type: 'text' as const, content: ''},
+    },
+  ];
 }
 
 function applyAssistantMessageStart(
@@ -226,46 +242,6 @@ function pushSubagentStart(
   ];
 }
 
-/**
- * Appends synthetic tool-execute-end messages for any tool-execute-start
- * that has no matching end event (e.g. stream was aborted mid-execution).
- */
-function completeUnfinishedTools(prev: ChatMessage[]): ChatMessage[] {
-  const completedCallIds = new Set<string>();
-  for (const msg of prev) {
-    if (msg.content.type === 'tool-execute-end') {
-      completedCallIds.add(msg.content.callId);
-    }
-  }
-
-  const unfinishedCallIds: string[] = [];
-  for (const msg of prev) {
-    if (
-      msg.content.type === 'tool-execute-start' &&
-      !completedCallIds.has(msg.content.callId)
-    ) {
-      unfinishedCallIds.push(msg.content.callId);
-    }
-  }
-
-  if (unfinishedCallIds.length === 0) return prev;
-
-  const syntheticEnds: ChatMessage[] = unfinishedCallIds.map((callId) => ({
-    id: null,
-    createdAt: null,
-    role: 'assistant' as const,
-    content: {
-      type: 'tool-execute-end' as const,
-      callId,
-      result: 'Aborted',
-      status: 'error' as const,
-      data: {message: 'Aborted'},
-    },
-  }));
-
-  return [...prev, ...syntheticEnds];
-}
-
 function updateSubagentStatus(
   prev: ChatMessage[],
   data: {agentId: string; status: 'success' | 'failure'},
@@ -308,20 +284,12 @@ export function useMessages() {
     const onToolExecuteEnd = (data: SseToolExecuteEndEvent) => {
       setMessages((prev) => pushToolEnd(prev, data));
     };
-    const onStreamEnd = () => {
-      // When the user stops generation, the SSE connection is severed and
-      // backend completion events (tool-execute-end, thinking-end) will
-      // never arrive. Finalize any in-progress items so the UI does not
-      // stay stuck in a "running" state.
-      setMessages((prev) => {
-        const withThinking = finishThinking(prev);
-        const withTools = completeUnfinishedTools(withThinking);
-        return removeTrailingAssistantMessageIfEmpty(withTools);
-      });
+    const onDone = () => {
+      setMessages(removeTrailingAssistantMessageIfEmpty);
     };
     const onMessageStart = (data: SseMessageStartEvent) => {
       if (data.role === 'user') {
-        setMessages((prev) => applyUserMessageStart(prev, data.messageId));
+        setMessages((prev) => applyUserMessageStart(prev, data));
       } else {
         setMessages((prev) =>
           applyAssistantMessageStart(prev, data.messageId, data.createdAt),
@@ -361,7 +329,7 @@ export function useMessages() {
     eventBus.on('text-delta', onTextDelta);
     eventBus.on('tool-execute-start', onToolExecuteStart);
     eventBus.on('tool-execute-end', onToolExecuteEnd);
-    eventBus.on('stream-end', onStreamEnd);
+    eventBus.on('done', onDone);
     eventBus.on('message-start', onMessageStart);
     eventBus.on('thinking-start', onThinkingStart);
     eventBus.on('thinking-delta', onThinkingDelta);
@@ -375,7 +343,7 @@ export function useMessages() {
       eventBus.off('text-delta', onTextDelta);
       eventBus.off('tool-execute-start', onToolExecuteStart);
       eventBus.off('tool-execute-end', onToolExecuteEnd);
-      eventBus.off('stream-end', onStreamEnd);
+      eventBus.off('done', onDone);
       eventBus.off('message-start', onMessageStart);
       eventBus.off('thinking-start', onThinkingStart);
       eventBus.off('thinking-delta', onThinkingDelta);

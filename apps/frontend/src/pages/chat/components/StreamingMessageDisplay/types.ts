@@ -88,8 +88,6 @@ export interface ChatEventMap {
   };
   /** An error occurred during streaming. */
   'stream-error': {message: string};
-  /** The stream ended (always fires in finally, regardless of outcome). */
-  'stream-end': undefined;
   /** Reset all display state (messages, tool output). */
   reset: undefined;
   /** A subagent was dispatched. */
