@@ -51,9 +51,9 @@ reason: z.enum(['complete', 'max_rounds_reached']),
 reason: z.enum(['complete', 'max_rounds_reached', 'aborted']),
 ```
 
-- [ ] **Step 2: Add optional `content` to message-start event**
+- [ ] **Step 2: Add required `content` to message-start event**
 
-The `content` field carries user message text, enabling session replay without the frontend-only `user-message-sent` event.
+The `content` field carries message text. For user messages it's the full text (enables session replay). For assistant messages it's an empty string (content arrives via `text-delta`).
 
 ```typescript
 // packages/sse-events/src/schema.ts — lines 37-42
@@ -70,8 +70,7 @@ export const sseMessageStartEventSchema = z.object({
   role: z.enum(['user', 'assistant']),
   messageId: z.string(),
   createdAt: z.number(),
-  /** User message text. Present only for role='user', used for session replay. */
-  content: z.string().optional(),
+  content: z.string(),
 });
 ```
 
@@ -544,7 +543,23 @@ private async *runAgentLoop(
 }
 ```
 
-- [ ] **Step 6: Replace `handleUserMessage` with fire-and-forget**
+- [ ] **Step 6: Update `consumeStream` — add `content` to assistant message-start**
+
+In the existing `consumeStream` private method, update the `message-start` case to include the required `content` field (empty string for assistant):
+
+```typescript
+case 'message-start':
+  yield {
+    type: 'message-start',
+    role: 'assistant',
+    messageId: event.messageId,
+    createdAt: event.createdAt,
+    content: '',
+  } satisfies SseMessageStartEvent;
+  break;
+```
+
+- [ ] **Step 7: Replace `handleUserMessage` with fire-and-forget**
 
 ```typescript
 /**
@@ -561,12 +576,12 @@ handleUserMessage(
 
 Remove `signal` from the method's JSDoc and parameter list. The method no longer returns `AgentEventStream`.
 
-- [ ] **Step 7: Verify typecheck**
+- [ ] **Step 8: Verify typecheck**
 
 Run: `cd apps/backend && bun run typecheck`
 Expected: Errors in chat-service.ts, router.ts, dispatch-agent-tool.ts (they still use the old signature). These will be fixed in subsequent tasks.
 
-- [ ] **Step 8: Commit**
+- [ ] **Step 9: Commit**
 
 ```
 refactor(backend): convert Agent to push-based execution with sseLog
@@ -1085,24 +1100,21 @@ function applyUserMessageStart(
     }
   }
   // Replay: no user-message-sent was fired. Create from event content.
-  if (event.content !== undefined) {
-    return [
-      ...prev,
-      {
-        id: event.messageId,
-        createdAt: event.createdAt,
-        role: 'user' as const,
-        content: {type: 'text' as const, content: event.content},
-      },
-      {
-        id: null,
-        createdAt: null,
-        role: 'assistant' as const,
-        content: {type: 'text' as const, content: ''},
-      },
-    ];
-  }
-  return prev;
+  return [
+    ...prev,
+    {
+      id: event.messageId,
+      createdAt: event.createdAt,
+      role: 'user' as const,
+      content: {type: 'text' as const, content: event.content},
+    },
+    {
+      id: null,
+      createdAt: null,
+      role: 'assistant' as const,
+      content: {type: 'text' as const, content: ''},
+    },
+  ];
 }
 ```
 
@@ -1204,7 +1216,7 @@ export function useStreamChat({
 
           // Track turn context for title generation
           if (event.type === 'message-start' && event.role === 'user') {
-            lastUserMessage = event.content ?? '';
+            lastUserMessage = event.content;
             assistantText = '';
           }
           if (event.type === 'text-delta') {
@@ -1472,7 +1484,7 @@ Expected: PASS
 
 ## Notes
 
-**Spec addition (not in original spec):** `SseMessageStartEvent.content` was added for user role messages. Without it, session replay cannot reconstruct user message text because `user-message-sent` is a frontend-only event that doesn't flow through the SSE stream. This is the minimal change to make replay work.
+**Spec addition (not in original spec):** `SseMessageStartEvent.content` was added as a required `string` field. For user messages, it carries the full message text (enables session replay without the frontend-only `user-message-sent` event). For assistant messages, it is an empty string (content arrives via `text-delta`).
 
 **Subagent abort behavior:** When the parent aborts, the subagent's subscribe reader ends silently (via the parent's AbortSignal). The subagent's abort completion events (written to the subagent's sseLog) may not reach the parent's event stream. The dispatch tool detects this (no `done` event seen) and emits `subagent-complete(failure)`. The subagent display may appear incomplete in the abort scenario — acceptable since the entire conversation is in an aborted state.
 

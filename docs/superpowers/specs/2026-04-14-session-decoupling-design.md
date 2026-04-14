@@ -25,6 +25,18 @@ Add `'aborted'` to the `done` event's `reason` enum:
 reason: z.enum(['complete', 'max_rounds_reached', 'aborted']);
 ```
 
+Add required `content` field to `message-start` event. For user messages, this is the full message text (enables session replay). For assistant messages, this is an empty string (content arrives via `text-delta`).
+
+```typescript
+export const sseMessageStartEventSchema = z.object({
+  type: z.literal('message-start'),
+  role: z.enum(['user', 'assistant']),
+  messageId: z.string(),
+  createdAt: z.number(),
+  content: z.string(),
+});
+```
+
 **File:** `packages/sse-events/src/schema.ts`
 
 ### 3. Agent Class Refactor
