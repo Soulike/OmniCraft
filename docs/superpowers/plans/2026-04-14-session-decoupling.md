@@ -27,11 +27,11 @@
 - `apps/backend/src/dispatcher/chat/helpers/sse.ts` — Export `writeSseEvent` (currently used only internally)
 - `apps/frontend/src/api/chat/chat.ts` — Replace `streamChatCompletion` with `sendMessage` + `subscribeEvents` + `abortCompletion`
 - `apps/frontend/src/router/router.tsx` — Add `:sessionId?` parameter to chat route
-- `apps/frontend/src/pages/chat/ChatPage.tsx` — Read URL param, pass `initialSessionId` to provider, navigate on creation
+- `apps/frontend/src/pages/chat/ChatPage.tsx` — Remove `useParams` / `initialSessionId` prop wiring (provider reads param internally)
 - `apps/frontend/src/pages/chat/hooks/useStreamChat.ts` — Persistent SSE connection effect, POST-only `sendMessage`/`stopGeneration`
 - `apps/frontend/src/pages/chat/components/StreamingMessageDisplay/hooks/useMessages.ts` — Remove `completeUnfinishedTools`, `stream-end` handler; add `done` handler; update `message-start` handler for replay
 - `apps/frontend/src/pages/chat/components/StreamingMessageDisplay/types.ts` — Remove `stream-end` from `ChatEventMap`
-- `apps/frontend/src/pages/chat/contexts/SessionIdContext/SessionIdProvider.tsx` — Accept `initialSessionId` prop
+- `apps/frontend/src/pages/chat/contexts/SessionIdContext/SessionIdProvider.tsx` — Replace `useState` with `useParams`; `createNewSessionId` navigates after creation; `clearSessionId` navigates to `/chat`
 
 ---
 
@@ -1035,22 +1035,69 @@ In `router.tsx`, change the chat route:
 },
 ```
 
-- [ ] **Step 2: Update SessionIdProvider to accept `initialSessionId` prop**
+- [ ] **Step 2: Update SessionIdProvider — URL as source of truth**
+
+Replace `useState` with `useParams` for sessionId. `createNewSessionId` navigates after creation. `clearSessionId` navigates to `/chat`.
 
 ```typescript
+import {useCallback, useState} from 'react';
+import {useNavigate, useParams} from 'react-router';
+
+import {createSession} from '@/api/chat/index.js';
+import {ROUTES} from '@/routes.js';
+
+import {SessionIdContext} from './SessionIdContext.js';
+
 interface SessionIdProviderProps {
-  initialSessionId?: string | null;
   children: React.ReactNode;
 }
 
-export function SessionIdProvider({
-  initialSessionId,
-  children,
-}: SessionIdProviderProps) {
-  const [sessionId, setSessionId] = useState<string | null>(
-    initialSessionId ?? null,
+export function SessionIdProvider({children}: SessionIdProviderProps) {
+  const {sessionId} = useParams();
+  const navigate = useNavigate();
+  const [error, setError] = useState<string | null>(null);
+
+  const createNewSessionId = useCallback(
+    async (config?: {
+      workspace?: string;
+      extraAllowedPaths?: readonly string[];
+    }) => {
+      try {
+        const id = await createSession(config);
+        navigate(`/chat/${id}`, {replace: true});
+        return id;
+      } catch (e: unknown) {
+        const message =
+          e instanceof Error ? e.message : 'Failed to create session';
+        setError(message);
+        return null;
+      }
+    },
+    [navigate],
   );
-  // ... rest stays the same
+
+  const clearSessionId = useCallback(() => {
+    setError(null);
+    navigate(ROUTES.chat(), {replace: true});
+  }, [navigate]);
+
+  const clearCreateNewSessionIdError = useCallback(() => {
+    setError(null);
+  }, []);
+
+  return (
+    <SessionIdContext
+      value={{
+        sessionId: sessionId ?? null,
+        createNewSessionIdError: error,
+        createNewSessionId,
+        clearSessionId,
+        clearCreateNewSessionIdError,
+      }}
+    >
+      {children}
+    </SessionIdContext>
+  );
 }
 ```
 
@@ -1374,18 +1421,14 @@ function routeEvent(
 }
 ```
 
-- [ ] **Step 4: Update ChatPage — read URL param, navigate on session creation**
+- [ ] **Step 4: Simplify ChatPage — provider reads URL param internally**
 
-In `ChatPage.tsx`, add imports and read the route param:
+`ChatPage.tsx` no longer needs to read `useParams` or pass `initialSessionId`. The provider handles it. Revert `ChatPage` to its original shape (no changes needed from current code, just verify no `initialSessionId` prop is passed):
 
 ```typescript
-import {useNavigate, useParams} from 'react-router';
-
 export function ChatPage() {
-  const {sessionId: urlSessionId} = useParams();
-
   return (
-    <SessionIdProvider initialSessionId={urlSessionId ?? null}>
+    <SessionIdProvider>
       <ChatEventBusProvider>
         <SessionConfigProvider>
           <ChatPageContent />
@@ -1396,54 +1439,13 @@ export function ChatPage() {
 }
 ```
 
-In `ChatPageContent`, add navigation on session creation:
+`ChatPageContent` also needs no navigation effect — the provider's `createNewSessionId` navigates after creation.
 
-```typescript
-const navigate = useNavigate();
-const {sessionId: urlSessionId} = useParams();
-
-// Navigate to include sessionId in URL after lazy session creation
-useEffect(() => {
-  if (sessionId && !urlSessionId) {
-    navigate(`/chat/${sessionId}`, {replace: true});
-  }
-}, [sessionId, urlSessionId, navigate]);
-```
-
-Add `useParams` and `useNavigate` imports from `react-router`.
-
-- [ ] **Step 5: Update `useSessionLifecycle` — navigate to /chat on new session**
+- [ ] **Step 5: Update `useSessionLifecycle` — use `clearSessionId` (which now navigates)**
 
 In `useSessionLifecycle.ts`, add navigation:
 
-```typescript
-import {useNavigate} from 'react-router';
-import {ROUTES} from '@/routes.js';
-
-export function useSessionLifecycle({...}: UseSessionLifecycleOptions) {
-  const navigate = useNavigate();
-
-  const startNewSession = useCallback(() => {
-    stopGeneration();
-    clearSessionId();
-    resetDisplay();
-    clearTitle();
-    clearStreamError();
-    clearMaxRoundsReached();
-    navigate(ROUTES.chat(), {replace: true});
-  }, [
-    stopGeneration,
-    clearSessionId,
-    resetDisplay,
-    clearTitle,
-    clearStreamError,
-    clearMaxRoundsReached,
-    navigate,
-  ]);
-
-  return {startNewSession};
-}
-```
+`clearSessionId` now navigates to `/chat` internally, so `useSessionLifecycle` no longer needs its own `useNavigate`. No changes needed — `startNewSession` calls `clearSessionId()` which handles navigation.
 
 - [ ] **Step 6: Verify frontend typecheck and lint**
 
