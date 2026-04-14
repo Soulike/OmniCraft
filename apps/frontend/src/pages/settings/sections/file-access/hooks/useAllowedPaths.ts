@@ -44,6 +44,10 @@ export function useAllowedPaths() {
       } catch (e) {
         if (e instanceof InvalidPathsError) {
           setInvalidPaths([...e.invalidPaths]);
+          const details = e.invalidPaths
+            .map((p) => `${p.path}: ${p.reason}`)
+            .join('\n');
+          toast.danger(details);
         } else {
           toast.danger('Failed to save allowed paths');
         }
@@ -57,18 +61,14 @@ export function useAllowedPaths() {
 
   const addPath = useCallback(
     (entry: AllowedPathEntry) => {
-      const next = [...paths, entry];
-      setPaths(next);
-      void save(next);
+      void save([...paths, entry]);
     },
     [paths, save],
   );
 
   const removePath = useCallback(
     (index: number) => {
-      const next = paths.filter((_, i) => i !== index);
-      setPaths(next);
-      void save(next);
+      void save(paths.filter((_, i) => i !== index));
     },
     [paths, save],
   );
