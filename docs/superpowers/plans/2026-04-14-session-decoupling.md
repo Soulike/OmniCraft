@@ -614,11 +614,14 @@ context.onSubAgentEvent({
 });
 
 try {
-  subagent.handleUserMessage(task, thinkingLevel);
-
+  // Subscribe before starting — ensures the reader is in place before events flow.
   let lastReplyText = '';
   let completed = false;
-  for await (const event of subagent.subscribe({signal: context.signal})) {
+  const eventIter = subagent.subscribe({signal: context.signal});
+
+  subagent.handleUserMessage(task, thinkingLevel);
+
+  for await (const event of eventIter) {
     // Subagents cannot emit subagent events (no SubAgentToolRegistry),
     // so all events are base events. Cast is safe by construction.
     context.onSubAgentEvent({
