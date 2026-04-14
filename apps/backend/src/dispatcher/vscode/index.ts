@@ -2,7 +2,7 @@ import type {Server} from 'node:http';
 
 import {VscodeServerManager} from '@/models/vscode-server-manager/index.js';
 
-import {VSCODE_WS_PREFIX} from './path.js';
+import {VSCODE_BASE_PATH} from './path.js';
 
 export {router} from './router.js';
 
@@ -10,7 +10,7 @@ export {router} from './router.js';
 export function attachVscodeUpgrade(server: Server): void {
   const manager = VscodeServerManager.getInstance();
   server.on('upgrade', (req, socket, head) => {
-    if (!req.url?.startsWith(VSCODE_WS_PREFIX + '/')) {
+    if (!req.url?.startsWith(VSCODE_BASE_PATH + '/')) {
       return;
     }
     if (!manager.isAvailable()) {
@@ -18,7 +18,7 @@ export function attachVscodeUpgrade(server: Server): void {
       return;
     }
     // Strip the prefix so upstream receives the original path.
-    req.url = req.url.slice(VSCODE_WS_PREFIX.length);
+    req.url = req.url.slice(VSCODE_BASE_PATH.length);
     manager.proxyWebSocket(req, socket, head);
   });
 }

@@ -3,8 +3,7 @@ export const VSCODE_PROXY = '/vscode/{*path}';
 export const VSCODE_ROOT = '/vscode';
 
 /**
- * Full path prefix for VSCode WebSocket upgrade matching (includes `/api`).
- * Used by the server-level upgrade handler since upgrade events
- * arrive before Koa routing strips the `/api` prefix.
+ * Full base path for the VSCode proxy (includes the `/api` prefix).
+ * Used for `--server-base-path` and WebSocket upgrade path matching.
  */
-export const VSCODE_WS_PREFIX = '/api/vscode';
+export const VSCODE_BASE_PATH = '/api/vscode';
