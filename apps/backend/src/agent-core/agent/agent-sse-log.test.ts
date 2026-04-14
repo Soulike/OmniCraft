@@ -56,15 +56,17 @@ describe('AgentSseLog', () => {
     it('throws when appending to a sealed log', () => {
       const log = new AgentSseLog();
       log.seal();
-      expect(() => { log.append(textDelta('x')); }).toThrow(
-        'Cannot append to a sealed AgentSseLog',
-      );
+      expect(() => {
+        log.append(textDelta('x'));
+      }).toThrow('Cannot append to a sealed AgentSseLog');
     });
 
     it('allows sealing an already sealed log without error', () => {
       const log = new AgentSseLog();
       log.seal();
-      expect(() => { log.seal(); }).not.toThrow();
+      expect(() => {
+        log.seal();
+      }).not.toThrow();
     });
   });
 
@@ -274,6 +276,12 @@ describe('AgentSseLog', () => {
 
       const events = await resultPromise;
       expect(events).toEqual([textDelta('2')]);
+    });
+    it('throws when startIndex is negative', () => {
+      const log = new AgentSseLog();
+      expect(() => log.createReader({startIndex: -1})).toThrow(
+        'startIndex must be non-negative',
+      );
     });
   });
 });

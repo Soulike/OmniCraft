@@ -1,3 +1,5 @@
+import assert from 'node:assert';
+
 import type {SseEvent} from '@omnicraft/sse-events';
 
 export interface AgentSseLogReaderOptions {
@@ -54,6 +56,7 @@ export class AgentSseLog {
    */
   createReader(options?: AgentSseLogReaderOptions): AsyncIterable<SseEvent> {
     const startIndex = options?.startIndex ?? 0;
+    assert(startIndex >= 0, 'startIndex must be non-negative');
     const signal = options?.signal;
     return {
       [Symbol.asyncIterator]: () => this.readerIterator(startIndex, signal),
