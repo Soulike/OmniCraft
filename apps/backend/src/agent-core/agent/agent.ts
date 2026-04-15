@@ -94,6 +94,9 @@ export abstract class Agent {
   /** Per-turn abort controller. Null when no turn is running. */
   private abortController: AbortController | null = null;
 
+  /** Guards against concurrent title generation across turns. */
+  private titleGenerationStarted = false;
+
   constructor(
     getConfig: () => Promise<LlmConfig>,
     options: AgentOptions,
@@ -185,7 +188,13 @@ export abstract class Agent {
       );
       const doneReason = await this.pump(stream);
 
-      if (doneReason === 'complete' && !this.title && this.getLightConfig) {
+      if (
+        doneReason === 'complete' &&
+        !this.title &&
+        !this.titleGenerationStarted &&
+        this.getLightConfig
+      ) {
+        this.titleGenerationStarted = true;
         void this.generateAndEmitTitle();
       }
     } finally {
