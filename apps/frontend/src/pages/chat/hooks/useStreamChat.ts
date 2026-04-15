@@ -47,8 +47,6 @@ export function useStreamChat({
     const subagentBusMap = subagentBusMapRef.current;
 
     async function consume(): Promise<void> {
-      let lastUserMessage = '';
-      let assistantText = '';
       let lastIndex = 0;
       let consecutiveFailures = 0;
 
@@ -69,18 +67,12 @@ export function useStreamChat({
 
             switch (event.type) {
               case 'message-start':
-                if (event.role === 'user') {
-                  lastUserMessage = event.content;
-                  assistantText = '';
-                } else {
+                if (event.role === 'assistant') {
                   setIsStreaming(true);
                 }
                 routeBaseEventToBus(event, eventBus);
                 break;
               case 'text-delta':
-                assistantText += event.content;
-                routeBaseEventToBus(event, eventBus);
-                break;
               case 'tool-execute-start':
               case 'tool-execute-end':
               case 'tool-execute-delta':
@@ -96,15 +88,9 @@ export function useStreamChat({
                 }
                 routeBaseEventToBus(event, eventBus);
                 setIsStreaming(false);
-                if (assistantText) {
-                  eventBus.emit('turn-done', {
-                    sessionId: activeSessionId,
-                    userMessage: lastUserMessage,
-                    assistantMessage: assistantText,
-                  });
-                }
-                lastUserMessage = '';
-                assistantText = '';
+                break;
+              case 'session-title':
+                eventBus.emit('session-title', event);
                 break;
               case 'error':
                 receivedTerminalEvent = true;

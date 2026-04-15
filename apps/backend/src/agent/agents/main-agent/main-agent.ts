@@ -39,6 +39,11 @@ export class MainAgent extends Agent {
         const settings = await settingsService.getAll();
         return settings.agent.maxToolRounds;
       },
+      getLightConfig: async () => {
+        const settings = await settingsService.getAll();
+        const {apiFormat, apiKey, baseUrl, model, lightModel} = settings.llm;
+        return {apiFormat, apiKey, baseUrl, model: lightModel || model};
+      },
       workingDirectory,
       extraAllowedPaths,
     });

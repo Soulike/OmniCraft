@@ -7,15 +7,10 @@ import type {SseEvent} from '@omnicraft/sse-events';
 
 import {MainAgent} from '@/agent/agents/index.js';
 import type {AgentSseLogReaderOptions} from '@/agent-core/agent/agent-sse-log.js';
-import {logger} from '@/logger.js';
 import {AgentStore} from '@/models/agent-store/index.js';
 import {SettingsManager} from '@/models/settings-manager/index.js';
 
-import {
-  generateTitleFromLlm,
-  getLlmConfig,
-  truncateToTitle,
-} from './helpers.js';
+import {getLlmConfig} from './helpers.js';
 import type {CreateSessionResult} from './types.js';
 import {CreateSessionError} from './types.js';
 import {validateSessionPaths} from './validation.js';
@@ -147,35 +142,5 @@ export const chatService = {
   /** Deletes an agent session. */
   deleteSession(agentId: string): void {
     AgentStore.getInstance().delete(agentId);
-  },
-
-  /**
-   * Generates a short title for a chat session using the light model.
-   * Takes the first user message and assistant reply as context.
-   * Stores the title on the agent for persistence.
-   * Falls back to truncating the user message if generation fails.
-   */
-  async generateTitle(
-    agentId: string,
-    userMessage: string,
-    assistantMessage: string,
-  ): Promise<string> {
-    let title: string;
-    try {
-      title = await generateTitleFromLlm(userMessage, assistantMessage);
-    } catch (e) {
-      logger.error(
-        {err: e},
-        'Failed to generate title via LLM, using fallback',
-      );
-      title = truncateToTitle(userMessage);
-    }
-
-    const agent = AgentStore.getInstance().get(agentId);
-    if (agent) {
-      agent.title = title;
-    }
-
-    return title;
   },
 };

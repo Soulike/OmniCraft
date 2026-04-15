@@ -1,6 +1,5 @@
 import {
   createSessionResponseSchema,
-  generateTitleResponseSchema,
   type ThinkingLevel,
 } from '@omnicraft/api-schema';
 import type {SseEvent} from '@omnicraft/sse-events';
@@ -97,30 +96,6 @@ export async function abortCompletion(sessionId: string): Promise<void> {
       `Failed to abort completion (${res.status.toString()}): ${body}`,
     );
   }
-}
-
-/** Generates a short title for a chat session. */
-export async function generateTitle(
-  sessionId: string,
-  userMessage: string,
-  assistantMessage: string,
-): Promise<string> {
-  const res = await fetch(`${BASE}/session/${sessionId}/generate-title`, {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({userMessage, assistantMessage}),
-  });
-
-  if (!res.ok) {
-    const body = await res.text();
-    throw new Error(
-      `Failed to generate title (${res.status.toString()}): ${body}`,
-    );
-  }
-
-  const json: unknown = await res.json();
-  const {title} = generateTitleResponseSchema.parse(json);
-  return title;
 }
 
 /**

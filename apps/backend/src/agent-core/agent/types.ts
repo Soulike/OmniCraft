@@ -1,5 +1,6 @@
 import type {SseErrorEvent, SseEvent} from '@omnicraft/sse-events';
 
+import type {LlmConfig} from '../llm-api/index.js';
 import type {LlmSessionSnapshot} from '../llm-session/index.js';
 import type {SkillRegistry} from '../skill/index.js';
 import type {AllowedPathEntry} from '../tool/index.js';
@@ -43,6 +44,7 @@ export interface AgentOptions {
   readonly skillRegistries: SkillRegistry[];
   readonly baseSystemPrompt: string;
   readonly getMaxToolRounds: () => Promise<number> | number;
+  readonly getLightConfig?: () => Promise<LlmConfig>;
   readonly workingDirectory: string;
   readonly extraAllowedPaths: readonly AllowedPathEntry[];
 }

@@ -7,6 +7,7 @@ import type {
   SseDoneEvent,
   SseEvent,
   SseMessageStartEvent,
+  SseSessionTitleEvent,
   SseSubAgentEvent,
   SseTextDeltaEvent,
   SseThinkingDeltaEvent,
@@ -24,6 +25,7 @@ import {Mutex} from '@/helpers/mutex.js';
 
 import {agentEventBus} from '../events/index.js';
 import type {LlmConfig, LlmToolCall} from '../llm-api/index.js';
+import {llmApi} from '../llm-api/index.js';
 import type {LlmSessionEventStream, ToolResult} from '../llm-session/index.js';
 import {LlmSession} from '../llm-session/index.js';
 import {modelCapacity} from '../model-capacity/index.js';
@@ -41,6 +43,8 @@ import {AgentSseLog} from './agent-sse-log.js';
 import {FileContentCache} from './file-content-cache.js';
 import {FileStatTracker} from './file-stat-tracker.js';
 import type {AgentEventStream, AgentOptions, AgentSnapshot} from './types.js';
+
+const TITLE_MAX_LENGTH = 20;
 
 /**
  * Base class for all agents.
@@ -65,6 +69,7 @@ export abstract class Agent {
   private readonly baseSystemPrompt: string;
   private readonly getMaxToolRounds: AgentOptions['getMaxToolRounds'];
   private readonly getConfig: () => Promise<LlmConfig>;
+  private readonly getLightConfig: (() => Promise<LlmConfig>) | null;
 
   private readonly workingDirectory: string;
 
@@ -91,6 +96,9 @@ export abstract class Agent {
   /** Per-turn abort controller. Null when no turn is running. */
   private abortController: AbortController | null = null;
 
+  /** True while an async title generation is in flight. */
+  private isGeneratingTitle = false;
+
   constructor(
     getConfig: () => Promise<LlmConfig>,
     options: AgentOptions,
@@ -101,6 +109,7 @@ export abstract class Agent {
     this.baseSystemPrompt = options.baseSystemPrompt;
     this.getMaxToolRounds = options.getMaxToolRounds;
     this.getConfig = getConfig;
+    this.getLightConfig = options.getLightConfig ?? null;
 
     this.extraAllowedPaths = [
       {path: os.tmpdir(), mode: 'read-write' as const},
@@ -179,17 +188,34 @@ export abstract class Agent {
         thinkingLevel,
         this.abortController.signal,
       );
-      await this.pump(stream);
+      await this.pump(stream, (event) => {
+        if (
+          event.type === 'done' &&
+          event.reason === 'complete' &&
+          !this.title &&
+          !this.isGeneratingTitle
+        ) {
+          this.isGeneratingTitle = true;
+          void this.generateAndEmitTitle().finally(() => {
+            this.isGeneratingTitle = false;
+          });
+        }
+      });
     } finally {
       this.abortController = null;
       release();
     }
   }
 
-  private async pump(stream: AgentEventStream): Promise<void> {
+  /** Consumes the agent event stream and appends each event to sseLog. */
+  private async pump(
+    stream: AgentEventStream,
+    onEvent?: (event: SseEvent) => void,
+  ): Promise<void> {
     try {
       for await (const event of stream) {
         this.sseLog.append(event);
+        onEvent?.(event);
       }
     } catch {
       this.sseLog.append({
@@ -381,6 +407,64 @@ export abstract class Agent {
       maxInputTokens,
       ...this.llmSession.getUsage(),
     };
+  }
+
+  /**
+   * Generates a session title from the first user + assistant exchange
+   * using the light LLM, then appends a `session-title` event to sseLog.
+   * Fire-and-forget — errors are swallowed and a fallback title is used.
+   */
+  private async generateAndEmitTitle(): Promise<void> {
+    const messages = this.llmSession.getMessages();
+    const userMsg = messages.find((m) => m.role === 'user');
+    const assistantMsg = messages.find((m) => m.role === 'assistant');
+    if (!userMsg || !assistantMsg) return;
+
+    let title: string;
+    try {
+      const getConfig = this.getLightConfig ?? this.getConfig;
+      const config = await getConfig();
+      const stream = llmApi.streamCompletion({
+        config,
+        messages: [
+          {
+            id: crypto.randomUUID(),
+            createdAt: Date.now(),
+            role: 'user',
+            content: [
+              'Generate a short title (under 20 characters) for this conversation.',
+              'Reply with ONLY the title, no quotes or extra text.',
+              '',
+              `User: ${userMsg.content}`,
+              '',
+              `Assistant: ${assistantMsg.content}`,
+            ].join('\n'),
+          },
+        ],
+        tools: [],
+        thinkingLevel: 'none',
+      });
+
+      title = '';
+      for await (const event of stream) {
+        if (event.type === 'text-delta') {
+          title += event.content;
+        }
+      }
+      title = title.trim();
+    } catch {
+      const trimmed = userMsg.content.trim();
+      title =
+        trimmed.length <= TITLE_MAX_LENGTH
+          ? trimmed
+          : `${trimmed.slice(0, TITLE_MAX_LENGTH)}…`;
+    }
+
+    this.title = title;
+    this.sseLog.append({
+      type: 'session-title',
+      title,
+    } satisfies SseSessionTitleEvent);
   }
 
   /**
