@@ -149,6 +149,8 @@ Ensures `sse-events.jsonl` is consistent with the snapshot:
 
 `AgentSnapshot` includes `sseEventCount: number` — the value of `AgentSseLog.totalAppended` at the time the snapshot was written. On restore, `reconcileEventsFile` uses this count to truncate the events file so it never contains more events than the snapshot knows about. If the events file has fewer events (writes lagged behind snapshot), that's accepted — the LLM history (snapshot) is the source of truth for continuing the conversation.
 
+`sseEventCount` is tracked on Agent (not AgentSseLog). Initialized from `snapshot.sseEventCount` on restore, or 0 for new agents. Incremented in `pump()` after each successful `sseLog.append()`.
+
 ### MainAgent.restore
 
 ```typescript

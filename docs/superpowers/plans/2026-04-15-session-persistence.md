@@ -313,7 +313,6 @@ export class AgentSseLog {
   private readonly mutex = new Mutex();
   private loaded: boolean;
   private readerCount = 0;
-  private appended = 0;
 
   constructor(filePath?: string) {
     this.filePath = filePath ?? null;
@@ -328,15 +327,9 @@ export class AgentSseLog {
     return this.readerCount;
   }
 
-  /** Total number of events appended since construction. Increments in all modes. */
-  get totalAppended(): number {
-    return this.appended;
-  }
-
   async append(event: SseEvent): Promise<void> {
     if (!this.filePath) {
       this.events.push(event);
-      this.appended++;
       this.notifyWaiters();
       return;
     }
@@ -345,7 +338,6 @@ export class AgentSseLog {
     try {
       await mkdir(path.dirname(this.filePath), {recursive: true});
       await appendFile(this.filePath, JSON.stringify(event) + '\n');
-      this.appended++;
 
       if (this.loaded) {
         this.events.push(event);
@@ -575,6 +567,9 @@ export abstract class Agent {
 
   private readonly sessionsDir: string | null;
 
+  /** Tracks total SSE events for snapshot alignment. */
+  private sseEventCount = 0;
+
   private static snapshotPath(sessionsDir: string, id: string): string {
     return path.join(sessionsDir, id, 'snapshot.json');
   }
@@ -603,6 +598,7 @@ Change `readonly sseLog = new AgentSseLog()` from a field initializer to constru
     if (snapshot) {
       this.id = snapshot.id;
       this.title = snapshot.title;
+      this.sseEventCount = snapshot.sseEventCount;
       this.workingDirectory = snapshot.options.workingDirectory;
       this.llmSession = new LlmSession(getConfig, snapshot.llmSession);
     } else {
@@ -642,7 +638,7 @@ Change `readonly sseLog = new AgentSseLog()` from a field initializer to constru
     return {
       id: this.id,
       title: this.title,
-      sseEventCount: this.sseLog.totalAppended,
+      sseEventCount: this.sseEventCount,
       llmSession: this.llmSession.toSnapshot(),
       options: {
         workingDirectory: this.workingDirectory,
@@ -706,6 +702,7 @@ In `runTurn`, update the `onEvent` callback to also persist snapshot on `done` a
     try {
       for await (const event of stream) {
         await this.sseLog.append(event);
+        this.sseEventCount++;
         onEvent?.(event);
       }
     } catch {
@@ -713,6 +710,7 @@ In `runTurn`, update the `onEvent` callback to also persist snapshot on `done` a
         type: 'error',
         message: 'An internal error occurred',
       });
+      this.sseEventCount++;
     }
   }
 ```
