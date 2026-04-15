@@ -6,7 +6,9 @@ import type {
   SseToolExecuteEndEvent,
   SseToolExecuteStartEvent,
 } from '@omnicraft/sse-events';
-import {useEffect, useState} from 'react';
+import {useEffect} from 'react';
+
+import {useFrameBatchedState} from '@/hooks/useFrameBatchedState.js';
 
 import type {ChatEventBus, ChatMessage} from '../types.js';
 import {useChatEventBus} from './useChatEventBus.js';
@@ -268,7 +270,7 @@ function updateSubagentStatus(
 
 /** Manages the chat message history, subscribing to chat events. */
 export function useMessages() {
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [messages, setMessages] = useFrameBatchedState<ChatMessage[]>([]);
   const eventBus = useChatEventBus();
 
   useEffect(() => {
@@ -352,7 +354,7 @@ export function useMessages() {
       eventBus.off('subagent-dispatched', onSubagentDispatched);
       eventBus.off('subagent-completed', onSubagentCompleted);
     };
-  }, [eventBus]);
+  }, [eventBus, setMessages]);
 
   return {messages};
 }
