@@ -6,6 +6,8 @@ import {
   sendMessage as apiSendMessage,
   subscribeEvents,
 } from '@/api/chat/index.js';
+import {HttpError} from '@/api/helpers/http-error.js';
+import {abortableSleep} from '@/helpers/abortable-sleep.js';
 import {EventBus} from '@/helpers/event-bus.js';
 
 import type {ChatEventMap} from '../components/StreamingMessageDisplay/index.js';
@@ -20,12 +22,18 @@ interface UseStreamChatOptions {
   createNewSessionId: SessionIdHook['createNewSessionId'];
 }
 
+/** Exponential-backoff constants for SSE reconnection. */
+const INITIAL_DELAY_MS = 1000;
+const MAX_DELAY_MS = 30_000;
+const MAX_RETRIES = 5;
+
 /** Orchestrates the persistent SSE connection and message sending. */
 export function useStreamChat({
   sessionId,
   createNewSessionId,
 }: UseStreamChatOptions) {
   const [isStreaming, setIsStreaming] = useState(false);
+  const [isReconnecting, setIsReconnecting] = useState(false);
   const [streamError, setStreamError] = useState<string | null>(null);
   const [maxRoundsReached, setMaxRoundsReached] = useState(false);
   const subagentBusMapRef = useRef(new Map<string, EventBus<ChatEventMap>>());
@@ -40,79 +48,116 @@ export function useStreamChat({
     const subagentBusMap = subagentBusMapRef.current;
 
     async function consume(): Promise<void> {
-      try {
-        const eventStream = subscribeEvents(
-          activeSessionId,
-          0,
-          controller.signal,
-        );
+      let lastIndex = 0;
+      let consecutiveFailures = 0;
 
-        for await (const event of eventStream) {
-          switch (event.type) {
-            case 'message-start':
-              if (event.role === 'assistant') {
-                setIsStreaming(true);
+      while (!controller.signal.aborted) {
+        try {
+          const eventStream = subscribeEvents(
+            activeSessionId,
+            lastIndex,
+            controller.signal,
+          );
+          let receivedTerminalEvent = false;
+
+          for await (const event of eventStream) {
+            if (consecutiveFailures > 0) {
+              consecutiveFailures = 0;
+              setIsReconnecting(false);
+            }
+
+            switch (event.type) {
+              case 'message-start':
+                if (event.role === 'assistant') {
+                  setIsStreaming(true);
+                }
+                routeBaseEventToBus(event, eventBus);
+                break;
+              case 'text-delta':
+              case 'tool-execute-start':
+              case 'tool-execute-end':
+              case 'tool-execute-delta':
+              case 'thinking-start':
+              case 'thinking-delta':
+              case 'thinking-end':
+                routeBaseEventToBus(event, eventBus);
+                break;
+              case 'done':
+                receivedTerminalEvent = true;
+                if (event.reason === 'max_rounds_reached') {
+                  setMaxRoundsReached(true);
+                }
+                routeBaseEventToBus(event, eventBus);
+                setIsStreaming(false);
+                break;
+              case 'session-title':
+                eventBus.emit('session-title', event);
+                break;
+              case 'error':
+                receivedTerminalEvent = true;
+                eventBus.emit('stream-error', {message: event.message});
+                setStreamError(event.message);
+                setIsStreaming(false);
+                break;
+              case 'subagent-dispatch': {
+                const bus = new EventBus<ChatEventMap>();
+                subagentBusMap.set(event.agentId, bus);
+                eventBus.emit('subagent-dispatched', {
+                  agentId: event.agentId,
+                  task: event.task,
+                  agentType: event.agentType,
+                  thinkingLevel: event.thinkingLevel,
+                  workingDirectory: event.workingDirectory,
+                  eventBus: bus,
+                });
+                break;
               }
-              routeBaseEventToBus(event, eventBus);
-              break;
-            case 'text-delta':
-            case 'tool-execute-start':
-            case 'tool-execute-end':
-            case 'tool-execute-delta':
-            case 'thinking-start':
-            case 'thinking-delta':
-            case 'thinking-end':
-              routeBaseEventToBus(event, eventBus);
-              break;
-            case 'done':
-              if (event.reason === 'max_rounds_reached') {
-                setMaxRoundsReached(true);
+              case 'subagent-output': {
+                const bus = subagentBusMap.get(event.agentId);
+                if (bus) routeBaseEventToBus(event.event, bus);
+                break;
               }
-              routeBaseEventToBus(event, eventBus);
-              setIsStreaming(false);
-              break;
-            case 'session-title':
-              eventBus.emit('session-title', event);
-              break;
-            case 'error':
-              eventBus.emit('stream-error', {message: event.message});
-              setStreamError(event.message);
-              setIsStreaming(false);
-              break;
-            case 'subagent-dispatch': {
-              const bus = new EventBus<ChatEventMap>();
-              subagentBusMap.set(event.agentId, bus);
-              eventBus.emit('subagent-dispatched', {
-                agentId: event.agentId,
-                task: event.task,
-                agentType: event.agentType,
-                thinkingLevel: event.thinkingLevel,
-                workingDirectory: event.workingDirectory,
-                eventBus: bus,
-              });
-              break;
+              case 'subagent-complete': {
+                eventBus.emit('subagent-completed', {
+                  agentId: event.agentId,
+                  status: event.status,
+                });
+                subagentBusMap.delete(event.agentId);
+                break;
+              }
             }
-            case 'subagent-output': {
-              const bus = subagentBusMap.get(event.agentId);
-              if (bus) routeBaseEventToBus(event.event, bus);
-              break;
-            }
-            case 'subagent-complete': {
-              eventBus.emit('subagent-completed', {
-                agentId: event.agentId,
-                status: event.status,
-              });
-              subagentBusMap.delete(event.agentId);
-              break;
-            }
+            lastIndex++;
           }
+
+          if (receivedTerminalEvent) return;
+          // Stream ended without a terminal event → unexpected disconnect.
+        } catch (e: unknown) {
+          if (e instanceof DOMException && e.name === 'AbortError') return;
+
+          if (!isRetriableError(e)) {
+            const message =
+              e instanceof Error ? e.message : 'An unexpected error occurred';
+            setIsReconnecting(false);
+            setStreamError(message);
+            return;
+          }
+          // Retriable (network error / 5xx) → fall through to retry.
         }
-      } catch (e: unknown) {
-        if (e instanceof DOMException && e.name === 'AbortError') return;
-        console.error('SSE connection failed', e);
-        const message =
-          e instanceof Error ? e.message : 'An unexpected error occurred';
-        setStreamError(message);
+
+        consecutiveFailures++;
+        if (consecutiveFailures > MAX_RETRIES) {
+          setIsReconnecting(false);
+          setStreamError('Connection lost. Please refresh the page.');
+          return;
+        }
+
+        setIsReconnecting(true);
+        const delay = Math.min(
+          INITIAL_DELAY_MS * 2 ** (consecutiveFailures - 1),
+          MAX_DELAY_MS,
+        );
+        const sleptFully = await abortableSleep(delay, controller.signal);
+        if (!sleptFully) return;
       }
     }
 
@@ -169,6 +214,7 @@ export function useStreamChat({
 
   return {
     isStreaming,
+    isReconnecting,
     streamError,
     maxRoundsReached,
     sendMessage,
@@ -176,4 +222,15 @@ export function useStreamChat({
     clearStreamError,
     clearMaxRoundsReached,
   };
+}
+
+// ---------------------------------------------------------------------------
+// Internal helpers
+// ---------------------------------------------------------------------------
+
+/** Whether the error is a transient network/server issue worth retrying. */
+function isRetriableError(e: unknown): boolean {
+  if (e instanceof TypeError) return true;
+  if (e instanceof HttpError && e.status >= 500) return true;
+  return false;
 }

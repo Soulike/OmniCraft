@@ -77,6 +77,7 @@ function ChatPageContent() {
 
   const {
     isStreaming,
+    isReconnecting,
     streamError,
     maxRoundsReached,
     sendMessage,
@@ -119,6 +120,7 @@ function ChatPageContent() {
       eventBus={eventBus}
       isEmpty={isEmpty}
       isStreaming={isStreaming}
+      isReconnecting={isReconnecting}
       error={displayError}
       maxRoundsReached={maxRoundsReached}
       scrollRef={scrollRef}

@@ -5,6 +5,7 @@ import {
 import type {SseEvent} from '@omnicraft/sse-events';
 import {sseEventSchema} from '@omnicraft/sse-events';
 
+import {HttpError} from '../helpers/http-error.js';
 import {parseSseStream} from '../helpers/sse.js';
 
 const BASE = '/api/chat';
@@ -71,7 +72,8 @@ export async function* subscribeEvents(
 
   if (!res.ok) {
     const body = await res.text();
-    throw new Error(
+    throw new HttpError(
+      res.status,
       `Event subscription failed (${res.status.toString()}): ${body}`,
     );
   }

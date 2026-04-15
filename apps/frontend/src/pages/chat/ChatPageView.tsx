@@ -19,6 +19,7 @@ interface ChatPageViewProps {
   eventBus: ChatEventBus;
   isEmpty: boolean;
   isStreaming: boolean;
+  isReconnecting: boolean;
   error: string | null;
   maxRoundsReached: boolean;
   scrollRef: RefObject<HTMLDivElement | null>;
@@ -38,6 +39,7 @@ export function ChatPageView({
   eventBus,
   isEmpty,
   isStreaming,
+  isReconnecting,
   error,
   maxRoundsReached,
   scrollRef,
@@ -53,6 +55,13 @@ export function ChatPageView({
 }: ChatPageViewProps) {
   return (
     <div className={styles.page}>
+      {isReconnecting && (
+        <ChatAlert
+          status='warning'
+          title='Reconnecting'
+          message='Connection lost. Attempting to reconnect...'
+        />
+      )}
       {error && (
         <ChatAlert
           status='danger'
