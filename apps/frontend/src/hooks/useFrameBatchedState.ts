@@ -43,10 +43,10 @@ export function createFrameBatchScheduler<T>(
   onFlush: Dispatch<SetStateAction<T>>,
 ): FrameBatchScheduler<T> {
   let queue: SetStateAction<T>[] = [];
-  let rafId = 0;
+  let rafId: number | null = null;
 
   function flush(): void {
-    rafId = 0;
+    rafId = null;
     const actions = queue;
     if (actions.length === 0) return;
     queue = [];
@@ -61,14 +61,14 @@ export function createFrameBatchScheduler<T>(
 
   function setState(action: SetStateAction<T>): void {
     queue.push(action);
-    if (rafId === 0) {
-      rafId = requestAnimationFrame(flush);
-    }
+    rafId ??= requestAnimationFrame(flush);
   }
 
   function cancel(): void {
-    cancelAnimationFrame(rafId);
-    rafId = 0;
+    if (rafId !== null) {
+      cancelAnimationFrame(rafId);
+    }
+    rafId = null;
     queue = [];
   }
 
