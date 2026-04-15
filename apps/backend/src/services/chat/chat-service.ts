@@ -80,6 +80,7 @@ export const chatService = {
       getLlmConfig,
       workingDirectory,
       resolvedExtraFilePathEntries,
+      MainAgentStore.getInstance().sessionsDir,
     );
     return {success: true, sessionId: agent.id};
   },
