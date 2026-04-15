@@ -146,18 +146,12 @@ Add a `private loaded = false` flag. When no filePath, `loaded` is always effect
   }
 ```
 
-- [ ] **Step 4: Update existing tests for async append**
+- [ ] **Step 4: Update existing tests for async append and remove length**
 
-The existing in-memory tests call `log.append(...)` synchronously. Since `append` is now `async`, add `await`:
+The existing in-memory tests need two changes:
 
-```typescript
-// Before:
-log.append(textDelta('a'));
-// After:
-await log.append(textDelta('a'));
-```
-
-Apply this to all existing `append` calls in the test file. The in-memory behavior is unchanged — `await` on an immediately-resolving promise is transparent.
+1. `log.append(...)` is now `async` — add `await` to all calls
+2. Remove all `log.length` assertions — the `length` getter is removed. The `append basics` describe block that only tests length can be deleted entirely; the behavior is implicitly verified by the reader tests.
 
 - [ ] **Step 5: Run all tests to verify they pass**
 
@@ -190,8 +184,6 @@ it('cold append does not populate in-memory array', async () => {
   await log.append(textDelta('a'));
   await log.append(textDelta('b'));
 
-  // length reflects in-memory array, which is empty in cold mode
-  expect(log.length).toBe(0);
   expect(log.activeReaderCount).toBe(0);
 });
 
@@ -205,7 +197,6 @@ it('first reader triggers ensureLoaded and can read historical events', async ()
 
   await new Promise((r) => setTimeout(r, 10));
   expect(log.activeReaderCount).toBe(1);
-  expect(log.length).toBe(2); // now loaded
 
   controller.abort();
   const events = await collected;
@@ -220,14 +211,12 @@ it('last reader leaving triggers unload', async () => {
   const collected = collect(log.createReader({signal: controller.signal}));
 
   await new Promise((r) => setTimeout(r, 10));
-  expect(log.length).toBe(1); // loaded
+  expect(log.activeReaderCount).toBe(1);
 
   controller.abort();
   await collected;
 
-  // After reader exits, memory is released
   expect(log.activeReaderCount).toBe(0);
-  expect(log.length).toBe(0); // unloaded
 });
 
 it('hot append writes to both file and memory', async () => {
@@ -266,7 +255,7 @@ it('after unload, new append only writes to file', async () => {
 
   // Now back to cold mode
   await log.append(textDelta('b'));
-  expect(log.length).toBe(0); // cold — not in memory
+  expect(log.activeReaderCount).toBe(0); // cold
 
   // File has both events
   const content = await readFile(filePath, 'utf-8');
@@ -317,10 +306,6 @@ export class AgentSseLog {
   constructor(filePath?: string) {
     this.filePath = filePath ?? null;
     this.loaded = !this.filePath;
-  }
-
-  get length(): number {
-    return this.events.length;
   }
 
   get activeReaderCount(): number {
