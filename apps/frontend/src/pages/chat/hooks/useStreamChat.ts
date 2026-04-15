@@ -37,57 +37,19 @@ export function useStreamChat({
     if (!sessionId) return;
 
     const controller = new AbortController();
-    let lastUserMessage = '';
-    let assistantText = '';
-
     const subagentBusMap = subagentBusMapRef.current;
 
     eventBus.emit('reset');
 
-    void (async () => {
-      try {
-        for await (const event of subscribeEvents(
-          sessionId,
-          0,
-          controller.signal,
-        )) {
-          routeEvent(
-            event,
-            eventBus,
-            subagentBusMap,
-            setIsStreaming,
-            setStreamError,
-            setMaxRoundsReached,
-          );
-
-          // Track turn context for title generation
-          if (event.type === 'message-start' && event.role === 'user') {
-            lastUserMessage = event.content;
-            assistantText = '';
-          }
-          if (event.type === 'text-delta') {
-            assistantText += event.content;
-          }
-          if (event.type === 'done') {
-            if (assistantText) {
-              eventBus.emit('turn-done', {
-                sessionId,
-                userMessage: lastUserMessage,
-                assistantMessage: assistantText,
-              });
-            }
-            lastUserMessage = '';
-            assistantText = '';
-          }
-        }
-      } catch (e: unknown) {
-        if (e instanceof DOMException && e.name === 'AbortError') return;
-        console.error('SSE connection failed', e);
-        const message =
-          e instanceof Error ? e.message : 'An unexpected error occurred';
-        setStreamError(message);
-      }
-    })();
+    void consumeEventStream(
+      sessionId,
+      controller.signal,
+      eventBus,
+      subagentBusMap,
+      setIsStreaming,
+      setStreamError,
+      setMaxRoundsReached,
+    );
 
     return () => {
       controller.abort();
@@ -147,6 +109,64 @@ export function useStreamChat({
     clearStreamError,
     clearMaxRoundsReached,
   };
+}
+
+// ---------------------------------------------------------------------------
+// SSE connection — consumes the event stream and routes events to the bus
+// ---------------------------------------------------------------------------
+
+async function consumeEventStream(
+  sessionId: string,
+  signal: AbortSignal,
+  eventBus: EventBus<ChatEventMap>,
+  subagentBusMap: Map<string, EventBus<ChatEventMap>>,
+  setIsStreaming: (v: boolean) => void,
+  setStreamError: (v: string | null) => void,
+  setMaxRoundsReached: (v: boolean) => void,
+): Promise<void> {
+  let lastUserMessage = '';
+  let assistantText = '';
+
+  try {
+    const eventStream = subscribeEvents(sessionId, 0, signal);
+
+    for await (const event of eventStream) {
+      routeEvent(
+        event,
+        eventBus,
+        subagentBusMap,
+        setIsStreaming,
+        setStreamError,
+        setMaxRoundsReached,
+      );
+
+      // Track turn context for title generation
+      if (event.type === 'message-start' && event.role === 'user') {
+        lastUserMessage = event.content;
+        assistantText = '';
+      }
+      if (event.type === 'text-delta') {
+        assistantText += event.content;
+      }
+      if (event.type === 'done') {
+        if (assistantText) {
+          eventBus.emit('turn-done', {
+            sessionId,
+            userMessage: lastUserMessage,
+            assistantMessage: assistantText,
+          });
+        }
+        lastUserMessage = '';
+        assistantText = '';
+      }
+    }
+  } catch (e: unknown) {
+    if (e instanceof DOMException && e.name === 'AbortError') return;
+    console.error('SSE connection failed', e);
+    const message =
+      e instanceof Error ? e.message : 'An unexpected error occurred';
+    setStreamError(message);
+  }
 }
 
 // ---------------------------------------------------------------------------
