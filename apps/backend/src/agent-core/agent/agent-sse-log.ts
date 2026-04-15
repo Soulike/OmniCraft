@@ -18,7 +18,7 @@ export interface AgentSseLogReaderOptions {
  */
 export class AgentSseLog {
   private readonly events: SseEvent[] = [];
-  private readonly waiters = new Set<() => void>();
+  private readonly newEventWaiters = new Set<() => void>();
 
   /** Number of events in the log. */
   get length(): number {
@@ -71,7 +71,7 @@ export class AgentSseLog {
   private waitForAppendOrAbort(signal?: AbortSignal): Promise<boolean> {
     return new Promise<boolean>((resolve) => {
       const cleanup = (): void => {
-        this.waiters.delete(onNotify);
+        this.newEventWaiters.delete(onNotify);
         signal?.removeEventListener('abort', onAbort);
       };
 
@@ -85,7 +85,7 @@ export class AgentSseLog {
         resolve(true);
       };
 
-      this.waiters.add(onNotify);
+      this.newEventWaiters.add(onNotify);
 
       if (signal) {
         if (signal.aborted) {
@@ -99,8 +99,8 @@ export class AgentSseLog {
   }
 
   private notifyWaiters(): void {
-    const current = [...this.waiters];
-    this.waiters.clear();
+    const current = [...this.newEventWaiters];
+    this.newEventWaiters.clear();
     for (const notify of current) {
       notify();
     }
