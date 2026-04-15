@@ -1,61 +1,59 @@
-import {type ReactNode, useCallback, useMemo, useState} from 'react';
+import {useCallback, useState} from 'react';
+import {useNavigate, useParams} from 'react-router';
 
 import {createSession} from '@/api/chat/index.js';
+import {ROUTES} from '@/routes.js';
 
-import {
-  SessionIdContext,
-  type SessionIdContextValue,
-} from './SessionIdContext.js';
+import {SessionIdContext} from './SessionIdContext.js';
 
-interface SessionConfig {
-  workspace?: string;
-  extraAllowedPaths?: readonly string[];
+interface SessionIdProviderProps {
+  children: React.ReactNode;
 }
 
-export function SessionIdProvider({children}: {children: ReactNode}) {
-  const [sessionId, setSessionId] = useState<string | null>(null);
+export function SessionIdProvider({children}: SessionIdProviderProps) {
+  const {sessionId} = useParams();
+  const navigate = useNavigate();
   const [error, setError] = useState<string | null>(null);
 
-  const createNewSessionId = useCallback(async (config: SessionConfig = {}) => {
-    setError(null);
-    try {
-      const id = await createSession(config);
-      setSessionId(id);
-      return id;
-    } catch (e) {
-      console.error('Failed to create session', e);
-      const message =
-        e instanceof Error ? e.message : 'Failed to create session';
-      setError(message);
-      return null;
-    }
-  }, []);
+  const createNewSessionId = useCallback(
+    async (config?: {
+      workspace?: string;
+      extraAllowedPaths?: readonly string[];
+    }) => {
+      try {
+        const id = await createSession(config);
+        void navigate(`/chat/${id}`, {replace: true});
+        return id;
+      } catch (e: unknown) {
+        const message =
+          e instanceof Error ? e.message : 'Failed to create session';
+        setError(message);
+        return null;
+      }
+    },
+    [navigate],
+  );
 
   const clearSessionId = useCallback(() => {
-    setSessionId(null);
     setError(null);
-  }, []);
+    void navigate(ROUTES.chat(), {replace: true});
+  }, [navigate]);
 
   const clearCreateNewSessionIdError = useCallback(() => {
     setError(null);
   }, []);
 
-  const value: SessionIdContextValue = useMemo(
-    () => ({
-      sessionId,
-      createNewSessionIdError: error,
-      createNewSessionId,
-      clearSessionId,
-      clearCreateNewSessionIdError,
-    }),
-    [
-      sessionId,
-      error,
-      createNewSessionId,
-      clearSessionId,
-      clearCreateNewSessionIdError,
-    ],
+  return (
+    <SessionIdContext
+      value={{
+        sessionId: sessionId ?? null,
+        createNewSessionIdError: error,
+        createNewSessionId,
+        clearSessionId,
+        clearCreateNewSessionIdError,
+      }}
+    >
+      {children}
+    </SessionIdContext>
   );
-
-  return <SessionIdContext value={value}>{children}</SessionIdContext>;
 }

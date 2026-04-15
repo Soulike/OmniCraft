@@ -1,7 +1,11 @@
 import type {ThinkingLevel} from '@omnicraft/api-schema';
-import {useCallback, useRef, useState} from 'react';
+import {useCallback, useEffect, useRef, useState} from 'react';
 
-import {streamChatCompletion} from '@/api/chat/index.js';
+import {
+  abortCompletion,
+  sendMessage as apiSendMessage,
+  subscribeEvents,
+} from '@/api/chat/index.js';
 import {EventBus} from '@/helpers/event-bus.js';
 
 import type {ChatEventMap} from '../components/StreamingMessageDisplay/index.js';
@@ -16,7 +20,7 @@ interface UseStreamChatOptions {
   createNewSessionId: SessionIdHook['createNewSessionId'];
 }
 
-/** Orchestrates sending a message and consuming the SSE stream. */
+/** Orchestrates the persistent SSE connection and message sending. */
 export function useStreamChat({
   sessionId,
   createNewSessionId,
@@ -24,9 +28,116 @@ export function useStreamChat({
   const [isStreaming, setIsStreaming] = useState(false);
   const [streamError, setStreamError] = useState<string | null>(null);
   const [maxRoundsReached, setMaxRoundsReached] = useState(false);
-  const abortControllerRef = useRef<AbortController | null>(null);
   const subagentBusMapRef = useRef(new Map<string, EventBus<ChatEventMap>>());
   const eventBus = useChatEventBus();
+
+  // Persistent SSE connection — connects when sessionId is set.
+  useEffect(() => {
+    if (!sessionId) return;
+
+    const activeSessionId = sessionId;
+    const controller = new AbortController();
+    const subagentBusMap = subagentBusMapRef.current;
+
+    async function consume(): Promise<void> {
+      let lastUserMessage = '';
+      let assistantText = '';
+
+      try {
+        const eventStream = subscribeEvents(
+          activeSessionId,
+          0,
+          controller.signal,
+        );
+
+        for await (const event of eventStream) {
+          switch (event.type) {
+            case 'message-start':
+              if (event.role === 'user') {
+                lastUserMessage = event.content;
+                assistantText = '';
+              } else {
+                setIsStreaming(true);
+              }
+              routeBaseEventToBus(event, eventBus);
+              break;
+            case 'text-delta':
+              assistantText += event.content;
+              routeBaseEventToBus(event, eventBus);
+              break;
+            case 'tool-execute-start':
+            case 'tool-execute-end':
+            case 'tool-execute-delta':
+            case 'thinking-start':
+            case 'thinking-delta':
+            case 'thinking-end':
+              routeBaseEventToBus(event, eventBus);
+              break;
+            case 'done':
+              if (event.reason === 'max_rounds_reached') {
+                setMaxRoundsReached(true);
+              }
+              routeBaseEventToBus(event, eventBus);
+              setIsStreaming(false);
+              if (assistantText) {
+                eventBus.emit('turn-done', {
+                  sessionId: activeSessionId,
+                  userMessage: lastUserMessage,
+                  assistantMessage: assistantText,
+                });
+              }
+              lastUserMessage = '';
+              assistantText = '';
+              break;
+            case 'error':
+              eventBus.emit('stream-error', {message: event.message});
+              setStreamError(event.message);
+              setIsStreaming(false);
+              break;
+            case 'subagent-dispatch': {
+              const bus = new EventBus<ChatEventMap>();
+              subagentBusMap.set(event.agentId, bus);
+              eventBus.emit('subagent-dispatched', {
+                agentId: event.agentId,
+                task: event.task,
+                agentType: event.agentType,
+                thinkingLevel: event.thinkingLevel,
+                workingDirectory: event.workingDirectory,
+                eventBus: bus,
+              });
+              break;
+            }
+            case 'subagent-output': {
+              const bus = subagentBusMap.get(event.agentId);
+              if (bus) routeBaseEventToBus(event.event, bus);
+              break;
+            }
+            case 'subagent-complete': {
+              eventBus.emit('subagent-completed', {
+                agentId: event.agentId,
+                status: event.status,
+              });
+              subagentBusMap.delete(event.agentId);
+              break;
+            }
+          }
+        }
+      } catch (e: unknown) {
+        if (e instanceof DOMException && e.name === 'AbortError') return;
+        console.error('SSE connection failed', e);
+        const message =
+          e instanceof Error ? e.message : 'An unexpected error occurred';
+        setStreamError(message);
+      }
+    }
+
+    void consume();
+
+    return () => {
+      controller.abort();
+      subagentBusMap.clear();
+    };
+  }, [sessionId, eventBus]);
 
   const sendMessage = useCallback(
     async (content: string, thinkingLevel: ThinkingLevel) => {
@@ -42,103 +153,16 @@ export function useStreamChat({
       setMaxRoundsReached(false);
       setIsStreaming(true);
 
-      const abortController = new AbortController();
-      abortControllerRef.current = abortController;
-
       eventBus.emit('user-message-sent', {content: trimmed});
 
-      let assistantText = '';
-
       try {
-        const stream = streamChatCompletion(
-          activeSessionId,
-          trimmed,
-          thinkingLevel,
-          abortController.signal,
-        );
-
-        for await (const event of stream) {
-          switch (event.type) {
-            case 'text-delta':
-              assistantText += event.content;
-              routeBaseEventToBus(event, eventBus);
-              break;
-            case 'done':
-              if (event.reason === 'max_rounds_reached') {
-                setMaxRoundsReached(true);
-              }
-              routeBaseEventToBus(event, eventBus);
-              break;
-            case 'message-start':
-            case 'tool-execute-start':
-            case 'tool-execute-end':
-            case 'tool-execute-delta':
-            case 'thinking-start':
-            case 'thinking-delta':
-            case 'thinking-end':
-              routeBaseEventToBus(event, eventBus);
-              break;
-            case 'error':
-              eventBus.emit('stream-error', {message: event.message});
-              setStreamError(event.message);
-              break;
-            case 'subagent-dispatch': {
-              const bus = new EventBus<ChatEventMap>();
-              subagentBusMapRef.current.set(event.agentId, bus);
-              eventBus.emit('subagent-dispatched', {
-                agentId: event.agentId,
-                task: event.task,
-                agentType: event.agentType,
-                thinkingLevel: event.thinkingLevel,
-                workingDirectory: event.workingDirectory,
-                eventBus: bus,
-              });
-              break;
-            }
-            case 'subagent-output': {
-              const bus = subagentBusMapRef.current.get(event.agentId);
-              if (bus) routeBaseEventToBus(event.event, bus);
-              break;
-            }
-            case 'subagent-complete': {
-              const bus = subagentBusMapRef.current.get(event.agentId);
-              if (bus) bus.emit('stream-end');
-              eventBus.emit('subagent-completed', {
-                agentId: event.agentId,
-                status: event.status,
-              });
-              subagentBusMapRef.current.delete(event.agentId);
-              break;
-            }
-          }
-        }
+        await apiSendMessage(activeSessionId, trimmed, thinkingLevel);
       } catch (e: unknown) {
-        if (e instanceof DOMException && e.name === 'AbortError') {
-          // Intentional stop — not an error. Keep partial content.
-        } else {
-          console.error('Chat completion failed', e);
-          const message =
-            e instanceof Error ? e.message : 'An unexpected error occurred';
-          eventBus.emit('stream-error', {message});
-          setStreamError(message);
-        }
-      } finally {
-        // Complete any subagents still running (e.g. after user stops generation).
-        for (const [agentId, bus] of subagentBusMapRef.current) {
-          bus.emit('stream-end');
-          eventBus.emit('subagent-completed', {agentId, status: 'failure'});
-        }
-        subagentBusMapRef.current.clear();
-
-        if (assistantText) {
-          eventBus.emit('turn-done', {
-            sessionId: activeSessionId,
-            userMessage: trimmed,
-            assistantMessage: assistantText,
-          });
-        }
-        abortControllerRef.current = null;
-        eventBus.emit('stream-end');
+        console.error('Failed to send message', e);
+        const message =
+          e instanceof Error ? e.message : 'Failed to send message';
+        eventBus.emit('stream-error', {message});
+        setStreamError(message);
         setIsStreaming(false);
       }
     },
@@ -146,8 +170,9 @@ export function useStreamChat({
   );
 
   const stopGeneration = useCallback(() => {
-    abortControllerRef.current?.abort();
-  }, []);
+    if (!sessionId) return;
+    void abortCompletion(sessionId);
+  }, [sessionId]);
 
   const clearStreamError = useCallback(() => {
     setStreamError(null);

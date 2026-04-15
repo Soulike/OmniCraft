@@ -3,8 +3,10 @@ import os from 'node:os';
 
 import type {ThinkingLevel} from '@omnicraft/api-schema';
 import type {AllowedPathEntry} from '@omnicraft/settings-schema';
+import type {SseEvent} from '@omnicraft/sse-events';
 
 import {MainAgent} from '@/agent/agents/index.js';
+import type {AgentSseLogReaderOptions} from '@/agent-core/agent/agent-sse-log.js';
 import {logger} from '@/logger.js';
 import {AgentStore} from '@/models/agent-store/index.js';
 import {SettingsManager} from '@/models/settings-manager/index.js';
@@ -14,7 +16,7 @@ import {
   getLlmConfig,
   truncateToTitle,
 } from './helpers.js';
-import type {CreateSessionResult, StreamCompletionResult} from './types.js';
+import type {CreateSessionResult} from './types.js';
 import {CreateSessionError} from './types.js';
 import {validateSessionPaths} from './validation.js';
 
@@ -88,28 +90,42 @@ export const chatService = {
   },
 
   /**
-   * Streams a completion for the given agent.
-   * Returns undefined if the agent does not exist.
+   * Sends a user message to the agent. The agent runs in the background;
+   * use {@link subscribe} to read events. Returns false if agent not found.
    */
-  streamCompletion(
+  sendCompletion(
     agentId: string,
     userMessage: string,
     thinkingLevel: ThinkingLevel,
-  ): StreamCompletionResult | undefined {
+  ): boolean {
+    const agent = AgentStore.getInstance().get(agentId);
+    if (!agent) return false;
+    agent.handleUserMessage(userMessage, thinkingLevel);
+    return true;
+  },
+
+  /**
+   * Returns an async iterable of SSE events for the given agent.
+   * Returns undefined if agent not found.
+   */
+  subscribe(
+    agentId: string,
+    options?: AgentSseLogReaderOptions,
+  ): AsyncIterable<SseEvent> | undefined {
     const agent = AgentStore.getInstance().get(agentId);
     if (!agent) return undefined;
-    const abortController = new AbortController();
-    const eventStream = agent.handleUserMessage(
-      userMessage,
-      thinkingLevel,
-      abortController.signal,
-    );
-    return {
-      eventStream,
-      abort: () => {
-        abortController.abort();
-      },
-    };
+    return agent.subscribe(options);
+  },
+
+  /**
+   * Aborts the currently running turn for the given agent.
+   * Returns false if agent not found.
+   */
+  abortCompletion(agentId: string): boolean {
+    const agent = AgentStore.getInstance().get(agentId);
+    if (!agent) return false;
+    agent.abort();
+    return true;
   },
 
   /**

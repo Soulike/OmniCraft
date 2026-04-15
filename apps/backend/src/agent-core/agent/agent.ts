@@ -5,6 +5,7 @@ import os from 'node:os';
 import type {ThinkingLevel} from '@omnicraft/api-schema';
 import type {
   SseDoneEvent,
+  SseEvent,
   SseMessageStartEvent,
   SseSubAgentEvent,
   SseTextDeltaEvent,
@@ -19,6 +20,7 @@ import type {
 import type {AnyToolResultData, ToolName} from '@omnicraft/tool-schemas';
 
 import {AsyncChannel} from '@/helpers/async-channel.js';
+import {Mutex} from '@/helpers/mutex.js';
 
 import {agentEventBus} from '../events/index.js';
 import type {LlmConfig, LlmToolCall} from '../llm-api/index.js';
@@ -34,6 +36,8 @@ import type {
 } from '../tool/index.js';
 import {loadSkillTool} from '../tool/index.js';
 import {UserInteractionBridge} from '../user-interaction/index.js';
+import type {AgentSseLogReaderOptions} from './agent-sse-log.js';
+import {AgentSseLog} from './agent-sse-log.js';
 import {FileContentCache} from './file-content-cache.js';
 import {FileStatTracker} from './file-stat-tracker.js';
 import type {AgentEventStream, AgentOptions, AgentSnapshot} from './types.js';
@@ -77,6 +81,15 @@ export abstract class Agent {
 
   /** Bridge for client-side tools that await user interaction. */
   private readonly userInteractionBridge = new UserInteractionBridge();
+
+  /** Append-only event log. All turns write to the same log. */
+  readonly sseLog = new AgentSseLog();
+
+  /** Serializes turns — only one runs at a time. */
+  private readonly mutex = new Mutex();
+
+  /** Per-turn abort controller. Null when no turn is running. */
+  private abortController: AbortController | null = null;
 
   constructor(
     getConfig: () => Promise<LlmConfig>,
@@ -133,16 +146,84 @@ export abstract class Agent {
   }
 
   /**
-   * Handles a user message by running the full Agent Loop.
-   *
-   * Streams LLM responses, executes tool calls, and repeats until
-   * the LLM produces no tool calls or the maximum round limit is reached.
+   * Handles a user message by running the full Agent Loop in the background.
+   * Events are written to {@link sseLog}. Use {@link subscribe} to read them.
    */
-  async *handleUserMessage(
+  handleUserMessage(userMessage: string, thinkingLevel: ThinkingLevel): void {
+    void this.runTurn(userMessage, thinkingLevel);
+  }
+
+  /** Returns an async iterable of events from this agent's log. */
+  subscribe(options?: AgentSseLogReaderOptions): AsyncIterable<SseEvent> {
+    return this.sseLog.createReader(options);
+  }
+
+  /** Aborts the currently running turn, if any. */
+  abort(): void {
+    this.abortController?.abort();
+  }
+
+  // -------------------------------------------------------------------------
+  // Private helpers
+  // -------------------------------------------------------------------------
+
+  private async runTurn(
+    userMessage: string,
+    thinkingLevel: ThinkingLevel,
+  ): Promise<void> {
+    const release = await this.mutex.acquire();
+    try {
+      this.abortController = new AbortController();
+      const stream = this.runAgentLoop(
+        userMessage,
+        thinkingLevel,
+        this.abortController.signal,
+      );
+      await this.pump(stream);
+    } finally {
+      this.abortController = null;
+      release();
+    }
+  }
+
+  private async pump(stream: AgentEventStream): Promise<void> {
+    try {
+      for await (const event of stream) {
+        this.sseLog.append(event);
+      }
+    } catch {
+      this.sseLog.append({
+        type: 'error',
+        message: 'An internal error occurred',
+      });
+    }
+  }
+
+  private async *emitAbortCompletion(
+    inFlightToolCalls: Set<string>,
+  ): AgentEventStream {
+    for (const callId of inFlightToolCalls) {
+      yield {
+        type: 'tool-execute-end',
+        callId,
+        result: 'Aborted',
+        status: 'error',
+        data: {message: 'Aborted'},
+      } satisfies SseToolExecuteEndEvent;
+    }
+    yield {
+      type: 'done',
+      reason: 'aborted',
+      usage: await this.buildSseUsage(),
+    } satisfies SseDoneEvent;
+  }
+
+  protected async *runAgentLoop(
     userMessage: string,
     thinkingLevel: ThinkingLevel,
     signal: AbortSignal,
   ): AgentEventStream {
+    const inFlightToolCalls = new Set<string>();
     const maxRounds = await this.getMaxToolRounds();
 
     const {
@@ -162,13 +243,17 @@ export abstract class Agent {
       role: 'user',
       messageId,
       createdAt,
+      content: userMessage,
     } satisfies SseMessageStartEvent;
 
     let toolCalls = yield* this.consumeStream(userStream);
 
     let round = 0;
     while (toolCalls.length > 0) {
-      if (signal.aborted) return;
+      if (signal.aborted) {
+        yield* this.emitAbortCompletion(inFlightToolCalls);
+        return;
+      }
 
       round++;
       if (round > maxRounds) {
@@ -182,10 +267,10 @@ export abstract class Agent {
 
       const availableTools = this.getAvailableTools();
 
-      // Emit all tool-execute-start events up front (skip unknown/suppressed tools)
       for (const toolCall of toolCalls) {
         const tool = availableTools.get(toolCall.toolName);
         if (!tool || tool.suppressToolEvents) continue;
+        inFlightToolCalls.add(toolCall.callId);
         yield {
           type: 'tool-execute-start',
           callId: toolCall.callId,
@@ -195,13 +280,11 @@ export abstract class Agent {
         } satisfies SseToolExecuteStartEvent;
       }
 
-      // Execute all tools in parallel, streaming end events as each completes
       const toolSseEventChannel = new AsyncChannel<
         SseToolExecuteEndEvent | SseToolExecuteDeltaEvent | SseSubAgentEvent
       >();
       const toolResults = new Map<string, ToolResult>();
 
-      // Handle unknown tools immediately — no SSE events, just error for LLM
       for (const toolCall of toolCalls) {
         if (availableTools.has(toolCall.toolName)) continue;
         toolResults.set(toolCall.callId, {
@@ -247,14 +330,22 @@ export abstract class Agent {
         });
 
       for await (const event of toolSseEventChannel) {
+        if (event.type === 'tool-execute-end') {
+          inFlightToolCalls.delete(event.callId);
+        }
         yield event;
+        // signal.aborted may have changed during async tool execution
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+        if (signal.aborted) break;
       }
 
       // signal.aborted may have changed during async tool execution
       // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-      if (signal.aborted) return;
+      if (signal.aborted) {
+        yield* this.emitAbortCompletion(inFlightToolCalls);
+        return;
+      }
 
-      // Submit results in the same order as the original tool calls
       const orderedResults = toolCalls.flatMap((tc) => {
         const result = toolResults.get(tc.callId);
         return result ? [result] : [];
@@ -277,10 +368,6 @@ export abstract class Agent {
       usage: await this.buildSseUsage(),
     } satisfies SseDoneEvent;
   }
-
-  // -------------------------------------------------------------------------
-  // Private helpers
-  // -------------------------------------------------------------------------
 
   /**
    * Builds the full SseUsage object by combining LLM session token counts
@@ -420,6 +507,7 @@ export abstract class Agent {
             role: 'assistant',
             messageId: event.messageId,
             createdAt: event.createdAt,
+            content: '',
           } satisfies SseMessageStartEvent;
           break;
         case 'tool-call':

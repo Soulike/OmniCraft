@@ -39,6 +39,7 @@ export const sseMessageStartEventSchema = z.object({
   role: z.enum(['user', 'assistant']),
   messageId: z.string(),
   createdAt: z.number(),
+  content: z.string(),
 });
 export type SseMessageStartEvent = z.infer<typeof sseMessageStartEventSchema>;
 
@@ -65,7 +66,7 @@ export type SseUsage = z.infer<typeof sseUsageSchema>;
 /** Stream completed. Reason indicates whether it finished normally or was capped. */
 export const sseDoneEventSchema = z.object({
   type: z.literal('done'),
-  reason: z.enum(['complete', 'max_rounds_reached']),
+  reason: z.enum(['complete', 'max_rounds_reached', 'aborted']),
   usage: sseUsageSchema,
 });
 export type SseDoneEvent = z.infer<typeof sseDoneEventSchema>;

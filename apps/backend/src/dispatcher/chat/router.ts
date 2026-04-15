@@ -1,3 +1,4 @@
+import type {IncomingMessage} from 'node:http';
 import {PassThrough} from 'node:stream';
 
 import Router from '@koa/router';
@@ -13,10 +14,12 @@ import {ZodError} from 'zod';
 
 import {chatService} from '@/services/chat/index.js';
 
-import {pumpEventStream} from './helpers/sse.js';
+import {writeSseEvent} from './helpers/sse.js';
 import {
   CHAT_SESSION,
+  CHAT_SESSION_ABORT,
   CHAT_SESSION_COMPLETIONS,
+  CHAT_SESSION_EVENTS,
   CHAT_SESSION_GENERATE_TITLE,
   CHAT_SESSION_TOOL_RESPONSE,
 } from './path.js';
@@ -55,7 +58,7 @@ router.post(CHAT_SESSION, async (ctx) => {
   ctx.response.body = {sessionId: result.sessionId};
 });
 
-/** POST /chat/session/:id/completions — streams a chat completion. */
+/** POST /chat/session/:id/completions — starts a chat completion in the background. */
 router.post(CHAT_SESSION_COMPLETIONS, (ctx) => {
   const {id} = ctx.params;
 
@@ -74,14 +77,31 @@ router.post(CHAT_SESSION_COMPLETIONS, (ctx) => {
     throw e;
   }
 
-  const result = chatService.streamCompletion(id, message, thinkingLevel);
-  if (!result) {
+  const found = chatService.sendCompletion(id, message, thinkingLevel);
+  if (!found) {
     ctx.response.status = StatusCodes.NOT_FOUND;
     ctx.response.body = {error: `Session not found: ${id}`};
     return;
   }
 
-  const {eventStream, abort} = result;
+  ctx.response.status = StatusCodes.ACCEPTED;
+});
+
+/** GET /chat/session/:id/events — SSE stream of agent events. */
+router.get(CHAT_SESSION_EVENTS, (ctx) => {
+  const {id} = ctx.params;
+  const from = Math.max(0, Number(ctx.query.from) || 0);
+
+  const abortController = new AbortController();
+  const eventStream = chatService.subscribe(id, {
+    startIndex: from,
+    signal: abortController.signal,
+  });
+  if (!eventStream) {
+    ctx.response.status = StatusCodes.NOT_FOUND;
+    ctx.response.body = {error: `Session not found: ${id}`};
+    return;
+  }
 
   ctx.response.type = 'text/event-stream';
   ctx.response.set('Cache-Control', 'no-cache');
@@ -91,19 +111,53 @@ router.post(CHAT_SESSION_COMPLETIONS, (ctx) => {
   const stream = new PassThrough();
   ctx.body = stream;
 
+  void pumpSseEvents(stream, eventStream, ctx.req, abortController);
+});
+
+/**
+ * Pumps events from an async iterable to a PassThrough SSE stream.
+ * Runs in the background — must not be awaited inside a Koa handler,
+ * otherwise Koa's respond() never fires and the client receives nothing.
+ */
+async function pumpSseEvents(
+  stream: PassThrough,
+  eventStream: AsyncIterable<unknown>,
+  req: IncomingMessage,
+  abortController: AbortController,
+): Promise<void> {
   const onDisconnect = () => {
-    ctx.req.off('close', onDisconnect);
-    abort();
+    req.off('close', onDisconnect);
+    abortController.abort();
     if (!stream.destroyed) {
       stream.destroy();
     }
-    void eventStream.return();
   };
-  ctx.req.on('close', onDisconnect);
+  req.on('close', onDisconnect);
 
-  void pumpEventStream(stream, eventStream).finally(() => {
-    ctx.req.off('close', onDisconnect);
-  });
+  try {
+    for await (const event of eventStream) {
+      writeSseEvent(stream, event);
+    }
+  } finally {
+    req.off('close', onDisconnect);
+    if (!stream.destroyed) {
+      stream.end();
+    }
+  }
+}
+
+/** POST /chat/session/:id/abort — aborts the running agent turn. */
+router.post(CHAT_SESSION_ABORT, (ctx) => {
+  const {id} = ctx.params;
+
+  const found = chatService.abortCompletion(id);
+  if (!found) {
+    ctx.response.status = StatusCodes.NOT_FOUND;
+    ctx.response.body = {error: `Session not found: ${id}`};
+    return;
+  }
+
+  ctx.response.status = StatusCodes.NO_CONTENT;
 });
 
 /** POST /chat/session/:id/generate-title — generates a title for a session. */
