@@ -1,3 +1,4 @@
+import type {IncomingMessage} from 'node:http';
 import {PassThrough} from 'node:stream';
 
 import Router from '@koa/router';
@@ -110,28 +111,40 @@ router.get(CHAT_SESSION_EVENTS, (ctx) => {
   const stream = new PassThrough();
   ctx.body = stream;
 
+  void pumpSseEvents(stream, eventStream, ctx.req, abortController);
+});
+
+/**
+ * Pumps events from an async iterable to a PassThrough SSE stream.
+ * Runs in the background — must not be awaited inside a Koa handler,
+ * otherwise Koa's respond() never fires and the client receives nothing.
+ */
+async function pumpSseEvents(
+  stream: PassThrough,
+  eventStream: AsyncIterable<unknown>,
+  req: IncomingMessage,
+  abortController: AbortController,
+): Promise<void> {
   const onDisconnect = () => {
-    ctx.req.off('close', onDisconnect);
+    req.off('close', onDisconnect);
     abortController.abort();
     if (!stream.destroyed) {
       stream.destroy();
     }
   };
-  ctx.req.on('close', onDisconnect);
+  req.on('close', onDisconnect);
 
-  void (async () => {
-    try {
-      for await (const event of eventStream) {
-        writeSseEvent(stream, event);
-      }
-    } finally {
-      ctx.req.off('close', onDisconnect);
-      if (!stream.destroyed) {
-        stream.end();
-      }
+  try {
+    for await (const event of eventStream) {
+      writeSseEvent(stream, event);
     }
-  })();
-});
+  } finally {
+    req.off('close', onDisconnect);
+    if (!stream.destroyed) {
+      stream.end();
+    }
+  }
+}
 
 /** POST /chat/session/:id/abort — aborts the running agent turn. */
 router.post(CHAT_SESSION_ABORT, (ctx) => {
