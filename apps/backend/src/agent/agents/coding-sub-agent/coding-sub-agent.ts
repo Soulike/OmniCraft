@@ -89,6 +89,14 @@ export class CodingSubAgent extends Agent {
     // Dynamic import to avoid loading the SDK when no coding subagent is used.
     const {query} = await import('@anthropic-ai/claude-agent-sdk');
 
+    yield {
+      type: 'message-start',
+      role: 'user',
+      messageId: crypto.randomUUID(),
+      createdAt: Date.now(),
+      content: userMessage,
+    } satisfies SseMessageStartEvent;
+
     const sdkAbortController = new AbortController();
     if (signal.aborted) {
       sdkAbortController.abort();
