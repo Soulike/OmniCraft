@@ -751,23 +751,24 @@ In `runTurn`, update the `onEvent` callback to also persist snapshot on `done` a
     if (!content.trim()) return;
 
     const lines = content.trimEnd().split('\n');
-    const validEvents: string[] = [];
+    const validLines: string[] = [];
 
-    for (let i = 0; i < lines.length; i++) {
+    for (const line of lines) {
+      let raw: unknown;
       try {
-        const event: SseEvent = JSON.parse(lines[i]);
-        validEvents.push(lines[i]);
-        // We only care about the raw line, not the parsed event,
-        // except to find the last 'done'
+        raw = JSON.parse(line);
       } catch {
-        // Corrupted line — skip (only expected for last line)
+        continue; // Malformed JSON — skip
+      }
+      if (sseEventSchema.safeParse(raw).success) {
+        validLines.push(line);
       }
     }
 
     // Find last 'done' event index
     let lastDoneIndex = -1;
-    for (let i = validEvents.length - 1; i >= 0; i--) {
-      const event = JSON.parse(validEvents[i]) as SseEvent;
+    for (let i = validLines.length - 1; i >= 0; i--) {
+      const event = sseEventSchema.parse(JSON.parse(validLines[i]));
       if (event.type === 'done') {
         lastDoneIndex = i;
         break;
@@ -775,13 +776,12 @@ In `runTurn`, update the `onEvent` callback to also persist snapshot on `done` a
     }
 
     if (lastDoneIndex === -1) {
-      // No done event — clear the file
       await writeFile(filePath, '');
       return;
     }
 
-    const truncated = validEvents.slice(0, lastDoneIndex + 1);
-    if (truncated.length !== lines.length || validEvents.length !== lines.length) {
+    const truncated = validLines.slice(0, lastDoneIndex + 1);
+    if (truncated.length !== lines.length || validLines.length !== lines.length) {
       await writeFile(filePath, truncated.join('\n') + '\n');
     }
   }
