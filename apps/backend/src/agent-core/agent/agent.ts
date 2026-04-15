@@ -44,6 +44,8 @@ import {FileContentCache} from './file-content-cache.js';
 import {FileStatTracker} from './file-stat-tracker.js';
 import type {AgentEventStream, AgentOptions, AgentSnapshot} from './types.js';
 
+const TITLE_MAX_LENGTH = 20;
+
 /**
  * Base class for all agents.
  *
@@ -406,8 +408,6 @@ export abstract class Agent {
     };
   }
 
-  private static readonly TITLE_MAX_LENGTH = 20;
-
   /**
    * Generates a session title from the first user + assistant exchange
    * using the light LLM, then appends a `session-title` event to sseLog.
@@ -454,9 +454,9 @@ export abstract class Agent {
     } catch {
       const trimmed = userMsg.content.trim();
       title =
-        trimmed.length <= Agent.TITLE_MAX_LENGTH
+        trimmed.length <= TITLE_MAX_LENGTH
           ? trimmed
-          : `${trimmed.slice(0, Agent.TITLE_MAX_LENGTH)}…`;
+          : `${trimmed.slice(0, TITLE_MAX_LENGTH)}…`;
     }
 
     this.title = title;
