@@ -150,6 +150,7 @@ export function useStreamChat({
           if (!isRetriableError(e)) {
             const message =
               e instanceof Error ? e.message : 'An unexpected error occurred';
+            setIsReconnecting(false);
             setStreamError(message);
             return;
           }
@@ -158,6 +159,7 @@ export function useStreamChat({
 
         consecutiveFailures++;
         if (consecutiveFailures > MAX_RETRIES) {
+          setIsReconnecting(false);
           setStreamError('Connection lost. Please refresh the page.');
           return;
         }
@@ -257,6 +259,7 @@ function abortableSleep(ms: number, signal: AbortSignal): Promise<boolean> {
       return;
     }
     const timer = setTimeout(() => {
+      signal.removeEventListener('abort', onAbort);
       resolve(true);
     }, ms);
     const onAbort = () => {
