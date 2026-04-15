@@ -393,10 +393,16 @@ export class AgentSseLog {
       let content: string;
       try {
         content = await readFile(this.filePath, 'utf-8');
-      } catch {
-        // File doesn't exist yet — nothing to load
-        this.loaded = true;
-        return;
+      } catch (error: unknown) {
+        if (
+          error instanceof Error &&
+          'code' in error &&
+          error.code === 'ENOENT'
+        ) {
+          this.loaded = true;
+          return;
+        }
+        throw error;
       }
 
       if (!content.trim()) {
@@ -694,8 +700,11 @@ In `runTurn`, update the `onEvent` callback to also persist snapshot on `done` a
     let content: string;
     try {
       content = await readFile(filePath, 'utf-8');
-    } catch {
-      return; // No events file — nothing to reconcile
+    } catch (error: unknown) {
+      if (error instanceof Error && 'code' in error && error.code === 'ENOENT') {
+        return;
+      }
+      throw error;
     }
 
     if (!content.trim()) return;
