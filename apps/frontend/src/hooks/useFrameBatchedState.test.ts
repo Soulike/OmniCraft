@@ -42,7 +42,7 @@ afterEach(() => {
 });
 
 // ---------------------------------------------------------------------------
-// resolveAction
+// applySetStateAction
 // ---------------------------------------------------------------------------
 describe('applySetStateAction', () => {
   it('returns the value directly when given a non-function', () => {
