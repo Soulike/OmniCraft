@@ -308,7 +308,7 @@ export function useMessages() {
       setMessages(finishThinking);
     };
     const onReset = () => {
-      setMessages(() => []);
+      setMessages([]);
     };
     const onSubagentDispatched = (data: {
       agentId: string;
