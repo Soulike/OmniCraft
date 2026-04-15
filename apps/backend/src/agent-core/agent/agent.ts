@@ -147,6 +147,7 @@ export abstract class Agent {
     return {
       id: this.id,
       title: this.title,
+      sseEventCount: 0,
       llmSession: this.llmSession.toSnapshot(),
       options: {
         workingDirectory: this.workingDirectory,
@@ -214,11 +215,11 @@ export abstract class Agent {
   ): Promise<void> {
     try {
       for await (const event of stream) {
-        this.sseLog.append(event);
+        await this.sseLog.append(event);
         onEvent?.(event);
       }
     } catch {
-      this.sseLog.append({
+      await this.sseLog.append({
         type: 'error',
         message: 'An internal error occurred',
       });
@@ -461,7 +462,7 @@ export abstract class Agent {
     }
 
     this.title = title;
-    this.sseLog.append({
+    await this.sseLog.append({
       type: 'session-title',
       title,
     } satisfies SseSessionTitleEvent);
