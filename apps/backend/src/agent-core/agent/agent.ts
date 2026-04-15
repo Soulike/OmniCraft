@@ -7,6 +7,7 @@ import type {
   SseDoneEvent,
   SseEvent,
   SseMessageStartEvent,
+  SseSessionTitleEvent,
   SseSubAgentEvent,
   SseTextDeltaEvent,
   SseThinkingDeltaEvent,
@@ -24,6 +25,7 @@ import {Mutex} from '@/helpers/mutex.js';
 
 import {agentEventBus} from '../events/index.js';
 import type {LlmConfig, LlmToolCall} from '../llm-api/index.js';
+import {llmApi} from '../llm-api/index.js';
 import type {LlmSessionEventStream, ToolResult} from '../llm-session/index.js';
 import {LlmSession} from '../llm-session/index.js';
 import {modelCapacity} from '../model-capacity/index.js';
@@ -65,6 +67,7 @@ export abstract class Agent {
   private readonly baseSystemPrompt: string;
   private readonly getMaxToolRounds: AgentOptions['getMaxToolRounds'];
   private readonly getConfig: () => Promise<LlmConfig>;
+  private readonly getLightConfig: (() => Promise<LlmConfig>) | null;
 
   private readonly workingDirectory: string;
 
@@ -101,6 +104,7 @@ export abstract class Agent {
     this.baseSystemPrompt = options.baseSystemPrompt;
     this.getMaxToolRounds = options.getMaxToolRounds;
     this.getConfig = getConfig;
+    this.getLightConfig = options.getLightConfig ?? null;
 
     this.extraAllowedPaths = [
       {path: os.tmpdir(), mode: 'read-write' as const},
@@ -179,17 +183,31 @@ export abstract class Agent {
         thinkingLevel,
         this.abortController.signal,
       );
-      await this.pump(stream);
+      const doneReason = await this.pump(stream);
+
+      if (doneReason === 'complete' && !this.title && this.getLightConfig) {
+        void this.generateAndEmitTitle();
+      }
     } finally {
       this.abortController = null;
       release();
     }
   }
 
-  private async pump(stream: AgentEventStream): Promise<void> {
+  /**
+   * Consumes the agent event stream and appends each event to sseLog.
+   * Returns the done reason if a `done` event was emitted, or `null`.
+   */
+  private async pump(
+    stream: AgentEventStream,
+  ): Promise<SseDoneEvent['reason'] | null> {
+    let doneReason: SseDoneEvent['reason'] | null = null;
     try {
       for await (const event of stream) {
         this.sseLog.append(event);
+        if (event.type === 'done') {
+          doneReason = event.reason;
+        }
       }
     } catch {
       this.sseLog.append({
@@ -197,6 +215,7 @@ export abstract class Agent {
         message: 'An internal error occurred',
       });
     }
+    return doneReason;
   }
 
   private async *emitAbortCompletion(
@@ -381,6 +400,66 @@ export abstract class Agent {
       maxInputTokens,
       ...this.llmSession.getUsage(),
     };
+  }
+
+  private static readonly TITLE_MAX_LENGTH = 20;
+
+  /**
+   * Generates a session title from the first user + assistant exchange
+   * using the light LLM, then appends a `session-title` event to sseLog.
+   * Fire-and-forget — errors are swallowed and a fallback title is used.
+   */
+  private async generateAndEmitTitle(): Promise<void> {
+    assert(this.getLightConfig, 'getLightConfig must be set');
+    const messages = this.llmSession.getMessages();
+    const userMsg = messages.find((m) => m.role === 'user');
+    const assistantMsg = messages.find((m) => m.role === 'assistant');
+    if (!userMsg || !assistantMsg) return;
+
+    let title: string;
+    try {
+      const config = await this.getLightConfig();
+      const stream = llmApi.streamCompletion({
+        config,
+        messages: [
+          {
+            id: crypto.randomUUID(),
+            createdAt: Date.now(),
+            role: 'user',
+            content: [
+              'Generate a short title (under 20 characters) for this conversation.',
+              'Reply with ONLY the title, no quotes or extra text.',
+              '',
+              `User: ${userMsg.content}`,
+              '',
+              `Assistant: ${assistantMsg.content}`,
+            ].join('\n'),
+          },
+        ],
+        tools: [],
+        thinkingLevel: 'none',
+      });
+
+      title = '';
+      for await (const event of stream) {
+        if (event.type === 'text-delta') {
+          title += event.content;
+        }
+      }
+      title = title.trim();
+    } catch {
+      const trimmed = userMsg.content.trim();
+      title =
+        trimmed.length <= Agent.TITLE_MAX_LENGTH
+          ? trimmed
+          : `${trimmed.slice(0, Agent.TITLE_MAX_LENGTH)}…`;
+    }
+
+    this.title = title;
+    this.sseLog.append({
+      type: 'session-title',
+      title,
+    } satisfies SseSessionTitleEvent);
   }
 
   /**
