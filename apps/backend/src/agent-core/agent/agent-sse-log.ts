@@ -20,15 +20,22 @@ export class AgentSseLog {
   private readonly events: SseEvent[] = [];
   private readonly waiters = new Set<() => void>();
 
+  /** Number of events in the log. */
   get length(): number {
     return this.events.length;
   }
 
+  /** Appends an event to the log and wakes all waiting readers. */
   append(event: SseEvent): void {
     this.events.push(event);
     this.notifyWaiters();
   }
 
+  /**
+   * Creates a reader that replays events from {@link startIndex},
+   * then blocks waiting for new events until the signal is aborted.
+   * Abort ends iteration silently.
+   */
   createReader(options?: AgentSseLogReaderOptions): AsyncIterable<SseEvent> {
     const startIndex = options?.startIndex ?? 0;
     assert(startIndex >= 0, 'startIndex must be non-negative');
@@ -57,6 +64,10 @@ export class AgentSseLog {
     }
   }
 
+  /**
+   * Returns a promise that resolves when a waiter notification fires
+   * or the signal aborts. Returns `true` if aborted, `false` otherwise.
+   */
   private waitForChange(signal?: AbortSignal): Promise<boolean> {
     return new Promise<boolean>((resolve) => {
       const cleanup = (): void => {
