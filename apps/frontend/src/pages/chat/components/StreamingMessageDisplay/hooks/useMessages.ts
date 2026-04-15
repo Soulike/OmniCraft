@@ -270,45 +270,45 @@ function updateSubagentStatus(
 
 /** Manages the chat message history, subscribing to chat events. */
 export function useMessages() {
-  const [messages, enqueue] = useFrameBatchedState<ChatMessage[]>([]);
+  const [messages, setMessages] = useFrameBatchedState<ChatMessage[]>([]);
   const eventBus = useChatEventBus();
 
   useEffect(() => {
     const onUserMessageSent = (data: {content: string}) => {
-      enqueue((prev) => addUserMessage(prev, data.content));
+      setMessages((prev) => addUserMessage(prev, data.content));
     };
     const onTextDelta = (data: SseTextDeltaEvent) => {
-      enqueue((prev) => appendAssistantText(prev, data.content));
+      setMessages((prev) => appendAssistantText(prev, data.content));
     };
     const onToolExecuteStart = (data: SseToolExecuteStartEvent) => {
-      enqueue((prev) => pushToolStart(prev, data));
+      setMessages((prev) => pushToolStart(prev, data));
     };
     const onToolExecuteEnd = (data: SseToolExecuteEndEvent) => {
-      enqueue((prev) => pushToolEnd(prev, data));
+      setMessages((prev) => pushToolEnd(prev, data));
     };
     const onDone = () => {
-      enqueue(removeTrailingAssistantMessageIfEmpty);
+      setMessages(removeTrailingAssistantMessageIfEmpty);
     };
     const onMessageStart = (data: SseMessageStartEvent) => {
       if (data.role === 'user') {
-        enqueue((prev) => applyUserMessageStart(prev, data));
+        setMessages((prev) => applyUserMessageStart(prev, data));
       } else {
-        enqueue((prev) =>
+        setMessages((prev) =>
           applyAssistantMessageStart(prev, data.messageId, data.createdAt),
         );
       }
     };
     const onThinkingStart = () => {
-      enqueue(pushThinkingStart);
+      setMessages(pushThinkingStart);
     };
     const onThinkingDelta = (data: SseThinkingDeltaEvent) => {
-      enqueue((prev) => appendThinkingDelta(prev, data.content));
+      setMessages((prev) => appendThinkingDelta(prev, data.content));
     };
     const onThinkingEnd = () => {
-      enqueue(finishThinking);
+      setMessages(finishThinking);
     };
     const onReset = () => {
-      enqueue(() => []);
+      setMessages(() => []);
     };
     const onSubagentDispatched = (data: {
       agentId: string;
@@ -318,13 +318,13 @@ export function useMessages() {
       workingDirectory: string;
       eventBus: ChatEventBus;
     }) => {
-      enqueue((prev) => pushSubagentStart(prev, data));
+      setMessages((prev) => pushSubagentStart(prev, data));
     };
     const onSubagentCompleted = (data: {
       agentId: string;
       status: 'success' | 'failure';
     }) => {
-      enqueue((prev) => updateSubagentStatus(prev, data));
+      setMessages((prev) => updateSubagentStatus(prev, data));
     };
 
     eventBus.on('user-message-sent', onUserMessageSent);
@@ -354,7 +354,7 @@ export function useMessages() {
       eventBus.off('subagent-dispatched', onSubagentDispatched);
       eventBus.off('subagent-completed', onSubagentCompleted);
     };
-  }, [eventBus, enqueue]);
+  }, [eventBus, setMessages]);
 
   return {messages};
 }

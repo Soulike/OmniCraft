@@ -1,46 +1,66 @@
-import {useCallback, useEffect, useRef, useState} from 'react';
-
-type Transform<T> = (prev: T) => T;
+import {
+  type Dispatch,
+  type SetStateAction,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
 
 export interface FrameBatchScheduler<T> {
   /**
-   * Enqueues a state transform. All transforms enqueued within the same
-   * animation frame are composed and applied as a single state update.
+   * Accepts the same argument as React's `setState` — either a new value
+   * or an updater function `(prev) => next`. All actions enqueued within
+   * the same animation frame are composed and applied as a single state
+   * update.
    */
-  enqueue: (fn: Transform<T>) => void;
-  /** Cancels any pending flush. */
+  setState: Dispatch<SetStateAction<T>>;
+  /** Cancels any pending flush and discards queued actions. */
   cancel: () => void;
 }
 
 /**
- * Creates a scheduler that coalesces {@link Transform} functions within a
+ * Resolves a {@link SetStateAction} against the current state.
+ *
+ * Exported for testing — consumers should prefer {@link useFrameBatchedState}.
+ */
+export function resolveAction<T>(action: SetStateAction<T>, prev: T): T {
+  // React uses the same `typeof` check internally.  When `T` is itself
+  // a function type the caller must always use the updater form.
+  return typeof action === 'function'
+    ? (action as (prev: T) => T)(prev)
+    : action;
+}
+
+/**
+ * Creates a scheduler that coalesces {@link SetStateAction}s within a
  * single `requestAnimationFrame` window and flushes them as one composed
- * transform.
+ * update.
  *
  * Exported for testing — consumers should prefer {@link useFrameBatchedState}.
  */
 export function createFrameBatchScheduler<T>(
-  onFlush: (composed: Transform<T>) => void,
+  onFlush: Dispatch<SetStateAction<T>>,
 ): FrameBatchScheduler<T> {
-  let queue: Transform<T>[] = [];
+  let queue: SetStateAction<T>[] = [];
   let rafId = 0;
 
   function flush(): void {
     rafId = 0;
-    const transforms = queue;
-    if (transforms.length === 0) return;
+    const actions = queue;
+    if (actions.length === 0) return;
     queue = [];
     onFlush((prev) => {
       let state = prev;
-      for (const fn of transforms) {
-        state = fn(state);
+      for (const action of actions) {
+        state = resolveAction(action, state);
       }
       return state;
     });
   }
 
-  function enqueue(fn: Transform<T>): void {
-    queue.push(fn);
+  function setState(action: SetStateAction<T>): void {
+    queue.push(action);
     if (rafId === 0) {
       rafId = requestAnimationFrame(flush);
     }
@@ -52,32 +72,33 @@ export function createFrameBatchScheduler<T>(
     queue = [];
   }
 
-  return {enqueue, cancel};
+  return {setState, cancel};
 }
 
 /**
- * Like `useState`, but batches state updates per animation frame.
+ * Drop-in replacement for `useState` that batches updates per animation
+ * frame.
  *
- * Instead of calling the setter on every event (which may cause intermediate
- * renders during rapid updates), transforms are queued and flushed once per
- * `requestAnimationFrame`. When updates arrive faster than the frame rate
- * (e.g. replaying historical events), they are composed into a single state
- * transition — the component sees only the final result in one render.
- * When updates are sparse (e.g. live streaming tokens), each frame contains
- * at most one transform and behaviour is equivalent to a direct `setState`.
+ * The returned setter has the same signature as React's `setState` —
+ * it accepts either a new value or an updater `(prev) => next`. When
+ * updates arrive faster than the frame rate (e.g. replaying historical
+ * SSE events), they are composed into a single state transition so the
+ * component sees only the final result in one render. When updates are
+ * sparse (e.g. live streaming tokens), each frame contains at most one
+ * update and behaviour is equivalent to a direct `setState`.
  */
 export function useFrameBatchedState<T>(
   initialState: T | (() => T),
-): [T, (fn: Transform<T>) => void] {
+): [T, Dispatch<SetStateAction<T>>] {
   const [state, setState] = useState(initialState);
 
   const schedulerRef = useRef<FrameBatchScheduler<T> | null>(null);
   schedulerRef.current ??= createFrameBatchScheduler<T>(setState);
   const scheduler = schedulerRef.current;
 
-  const enqueue = useCallback(
-    (fn: Transform<T>) => {
-      scheduler.enqueue(fn);
+  const batchedSetState: Dispatch<SetStateAction<T>> = useCallback(
+    (action: SetStateAction<T>) => {
+      scheduler.setState(action);
     },
     [scheduler],
   );
@@ -88,5 +109,5 @@ export function useFrameBatchedState<T>(
     };
   }, [scheduler]);
 
-  return [state, enqueue];
+  return [state, batchedSetState];
 }
