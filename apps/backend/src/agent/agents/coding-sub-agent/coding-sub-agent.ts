@@ -221,7 +221,7 @@ export class CodingSubAgent extends Agent {
 
     yield {
       type: 'done',
-      reason: 'complete',
+      reason: signal.aborted ? 'aborted' : 'complete',
       usage,
     } satisfies SseDoneEvent;
   }
