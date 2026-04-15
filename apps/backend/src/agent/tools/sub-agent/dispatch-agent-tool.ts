@@ -166,7 +166,9 @@ export const dispatchAgentTool: ToolDefinition<
     }
 
     // Link parent abort signal to subagent
-    const onAbort = () => { subagent.abort(); };
+    const onAbort = () => {
+      subagent.abort();
+    };
     context.signal.addEventListener('abort', onAbort, {once: true});
 
     context.onSubAgentEvent({

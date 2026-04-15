@@ -131,7 +131,9 @@ describe('AgentSseLog', () => {
 
       // Next call blocks — resolve a race to prove it
       const timeout = new Promise<'timeout'>((r) =>
-        setTimeout(() => { r('timeout'); }, 50),
+        setTimeout(() => {
+          r('timeout');
+        }, 50),
       );
       const next = iter.next().then(() => 'resolved' as const);
       expect(await Promise.race([next, timeout])).toBe('timeout');

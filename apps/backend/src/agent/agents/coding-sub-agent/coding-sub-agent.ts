@@ -93,9 +93,15 @@ export class CodingSubAgent extends Agent {
     if (signal.aborted) {
       sdkAbortController.abort();
     } else {
-      signal.addEventListener('abort', () => { sdkAbortController.abort(); }, {
-        once: true,
-      });
+      signal.addEventListener(
+        'abort',
+        () => {
+          sdkAbortController.abort();
+        },
+        {
+          once: true,
+        },
+      );
     }
 
     let resultText = '';
