@@ -193,8 +193,7 @@ export abstract class Agent {
           event.type === 'done' &&
           event.reason === 'complete' &&
           !this.title &&
-          !this.isGeneratingTitle &&
-          this.getLightConfig
+          !this.isGeneratingTitle
         ) {
           this.isGeneratingTitle = true;
           void this.generateAndEmitTitle().finally(() => {
@@ -416,7 +415,6 @@ export abstract class Agent {
    * Fire-and-forget — errors are swallowed and a fallback title is used.
    */
   private async generateAndEmitTitle(): Promise<void> {
-    assert(this.getLightConfig, 'getLightConfig must be set');
     const messages = this.llmSession.getMessages();
     const userMsg = messages.find((m) => m.role === 'user');
     const assistantMsg = messages.find((m) => m.role === 'assistant');
@@ -424,7 +422,8 @@ export abstract class Agent {
 
     let title: string;
     try {
-      const config = await this.getLightConfig();
+      const getConfig = this.getLightConfig ?? this.getConfig;
+      const config = await getConfig();
       const stream = llmApi.streamCompletion({
         config,
         messages: [
