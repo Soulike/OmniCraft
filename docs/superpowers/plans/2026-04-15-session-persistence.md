@@ -14,19 +14,19 @@
 
 ## File Structure
 
-| Action | File                                                          | Responsibility                                                                                           |
-| ------ | ------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| Modify | `apps/backend/src/agent-core/agent/agent-sse-log.ts`          | Add filePath, three-state model, async append, ensureLoaded, unload, activeReaderCount                   |
-| Modify | `apps/backend/src/agent-core/agent/agent-sse-log.test.ts`     | Add file-backed tests alongside existing in-memory tests                                                 |
-| Modify | `apps/backend/src/agent-core/agent/types.ts`                  | Add `extraAllowedPaths` to AgentSnapshotOptions, add `sessionsDir` to AgentOptions                       |
-| Modify | `apps/backend/src/agent-core/agent/agent.ts`                  | Path helpers, sseLog construction, persistSnapshot, isRunning, loadSnapshotFromDisk, reconcileEventsFile |
-| Create | `apps/backend/src/agent-core/agent/agent-persistence.test.ts` | Tests for loadSnapshotFromDisk, reconcileEventsFile, persistSnapshot                                     |
-| Modify | `apps/backend/src/agent/agents/main-agent/main-agent.ts`      | Add restore(), update constructor for snapshot+sessionsDir                                               |
-| Modify | `apps/backend/src/models/agent-store/agent-store.ts`          | Rename to MainAgentStore, async get/has/delete, lazy loading, LRU eviction                               |
-| Create | `apps/backend/src/models/agent-store/agent-store.test.ts`     | Tests for lazy loading, dedup, eviction, delete                                                          |
-| Modify | `apps/backend/src/services/chat/chat-service.ts`              | Async propagation                                                                                        |
-| Modify | `apps/backend/src/dispatcher/chat/router.ts`                  | Add await on chatService calls                                                                           |
-| Modify | `apps/backend/src/startup/init-services.ts`                   | Compute sessionsDir, pass to MainAgentStore.create()                                                     |
+| Action | File                                                                          | Responsibility                                                                                           |
+| ------ | ----------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| Modify | `apps/backend/src/agent-core/agent/agent-sse-log.ts`                          | Add filePath, three-state model, async append, ensureLoaded, unload, activeReaderCount                   |
+| Modify | `apps/backend/src/agent-core/agent/agent-sse-log.test.ts`                     | Add file-backed tests alongside existing in-memory tests                                                 |
+| Modify | `apps/backend/src/agent-core/agent/types.ts`                                  | Add `extraAllowedPaths` to AgentSnapshotOptions, add `sessionsDir` to AgentOptions                       |
+| Modify | `apps/backend/src/agent-core/agent/agent.ts`                                  | Path helpers, sseLog construction, persistSnapshot, isRunning, loadSnapshotFromDisk, reconcileEventsFile |
+| Create | `apps/backend/src/agent-core/agent/agent-persistence.test.ts`                 | Tests for loadSnapshotFromDisk, reconcileEventsFile, persistSnapshot                                     |
+| Modify | `apps/backend/src/agent/agents/main-agent/main-agent.ts`                      | Add restore(), update constructor for snapshot+sessionsDir                                               |
+| Modify | `apps/backend/src/models/agent-store/agent-store.ts` -> `main-agent-store.ts` | Rename to MainAgentStore, async get/has/delete, lazy loading, LRU eviction                               |
+| Create | `apps/backend/src/models/agent-store/main-agent-store.test.ts`                | Tests for lazy loading, dedup, eviction, delete                                                          |
+| Modify | `apps/backend/src/services/chat/chat-service.ts`                              | Async propagation                                                                                        |
+| Modify | `apps/backend/src/dispatcher/chat/router.ts`                                  | Add await on chatService calls                                                                           |
+| Modify | `apps/backend/src/startup/init-services.ts`                                   | Compute sessionsDir, pass to MainAgentStore.create()                                                     |
 
 ---
 
@@ -1037,8 +1037,8 @@ git commit -m "feat(backend): add MainAgent.restore() and sessionsDir support"
 
 **Files:**
 
-- Modify: `apps/backend/src/models/agent-store/agent-store.ts`
-- Create: `apps/backend/src/models/agent-store/agent-store.test.ts`
+- Modify: `apps/backend/src/models/agent-store/agent-store.ts` -> `main-agent-store.ts`
+- Create: `apps/backend/src/models/agent-store/main-agent-store.test.ts`
 
 - [ ] **Step 1: Write failing tests for MainAgentStore**
 
@@ -1051,7 +1051,7 @@ import {afterEach, beforeEach, describe, expect, it} from 'vitest';
 
 import type {Agent} from '@/agent-core/agent/index.js';
 
-import {MainAgentStore} from './agent-store.js';
+import {MainAgentStore} from './main-agent-store.js';
 
 /** Creates a minimal mock agent. */
 function createMockAgent(id: string, overrides?: Partial<Agent>): Agent {
@@ -1204,7 +1204,7 @@ describe('MainAgentStore', () => {
 
 - [ ] **Step 2: Run tests to verify they fail**
 
-Run: `cd apps/backend && bun run test -- src/models/agent-store/agent-store.test.ts`
+Run: `cd apps/backend && bun run test -- src/models/agent-store/main-agent-store.test.ts`
 Expected: FAIL — `MainAgentStore` does not exist
 
 - [ ] **Step 3: Implement MainAgentStore with lazy loading and LRU**
@@ -1360,13 +1360,13 @@ export class MainAgentStore {
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `cd apps/backend && bun run test -- src/models/agent-store/agent-store.test.ts`
+Run: `cd apps/backend && bun run test -- src/models/agent-store/main-agent-store.test.ts`
 Expected: All PASS
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add apps/backend/src/models/agent-store/agent-store.ts apps/backend/src/models/agent-store/agent-store.test.ts
+git add apps/backend/src/models/agent-store/main-agent-store.ts apps/backend/src/models/agent-store/main-agent-store.test.ts
 git commit -m "feat(backend): rename AgentStore to MainAgentStore with async lazy loading and LRU eviction"
 ```
 
@@ -1496,7 +1496,7 @@ Expected: All PASS
 - [ ] **Step 6: Commit**
 
 ```bash
-git add apps/backend/src/startup/init-services.ts apps/backend/src/services/chat/chat-service.ts apps/backend/src/dispatcher/chat/router.ts apps/backend/src/models/agent-store/agent-store.ts
+git add apps/backend/src/startup/init-services.ts apps/backend/src/services/chat/chat-service.ts apps/backend/src/dispatcher/chat/router.ts
 git commit -m "feat(backend): async propagation for session persistence"
 ```
 
