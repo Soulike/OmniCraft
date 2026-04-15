@@ -11,14 +11,15 @@ import {
 } from '@/agent/tools/index.js';
 import {getDataDir, getVscodePort} from '@/helpers/env.js';
 import {logger} from '@/logger.js';
-import {AgentStore} from '@/models/agent-store/index.js';
+import {MainAgentStore} from '@/models/agent-store/index.js';
 import {SettingsManager} from '@/models/settings-manager/index.js';
 import {VscodeServerManager} from '@/models/vscode-server-manager/index.js';
 
 /** Initializes all services that require async setup before the server starts. */
 export async function initServices(): Promise<void> {
   await initSettingsManager();
-  AgentStore.create();
+  const sessionsDir = path.join(getDataDir(), 'sessions');
+  MainAgentStore.create(sessionsDir);
   initToolRegistries();
   initSkillRegistries();
   initVscodeServer();

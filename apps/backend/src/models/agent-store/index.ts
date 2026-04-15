@@ -1,1 +1,1 @@
-export {AgentStore} from './agent-store.js';
+export {MainAgentStore} from './main-agent-store.js';
