@@ -15,8 +15,6 @@ export interface AgentSseLogReaderOptions {
  * A single writer appends events via {@link append}. Multiple readers
  * can independently iterate over the log via {@link createReader},
  * replaying historical events and then blocking for new ones.
- *
- * Readers end only via {@link AbortSignal}; the log has no "sealed" state.
  */
 export class AgentSseLog {
   private readonly events: SseEvent[] = [];
