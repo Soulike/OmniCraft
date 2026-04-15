@@ -1,25 +1,15 @@
+import {mkdtemp, readFile, rm} from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
+
 import type {SseEvent} from '@omnicraft/sse-events';
-import {describe, expect, it} from 'vitest';
+import {afterEach, beforeEach, describe, expect, it} from 'vitest';
 
 import {AgentSseLog} from './agent-sse-log.js';
 
 /** Helper to create a minimal SseEvent for testing. */
 function textDelta(content: string): SseEvent {
   return {type: 'text-delta', content};
-}
-
-function doneEvent(): SseEvent {
-  return {
-    type: 'done',
-    reason: 'complete',
-    usage: {
-      model: 'test',
-      maxInputTokens: 0,
-      inputTokens: 0,
-      outputTokens: 0,
-      cacheReadInputTokens: 0,
-    },
-  };
 }
 
 /** Collects all values from an async iterable into an array. */
@@ -32,37 +22,11 @@ async function collect<T>(iterable: AsyncIterable<T>): Promise<T[]> {
 }
 
 describe('AgentSseLog', () => {
-  describe('append basics', () => {
-    it('starts with length 0', () => {
-      const log = new AgentSseLog();
-      expect(log.length).toBe(0);
-    });
-
-    it('increments length on append', () => {
-      const log = new AgentSseLog();
-      log.append(textDelta('a'));
-      expect(log.length).toBe(1);
-      log.append(textDelta('b'));
-      expect(log.length).toBe(2);
-    });
-
-    it('append always works (no seal)', () => {
-      const log = new AgentSseLog();
-      log.append(textDelta('a'));
-      log.append(textDelta('b'));
-      log.append(textDelta('c'));
-      expect(log.length).toBe(3);
-      // Can keep appending indefinitely
-      log.append(doneEvent());
-      expect(log.length).toBe(4);
-    });
-  });
-
   describe('single reader: replay and live events', () => {
     it('replays all existing events', async () => {
       const log = new AgentSseLog();
-      log.append(textDelta('a'));
-      log.append(textDelta('b'));
+      await log.append(textDelta('a'));
+      await log.append(textDelta('b'));
 
       const controller = new AbortController();
       const collected = collect(log.createReader({signal: controller.signal}));
@@ -85,8 +49,8 @@ describe('AgentSseLog', () => {
       // Let the reader start waiting.
       await Promise.resolve();
 
-      log.append(textDelta('live-1'));
-      log.append(textDelta('live-2'));
+      await log.append(textDelta('live-1'));
+      await log.append(textDelta('live-2'));
 
       await new Promise((r) => setTimeout(r, 10));
       controller.abort();
@@ -97,7 +61,7 @@ describe('AgentSseLog', () => {
 
     it('replays existing events then receives live events', async () => {
       const log = new AgentSseLog();
-      log.append(textDelta('existing'));
+      await log.append(textDelta('existing'));
       const controller = new AbortController();
 
       const resultPromise = collect(
@@ -107,7 +71,7 @@ describe('AgentSseLog', () => {
       // Let the reader replay and then wait.
       await Promise.resolve();
 
-      log.append(textDelta('live'));
+      await log.append(textDelta('live'));
 
       await new Promise((r) => setTimeout(r, 10));
       controller.abort();
@@ -120,7 +84,7 @@ describe('AgentSseLog', () => {
   describe('reader ends only via AbortSignal', () => {
     it('reader blocks indefinitely when not aborted', async () => {
       const log = new AgentSseLog();
-      log.append(textDelta('a'));
+      await log.append(textDelta('a'));
 
       const reader = log.createReader();
       const iter = reader[Symbol.asyncIterator]();
@@ -141,8 +105,8 @@ describe('AgentSseLog', () => {
 
     it('reader ends when signal is aborted after draining', async () => {
       const log = new AgentSseLog();
-      log.append(textDelta('a'));
-      log.append(textDelta('b'));
+      await log.append(textDelta('a'));
+      await log.append(textDelta('b'));
 
       const controller = new AbortController();
       const collected = collect(log.createReader({signal: controller.signal}));
@@ -159,7 +123,7 @@ describe('AgentSseLog', () => {
   describe('multiple readers with independent cursors', () => {
     it('two readers independently iterate the same log', async () => {
       const log = new AgentSseLog();
-      log.append(textDelta('a'));
+      await log.append(textDelta('a'));
       const controller = new AbortController();
 
       const reader1Promise = collect(
@@ -171,7 +135,7 @@ describe('AgentSseLog', () => {
 
       await Promise.resolve();
 
-      log.append(textDelta('b'));
+      await log.append(textDelta('b'));
 
       await new Promise((r) => setTimeout(r, 10));
       controller.abort();
@@ -186,9 +150,9 @@ describe('AgentSseLog', () => {
 
     it('readers starting at different indices see different events', async () => {
       const log = new AgentSseLog();
-      log.append(textDelta('a'));
-      log.append(textDelta('b'));
-      log.append(textDelta('c'));
+      await log.append(textDelta('a'));
+      await log.append(textDelta('b'));
+      await log.append(textDelta('c'));
       const controller = new AbortController();
 
       const all = collect(log.createReader({signal: controller.signal}));
@@ -223,7 +187,7 @@ describe('AgentSseLog', () => {
 
       await Promise.resolve();
 
-      log.append(textDelta('before-abort'));
+      await log.append(textDelta('before-abort'));
 
       // Let the reader consume the event and go back to waiting.
       await Promise.resolve();
@@ -236,7 +200,7 @@ describe('AgentSseLog', () => {
 
     it('returns immediately when signal is already aborted', async () => {
       const log = new AgentSseLog();
-      log.append(textDelta('a'));
+      await log.append(textDelta('a'));
 
       const controller = new AbortController();
       controller.abort();
@@ -261,12 +225,12 @@ describe('AgentSseLog', () => {
 
       await Promise.resolve();
 
-      log.append(textDelta('shared'));
+      await log.append(textDelta('shared'));
       await Promise.resolve();
 
       abortController.abort();
 
-      log.append(textDelta('after-abort'));
+      await log.append(textDelta('after-abort'));
 
       await new Promise((r) => setTimeout(r, 10));
       normalController.abort();
@@ -287,9 +251,9 @@ describe('AgentSseLog', () => {
   describe('startIndex', () => {
     it('skips events before startIndex', async () => {
       const log = new AgentSseLog();
-      log.append(textDelta('0'));
-      log.append(textDelta('1'));
-      log.append(textDelta('2'));
+      await log.append(textDelta('0'));
+      await log.append(textDelta('1'));
+      await log.append(textDelta('2'));
       const controller = new AbortController();
 
       const collected = collect(
@@ -304,7 +268,7 @@ describe('AgentSseLog', () => {
 
     it('returns empty when startIndex equals length', async () => {
       const log = new AgentSseLog();
-      log.append(textDelta('a'));
+      await log.append(textDelta('a'));
       const controller = new AbortController();
 
       const collected = collect(
@@ -326,9 +290,9 @@ describe('AgentSseLog', () => {
       );
       await Promise.resolve();
 
-      log.append(textDelta('0'));
-      log.append(textDelta('1'));
-      log.append(textDelta('2'));
+      await log.append(textDelta('0'));
+      await log.append(textDelta('1'));
+      await log.append(textDelta('2'));
 
       await new Promise((r) => setTimeout(r, 10));
       controller.abort();
@@ -342,6 +306,41 @@ describe('AgentSseLog', () => {
       expect(() => log.createReader({startIndex: -1})).toThrow(
         'startIndex must be non-negative',
       );
+    });
+  });
+
+  describe('file-backed mode', () => {
+    let tmpDir: string;
+    let filePath: string;
+
+    beforeEach(async () => {
+      tmpDir = await mkdtemp(path.join(os.tmpdir(), 'asl-test-'));
+      filePath = path.join(tmpDir, 'sse-events.jsonl');
+    });
+
+    afterEach(async () => {
+      await rm(tmpDir, {recursive: true, force: true});
+    });
+
+    it('writes each event as a JSON line to the file', async () => {
+      const log = new AgentSseLog(filePath);
+      await log.append(textDelta('a'));
+      await log.append(textDelta('b'));
+
+      const content = await readFile(filePath, 'utf-8');
+      const lines = content.trimEnd().split('\n');
+      expect(lines).toHaveLength(2);
+      expect(JSON.parse(lines[0])).toEqual(textDelta('a'));
+      expect(JSON.parse(lines[1])).toEqual(textDelta('b'));
+    });
+
+    it('creates parent directory if it does not exist', async () => {
+      const nestedPath = path.join(tmpDir, 'nested', 'dir', 'sse-events.jsonl');
+      const log = new AgentSseLog(nestedPath);
+      await log.append(textDelta('a'));
+
+      const content = await readFile(nestedPath, 'utf-8');
+      expect(content.trimEnd()).toBe(JSON.stringify(textDelta('a')));
     });
   });
 });

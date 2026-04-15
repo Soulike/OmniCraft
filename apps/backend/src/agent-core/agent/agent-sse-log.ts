@@ -1,6 +1,10 @@
 import assert from 'node:assert';
+import {appendFile, mkdir} from 'node:fs/promises';
+import path from 'node:path';
 
 import type {SseEvent} from '@omnicraft/sse-events';
+
+import {Mutex} from '@/helpers/mutex.js';
 
 export interface AgentSseLogReaderOptions {
   /** Index to start reading from (inclusive). Defaults to 0. */
@@ -15,20 +19,46 @@ export interface AgentSseLogReaderOptions {
  * A single writer appends events via {@link append}. Multiple readers
  * can independently iterate over the log via {@link createReader},
  * replaying historical events and then blocking for new ones.
+ *
+ * Modes:
+ * - In-memory (no filePath): events are stored only in memory.
+ * - File-backed (filePath provided): each event is durably appended to a
+ *   JSONL file via a mutex-serialized write, then reflected in memory if
+ *   {@link loaded} is true.
  */
 export class AgentSseLog {
   private readonly events: SseEvent[] = [];
   private readonly newEventWaiters = new Set<() => void>();
+  private readonly filePath: string | null;
+  private readonly mutex = new Mutex();
 
-  /** Number of events in the log. */
-  get length(): number {
-    return this.events.length;
+  /** True when the in-memory array is the authoritative view of all events. */
+  protected loaded: boolean;
+
+  constructor(filePath?: string) {
+    this.filePath = filePath ?? null;
+    this.loaded = this.filePath === null;
   }
 
   /** Appends an event to the log and wakes all waiting readers. */
-  append(event: SseEvent): void {
-    this.events.push(event);
-    this.notifyWaiters();
+  async append(event: SseEvent): Promise<void> {
+    if (this.filePath === null) {
+      this.events.push(event);
+      this.notifyWaiters();
+      return;
+    }
+
+    const release = await this.mutex.acquire();
+    try {
+      await mkdir(path.dirname(this.filePath), {recursive: true});
+      await appendFile(this.filePath, JSON.stringify(event) + '\n');
+      if (this.loaded) {
+        this.events.push(event);
+        this.notifyWaiters();
+      }
+    } finally {
+      release();
+    }
   }
 
   /**
