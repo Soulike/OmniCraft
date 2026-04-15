@@ -4,7 +4,7 @@
 
 **Goal:** Add disk-backed persistence to agent sessions so they survive server restarts.
 
-**Architecture:** File-backed AgentSseLog with three-state model (cold/hot/in-memory), atomic snapshot writes on done/title events, lazy-loading AgentStore with LRU eviction. All persistence flows through the existing Mutex pattern.
+**Architecture:** File-backed AgentSseLog with three-state model (cold/hot/in-memory), atomic snapshot writes on done/title events, lazy-loading MainAgentStore with LRU eviction. All persistence flows through the existing Mutex pattern.
 
 **Tech Stack:** Node.js fs/promises, Vitest, existing Mutex helper
 
@@ -22,11 +22,11 @@
 | Modify | `apps/backend/src/agent-core/agent/agent.ts`                  | Path helpers, sseLog construction, persistSnapshot, isRunning, loadSnapshotFromDisk, reconcileEventsFile |
 | Create | `apps/backend/src/agent-core/agent/agent-persistence.test.ts` | Tests for loadSnapshotFromDisk, reconcileEventsFile, persistSnapshot                                     |
 | Modify | `apps/backend/src/agent/agents/main-agent/main-agent.ts`      | Add restore(), update constructor for snapshot+sessionsDir                                               |
-| Modify | `apps/backend/src/models/agent-store/agent-store.ts`          | Async get/has/delete, lazy loading, LRU eviction                                                         |
+| Modify | `apps/backend/src/models/agent-store/agent-store.ts`          | Rename to MainAgentStore, async get/has/delete, lazy loading, LRU eviction                               |
 | Create | `apps/backend/src/models/agent-store/agent-store.test.ts`     | Tests for lazy loading, dedup, eviction, delete                                                          |
-| Modify | `apps/backend/src/services/chat/chat-service.ts`              | Async propagation, pass sessionsDir                                                                      |
+| Modify | `apps/backend/src/services/chat/chat-service.ts`              | Async propagation                                                                                        |
 | Modify | `apps/backend/src/dispatcher/chat/router.ts`                  | Add await on chatService calls                                                                           |
-| Modify | `apps/backend/src/startup/init-services.ts`                   | Compute sessionsDir, pass to AgentStore.create()                                                         |
+| Modify | `apps/backend/src/startup/init-services.ts`                   | Compute sessionsDir, pass to MainAgentStore.create()                                                     |
 
 ---
 
@@ -1033,26 +1033,25 @@ git commit -m "feat(backend): add MainAgent.restore() and sessionsDir support"
 
 ---
 
-### Task 7: AgentStore — async interface, lazy loading, LRU eviction
+### Task 7: MainAgentStore — async interface, lazy loading, LRU eviction
 
 **Files:**
 
 - Modify: `apps/backend/src/models/agent-store/agent-store.ts`
 - Create: `apps/backend/src/models/agent-store/agent-store.test.ts`
 
-- [ ] **Step 1: Write failing tests for async AgentStore**
+- [ ] **Step 1: Write failing tests for MainAgentStore**
 
 ```typescript
-import {mkdir, mkdtemp, readFile, rm, writeFile} from 'node:fs/promises';
+import {mkdir, mkdtemp, rm, writeFile} from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
-import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
+import {afterEach, beforeEach, describe, expect, it} from 'vitest';
 
 import type {Agent} from '@/agent-core/agent/index.js';
-import {agentEventBus} from '@/agent-core/events/index.js';
 
-import {AgentStore} from './agent-store.js';
+import {MainAgentStore} from './agent-store.js';
 
 /** Creates a minimal mock agent. */
 function createMockAgent(id: string, overrides?: Partial<Agent>): Agent {
@@ -1067,81 +1066,70 @@ function createMockAgent(id: string, overrides?: Partial<Agent>): Agent {
   } as Agent;
 }
 
-describe('AgentStore', () => {
+describe('MainAgentStore', () => {
   let sessionsDir: string;
 
   beforeEach(async () => {
     sessionsDir = await mkdtemp(path.join(os.tmpdir(), 'as-test-'));
-    AgentStore.resetInstance();
+    MainAgentStore.resetInstance();
   });
 
   afterEach(async () => {
-    AgentStore.resetInstance();
+    MainAgentStore.resetInstance();
     await rm(sessionsDir, {recursive: true, force: true});
   });
 
   describe('lazy loading', () => {
     it('loads agent from disk on cache miss', async () => {
       const id = 'lazy-load-id';
-      const mockAgent = createMockAgent(id);
-      const restoreAgent = vi.fn().mockResolvedValue(mockAgent);
 
-      const store = AgentStore.create(sessionsDir, restoreAgent);
+      const store = MainAgentStore.create(sessionsDir);
 
       // Create session directory on disk
       await mkdir(path.join(sessionsDir, id), {recursive: true});
       await writeFile(path.join(sessionsDir, id, 'snapshot.json'), '{}');
 
       const agent = await store.get(id);
-      expect(agent).toBe(mockAgent);
-      expect(restoreAgent).toHaveBeenCalledWith(sessionsDir, id);
+      expect(agent).toBeDefined();
+      expect(agent!.id).toBe(id);
     });
 
     it('returns undefined when session dir does not exist', async () => {
-      const restoreAgent = vi.fn();
-      const store = AgentStore.create(sessionsDir, restoreAgent);
+      const store = MainAgentStore.create(sessionsDir);
 
       const agent = await store.get('nonexistent');
       expect(agent).toBeUndefined();
-      expect(restoreAgent).not.toHaveBeenCalled();
     });
 
     it('deduplicates concurrent loads for same id', async () => {
       const id = 'dedup-id';
-      const mockAgent = createMockAgent(id);
-      const restoreAgent = vi.fn().mockResolvedValue(mockAgent);
 
-      const store = AgentStore.create(sessionsDir, restoreAgent);
+      const store = MainAgentStore.create(sessionsDir);
       await mkdir(path.join(sessionsDir, id), {recursive: true});
       await writeFile(path.join(sessionsDir, id, 'snapshot.json'), '{}');
 
       const [a, b] = await Promise.all([store.get(id), store.get(id)]);
       expect(a).toBe(b);
-      expect(restoreAgent).toHaveBeenCalledTimes(1);
     });
   });
 
   describe('has', () => {
     it('returns true for in-memory agent', async () => {
-      const restoreAgent = vi.fn();
-      const store = AgentStore.create(sessionsDir, restoreAgent);
+      const store = MainAgentStore.create(sessionsDir);
       store.set(createMockAgent('in-memory'));
 
       expect(await store.has('in-memory')).toBe(true);
-      expect(restoreAgent).not.toHaveBeenCalled();
     });
 
     it('returns true for on-disk session without loading', async () => {
-      const restoreAgent = vi.fn();
-      const store = AgentStore.create(sessionsDir, restoreAgent);
+      const store = MainAgentStore.create(sessionsDir);
       await mkdir(path.join(sessionsDir, 'on-disk'), {recursive: true});
 
       expect(await store.has('on-disk')).toBe(true);
-      expect(restoreAgent).not.toHaveBeenCalled();
     });
 
     it('returns false when not in memory or on disk', async () => {
-      const store = AgentStore.create(sessionsDir, vi.fn());
+      const store = MainAgentStore.create(sessionsDir);
       expect(await store.has('nope')).toBe(false);
     });
   });
@@ -1149,8 +1137,7 @@ describe('AgentStore', () => {
   describe('delete', () => {
     it('removes from memory and disk', async () => {
       const id = 'delete-me';
-      const restoreAgent = vi.fn();
-      const store = AgentStore.create(sessionsDir, restoreAgent);
+      const store = MainAgentStore.create(sessionsDir);
 
       store.set(createMockAgent(id));
       const sessionDir = path.join(sessionsDir, id);
@@ -1165,9 +1152,8 @@ describe('AgentStore', () => {
 
   describe('LRU eviction', () => {
     it('evicts oldest inactive agent when over limit', async () => {
-      const restoreAgent = vi.fn();
       // Use a small limit for testing by accessing internals or creating many agents
-      const store = AgentStore.create(sessionsDir, restoreAgent);
+      const store = MainAgentStore.create(sessionsDir);
 
       // Add agents up to limit + 1, verify the oldest is evicted
       // This test depends on MAX_CACHED_AGENTS — for a focused test,
@@ -1186,15 +1172,13 @@ describe('AgentStore', () => {
       // Direct memory check is internal — verify via get triggering a load
       await mkdir(path.join(sessionsDir, 'agent-0'), {recursive: true});
       await writeFile(path.join(sessionsDir, 'agent-0', 'snapshot.json'), '{}');
-      restoreAgent.mockResolvedValue(createMockAgent('agent-0'));
 
       const reloaded = await store.get('agent-0');
-      expect(restoreAgent).toHaveBeenCalledWith(sessionsDir, 'agent-0');
+      expect(reloaded).toBeDefined();
     });
 
     it('skips running agents during eviction', async () => {
-      const restoreAgent = vi.fn();
-      const store = AgentStore.create(sessionsDir, restoreAgent);
+      const store = MainAgentStore.create(sessionsDir);
 
       // Fill to limit with one running agent as the oldest
       const runningAgent = createMockAgent('running', {
@@ -1213,7 +1197,6 @@ describe('AgentStore', () => {
       // Verify running agent is still in memory (no restore call)
       const agent = await store.get('running');
       expect(agent).toBe(runningAgent);
-      expect(restoreAgent).not.toHaveBeenCalled();
     });
   });
 });
@@ -1222,9 +1205,9 @@ describe('AgentStore', () => {
 - [ ] **Step 2: Run tests to verify they fail**
 
 Run: `cd apps/backend && bun run test -- src/models/agent-store/agent-store.test.ts`
-Expected: FAIL — `AgentStore.create()` doesn't accept `sessionsDir` and `restoreAgent`
+Expected: FAIL — `MainAgentStore` does not exist
 
-- [ ] **Step 3: Implement async AgentStore with lazy loading and LRU**
+- [ ] **Step 3: Implement MainAgentStore with lazy loading and LRU**
 
 ```typescript
 import assert from 'node:assert';
@@ -1232,7 +1215,9 @@ import {access, rm} from 'node:fs/promises';
 import path from 'node:path';
 
 import type {Agent} from '@/agent-core/agent/index.js';
+import {MainAgent} from '@/agent/agents/index.js';
 import {agentEventBus} from '@/agent-core/events/index.js';
+import {getLlmConfig} from '@/services/chat/helpers.js';
 
 const MAX_CACHED_AGENTS = 50;
 
@@ -1241,10 +1226,8 @@ interface CacheEntry {
   lastAccessedAt: number;
 }
 
-type RestoreAgent = (sessionsDir: string, id: string) => Promise<Agent>;
-
-export class AgentStore {
-  private static instance: AgentStore | null = null;
+export class MainAgentStore {
+  private static instance: MainAgentStore | null = null;
 
   private readonly cache = new Map<string, CacheEntry>();
   private readonly loadingPromises = new Map<
@@ -1252,15 +1235,13 @@ export class AgentStore {
     Promise<Agent | undefined>
   >();
   private readonly _sessionsDir: string;
-  private readonly restoreAgent: RestoreAgent;
 
   private readonly onAgentCreated = (agent: Agent): void => {
     this.set(agent);
   };
 
-  private constructor(sessionsDir: string, restoreAgent: RestoreAgent) {
+  private constructor(sessionsDir: string) {
     this._sessionsDir = sessionsDir;
-    this.restoreAgent = restoreAgent;
   }
 
   /** The root directory for session persistence. */
@@ -1268,27 +1249,33 @@ export class AgentStore {
     return this._sessionsDir;
   }
 
-  static getInstance(): AgentStore {
+  static getInstance(): MainAgentStore {
     assert(
-      AgentStore.instance !== null,
-      'AgentStore is not initialized. Call AgentStore.create() first.',
+      MainAgentStore.instance !== null,
+      'MainAgentStore is not initialized. Call MainAgentStore.create() first.',
     );
-    return AgentStore.instance;
+    return MainAgentStore.instance;
   }
 
-  static create(sessionsDir: string, restoreAgent: RestoreAgent): AgentStore {
-    assert(AgentStore.instance === null, 'AgentStore is already initialized.');
-    const store = new AgentStore(sessionsDir, restoreAgent);
-    AgentStore.instance = store;
+  static create(sessionsDir: string): MainAgentStore {
+    assert(
+      MainAgentStore.instance === null,
+      'MainAgentStore is already initialized.',
+    );
+    const store = new MainAgentStore(sessionsDir);
+    MainAgentStore.instance = store;
     agentEventBus.on('agent-created', store.onAgentCreated);
     return store;
   }
 
   static resetInstance(): void {
-    if (AgentStore.instance) {
-      agentEventBus.off('agent-created', AgentStore.instance.onAgentCreated);
+    if (MainAgentStore.instance) {
+      agentEventBus.off(
+        'agent-created',
+        MainAgentStore.instance.onAgentCreated,
+      );
     }
-    AgentStore.instance = null;
+    MainAgentStore.instance = null;
   }
 
   set(agent: Agent): void {
@@ -1335,7 +1322,7 @@ export class AgentStore {
 
   private async loadFromDisk(id: string): Promise<Agent | undefined> {
     if (!(await this.existsOnDisk(id))) return undefined;
-    const agent = await this.restoreAgent(this._sessionsDir, id);
+    const agent = await MainAgent.restore(getLlmConfig, this._sessionsDir, id);
     // Agent constructor emits 'agent-created' which calls set(),
     // so the agent is already in cache. Update lastAccessedAt.
     const entry = this.cache.get(id);
@@ -1380,7 +1367,7 @@ Expected: All PASS
 
 ```bash
 git add apps/backend/src/models/agent-store/agent-store.ts apps/backend/src/models/agent-store/agent-store.test.ts
-git commit -m "feat(backend): add async lazy loading and LRU eviction to AgentStore"
+git commit -m "feat(backend): rename AgentStore to MainAgentStore with async lazy loading and LRU eviction"
 ```
 
 ---
@@ -1400,28 +1387,23 @@ In `init-services.ts`:
 ```typescript
 import path from 'node:path';
 
-import {MainAgent} from '@/agent/agents/index.js';
-import {getLlmConfig} from '@/services/chat/helpers.js';
-
 export async function initServices(): Promise<void> {
   await initSettingsManager();
-  initAgentStore();
+  initMainAgentStore();
   initToolRegistries();
   initSkillRegistries();
   initVscodeServer();
 }
 
-function initAgentStore(): void {
+function initMainAgentStore(): void {
   const sessionsDir = path.join(getDataDir(), 'sessions');
-  AgentStore.create(sessionsDir, async (sessionsDir, id) =>
-    MainAgent.restore(getLlmConfig, sessionsDir, id),
-  );
+  MainAgentStore.create(sessionsDir);
 }
 ```
 
-- [ ] **Step 2: Update chatService for async AgentStore**
+- [ ] **Step 2: Update chatService for async MainAgentStore**
 
-In `chat-service.ts`, make all methods that call `AgentStore.get()` or `AgentStore.delete()` async:
+In `chat-service.ts`, make all methods that call `MainAgentStore.get()` or `MainAgentStore.delete()` async:
 
 ```typescript
 export const chatService = {
@@ -1430,7 +1412,7 @@ export const chatService = {
   ): Promise<CreateSessionResult> {
     // ... existing validation unchanged ...
 
-    const sessionsDir = AgentStore.getInstance().sessionsDir;
+    const sessionsDir = MainAgentStore.getInstance().sessionsDir;
     const agent = new MainAgent(
       getLlmConfig,
       workingDirectory,
@@ -1445,7 +1427,7 @@ export const chatService = {
     userMessage: string,
     thinkingLevel: ThinkingLevel,
   ): Promise<boolean> {
-    const agent = await AgentStore.getInstance().get(agentId);
+    const agent = await MainAgentStore.getInstance().get(agentId);
     if (!agent) return false;
     agent.handleUserMessage(userMessage, thinkingLevel);
     return true;
@@ -1455,13 +1437,13 @@ export const chatService = {
     agentId: string,
     options?: AgentSseLogReaderOptions,
   ): Promise<AsyncIterable<SseEvent> | undefined> {
-    const agent = await AgentStore.getInstance().get(agentId);
+    const agent = await MainAgentStore.getInstance().get(agentId);
     if (!agent) return undefined;
     return agent.subscribe(options);
   },
 
   async abortCompletion(agentId: string): Promise<boolean> {
-    const agent = await AgentStore.getInstance().get(agentId);
+    const agent = await MainAgentStore.getInstance().get(agentId);
     if (!agent) return false;
     agent.abort();
     return true;
@@ -1472,13 +1454,13 @@ export const chatService = {
     interactionId: string,
     result: unknown,
   ): Promise<boolean> {
-    const agent = await AgentStore.getInstance().get(agentId);
+    const agent = await MainAgentStore.getInstance().get(agentId);
     if (!agent) return false;
     return agent.submitUserResponse(interactionId, result);
   },
 
   async deleteSession(agentId: string): Promise<void> {
-    await AgentStore.getInstance().delete(agentId);
+    await MainAgentStore.getInstance().delete(agentId);
   },
 };
 ```

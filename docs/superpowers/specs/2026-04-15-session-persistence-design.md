@@ -165,7 +165,11 @@ static async restore(
 2. Calls `Agent.reconcileEventsFile(sessionsDir, id)` to clean up events
 3. Constructs `new MainAgent(getConfig, ..., snapshot, sessionsDir)` using snapshot's `workingDirectory` and `extraAllowedPaths`, plus its own registries
 
-## 4. AgentStore Async + Lazy Loading + LRU Eviction
+## 4. MainAgentStore Async + Lazy Loading + LRU Eviction
+
+### Rename
+
+`AgentStore` is renamed to `MainAgentStore`. It directly depends on `MainAgent` for restore — no factory function needed.
 
 ### Interface Changes
 
@@ -178,13 +182,13 @@ static async restore(
 
 ### Constructor Change
 
-`AgentStore.create()` accepts `sessionsDir` and a `restoreAgent` factory function (`(sessionsDir: string, id: string) => Promise<Agent>`). AgentStore does not depend on MainAgent directly.
+`MainAgentStore.create()` accepts `sessionsDir` only. Internally uses `MainAgent.restore()` for lazy loading. No factory function.
 
 ### Lazy Loading (get)
 
 1. Memory hit -> update `lastAccessedAt`, return
 2. Memory miss -> check `$sessionsDir/$id/` directory exists on disk
-3. Directory exists -> call `restoreAgent(sessionsDir, id)`, cache in memory, return
+3. Directory exists -> call `MainAgent.restore(sessionsDir, id)`, cache in memory, return
 4. Directory missing -> return `undefined`
 
 Concurrent dedup via `loadingPromises: Map<string, Promise<Agent>>`. Removed after load completes.
@@ -210,7 +214,7 @@ AgentStore's async interface propagates to callers:
 
 ### chat-service.ts
 
-All methods that call `AgentStore.get()` or `AgentStore.delete()` become async:
+All methods that call `MainAgentStore.getInstance().get()` or `MainAgentStore.getInstance().delete()` become async:
 
 - `sendCompletion` -> async
 - `subscribe` -> async
@@ -251,7 +255,7 @@ Route handlers are already async (Koa). Add `await` on chatService calls. No log
 - sseEventCount is 0 -> events file cleared
 - Corrupted line within range -> stop and truncate at corruption point
 
-### AgentStore
+### MainAgentStore
 
 - Lazy loading: memory miss -> disk load -> cache
 - Concurrent dedup: parallel `get` for same id triggers single restore
