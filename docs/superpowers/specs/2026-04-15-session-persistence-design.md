@@ -67,7 +67,13 @@ private static eventsPath(sessionsDir: string, id: string): string {
 
 ### AgentSseLog Construction
 
-With `sessionsDir`: `new AgentSseLog(Agent.eventsPath(sessionsDir, this.id))`. Without: `new AgentSseLog()` (pure in-memory).
+Currently `sseLog` is a field initializer (`readonly sseLog = new AgentSseLog()`), which runs before the constructor body. Move construction into the constructor body, after `this.id` is assigned:
+
+```typescript
+this.sseLog = sessionsDir
+  ? new AgentSseLog(Agent.eventsPath(sessionsDir, this.id))
+  : new AgentSseLog();
+```
 
 ### Snapshot Write Timing
 
@@ -99,7 +105,15 @@ Includes `isGeneratingTitle` because title generation runs fire-and-forget after
 
 ### Constructor Change
 
-`snapshot` and `sessionsDir` become optional parameters on the existing constructor. Only `restore()` passes them. Not enforced at the type level but clear from API surface.
+`snapshot` becomes a standalone optional parameter on the constructor (for restore only). `sessionsDir` is in `AgentOptions` (controls whether persistence is enabled, used by both new and restored agents).
+
+```typescript
+constructor(
+  getConfig: () => Promise<LlmConfig>,
+  options: AgentOptions,  // sessionsDir?: string is here
+  snapshot?: AgentSnapshot,
+)
+```
 
 ## 3. Agent.loadSnapshotFromDisk and MainAgent.restore
 
@@ -112,16 +126,24 @@ protected static async loadSnapshotFromDisk(
 ): Promise<AgentSnapshot>
 ```
 
-Responsibilities:
+Reads `snapshot.json` and returns the parsed `AgentSnapshot`. Nothing else.
 
-1. Read `snapshot.json`, parse as `AgentSnapshot`
-2. Read `sse-events.jsonl`, find last `done` event
-3. If events exist after last `done` (interrupted turn): truncate file to last `done` line (inclusive)
-4. If no `done` event exists (first turn crashed): clear the file
-5. Malformed last line: discard before finding last `done`
-6. Return snapshot
+### Agent.reconcileEventsFile
 
-This ensures `sse-events.jsonl` and `snapshot.json` are consistent on restore.
+```typescript
+protected static async reconcileEventsFile(
+  sessionsDir: string,
+  id: string,
+): Promise<void>
+```
+
+Ensures `sse-events.jsonl` is consistent with the last completed turn:
+
+1. Read `sse-events.jsonl` line by line
+2. If last line is malformed JSON, discard it
+3. Find last `done` event
+4. If events exist after last `done` (interrupted turn): truncate file to last `done` line (inclusive), rewrite file
+5. If no `done` event exists (first turn crashed): clear the file
 
 ### MainAgent.restore
 
@@ -134,7 +156,8 @@ static async restore(
 ```
 
 1. Calls `Agent.loadSnapshotFromDisk(sessionsDir, id)` to get snapshot
-2. Constructs `new MainAgent(getConfig, ..., snapshot, sessionsDir)` using snapshot's `workingDirectory` and `extraAllowedPaths`, plus its own registries
+2. Calls `Agent.reconcileEventsFile(sessionsDir, id)` to clean up events
+3. Constructs `new MainAgent(getConfig, ..., snapshot, sessionsDir)` using snapshot's `workingDirectory` and `extraAllowedPaths`, plus its own registries
 
 ## 4. AgentStore Async + Lazy Loading + LRU Eviction
 
@@ -214,8 +237,11 @@ Route handlers are already async (Koa). Add `await` on chatService calls. No log
 
 ### Agent.loadSnapshotFromDisk
 
-- Normal snapshot read
-- sse-events.jsonl truncated to last `done` event
+- Normal snapshot read and parse
+
+### Agent.reconcileEventsFile
+
+- Truncates sse-events.jsonl to last `done` event
 - No `done` event -> events file cleared
 - Corrupted last line -> discard then truncate
 
