@@ -87,7 +87,7 @@ router.post(CHAT_SESSION_COMPLETIONS, (ctx) => {
 });
 
 /** GET /chat/session/:id/events — SSE stream of agent events. */
-router.get(CHAT_SESSION_EVENTS, async (ctx) => {
+router.get(CHAT_SESSION_EVENTS, (ctx) => {
   const {id} = ctx.params;
   const from = Math.max(0, Number(ctx.query.from) || 0);
 
@@ -119,16 +119,18 @@ router.get(CHAT_SESSION_EVENTS, async (ctx) => {
   };
   ctx.req.on('close', onDisconnect);
 
-  try {
-    for await (const event of eventStream) {
-      writeSseEvent(stream, event);
+  void (async () => {
+    try {
+      for await (const event of eventStream) {
+        writeSseEvent(stream, event);
+      }
+    } finally {
+      ctx.req.off('close', onDisconnect);
+      if (!stream.destroyed) {
+        stream.end();
+      }
     }
-  } finally {
-    ctx.req.off('close', onDisconnect);
-    if (!stream.destroyed) {
-      stream.end();
-    }
-  }
+  })();
 });
 
 /** POST /chat/session/:id/abort — aborts the running agent turn. */
