@@ -1,5 +1,4 @@
 import type {ThinkingLevel} from '@omnicraft/api-schema';
-import type {SseEvent} from '@omnicraft/sse-events';
 import {useCallback, useEffect, useRef, useState} from 'react';
 
 import {
@@ -54,32 +53,75 @@ export function useStreamChat({
         );
 
         for await (const event of eventStream) {
-          routeEvent(
-            event,
-            eventBus,
-            subagentBusMap,
-            setIsStreaming,
-            setStreamError,
-            setMaxRoundsReached,
-          );
-
-          if (event.type === 'message-start' && event.role === 'user') {
-            lastUserMessage = event.content;
-            assistantText = '';
-          }
-          if (event.type === 'text-delta') {
-            assistantText += event.content;
-          }
-          if (event.type === 'done') {
-            if (assistantText) {
-              eventBus.emit('turn-done', {
-                sessionId: activeSessionId,
-                userMessage: lastUserMessage,
-                assistantMessage: assistantText,
+          switch (event.type) {
+            case 'message-start':
+              if (event.role === 'user') {
+                lastUserMessage = event.content;
+                assistantText = '';
+              } else {
+                setIsStreaming(true);
+              }
+              routeBaseEventToBus(event, eventBus);
+              break;
+            case 'text-delta':
+              assistantText += event.content;
+              routeBaseEventToBus(event, eventBus);
+              break;
+            case 'tool-execute-start':
+            case 'tool-execute-end':
+            case 'tool-execute-delta':
+            case 'thinking-start':
+            case 'thinking-delta':
+            case 'thinking-end':
+              routeBaseEventToBus(event, eventBus);
+              break;
+            case 'done':
+              if (event.reason === 'max_rounds_reached') {
+                setMaxRoundsReached(true);
+              }
+              routeBaseEventToBus(event, eventBus);
+              setIsStreaming(false);
+              if (assistantText) {
+                eventBus.emit('turn-done', {
+                  sessionId: activeSessionId,
+                  userMessage: lastUserMessage,
+                  assistantMessage: assistantText,
+                });
+              }
+              lastUserMessage = '';
+              assistantText = '';
+              break;
+            case 'error':
+              eventBus.emit('stream-error', {message: event.message});
+              setStreamError(event.message);
+              setIsStreaming(false);
+              break;
+            case 'subagent-dispatch': {
+              const bus = new EventBus<ChatEventMap>();
+              subagentBusMap.set(event.agentId, bus);
+              eventBus.emit('subagent-dispatched', {
+                agentId: event.agentId,
+                task: event.task,
+                agentType: event.agentType,
+                thinkingLevel: event.thinkingLevel,
+                workingDirectory: event.workingDirectory,
+                eventBus: bus,
               });
+              break;
             }
-            lastUserMessage = '';
-            assistantText = '';
+            case 'subagent-output': {
+              const bus = subagentBusMap.get(event.agentId);
+              if (bus) routeBaseEventToBus(event.event, bus);
+              break;
+            }
+            case 'subagent-complete': {
+              eventBus.emit('subagent-completed', {
+                agentId: event.agentId,
+                status: event.status,
+              });
+              subagentBusMap.delete(event.agentId);
+              break;
+            }
           }
         }
       } catch (e: unknown) {
@@ -151,71 +193,4 @@ export function useStreamChat({
     clearStreamError,
     clearMaxRoundsReached,
   };
-}
-
-// ---------------------------------------------------------------------------
-// Event routing
-// ---------------------------------------------------------------------------
-
-function routeEvent(
-  event: SseEvent,
-  eventBus: EventBus<ChatEventMap>,
-  subagentBusMap: Map<string, EventBus<ChatEventMap>>,
-  setIsStreaming: (v: boolean) => void,
-  setStreamError: (v: string | null) => void,
-  setMaxRoundsReached: (v: boolean) => void,
-): void {
-  switch (event.type) {
-    case 'text-delta':
-    case 'tool-execute-start':
-    case 'tool-execute-end':
-    case 'tool-execute-delta':
-    case 'message-start':
-    case 'thinking-start':
-    case 'thinking-delta':
-    case 'thinking-end':
-      if (event.type === 'message-start' && event.role === 'assistant') {
-        setIsStreaming(true);
-      }
-      routeBaseEventToBus(event, eventBus);
-      break;
-    case 'done':
-      if (event.reason === 'max_rounds_reached') {
-        setMaxRoundsReached(true);
-      }
-      routeBaseEventToBus(event, eventBus);
-      setIsStreaming(false);
-      break;
-    case 'error':
-      eventBus.emit('stream-error', {message: event.message});
-      setStreamError(event.message);
-      setIsStreaming(false);
-      break;
-    case 'subagent-dispatch': {
-      const bus = new EventBus<ChatEventMap>();
-      subagentBusMap.set(event.agentId, bus);
-      eventBus.emit('subagent-dispatched', {
-        agentId: event.agentId,
-        task: event.task,
-        agentType: event.agentType,
-        thinkingLevel: event.thinkingLevel,
-        workingDirectory: event.workingDirectory,
-        eventBus: bus,
-      });
-      break;
-    }
-    case 'subagent-output': {
-      const bus = subagentBusMap.get(event.agentId);
-      if (bus) routeBaseEventToBus(event.event, bus);
-      break;
-    }
-    case 'subagent-complete': {
-      eventBus.emit('subagent-completed', {
-        agentId: event.agentId,
-        status: event.status,
-      });
-      subagentBusMap.delete(event.agentId);
-      break;
-    }
-  }
 }
