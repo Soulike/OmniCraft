@@ -39,8 +39,6 @@ export function useStreamChat({
     const controller = new AbortController();
     const subagentBusMap = subagentBusMapRef.current;
 
-    eventBus.emit('reset');
-
     async function consume(): Promise<void> {
       let lastUserMessage = '';
       let assistantText = '';
