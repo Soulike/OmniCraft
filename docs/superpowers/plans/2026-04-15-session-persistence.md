@@ -313,6 +313,7 @@ export class AgentSseLog {
   private readonly mutex = new Mutex();
   private loaded: boolean;
   private readerCount = 0;
+  private appended = 0;
 
   constructor(filePath?: string) {
     this.filePath = filePath ?? null;
@@ -327,9 +328,15 @@ export class AgentSseLog {
     return this.readerCount;
   }
 
+  /** Total number of events appended since construction. Increments in all modes. */
+  get totalAppended(): number {
+    return this.appended;
+  }
+
   async append(event: SseEvent): Promise<void> {
     if (!this.filePath) {
       this.events.push(event);
+      this.appended++;
       this.notifyWaiters();
       return;
     }
@@ -338,6 +345,7 @@ export class AgentSseLog {
     try {
       await mkdir(path.dirname(this.filePath), {recursive: true});
       await appendFile(this.filePath, JSON.stringify(event) + '\n');
+      this.appended++;
 
       if (this.loaded) {
         this.events.push(event);
@@ -505,6 +513,7 @@ const llmSessionSnapshotSchema = z.object({
 export const agentSnapshotSchema = z.object({
   id: z.string(),
   title: z.string(),
+  sseEventCount: z.number(),
   llmSession: llmSessionSnapshotSchema,
   options: agentSnapshotOptionsSchema,
 });
@@ -633,6 +642,7 @@ Change `readonly sseLog = new AgentSseLog()` from a field initializer to constru
     return {
       id: this.id,
       title: this.title,
+      sseEventCount: this.sseLog.totalAppended,
       llmSession: this.llmSession.toSnapshot(),
       options: {
         workingDirectory: this.workingDirectory,
@@ -731,6 +741,7 @@ In `runTurn`, update the `onEvent` callback to also persist snapshot on `done` a
   protected static async reconcileEventsFile(
     sessionsDir: string,
     id: string,
+    sseEventCount: number,
   ): Promise<void> {
     const filePath = Agent.eventsPath(sessionsDir, id);
     let content: string;
@@ -746,42 +757,28 @@ In `runTurn`, update the `onEvent` callback to also persist snapshot on `done` a
     if (!content.trim()) return;
 
     const lines = content.trimEnd().split('\n');
-    const validLines: string[] = [];
 
-    // Parse forward, stop at first corrupted line.
-    // Only the last line is expected to be corrupted (crash mid-write).
-    // A corrupted middle line means the file is unreliable beyond that point.
-    for (const line of lines) {
+    // Truncate to sseEventCount (the snapshot's authority on how many SSE events existed)
+    // and validate each kept line.
+    const keptLines: string[] = [];
+    for (let i = 0; i < Math.min(lines.length, sseEventCount); i++) {
       let raw: unknown;
       try {
-        raw = JSON.parse(line);
+        raw = JSON.parse(lines[i]);
       } catch {
-        break;
+        break; // Stop at first corrupted line
       }
       if (!sseEventSchema.safeParse(raw).success) {
         break;
       }
-      validLines.push(line);
+      keptLines.push(lines[i]);
     }
 
-    // Find last 'done' event in the valid prefix
-    let lastDoneIndex = -1;
-    for (let i = validLines.length - 1; i >= 0; i--) {
-      const event = sseEventSchema.parse(JSON.parse(validLines[i]));
-      if (event.type === 'done') {
-        lastDoneIndex = i;
-        break;
-      }
-    }
-
-    if (lastDoneIndex === -1) {
-      await writeFile(filePath, '');
-      return;
-    }
-
-    const truncated = validLines.slice(0, lastDoneIndex + 1);
-    if (truncated.length !== lines.length) {
-      await writeFile(filePath, truncated.join('\n') + '\n');
+    if (keptLines.length !== lines.length) {
+      await writeFile(
+        filePath,
+        keptLines.length > 0 ? keptLines.join('\n') + '\n' : '',
+      );
     }
   }
 ```
@@ -824,10 +821,11 @@ import {describe, expect, it, beforeEach, afterEach} from 'vitest';
 import {Agent} from './agent.js';
 
 /** Minimal valid snapshot for testing. */
-function createTestSnapshot(id: string): AgentSnapshot {
+function createTestSnapshot(id: string, sseEventCount = 0): AgentSnapshot {
   return {
     id,
     title: 'Test Session',
+    sseEventCount,
     llmSession: {id: 'llm-session-id', messages: []},
     options: {workingDirectory: '/tmp/test'},
   };
@@ -838,8 +836,12 @@ class TestAgent extends Agent {
   static loadSnapshot(sessionsDir: string, id: string) {
     return Agent.loadSnapshotFromDisk(sessionsDir, id);
   }
-  static reconcileEvents(sessionsDir: string, id: string) {
-    return Agent.reconcileEventsFile(sessionsDir, id);
+  static reconcileEvents(
+    sessionsDir: string,
+    id: string,
+    sseEventCount: number,
+  ) {
+    return Agent.reconcileEventsFile(sessionsDir, id, sseEventCount);
   }
 }
 
@@ -895,9 +897,9 @@ describe('Agent persistence', () => {
       },
     });
 
-    it('keeps events up to and including last done', async () => {
+    it('keeps events up to sseEventCount', async () => {
       const filePath = await writeEvents([textEvent, doneEvent, textEvent]);
-      await TestAgent.reconcileEvents(sessionsDir, id);
+      await TestAgent.reconcileEvents(sessionsDir, id, 2);
 
       const content = await readFile(filePath, 'utf-8');
       const lines = content.trimEnd().split('\n');
@@ -905,9 +907,9 @@ describe('Agent persistence', () => {
       expect(JSON.parse(lines[1]).type).toBe('done');
     });
 
-    it('clears file when no done event exists', async () => {
+    it('clears file when sseEventCount is 0', async () => {
       const filePath = await writeEvents([textEvent, textEvent]);
-      await TestAgent.reconcileEvents(sessionsDir, id);
+      await TestAgent.reconcileEvents(sessionsDir, id, 0);
 
       const content = await readFile(filePath, 'utf-8');
       expect(content).toBe('');
@@ -922,7 +924,7 @@ describe('Agent persistence', () => {
         textEvent + '\n' + doneEvent + '\n' + 'corrupted{\n',
       );
 
-      await TestAgent.reconcileEvents(sessionsDir, id);
+      await TestAgent.reconcileEvents(sessionsDir, id, 3);
 
       const content = await readFile(filePath, 'utf-8');
       const lines = content.trimEnd().split('\n');
@@ -933,7 +935,7 @@ describe('Agent persistence', () => {
     it('does nothing when events file does not exist', async () => {
       await mkdir(path.join(sessionsDir, id), {recursive: true});
       // Should not throw
-      await TestAgent.reconcileEvents(sessionsDir, id);
+      await TestAgent.reconcileEvents(sessionsDir, id, 0);
     });
   });
 });
@@ -1022,7 +1024,7 @@ export class MainAgent extends Agent {
     id: string,
   ): Promise<MainAgent> {
     const snapshot = await Agent.loadSnapshotFromDisk(sessionsDir, id);
-    await Agent.reconcileEventsFile(sessionsDir, id);
+    await Agent.reconcileEventsFile(sessionsDir, id, snapshot.sseEventCount);
     return new MainAgent(
       getConfig,
       snapshot.options.workingDirectory,

@@ -134,16 +134,20 @@ Reads `snapshot.json` and returns the parsed `AgentSnapshot`. Nothing else.
 protected static async reconcileEventsFile(
   sessionsDir: string,
   id: string,
+  sseEventCount: number,
 ): Promise<void>
 ```
 
-Ensures `sse-events.jsonl` is consistent with the last completed turn:
+Ensures `sse-events.jsonl` is consistent with the snapshot:
 
-1. Read `sse-events.jsonl` line by line
-2. If last line is malformed JSON, discard it
-3. Find last `done` event
-4. If events exist after last `done` (interrupted turn): truncate file to last `done` line (inclusive), rewrite file
-5. If no `done` event exists (first turn crashed): clear the file
+1. Read `sse-events.jsonl` line by line, validate each with `sseEventSchema`
+2. Stop at first corrupted/invalid line (only the last line is expected to be corrupted from crash mid-write)
+3. Truncate to `min(validLineCount, sseEventCount)` — the snapshot's `sseEventCount` is the authority
+4. Rewrite file if truncated
+
+### Snapshot–Events Alignment
+
+`AgentSnapshot` includes `sseEventCount: number` — the value of `AgentSseLog.totalAppended` at the time the snapshot was written. On restore, `reconcileEventsFile` uses this count to truncate the events file so it never contains more events than the snapshot knows about. If the events file has fewer events (writes lagged behind snapshot), that's accepted — the LLM history (snapshot) is the source of truth for continuing the conversation.
 
 ### MainAgent.restore
 
@@ -241,9 +245,9 @@ Route handlers are already async (Koa). Add `await` on chatService calls. No log
 
 ### Agent.reconcileEventsFile
 
-- Truncates sse-events.jsonl to last `done` event
-- No `done` event -> events file cleared
-- Corrupted last line -> discard then truncate
+- Truncates sse-events.jsonl to sseEventCount
+- sseEventCount is 0 -> events file cleared
+- Corrupted line within range -> stop and truncate at corruption point
 
 ### AgentStore
 
