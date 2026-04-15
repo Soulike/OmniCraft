@@ -387,11 +387,12 @@ export class AgentSseLog {
   }
 
   private async ensureLoaded(): Promise<void> {
+    assert(this.filePath, 'ensureLoaded called without filePath');
     const release = await this.mutex.acquire();
     try {
       let content: string;
       try {
-        content = await readFile(this.filePath!, 'utf-8');
+        content = await readFile(this.filePath, 'utf-8');
       } catch {
         // File doesn't exist yet — nothing to load
         this.loaded = true;
@@ -425,7 +426,7 @@ export class AgentSseLog {
         const cleaned =
           this.events.map((e) => JSON.stringify(e)).join('\n') +
           (this.events.length > 0 ? '\n' : '');
-        await writeFile(this.filePath!, cleaned);
+        await writeFile(this.filePath, cleaned);
       }
 
       this.loaded = true;
