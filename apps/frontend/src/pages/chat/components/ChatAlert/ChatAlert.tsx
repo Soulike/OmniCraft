@@ -7,7 +7,7 @@ interface ChatAlertProps {
   status: ComponentProps<typeof Alert>['status'];
   title: string;
   message: string;
-  onDismiss: ComponentProps<typeof CloseButton>['onPress'];
+  onDismiss?: ComponentProps<typeof CloseButton>['onPress'];
 }
 
 export function ChatAlert({status, title, message, onDismiss}: ChatAlertProps) {
@@ -19,7 +19,7 @@ export function ChatAlert({status, title, message, onDismiss}: ChatAlertProps) {
           <Alert.Title>{title}</Alert.Title>
           <Alert.Description>{message}</Alert.Description>
         </Alert.Content>
-        <CloseButton onPress={onDismiss} />
+        {onDismiss && <CloseButton onPress={onDismiss} />}
       </Alert>
     </div>
   );
