@@ -59,7 +59,7 @@ export class AgentSseLog {
       }
 
       // Wait for new events or abort.
-      const aborted = await this.waitForChange(signal);
+      const aborted = await this.waitForAppendOrAbort(signal);
       if (aborted) return;
     }
   }
@@ -68,7 +68,7 @@ export class AgentSseLog {
    * Returns a promise that resolves when a waiter notification fires
    * or the signal aborts. Returns `true` if aborted, `false` otherwise.
    */
-  private waitForChange(signal?: AbortSignal): Promise<boolean> {
+  private waitForAppendOrAbort(signal?: AbortSignal): Promise<boolean> {
     return new Promise<boolean>((resolve) => {
       const cleanup = (): void => {
         this.waiters.delete(onNotify);
