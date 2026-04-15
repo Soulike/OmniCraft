@@ -14,7 +14,7 @@ export interface FrameBatchScheduler<T> {
    * the same animation frame are composed and applied as a single state
    * update.
    */
-  setState: Dispatch<SetStateAction<T>>;
+  pushSetStateAction: Dispatch<SetStateAction<T>>;
   /** Cancels any pending flush and discards queued actions. */
   cancel: () => void;
 }
@@ -24,7 +24,7 @@ export interface FrameBatchScheduler<T> {
  *
  * Exported for testing — consumers should prefer {@link useFrameBatchedState}.
  */
-export function resolveAction<T>(action: SetStateAction<T>, prev: T): T {
+export function applySetStateAction<T>(action: SetStateAction<T>, prev: T): T {
   // React uses the same `typeof` check internally.  When `T` is itself
   // a function type the caller must always use the updater form.
   return typeof action === 'function'
@@ -53,13 +53,13 @@ export function createFrameBatchScheduler<T>(
     onFlush((prev) => {
       let state = prev;
       for (const action of actions) {
-        state = resolveAction(action, state);
+        state = applySetStateAction(action, state);
       }
       return state;
     });
   }
 
-  function setState(action: SetStateAction<T>): void {
+  function pushSetStateAction(action: SetStateAction<T>): void {
     queue.push(action);
     rafId ??= requestAnimationFrame(flush);
   }
@@ -72,7 +72,7 @@ export function createFrameBatchScheduler<T>(
     queue = [];
   }
 
-  return {setState, cancel};
+  return {pushSetStateAction, cancel};
 }
 
 /**
@@ -98,7 +98,7 @@ export function useFrameBatchedState<T>(
 
   const batchedSetState: Dispatch<SetStateAction<T>> = useCallback(
     (action: SetStateAction<T>) => {
-      scheduler.setState(action);
+      scheduler.pushSetStateAction(action);
     },
     [scheduler],
   );
