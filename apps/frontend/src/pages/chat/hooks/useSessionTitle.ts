@@ -1,49 +1,26 @@
-import {useCallback, useEffect, useRef, useState} from 'react';
-
-import {generateTitle} from '@/api/chat/index.js';
+import {useCallback, useEffect, useState} from 'react';
 
 import type {ChatEventMap} from '../components/StreamingMessageDisplay/index.js';
 import {useChatEventBus} from './useChatEventBus.js';
 
-/**
- * Manages the session title. Subscribes to `turn-done` and generates
- * a title after the first assistant reply. Fire-and-forget — errors are
- * logged but not surfaced to the user.
- */
+/** Tracks the session title from backend-generated `session-title` SSE events. */
 export function useSessionTitle() {
   const [title, setTitle] = useState<string | null>(null);
   const eventBus = useChatEventBus();
-  const titleRequestedRef = useRef(false);
 
   useEffect(() => {
-    const onTurnDone = (data: ChatEventMap['turn-done']) => {
-      if (titleRequestedRef.current) return;
-      if (!data.assistantMessage) return;
-
-      titleRequestedRef.current = true;
-      void generateTitle(
-        data.sessionId,
-        data.userMessage,
-        data.assistantMessage,
-      ).then(
-        (generated) => {
-          setTitle(generated);
-        },
-        (e: unknown) => {
-          console.error('Failed to generate session title', e);
-        },
-      );
+    const onSessionTitle = (data: ChatEventMap['session-title']) => {
+      setTitle(data.title);
     };
 
-    eventBus.on('turn-done', onTurnDone);
+    eventBus.on('session-title', onSessionTitle);
     return () => {
-      eventBus.off('turn-done', onTurnDone);
+      eventBus.off('session-title', onSessionTitle);
     };
   }, [eventBus]);
 
   const clearTitle = useCallback(() => {
     setTitle(null);
-    titleRequestedRef.current = false;
   }, []);
 
   return {title, clearTitle};

@@ -1,7 +1,6 @@
 export {
   abortCompletion,
   createSession,
-  generateTitle,
   sendMessage,
   submitToolResponse,
   subscribeEvents,

@@ -32,21 +32,6 @@ export type ChatCompletionsRequest = z.infer<
   typeof chatCompletionsRequestSchema
 >;
 
-/** Schema for the POST /chat/session/:id/generate-title request body. */
-export const generateTitleRequestSchema = z.object({
-  userMessage: z.string().min(1),
-  assistantMessage: z.string().min(1),
-});
-
-export type GenerateTitleRequest = z.infer<typeof generateTitleRequestSchema>;
-
-/** Schema for the POST /chat/session/:id/generate-title response body. */
-export const generateTitleResponseSchema = z.object({
-  title: z.string(),
-});
-
-export type GenerateTitleResponse = z.infer<typeof generateTitleResponseSchema>;
-
 /**
  * Schema for the POST /chat/session/:id/tool-response request body.
  *

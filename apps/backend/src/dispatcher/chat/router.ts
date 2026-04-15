@@ -5,7 +5,6 @@ import Router from '@koa/router';
 import {
   chatCompletionsRequestSchema,
   createSessionRequestSchema,
-  generateTitleRequestSchema,
   submitToolResponseRequestSchema,
   type ThinkingLevel,
 } from '@omnicraft/api-schema';
@@ -20,7 +19,6 @@ import {
   CHAT_SESSION_ABORT,
   CHAT_SESSION_COMPLETIONS,
   CHAT_SESSION_EVENTS,
-  CHAT_SESSION_GENERATE_TITLE,
   CHAT_SESSION_TOOL_RESPONSE,
 } from './path.js';
 
@@ -158,33 +156,6 @@ router.post(CHAT_SESSION_ABORT, (ctx) => {
   }
 
   ctx.response.status = StatusCodes.NO_CONTENT;
-});
-
-/** POST /chat/session/:id/generate-title — generates a title for a session. */
-router.post(CHAT_SESSION_GENERATE_TITLE, async (ctx) => {
-  const {id} = ctx.params;
-
-  let userMessage: string;
-  let assistantMessage: string;
-  try {
-    const body = generateTitleRequestSchema.parse(ctx.request.body);
-    userMessage = body.userMessage;
-    assistantMessage = body.assistantMessage;
-  } catch (e) {
-    if (e instanceof ZodError) {
-      ctx.response.status = StatusCodes.BAD_REQUEST;
-      ctx.response.body = {error: e.issues};
-      return;
-    }
-    throw e;
-  }
-
-  const title = await chatService.generateTitle(
-    id,
-    userMessage,
-    assistantMessage,
-  );
-  ctx.response.body = {title};
 });
 
 /** POST /chat/session/:id/tool-response — submits a user response for a client-side tool. */
