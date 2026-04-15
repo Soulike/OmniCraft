@@ -1,4 +1,4 @@
-import {mkdtemp, readFile, rm} from 'node:fs/promises';
+import {mkdtemp, readFile, rm, writeFile} from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -341,6 +341,110 @@ describe('AgentSseLog', () => {
 
       const content = await readFile(nestedPath, 'utf-8');
       expect(content.trimEnd()).toBe(JSON.stringify(textDelta('a')));
+    });
+
+    it('cold append does not populate in-memory array', async () => {
+      const log = new AgentSseLog(filePath);
+      await log.append(textDelta('a'));
+      await log.append(textDelta('b'));
+      expect(log.activeReaderCount).toBe(0);
+    });
+
+    it('first reader triggers ensureLoaded and can read historical events', async () => {
+      const log = new AgentSseLog(filePath);
+      await log.append(textDelta('a'));
+      await log.append(textDelta('b'));
+
+      const controller = new AbortController();
+      const collected = collect(log.createReader({signal: controller.signal}));
+
+      await new Promise((r) => setTimeout(r, 10));
+      controller.abort();
+
+      const events = await collected;
+      expect(events).toEqual([textDelta('a'), textDelta('b')]);
+    });
+
+    it('last reader leaving triggers unload', async () => {
+      const log = new AgentSseLog(filePath);
+      await log.append(textDelta('a'));
+
+      const controller = new AbortController();
+      const reader = collect(log.createReader({signal: controller.signal}));
+
+      await new Promise((r) => setTimeout(r, 10));
+      controller.abort();
+      await reader;
+
+      expect(log.activeReaderCount).toBe(0);
+    });
+
+    it('hot append writes to both file and memory', async () => {
+      const log = new AgentSseLog(filePath);
+      await log.append(textDelta('a'));
+
+      const controller = new AbortController();
+      const collected = collect(log.createReader({signal: controller.signal}));
+
+      await new Promise((r) => setTimeout(r, 10));
+
+      await log.append(textDelta('b'));
+
+      await new Promise((r) => setTimeout(r, 10));
+      controller.abort();
+
+      const events = await collected;
+      expect(events).toEqual([textDelta('a'), textDelta('b')]);
+
+      const content = await readFile(filePath, 'utf-8');
+      const lines = content.trimEnd().split('\n');
+      expect(lines).toHaveLength(2);
+      expect(JSON.parse(lines[0])).toEqual(textDelta('a'));
+      expect(JSON.parse(lines[1])).toEqual(textDelta('b'));
+    });
+
+    it('after unload, new append only writes to file', async () => {
+      const log = new AgentSseLog(filePath);
+      await log.append(textDelta('a'));
+
+      const controller = new AbortController();
+      const reader1 = collect(log.createReader({signal: controller.signal}));
+
+      await new Promise((r) => setTimeout(r, 10));
+      controller.abort();
+      await reader1;
+
+      await log.append(textDelta('b'));
+      expect(log.activeReaderCount).toBe(0);
+
+      const content = await readFile(filePath, 'utf-8');
+      const lines = content.trimEnd().split('\n');
+      expect(lines).toHaveLength(2);
+      expect(JSON.parse(lines[0])).toEqual(textDelta('a'));
+      expect(JSON.parse(lines[1])).toEqual(textDelta('b'));
+    });
+
+    it('ensureLoaded discards corrupted last line and rewrites file', async () => {
+      const validEvent = textDelta('valid');
+      await writeFile(
+        filePath,
+        JSON.stringify(validEvent) + '\n' + 'corrupted-json\n',
+      );
+
+      const log = new AgentSseLog(filePath);
+      const controller = new AbortController();
+      const collected = collect(log.createReader({signal: controller.signal}));
+
+      await new Promise((r) => setTimeout(r, 10));
+      controller.abort();
+
+      const events = await collected;
+      expect(events).toEqual([validEvent]);
+
+      const content = await readFile(filePath, 'utf-8');
+      const lines = content.trimEnd().split('\n');
+      expect(lines).toHaveLength(1);
+      expect(JSON.parse(lines[0])).toEqual(validEvent);
     });
   });
 });

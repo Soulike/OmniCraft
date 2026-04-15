@@ -1,5 +1,5 @@
 import assert from 'node:assert';
-import {appendFile, mkdir} from 'node:fs/promises';
+import {appendFile, mkdir, readFile, writeFile} from 'node:fs/promises';
 import path from 'node:path';
 
 import type {SseEvent} from '@omnicraft/sse-events';
@@ -25,6 +25,12 @@ export interface AgentSseLogReaderOptions {
  * - File-backed (filePath provided): each event is durably appended to a
  *   JSONL file via a mutex-serialized write, then reflected in memory if
  *   {@link loaded} is true.
+ *
+ * Three-state lifecycle for file-backed mode:
+ * - Cold (no readers): loaded=false, events=[]. Append only writes to file.
+ * - Hot (has readers): loaded=true, events populated. Append writes to both.
+ * - Transition Cold→Hot: first reader calls ensureLoaded().
+ * - Transition Hot→Cold: last reader calls unload().
  */
 export class AgentSseLog {
   private readonly events: SseEvent[] = [];
@@ -35,9 +41,15 @@ export class AgentSseLog {
   /** True when the in-memory array is the authoritative view of all events. */
   private loaded: boolean;
 
+  private readerCount = 0;
+
   constructor(filePath?: string) {
     this.filePath = filePath ?? null;
     this.loaded = this.filePath === null;
+  }
+
+  get activeReaderCount(): number {
+    return this.readerCount;
   }
 
   /** Appends an event to the log and wakes all waiting readers. */
@@ -81,17 +93,94 @@ export class AgentSseLog {
   ): AsyncIterableIterator<SseEvent> {
     if (signal?.aborted) return;
 
-    for (;;) {
-      while (cursor < this.events.length) {
-        yield this.events[cursor];
-        cursor++;
-        if (signal?.aborted) return;
+    const isFirstReader = this.readerCount === 0;
+    this.readerCount++;
+
+    if (isFirstReader && this.filePath !== null && !this.loaded) {
+      await this.ensureLoaded();
+    }
+
+    try {
+      for (;;) {
+        while (cursor < this.events.length) {
+          yield this.events[cursor];
+          cursor++;
+          if (signal?.aborted) return;
+        }
+
+        // Wait for new events or abort.
+        const aborted = await this.waitForAppendOrAbort(signal);
+        if (aborted) return;
+      }
+    } finally {
+      this.readerCount--;
+      if (this.readerCount === 0 && this.filePath !== null) {
+        this.unload();
+      }
+    }
+  }
+
+  /**
+   * Reads all events from the file into memory and sets loaded=true.
+   * If the file has a corrupted line, discards it and all subsequent lines,
+   * then rewrites the file with only the valid events.
+   */
+  private async ensureLoaded(): Promise<void> {
+    assert(this.filePath, 'ensureLoaded called without filePath');
+
+    const release = await this.mutex.acquire();
+    try {
+      let content: string;
+      try {
+        content = await readFile(this.filePath, 'utf-8');
+      } catch (error) {
+        if (
+          error instanceof Error &&
+          'code' in error &&
+          error.code === 'ENOENT'
+        ) {
+          this.loaded = true;
+          return;
+        }
+        throw error;
       }
 
-      // Wait for new events or abort.
-      const aborted = await this.waitForAppendOrAbort(signal);
-      if (aborted) return;
+      if (content === '') {
+        this.loaded = true;
+        return;
+      }
+
+      const lines = content.split('\n');
+      let needsRewrite = false;
+      for (const line of lines) {
+        if (line === '') continue;
+        try {
+          const event = JSON.parse(line) as SseEvent;
+          this.events.push(event);
+        } catch {
+          needsRewrite = true;
+          break;
+        }
+      }
+
+      if (needsRewrite) {
+        await writeFile(
+          this.filePath,
+          this.events.map((e) => JSON.stringify(e) + '\n').join(''),
+        );
+      }
+
+      this.loaded = true;
+    } finally {
+      release();
     }
+  }
+
+  /** Drops in-memory state and returns to cold mode. */
+  private unload(): void {
+    this.events.length = 0;
+    this.newEventWaiters.clear();
+    this.loaded = false;
   }
 
   /**
