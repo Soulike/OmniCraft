@@ -181,7 +181,6 @@ export const dispatchAgentTool: ToolDefinition<
     });
 
     try {
-      // Subscribe before starting — ensures the reader is in place before events flow.
       let lastReplyText = '';
       let completed = false;
       const eventIter = subagent.subscribe({signal: context.signal});
