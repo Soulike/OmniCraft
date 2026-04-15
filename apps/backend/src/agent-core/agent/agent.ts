@@ -186,36 +186,28 @@ export abstract class Agent {
         thinkingLevel,
         this.abortController.signal,
       );
-      const doneReason = await this.pump(stream);
-
-      if (
-        doneReason === 'complete' &&
-        !this.title &&
-        !this.titleGenerationStarted &&
-        this.getLightConfig
-      ) {
-        this.titleGenerationStarted = true;
-        void this.generateAndEmitTitle();
-      }
+      await this.pump(stream);
     } finally {
       this.abortController = null;
       release();
     }
   }
 
-  /**
-   * Consumes the agent event stream and appends each event to sseLog.
-   * Returns the done reason if a `done` event was emitted, or `null`.
-   */
-  private async pump(
-    stream: AgentEventStream,
-  ): Promise<SseDoneEvent['reason'] | null> {
-    let doneReason: SseDoneEvent['reason'] | null = null;
+  /** Consumes the agent event stream and appends each event to sseLog. */
+  private async pump(stream: AgentEventStream): Promise<void> {
     try {
       for await (const event of stream) {
         this.sseLog.append(event);
-        if (event.type === 'done') {
-          doneReason = event.reason;
+
+        if (
+          event.type === 'done' &&
+          event.reason === 'complete' &&
+          !this.title &&
+          !this.titleGenerationStarted &&
+          this.getLightConfig
+        ) {
+          this.titleGenerationStarted = true;
+          void this.generateAndEmitTitle();
         }
       }
     } catch {
@@ -224,7 +216,6 @@ export abstract class Agent {
         message: 'An internal error occurred',
       });
     }
-    return doneReason;
   }
 
   private async *emitAbortCompletion(
