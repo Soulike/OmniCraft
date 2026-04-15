@@ -473,10 +473,50 @@ git commit -m "feat(backend): add three-state model to AgentSseLog (cold/hot/in-
 
 - [ ] **Step 1: Update type definitions**
 
-In `types.ts`, add `extraAllowedPaths` to `AgentSnapshotOptions` and `sessionsDir` to `AgentOptions`:
+In `types.ts`, add `extraAllowedPaths` to `AgentSnapshotOptions`, add `sessionsDir` to `AgentOptions`, and add Zod schemas for snapshot validation:
 
 ```typescript
+import {z} from 'zod';
+
 import type {AllowedPathEntry} from '../tool/index.js';
+
+// ---------------------------------------------------------------------------
+// Agent Snapshot Schema (for disk validation)
+// ---------------------------------------------------------------------------
+
+const allowedPathEntrySchema = z.object({
+  path: z.string(),
+  mode: z.enum(['read-only', 'read-write']),
+});
+
+const agentSnapshotOptionsSchema = z.object({
+  workingDirectory: z.string(),
+  claudeCodeSessionId: z.string().optional(),
+  extraAllowedPaths: z.array(allowedPathEntrySchema).optional(),
+});
+
+const llmMessageSchema = z.object({
+  id: z.string(),
+  createdAt: z.number(),
+  role: z.enum(['user', 'assistant']),
+  content: z.string(),
+});
+
+const llmSessionSnapshotSchema = z.object({
+  id: z.string(),
+  messages: z.array(llmMessageSchema),
+});
+
+export const agentSnapshotSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  llmSession: llmSessionSnapshotSchema,
+  options: agentSnapshotOptionsSchema,
+});
+
+// ---------------------------------------------------------------------------
+// Agent Snapshot Types
+// ---------------------------------------------------------------------------
 
 export interface AgentSnapshotOptions {
   workingDirectory: string;
@@ -496,7 +536,7 @@ export interface AgentOptions {
 }
 ```
 
-Note: `AllowedPathEntry` is already imported via `'../tool/index.js'` in the existing types file — check if it's re-exported there. If not, import from `@omnicraft/settings-schema` where the Agent constructor imports it.
+Note: The `llmMessageSchema` should match the actual `LlmMessage` type from `llm-session/types.ts`. Check the real type and adjust the schema fields accordingly during implementation.
 
 - [ ] **Step 2: Run typecheck to verify no breakage**
 
@@ -689,7 +729,8 @@ In `runTurn`, update the `onEvent` callback to also persist snapshot on `done` a
   ): Promise<AgentSnapshot> {
     const filePath = Agent.snapshotPath(sessionsDir, id);
     const content = await readFile(filePath, 'utf-8');
-    return JSON.parse(content) as AgentSnapshot;
+    const raw: unknown = JSON.parse(content);
+    return agentSnapshotSchema.parse(raw);
   }
 
   protected static async reconcileEventsFile(
