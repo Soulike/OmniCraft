@@ -413,18 +413,13 @@ export class AgentSseLog {
       const lines = content.trimEnd().split('\n');
       let needsRewrite = false;
 
-      for (let i = 0; i < lines.length; i++) {
+      for (const line of lines) {
         try {
-          const event: SseEvent = JSON.parse(lines[i]);
+          const event: SseEvent = JSON.parse(line);
           this.events.push(event);
         } catch {
-          // If last line is corrupted, discard it
-          if (i === lines.length - 1) {
-            needsRewrite = true;
-          } else {
-            // Non-last line corrupted — still discard but unexpected
-            needsRewrite = true;
-          }
+          needsRewrite = true;
+          break; // Stop at first corrupted line
         }
       }
 
@@ -753,19 +748,23 @@ In `runTurn`, update the `onEvent` callback to also persist snapshot on `done` a
     const lines = content.trimEnd().split('\n');
     const validLines: string[] = [];
 
+    // Parse forward, stop at first corrupted line.
+    // Only the last line is expected to be corrupted (crash mid-write).
+    // A corrupted middle line means the file is unreliable beyond that point.
     for (const line of lines) {
       let raw: unknown;
       try {
         raw = JSON.parse(line);
       } catch {
-        continue; // Malformed JSON — skip
+        break;
       }
-      if (sseEventSchema.safeParse(raw).success) {
-        validLines.push(line);
+      if (!sseEventSchema.safeParse(raw).success) {
+        break;
       }
+      validLines.push(line);
     }
 
-    // Find last 'done' event index
+    // Find last 'done' event in the valid prefix
     let lastDoneIndex = -1;
     for (let i = validLines.length - 1; i >= 0; i--) {
       const event = sseEventSchema.parse(JSON.parse(validLines[i]));
@@ -781,7 +780,7 @@ In `runTurn`, update the `onEvent` callback to also persist snapshot on `done` a
     }
 
     const truncated = validLines.slice(0, lastDoneIndex + 1);
-    if (truncated.length !== lines.length || validLines.length !== lines.length) {
+    if (truncated.length !== lines.length) {
       await writeFile(filePath, truncated.join('\n') + '\n');
     }
   }
