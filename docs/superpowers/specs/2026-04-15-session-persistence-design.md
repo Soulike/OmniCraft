@@ -7,7 +7,7 @@ Phase 4 of the session storage & restore plan ([#129](https://github.com/Soulike
 ```
 $DATA_DIR/sessions/<uuid>/
   snapshot.json     # AgentSnapshot — atomic write (write .tmp + rename)
-  events.jsonl      # One SseEvent JSON per line — append-only
+  sse-events.jsonl      # One SseEvent JSON per line — append-only
 ```
 
 `$DATA_DIR` defaults to `~/.omni-craft` (from `getDataDir()`). The `sessionsDir` is `$DATA_DIR/sessions`, computed in `initServices()` and passed to `AgentStore.create()`. From there it flows to `chatService` (for new agent creation) and `restoreAgent` (for lazy loading).
@@ -61,7 +61,7 @@ private static snapshotPath(sessionsDir: string, id: string): string {
 }
 
 private static eventsPath(sessionsDir: string, id: string): string {
-  return path.join(sessionsDir, id, 'events.jsonl');
+  return path.join(sessionsDir, id, 'sse-events.jsonl');
 }
 ```
 
@@ -71,11 +71,11 @@ With `sessionsDir`: `new AgentSseLog(Agent.eventsPath(sessionsDir, this.id))`. W
 
 ### Snapshot Write Timing
 
-| Event           | Action                                                  |
-| --------------- | ------------------------------------------------------- |
-| Each SSE event  | Written to `events.jsonl` (inside `AgentSseLog.append`) |
-| `done`          | Write `snapshot.json`                                   |
-| `session-title` | Write `snapshot.json`                                   |
+| Event           | Action                                                      |
+| --------------- | ----------------------------------------------------------- |
+| Each SSE event  | Written to `sse-events.jsonl` (inside `AgentSseLog.append`) |
+| `done`          | Write `snapshot.json`                                       |
+| `session-title` | Write `snapshot.json`                                       |
 
 `pump()` onEvent callback triggers `persistSnapshot()` on these events.
 
@@ -115,13 +115,13 @@ protected static async loadSnapshotFromDisk(
 Responsibilities:
 
 1. Read `snapshot.json`, parse as `AgentSnapshot`
-2. Read `events.jsonl`, find last `done` event
+2. Read `sse-events.jsonl`, find last `done` event
 3. If events exist after last `done` (interrupted turn): truncate file to last `done` line (inclusive)
 4. If no `done` event exists (first turn crashed): clear the file
 5. Malformed last line: discard before finding last `done`
 6. Return snapshot
 
-This ensures `events.jsonl` and `snapshot.json` are consistent on restore.
+This ensures `sse-events.jsonl` and `snapshot.json` are consistent on restore.
 
 ### MainAgent.restore
 
@@ -215,7 +215,7 @@ Route handlers are already async (Koa). Add `await` on chatService calls. No log
 ### Agent.loadSnapshotFromDisk
 
 - Normal snapshot read
-- events.jsonl truncated to last `done` event
+- sse-events.jsonl truncated to last `done` event
 - No `done` event -> events file cleared
 - Corrupted last line -> discard then truncate
 
