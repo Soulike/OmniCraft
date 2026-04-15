@@ -6,7 +6,9 @@ import type {
   SseToolExecuteEndEvent,
   SseToolExecuteStartEvent,
 } from '@omnicraft/sse-events';
-import {useEffect, useState} from 'react';
+import {useEffect} from 'react';
+
+import {useFrameBatchedState} from '@/hooks/useFrameBatchedState.js';
 
 import type {ChatEventBus, ChatMessage} from '../types.js';
 import {useChatEventBus} from './useChatEventBus.js';
@@ -268,45 +270,45 @@ function updateSubagentStatus(
 
 /** Manages the chat message history, subscribing to chat events. */
 export function useMessages() {
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [messages, enqueue] = useFrameBatchedState<ChatMessage[]>([]);
   const eventBus = useChatEventBus();
 
   useEffect(() => {
     const onUserMessageSent = (data: {content: string}) => {
-      setMessages((prev) => addUserMessage(prev, data.content));
+      enqueue((prev) => addUserMessage(prev, data.content));
     };
     const onTextDelta = (data: SseTextDeltaEvent) => {
-      setMessages((prev) => appendAssistantText(prev, data.content));
+      enqueue((prev) => appendAssistantText(prev, data.content));
     };
     const onToolExecuteStart = (data: SseToolExecuteStartEvent) => {
-      setMessages((prev) => pushToolStart(prev, data));
+      enqueue((prev) => pushToolStart(prev, data));
     };
     const onToolExecuteEnd = (data: SseToolExecuteEndEvent) => {
-      setMessages((prev) => pushToolEnd(prev, data));
+      enqueue((prev) => pushToolEnd(prev, data));
     };
     const onDone = () => {
-      setMessages(removeTrailingAssistantMessageIfEmpty);
+      enqueue(removeTrailingAssistantMessageIfEmpty);
     };
     const onMessageStart = (data: SseMessageStartEvent) => {
       if (data.role === 'user') {
-        setMessages((prev) => applyUserMessageStart(prev, data));
+        enqueue((prev) => applyUserMessageStart(prev, data));
       } else {
-        setMessages((prev) =>
+        enqueue((prev) =>
           applyAssistantMessageStart(prev, data.messageId, data.createdAt),
         );
       }
     };
     const onThinkingStart = () => {
-      setMessages(pushThinkingStart);
+      enqueue(pushThinkingStart);
     };
     const onThinkingDelta = (data: SseThinkingDeltaEvent) => {
-      setMessages((prev) => appendThinkingDelta(prev, data.content));
+      enqueue((prev) => appendThinkingDelta(prev, data.content));
     };
     const onThinkingEnd = () => {
-      setMessages(finishThinking);
+      enqueue(finishThinking);
     };
     const onReset = () => {
-      setMessages([]);
+      enqueue(() => []);
     };
     const onSubagentDispatched = (data: {
       agentId: string;
@@ -316,13 +318,13 @@ export function useMessages() {
       workingDirectory: string;
       eventBus: ChatEventBus;
     }) => {
-      setMessages((prev) => pushSubagentStart(prev, data));
+      enqueue((prev) => pushSubagentStart(prev, data));
     };
     const onSubagentCompleted = (data: {
       agentId: string;
       status: 'success' | 'failure';
     }) => {
-      setMessages((prev) => updateSubagentStatus(prev, data));
+      enqueue((prev) => updateSubagentStatus(prev, data));
     };
 
     eventBus.on('user-message-sent', onUserMessageSent);
@@ -352,7 +354,7 @@ export function useMessages() {
       eventBus.off('subagent-dispatched', onSubagentDispatched);
       eventBus.off('subagent-completed', onSubagentCompleted);
     };
-  }, [eventBus]);
+  }, [eventBus, enqueue]);
 
   return {messages};
 }
