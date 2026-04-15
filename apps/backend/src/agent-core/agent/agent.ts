@@ -186,19 +186,7 @@ export abstract class Agent {
         thinkingLevel,
         this.abortController.signal,
       );
-      await this.pump(stream);
-    } finally {
-      this.abortController = null;
-      release();
-    }
-  }
-
-  /** Consumes the agent event stream and appends each event to sseLog. */
-  private async pump(stream: AgentEventStream): Promise<void> {
-    try {
-      for await (const event of stream) {
-        this.sseLog.append(event);
-
+      await this.pump(stream, (event) => {
         if (
           event.type === 'done' &&
           event.reason === 'complete' &&
@@ -209,6 +197,22 @@ export abstract class Agent {
           this.titleGenerationStarted = true;
           void this.generateAndEmitTitle();
         }
+      });
+    } finally {
+      this.abortController = null;
+      release();
+    }
+  }
+
+  /** Consumes the agent event stream and appends each event to sseLog. */
+  private async pump(
+    stream: AgentEventStream,
+    onEvent?: (event: SseEvent) => void,
+  ): Promise<void> {
+    try {
+      for await (const event of stream) {
+        this.sseLog.append(event);
+        onEvent?.(event);
       }
     } catch {
       this.sseLog.append({
