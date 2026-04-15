@@ -33,7 +33,7 @@ export class AgentSseLog {
   private readonly mutex = new Mutex();
 
   /** True when the in-memory array is the authoritative view of all events. */
-  protected loaded: boolean;
+  private loaded: boolean;
 
   constructor(filePath?: string) {
     this.filePath = filePath ?? null;
