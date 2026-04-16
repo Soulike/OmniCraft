@@ -1,5 +1,5 @@
 import assert from 'node:assert';
-import {mkdir, mkdtemp, rm, writeFile} from 'node:fs/promises';
+import {mkdir, mkdtemp, rm, utimes, writeFile} from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -24,6 +24,17 @@ function createMockAgent(
     isRunning: overrides.isRunning ?? false,
     sseLog,
   } as Agent;
+}
+
+/** Writes a minimal snapshot.json into a session directory. */
+async function writeSnapshot(
+  sessionsDir: string,
+  id: string,
+  data: Record<string, unknown>,
+): Promise<void> {
+  const dir = path.join(sessionsDir, id);
+  await mkdir(dir, {recursive: true});
+  await writeFile(path.join(dir, 'snapshot.json'), JSON.stringify(data));
 }
 
 describe('MainAgentStore', () => {
@@ -204,6 +215,96 @@ describe('MainAgentStore', () => {
       const readingAgent = await store.get('agent-reading');
       assert(readingAgent);
       expect(readingAgent.id).toBe('agent-reading');
+    });
+  });
+
+  describe('listSessionMetadata', () => {
+    it('returns empty array when sessions directory is empty', async () => {
+      const store = MainAgentStore.create(sessionsDir);
+      const result = await store.listSessionMetadata();
+      expect(result).toEqual([]);
+    });
+
+    it('returns empty array when sessions directory does not exist', async () => {
+      const nonexistent = path.join(sessionsDir, 'does-not-exist');
+      const store = MainAgentStore.create(nonexistent);
+      const result = await store.listSessionMetadata();
+      expect(result).toEqual([]);
+    });
+
+    it('returns metadata from valid snapshots', async () => {
+      const store = MainAgentStore.create(sessionsDir);
+      await writeSnapshot(sessionsDir, 'session-a', {
+        id: 'session-a',
+        title: 'Title A',
+      });
+      const result = await store.listSessionMetadata();
+      expect(result).toEqual([{id: 'session-a', title: 'Title A'}]);
+    });
+
+    it('sorts by file mtime descending (most recent first)', async () => {
+      const store = MainAgentStore.create(sessionsDir);
+
+      await writeSnapshot(sessionsDir, 'older', {
+        id: 'older',
+        title: 'Older',
+      });
+      await writeSnapshot(sessionsDir, 'newer', {
+        id: 'newer',
+        title: 'Newer',
+      });
+
+      // Set mtime so 'older' is older and 'newer' is newer
+      const past = new Date(Date.now() - 60_000);
+      const now = new Date();
+      await utimes(
+        path.join(sessionsDir, 'older', 'snapshot.json'),
+        past,
+        past,
+      );
+      await utimes(path.join(sessionsDir, 'newer', 'snapshot.json'), now, now);
+
+      const result = await store.listSessionMetadata();
+      expect(result).toEqual([
+        {id: 'newer', title: 'Newer'},
+        {id: 'older', title: 'Older'},
+      ]);
+    });
+
+    it('skips directories with missing snapshot.json', async () => {
+      const store = MainAgentStore.create(sessionsDir);
+      await mkdir(path.join(sessionsDir, 'no-snapshot'));
+      await writeSnapshot(sessionsDir, 'valid', {
+        id: 'valid',
+        title: 'Valid',
+      });
+
+      const result = await store.listSessionMetadata();
+      expect(result).toEqual([{id: 'valid', title: 'Valid'}]);
+    });
+
+    it('skips snapshots with invalid JSON', async () => {
+      const store = MainAgentStore.create(sessionsDir);
+      const dir = path.join(sessionsDir, 'bad-json');
+      await mkdir(dir);
+      await writeFile(path.join(dir, 'snapshot.json'), 'not valid json{{{');
+
+      await writeSnapshot(sessionsDir, 'good', {id: 'good', title: 'Good'});
+
+      const result = await store.listSessionMetadata();
+      expect(result).toEqual([{id: 'good', title: 'Good'}]);
+    });
+
+    it('skips snapshots missing required fields', async () => {
+      const store = MainAgentStore.create(sessionsDir);
+      await writeSnapshot(sessionsDir, 'no-title', {id: 'no-title'});
+      await writeSnapshot(sessionsDir, 'complete', {
+        id: 'complete',
+        title: 'Complete',
+      });
+
+      const result = await store.listSessionMetadata();
+      expect(result).toEqual([{id: 'complete', title: 'Complete'}]);
     });
   });
 

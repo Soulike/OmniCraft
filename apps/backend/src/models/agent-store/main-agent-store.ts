@@ -2,7 +2,10 @@ import assert from 'node:assert';
 import {access, readdir, readFile, rm, stat} from 'node:fs/promises';
 import path from 'node:path';
 
-import {z} from 'zod';
+import {
+  type SessionMetadata,
+  sessionMetadataSchema,
+} from '@omnicraft/api-schema';
 
 import {MainAgent} from '@/agent/agents/index.js';
 import type {Agent} from '@/agent-core/agent/index.js';
@@ -10,16 +13,6 @@ import {agentEventBus} from '@/agent-core/events/index.js';
 import {logger} from '@/logger.js';
 
 const MAX_CACHED_AGENTS = 50;
-
-const snapshotMetadataSchema = z.object({
-  id: z.string(),
-  title: z.string(),
-});
-
-export interface SessionMetadata {
-  readonly id: string;
-  readonly title: string;
-}
 
 interface CacheEntry {
   agent: Agent;
@@ -146,7 +139,7 @@ export class MainAgentStore {
             stat(snapshotPath),
           ]);
           const json: unknown = JSON.parse(content);
-          const metadata = snapshotMetadataSchema.parse(json);
+          const metadata = sessionMetadataSchema.parse(json);
           results.push({metadata, mtime: fileStat.mtimeMs});
         } catch (e) {
           logger.warn(

@@ -1,16 +1,13 @@
 import assert from 'node:assert';
 import os from 'node:os';
 
-import type {ThinkingLevel} from '@omnicraft/api-schema';
+import type {SessionMetadata, ThinkingLevel} from '@omnicraft/api-schema';
 import type {AllowedPathEntry} from '@omnicraft/settings-schema';
 import type {SseEvent} from '@omnicraft/sse-events';
 
 import {MainAgent} from '@/agent/agents/index.js';
 import type {AgentSseLogReaderOptions} from '@/agent-core/agent/agent-sse-log.js';
-import {
-  MainAgentStore,
-  type SessionMetadata,
-} from '@/models/agent-store/index.js';
+import {MainAgentStore} from '@/models/agent-store/index.js';
 import {SettingsManager} from '@/models/settings-manager/index.js';
 
 import {getLlmConfig} from './helpers.js';
@@ -147,8 +144,11 @@ export const chatService = {
     return MainAgentStore.getInstance().listSessionMetadata();
   },
 
-  /** Deletes an agent session. */
-  async deleteSession(agentId: string): Promise<void> {
-    await MainAgentStore.getInstance().delete(agentId);
+  /** Deletes an agent session. Returns false if session not found. */
+  async deleteSession(agentId: string): Promise<boolean> {
+    const store = MainAgentStore.getInstance();
+    if (!(await store.has(agentId))) return false;
+    await store.delete(agentId);
+    return true;
   },
 };

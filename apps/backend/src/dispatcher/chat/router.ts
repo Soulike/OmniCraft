@@ -199,7 +199,14 @@ router.post(CHAT_SESSION_TOOL_RESPONSE, async (ctx) => {
 /** DELETE /chat/session/:id — deletes a session from memory and disk. */
 router.delete(CHAT_SESSION_BY_ID, async (ctx) => {
   const {id} = ctx.params;
-  await chatService.deleteSession(id);
+
+  const found = await chatService.deleteSession(id);
+  if (!found) {
+    ctx.response.status = StatusCodes.NOT_FOUND;
+    ctx.response.body = {error: `Session not found: ${id}`};
+    return;
+  }
+
   ctx.response.status = StatusCodes.NO_CONTENT;
 });
 
