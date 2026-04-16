@@ -1,6 +1,8 @@
 import assert from 'node:assert';
 import crypto from 'node:crypto';
+import {mkdir, readFile, rename, writeFile} from 'node:fs/promises';
 import os from 'node:os';
+import path from 'node:path';
 
 import type {ThinkingLevel} from '@omnicraft/api-schema';
 import type {
@@ -18,10 +20,12 @@ import type {
   SseToolExecuteStartEvent,
   SseUsage,
 } from '@omnicraft/sse-events';
+import {sseEventSchema} from '@omnicraft/sse-events';
 import type {AnyToolResultData, ToolName} from '@omnicraft/tool-schemas';
 
 import {AsyncChannel} from '@/helpers/async-channel.js';
 import {Mutex} from '@/helpers/mutex.js';
+import {logger} from '@/logger.js';
 
 import {agentEventBus} from '../events/index.js';
 import type {LlmConfig, LlmToolCall} from '../llm-api/index.js';
@@ -43,6 +47,7 @@ import {AgentSseLog} from './agent-sse-log.js';
 import {FileContentCache} from './file-content-cache.js';
 import {FileStatTracker} from './file-stat-tracker.js';
 import type {AgentEventStream, AgentOptions, AgentSnapshot} from './types.js';
+import {agentSnapshotSchema} from './types.js';
 
 const TITLE_MAX_LENGTH = 20;
 
@@ -75,6 +80,10 @@ export abstract class Agent {
 
   private readonly extraAllowedPaths: readonly AllowedPathEntry[];
 
+  private readonly sessionsDir: string | null;
+
+  private sseEventCount = 0;
+
   /** LRU file content cache, shared by all file-related tools. */
   private readonly fileCache = new FileContentCache();
 
@@ -88,7 +97,7 @@ export abstract class Agent {
   private readonly userInteractionBridge = new UserInteractionBridge();
 
   /** Append-only event log. All turns write to the same log. */
-  readonly sseLog = new AgentSseLog();
+  readonly sseLog: AgentSseLog;
 
   /** Serializes turns — only one runs at a time. */
   private readonly mutex = new Mutex();
@@ -98,6 +107,14 @@ export abstract class Agent {
 
   /** True while an async title generation is in flight. */
   private isGeneratingTitle = false;
+
+  static snapshotPath(sessionsDir: string, id: string): string {
+    return path.join(sessionsDir, id, 'snapshot.json');
+  }
+
+  static eventsPath(sessionsDir: string, id: string): string {
+    return path.join(sessionsDir, id, 'sse-events.jsonl');
+  }
 
   constructor(
     getConfig: () => Promise<LlmConfig>,
@@ -116,9 +133,12 @@ export abstract class Agent {
       ...options.extraAllowedPaths,
     ];
 
+    this.sessionsDir = options.sessionsDir ?? null;
+
     if (snapshot) {
       this.id = snapshot.id;
       this.title = snapshot.title;
+      this.sseEventCount = snapshot.sseEventCount;
       this.workingDirectory = snapshot.options.workingDirectory;
       this.llmSession = new LlmSession(getConfig, snapshot.llmSession);
     } else {
@@ -126,6 +146,10 @@ export abstract class Agent {
       this.workingDirectory = options.workingDirectory;
       this.llmSession = new LlmSession(getConfig);
     }
+
+    this.sseLog = this.sessionsDir
+      ? new AgentSseLog(Agent.eventsPath(this.sessionsDir, this.id))
+      : new AgentSseLog();
 
     this.shellState = {cwd: this.workingDirectory};
 
@@ -147,11 +171,30 @@ export abstract class Agent {
     return {
       id: this.id,
       title: this.title,
+      sseEventCount: this.sseEventCount,
       llmSession: this.llmSession.toSnapshot(),
       options: {
         workingDirectory: this.workingDirectory,
+        extraAllowedPaths: this.extraAllowedPaths.filter(
+          (p) => p.path !== os.tmpdir(),
+        ),
       },
     };
+  }
+
+  /**
+   * Persists the current snapshot to disk via atomic rename.
+   * No-op when sessionsDir is not configured.
+   */
+  private async persistSnapshot(): Promise<void> {
+    if (!this.sessionsDir) return;
+    const filePath = Agent.snapshotPath(this.sessionsDir, this.id);
+    const dir = path.dirname(filePath);
+    await mkdir(dir, {recursive: true});
+    const tmpPath = `${filePath}.${crypto.randomUUID()}.tmp`;
+    const data = JSON.stringify(this.toSnapshot(), null, 2) + '\n';
+    await writeFile(tmpPath, data);
+    await rename(tmpPath, filePath);
   }
 
   /**
@@ -170,6 +213,11 @@ export abstract class Agent {
   /** Aborts the currently running turn, if any. */
   abort(): void {
     this.abortController?.abort();
+  }
+
+  /** Whether a turn or title generation is currently in progress. */
+  get isRunning(): boolean {
+    return this.abortController !== null || this.isGeneratingTitle;
   }
 
   // -------------------------------------------------------------------------
@@ -200,11 +248,22 @@ export abstract class Agent {
             this.isGeneratingTitle = false;
           });
         }
+        if (event.type === 'done') {
+          void this.persistSnapshot().catch((err: unknown) => {
+            logger.error({err}, 'Failed to persist snapshot');
+          });
+        }
       });
     } finally {
       this.abortController = null;
       release();
     }
+  }
+
+  /** Appends an event to the SSE log and increments the event counter. */
+  private async appendSseEvent(event: SseEvent): Promise<void> {
+    await this.sseLog.append(event);
+    this.sseEventCount++;
   }
 
   /** Consumes the agent event stream and appends each event to sseLog. */
@@ -214,11 +273,11 @@ export abstract class Agent {
   ): Promise<void> {
     try {
       for await (const event of stream) {
-        this.sseLog.append(event);
+        await this.appendSseEvent(event);
         onEvent?.(event);
       }
     } catch {
-      this.sseLog.append({
+      await this.appendSseEvent({
         type: 'error',
         message: 'An internal error occurred',
       });
@@ -461,10 +520,13 @@ export abstract class Agent {
     }
 
     this.title = title;
-    this.sseLog.append({
+    await this.appendSseEvent({
       type: 'session-title',
       title,
     } satisfies SseSessionTitleEvent);
+    await this.persistSnapshot().catch((err: unknown) => {
+      logger.error({err}, 'Failed to persist snapshot after title generation');
+    });
   }
 
   /**
@@ -659,6 +721,76 @@ export abstract class Agent {
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
       return {content: `Error: ${message}`, status: 'error', data: {message}};
+    }
+  }
+
+  /**
+   * Reads and validates a snapshot from disk.
+   * @throws if the file cannot be read or fails schema validation.
+   */
+  protected static async loadSnapshotFromDisk(
+    sessionsDir: string,
+    id: string,
+  ): Promise<AgentSnapshot> {
+    const filePath = Agent.snapshotPath(sessionsDir, id);
+    const content = await readFile(filePath, 'utf-8');
+    const json: unknown = JSON.parse(content);
+    return agentSnapshotSchema.parse(json);
+  }
+
+  /**
+   * Validates and potentially truncates the SSE events JSONL file.
+   *
+   * Reads each line, validates with the SSE event schema, and stops at
+   * the first corrupted/invalid line. The file is truncated to
+   * `min(lineCount, sseEventCount)` valid lines. ENOENT is silently
+   * ignored; other read errors are re-thrown.
+   */
+  protected static async reconcileEventsFile(
+    sessionsDir: string,
+    id: string,
+    sseEventCount: number,
+  ): Promise<void> {
+    const filePath = Agent.eventsPath(sessionsDir, id);
+    let content: string;
+    try {
+      content = await readFile(filePath, 'utf-8');
+    } catch (error: unknown) {
+      if (
+        error instanceof Error &&
+        'code' in error &&
+        error.code === 'ENOENT'
+      ) {
+        return;
+      }
+      throw error;
+    }
+
+    if (content === '') return;
+
+    const lines = content.split('\n');
+    const validEvents: string[] = [];
+    for (const line of lines) {
+      if (line === '') continue;
+      if (validEvents.length >= sseEventCount) break;
+      try {
+        const parsed: unknown = JSON.parse(line);
+        sseEventSchema.parse(parsed);
+        validEvents.push(line);
+      } catch {
+        break;
+      }
+    }
+
+    const targetCount = Math.min(validEvents.length, sseEventCount);
+    const truncated = validEvents.slice(0, targetCount);
+    const nonEmptyLines = lines.filter((l) => l !== '');
+
+    if (
+      truncated.length !== nonEmptyLines.length ||
+      truncated.some((line, i) => line !== nonEmptyLines[i])
+    ) {
+      await writeFile(filePath, truncated.map((line) => line + '\n').join(''));
     }
   }
 }

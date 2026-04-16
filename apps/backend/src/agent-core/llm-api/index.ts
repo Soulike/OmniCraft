@@ -21,3 +21,11 @@ export type {
   LlmUsage,
   LlmUserMessage,
 } from './types.js';
+export {
+  llmAssistantMessageSchema,
+  llmMessageSchema,
+  llmThinkingBlockSchema,
+  llmToolCallSchema,
+  llmToolResultMessageSchema,
+  llmUserMessageSchema,
+} from './types.js';

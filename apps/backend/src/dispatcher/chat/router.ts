@@ -57,7 +57,7 @@ router.post(CHAT_SESSION, async (ctx) => {
 });
 
 /** POST /chat/session/:id/completions — starts a chat completion in the background. */
-router.post(CHAT_SESSION_COMPLETIONS, (ctx) => {
+router.post(CHAT_SESSION_COMPLETIONS, async (ctx) => {
   const {id} = ctx.params;
 
   let message: string;
@@ -75,7 +75,7 @@ router.post(CHAT_SESSION_COMPLETIONS, (ctx) => {
     throw e;
   }
 
-  const found = chatService.sendCompletion(id, message, thinkingLevel);
+  const found = await chatService.sendCompletion(id, message, thinkingLevel);
   if (!found) {
     ctx.response.status = StatusCodes.NOT_FOUND;
     ctx.response.body = {error: `Session not found: ${id}`};
@@ -86,12 +86,12 @@ router.post(CHAT_SESSION_COMPLETIONS, (ctx) => {
 });
 
 /** GET /chat/session/:id/events — SSE stream of agent events. */
-router.get(CHAT_SESSION_EVENTS, (ctx) => {
+router.get(CHAT_SESSION_EVENTS, async (ctx) => {
   const {id} = ctx.params;
   const from = Math.max(0, Number(ctx.query.from) || 0);
 
   const abortController = new AbortController();
-  const eventStream = chatService.subscribe(id, {
+  const eventStream = await chatService.subscribe(id, {
     startIndex: from,
     signal: abortController.signal,
   });
@@ -145,10 +145,10 @@ async function pumpSseEvents(
 }
 
 /** POST /chat/session/:id/abort — aborts the running agent turn. */
-router.post(CHAT_SESSION_ABORT, (ctx) => {
+router.post(CHAT_SESSION_ABORT, async (ctx) => {
   const {id} = ctx.params;
 
-  const found = chatService.abortCompletion(id);
+  const found = await chatService.abortCompletion(id);
   if (!found) {
     ctx.response.status = StatusCodes.NOT_FOUND;
     ctx.response.body = {error: `Session not found: ${id}`};
@@ -159,7 +159,7 @@ router.post(CHAT_SESSION_ABORT, (ctx) => {
 });
 
 /** POST /chat/session/:id/tool-response — submits a user response for a client-side tool. */
-router.post(CHAT_SESSION_TOOL_RESPONSE, (ctx) => {
+router.post(CHAT_SESSION_TOOL_RESPONSE, async (ctx) => {
   const {id} = ctx.params;
 
   let interactionId: string;
@@ -177,7 +177,7 @@ router.post(CHAT_SESSION_TOOL_RESPONSE, (ctx) => {
     throw e;
   }
 
-  const found = chatService.submitToolResponse(id, interactionId, result);
+  const found = await chatService.submitToolResponse(id, interactionId, result);
   if (!found) {
     ctx.response.status = StatusCodes.NOT_FOUND;
     ctx.response.body = {error: `Session or interaction not found`};

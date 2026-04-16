@@ -1,7 +1,9 @@
+import {allowedPathEntrySchema} from '@omnicraft/settings-schema';
 import type {SseErrorEvent, SseEvent} from '@omnicraft/sse-events';
+import {z} from 'zod';
 
 import type {LlmConfig} from '../llm-api/index.js';
-import type {LlmSessionSnapshot} from '../llm-session/index.js';
+import {llmSessionSnapshotSchema} from '../llm-session/index.js';
 import type {SkillRegistry} from '../skill/index.js';
 import type {AllowedPathEntry} from '../tool/index.js';
 import type {ToolRegistry} from '../tool/index.js';
@@ -17,23 +19,28 @@ export type AgentEvent = Exclude<SseEvent, SseErrorEvent>;
 export type AgentEventStream = AsyncGenerator<AgentEvent, void, undefined>;
 
 // ---------------------------------------------------------------------------
-// Agent Snapshot (for persistence)
+// Agent Snapshot Schema (for disk validation)
 // ---------------------------------------------------------------------------
 
+const agentSnapshotOptionsSchema = z.object({
+  workingDirectory: z.string(),
+  claudeCodeSessionId: z.string().optional(),
+  extraAllowedPaths: z.array(allowedPathEntrySchema).optional(),
+});
+
+export const agentSnapshotSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  sseEventCount: z.number(),
+  llmSession: llmSessionSnapshotSchema,
+  options: agentSnapshotOptionsSchema,
+});
+
 /** Serializable agent configuration persisted in snapshots. */
-export interface AgentSnapshotOptions {
-  workingDirectory: string;
-  /** Claude Agent SDK session ID for resuming Claude Code sessions. */
-  claudeCodeSessionId?: string;
-}
+export type AgentSnapshotOptions = z.infer<typeof agentSnapshotOptionsSchema>;
 
 /** Serializable snapshot of an Agent, used for persistence. */
-export interface AgentSnapshot {
-  id: string;
-  title: string;
-  llmSession: LlmSessionSnapshot;
-  options: AgentSnapshotOptions;
-}
+export type AgentSnapshot = z.infer<typeof agentSnapshotSchema>;
 
 // ---------------------------------------------------------------------------
 // Agent Options
@@ -47,4 +54,5 @@ export interface AgentOptions {
   readonly getLightConfig?: () => Promise<LlmConfig>;
   readonly workingDirectory: string;
   readonly extraAllowedPaths: readonly AllowedPathEntry[];
+  readonly sessionsDir?: string;
 }

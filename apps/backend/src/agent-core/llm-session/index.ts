@@ -12,3 +12,4 @@ export type {
   SendUserMessageResult,
   ToolResult,
 } from './types.js';
+export {llmSessionSnapshotSchema} from './types.js';

@@ -1,10 +1,14 @@
-import type {LlmMessage, LlmToolCall} from '../llm-api/index.js';
+import {z} from 'zod';
+
+import {llmMessageSchema, type LlmToolCall} from '../llm-api/index.js';
 
 /** Serializable snapshot of an LlmSession, used for persistence. */
-export interface LlmSessionSnapshot {
-  id: string;
-  messages: LlmMessage[];
-}
+export const llmSessionSnapshotSchema = z.object({
+  id: z.string(),
+  messages: z.array(llmMessageSchema),
+});
+
+export type LlmSessionSnapshot = z.infer<typeof llmSessionSnapshotSchema>;
 
 /** A tool execution result to submit back to the LLM. */
 export interface ToolResult {

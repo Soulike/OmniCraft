@@ -1,52 +1,69 @@
 import type {ThinkingLevel} from '@omnicraft/api-schema';
+import {z} from 'zod';
 
 import type {ToolDefinition} from '../tool/types.js';
 
+// ---------------------------------------------------------------------------
+// Persisted types — Zod schema is the source of truth
+// ---------------------------------------------------------------------------
+
 /** A tool call issued by the assistant. */
-export interface LlmToolCall {
-  callId: string;
-  toolName: string;
-  arguments: string;
-}
+export const llmToolCallSchema = z.object({
+  callId: z.string(),
+  toolName: z.string(),
+  arguments: z.string(),
+});
+
+export type LlmToolCall = z.infer<typeof llmToolCallSchema>;
 
 /** A thinking/reasoning block from the assistant, abstracted across providers. */
-export interface LlmThinkingBlock {
+export const llmThinkingBlockSchema = z.object({
   /** The thinking/reasoning text, one element per "part". */
-  content: string[];
+  content: z.array(z.string()),
   /** Opaque token for multi-turn continuity (Claude signature / OpenAI reasoning item id). */
-  signature: string;
-}
+  signature: z.string(),
+});
 
-/** Common fields shared by all LLM messages. */
-interface LlmMessageBase {
-  id: string;
-  createdAt: number;
-  content: string;
-}
+export type LlmThinkingBlock = z.infer<typeof llmThinkingBlockSchema>;
+
+const llmMessageBaseSchema = z.object({
+  id: z.string(),
+  createdAt: z.number(),
+  content: z.string(),
+});
 
 /** A message from the user. */
-export interface LlmUserMessage extends LlmMessageBase {
-  role: 'user';
-}
+export const llmUserMessageSchema = llmMessageBaseSchema.extend({
+  role: z.literal('user'),
+});
+
+export type LlmUserMessage = z.infer<typeof llmUserMessageSchema>;
 
 /** A message from the assistant, optionally containing tool calls. */
-export interface LlmAssistantMessage extends LlmMessageBase {
-  role: 'assistant';
-  toolCalls: LlmToolCall[];
-  thinking: LlmThinkingBlock[];
-}
+export const llmAssistantMessageSchema = llmMessageBaseSchema.extend({
+  role: z.literal('assistant'),
+  toolCalls: z.array(llmToolCallSchema),
+  thinking: z.array(llmThinkingBlockSchema),
+});
+
+export type LlmAssistantMessage = z.infer<typeof llmAssistantMessageSchema>;
 
 /** A tool execution result, linked to a specific tool call. */
-export interface LlmToolResultMessage extends LlmMessageBase {
-  role: 'tool';
-  callId: string;
-}
+export const llmToolResultMessageSchema = llmMessageBaseSchema.extend({
+  role: z.literal('tool'),
+  callId: z.string(),
+});
+
+export type LlmToolResultMessage = z.infer<typeof llmToolResultMessageSchema>;
 
 /** A single message in the LLM conversation context. */
-export type LlmMessage =
-  | LlmUserMessage
-  | LlmAssistantMessage
-  | LlmToolResultMessage;
+export const llmMessageSchema = z.discriminatedUnion('role', [
+  llmUserMessageSchema,
+  llmAssistantMessageSchema,
+  llmToolResultMessageSchema,
+]);
+
+export type LlmMessage = z.infer<typeof llmMessageSchema>;
 
 /** Configuration needed to call an LLM API. */
 export interface LlmConfig {

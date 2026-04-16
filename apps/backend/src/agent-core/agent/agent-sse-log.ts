@@ -1,6 +1,10 @@
 import assert from 'node:assert';
+import {appendFile, mkdir, readFile, writeFile} from 'node:fs/promises';
+import path from 'node:path';
 
-import type {SseEvent} from '@omnicraft/sse-events';
+import {type SseEvent, sseEventSchema} from '@omnicraft/sse-events';
+
+import {Mutex} from '@/helpers/mutex.js';
 
 export interface AgentSseLogReaderOptions {
   /** Index to start reading from (inclusive). Defaults to 0. */
@@ -15,20 +19,58 @@ export interface AgentSseLogReaderOptions {
  * A single writer appends events via {@link append}. Multiple readers
  * can independently iterate over the log via {@link createReader},
  * replaying historical events and then blocking for new ones.
+ *
+ * Modes:
+ * - In-memory (no filePath): events are stored only in memory.
+ * - File-backed (filePath provided): each event is durably appended to a
+ *   JSONL file via a mutex-serialized write, then reflected in memory if
+ *   {@link loaded} is true.
+ *
+ * Three-state lifecycle for file-backed mode:
+ * - Cold (no readers): loaded=false, events=[]. Append only writes to file.
+ * - Hot (has readers): loaded=true, events populated. Append writes to both.
+ * - Transition Cold→Hot: first reader calls ensureLoaded().
+ * - Transition Hot→Cold: last reader calls unload().
  */
 export class AgentSseLog {
   private readonly events: SseEvent[] = [];
   private readonly newEventWaiters = new Set<() => void>();
+  private readonly filePath: string | null;
+  private readonly mutex = new Mutex();
 
-  /** Number of events in the log. */
-  get length(): number {
-    return this.events.length;
+  /** True when the in-memory array is the authoritative view of all events. */
+  private loaded: boolean;
+
+  private readerCount = 0;
+
+  constructor(filePath?: string) {
+    this.filePath = filePath ?? null;
+    this.loaded = this.filePath === null;
+  }
+
+  get activeReaderCount(): number {
+    return this.readerCount;
   }
 
   /** Appends an event to the log and wakes all waiting readers. */
-  append(event: SseEvent): void {
-    this.events.push(event);
-    this.notifyWaiters();
+  async append(event: SseEvent): Promise<void> {
+    if (this.filePath === null) {
+      this.events.push(event);
+      this.notifyWaiters();
+      return;
+    }
+
+    const release = await this.mutex.acquire();
+    try {
+      await mkdir(path.dirname(this.filePath), {recursive: true});
+      await appendFile(this.filePath, JSON.stringify(event) + '\n');
+      if (this.loaded) {
+        this.events.push(event);
+        this.notifyWaiters();
+      }
+    } finally {
+      release();
+    }
   }
 
   /**
@@ -51,17 +93,100 @@ export class AgentSseLog {
   ): AsyncIterableIterator<SseEvent> {
     if (signal?.aborted) return;
 
-    for (;;) {
-      while (cursor < this.events.length) {
-        yield this.events[cursor];
-        cursor++;
-        if (signal?.aborted) return;
+    const isFirstReader = this.readerCount === 0;
+    this.readerCount++;
+
+    if (isFirstReader && this.filePath !== null && !this.loaded) {
+      await this.ensureLoaded();
+    }
+
+    try {
+      for (;;) {
+        while (cursor < this.events.length) {
+          yield this.events[cursor];
+          cursor++;
+          if (signal?.aborted) return;
+        }
+
+        // Wait for new events or abort.
+        const aborted = await this.waitForAppendOrAbort(signal);
+        if (aborted) return;
+      }
+    } finally {
+      this.readerCount--;
+      if (this.readerCount === 0 && this.filePath !== null) {
+        this.unload();
+      }
+    }
+  }
+
+  /**
+   * Reads all events from the file into memory and sets loaded=true.
+   * If the file has a corrupted line, discards it and all subsequent lines,
+   * then rewrites the file with only the valid events.
+   */
+  private async ensureLoaded(): Promise<void> {
+    assert(this.filePath, 'ensureLoaded called without filePath');
+
+    const release = await this.mutex.acquire();
+    try {
+      let content: string;
+      try {
+        content = await readFile(this.filePath, 'utf-8');
+      } catch (error) {
+        if (
+          error instanceof Error &&
+          'code' in error &&
+          error.code === 'ENOENT'
+        ) {
+          this.loaded = true;
+          return;
+        }
+        throw error;
       }
 
-      // Wait for new events or abort.
-      const aborted = await this.waitForAppendOrAbort(signal);
-      if (aborted) return;
+      if (content === '') {
+        this.loaded = true;
+        return;
+      }
+
+      const lines = content.split('\n');
+      let needsRewrite = false;
+      for (const line of lines) {
+        if (line === '') continue;
+        let raw: unknown;
+        try {
+          raw = JSON.parse(line);
+        } catch {
+          needsRewrite = true;
+          break;
+        }
+        const result = sseEventSchema.safeParse(raw);
+        if (!result.success) {
+          needsRewrite = true;
+          break;
+        }
+        this.events.push(result.data);
+      }
+
+      if (needsRewrite) {
+        await writeFile(
+          this.filePath,
+          this.events.map((e) => JSON.stringify(e) + '\n').join(''),
+        );
+      }
+
+      this.loaded = true;
+    } finally {
+      release();
     }
+  }
+
+  /** Drops in-memory state and returns to cold mode. */
+  private unload(): void {
+    this.events.length = 0;
+    this.newEventWaiters.clear();
+    this.loaded = false;
   }
 
   /**
