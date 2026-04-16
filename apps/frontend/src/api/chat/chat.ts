@@ -130,9 +130,11 @@ export async function listSessions(
   offset: number,
   limit: number,
 ): Promise<ListSessionsResponse> {
-  const res = await fetch(
-    `${BASE}/sessions?offset=${offset.toString()}&limit=${limit.toString()}`,
-  );
+  const params = new URLSearchParams({
+    offset: offset.toString(),
+    limit: limit.toString(),
+  });
+  const res = await fetch(`${BASE}/sessions?${params.toString()}`);
 
   if (!res.ok) {
     const body = await res.text();
