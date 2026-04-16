@@ -17,12 +17,21 @@ import {writeSseEvent} from './helpers/sse.js';
 import {
   CHAT_SESSION,
   CHAT_SESSION_ABORT,
+  CHAT_SESSION_BY_ID,
   CHAT_SESSION_COMPLETIONS,
   CHAT_SESSION_EVENTS,
   CHAT_SESSION_TOOL_RESPONSE,
+  CHAT_SESSIONS,
 } from './path.js';
 
 const router = new Router();
+
+/** GET /chat/sessions — lists all persisted sessions. */
+router.get(CHAT_SESSIONS, async (ctx) => {
+  const sessions = await chatService.listSessions();
+  ctx.response.status = StatusCodes.OK;
+  ctx.response.body = {sessions};
+});
 
 /** POST /chat/session — creates a new chat session. */
 router.post(CHAT_SESSION, async (ctx) => {
@@ -184,6 +193,13 @@ router.post(CHAT_SESSION_TOOL_RESPONSE, async (ctx) => {
     return;
   }
 
+  ctx.response.status = StatusCodes.NO_CONTENT;
+});
+
+/** DELETE /chat/session/:id — deletes a session from memory and disk. */
+router.delete(CHAT_SESSION_BY_ID, async (ctx) => {
+  const {id} = ctx.params;
+  await chatService.deleteSession(id);
   ctx.response.status = StatusCodes.NO_CONTENT;
 });
 

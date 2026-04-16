@@ -7,7 +7,10 @@ import type {SseEvent} from '@omnicraft/sse-events';
 
 import {MainAgent} from '@/agent/agents/index.js';
 import type {AgentSseLogReaderOptions} from '@/agent-core/agent/agent-sse-log.js';
-import {MainAgentStore} from '@/models/agent-store/index.js';
+import {
+  MainAgentStore,
+  type SessionMetadata,
+} from '@/models/agent-store/index.js';
 import {SettingsManager} from '@/models/settings-manager/index.js';
 
 import {getLlmConfig} from './helpers.js';
@@ -137,6 +140,11 @@ export const chatService = {
     const agent = await MainAgentStore.getInstance().get(agentId);
     if (!agent) return false;
     return agent.submitUserResponse(interactionId, result);
+  },
+
+  /** Lists all persisted sessions with metadata. */
+  async listSessions(): Promise<SessionMetadata[]> {
+    return MainAgentStore.getInstance().listSessionMetadata();
   },
 
   /** Deletes an agent session. */

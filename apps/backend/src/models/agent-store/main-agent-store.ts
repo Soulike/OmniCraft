@@ -1,12 +1,25 @@
 import assert from 'node:assert';
-import {access, rm} from 'node:fs/promises';
+import {access, readdir, readFile, rm, stat} from 'node:fs/promises';
 import path from 'node:path';
+
+import {z} from 'zod';
 
 import {MainAgent} from '@/agent/agents/index.js';
 import type {Agent} from '@/agent-core/agent/index.js';
 import {agentEventBus} from '@/agent-core/events/index.js';
+import {logger} from '@/logger.js';
 
 const MAX_CACHED_AGENTS = 50;
+
+const snapshotMetadataSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+});
+
+export interface SessionMetadata {
+  readonly id: string;
+  readonly title: string;
+}
 
 interface CacheEntry {
   agent: Agent;
@@ -108,6 +121,44 @@ export class MainAgentStore {
     } catch {
       return false;
     }
+  }
+
+  /**
+   * Scans the sessions directory and returns metadata for all persisted sessions.
+   * Results are sorted by file modification time, most recent first.
+   */
+  async listSessionMetadata(): Promise<SessionMetadata[]> {
+    let entries: string[];
+    try {
+      entries = await readdir(this._sessionsDir);
+    } catch {
+      return [];
+    }
+
+    const results: {metadata: SessionMetadata; mtime: number}[] = [];
+
+    await Promise.all(
+      entries.map(async (entry) => {
+        const snapshotPath = MainAgent.snapshotPath(this._sessionsDir, entry);
+        try {
+          const [content, fileStat] = await Promise.all([
+            readFile(snapshotPath, 'utf-8'),
+            stat(snapshotPath),
+          ]);
+          const json: unknown = JSON.parse(content);
+          const metadata = snapshotMetadataSchema.parse(json);
+          results.push({metadata, mtime: fileStat.mtimeMs});
+        } catch (e) {
+          logger.warn(
+            {err: e, sessionId: entry},
+            'Skipping unreadable session',
+          );
+        }
+      }),
+    );
+
+    results.sort((a, b) => b.mtime - a.mtime);
+    return results.map((r) => r.metadata);
   }
 
   private async loadFromDisk(id: string): Promise<Agent | undefined> {

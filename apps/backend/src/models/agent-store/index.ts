@@ -1,1 +1,1 @@
-export {MainAgentStore} from './main-agent-store.js';
+export {MainAgentStore, type SessionMetadata} from './main-agent-store.js';

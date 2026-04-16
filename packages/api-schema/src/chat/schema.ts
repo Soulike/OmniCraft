@@ -47,3 +47,18 @@ export const submitToolResponseRequestSchema = z.object({
 export type SubmitToolResponseRequest = z.infer<
   typeof submitToolResponseRequestSchema
 >;
+
+/** Schema for a single session entry in the list response. */
+export const sessionMetadataSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+});
+
+export type SessionMetadata = z.infer<typeof sessionMetadataSchema>;
+
+/** Schema for the GET /chat/sessions response body. */
+export const listSessionsResponseSchema = z.object({
+  sessions: z.array(sessionMetadataSchema),
+});
+
+export type ListSessionsResponse = z.infer<typeof listSessionsResponseSchema>;
