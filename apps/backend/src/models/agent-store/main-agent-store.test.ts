@@ -218,7 +218,9 @@ describe('MainAgentStore', () => {
     });
 
     it('is safe to call when no instance exists', () => {
-      expect(() => { MainAgentStore.resetInstance(); }).not.toThrow();
+      expect(() => {
+        MainAgentStore.resetInstance();
+      }).not.toThrow();
     });
   });
 });
