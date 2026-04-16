@@ -30,10 +30,11 @@ export function SessionSidebar() {
   const handleSelectSession = useCallback(
     (id: string) => {
       if (id !== sessionId) {
+        eventBus.emit('reset');
         void navigate(`/chat/${id}`);
       }
     },
-    [navigate, sessionId],
+    [navigate, sessionId, eventBus],
   );
 
   const handleDeleteSession = useCallback(
