@@ -9,15 +9,12 @@
   color: var(--color-foreground);
   transition:
     background-color 150ms ease,
-    color 150ms ease;
+    box-shadow 150ms ease;
 }
 
 .listBox :global(.list-box-item[data-selected='true']) {
-  background-color: color-mix(
-    in oklch,
-    var(--color-accent) 12%,
-    var(--color-surface)
-  );
+  background-color: var(--color-segment);
+  box-shadow: var(--shadow-surface);
   font-weight: 500;
 }
 
