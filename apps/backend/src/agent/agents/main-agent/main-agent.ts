@@ -11,7 +11,6 @@ import {
 } from '@/agent/tools/index.js';
 import {Agent} from '@/agent-core/agent/index.js';
 import type {AgentSnapshot} from '@/agent-core/agent/types.js';
-import type {LlmConfig} from '@/agent-core/llm-api/index.js';
 import {settingsService} from '@/services/settings/index.js';
 
 /**
@@ -21,14 +20,17 @@ import {settingsService} from '@/services/settings/index.js';
  */
 export class MainAgent extends Agent {
   constructor(
-    getConfig: () => Promise<LlmConfig>,
     workingDirectory: string,
     extraAllowedPaths: readonly AllowedPathEntry[] = [],
     sessionsDir?: string,
     snapshot?: AgentSnapshot,
   ) {
     super(
-      getConfig,
+      async () => {
+        const settings = await settingsService.getAll();
+        const {apiFormat, apiKey, baseUrl, model} = settings.llm;
+        return {apiFormat, apiKey, baseUrl, model};
+      },
       {
         toolRegistries: [
           CoreToolRegistry.getInstance(),
@@ -57,15 +59,10 @@ export class MainAgent extends Agent {
     );
   }
 
-  static async restore(
-    getConfig: () => Promise<LlmConfig>,
-    sessionsDir: string,
-    id: string,
-  ): Promise<MainAgent> {
+  static async restore(sessionsDir: string, id: string): Promise<MainAgent> {
     const snapshot = await Agent.loadSnapshotFromDisk(sessionsDir, id);
     await Agent.reconcileEventsFile(sessionsDir, id, snapshot.sseEventCount);
     return new MainAgent(
-      getConfig,
       snapshot.options.workingDirectory,
       snapshot.options.extraAllowedPaths ?? [],
       sessionsDir,

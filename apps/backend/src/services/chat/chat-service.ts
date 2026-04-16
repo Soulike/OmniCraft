@@ -77,7 +77,6 @@ export const chatService = {
     }
 
     const agent = new MainAgent(
-      getLlmConfig,
       workingDirectory,
       resolvedExtraFilePathEntries,
       MainAgentStore.getInstance().sessionsDir,
