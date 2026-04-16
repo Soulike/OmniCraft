@@ -1,3 +1,4 @@
+import {toast} from '@heroui/react';
 import {useCallback, useState} from 'react';
 import {useNavigate} from 'react-router';
 
@@ -29,8 +30,10 @@ export function SessionSidebar() {
       try {
         await deleteSession(id);
       } catch {
+        toast.danger('Failed to delete session');
         return;
       }
+      toast.success('Session deleted');
       refresh();
       if (id === sessionId) {
         void navigate('/chat', {replace: true});
