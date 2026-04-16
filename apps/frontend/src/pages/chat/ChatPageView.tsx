@@ -6,6 +6,7 @@ import {ChatAlert} from './components/ChatAlert/index.js';
 import {ChatInput} from './components/ChatInput/index.js';
 import {InfoBar} from './components/InfoBar/index.js';
 import {SessionSetup} from './components/SessionSetup/index.js';
+import {SessionSidebar} from './components/SessionSidebar/index.js';
 import {
   type ChatEventBus,
   type ChatMessage,
@@ -54,50 +55,59 @@ export function ChatPageView({
   onDismissMaxRoundsReached,
 }: ChatPageViewProps) {
   return (
-    <div className={styles.page}>
-      {isReconnecting && (
-        <ChatAlert
-          status='warning'
-          title='Reconnecting'
-          message='Connection lost. Attempting to reconnect...'
-        />
-      )}
-      {error && (
-        <ChatAlert
-          status='danger'
-          title='Error'
-          message={error}
-          onDismiss={onDismissError}
-        />
-      )}
-      {maxRoundsReached && (
-        <ChatAlert
-          status='warning'
-          title='Tool limit reached'
-          message='The assistant reached the maximum number of tool execution rounds. You can increase this limit in Settings > Agent.'
-          onDismiss={onDismissMaxRoundsReached}
-        />
-      )}
-      <TitleBarView
-        title={title}
-        onNewSession={onNewSession}
-        newSessionDisabled={newSessionDisabled}
-        vscodeUrl={vscodeUrl}
-      />
-      <ScrollShadow className={styles.messageListWrapper} ref={scrollRef}>
-        {isEmpty && !sessionId && (
-          <div className={styles.emptyState}>
-            <SessionSetup />
-          </div>
-        )}
-        <StreamingMessageDisplay
-          eventBus={eventBus}
-          sessionId={sessionId}
-          onMessagesChange={onMessagesChange}
-        />
-      </ScrollShadow>
-      {sessionId && <InfoBar />}
-      <ChatInput isStreaming={isStreaming} onSend={onSend} onStop={onStop} />
+    <div className={styles.wrapper}>
+      <SessionSidebar />
+      <div className={styles.main}>
+        <div className={styles.page}>
+          {isReconnecting && (
+            <ChatAlert
+              status='warning'
+              title='Reconnecting'
+              message='Connection lost. Attempting to reconnect...'
+            />
+          )}
+          {error && (
+            <ChatAlert
+              status='danger'
+              title='Error'
+              message={error}
+              onDismiss={onDismissError}
+            />
+          )}
+          {maxRoundsReached && (
+            <ChatAlert
+              status='warning'
+              title='Tool limit reached'
+              message='The assistant reached the maximum number of tool execution rounds. You can increase this limit in Settings > Agent.'
+              onDismiss={onDismissMaxRoundsReached}
+            />
+          )}
+          <TitleBarView
+            title={title}
+            onNewSession={onNewSession}
+            newSessionDisabled={newSessionDisabled}
+            vscodeUrl={vscodeUrl}
+          />
+          <ScrollShadow className={styles.messageListWrapper} ref={scrollRef}>
+            {isEmpty && !sessionId && (
+              <div className={styles.emptyState}>
+                <SessionSetup />
+              </div>
+            )}
+            <StreamingMessageDisplay
+              eventBus={eventBus}
+              sessionId={sessionId}
+              onMessagesChange={onMessagesChange}
+            />
+          </ScrollShadow>
+          {sessionId && <InfoBar />}
+          <ChatInput
+            isStreaming={isStreaming}
+            onSend={onSend}
+            onStop={onStop}
+          />
+        </div>
+      </div>
     </div>
   );
 }
