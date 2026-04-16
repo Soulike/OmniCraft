@@ -1,5 +1,5 @@
 import type {SessionMetadata} from '@omnicraft/api-schema';
-import {useEffect} from 'react';
+import {useCallback, useEffect, useRef} from 'react';
 
 import {listSessions} from '@/api/chat/index.js';
 import {useInfiniteList} from '@/hooks/useInfiniteList.js';
@@ -8,6 +8,7 @@ import type {ChatEventBus} from '../../StreamingMessageDisplay/index.js';
 
 interface UseSessionListOptions {
   eventBus: ChatEventBus;
+  sessionId: string | null;
 }
 
 interface UseSessionListReturn {
@@ -27,20 +28,35 @@ const fetchSessions = async (offset: number, limit: number) => {
 
 export function useSessionList({
   eventBus,
+  sessionId,
 }: UseSessionListOptions): UseSessionListReturn {
   const {items, isLoading, isLoadingMore, error, hasMore, loadMore, refresh} =
     useInfiniteList<SessionMetadata>(fetchSessions);
 
-  // Refresh when a session receives its title (first completion persists the session)
+  // Use a ref so the event handler always sees the latest items without
+  // re-subscribing on every items change.
+  const itemsRef = useRef(items);
   useEffect(() => {
-    const handler = () => {
+    itemsRef.current = items;
+  }, [items]);
+
+  const refreshIfNewSession = useCallback(() => {
+    if (
+      sessionId !== null &&
+      !itemsRef.current.some((s) => s.id === sessionId)
+    ) {
       refresh();
-    };
-    eventBus.on('session-title', handler);
+    }
+  }, [sessionId, refresh]);
+
+  // Refresh only when a genuinely new session receives its title.
+  // Replayed session-title events for existing sessions are ignored.
+  useEffect(() => {
+    eventBus.on('session-title', refreshIfNewSession);
     return () => {
-      eventBus.off('session-title', handler);
+      eventBus.off('session-title', refreshIfNewSession);
     };
-  }, [eventBus, refresh]);
+  }, [eventBus, refreshIfNewSession]);
 
   return {
     sessions: items,
