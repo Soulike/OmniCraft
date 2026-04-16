@@ -40,9 +40,14 @@ export function useInfiniteList<T>({
   const [refreshKey, setRefreshKey] = useState(0);
 
   const nextLoadStartOffset = useRef(0);
+  // Incremented on each refresh. loadMore captures this value before fetching
+  // and discards results if it has changed, preventing stale pages from being
+  // appended after a refresh has already replaced the list.
+  const refreshGenerationId = useRef(0);
 
   const refresh = useCallback(() => {
     nextLoadStartOffset.current = 0;
+    refreshGenerationId.current += 1;
     setRefreshKey((prev) => prev + 1);
   }, []);
 
@@ -86,17 +91,26 @@ export function useInfiniteList<T>({
     }
 
     setIsLoadingMore(true);
+    const currentRefreshGenerationId = refreshGenerationId.current;
 
     async function fetchNextPage() {
       try {
         const page = await fetcher(nextLoadStartOffset.current, pageSize);
+        if (currentRefreshGenerationId !== refreshGenerationId.current) {
+          return;
+        }
         setItems((prev) => [...prev, ...page.items]);
         setTotal(page.total);
         nextLoadStartOffset.current += page.items.length;
       } catch (e: unknown) {
+        if (currentRefreshGenerationId !== refreshGenerationId.current) {
+          return;
+        }
         setError(e instanceof Error ? e.message : 'Failed to load more');
       } finally {
-        setIsLoadingMore(false);
+        if (currentRefreshGenerationId === refreshGenerationId.current) {
+          setIsLoadingMore(false);
+        }
       }
     }
 
