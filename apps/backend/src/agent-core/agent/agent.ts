@@ -1,8 +1,6 @@
 import assert from 'node:assert';
 import crypto from 'node:crypto';
-import {mkdir, readFile, rename, writeFile} from 'node:fs/promises';
 import os from 'node:os';
-import path from 'node:path';
 
 import type {ThinkingLevel} from '@omnicraft/api-schema';
 import type {
@@ -20,7 +18,6 @@ import type {
   SseToolExecuteStartEvent,
   SseUsage,
 } from '@omnicraft/sse-events';
-import {sseEventSchema} from '@omnicraft/sse-events';
 import type {AnyToolResultData, ToolName} from '@omnicraft/tool-schemas';
 
 import {AsyncChannel} from '@/helpers/async-channel.js';
@@ -29,27 +26,28 @@ import {logger} from '@/logger.js';
 
 import {agentEventBus} from '../events/index.js';
 import type {LlmConfig, LlmToolCall} from '../llm-api/index.js';
-import {llmApi} from '../llm-api/index.js';
 import type {LlmSessionEventStream, ToolResult} from '../llm-session/index.js';
 import {LlmSession} from '../llm-session/index.js';
 import {modelCapacity} from '../model-capacity/index.js';
-import type {SkillDefinition} from '../skill/index.js';
 import type {
   AllowedPathEntry,
   ShellState,
   ToolDefinition,
   ToolExecutionContext,
 } from '../tool/index.js';
-import {loadSkillTool} from '../tool/index.js';
 import {UserInteractionBridge} from '../user-interaction/index.js';
+import {
+  buildAvailableSkills,
+  buildAvailableTools,
+  buildSystemPrompt,
+} from './agent-catalog.js';
+import {agentPersistence} from './agent-persistence.js';
 import type {AgentSseLogReaderOptions} from './agent-sse-log.js';
 import {AgentSseLog} from './agent-sse-log.js';
+import {generateTitle} from './agent-title.js';
 import {FileContentCache} from './file-content-cache.js';
 import {FileStatTracker} from './file-stat-tracker.js';
 import type {AgentEventStream, AgentOptions, AgentSnapshot} from './types.js';
-import {agentSnapshotSchema} from './types.js';
-
-const TITLE_MAX_LENGTH = 20;
 
 /**
  * Base class for all agents.
@@ -108,14 +106,6 @@ export abstract class Agent {
   /** True while an async title generation is in flight. */
   private isGeneratingTitle = false;
 
-  static snapshotPath(sessionsDir: string, id: string): string {
-    return path.join(sessionsDir, id, 'snapshot.json');
-  }
-
-  static eventsPath(sessionsDir: string, id: string): string {
-    return path.join(sessionsDir, id, 'sse-events.jsonl');
-  }
-
   constructor(
     getConfig: () => Promise<LlmConfig>,
     options: AgentOptions,
@@ -148,7 +138,7 @@ export abstract class Agent {
     }
 
     this.sseLog = this.sessionsDir
-      ? new AgentSseLog(Agent.eventsPath(this.sessionsDir, this.id))
+      ? new AgentSseLog(agentPersistence.eventsPath(this.sessionsDir, this.id))
       : new AgentSseLog();
 
     this.shellState = {cwd: this.workingDirectory};
@@ -188,13 +178,11 @@ export abstract class Agent {
    */
   private async persistSnapshot(): Promise<void> {
     if (!this.sessionsDir) return;
-    const filePath = Agent.snapshotPath(this.sessionsDir, this.id);
-    const dir = path.dirname(filePath);
-    await mkdir(dir, {recursive: true});
-    const tmpPath = `${filePath}.${crypto.randomUUID()}.tmp`;
-    const data = JSON.stringify(this.toSnapshot(), null, 2) + '\n';
-    await writeFile(tmpPath, data);
-    await rename(tmpPath, filePath);
+    await agentPersistence.persistSnapshot(
+      this.sessionsDir,
+      this.id,
+      this.toSnapshot(),
+    );
   }
 
   /**
@@ -317,8 +305,18 @@ export abstract class Agent {
       createdAt,
     } = this.llmSession.sendUserMessage(
       userMessage,
-      [...this.getAvailableTools().values()],
-      this.buildSystemPrompt(),
+      [
+        ...buildAvailableTools(
+          this.toolRegistries,
+          this.skillRegistries,
+        ).values(),
+      ],
+      buildSystemPrompt(
+        this.baseSystemPrompt,
+        this.skillRegistries,
+        this.workingDirectory,
+        this.extraAllowedPaths,
+      ),
       thinkingLevel,
       signal,
     );
@@ -350,7 +348,10 @@ export abstract class Agent {
         return;
       }
 
-      const availableTools = this.getAvailableTools();
+      const availableTools = buildAvailableTools(
+        this.toolRegistries,
+        this.skillRegistries,
+      );
 
       for (const toolCall of toolCalls) {
         const tool = availableTools.get(toolCall.toolName);
@@ -439,8 +440,18 @@ export abstract class Agent {
       toolCalls = yield* this.consumeStream(
         this.llmSession.submitToolResults(
           orderedResults,
-          [...this.getAvailableTools().values()],
-          this.buildSystemPrompt(),
+          [
+            ...buildAvailableTools(
+              this.toolRegistries,
+              this.skillRegistries,
+            ).values(),
+          ],
+          buildSystemPrompt(
+            this.baseSystemPrompt,
+            this.skillRegistries,
+            this.workingDirectory,
+            this.extraAllowedPaths,
+          ),
           thinkingLevel,
           signal,
         ),
@@ -475,151 +486,16 @@ export abstract class Agent {
    */
   private async generateAndEmitTitle(): Promise<void> {
     const messages = this.llmSession.getMessages();
-    const userMsg = messages.find((m) => m.role === 'user');
-    const assistantMsg = messages.find((m) => m.role === 'assistant');
-    if (!userMsg || !assistantMsg) return;
-
-    let title: string;
-    try {
-      const getConfig = this.getLightConfig ?? this.getConfig;
-      const config = await getConfig();
-      const stream = llmApi.streamCompletion({
-        config,
-        messages: [
-          {
-            id: crypto.randomUUID(),
-            createdAt: Date.now(),
-            role: 'user',
-            content: [
-              'Generate a short title (under 20 characters) for this conversation.',
-              'Reply with ONLY the title, no quotes or extra text.',
-              '',
-              `User: ${userMsg.content}`,
-              '',
-              `Assistant: ${assistantMsg.content}`,
-            ].join('\n'),
-          },
-        ],
-        tools: [],
-        thinkingLevel: 'none',
-      });
-
-      title = '';
-      for await (const event of stream) {
-        if (event.type === 'text-delta') {
-          title += event.content;
-        }
-      }
-      title = title.trim();
-    } catch {
-      const trimmed = userMsg.content.trim();
-      title =
-        trimmed.length <= TITLE_MAX_LENGTH
-          ? trimmed
-          : `${trimmed.slice(0, TITLE_MAX_LENGTH)}…`;
-    }
-
-    this.title = title;
+    const getConfig = this.getLightConfig ?? this.getConfig;
+    this.title = await generateTitle(messages, getConfig);
+    if (!this.title) return;
     await this.appendSseEvent({
       type: 'session-title',
-      title,
+      title: this.title,
     } satisfies SseSessionTitleEvent);
     await this.persistSnapshot().catch((err: unknown) => {
       logger.error({err}, 'Failed to persist snapshot after title generation');
     });
-  }
-
-  /**
-   * Merges tools from all registries, deduplicates by reference identity.
-   * Adds built-in `load_skill` tool when skills are available.
-   * Throws if two different tool instances share the same name.
-   */
-  private getAvailableTools(): ReadonlyMap<string, ToolDefinition> {
-    const toolMap = new Map<string, ToolDefinition>();
-
-    const addTool = (tool: ToolDefinition, source: string): void => {
-      const existing = toolMap.get(tool.name);
-      if (existing) {
-        if (existing === tool) return;
-        throw new Error(
-          `Duplicate tool name "${tool.name}" from different sources (${source})`,
-        );
-      }
-      toolMap.set(tool.name, tool);
-    };
-
-    for (const registry of this.toolRegistries) {
-      for (const tool of registry.getAll()) {
-        addTool(tool, 'tool registry');
-      }
-    }
-
-    const skills = this.getAvailableSkills();
-    if (skills.size > 0) {
-      addTool(loadSkillTool, 'built-in');
-    }
-
-    return toolMap;
-  }
-
-  /**
-   * Merges skills from all registries, deduplicates by reference identity.
-   * Throws if two different skill instances share the same name.
-   */
-  private getAvailableSkills(): ReadonlyMap<string, SkillDefinition> {
-    const skillMap = new Map<string, SkillDefinition>();
-
-    for (const registry of this.skillRegistries) {
-      for (const skill of registry.getAll()) {
-        const existing = skillMap.get(skill.name);
-        if (existing) {
-          if (existing === skill) continue;
-          throw new Error(
-            `Duplicate skill name "${skill.name}" from different sources`,
-          );
-        }
-        skillMap.set(skill.name, skill);
-      }
-    }
-
-    return skillMap;
-  }
-
-  /**
-   * Combines the base system prompt with catalog sections listing
-   * all available skills.
-   */
-  private buildSystemPrompt(): string {
-    let prompt = this.baseSystemPrompt;
-
-    const skills = this.getAvailableSkills();
-    if (skills.size > 0) {
-      const skillLines = [...skills.values()]
-        .map((skill) => `- ${skill.name}: ${skill.description}`)
-        .join('\n');
-
-      prompt += [
-        '',
-        '## Available Skills',
-        '',
-        `Use the ${loadSkillTool.name} tool to load the full instructions for a skill before using it.`,
-        '',
-        skillLines,
-      ].join('\n');
-    }
-
-    prompt += `\n\nWorking directory: ${this.workingDirectory}\nYou can read and write files within this directory.`;
-    prompt +=
-      "\nWhen executing shell commands, do not access any files outside your working directory and other allowed paths unless it's necessary to finish your job or user explicitly requests it.";
-
-    if (this.extraAllowedPaths.length > 0) {
-      const pathLines = this.extraAllowedPaths
-        .map((p) => `- ${p.path} (${p.mode})`)
-        .join('\n');
-      prompt += `\n\nAdditional accessible paths:\n${pathLines}`;
-    }
-
-    return prompt;
   }
 
   /**
@@ -695,7 +571,7 @@ export abstract class Agent {
 
     const context: ToolExecutionContext = {
       callId: toolCall.callId,
-      availableSkills: this.getAvailableSkills(),
+      availableSkills: buildAvailableSkills(this.skillRegistries),
       workingDirectory: this.workingDirectory,
       fileCache: this.fileCache,
       fileStatTracker: this.fileStatTracker,
@@ -721,76 +597,6 @@ export abstract class Agent {
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
       return {content: `Error: ${message}`, status: 'error', data: {message}};
-    }
-  }
-
-  /**
-   * Reads and validates a snapshot from disk.
-   * @throws if the file cannot be read or fails schema validation.
-   */
-  protected static async loadSnapshotFromDisk(
-    sessionsDir: string,
-    id: string,
-  ): Promise<AgentSnapshot> {
-    const filePath = Agent.snapshotPath(sessionsDir, id);
-    const content = await readFile(filePath, 'utf-8');
-    const json: unknown = JSON.parse(content);
-    return agentSnapshotSchema.parse(json);
-  }
-
-  /**
-   * Validates and potentially truncates the SSE events JSONL file.
-   *
-   * Reads each line, validates with the SSE event schema, and stops at
-   * the first corrupted/invalid line. The file is truncated to
-   * `min(lineCount, sseEventCount)` valid lines. ENOENT is silently
-   * ignored; other read errors are re-thrown.
-   */
-  protected static async reconcileEventsFile(
-    sessionsDir: string,
-    id: string,
-    sseEventCount: number,
-  ): Promise<void> {
-    const filePath = Agent.eventsPath(sessionsDir, id);
-    let content: string;
-    try {
-      content = await readFile(filePath, 'utf-8');
-    } catch (error: unknown) {
-      if (
-        error instanceof Error &&
-        'code' in error &&
-        error.code === 'ENOENT'
-      ) {
-        return;
-      }
-      throw error;
-    }
-
-    if (content === '') return;
-
-    const lines = content.split('\n');
-    const validEvents: string[] = [];
-    for (const line of lines) {
-      if (line === '') continue;
-      if (validEvents.length >= sseEventCount) break;
-      try {
-        const parsed: unknown = JSON.parse(line);
-        sseEventSchema.parse(parsed);
-        validEvents.push(line);
-      } catch {
-        break;
-      }
-    }
-
-    const targetCount = Math.min(validEvents.length, sseEventCount);
-    const truncated = validEvents.slice(0, targetCount);
-    const nonEmptyLines = lines.filter((l) => l !== '');
-
-    if (
-      truncated.length !== nonEmptyLines.length ||
-      truncated.some((line, i) => line !== nonEmptyLines[i])
-    ) {
-      await writeFile(filePath, truncated.map((line) => line + '\n').join(''));
     }
   }
 }

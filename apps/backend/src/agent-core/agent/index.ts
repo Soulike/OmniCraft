@@ -1,4 +1,5 @@
 export {Agent} from './agent.js';
+export {agentPersistence} from './agent-persistence.js';
 export type {AgentSseLogReaderOptions} from './agent-sse-log.js';
 export {AgentSseLog} from './agent-sse-log.js';
 export {FileContentCache} from './file-content-cache.js';
