@@ -32,7 +32,10 @@ export const writeFileTool: ToolDefinition<typeof parameters, WriteFileResult> =
     displayName: 'Write File',
     description:
       'Creates a new file or overwrites an existing file. ' +
-      'Prefer editing over overwriting when modifying existing files.',
+      'Use this to create files that do not exist yet, ' +
+      'or to completely replace the content of an existing file. ' +
+      'When only part of the content needs to change, ' +
+      'prefer a targeted replacement over a full overwrite.',
     parameters,
     suppressToolEvents: false,
     async execute(args: WriteFileArgs, context: ToolExecutionContext) {

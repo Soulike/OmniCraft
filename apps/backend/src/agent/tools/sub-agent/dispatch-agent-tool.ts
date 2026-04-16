@@ -58,23 +58,33 @@ const parameters = z.object({
   task: z.string().min(1).describe('The task description for the subagent'),
   agentType: agentTypeSchema
     .optional()
-    .describe("Type of subagent to dispatch. Defaults to 'general'."),
+    .describe(
+      "Type of subagent to dispatch. Defaults to 'general'. " +
+        "Use 'coding' when the task is primarily about reading, modifying, " +
+        'or creating files.',
+    ),
   model: z
     .enum(['default', 'light'])
     .optional()
     .describe(
-      "Which model tier to use. 'default' uses the main model, 'light' uses the lightweight model. Defaults to 'default'.",
+      "Which model tier to use. 'default' uses the main model, 'light' uses the lightweight model. Defaults to 'default'. " +
+        "Use 'light' for simple, well-defined subtasks " +
+        'where speed matters more than reasoning depth.',
     ),
   workingDirectory: z
     .string()
     .optional()
     .describe(
-      "Working directory for the subagent. Must be within allowed paths. Defaults to the parent agent's working directory.",
+      "Working directory for the subagent. Must be within allowed paths. Defaults to the parent agent's working directory. " +
+        'Set this when the subtask operates in a different subdirectory or project root ' +
+        'than the current working directory.',
     ),
   thinkingLevel: thinkingLevelSchema
     .optional()
     .describe(
-      "Controls extended thinking for the subagent. Defaults to 'none'.",
+      "Controls extended thinking for the subagent ('none', 'low', 'medium', 'high'). Defaults to 'none'. " +
+        'Increase this for subtasks that require multi-step reasoning, complex analysis, ' +
+        'or planning before acting.',
     ),
 });
 

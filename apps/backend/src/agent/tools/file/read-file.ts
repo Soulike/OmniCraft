@@ -38,6 +38,8 @@ export const readFileTool: ToolDefinition<typeof parameters, ReadFileResult> = {
   description:
     'Reads a text file and returns its contents with line numbers. ' +
     'Supports partial reads via startLine and lineCount parameters. ' +
+    'Use this whenever you need to see the current content of a file ' +
+    'or review a specific section of it. ' +
     'Only text files within the working directory are allowed.',
   parameters,
   suppressToolEvents: false,

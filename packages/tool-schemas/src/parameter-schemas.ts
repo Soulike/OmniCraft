@@ -11,13 +11,21 @@ export const readFileParametersSchema = z.object({
     .int()
     .min(1)
     .optional()
-    .describe('Start line number (1-based), defaults to 1'),
+    .describe(
+      'Start line number (1-based), defaults to 1. ' +
+        'Use this to resume reading from a specific line after a previous partial read, ' +
+        'or to jump directly to a known region of interest.',
+    ),
   lineCount: z
     .number()
     .int()
     .min(1)
     .optional()
-    .describe('Number of lines to read, defaults to end of file'),
+    .describe(
+      'Number of lines to read from startLine, defaults to end of file. ' +
+        'Use this to read a specific portion of a large file ' +
+        'when you only need a particular section rather than the entire content.',
+    ),
 });
 
 // --- write_file ---
@@ -43,7 +51,9 @@ export const editFileParametersSchema = z.object({
     .boolean()
     .optional()
     .describe(
-      'Replace all occurrences. Defaults to false (requires unique match)',
+      'Replace all occurrences. Defaults to false (requires unique match). ' +
+        'Set to true when the same string appears multiple times in the file ' +
+        'and all occurrences should be replaced.',
     ),
 });
 
@@ -60,7 +70,9 @@ export const findFilesParametersSchema = z.object({
     .string()
     .optional()
     .describe(
-      'Search root directory (relative or absolute), defaults to working directory',
+      'Search root directory (relative or absolute), defaults to working directory. ' +
+        'Use this to narrow the search to a specific subdirectory ' +
+        'when you know which part of the project to look in.',
     ),
 });
 
@@ -77,13 +89,17 @@ export const searchFilesParametersSchema = z.object({
     .string()
     .optional()
     .describe(
-      'Search root directory (relative or absolute), defaults to working directory',
+      'Search root directory (relative or absolute), defaults to working directory. ' +
+        'Use this to limit the search scope to a specific subdirectory ' +
+        'for faster results or to avoid matches in irrelevant areas.',
     ),
   filePattern: z
     .string()
     .optional()
     .describe(
-      'Glob pattern to filter files, e.g. "**/*.ts", defaults to "**/*"',
+      'Glob pattern to filter which files are searched, e.g. "**/*.ts", defaults to "**/*". ' +
+        'Use this to restrict the search to specific file types ' +
+        'when you only care about matches in certain languages or file formats.',
     ),
 });
 
@@ -101,29 +117,46 @@ export const runCommandParametersSchema = z.object({
     .max(RUN_COMMAND_MAX_TIMEOUT_MS)
     .optional()
     .describe(
-      `Timeout in milliseconds (default: ${RUN_COMMAND_DEFAULT_TIMEOUT_MS}, max: ${RUN_COMMAND_MAX_TIMEOUT_MS})`,
+      `Timeout in milliseconds (default: ${RUN_COMMAND_DEFAULT_TIMEOUT_MS}, max: ${RUN_COMMAND_MAX_TIMEOUT_MS}). ` +
+        'Increase this for long-running commands ' +
+        'that are expected to exceed the default 2-minute limit.',
     ),
 });
 
 // --- web_search ---
 
 export const webSearchParametersSchema = z.object({
-  query: z.string().describe('Search keywords.'),
+  query: z
+    .string()
+    .describe(
+      'Search keywords or phrase describing the information to find on the web.',
+    ),
   maxResults: z
     .number()
     .int()
     .min(1)
     .max(20)
     .optional()
-    .describe('Number of results to return. Defaults to 5.'),
+    .describe(
+      'Number of results to return. Defaults to 5. ' +
+        'Increase this when you need a broader survey of sources ' +
+        'or when the first few results are unlikely to contain the answer.',
+    ),
   includeDomains: z
     .array(z.string())
     .optional()
-    .describe('Only search these domains.'),
+    .describe(
+      'Only search these domains. ' +
+        'Use this when you want results exclusively from specific sites.',
+    ),
   excludeDomains: z
     .array(z.string())
     .optional()
-    .describe('Exclude these domains from results.'),
+    .describe(
+      'Exclude these domains from results. ' +
+        'Use this to filter out known low-quality or irrelevant sites ' +
+        'that tend to dominate results for the query.',
+    ),
   timeRange: z
     .enum(['day', 'week', 'month', 'year'])
     .optional()
@@ -170,7 +203,9 @@ export const askUserParametersSchema = z.object({
         options: z
           .array(z.string())
           .describe(
-            'Predefined answer options. Empty array for free-text only.',
+            'Predefined answer options for the user to select from. ' +
+              'Provide options when there is a known set of valid choices to guide the user. ' +
+              'Use an empty array for open-ended questions that require free-text input.',
           ),
       }),
     )
