@@ -33,10 +33,12 @@ export function useSessionList({
   const {items, isLoading, isLoadingMore, error, hasMore, loadMore, refresh} =
     useInfiniteList<SessionMetadata>(fetchSessions);
 
-  // Refresh when sessionId changes (new session created)
+  // Refresh only when a new session is created (sessionId not in current list)
   useEffect(() => {
-    refresh();
-  }, [sessionId, refresh]);
+    if (sessionId !== null && !items.some((s) => s.id === sessionId)) {
+      refresh();
+    }
+  }, [sessionId, items, refresh]);
 
   // Refresh when a session receives its title
   useEffect(() => {
