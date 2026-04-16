@@ -1,6 +1,7 @@
+import type {Selection} from '@heroui/react';
 import {ListBox, Spinner} from '@heroui/react';
 import type {SessionMetadata} from '@omnicraft/api-schema';
-import {type Key, useEffect, useRef} from 'react';
+import {useEffect, useRef} from 'react';
 
 import {CollapsibleSidebar} from '@/components/CollapsibleSidebar/index.js';
 
@@ -87,8 +88,14 @@ export function SessionSidebarView({
             items={sessions}
             selectedKeys={selectedKeys}
             selectionMode='single'
-            onAction={(key: Key) => {
-              onSelectSession(String(key));
+            onSelectionChange={(keys: Selection) => {
+              if (keys === 'all') {
+                return;
+              }
+              const selected = [...keys][0];
+              if (typeof selected === 'string') {
+                onSelectSession(selected);
+              }
             }}
           >
             {(session) => (
