@@ -5,6 +5,7 @@ import Router from '@koa/router';
 import {
   chatCompletionsRequestSchema,
   createSessionRequestSchema,
+  listSessionsQuerySchema,
   submitToolResponseRequestSchema,
   type ThinkingLevel,
 } from '@omnicraft/api-schema';
@@ -26,11 +27,26 @@ import {
 
 const router = new Router();
 
-/** GET /chat/sessions — lists all persisted sessions. */
+/** GET /chat/sessions — lists persisted sessions with pagination. */
 router.get(CHAT_SESSIONS, async (ctx) => {
-  const sessions = await chatService.listSessions();
+  let offset: number;
+  let limit: number;
+  try {
+    const query = listSessionsQuerySchema.parse(ctx.query);
+    offset = query.offset;
+    limit = query.limit;
+  } catch (e) {
+    if (e instanceof ZodError) {
+      ctx.response.status = StatusCodes.BAD_REQUEST;
+      ctx.response.body = {error: e.issues};
+      return;
+    }
+    throw e;
+  }
+
+  const result = await chatService.listSessions(offset, limit);
   ctx.response.status = StatusCodes.OK;
-  ctx.response.body = {sessions};
+  ctx.response.body = result;
 });
 
 /** POST /chat/session — creates a new chat session. */

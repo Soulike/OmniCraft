@@ -5,6 +5,8 @@ export {
   createSessionRequestSchema,
   type CreateSessionResponse,
   createSessionResponseSchema,
+  type ListSessionsQuery,
+  listSessionsQuerySchema,
   type ListSessionsResponse,
   listSessionsResponseSchema,
   type SessionMetadata,

@@ -56,9 +56,18 @@ export const sessionMetadataSchema = z.object({
 
 export type SessionMetadata = z.infer<typeof sessionMetadataSchema>;
 
+/** Schema for the GET /chat/sessions query parameters. Both are required. */
+export const listSessionsQuerySchema = z.object({
+  offset: z.coerce.number().int().min(0),
+  limit: z.coerce.number().int().min(1),
+});
+
+export type ListSessionsQuery = z.infer<typeof listSessionsQuerySchema>;
+
 /** Schema for the GET /chat/sessions response body. */
 export const listSessionsResponseSchema = z.object({
   sessions: z.array(sessionMetadataSchema),
+  total: z.number(),
 });
 
 export type ListSessionsResponse = z.infer<typeof listSessionsResponseSchema>;
