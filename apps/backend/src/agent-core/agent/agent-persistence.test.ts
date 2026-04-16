@@ -5,26 +5,8 @@ import path from 'node:path';
 import type {SseEvent} from '@omnicraft/sse-events';
 import {afterEach, beforeEach, describe, expect, it} from 'vitest';
 
-import {Agent} from './agent.js';
+import {agentPersistence} from './agent-persistence.js';
 import type {AgentSnapshot} from './types.js';
-
-/** Exposes protected static methods of Agent for testing. */
-class TestAgent extends Agent {
-  static async testLoadSnapshotFromDisk(
-    sessionsDir: string,
-    id: string,
-  ): Promise<AgentSnapshot> {
-    return Agent.loadSnapshotFromDisk(sessionsDir, id);
-  }
-
-  static async testReconcileEventsFile(
-    sessionsDir: string,
-    id: string,
-    sseEventCount: number,
-  ): Promise<void> {
-    return Agent.reconcileEventsFile(sessionsDir, id, sseEventCount);
-  }
-}
 
 function createTestSnapshot(id: string): AgentSnapshot {
   return {
@@ -45,7 +27,7 @@ function sseTextDelta(content: string): SseEvent {
   return {type: 'text-delta', content};
 }
 
-describe('Agent persistence', () => {
+describe('agentPersistence', () => {
   let tmpDir: string;
   const agentId = 'test-agent-id';
 
@@ -58,20 +40,30 @@ describe('Agent persistence', () => {
     await rm(tmpDir, {recursive: true, force: true});
   });
 
-  describe('loadSnapshotFromDisk', () => {
+  describe('persistSnapshot', () => {
+    it('writes snapshot to disk and can be loaded back', async () => {
+      const snapshot = createTestSnapshot(agentId);
+      await agentPersistence.persistSnapshot(tmpDir, agentId, snapshot);
+
+      const loaded = await agentPersistence.loadSnapshot(tmpDir, agentId);
+      expect(loaded).toEqual(snapshot);
+    });
+  });
+
+  describe('loadSnapshot', () => {
     it('reads and parses snapshot.json correctly', async () => {
       const snapshot = createTestSnapshot(agentId);
       const filePath = path.join(tmpDir, agentId, 'snapshot.json');
       await writeFile(filePath, JSON.stringify(snapshot, null, 2) + '\n');
 
-      const loaded = await TestAgent.testLoadSnapshotFromDisk(tmpDir, agentId);
+      const loaded = await agentPersistence.loadSnapshot(tmpDir, agentId);
 
       expect(loaded).toEqual(snapshot);
     });
 
     it('throws when snapshot.json does not exist', async () => {
       await expect(
-        TestAgent.testLoadSnapshotFromDisk(tmpDir, 'nonexistent-id'),
+        agentPersistence.loadSnapshot(tmpDir, 'nonexistent-id'),
       ).rejects.toThrow();
     });
 
@@ -80,7 +72,7 @@ describe('Agent persistence', () => {
       await writeFile(filePath, 'not-valid-json');
 
       await expect(
-        TestAgent.testLoadSnapshotFromDisk(tmpDir, agentId),
+        agentPersistence.loadSnapshot(tmpDir, agentId),
       ).rejects.toThrow();
     });
 
@@ -89,7 +81,7 @@ describe('Agent persistence', () => {
       await writeFile(filePath, JSON.stringify({id: 'test', invalid: true}));
 
       await expect(
-        TestAgent.testLoadSnapshotFromDisk(tmpDir, agentId),
+        agentPersistence.loadSnapshot(tmpDir, agentId),
       ).rejects.toThrow();
     });
   });
@@ -107,7 +99,7 @@ describe('Agent persistence', () => {
         events.map((e) => JSON.stringify(e)).join('\n') + '\n',
       );
 
-      await TestAgent.testReconcileEventsFile(tmpDir, agentId, 2);
+      await agentPersistence.reconcileEventsFile(tmpDir, agentId, 2);
 
       const content = await readFile(filePath, 'utf-8');
       const lines = content
@@ -127,7 +119,7 @@ describe('Agent persistence', () => {
         events.map((e) => JSON.stringify(e)).join('\n') + '\n',
       );
 
-      await TestAgent.testReconcileEventsFile(tmpDir, agentId, 0);
+      await agentPersistence.reconcileEventsFile(tmpDir, agentId, 0);
 
       const content = await readFile(filePath, 'utf-8');
       expect(content).toBe('');
@@ -143,7 +135,7 @@ describe('Agent persistence', () => {
           'corrupted-json\n',
       );
 
-      await TestAgent.testReconcileEventsFile(tmpDir, agentId, 3);
+      await agentPersistence.reconcileEventsFile(tmpDir, agentId, 3);
 
       const content = await readFile(filePath, 'utf-8');
       const lines = content
@@ -157,7 +149,7 @@ describe('Agent persistence', () => {
 
     it('does nothing when events file does not exist', async () => {
       await expect(
-        TestAgent.testReconcileEventsFile(tmpDir, 'nonexistent-id', 5),
+        agentPersistence.reconcileEventsFile(tmpDir, 'nonexistent-id', 5),
       ).resolves.toBeUndefined();
     });
   });

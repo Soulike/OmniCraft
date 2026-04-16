@@ -9,6 +9,7 @@ import {
 
 import {MainAgent} from '@/agent/agents/index.js';
 import type {Agent} from '@/agent-core/agent/index.js';
+import {agentPersistence} from '@/agent-core/agent/index.js';
 import {agentEventBus} from '@/agent-core/events/index.js';
 import {logger} from '@/logger.js';
 
@@ -185,7 +186,7 @@ export class MainAgentStore {
 
   private async existsOnDisk(id: string): Promise<boolean> {
     try {
-      await access(MainAgent.snapshotPath(this._sessionsDir, id));
+      await access(agentPersistence.snapshotPath(this._sessionsDir, id));
       return true;
     } catch {
       return false;
