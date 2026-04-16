@@ -1,5 +1,5 @@
 import assert from 'node:assert';
-import {mkdir, mkdtemp, rm} from 'node:fs/promises';
+import {mkdir, mkdtemp, rm, writeFile} from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -89,10 +89,11 @@ describe('MainAgentStore', () => {
       expect(await store.has('in-memory')).toBe(true);
     });
 
-    it('returns true for on-disk directory', async () => {
+    it('returns true for on-disk session with snapshot', async () => {
       const store = MainAgentStore.create(sessionsDir);
       const id = 'on-disk-session';
       await mkdir(path.join(sessionsDir, id));
+      await writeFile(path.join(sessionsDir, id, 'snapshot.json'), '{}');
       expect(await store.has(id)).toBe(true);
     });
 
@@ -105,16 +106,11 @@ describe('MainAgentStore', () => {
       const store = MainAgentStore.create(sessionsDir);
       const id = 'no-load-session';
       await mkdir(path.join(sessionsDir, id));
+      await writeFile(path.join(sessionsDir, id, 'snapshot.json'), '{}');
 
-      // has() should return true (directory exists on disk)
-      // but should NOT trigger loading into the cache.
       const exists = await store.has(id);
       expect(exists).toBe(true);
 
-      // After has(), the agent should not be cached. We cannot call
-      // get() to verify because that would trigger loadFromDisk.
-      // Instead, delete from disk and re-check has() — if has() had
-      // cached it, it would still return true.
       await rm(path.join(sessionsDir, id), {recursive: true});
       const stillExists = await store.has(id);
       expect(stillExists).toBe(false);
@@ -136,6 +132,7 @@ describe('MainAgentStore', () => {
       const store = MainAgentStore.create(sessionsDir);
       const id = 'del-disk';
       await mkdir(path.join(sessionsDir, id));
+      await writeFile(path.join(sessionsDir, id, 'snapshot.json'), '{}');
       expect(await store.has(id)).toBe(true);
 
       await store.delete(id);

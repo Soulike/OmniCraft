@@ -121,7 +121,7 @@ export class MainAgentStore {
 
   private async existsOnDisk(id: string): Promise<boolean> {
     try {
-      await access(path.join(this._sessionsDir, id));
+      await access(MainAgent.snapshotPath(this._sessionsDir, id));
       return true;
     } catch {
       return false;

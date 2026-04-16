@@ -108,11 +108,11 @@ export abstract class Agent {
   /** True while an async title generation is in flight. */
   private isGeneratingTitle = false;
 
-  protected static snapshotPath(sessionsDir: string, id: string): string {
+  static snapshotPath(sessionsDir: string, id: string): string {
     return path.join(sessionsDir, id, 'snapshot.json');
   }
 
-  protected static eventsPath(sessionsDir: string, id: string): string {
+  static eventsPath(sessionsDir: string, id: string): string {
     return path.join(sessionsDir, id, 'sse-events.jsonl');
   }
 
