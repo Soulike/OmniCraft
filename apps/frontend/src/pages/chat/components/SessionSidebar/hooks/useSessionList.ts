@@ -31,15 +31,13 @@ export function useSessionList({
   const {items, isLoading, isLoadingMore, error, hasMore, loadMore, refresh} =
     useInfiniteList<SessionMetadata>(fetchSessions);
 
-  // Refresh when a completion finishes (new session persisted) or title updates
+  // Refresh when a session receives its title (first completion persists the session)
   useEffect(() => {
     const handler = () => {
       refresh();
     };
-    eventBus.on('done', handler);
     eventBus.on('session-title', handler);
     return () => {
-      eventBus.off('done', handler);
       eventBus.off('session-title', handler);
     };
   }, [eventBus, refresh]);
