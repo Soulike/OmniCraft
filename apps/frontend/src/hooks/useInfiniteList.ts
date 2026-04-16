@@ -83,7 +83,7 @@ export function useInfiniteList<T>({
   const hasMore = items.length < total;
 
   const loadMore = useCallback(() => {
-    if (isLoadingMore || items.length >= total) {
+    if (isLoadingMore || !hasMore) {
       return;
     }
 
@@ -112,7 +112,7 @@ export function useInfiniteList<T>({
     }
 
     void fetchNextPage();
-  }, [fetcher, pageSize, isLoadingMore, items.length, total]);
+  }, [fetcher, pageSize, isLoadingMore, hasMore, items.length]);
 
   return {
     items,
