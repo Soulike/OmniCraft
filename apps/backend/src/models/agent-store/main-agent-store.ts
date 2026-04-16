@@ -156,24 +156,21 @@ export class MainAgentStore {
     const page = statResults.slice(offset, offset + limit);
 
     // Phase 2: read snapshot content only for the requested page.
-    const sessions: SessionMetadata[] = [];
-    await Promise.all(
-      page.map(async ({id}) => {
+    const results = await Promise.all(
+      page.map(async ({id}): Promise<SessionMetadata | null> => {
         const snapshotPath = MainAgent.snapshotPath(this._sessionsDir, id);
         try {
           const content = await readFile(snapshotPath, 'utf-8');
           const json: unknown = JSON.parse(content);
-          const metadata = sessionMetadataSchema.parse(json);
-          sessions.push(metadata);
+          return sessionMetadataSchema.parse(json);
         } catch (e) {
           logger.warn({err: e, sessionId: id}, 'Skipping unreadable session');
+          return null;
         }
       }),
     );
 
-    // Preserve the mtime sort order (Promise.all may resolve out of order).
-    const order = new Map(page.map(({id}, i) => [id, i]));
-    sessions.sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0));
+    const sessions = results.filter((r): r is SessionMetadata => r !== null);
 
     return {sessions, total};
   }
