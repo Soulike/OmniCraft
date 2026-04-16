@@ -3,13 +3,15 @@ import {useNavigate} from 'react-router';
 
 import {deleteSession} from '@/api/chat/index.js';
 
+import {useChatEventBus} from '../../hooks/useChatEventBus.js';
 import {useSessionId} from '../../hooks/useSessionId.js';
 import {useSessionList} from './hooks/useSessionList.js';
 import {SessionSidebarView} from './SessionSidebarView.js';
 
 export function SessionSidebar() {
   const [isOpen, setIsOpen] = useState(true);
-  const {sessions, refresh} = useSessionList();
+  const eventBus = useChatEventBus();
+  const {sessions, refresh} = useSessionList({eventBus});
   const {sessionId} = useSessionId();
   const navigate = useNavigate();
 

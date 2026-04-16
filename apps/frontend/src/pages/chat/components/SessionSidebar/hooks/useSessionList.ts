@@ -3,6 +3,12 @@ import {useCallback, useEffect, useState} from 'react';
 
 import {listSessions} from '@/api/chat/index.js';
 
+import type {ChatEventBus} from '../../StreamingMessageDisplay/index.js';
+
+interface UseSessionListOptions {
+  eventBus: ChatEventBus;
+}
+
 interface UseSessionListReturn {
   sessions: readonly SessionMetadata[];
   isLoading: boolean;
@@ -10,11 +16,9 @@ interface UseSessionListReturn {
   refresh: () => void;
 }
 
-/**
- * Fetches the session list from the API and provides a manual refresh.
- * Re-fetches automatically on mount.
- */
-export function useSessionList(): UseSessionListReturn {
+export function useSessionList({
+  eventBus,
+}: UseSessionListOptions): UseSessionListReturn {
   const [sessions, setSessions] = useState<readonly SessionMetadata[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -52,6 +56,16 @@ export function useSessionList(): UseSessionListReturn {
       cancelled = true;
     };
   }, [refreshKey]);
+
+  useEffect(() => {
+    const handler = () => {
+      refresh();
+    };
+    eventBus.on('session-title', handler);
+    return () => {
+      eventBus.off('session-title', handler);
+    };
+  }, [eventBus, refresh]);
 
   return {sessions, isLoading, error, refresh};
 }
