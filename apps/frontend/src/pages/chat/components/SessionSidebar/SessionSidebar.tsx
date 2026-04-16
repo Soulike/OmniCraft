@@ -29,7 +29,8 @@ export function SessionSidebar() {
     async (id: string) => {
       try {
         await deleteSession(id);
-      } catch {
+      } catch (e: unknown) {
+        console.error('Failed to delete session:', e);
         toast.danger('Failed to delete session');
         return;
       }
