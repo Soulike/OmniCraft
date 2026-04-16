@@ -25,6 +25,7 @@ import type {AnyToolResultData, ToolName} from '@omnicraft/tool-schemas';
 
 import {AsyncChannel} from '@/helpers/async-channel.js';
 import {Mutex} from '@/helpers/mutex.js';
+import {logger} from '@/logger.js';
 
 import {agentEventBus} from '../events/index.js';
 import type {LlmConfig, LlmToolCall} from '../llm-api/index.js';
@@ -190,7 +191,7 @@ export abstract class Agent {
     const filePath = Agent.snapshotPath(this.sessionsDir, this.id);
     const dir = path.dirname(filePath);
     await mkdir(dir, {recursive: true});
-    const tmpPath = filePath + '.tmp';
+    const tmpPath = `${filePath}.${crypto.randomUUID()}.tmp`;
     const data = JSON.stringify(this.toSnapshot(), null, 2) + '\n';
     await writeFile(tmpPath, data);
     await rename(tmpPath, filePath);
@@ -247,8 +248,10 @@ export abstract class Agent {
             this.isGeneratingTitle = false;
           });
         }
-        if (event.type === 'done' || event.type === 'session-title') {
-          void this.persistSnapshot();
+        if (event.type === 'done') {
+          void this.persistSnapshot().catch((err: unknown) => {
+            logger.error({err}, 'Failed to persist snapshot');
+          });
         }
       });
     } finally {
@@ -517,6 +520,10 @@ export abstract class Agent {
       type: 'session-title',
       title,
     } satisfies SseSessionTitleEvent);
+    this.sseEventCount++;
+    await this.persistSnapshot().catch((err: unknown) => {
+      logger.error({err}, 'Failed to persist snapshot after title generation');
+    });
   }
 
   /**
