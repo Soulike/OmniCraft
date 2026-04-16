@@ -1,11 +1,17 @@
 import assert from 'node:assert';
-import {access, rm} from 'node:fs/promises';
+import {access, readdir, readFile, rm, stat} from 'node:fs/promises';
 import path from 'node:path';
+
+import {
+  type SessionMetadata,
+  sessionMetadataSchema,
+} from '@omnicraft/api-schema';
 
 import {MainAgent} from '@/agent/agents/index.js';
 import type {Agent} from '@/agent-core/agent/index.js';
 import {agentPersistence} from '@/agent-core/agent/index.js';
 import {agentEventBus} from '@/agent-core/events/index.js';
+import {logger} from '@/logger.js';
 
 const MAX_CACHED_AGENTS = 50;
 
@@ -109,6 +115,68 @@ export class MainAgentStore {
     } catch {
       return false;
     }
+  }
+
+  /**
+   * Scans the sessions directory and returns paginated session metadata.
+   *
+   * First stats all snapshot files to obtain mtime for sorting, then
+   * only reads snapshot content for entries in the requested page range.
+   */
+  async listSessionMetadata(
+    offset: number,
+    limit: number,
+  ): Promise<{sessions: SessionMetadata[]; total: number}> {
+    let entries: string[];
+    try {
+      entries = await readdir(this._sessionsDir);
+    } catch {
+      return {sessions: [], total: 0};
+    }
+
+    // Phase 1: stat all snapshot files to get mtime for sorting.
+    const statResults: {id: string; mtime: number}[] = [];
+    await Promise.all(
+      entries.map(async (entry) => {
+        try {
+          const fileStat = await stat(
+            agentPersistence.snapshotPath(this._sessionsDir, entry),
+          );
+          statResults.push({id: entry, mtime: fileStat.mtimeMs});
+        } catch (e) {
+          logger.warn(
+            {err: e, sessionId: entry},
+            'Failed to stat session snapshot',
+          );
+        }
+      }),
+    );
+
+    statResults.sort((a, b) => b.mtime - a.mtime);
+    const total = statResults.length;
+    const page = statResults.slice(offset, offset + limit);
+
+    // Phase 2: read snapshot content only for the requested page.
+    const results = await Promise.all(
+      page.map(async ({id}): Promise<SessionMetadata | null> => {
+        const snapshotPath = agentPersistence.snapshotPath(
+          this._sessionsDir,
+          id,
+        );
+        try {
+          const content = await readFile(snapshotPath, 'utf-8');
+          const json: unknown = JSON.parse(content);
+          return sessionMetadataSchema.parse(json);
+        } catch (e) {
+          logger.warn({err: e, sessionId: id}, 'Skipping unreadable session');
+          return null;
+        }
+      }),
+    );
+
+    const sessions = results.filter((r): r is SessionMetadata => r !== null);
+
+    return {sessions, total};
   }
 
   private async loadFromDisk(id: string): Promise<Agent | undefined> {

@@ -5,6 +5,7 @@ import Router from '@koa/router';
 import {
   chatCompletionsRequestSchema,
   createSessionRequestSchema,
+  listSessionsQuerySchema,
   submitToolResponseRequestSchema,
   type ThinkingLevel,
 } from '@omnicraft/api-schema';
@@ -17,12 +18,36 @@ import {writeSseEvent} from './helpers/sse.js';
 import {
   CHAT_SESSION,
   CHAT_SESSION_ABORT,
+  CHAT_SESSION_BY_ID,
   CHAT_SESSION_COMPLETIONS,
   CHAT_SESSION_EVENTS,
   CHAT_SESSION_TOOL_RESPONSE,
+  CHAT_SESSIONS,
 } from './path.js';
 
 const router = new Router();
+
+/** GET /chat/sessions — lists persisted sessions with pagination. */
+router.get(CHAT_SESSIONS, async (ctx) => {
+  let offset: number;
+  let limit: number;
+  try {
+    const query = listSessionsQuerySchema.parse(ctx.query);
+    offset = query.offset;
+    limit = query.limit;
+  } catch (e) {
+    if (e instanceof ZodError) {
+      ctx.response.status = StatusCodes.BAD_REQUEST;
+      ctx.response.body = {error: e.issues};
+      return;
+    }
+    throw e;
+  }
+
+  const result = await chatService.listSessions(offset, limit);
+  ctx.response.status = StatusCodes.OK;
+  ctx.response.body = result;
+});
 
 /** POST /chat/session — creates a new chat session. */
 router.post(CHAT_SESSION, async (ctx) => {
@@ -181,6 +206,20 @@ router.post(CHAT_SESSION_TOOL_RESPONSE, async (ctx) => {
   if (!found) {
     ctx.response.status = StatusCodes.NOT_FOUND;
     ctx.response.body = {error: `Session or interaction not found`};
+    return;
+  }
+
+  ctx.response.status = StatusCodes.NO_CONTENT;
+});
+
+/** DELETE /chat/session/:id — deletes a session from memory and disk. */
+router.delete(CHAT_SESSION_BY_ID, async (ctx) => {
+  const {id} = ctx.params;
+
+  const found = await chatService.deleteSession(id);
+  if (!found) {
+    ctx.response.status = StatusCodes.NOT_FOUND;
+    ctx.response.body = {error: `Session not found: ${id}`};
     return;
   }
 

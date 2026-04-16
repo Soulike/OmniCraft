@@ -1,7 +1,7 @@
 import assert from 'node:assert';
 import os from 'node:os';
 
-import type {ThinkingLevel} from '@omnicraft/api-schema';
+import type {SessionMetadata, ThinkingLevel} from '@omnicraft/api-schema';
 import type {AllowedPathEntry} from '@omnicraft/settings-schema';
 import type {SseEvent} from '@omnicraft/sse-events';
 
@@ -139,8 +139,19 @@ export const chatService = {
     return agent.submitUserResponse(interactionId, result);
   },
 
-  /** Deletes an agent session. */
-  async deleteSession(agentId: string): Promise<void> {
-    await MainAgentStore.getInstance().delete(agentId);
+  /** Lists persisted sessions with pagination. */
+  async listSessions(
+    offset: number,
+    limit: number,
+  ): Promise<{sessions: SessionMetadata[]; total: number}> {
+    return MainAgentStore.getInstance().listSessionMetadata(offset, limit);
+  },
+
+  /** Deletes an agent session. Returns false if session not found. */
+  async deleteSession(agentId: string): Promise<boolean> {
+    const store = MainAgentStore.getInstance();
+    if (!(await store.has(agentId))) return false;
+    await store.delete(agentId);
+    return true;
   },
 };
