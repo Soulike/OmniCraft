@@ -1,5 +1,5 @@
 import {Button, Popover} from '@heroui/react';
-import {Trash2} from 'lucide-react';
+import {MessageSquare, Trash2} from 'lucide-react';
 
 import styles from './styles.module.css';
 
@@ -20,6 +20,9 @@ export function SessionItemView({
 }: SessionItemViewProps) {
   return (
     <div className={styles.item}>
+      <div className={styles.icon}>
+        <MessageSquare size={14} fill='currentColor' strokeWidth={1.5} />
+      </div>
       <span className={styles.title}>{title}</span>
       <div className={styles.actions}>
         <Popover isOpen={isDeleteOpen} onOpenChange={onDeleteOpenChange}>

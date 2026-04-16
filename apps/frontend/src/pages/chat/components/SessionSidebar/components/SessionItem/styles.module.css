@@ -1,7 +1,19 @@
 .item {
   display: flex;
   align-items: center;
+  gap: 8px;
   width: 100%;
+}
+
+.icon {
+  flex-shrink: 0;
+  color: var(--color-muted);
+  display: flex;
+  align-items: center;
+}
+
+:global(.list-box-item[data-selected='true']) .icon {
+  color: var(--color-accent);
 }
 
 .title {

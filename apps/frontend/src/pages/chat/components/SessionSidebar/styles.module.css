@@ -3,10 +3,12 @@
 }
 
 .listBox :global(.list-box-item) {
+  position: relative;
   border-radius: 10px;
   padding: 8px 10px;
   font-size: 0.85rem;
   color: var(--color-foreground);
+  gap: 0;
   transition:
     background-color 150ms ease,
     box-shadow 150ms ease;
@@ -16,6 +18,17 @@
   background-color: var(--color-segment);
   box-shadow: var(--shadow-surface);
   font-weight: 500;
+}
+
+.listBox :global(.list-box-item[data-selected='true'])::before {
+  content: '';
+  position: absolute;
+  left: 4px;
+  top: 25%;
+  height: 50%;
+  width: 3px;
+  border-radius: 2px;
+  background-color: var(--color-accent);
 }
 
 .centered {
