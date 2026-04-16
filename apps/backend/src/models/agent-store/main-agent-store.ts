@@ -140,7 +140,7 @@ export class MainAgentStore {
       entries.map(async (entry) => {
         try {
           const fileStat = await stat(
-            MainAgent.snapshotPath(this._sessionsDir, entry),
+            agentPersistence.snapshotPath(this._sessionsDir, entry),
           );
           statResults.push({id: entry, mtime: fileStat.mtimeMs});
         } catch (e) {
@@ -159,7 +159,10 @@ export class MainAgentStore {
     // Phase 2: read snapshot content only for the requested page.
     const results = await Promise.all(
       page.map(async ({id}): Promise<SessionMetadata | null> => {
-        const snapshotPath = MainAgent.snapshotPath(this._sessionsDir, id);
+        const snapshotPath = agentPersistence.snapshotPath(
+          this._sessionsDir,
+          id,
+        );
         try {
           const content = await readFile(snapshotPath, 'utf-8');
           const json: unknown = JSON.parse(content);
