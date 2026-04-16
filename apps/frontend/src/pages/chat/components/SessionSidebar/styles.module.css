@@ -1,16 +1,27 @@
 .listBox {
-  padding: 4px;
+  padding: 0;
+}
+
+.listBox :global(.list-box-item) {
+  border-radius: 10px;
+  padding: 8px 10px;
+  font-size: 0.85rem;
+  color: var(--color-foreground);
+  transition:
+    background-color 150ms ease,
+    color 150ms ease;
 }
 
 .listBox :global(.list-box-item[data-selected='true']) {
   background-color: var(--color-default);
+  font-weight: 500;
 }
 
 .centered {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 24px 8px;
+  padding: 32px 8px;
 }
 
 .errorText {
@@ -20,5 +31,5 @@
 
 .emptyText {
   font-size: 0.8rem;
-  color: var(--color-foreground-400);
+  color: var(--color-muted);
 }

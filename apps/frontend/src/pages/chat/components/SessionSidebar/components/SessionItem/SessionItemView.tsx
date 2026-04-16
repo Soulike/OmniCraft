@@ -27,7 +27,7 @@ export function SessionItemView({
             <Button
               isIconOnly
               size='sm'
-              variant='danger-soft'
+              variant='ghost'
               aria-label='Delete session'
             >
               <Trash2 size={14} />
