@@ -12,11 +12,11 @@ import {SessionSidebarView} from './SessionSidebarView.js';
 export function SessionSidebar() {
   const [isOpen, setIsOpen] = useState(true);
   const eventBus = useChatEventBus();
+  const {sessionId} = useSessionId();
   const {sessions, isLoading, error, refresh} = useSessionList({
     eventBus,
     sessionId,
   });
-  const {sessionId} = useSessionId();
   const navigate = useNavigate();
 
   const handleSelectSession = useCallback(
