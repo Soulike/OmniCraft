@@ -117,41 +117,62 @@ export class MainAgentStore {
   }
 
   /**
-   * Scans the sessions directory and returns metadata for all persisted sessions.
-   * Results are sorted by file modification time, most recent first.
+   * Scans the sessions directory and returns paginated session metadata.
+   *
+   * First stats all snapshot files to obtain mtime for sorting, then
+   * only reads snapshot content for entries in the requested page range.
    */
-  async listSessionMetadata(): Promise<SessionMetadata[]> {
+  async listSessionMetadata(
+    offset: number,
+    limit: number,
+  ): Promise<{sessions: SessionMetadata[]; total: number}> {
     let entries: string[];
     try {
       entries = await readdir(this._sessionsDir);
     } catch {
-      return [];
+      return {sessions: [], total: 0};
     }
 
-    const results: {metadata: SessionMetadata; mtime: number}[] = [];
-
+    // Phase 1: stat all snapshot files to get mtime for sorting.
+    const statResults: {id: string; mtime: number}[] = [];
     await Promise.all(
       entries.map(async (entry) => {
-        const snapshotPath = MainAgent.snapshotPath(this._sessionsDir, entry);
         try {
-          const [content, fileStat] = await Promise.all([
-            readFile(snapshotPath, 'utf-8'),
-            stat(snapshotPath),
-          ]);
-          const json: unknown = JSON.parse(content);
-          const metadata = sessionMetadataSchema.parse(json);
-          results.push({metadata, mtime: fileStat.mtimeMs});
-        } catch (e) {
-          logger.warn(
-            {err: e, sessionId: entry},
-            'Skipping unreadable session',
+          const fileStat = await stat(
+            MainAgent.snapshotPath(this._sessionsDir, entry),
           );
+          statResults.push({id: entry, mtime: fileStat.mtimeMs});
+        } catch {
+          // Missing or inaccessible snapshot — skip silently.
         }
       }),
     );
 
-    results.sort((a, b) => b.mtime - a.mtime);
-    return results.map((r) => r.metadata);
+    statResults.sort((a, b) => b.mtime - a.mtime);
+    const total = statResults.length;
+    const page = statResults.slice(offset, offset + limit);
+
+    // Phase 2: read snapshot content only for the requested page.
+    const sessions: SessionMetadata[] = [];
+    await Promise.all(
+      page.map(async ({id}) => {
+        const snapshotPath = MainAgent.snapshotPath(this._sessionsDir, id);
+        try {
+          const content = await readFile(snapshotPath, 'utf-8');
+          const json: unknown = JSON.parse(content);
+          const metadata = sessionMetadataSchema.parse(json);
+          sessions.push(metadata);
+        } catch (e) {
+          logger.warn({err: e, sessionId: id}, 'Skipping unreadable session');
+        }
+      }),
+    );
+
+    // Preserve the mtime sort order (Promise.all may resolve out of order).
+    const order = new Map(page.map(({id}, i) => [id, i]));
+    sessions.sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0));
+
+    return {sessions, total};
   }
 
   private async loadFromDisk(id: string): Promise<Agent | undefined> {

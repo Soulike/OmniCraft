@@ -144,8 +144,7 @@ export const chatService = {
     offset: number,
     limit: number,
   ): Promise<{sessions: SessionMetadata[]; total: number}> {
-    const all = await MainAgentStore.getInstance().listSessionMetadata();
-    return {sessions: all.slice(offset, offset + limit), total: all.length};
+    return MainAgentStore.getInstance().listSessionMetadata(offset, limit);
   },
 
   /** Deletes an agent session. Returns false if session not found. */

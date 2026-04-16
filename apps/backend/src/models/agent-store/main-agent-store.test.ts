@@ -219,17 +219,17 @@ describe('MainAgentStore', () => {
   });
 
   describe('listSessionMetadata', () => {
-    it('returns empty array when sessions directory is empty', async () => {
+    it('returns empty result when sessions directory is empty', async () => {
       const store = MainAgentStore.create(sessionsDir);
-      const result = await store.listSessionMetadata();
-      expect(result).toEqual([]);
+      const result = await store.listSessionMetadata(0, 100);
+      expect(result).toEqual({sessions: [], total: 0});
     });
 
-    it('returns empty array when sessions directory does not exist', async () => {
+    it('returns empty result when sessions directory does not exist', async () => {
       const nonexistent = path.join(sessionsDir, 'does-not-exist');
       const store = MainAgentStore.create(nonexistent);
-      const result = await store.listSessionMetadata();
-      expect(result).toEqual([]);
+      const result = await store.listSessionMetadata(0, 100);
+      expect(result).toEqual({sessions: [], total: 0});
     });
 
     it('returns metadata from valid snapshots', async () => {
@@ -238,8 +238,11 @@ describe('MainAgentStore', () => {
         id: 'session-a',
         title: 'Title A',
       });
-      const result = await store.listSessionMetadata();
-      expect(result).toEqual([{id: 'session-a', title: 'Title A'}]);
+      const result = await store.listSessionMetadata(0, 100);
+      expect(result).toEqual({
+        sessions: [{id: 'session-a', title: 'Title A'}],
+        total: 1,
+      });
     });
 
     it('sorts by file mtime descending (most recent first)', async () => {
@@ -264,8 +267,8 @@ describe('MainAgentStore', () => {
       );
       await utimes(path.join(sessionsDir, 'newer', 'snapshot.json'), now, now);
 
-      const result = await store.listSessionMetadata();
-      expect(result).toEqual([
+      const result = await store.listSessionMetadata(0, 100);
+      expect(result.sessions).toEqual([
         {id: 'newer', title: 'Newer'},
         {id: 'older', title: 'Older'},
       ]);
@@ -279,8 +282,11 @@ describe('MainAgentStore', () => {
         title: 'Valid',
       });
 
-      const result = await store.listSessionMetadata();
-      expect(result).toEqual([{id: 'valid', title: 'Valid'}]);
+      const result = await store.listSessionMetadata(0, 100);
+      expect(result).toEqual({
+        sessions: [{id: 'valid', title: 'Valid'}],
+        total: 1,
+      });
     });
 
     it('skips snapshots with invalid JSON', async () => {
@@ -291,8 +297,8 @@ describe('MainAgentStore', () => {
 
       await writeSnapshot(sessionsDir, 'good', {id: 'good', title: 'Good'});
 
-      const result = await store.listSessionMetadata();
-      expect(result).toEqual([{id: 'good', title: 'Good'}]);
+      const result = await store.listSessionMetadata(0, 100);
+      expect(result.sessions).toEqual([{id: 'good', title: 'Good'}]);
     });
 
     it('skips snapshots missing required fields', async () => {
@@ -303,8 +309,44 @@ describe('MainAgentStore', () => {
         title: 'Complete',
       });
 
-      const result = await store.listSessionMetadata();
-      expect(result).toEqual([{id: 'complete', title: 'Complete'}]);
+      const result = await store.listSessionMetadata(0, 100);
+      expect(result.sessions).toEqual([{id: 'complete', title: 'Complete'}]);
+    });
+
+    it('paginates with offset and limit', async () => {
+      const store = MainAgentStore.create(sessionsDir);
+
+      for (let i = 0; i < 5; i++) {
+        await writeSnapshot(sessionsDir, `s${i}`, {
+          id: `s${i}`,
+          title: `T${i}`,
+        });
+        const mtime = new Date(Date.now() - (4 - i) * 60_000);
+        await utimes(
+          path.join(sessionsDir, `s${i}`, 'snapshot.json'),
+          mtime,
+          mtime,
+        );
+      }
+
+      // Sorted order by mtime desc: s4, s3, s2, s1, s0
+      const page1 = await store.listSessionMetadata(0, 2);
+      expect(page1.total).toBe(5);
+      expect(page1.sessions).toEqual([
+        {id: 's4', title: 'T4'},
+        {id: 's3', title: 'T3'},
+      ]);
+
+      const page2 = await store.listSessionMetadata(2, 2);
+      expect(page2.total).toBe(5);
+      expect(page2.sessions).toEqual([
+        {id: 's2', title: 'T2'},
+        {id: 's1', title: 'T1'},
+      ]);
+
+      const page3 = await store.listSessionMetadata(4, 2);
+      expect(page3.total).toBe(5);
+      expect(page3.sessions).toEqual([{id: 's0', title: 'T0'}]);
     });
   });
 
