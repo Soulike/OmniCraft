@@ -13,7 +13,15 @@ export function SessionSidebar() {
   const [isOpen, setIsOpen] = useState(true);
   const eventBus = useChatEventBus();
   const {sessionId} = useSessionId();
-  const {sessions, isLoading, error, refresh} = useSessionList({
+  const {
+    sessions,
+    isLoading,
+    isLoadingMore,
+    error,
+    hasMore,
+    loadMore,
+    refresh,
+  } = useSessionList({
     eventBus,
     sessionId,
   });
@@ -52,7 +60,10 @@ export function SessionSidebar() {
       onOpenChange={setIsOpen}
       sessions={sessions}
       isLoading={isLoading}
+      isLoadingMore={isLoadingMore}
       error={error}
+      hasMore={hasMore}
+      onLoadMore={loadMore}
       currentSessionId={sessionId}
       onSelectSession={handleSelectSession}
       onDeleteSession={handleDeleteSession}

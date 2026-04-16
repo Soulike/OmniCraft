@@ -1,7 +1,8 @@
 import type {SessionMetadata} from '@omnicraft/api-schema';
-import {useCallback, useEffect, useState} from 'react';
+import {useEffect} from 'react';
 
 import {listSessions} from '@/api/chat/index.js';
+import {useInfiniteList} from '@/hooks/useInfiniteList.js';
 
 import type {ChatEventBus} from '../../StreamingMessageDisplay/index.js';
 
@@ -13,52 +14,31 @@ interface UseSessionListOptions {
 interface UseSessionListReturn {
   sessions: readonly SessionMetadata[];
   isLoading: boolean;
+  isLoadingMore: boolean;
   error: string | null;
+  hasMore: boolean;
+  loadMore: () => void;
   refresh: () => void;
 }
+
+const fetchSessions = async (offset: number, limit: number) => {
+  const result = await listSessions(offset, limit);
+  return {items: result.sessions, total: result.total};
+};
 
 export function useSessionList({
   eventBus,
   sessionId,
 }: UseSessionListOptions): UseSessionListReturn {
-  const [sessions, setSessions] = useState<readonly SessionMetadata[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [refreshKey, setRefreshKey] = useState(0);
+  const {items, isLoading, isLoadingMore, error, hasMore, loadMore, refresh} =
+    useInfiniteList<SessionMetadata>(fetchSessions);
 
-  const refresh = useCallback(() => {
-    setRefreshKey((prev) => prev + 1);
-  }, []);
-
+  // Refresh when sessionId changes (new session created)
   useEffect(() => {
-    let cancelled = false;
+    refresh();
+  }, [sessionId, refresh]);
 
-    async function fetchSessions() {
-      setIsLoading(true);
-      setError(null);
-      try {
-        const result = await listSessions(0, 50);
-        if (!cancelled) {
-          setSessions(result.sessions);
-        }
-      } catch (e: unknown) {
-        if (!cancelled) {
-          setError(e instanceof Error ? e.message : 'Failed to load sessions');
-        }
-      } finally {
-        if (!cancelled) {
-          setIsLoading(false);
-        }
-      }
-    }
-
-    void fetchSessions();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [refreshKey, sessionId]);
-
+  // Refresh when a session receives its title
   useEffect(() => {
     const handler = () => {
       refresh();
@@ -69,5 +49,13 @@ export function useSessionList({
     };
   }, [eventBus, refresh]);
 
-  return {sessions, isLoading, error, refresh};
+  return {
+    sessions: items,
+    isLoading,
+    isLoadingMore,
+    error,
+    hasMore,
+    loadMore,
+    refresh,
+  };
 }
