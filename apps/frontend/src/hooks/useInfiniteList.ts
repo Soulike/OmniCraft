@@ -39,10 +39,10 @@ export function useInfiniteList<T>({
   const [error, setError] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
 
-  const offsetRef = useRef(0);
+  const nextLoadStartOffset = useRef(0);
 
   const refresh = useCallback(() => {
-    offsetRef.current = 0;
+    nextLoadStartOffset.current = 0;
     setRefreshKey((prev) => prev + 1);
   }, []);
 
@@ -58,7 +58,7 @@ export function useInfiniteList<T>({
         if (!cancelled) {
           setItems(page.items);
           setTotal(page.total);
-          offsetRef.current = page.items.length;
+          nextLoadStartOffset.current = page.items.length;
         }
       } catch (e: unknown) {
         if (!cancelled) {
@@ -78,7 +78,7 @@ export function useInfiniteList<T>({
     };
   }, [fetcher, pageSize, refreshKey]);
 
-  const hasMore = offsetRef.current < total;
+  const hasMore = nextLoadStartOffset.current < total;
 
   const loadMore = useCallback(() => {
     if (isLoadingMore || !hasMore) {
@@ -89,10 +89,10 @@ export function useInfiniteList<T>({
 
     void (async () => {
       try {
-        const page = await fetcher(offsetRef.current, pageSize);
+        const page = await fetcher(nextLoadStartOffset.current, pageSize);
         setItems((prev) => [...prev, ...page.items]);
         setTotal(page.total);
-        offsetRef.current += page.items.length;
+        nextLoadStartOffset.current += page.items.length;
       } catch (e: unknown) {
         setError(e instanceof Error ? e.message : 'Failed to load more');
       } finally {
