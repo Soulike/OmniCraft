@@ -1,5 +1,5 @@
 import {Button, Tooltip} from '@heroui/react';
-import {PanelLeftClose, PanelLeftOpen} from 'lucide-react';
+import {SidebarClose, SidebarOpen} from 'lucide-react';
 import type {ReactNode} from 'react';
 
 import styles from './styles.module.css';
@@ -38,7 +38,7 @@ export function CollapsibleSidebar({
                   onOpenChange(false);
                 }}
               >
-                <PanelLeftClose size={16} />
+                <SidebarClose size={16} />
               </Button>
             </Tooltip.Trigger>
             <Tooltip.Content>
@@ -60,7 +60,7 @@ export function CollapsibleSidebar({
                 onOpenChange(true);
               }}
             >
-              <PanelLeftOpen size={16} />
+              <SidebarOpen size={16} />
             </Button>
           </Tooltip.Trigger>
           <Tooltip.Content>
