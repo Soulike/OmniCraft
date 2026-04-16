@@ -7,6 +7,7 @@ import type {ChatEventBus} from '../../StreamingMessageDisplay/index.js';
 
 interface UseSessionListOptions {
   eventBus: ChatEventBus;
+  sessionId: string | null;
 }
 
 interface UseSessionListReturn {
@@ -18,6 +19,7 @@ interface UseSessionListReturn {
 
 export function useSessionList({
   eventBus,
+  sessionId,
 }: UseSessionListOptions): UseSessionListReturn {
   const [sessions, setSessions] = useState<readonly SessionMetadata[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -55,7 +57,7 @@ export function useSessionList({
     return () => {
       cancelled = true;
     };
-  }, [refreshKey]);
+  }, [refreshKey, sessionId]);
 
   useEffect(() => {
     const handler = () => {
