@@ -4,6 +4,7 @@ import {z} from 'zod';
 
 import type {LlmConfig} from '../llm-api/index.js';
 import type {LlmSessionSnapshot} from '../llm-session/index.js';
+import {llmSessionSnapshotSchema} from '../llm-session/index.js';
 import type {SkillRegistry} from '../skill/index.js';
 import type {AllowedPathEntry} from '../tool/index.js';
 import type {ToolRegistry} from '../tool/index.js';
@@ -19,51 +20,8 @@ export type AgentEvent = Exclude<SseEvent, SseErrorEvent>;
 export type AgentEventStream = AsyncGenerator<AgentEvent, void, undefined>;
 
 // ---------------------------------------------------------------------------
-// Zod Schemas (for snapshot validation)
+// Agent Snapshot Schema (for disk validation)
 // ---------------------------------------------------------------------------
-
-const llmToolCallSchema = z.object({
-  callId: z.string(),
-  toolName: z.string(),
-  arguments: z.string(),
-});
-
-const llmThinkingBlockSchema = z.object({
-  content: z.array(z.string()),
-  signature: z.string(),
-});
-
-const llmMessageBaseSchema = z.object({
-  id: z.string(),
-  createdAt: z.number(),
-  content: z.string(),
-});
-
-const llmUserMessageSchema = llmMessageBaseSchema.extend({
-  role: z.literal('user'),
-});
-
-const llmAssistantMessageSchema = llmMessageBaseSchema.extend({
-  role: z.literal('assistant'),
-  toolCalls: z.array(llmToolCallSchema),
-  thinking: z.array(llmThinkingBlockSchema),
-});
-
-const llmToolResultMessageSchema = llmMessageBaseSchema.extend({
-  role: z.literal('tool'),
-  callId: z.string(),
-});
-
-const llmMessageSchema = z.discriminatedUnion('role', [
-  llmUserMessageSchema,
-  llmAssistantMessageSchema,
-  llmToolResultMessageSchema,
-]);
-
-const llmSessionSnapshotSchema = z.object({
-  id: z.string(),
-  messages: z.array(llmMessageSchema),
-});
 
 const agentSnapshotOptionsSchema = z.object({
   workingDirectory: z.string(),
