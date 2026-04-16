@@ -1,5 +1,7 @@
 import {
   createSessionResponseSchema,
+  type ListSessionsResponse,
+  listSessionsResponseSchema,
   type ThinkingLevel,
 } from '@omnicraft/api-schema';
 import type {SseEvent} from '@omnicraft/sse-events';
@@ -119,6 +121,40 @@ export async function submitToolResponse(
     const body = await res.text();
     throw new Error(
       `Failed to submit tool response (${res.status.toString()}): ${body}`,
+    );
+  }
+}
+
+/** Fetches the list of past sessions. */
+export async function listSessions(
+  offset: number,
+  limit: number,
+): Promise<ListSessionsResponse> {
+  const res = await fetch(
+    `${BASE}/sessions?offset=${offset.toString()}&limit=${limit.toString()}`,
+  );
+
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(
+      `Failed to list sessions (${res.status.toString()}): ${body}`,
+    );
+  }
+
+  const json: unknown = await res.json();
+  return listSessionsResponseSchema.parse(json);
+}
+
+/** Deletes a session by ID. */
+export async function deleteSession(id: string): Promise<void> {
+  const res = await fetch(`${BASE}/session/${id}`, {
+    method: 'DELETE',
+  });
+
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(
+      `Failed to delete session (${res.status.toString()}): ${body}`,
     );
   }
 }
