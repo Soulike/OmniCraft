@@ -48,6 +48,17 @@ describe('agentPersistence', () => {
       const loaded = await agentPersistence.loadSnapshot(tmpDir, agentId);
       expect(loaded).toEqual(snapshot);
     });
+
+    it('writes metadata.json alongside snapshot.json', async () => {
+      const snapshot = createTestSnapshot(agentId);
+      await agentPersistence.persistSnapshot(tmpDir, agentId, snapshot);
+
+      const metadataPath = agentPersistence.metadataPath(tmpDir, agentId);
+      const content = await readFile(metadataPath, 'utf-8');
+      const metadata: unknown = JSON.parse(content);
+
+      expect(metadata).toEqual({id: agentId, title: 'Test Session'});
+    });
   });
 
   describe('loadSnapshot', () => {
