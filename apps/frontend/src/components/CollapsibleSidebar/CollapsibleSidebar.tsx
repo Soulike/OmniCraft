@@ -19,58 +19,55 @@ export function CollapsibleSidebar({
   headerExtra,
   children,
 }: CollapsibleSidebarProps) {
-  if (!isOpen) {
-    return (
-      <aside className={styles.sidebar} data-open='false'>
-        <div className={styles.collapsed}>
+  return (
+    <aside className={styles.sidebar} data-open={isOpen}>
+      <div className={styles.expanded}>
+        <div className={styles.header}>
+          <span className={styles.title}>{title}</span>
+          {headerExtra && (
+            <div className={styles.headerExtra}>{headerExtra}</div>
+          )}
           <Tooltip delay={0}>
             <Tooltip.Trigger>
               <Button
                 isIconOnly
                 size='sm'
                 variant='ghost'
-                aria-label='Expand sidebar'
+                aria-label='Collapse sidebar'
                 onPress={() => {
-                  onOpenChange(true);
+                  onOpenChange(false);
                 }}
               >
-                <PanelLeftOpen size={16} />
+                <PanelLeftClose size={16} />
               </Button>
             </Tooltip.Trigger>
             <Tooltip.Content>
-              <p>Expand sidebar</p>
+              <p>Collapse sidebar</p>
             </Tooltip.Content>
           </Tooltip>
         </div>
-      </aside>
-    );
-  }
-
-  return (
-    <aside className={styles.sidebar} data-open='true'>
-      <div className={styles.header}>
-        <span className={styles.title}>{title}</span>
-        {headerExtra && <div className={styles.headerExtra}>{headerExtra}</div>}
+        <div className={styles.content}>{children}</div>
+      </div>
+      <div className={styles.collapsed}>
         <Tooltip delay={0}>
           <Tooltip.Trigger>
             <Button
               isIconOnly
               size='sm'
               variant='ghost'
-              aria-label='Collapse sidebar'
+              aria-label='Expand sidebar'
               onPress={() => {
-                onOpenChange(false);
+                onOpenChange(true);
               }}
             >
-              <PanelLeftClose size={16} />
+              <PanelLeftOpen size={16} />
             </Button>
           </Tooltip.Trigger>
           <Tooltip.Content>
-            <p>Collapse sidebar</p>
+            <p>Expand sidebar</p>
           </Tooltip.Content>
         </Tooltip>
       </div>
-      <div className={styles.content}>{children}</div>
     </aside>
   );
 }

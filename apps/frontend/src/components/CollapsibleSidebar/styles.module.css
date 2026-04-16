@@ -1,4 +1,5 @@
 .sidebar {
+  position: relative;
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
@@ -14,6 +15,44 @@
 
 .sidebar[data-open='false'] {
   width: 40px;
+}
+
+.expanded {
+  display: flex;
+  flex-direction: column;
+  position: absolute;
+  inset: 0;
+  transition: opacity 200ms ease;
+}
+
+.sidebar[data-open='true'] .expanded {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.sidebar[data-open='false'] .expanded {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.collapsed {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: absolute;
+  inset: 0;
+  padding-top: 8px;
+  transition: opacity 200ms ease;
+}
+
+.sidebar[data-open='true'] .collapsed {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.sidebar[data-open='false'] .collapsed {
+  opacity: 1;
+  pointer-events: auto;
 }
 
 .header {
@@ -42,12 +81,4 @@
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-}
-
-.collapsed {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding-top: 8px;
-  height: 100%;
 }
