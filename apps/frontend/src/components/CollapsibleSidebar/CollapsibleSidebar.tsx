@@ -1,4 +1,4 @@
-import {Button, Tooltip} from '@heroui/react';
+import {Button, ScrollShadow, Tooltip} from '@heroui/react';
 import {SidebarClose, SidebarOpen} from 'lucide-react';
 import type {ReactNode} from 'react';
 
@@ -46,7 +46,7 @@ export function CollapsibleSidebar({
             </Tooltip.Content>
           </Tooltip>
         </div>
-        <div className={styles.content}>{children}</div>
+        <ScrollShadow className={styles.content}>{children}</ScrollShadow>
       </div>
       <div className={styles.collapsed}>
         <Tooltip delay={0}>
