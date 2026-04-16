@@ -67,6 +67,7 @@ export const webSearchTool: ToolDefinition<typeof parameters, WebSearchResult> =
           maxResults: args.maxResults ?? 5,
           includeDomains: args.includeDomains,
           excludeDomains: args.excludeDomains,
+          timeRange: args.timeRange,
         });
       } catch (error: unknown) {
         const message = error instanceof Error ? error.message : String(error);
