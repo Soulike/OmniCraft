@@ -41,7 +41,9 @@ export const editFileTool: ToolDefinition<typeof parameters, EditFileResult> = {
   name: TOOL_NAME.EDIT_FILE,
   displayName: 'Edit File',
   description:
-    'Replaces a specific string in a file. ' +
+    'Replaces a specific string in a file and returns a diff of the change. ' +
+    'Use this to make targeted modifications to an existing file ' +
+    'without rewriting the entire file. ' +
     'Requires the old string to uniquely match unless replaceAll is set.',
   parameters,
   suppressToolEvents: false,

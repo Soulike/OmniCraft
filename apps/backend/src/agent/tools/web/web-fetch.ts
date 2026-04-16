@@ -92,7 +92,9 @@ export const webFetchTool: ToolDefinition<typeof parameters, WebFetchResult> = {
   description:
     'Fetches a URL and returns its content in a readable format. ' +
     'HTML pages are converted to Markdown with article extraction. ' +
-    'Other text content (JSON, plain text, XML) is returned as-is.',
+    'Other text content (JSON, plain text, XML) is returned as-is. ' +
+    'Use this when you already know the URL to retrieve, ' +
+    'rather than needing to discover information.',
   parameters,
   suppressToolEvents: false,
   async execute(args: WebFetchArgs, _context: ToolExecutionContext) {
