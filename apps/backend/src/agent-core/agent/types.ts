@@ -3,7 +3,6 @@ import type {SseErrorEvent, SseEvent} from '@omnicraft/sse-events';
 import {z} from 'zod';
 
 import type {LlmConfig} from '../llm-api/index.js';
-import type {LlmSessionSnapshot} from '../llm-session/index.js';
 import {llmSessionSnapshotSchema} from '../llm-session/index.js';
 import type {SkillRegistry} from '../skill/index.js';
 import type {AllowedPathEntry} from '../tool/index.js';
@@ -37,26 +36,11 @@ export const agentSnapshotSchema = z.object({
   options: agentSnapshotOptionsSchema,
 });
 
-// ---------------------------------------------------------------------------
-// Agent Snapshot (for persistence)
-// ---------------------------------------------------------------------------
-
 /** Serializable agent configuration persisted in snapshots. */
-export interface AgentSnapshotOptions {
-  workingDirectory: string;
-  /** Claude Agent SDK session ID for resuming Claude Code sessions. */
-  claudeCodeSessionId?: string;
-  extraAllowedPaths?: readonly AllowedPathEntry[];
-}
+export type AgentSnapshotOptions = z.infer<typeof agentSnapshotOptionsSchema>;
 
 /** Serializable snapshot of an Agent, used for persistence. */
-export interface AgentSnapshot {
-  id: string;
-  title: string;
-  sseEventCount: number;
-  llmSession: LlmSessionSnapshot;
-  options: AgentSnapshotOptions;
-}
+export type AgentSnapshot = z.infer<typeof agentSnapshotSchema>;
 
 // ---------------------------------------------------------------------------
 // Agent Options
