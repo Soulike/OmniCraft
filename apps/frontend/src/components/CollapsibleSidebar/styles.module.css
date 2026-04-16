@@ -5,17 +5,20 @@
   flex-shrink: 0;
   height: 100%;
   background-color: var(--color-background);
-  border-right: 1px solid var(--color-border);
   overflow: hidden;
-  transition: width 200ms ease;
+  transition:
+    width 200ms ease,
+    border-color 200ms ease;
 }
 
 .sidebar[data-open='true'] {
   width: 260px;
+  border-right: 1px solid var(--color-border);
 }
 
 .sidebar[data-open='false'] {
   width: 40px;
+  border-right: 1px solid transparent;
 }
 
 .expanded {
