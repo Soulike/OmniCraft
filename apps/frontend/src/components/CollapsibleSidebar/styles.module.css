@@ -12,13 +12,18 @@
 }
 
 .sidebar[data-open='true'] {
+  position: relative;
   width: 260px;
   border-right: 1px solid var(--color-border);
 }
 
 .sidebar[data-open='false'] {
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
   width: 40px;
-  border-right: 1px solid transparent;
+  z-index: 10;
 }
 
 .expanded {
