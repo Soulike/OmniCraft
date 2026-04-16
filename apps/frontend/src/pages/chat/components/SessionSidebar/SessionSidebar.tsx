@@ -15,7 +15,7 @@ export function SessionSidebar() {
   const {sessionId} = useSessionId();
   const {
     sessions,
-    isLoading,
+    isLoadingInitial,
     isLoadingMore,
     error,
     hasMore,
@@ -60,7 +60,7 @@ export function SessionSidebar() {
       isOpen={isOpen}
       onOpenChange={setIsOpen}
       sessions={sessions}
-      isLoading={isLoading}
+      isLoadingInitial={isLoadingInitial}
       isLoadingMore={isLoadingMore}
       error={error}
       hasMore={hasMore}

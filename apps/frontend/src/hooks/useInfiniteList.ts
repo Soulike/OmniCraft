@@ -1,7 +1,5 @@
 import {useCallback, useEffect, useRef, useState} from 'react';
 
-const PAGE_SIZE = 20;
-
 interface Page<T> {
   items: readonly T[];
   total: number;
@@ -9,9 +7,14 @@ interface Page<T> {
 
 type Fetcher<T> = (offset: number, limit: number) => Promise<Page<T>>;
 
+interface UseInfiniteListOptions<T> {
+  fetcher: Fetcher<T>;
+  pageSize: number;
+}
+
 interface UseInfiniteListReturn<T> {
   items: readonly T[];
-  isLoading: boolean;
+  isLoadingInitial: boolean;
   isLoadingMore: boolean;
   error: string | null;
   hasMore: boolean;
@@ -25,12 +28,13 @@ interface UseInfiniteListReturn<T> {
  * Manages initial load, load-more, and full refresh. The caller provides
  * a fetcher that returns a page of items plus the total count.
  */
-export function useInfiniteList<T>(
-  fetcher: Fetcher<T>,
-): UseInfiniteListReturn<T> {
+export function useInfiniteList<T>({
+  fetcher,
+  pageSize,
+}: UseInfiniteListOptions<T>): UseInfiniteListReturn<T> {
   const [items, setItems] = useState<readonly T[]>([]);
   const [total, setTotal] = useState(0);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingInitial, setIsLoadingInitial] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -47,10 +51,10 @@ export function useInfiniteList<T>(
     let cancelled = false;
 
     async function fetchFirstPage() {
-      setIsLoading(true);
+      setIsLoadingInitial(true);
       setError(null);
       try {
-        const page = await fetcher(0, PAGE_SIZE);
+        const page = await fetcher(0, pageSize);
         if (!cancelled) {
           setItems(page.items);
           setTotal(page.total);
@@ -62,7 +66,7 @@ export function useInfiniteList<T>(
         }
       } finally {
         if (!cancelled) {
-          setIsLoading(false);
+          setIsLoadingInitial(false);
         }
       }
     }
@@ -72,7 +76,7 @@ export function useInfiniteList<T>(
     return () => {
       cancelled = true;
     };
-  }, [fetcher, refreshKey]);
+  }, [fetcher, pageSize, refreshKey]);
 
   const hasMore = offsetRef.current < total;
 
@@ -85,7 +89,7 @@ export function useInfiniteList<T>(
 
     void (async () => {
       try {
-        const page = await fetcher(offsetRef.current, PAGE_SIZE);
+        const page = await fetcher(offsetRef.current, pageSize);
         setItems((prev) => [...prev, ...page.items]);
         setTotal(page.total);
         offsetRef.current += page.items.length;
@@ -95,7 +99,15 @@ export function useInfiniteList<T>(
         setIsLoadingMore(false);
       }
     })();
-  }, [fetcher, isLoadingMore, hasMore]);
+  }, [fetcher, pageSize, isLoadingMore, hasMore]);
 
-  return {items, isLoading, isLoadingMore, error, hasMore, loadMore, refresh};
+  return {
+    items,
+    isLoadingInitial,
+    isLoadingMore,
+    error,
+    hasMore,
+    loadMore,
+    refresh,
+  };
 }

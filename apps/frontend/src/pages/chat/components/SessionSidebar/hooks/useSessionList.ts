@@ -13,7 +13,7 @@ interface UseSessionListOptions {
 
 interface UseSessionListReturn {
   sessions: readonly SessionMetadata[];
-  isLoading: boolean;
+  isLoadingInitial: boolean;
   isLoadingMore: boolean;
   error: string | null;
   hasMore: boolean;
@@ -30,8 +30,15 @@ export function useSessionList({
   eventBus,
   sessionId,
 }: UseSessionListOptions): UseSessionListReturn {
-  const {items, isLoading, isLoadingMore, error, hasMore, loadMore, refresh} =
-    useInfiniteList<SessionMetadata>(fetchSessions);
+  const {
+    items,
+    isLoadingInitial,
+    isLoadingMore,
+    error,
+    hasMore,
+    loadMore,
+    refresh,
+  } = useInfiniteList<SessionMetadata>({fetcher: fetchSessions, pageSize: 20});
 
   // Use a ref so the event handler always sees the latest items without
   // re-subscribing on every items change.
@@ -60,7 +67,7 @@ export function useSessionList({
 
   return {
     sessions: items,
-    isLoading,
+    isLoadingInitial,
     isLoadingMore,
     error,
     hasMore,

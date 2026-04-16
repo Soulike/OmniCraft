@@ -12,7 +12,7 @@ interface SessionSidebarViewProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
   sessions: readonly SessionMetadata[];
-  isLoading: boolean;
+  isLoadingInitial: boolean;
   isLoadingMore: boolean;
   error: string | null;
   hasMore: boolean;
@@ -26,7 +26,7 @@ export function SessionSidebarView({
   isOpen,
   onOpenChange,
   sessions,
-  isLoading,
+  isLoadingInitial,
   isLoadingMore,
   error,
   hasMore,
@@ -68,7 +68,7 @@ export function SessionSidebarView({
       onOpenChange={onOpenChange}
       title='Sessions'
     >
-      {isLoading ? (
+      {isLoadingInitial ? (
         <div className={styles.centered}>
           <Spinner size='sm' />
         </div>
