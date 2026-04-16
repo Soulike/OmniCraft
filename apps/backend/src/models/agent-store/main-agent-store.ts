@@ -142,8 +142,11 @@ export class MainAgentStore {
             MainAgent.snapshotPath(this._sessionsDir, entry),
           );
           statResults.push({id: entry, mtime: fileStat.mtimeMs});
-        } catch {
-          // Missing or inaccessible snapshot — skip silently.
+        } catch (e) {
+          logger.warn(
+            {err: e, sessionId: entry},
+            'Failed to stat session snapshot',
+          );
         }
       }),
     );
