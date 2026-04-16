@@ -39,14 +39,12 @@ export function useInfiniteList<T>({
   const [error, setError] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
 
-  const nextLoadStartOffset = useRef(0);
   // Incremented on each refresh. loadMore captures this value before fetching
   // and discards results if it has changed, preventing stale pages from being
   // appended after a refresh has already replaced the list.
   const refreshGenerationId = useRef(0);
 
   const refresh = useCallback(() => {
-    nextLoadStartOffset.current = 0;
     refreshGenerationId.current += 1;
     setRefreshKey((prev) => prev + 1);
   }, []);
@@ -63,7 +61,6 @@ export function useInfiniteList<T>({
         if (!cancelled) {
           setItems(page.items);
           setTotal(page.total);
-          nextLoadStartOffset.current = page.items.length;
         }
       } catch (e: unknown) {
         if (!cancelled) {
@@ -83,25 +80,25 @@ export function useInfiniteList<T>({
     };
   }, [fetcher, pageSize, refreshKey]);
 
-  const hasMore = nextLoadStartOffset.current < total;
+  const hasMore = items.length < total;
 
   const loadMore = useCallback(() => {
-    if (isLoadingMore || !hasMore) {
+    if (isLoadingMore || items.length >= total) {
       return;
     }
 
     setIsLoadingMore(true);
     const currentRefreshGenerationId = refreshGenerationId.current;
+    const offset = items.length;
 
     async function fetchNextPage() {
       try {
-        const page = await fetcher(nextLoadStartOffset.current, pageSize);
+        const page = await fetcher(offset, pageSize);
         if (currentRefreshGenerationId !== refreshGenerationId.current) {
           return;
         }
         setItems((prev) => [...prev, ...page.items]);
         setTotal(page.total);
-        nextLoadStartOffset.current += page.items.length;
       } catch (e: unknown) {
         if (currentRefreshGenerationId !== refreshGenerationId.current) {
           return;
@@ -115,7 +112,7 @@ export function useInfiniteList<T>({
     }
 
     void fetchNextPage();
-  }, [fetcher, pageSize, isLoadingMore, hasMore]);
+  }, [fetcher, pageSize, isLoadingMore, items.length, total]);
 
   return {
     items,

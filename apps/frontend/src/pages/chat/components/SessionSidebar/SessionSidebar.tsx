@@ -3,6 +3,7 @@ import {useCallback, useState} from 'react';
 import {useNavigate} from 'react-router';
 
 import {deleteSession} from '@/api/chat/index.js';
+import {ROUTES} from '@/routes.js';
 
 import {useChatEventBus} from '../../hooks/useChatEventBus.js';
 import {useSessionId} from '../../hooks/useSessionId.js';
@@ -31,7 +32,7 @@ export function SessionSidebar() {
     (id: string) => {
       if (id !== sessionId) {
         eventBus.emit('reset');
-        void navigate(`/chat/${id}`);
+        void navigate(`${ROUTES.chat()}/${id}`);
       }
     },
     [navigate, sessionId, eventBus],
@@ -49,7 +50,7 @@ export function SessionSidebar() {
       toast.success('Session deleted');
       refresh();
       if (id === sessionId) {
-        void navigate('/chat', {replace: true});
+        void navigate(ROUTES.chat(), {replace: true});
       }
     },
     [refresh, sessionId, navigate],
