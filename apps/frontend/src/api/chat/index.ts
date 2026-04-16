@@ -1,6 +1,7 @@
 export {
   abortCompletion,
   createSession,
+  deleteSession,
   listSessions,
   sendMessage,
   submitToolResponse,
