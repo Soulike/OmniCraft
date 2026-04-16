@@ -64,6 +64,8 @@ export const webSearchTool: ToolDefinition<typeof parameters, WebSearchResult> =
       try {
         const client = tavily({apiKey});
         response = await client.search(args.query, {
+          autoParameters: true,
+          searchDepth: 'basic',
           maxResults: args.maxResults ?? 5,
           includeDomains: args.includeDomains,
           excludeDomains: args.excludeDomains,
