@@ -1,7 +1,7 @@
 .item {
   display: flex;
   align-items: center;
-  gap: 4px;
+  width: 100%;
 }
 
 .title {
@@ -12,14 +12,18 @@
   white-space: nowrap;
 }
 
-.deleteButton {
+.actions {
   flex-shrink: 0;
+  width: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   opacity: 0;
   transition: opacity 150ms ease;
 }
 
-.item:hover .deleteButton,
-.item:focus-within .deleteButton {
+.item:hover .actions,
+.item:focus-within .actions {
   opacity: 1;
 }
 

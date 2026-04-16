@@ -21,7 +21,7 @@ export function SessionItemView({
   return (
     <div className={styles.item}>
       <span className={styles.title}>{title}</span>
-      <div className={styles.deleteButton}>
+      <div className={styles.actions}>
         <Popover isOpen={isDeleteOpen} onOpenChange={onDeleteOpenChange}>
           <Popover.Trigger>
             <Button
