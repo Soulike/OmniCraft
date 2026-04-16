@@ -1,8 +1,9 @@
 import type {SessionMetadata} from '@omnicraft/api-schema';
+import type {RefObject} from 'react';
 import {useCallback, useEffect, useRef} from 'react';
 
 import {listSessions} from '@/api/chat/index.js';
-import {useInfiniteList} from '@/hooks/useInfiniteList.js';
+import {useInfiniteScroll} from '@/hooks/useInfiniteScroll.js';
 
 import type {ChatEventBus} from '../../StreamingMessageDisplay/index.js';
 
@@ -17,7 +18,7 @@ interface UseSessionListReturn {
   isLoadingMore: boolean;
   error: string | null;
   hasMore: boolean;
-  loadMore: () => void;
+  sentinelRef: RefObject<HTMLDivElement | null>;
   refresh: () => void;
 }
 
@@ -36,9 +37,12 @@ export function useSessionList({
     isLoadingMore,
     error,
     hasMore,
-    loadMore,
+    sentinelRef,
     refresh,
-  } = useInfiniteList<SessionMetadata>({fetcher: fetchSessions, pageSize: 20});
+  } = useInfiniteScroll<SessionMetadata>({
+    fetcher: fetchSessions,
+    pageSize: 20,
+  });
 
   // Use a ref so the event handler always sees the latest items without
   // re-subscribing on every items change.
@@ -71,7 +75,7 @@ export function useSessionList({
     isLoadingMore,
     error,
     hasMore,
-    loadMore,
+    sentinelRef,
     refresh,
   };
 }

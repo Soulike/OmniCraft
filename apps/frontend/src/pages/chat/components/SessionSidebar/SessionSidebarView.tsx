@@ -1,7 +1,7 @@
 import type {Selection} from '@heroui/react';
 import {ListBox, Spinner} from '@heroui/react';
 import type {SessionMetadata} from '@omnicraft/api-schema';
-import {useEffect, useRef} from 'react';
+import type {RefObject} from 'react';
 
 import {CollapsibleSidebar} from '@/components/CollapsibleSidebar/index.js';
 
@@ -16,7 +16,7 @@ interface SessionSidebarViewProps {
   isLoadingMore: boolean;
   error: string | null;
   hasMore: boolean;
-  onLoadMore: () => void;
+  sentinelRef: RefObject<HTMLDivElement | null>;
   currentSessionId: string | null;
   onSelectSession: (id: string) => void;
   onDeleteSession: (id: string) => Promise<void>;
@@ -30,37 +30,13 @@ export function SessionSidebarView({
   isLoadingMore,
   error,
   hasMore,
-  onLoadMore,
+  sentinelRef,
   currentSessionId,
   onSelectSession,
   onDeleteSession,
 }: SessionSidebarViewProps) {
   const selectedKeys =
     currentSessionId !== null ? new Set([currentSessionId]) : new Set<string>();
-
-  const sentinelRef = useRef<HTMLDivElement | null>(null);
-
-  useEffect(() => {
-    const sentinel = sentinelRef.current;
-    if (!sentinel || !hasMore) {
-      return;
-    }
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0]?.isIntersecting) {
-          onLoadMore();
-        }
-      },
-      {threshold: 0},
-    );
-
-    observer.observe(sentinel);
-
-    return () => {
-      observer.disconnect();
-    };
-  }, [hasMore, onLoadMore]);
 
   return (
     <CollapsibleSidebar

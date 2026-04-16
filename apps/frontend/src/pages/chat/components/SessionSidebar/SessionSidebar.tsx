@@ -19,7 +19,7 @@ export function SessionSidebar() {
     isLoadingMore,
     error,
     hasMore,
-    loadMore,
+    sentinelRef,
     refresh,
   } = useSessionList({
     eventBus,
@@ -64,7 +64,7 @@ export function SessionSidebar() {
       isLoadingMore={isLoadingMore}
       error={error}
       hasMore={hasMore}
-      onLoadMore={loadMore}
+      sentinelRef={sentinelRef}
       currentSessionId={sessionId}
       onSelectSession={handleSelectSession}
       onDeleteSession={handleDeleteSession}

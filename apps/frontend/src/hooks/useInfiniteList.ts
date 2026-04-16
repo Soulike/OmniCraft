@@ -5,7 +5,7 @@ interface Page<T> {
   total: number;
 }
 
-type Fetcher<T> = (offset: number, limit: number) => Promise<Page<T>>;
+export type Fetcher<T> = (offset: number, limit: number) => Promise<Page<T>>;
 
 interface UseInfiniteListOptions<T> {
   fetcher: Fetcher<T>;
