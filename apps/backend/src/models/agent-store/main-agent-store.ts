@@ -5,7 +5,6 @@ import path from 'node:path';
 import {MainAgent} from '@/agent/agents/index.js';
 import type {Agent} from '@/agent-core/agent/index.js';
 import {agentEventBus} from '@/agent-core/events/index.js';
-import {getLlmConfig} from '@/services/chat/helpers.js';
 
 const MAX_CACHED_AGENTS = 50;
 
@@ -113,7 +112,7 @@ export class MainAgentStore {
 
   private async loadFromDisk(id: string): Promise<Agent | undefined> {
     if (!(await this.existsOnDisk(id))) return undefined;
-    const agent = await MainAgent.restore(getLlmConfig, this._sessionsDir, id);
+    const agent = await MainAgent.restore(this._sessionsDir, id);
     const entry = this.cache.get(id);
     if (entry) entry.lastAccessedAt = Date.now();
     return agent;
