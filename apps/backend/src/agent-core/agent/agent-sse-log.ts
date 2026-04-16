@@ -2,7 +2,7 @@ import assert from 'node:assert';
 import {appendFile, mkdir, readFile, writeFile} from 'node:fs/promises';
 import path from 'node:path';
 
-import type {SseEvent} from '@omnicraft/sse-events';
+import {type SseEvent, sseEventSchema} from '@omnicraft/sse-events';
 
 import {Mutex} from '@/helpers/mutex.js';
 
@@ -154,13 +154,19 @@ export class AgentSseLog {
       let needsRewrite = false;
       for (const line of lines) {
         if (line === '') continue;
+        let raw: unknown;
         try {
-          const event = JSON.parse(line) as SseEvent;
-          this.events.push(event);
+          raw = JSON.parse(line);
         } catch {
           needsRewrite = true;
           break;
         }
+        const result = sseEventSchema.safeParse(raw);
+        if (!result.success) {
+          needsRewrite = true;
+          break;
+        }
+        this.events.push(result.data);
       }
 
       if (needsRewrite) {
