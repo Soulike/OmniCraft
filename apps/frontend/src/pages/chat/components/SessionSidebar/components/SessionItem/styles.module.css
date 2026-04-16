@@ -22,8 +22,8 @@
   transition: opacity 150ms ease;
 }
 
-.item:hover .actions,
-.item:focus-within .actions {
+:global(.list-box-item):hover .actions,
+:global(.list-box-item):focus-within .actions {
   opacity: 1;
 }
 

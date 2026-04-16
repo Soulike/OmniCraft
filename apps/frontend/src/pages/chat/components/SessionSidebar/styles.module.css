@@ -13,7 +13,11 @@
 }
 
 .listBox :global(.list-box-item[data-selected='true']) {
-  background-color: var(--color-default);
+  background-color: color-mix(
+    in oklch,
+    var(--color-accent) 12%,
+    var(--color-surface)
+  );
   font-weight: 500;
 }
 
