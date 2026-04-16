@@ -1,5 +1,5 @@
 import type {SessionMetadata} from '@omnicraft/api-schema';
-import {useEffect} from 'react';
+import {useEffect, useRef} from 'react';
 
 import {listSessions} from '@/api/chat/index.js';
 import {useInfiniteList} from '@/hooks/useInfiniteList.js';
@@ -33,12 +33,15 @@ export function useSessionList({
   const {items, isLoading, isLoadingMore, error, hasMore, loadMore, refresh} =
     useInfiniteList<SessionMetadata>(fetchSessions);
 
-  // Refresh only when a new session is created (sessionId not in current list)
+  // Refresh when a new session is created (sessionId transitions from null to a value)
+  const prevSessionIdRef = useRef(sessionId);
   useEffect(() => {
-    if (sessionId !== null && !items.some((s) => s.id === sessionId)) {
+    const prev = prevSessionIdRef.current;
+    prevSessionIdRef.current = sessionId;
+    if (prev === null && sessionId !== null) {
       refresh();
     }
-  }, [sessionId, items, refresh]);
+  }, [sessionId, refresh]);
 
   // Refresh when a session receives its title
   useEffect(() => {
