@@ -1,0 +1,53 @@
+.item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.icon {
+  flex-shrink: 0;
+  color: var(--color-muted);
+  display: flex;
+  align-items: center;
+}
+
+:global(.list-box-item[data-selected='true']) .icon {
+  color: var(--color-accent);
+}
+
+.title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.actions {
+  flex-shrink: 0;
+  width: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 150ms ease;
+}
+
+:global(.list-box-item):hover .actions,
+:global(.list-box-item):focus-within .actions {
+  opacity: 1;
+}
+
+.popoverBody {
+  margin-top: 8px;
+  font-size: 0.85rem;
+  color: var(--color-muted);
+}
+
+.popoverActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 12px;
+}
