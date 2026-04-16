@@ -4,6 +4,8 @@ import path from 'node:path';
 
 import {sseEventSchema} from '@omnicraft/sse-events';
 
+import {isFileNotFoundError} from '@/helpers/fs.js';
+
 import type {AgentSnapshot} from './types.js';
 import {agentSnapshotSchema} from './types.js';
 
@@ -64,11 +66,7 @@ export const agentPersistence = {
     try {
       content = await readFile(filePath, 'utf-8');
     } catch (error: unknown) {
-      if (
-        error instanceof Error &&
-        'code' in error &&
-        error.code === 'ENOENT'
-      ) {
+      if (isFileNotFoundError(error)) {
         return;
       }
       throw error;

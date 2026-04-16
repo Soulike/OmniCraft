@@ -6,6 +6,11 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
+/** Checks whether an error is a file-not-found (ENOENT) error. */
+export function isFileNotFoundError(error: unknown): boolean {
+  return error instanceof Error && 'code' in error && error.code === 'ENOENT';
+}
+
 /** Checks whether a file exists at the given path. */
 export async function fileExists(filePath: string): Promise<boolean> {
   try {

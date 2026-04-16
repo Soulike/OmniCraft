@@ -11,6 +11,7 @@ import {MainAgent} from '@/agent/agents/index.js';
 import type {Agent} from '@/agent-core/agent/index.js';
 import {agentPersistence} from '@/agent-core/agent/index.js';
 import {agentEventBus} from '@/agent-core/events/index.js';
+import {isFileNotFoundError} from '@/helpers/fs.js';
 import {logger} from '@/logger.js';
 
 const MAX_CACHED_AGENTS = 50;
@@ -186,11 +187,7 @@ export class MainAgentStore {
         'utf-8',
       );
     } catch (error: unknown) {
-      if (
-        error instanceof Error &&
-        'code' in error &&
-        error.code === 'ENOENT'
-      ) {
+      if (isFileNotFoundError(error)) {
         return readFile(
           agentPersistence.snapshotPath(this._sessionsDir, id),
           'utf-8',
