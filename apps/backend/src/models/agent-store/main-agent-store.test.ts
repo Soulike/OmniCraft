@@ -37,6 +37,17 @@ async function writeSnapshot(
   await writeFile(path.join(dir, 'snapshot.json'), JSON.stringify(data));
 }
 
+/** Writes a metadata.json sidecar into a session directory. */
+async function writeMetadata(
+  sessionsDir: string,
+  id: string,
+  data: Record<string, unknown>,
+): Promise<void> {
+  const dir = path.join(sessionsDir, id);
+  await mkdir(dir, {recursive: true});
+  await writeFile(path.join(dir, 'metadata.json'), JSON.stringify(data));
+}
+
 describe('MainAgentStore', () => {
   let sessionsDir: string;
 
@@ -347,6 +358,40 @@ describe('MainAgentStore', () => {
       const page3 = await store.listSessionMetadata(4, 2);
       expect(page3.total).toBe(5);
       expect(page3.sessions).toEqual([{id: 's0', title: 'T0'}]);
+    });
+
+    it('reads from metadata.json when present', async () => {
+      const store = MainAgentStore.create(sessionsDir);
+      await writeSnapshot(sessionsDir, 'sess-1', {
+        id: 'sess-1',
+        title: 'Snapshot Title',
+        sseEventCount: 0,
+        llmSession: {id: 'llm-1', messages: [{large: 'data'}]},
+        options: {workingDirectory: '/tmp'},
+      });
+      await writeMetadata(sessionsDir, 'sess-1', {
+        id: 'sess-1',
+        title: 'Metadata Title',
+      });
+
+      const result = await store.listSessionMetadata(0, 100);
+      expect(result.sessions).toEqual([
+        {id: 'sess-1', title: 'Metadata Title'},
+      ]);
+    });
+
+    it('falls back to snapshot.json when metadata.json is missing', async () => {
+      const store = MainAgentStore.create(sessionsDir);
+      await writeSnapshot(sessionsDir, 'legacy', {
+        id: 'legacy',
+        title: 'Legacy Title',
+        sseEventCount: 0,
+        llmSession: {id: 'llm-1', messages: []},
+        options: {workingDirectory: '/tmp'},
+      });
+
+      const result = await store.listSessionMetadata(0, 100);
+      expect(result.sessions).toEqual([{id: 'legacy', title: 'Legacy Title'}]);
     });
   });
 
