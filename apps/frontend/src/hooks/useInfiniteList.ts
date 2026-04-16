@@ -87,7 +87,7 @@ export function useInfiniteList<T>({
 
     setIsLoadingMore(true);
 
-    void (async () => {
+    async function fetchNextPage() {
       try {
         const page = await fetcher(nextLoadStartOffset.current, pageSize);
         setItems((prev) => [...prev, ...page.items]);
@@ -98,7 +98,9 @@ export function useInfiniteList<T>({
       } finally {
         setIsLoadingMore(false);
       }
-    })();
+    }
+
+    void fetchNextPage();
   }, [fetcher, pageSize, isLoadingMore, hasMore]);
 
   return {
