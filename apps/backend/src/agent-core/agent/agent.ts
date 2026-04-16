@@ -260,6 +260,12 @@ export abstract class Agent {
     }
   }
 
+  /** Appends an event to the SSE log and increments the event counter. */
+  private async appendSseEvent(event: SseEvent): Promise<void> {
+    await this.sseLog.append(event);
+    this.sseEventCount++;
+  }
+
   /** Consumes the agent event stream and appends each event to sseLog. */
   private async pump(
     stream: AgentEventStream,
@@ -267,16 +273,14 @@ export abstract class Agent {
   ): Promise<void> {
     try {
       for await (const event of stream) {
-        await this.sseLog.append(event);
-        this.sseEventCount++;
+        await this.appendSseEvent(event);
         onEvent?.(event);
       }
     } catch {
-      await this.sseLog.append({
+      await this.appendSseEvent({
         type: 'error',
         message: 'An internal error occurred',
       });
-      this.sseEventCount++;
     }
   }
 
@@ -516,11 +520,10 @@ export abstract class Agent {
     }
 
     this.title = title;
-    await this.sseLog.append({
+    await this.appendSseEvent({
       type: 'session-title',
       title,
     } satisfies SseSessionTitleEvent);
-    this.sseEventCount++;
     await this.persistSnapshot().catch((err: unknown) => {
       logger.error({err}, 'Failed to persist snapshot after title generation');
     });
