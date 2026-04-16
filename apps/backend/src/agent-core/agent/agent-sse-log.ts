@@ -4,6 +4,7 @@ import path from 'node:path';
 
 import {type SseEvent, sseEventSchema} from '@omnicraft/sse-events';
 
+import {isFileNotFoundError} from '@/helpers/fs.js';
 import {Mutex} from '@/helpers/mutex.js';
 
 export interface AgentSseLogReaderOptions {
@@ -134,11 +135,7 @@ export class AgentSseLog {
       try {
         content = await readFile(this.filePath, 'utf-8');
       } catch (error) {
-        if (
-          error instanceof Error &&
-          'code' in error &&
-          error.code === 'ENOENT'
-        ) {
+        if (isFileNotFoundError(error)) {
           this.loaded = true;
           return;
         }

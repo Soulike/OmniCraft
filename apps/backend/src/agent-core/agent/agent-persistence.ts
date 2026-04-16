@@ -4,12 +4,18 @@ import path from 'node:path';
 
 import {sseEventSchema} from '@omnicraft/sse-events';
 
+import {isFileNotFoundError} from '@/helpers/fs.js';
+
 import type {AgentSnapshot} from './types.js';
 import {agentSnapshotSchema} from './types.js';
 
 export const agentPersistence = {
   snapshotPath(sessionsDir: string, id: string): string {
     return path.join(sessionsDir, id, 'snapshot.json');
+  },
+
+  metadataPath(sessionsDir: string, id: string): string {
+    return path.join(sessionsDir, id, 'metadata.json');
   },
 
   eventsPath(sessionsDir: string, id: string): string {
@@ -21,13 +27,26 @@ export const agentPersistence = {
     id: string,
     snapshot: AgentSnapshot,
   ): Promise<void> {
-    const filePath = agentPersistence.snapshotPath(sessionsDir, id);
-    const dir = path.dirname(filePath);
+    const dir = path.join(sessionsDir, id);
     await mkdir(dir, {recursive: true});
-    const tmpPath = `${filePath}.${crypto.randomUUID()}.tmp`;
-    const data = JSON.stringify(snapshot, null, 2) + '\n';
-    await writeFile(tmpPath, data);
-    await rename(tmpPath, filePath);
+
+    const snapshotFile = agentPersistence.snapshotPath(sessionsDir, id);
+    const snapshotTmp = `${snapshotFile}.${crypto.randomUUID()}.tmp`;
+    const snapshotData = JSON.stringify(snapshot, null, 2) + '\n';
+
+    const metadataFile = agentPersistence.metadataPath(sessionsDir, id);
+    const metadataTmp = `${metadataFile}.${crypto.randomUUID()}.tmp`;
+    const metadataData =
+      JSON.stringify({id: snapshot.id, title: snapshot.title}, null, 2) + '\n';
+
+    await Promise.all([
+      writeFile(snapshotTmp, snapshotData).then(() =>
+        rename(snapshotTmp, snapshotFile),
+      ),
+      writeFile(metadataTmp, metadataData).then(() =>
+        rename(metadataTmp, metadataFile),
+      ),
+    ]);
   },
 
   async loadSnapshot(sessionsDir: string, id: string): Promise<AgentSnapshot> {
@@ -47,11 +66,7 @@ export const agentPersistence = {
     try {
       content = await readFile(filePath, 'utf-8');
     } catch (error: unknown) {
-      if (
-        error instanceof Error &&
-        'code' in error &&
-        error.code === 'ENOENT'
-      ) {
+      if (isFileNotFoundError(error)) {
         return;
       }
       throw error;

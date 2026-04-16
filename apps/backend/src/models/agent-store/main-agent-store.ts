@@ -11,6 +11,7 @@ import {MainAgent} from '@/agent/agents/index.js';
 import type {Agent} from '@/agent-core/agent/index.js';
 import {agentPersistence} from '@/agent-core/agent/index.js';
 import {agentEventBus} from '@/agent-core/events/index.js';
+import {isFileNotFoundError} from '@/helpers/fs.js';
 import {logger} from '@/logger.js';
 
 const MAX_CACHED_AGENTS = 50;
@@ -156,15 +157,11 @@ export class MainAgentStore {
     const total = statResults.length;
     const page = statResults.slice(offset, offset + limit);
 
-    // Phase 2: read snapshot content only for the requested page.
+    // Phase 2: read metadata (or snapshot as fallback) for the requested page.
     const results = await Promise.all(
       page.map(async ({id}): Promise<SessionMetadata | null> => {
-        const snapshotPath = agentPersistence.snapshotPath(
-          this._sessionsDir,
-          id,
-        );
         try {
-          const content = await readFile(snapshotPath, 'utf-8');
+          const content = await this.readSessionMetadataFile(id);
           const json: unknown = JSON.parse(content);
           return sessionMetadataSchema.parse(json);
         } catch (e) {
@@ -177,6 +174,27 @@ export class MainAgentStore {
     const sessions = results.filter((r): r is SessionMetadata => r !== null);
 
     return {sessions, total};
+  }
+
+  /**
+   * Reads session metadata from metadata.json, falling back to snapshot.json
+   * for sessions created before the sidecar file was introduced.
+   */
+  private async readSessionMetadataFile(id: string): Promise<string> {
+    try {
+      return await readFile(
+        agentPersistence.metadataPath(this._sessionsDir, id),
+        'utf-8',
+      );
+    } catch (error: unknown) {
+      if (isFileNotFoundError(error)) {
+        return readFile(
+          agentPersistence.snapshotPath(this._sessionsDir, id),
+          'utf-8',
+        );
+      }
+      throw error;
+    }
   }
 
   private async loadFromDisk(id: string): Promise<Agent | undefined> {
