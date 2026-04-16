@@ -299,24 +299,26 @@ export abstract class Agent {
     const inFlightToolCalls = new Set<string>();
     const maxRounds = await this.getMaxToolRounds();
 
+    const availableTools = buildAvailableTools(
+      this.toolRegistries,
+      this.skillRegistries,
+    );
+    const toolDefs = [...availableTools.values()];
+    const systemPrompt = buildSystemPrompt(
+      this.baseSystemPrompt,
+      this.skillRegistries,
+      this.workingDirectory,
+      this.extraAllowedPaths,
+    );
+
     const {
       stream: userStream,
       messageId,
       createdAt,
     } = this.llmSession.sendUserMessage(
       userMessage,
-      [
-        ...buildAvailableTools(
-          this.toolRegistries,
-          this.skillRegistries,
-        ).values(),
-      ],
-      buildSystemPrompt(
-        this.baseSystemPrompt,
-        this.skillRegistries,
-        this.workingDirectory,
-        this.extraAllowedPaths,
-      ),
+      toolDefs,
+      systemPrompt,
       thinkingLevel,
       signal,
     );
@@ -347,11 +349,6 @@ export abstract class Agent {
         } satisfies SseDoneEvent;
         return;
       }
-
-      const availableTools = buildAvailableTools(
-        this.toolRegistries,
-        this.skillRegistries,
-      );
 
       for (const toolCall of toolCalls) {
         const tool = availableTools.get(toolCall.toolName);
@@ -440,18 +437,8 @@ export abstract class Agent {
       toolCalls = yield* this.consumeStream(
         this.llmSession.submitToolResults(
           orderedResults,
-          [
-            ...buildAvailableTools(
-              this.toolRegistries,
-              this.skillRegistries,
-            ).values(),
-          ],
-          buildSystemPrompt(
-            this.baseSystemPrompt,
-            this.skillRegistries,
-            this.workingDirectory,
-            this.extraAllowedPaths,
-          ),
+          toolDefs,
+          systemPrompt,
           thinkingLevel,
           signal,
         ),
