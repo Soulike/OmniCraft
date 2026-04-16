@@ -31,15 +31,20 @@ export const agentPersistence = {
     const snapshotFile = agentPersistence.snapshotPath(sessionsDir, id);
     const snapshotTmp = `${snapshotFile}.${crypto.randomUUID()}.tmp`;
     const snapshotData = JSON.stringify(snapshot, null, 2) + '\n';
-    await writeFile(snapshotTmp, snapshotData);
-    await rename(snapshotTmp, snapshotFile);
 
     const metadataFile = agentPersistence.metadataPath(sessionsDir, id);
     const metadataTmp = `${metadataFile}.${crypto.randomUUID()}.tmp`;
     const metadataData =
       JSON.stringify({id: snapshot.id, title: snapshot.title}, null, 2) + '\n';
-    await writeFile(metadataTmp, metadataData);
-    await rename(metadataTmp, metadataFile);
+
+    await Promise.all([
+      writeFile(snapshotTmp, snapshotData).then(() =>
+        rename(snapshotTmp, snapshotFile),
+      ),
+      writeFile(metadataTmp, metadataData).then(() =>
+        rename(metadataTmp, metadataFile),
+      ),
+    ]);
   },
 
   async loadSnapshot(sessionsDir: string, id: string): Promise<AgentSnapshot> {

@@ -185,11 +185,18 @@ export class MainAgentStore {
         agentPersistence.metadataPath(this._sessionsDir, id),
         'utf-8',
       );
-    } catch {
-      return readFile(
-        agentPersistence.snapshotPath(this._sessionsDir, id),
-        'utf-8',
-      );
+    } catch (error: unknown) {
+      if (
+        error instanceof Error &&
+        'code' in error &&
+        error.code === 'ENOENT'
+      ) {
+        return readFile(
+          agentPersistence.snapshotPath(this._sessionsDir, id),
+          'utf-8',
+        );
+      }
+      throw error;
     }
   }
 
