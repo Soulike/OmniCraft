@@ -4,7 +4,7 @@
   flex-direction: column;
   flex-shrink: 0;
   height: 100%;
-  background-color: var(--color-surface);
+  background-color: var(--color-background);
   border-right: 1px solid var(--color-border);
   overflow: hidden;
   transition: width 200ms ease;
@@ -43,7 +43,7 @@
   position: absolute;
   inset: 0;
   padding-top: 10px;
-  background-color: var(--color-surface);
+  background-color: var(--color-background);
   transition: opacity 200ms ease;
 }
 
