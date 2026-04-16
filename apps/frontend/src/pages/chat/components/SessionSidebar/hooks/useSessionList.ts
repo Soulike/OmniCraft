@@ -1,5 +1,5 @@
 import type {SessionMetadata} from '@omnicraft/api-schema';
-import {useEffect, useRef} from 'react';
+import {useEffect} from 'react';
 
 import {listSessions} from '@/api/chat/index.js';
 import {useInfiniteList} from '@/hooks/useInfiniteList.js';
@@ -8,7 +8,6 @@ import type {ChatEventBus} from '../../StreamingMessageDisplay/index.js';
 
 interface UseSessionListOptions {
   eventBus: ChatEventBus;
-  sessionId: string | null;
 }
 
 interface UseSessionListReturn {
@@ -28,28 +27,19 @@ const fetchSessions = async (offset: number, limit: number) => {
 
 export function useSessionList({
   eventBus,
-  sessionId,
 }: UseSessionListOptions): UseSessionListReturn {
   const {items, isLoading, isLoadingMore, error, hasMore, loadMore, refresh} =
     useInfiniteList<SessionMetadata>(fetchSessions);
 
-  // Refresh when a new session is created (sessionId transitions from null to a value)
-  const prevSessionIdRef = useRef(sessionId);
-  useEffect(() => {
-    const prev = prevSessionIdRef.current;
-    prevSessionIdRef.current = sessionId;
-    if (prev === null && sessionId !== null) {
-      refresh();
-    }
-  }, [sessionId, refresh]);
-
-  // Refresh when a session receives its title
+  // Refresh when a completion finishes (new session persisted) or title updates
   useEffect(() => {
     const handler = () => {
       refresh();
     };
+    eventBus.on('done', handler);
     eventBus.on('session-title', handler);
     return () => {
+      eventBus.off('done', handler);
       eventBus.off('session-title', handler);
     };
   }, [eventBus, refresh]);
