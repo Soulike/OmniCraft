@@ -1,3 +1,20 @@
 .listBox {
   padding: 4px;
 }
+
+.centered {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 8px;
+}
+
+.errorText {
+  font-size: 0.8rem;
+  color: var(--color-danger);
+}
+
+.emptyText {
+  font-size: 0.8rem;
+  color: var(--color-foreground-400);
+}

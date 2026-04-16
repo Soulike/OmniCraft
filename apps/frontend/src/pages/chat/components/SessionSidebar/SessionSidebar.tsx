@@ -11,7 +11,7 @@ import {SessionSidebarView} from './SessionSidebarView.js';
 export function SessionSidebar() {
   const [isOpen, setIsOpen] = useState(true);
   const eventBus = useChatEventBus();
-  const {sessions, refresh} = useSessionList({eventBus});
+  const {sessions, isLoading, error, refresh} = useSessionList({eventBus});
   const {sessionId} = useSessionId();
   const navigate = useNavigate();
 
@@ -26,7 +26,11 @@ export function SessionSidebar() {
 
   const handleDeleteSession = useCallback(
     async (id: string) => {
-      await deleteSession(id);
+      try {
+        await deleteSession(id);
+      } catch {
+        return;
+      }
       refresh();
       if (id === sessionId) {
         void navigate('/chat', {replace: true});
@@ -40,6 +44,8 @@ export function SessionSidebar() {
       isOpen={isOpen}
       onOpenChange={setIsOpen}
       sessions={sessions}
+      isLoading={isLoading}
+      error={error}
       currentSessionId={sessionId}
       onSelectSession={handleSelectSession}
       onDeleteSession={handleDeleteSession}

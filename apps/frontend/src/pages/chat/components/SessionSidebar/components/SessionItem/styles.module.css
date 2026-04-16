@@ -18,7 +18,8 @@
   transition: opacity 150ms ease;
 }
 
-.item:hover .deleteButton {
+.item:hover .deleteButton,
+.item:focus-within .deleteButton {
   opacity: 1;
 }
 
