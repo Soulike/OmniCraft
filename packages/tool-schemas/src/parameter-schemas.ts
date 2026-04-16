@@ -124,6 +124,13 @@ export const webSearchParametersSchema = z.object({
     .array(z.string())
     .optional()
     .describe('Exclude these domains from results.'),
+  timeRange: z
+    .enum(['day', 'week', 'month', 'year'])
+    .optional()
+    .describe(
+      'Only return results published within this time range from now. ' +
+        'Use when searching for recent events, news, or time-sensitive information.',
+    ),
 });
 
 // --- web_fetch ---
