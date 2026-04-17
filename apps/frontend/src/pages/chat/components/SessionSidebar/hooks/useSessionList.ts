@@ -1,6 +1,6 @@
 import type {SessionMetadata} from '@omnicraft/api-schema';
 import type {RefObject} from 'react';
-import {useCallback, useEffect, useRef} from 'react';
+import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 
 import {listSessions} from '@/api/chat/index.js';
 import {useInfiniteScroll} from '@/hooks/useInfiniteScroll.js';
@@ -44,6 +44,11 @@ export function useSessionList({
     pageSize: 20,
   });
 
+  // Placeholder for a just-created session that hasn't been titled yet.
+  const [pendingSession, setPendingSession] = useState<SessionMetadata | null>(
+    null,
+  );
+
   // Use a ref so the event handler always sees the latest items without
   // re-subscribing on every items change.
   const itemsRef = useRef(items);
@@ -51,26 +56,59 @@ export function useSessionList({
     itemsRef.current = items;
   }, [items]);
 
-  const refreshIfNewSession = useCallback(() => {
+  // On session-created: set a placeholder entry.
+  useEffect(() => {
+    const handleSessionCreated = ({sessionId}: {sessionId: string}) => {
+      setPendingSession({id: sessionId, title: 'New Session'});
+    };
+    eventBus.on('session-created', handleSessionCreated);
+    return () => {
+      eventBus.off('session-created', handleSessionCreated);
+    };
+  }, [eventBus]);
+
+  // On session-title: refresh the list and clear the placeholder.
+  const handleSessionTitle = useCallback(() => {
     if (
       sessionId !== null &&
       !itemsRef.current.some((s) => s.id === sessionId)
     ) {
       refresh();
     }
+    setPendingSession(null);
   }, [sessionId, refresh]);
 
-  // Refresh only when a genuinely new session receives its title.
-  // Replayed session-title events for existing sessions are ignored.
   useEffect(() => {
-    eventBus.on('session-title', refreshIfNewSession);
+    eventBus.on('session-title', handleSessionTitle);
     return () => {
-      eventBus.off('session-title', refreshIfNewSession);
+      eventBus.off('session-title', handleSessionTitle);
     };
-  }, [eventBus, refreshIfNewSession]);
+  }, [eventBus, handleSessionTitle]);
+
+  // On reset-session: clear the placeholder (user started another new session).
+  useEffect(() => {
+    const handleResetSession = () => {
+      setPendingSession(null);
+    };
+    eventBus.on('reset-session', handleResetSession);
+    return () => {
+      eventBus.off('reset-session', handleResetSession);
+    };
+  }, [eventBus]);
+
+  // Merge: prepend pending session if it's not already in the fetched list.
+  const sessions = useMemo(() => {
+    if (
+      pendingSession === null ||
+      items.some((s) => s.id === pendingSession.id)
+    ) {
+      return items;
+    }
+    return [pendingSession, ...items];
+  }, [items, pendingSession]);
 
   return {
-    sessions: items,
+    sessions,
     isLoadingInitial,
     isLoadingMore,
     error,
