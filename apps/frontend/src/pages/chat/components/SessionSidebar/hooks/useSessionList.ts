@@ -85,17 +85,6 @@ export function useSessionList({
     };
   }, [eventBus, handleSessionTitle]);
 
-  // On reset-session: clear the placeholder (user started another new session).
-  useEffect(() => {
-    const handleResetSession = () => {
-      setPendingSession(null);
-    };
-    eventBus.on('reset-session', handleResetSession);
-    return () => {
-      eventBus.off('reset-session', handleResetSession);
-    };
-  }, [eventBus]);
-
   // Merge: prepend pending session if it's not already in the fetched list.
   const sessions = useMemo(() => {
     if (
