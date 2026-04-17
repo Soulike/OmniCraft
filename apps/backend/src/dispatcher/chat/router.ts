@@ -152,7 +152,7 @@ async function pumpSseEvents(
     req.off('close', onDisconnect);
     abortController.abort();
     if (!stream.destroyed) {
-      stream.destroy();
+      stream.end();
     }
   };
   req.on('close', onDisconnect);
