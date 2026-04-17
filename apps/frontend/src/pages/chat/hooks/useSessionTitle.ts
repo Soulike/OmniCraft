@@ -1,4 +1,4 @@
-import {useCallback, useEffect, useState} from 'react';
+import {useEffect, useState} from 'react';
 
 import type {ChatEventMap} from '../components/StreamingMessageDisplay/index.js';
 import {useChatEventBus} from './useChatEventBus.js';
@@ -13,15 +13,17 @@ export function useSessionTitle() {
       setTitle(data.title);
     };
 
+    const onReset = () => {
+      setTitle(null);
+    };
+
     eventBus.on('session-title', onSessionTitle);
+    eventBus.on('reset-session', onReset);
     return () => {
       eventBus.off('session-title', onSessionTitle);
+      eventBus.off('reset-session', onReset);
     };
   }, [eventBus]);
 
-  const clearTitle = useCallback(() => {
-    setTitle(null);
-  }, []);
-
-  return {title, clearTitle};
+  return {title};
 }

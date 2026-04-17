@@ -11,7 +11,6 @@ import {useChatEventBus} from './hooks/useChatEventBus.js';
 import {useMessageCount} from './hooks/useMessageCount.js';
 import {useSessionConfig} from './hooks/useSessionConfig.js';
 import {useSessionId} from './hooks/useSessionId.js';
-import {useSessionLifecycle} from './hooks/useSessionLifecycle.js';
 import {useSessionTitle} from './hooks/useSessionTitle.js';
 import {useStreamChat} from './hooks/useStreamChat.js';
 import {useVscodeStatus} from './hooks/useVscodeStatus.js';
@@ -19,13 +18,13 @@ import {useVscodeStatus} from './hooks/useVscodeStatus.js';
 /** Chat page container. Wraps content in providers. */
 export function ChatPage() {
   return (
-    <SessionIdProvider>
-      <ChatEventBusProvider>
+    <ChatEventBusProvider>
+      <SessionIdProvider>
         <SessionConfigProvider>
           <ChatPageContent />
         </SessionConfigProvider>
-      </ChatEventBusProvider>
-    </SessionIdProvider>
+      </SessionIdProvider>
+    </ChatEventBusProvider>
   );
 }
 
@@ -42,7 +41,7 @@ function ChatPageContent() {
   } = useSessionId();
 
   const {messageCount, onMessagesChange} = useMessageCount();
-  const {title, clearTitle} = useSessionTitle();
+  const {title} = useSessionTitle();
 
   const {selectedWorkspace, selectedExtraAllowedPaths} = useSessionConfig();
 
@@ -89,19 +88,6 @@ function ChatPageContent() {
     createNewSessionId: createNewSessionIdWithConfig,
   });
 
-  const resetDisplay = useCallback(() => {
-    eventBus.emit('reset');
-  }, [eventBus]);
-
-  const {startNewSession} = useSessionLifecycle({
-    stopGeneration,
-    clearSessionId,
-    resetDisplay,
-    clearTitle,
-    clearStreamError,
-    clearMaxRoundsReached,
-  });
-
   const {containerRef: scrollRef, scrollToBottom} = useAutoScroll();
 
   const displayError = createNewSessionIdError ?? streamError;
@@ -133,7 +119,7 @@ function ChatPageContent() {
         });
       }}
       onStop={stopGeneration}
-      onNewSession={startNewSession}
+      onNewSession={clearSessionId}
       newSessionDisabled={newSessionDisabled}
       vscodeUrl={vscodeUrl}
       onDismissError={dismissError}

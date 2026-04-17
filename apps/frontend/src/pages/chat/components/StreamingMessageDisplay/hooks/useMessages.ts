@@ -336,7 +336,7 @@ export function useMessages() {
     eventBus.on('thinking-start', onThinkingStart);
     eventBus.on('thinking-delta', onThinkingDelta);
     eventBus.on('thinking-end', onThinkingEnd);
-    eventBus.on('reset', onReset);
+    eventBus.on('reset-session', onReset);
     eventBus.on('subagent-dispatched', onSubagentDispatched);
     eventBus.on('subagent-completed', onSubagentCompleted);
 
@@ -350,7 +350,7 @@ export function useMessages() {
       eventBus.off('thinking-start', onThinkingStart);
       eventBus.off('thinking-delta', onThinkingDelta);
       eventBus.off('thinking-end', onThinkingEnd);
-      eventBus.off('reset', onReset);
+      eventBus.off('reset-session', onReset);
       eventBus.off('subagent-dispatched', onSubagentDispatched);
       eventBus.off('subagent-completed', onSubagentCompleted);
     };
