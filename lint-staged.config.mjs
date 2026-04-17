@@ -15,6 +15,6 @@ export const eslintConfig = Object.freeze({
 });
 
 export default {
-  ...prettierConfig,
   ...eslintConfig,
+  ...prettierConfig,
 };
