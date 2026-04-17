@@ -58,12 +58,12 @@ export function ToolOutputProvider({children}: ToolOutputProviderProps) {
 
     eventBus.on('tool-execute-delta', onDelta);
     eventBus.on('tool-execute-end', onEnd);
-    eventBus.on('reset', onReset);
+    eventBus.on('reset-session', onReset);
 
     return () => {
       eventBus.off('tool-execute-delta', onDelta);
       eventBus.off('tool-execute-end', onEnd);
-      eventBus.off('reset', onReset);
+      eventBus.off('reset-session', onReset);
       if (rafIdRef.current !== null) {
         cancelAnimationFrame(rafIdRef.current);
       }

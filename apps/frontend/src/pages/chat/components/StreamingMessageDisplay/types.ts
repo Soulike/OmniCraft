@@ -85,8 +85,8 @@ export interface ChatEventMap {
   'session-title': SseSessionTitleEvent;
   /** An error occurred during streaming. */
   'stream-error': {message: string};
-  /** Reset all display state (messages, tool output). */
-  reset: undefined;
+  /** Reset all session-related frontend state (messages, tool output, title, errors). */
+  'reset-session': undefined;
   /** A subagent was dispatched. */
   'subagent-dispatched': {
     agentId: string;

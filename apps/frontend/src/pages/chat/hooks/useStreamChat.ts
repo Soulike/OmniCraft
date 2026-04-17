@@ -39,6 +39,20 @@ export function useStreamChat({
   const subagentBusMapRef = useRef(new Map<string, EventBus<ChatEventMap>>());
   const eventBus = useChatEventBus();
 
+  // Reset transient state when session changes.
+  useEffect(() => {
+    const onReset = () => {
+      setIsStreaming(false);
+      setIsReconnecting(false);
+      setStreamError(null);
+      setMaxRoundsReached(false);
+    };
+    eventBus.on('reset-session', onReset);
+    return () => {
+      eventBus.off('reset-session', onReset);
+    };
+  }, [eventBus]);
+
   // Persistent SSE connection — connects when sessionId is set.
   useEffect(() => {
     if (!sessionId) return;
