@@ -10,82 +10,87 @@ import {isFileNotFoundError} from '@/helpers/fs.js';
 import type {AgentSnapshot} from './types.js';
 import {agentSnapshotSchema} from './types.js';
 
-export const agentPersistence = {
+interface PersistSnapshotOptions {
+  sync?: boolean;
+}
+
+class AgentPersistence {
   snapshotPath(sessionsDir: string, id: string): string {
     return path.join(sessionsDir, id, 'snapshot.json');
-  },
+  }
 
   metadataPath(sessionsDir: string, id: string): string {
     return path.join(sessionsDir, id, 'metadata.json');
-  },
+  }
 
   eventsPath(sessionsDir: string, id: string): string {
     return path.join(sessionsDir, id, 'sse-events.jsonl');
-  },
+  }
 
-  async persistSnapshot(
+  persistSnapshot(
     sessionsDir: string,
     id: string,
     snapshot: AgentSnapshot,
-  ): Promise<void> {
+    options: {sync: true},
+  ): void;
+  persistSnapshot(
+    sessionsDir: string,
+    id: string,
+    snapshot: AgentSnapshot,
+    options?: {sync?: false},
+  ): Promise<void>;
+  persistSnapshot(
+    sessionsDir: string,
+    id: string,
+    snapshot: AgentSnapshot,
+    options?: PersistSnapshotOptions,
+  ): void | Promise<void> {
     const dir = path.join(sessionsDir, id);
-    await mkdir(dir, {recursive: true});
 
-    const snapshotFile = agentPersistence.snapshotPath(sessionsDir, id);
+    const snapshotFile = this.snapshotPath(sessionsDir, id);
     const snapshotTmp = `${snapshotFile}.${crypto.randomUUID()}.tmp`;
     const snapshotData = JSON.stringify(snapshot, null, 2) + '\n';
 
-    const metadataFile = agentPersistence.metadataPath(sessionsDir, id);
+    const metadataFile = this.metadataPath(sessionsDir, id);
     const metadataTmp = `${metadataFile}.${crypto.randomUUID()}.tmp`;
     const metadataData =
       JSON.stringify({id: snapshot.id, title: snapshot.title}, null, 2) + '\n';
 
-    await Promise.all([
-      writeFile(snapshotTmp, snapshotData).then(() =>
-        rename(snapshotTmp, snapshotFile),
-      ),
-      writeFile(metadataTmp, metadataData).then(() =>
-        rename(metadataTmp, metadataFile),
-      ),
-    ]);
-  },
+    if (options?.sync) {
+      mkdirSync(dir, {recursive: true});
+      writeFileSync(snapshotTmp, snapshotData);
+      renameSync(snapshotTmp, snapshotFile);
+      writeFileSync(metadataTmp, metadataData);
+      renameSync(metadataTmp, metadataFile);
+      return;
+    }
 
-  persistSnapshotSync(
-    sessionsDir: string,
-    id: string,
-    snapshot: AgentSnapshot,
-  ): void {
-    const dir = path.join(sessionsDir, id);
-    mkdirSync(dir, {recursive: true});
-
-    const snapshotFile = agentPersistence.snapshotPath(sessionsDir, id);
-    const snapshotTmp = `${snapshotFile}.${crypto.randomUUID()}.tmp`;
-    const snapshotData = JSON.stringify(snapshot, null, 2) + '\n';
-
-    const metadataFile = agentPersistence.metadataPath(sessionsDir, id);
-    const metadataTmp = `${metadataFile}.${crypto.randomUUID()}.tmp`;
-    const metadataData =
-      JSON.stringify({id: snapshot.id, title: snapshot.title}, null, 2) + '\n';
-
-    writeFileSync(snapshotTmp, snapshotData);
-    renameSync(snapshotTmp, snapshotFile);
-    writeFileSync(metadataTmp, metadataData);
-    renameSync(metadataTmp, metadataFile);
-  },
+    return (async () => {
+      await mkdir(dir, {recursive: true});
+      await Promise.all([
+        writeFile(snapshotTmp, snapshotData).then(() =>
+          rename(snapshotTmp, snapshotFile),
+        ),
+        writeFile(metadataTmp, metadataData).then(() =>
+          rename(metadataTmp, metadataFile),
+        ),
+      ]);
+    })();
+  }
 
   async loadSnapshot(sessionsDir: string, id: string): Promise<AgentSnapshot> {
-    const filePath = agentPersistence.snapshotPath(sessionsDir, id);
+    const filePath = this.snapshotPath(sessionsDir, id);
     const content = await readFile(filePath, 'utf-8');
     const json: unknown = JSON.parse(content);
     return agentSnapshotSchema.parse(json);
-  },
+  }
 
   async reconcileEventsFile(
     sessionsDir: string,
     id: string,
     sseEventCount: number,
   ): Promise<void> {
-    const filePath = agentPersistence.eventsPath(sessionsDir, id);
+    const filePath = this.eventsPath(sessionsDir, id);
     let content: string;
     try {
       content = await readFile(filePath, 'utf-8');
@@ -122,5 +127,7 @@ export const agentPersistence = {
     ) {
       await writeFile(filePath, truncated.map((line) => line + '\n').join(''));
     }
-  },
-};
+  }
+}
+
+export const agentPersistence = new AgentPersistence();

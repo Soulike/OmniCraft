@@ -146,10 +146,11 @@ export abstract class Agent {
     this.shellState = {cwd: this.workingDirectory};
 
     if (!snapshot && this.sessionsDir) {
-      agentPersistence.persistSnapshotSync(
+      agentPersistence.persistSnapshot(
         this.sessionsDir,
         this.id,
         this.toSnapshot(),
+        {sync: true},
       );
     }
 
