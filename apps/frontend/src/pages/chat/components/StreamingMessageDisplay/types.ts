@@ -87,6 +87,8 @@ export interface ChatEventMap {
   'stream-error': {message: string};
   /** Reset all session-related frontend state (messages, tool output, title, errors). */
   'reset-session': undefined;
+  /** A new session was created (ID assigned, not yet titled). */
+  'session-created': {sessionId: string};
   /** A subagent was dispatched. */
   'subagent-dispatched': {
     agentId: string;

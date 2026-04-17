@@ -1,15 +1,14 @@
 import type {SessionMetadata} from '@omnicraft/api-schema';
 import type {RefObject} from 'react';
-import {useCallback, useEffect, useRef} from 'react';
+import {useCallback, useEffect} from 'react';
 
-import {listSessions} from '@/api/chat/index.js';
+import {deleteSession, listSessions} from '@/api/chat/index.js';
 import {useInfiniteScroll} from '@/hooks/useInfiniteScroll.js';
 
 import type {ChatEventBus} from '../../StreamingMessageDisplay/index.js';
 
 interface UseSessionListOptions {
   eventBus: ChatEventBus;
-  sessionId: string | null;
 }
 
 interface UseSessionListReturn {
@@ -19,7 +18,7 @@ interface UseSessionListReturn {
   error: string | null;
   hasMore: boolean;
   sentinelRef: RefObject<HTMLDivElement | null>;
-  refresh: () => void;
+  deleteSession: (id: string) => Promise<void>;
 }
 
 const fetchSessions = async (offset: number, limit: number) => {
@@ -29,7 +28,6 @@ const fetchSessions = async (offset: number, limit: number) => {
 
 export function useSessionList({
   eventBus,
-  sessionId,
 }: UseSessionListOptions): UseSessionListReturn {
   const {
     items,
@@ -38,36 +36,30 @@ export function useSessionList({
     error,
     hasMore,
     sentinelRef,
-    refresh,
+    backgroundRefresh,
   } = useInfiniteScroll<SessionMetadata>({
     fetcher: fetchSessions,
     pageSize: 20,
   });
 
-  // Use a ref so the event handler always sees the latest items without
-  // re-subscribing on every items change.
-  const itemsRef = useRef(items);
+  // On session-created: refresh to pick up the newly persisted session.
+  // On session-title: refresh to pick up the updated title.
   useEffect(() => {
-    itemsRef.current = items;
-  }, [items]);
-
-  const refreshIfNewSession = useCallback(() => {
-    if (
-      sessionId !== null &&
-      !itemsRef.current.some((s) => s.id === sessionId)
-    ) {
-      refresh();
-    }
-  }, [sessionId, refresh]);
-
-  // Refresh only when a genuinely new session receives its title.
-  // Replayed session-title events for existing sessions are ignored.
-  useEffect(() => {
-    eventBus.on('session-title', refreshIfNewSession);
+    eventBus.on('session-created', backgroundRefresh);
+    eventBus.on('session-title', backgroundRefresh);
     return () => {
-      eventBus.off('session-title', refreshIfNewSession);
+      eventBus.off('session-created', backgroundRefresh);
+      eventBus.off('session-title', backgroundRefresh);
     };
-  }, [eventBus, refreshIfNewSession]);
+  }, [eventBus, backgroundRefresh]);
+
+  const handleDeleteSession = useCallback(
+    async (id: string) => {
+      await deleteSession(id);
+      backgroundRefresh();
+    },
+    [backgroundRefresh],
+  );
 
   return {
     sessions: items,
@@ -76,6 +68,6 @@ export function useSessionList({
     error,
     hasMore,
     sentinelRef,
-    refresh,
+    deleteSession: handleDeleteSession,
   };
 }

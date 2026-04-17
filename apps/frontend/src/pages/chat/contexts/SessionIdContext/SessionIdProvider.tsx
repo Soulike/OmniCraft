@@ -37,6 +37,7 @@ export function SessionIdProvider({children}: SessionIdProviderProps) {
     }) => {
       try {
         const id = await createSession(config);
+        eventBus.emit('session-created', {sessionId: id});
         void navigate(`/chat/${id}`, {replace: true});
         return id;
       } catch (e: unknown) {
@@ -46,7 +47,7 @@ export function SessionIdProvider({children}: SessionIdProviderProps) {
         return null;
       }
     },
-    [navigate],
+    [navigate, eventBus],
   );
 
   const clearSessionId = useCallback(() => {
