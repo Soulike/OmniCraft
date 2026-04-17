@@ -2,7 +2,6 @@ import {toast} from '@heroui/react';
 import {useCallback, useState} from 'react';
 import {useNavigate} from 'react-router';
 
-import {deleteSession} from '@/api/chat/index.js';
 import {ROUTES} from '@/routes.js';
 
 import {useChatEventBus} from '../../hooks/useChatEventBus.js';
@@ -21,7 +20,7 @@ export function SessionSidebar() {
     error,
     hasMore,
     sentinelRef,
-    refresh,
+    deleteSession,
   } = useSessionList({
     eventBus,
   });
@@ -46,12 +45,11 @@ export function SessionSidebar() {
         return;
       }
       toast.success('Session deleted');
-      refresh();
       if (id === sessionId) {
         void navigate(ROUTES.chat(), {replace: true});
       }
     },
-    [refresh, sessionId, navigate],
+    [deleteSession, sessionId, navigate],
   );
 
   return (

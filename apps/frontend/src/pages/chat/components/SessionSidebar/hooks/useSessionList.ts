@@ -1,8 +1,8 @@
 import type {SessionMetadata} from '@omnicraft/api-schema';
 import type {RefObject} from 'react';
-import {useEffect} from 'react';
+import {useCallback, useEffect} from 'react';
 
-import {listSessions} from '@/api/chat/index.js';
+import {deleteSession, listSessions} from '@/api/chat/index.js';
 import {useInfiniteScroll} from '@/hooks/useInfiniteScroll.js';
 
 import type {ChatEventBus} from '../../StreamingMessageDisplay/index.js';
@@ -18,7 +18,7 @@ interface UseSessionListReturn {
   error: string | null;
   hasMore: boolean;
   sentinelRef: RefObject<HTMLDivElement | null>;
-  refresh: () => void;
+  deleteSession: (id: string) => Promise<void>;
 }
 
 const fetchSessions = async (offset: number, limit: number) => {
@@ -36,7 +36,6 @@ export function useSessionList({
     error,
     hasMore,
     sentinelRef,
-    refresh,
     backgroundRefresh,
   } = useInfiniteScroll<SessionMetadata>({
     fetcher: fetchSessions,
@@ -54,6 +53,14 @@ export function useSessionList({
     };
   }, [eventBus, backgroundRefresh]);
 
+  const handleDeleteSession = useCallback(
+    async (id: string) => {
+      await deleteSession(id);
+      backgroundRefresh();
+    },
+    [backgroundRefresh],
+  );
+
   return {
     sessions: items,
     isLoadingInitial,
@@ -61,6 +68,6 @@ export function useSessionList({
     error,
     hasMore,
     sentinelRef,
-    refresh,
+    deleteSession: handleDeleteSession,
   };
 }
