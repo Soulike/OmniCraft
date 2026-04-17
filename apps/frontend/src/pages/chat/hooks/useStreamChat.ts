@@ -48,7 +48,9 @@ export function useStreamChat({
       setMaxRoundsReached(false);
     };
     eventBus.on('reset-session', onReset);
-    return () => { eventBus.off('reset-session', onReset); };
+    return () => {
+      eventBus.off('reset-session', onReset);
+    };
   }, [eventBus]);
 
   // Persistent SSE connection — connects when sessionId is set.
