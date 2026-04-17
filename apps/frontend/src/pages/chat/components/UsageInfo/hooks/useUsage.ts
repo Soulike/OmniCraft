@@ -11,9 +11,16 @@ export function useUsage(eventBus: ChatEventBus) {
     const handler = (data: {usage: SseUsage}) => {
       setUsage(data.usage);
     };
+
+    const onReset = () => {
+      setUsage(null);
+    };
+
     eventBus.on('done', handler);
+    eventBus.on('reset-session', onReset);
     return () => {
       eventBus.off('done', handler);
+      eventBus.off('reset-session', onReset);
     };
   }, [eventBus]);
 
