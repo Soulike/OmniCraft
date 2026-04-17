@@ -1,4 +1,5 @@
 import crypto from 'node:crypto';
+import {mkdirSync, renameSync, writeFileSync} from 'node:fs';
 import {mkdir, readFile, rename, writeFile} from 'node:fs/promises';
 import path from 'node:path';
 
@@ -47,6 +48,29 @@ export const agentPersistence = {
         rename(metadataTmp, metadataFile),
       ),
     ]);
+  },
+
+  persistSnapshotSync(
+    sessionsDir: string,
+    id: string,
+    snapshot: AgentSnapshot,
+  ): void {
+    const dir = path.join(sessionsDir, id);
+    mkdirSync(dir, {recursive: true});
+
+    const snapshotFile = agentPersistence.snapshotPath(sessionsDir, id);
+    const snapshotTmp = `${snapshotFile}.${crypto.randomUUID()}.tmp`;
+    const snapshotData = JSON.stringify(snapshot, null, 2) + '\n';
+
+    const metadataFile = agentPersistence.metadataPath(sessionsDir, id);
+    const metadataTmp = `${metadataFile}.${crypto.randomUUID()}.tmp`;
+    const metadataData =
+      JSON.stringify({id: snapshot.id, title: snapshot.title}, null, 2) + '\n';
+
+    writeFileSync(snapshotTmp, snapshotData);
+    renameSync(snapshotTmp, snapshotFile);
+    writeFileSync(metadataTmp, metadataData);
+    renameSync(metadataTmp, metadataFile);
   },
 
   async loadSnapshot(sessionsDir: string, id: string): Promise<AgentSnapshot> {

@@ -145,6 +145,14 @@ export abstract class Agent {
 
     this.shellState = {cwd: this.workingDirectory};
 
+    if (!snapshot && this.sessionsDir) {
+      agentPersistence.persistSnapshotSync(
+        this.sessionsDir,
+        this.id,
+        this.toSnapshot(),
+      );
+    }
+
     agentEventBus.emit('agent-created', this);
   }
 
