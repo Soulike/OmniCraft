@@ -20,6 +20,7 @@ interface UseInfiniteListReturn<T> {
   hasMore: boolean;
   loadMore: () => void;
   refresh: () => void;
+  backgroundRefresh: () => void;
 }
 
 /**
@@ -44,7 +45,18 @@ export function useInfiniteList<T>({
   // appended after a refresh has already replaced the list.
   const refreshGenerationId = useRef(0);
 
+  // Controls whether the next refresh shows a loading indicator.
+  // true for the initial load and explicit refresh(), false for backgroundRefresh().
+  const showLoadingRef = useRef(true);
+
   const refresh = useCallback(() => {
+    showLoadingRef.current = true;
+    refreshGenerationId.current += 1;
+    setRefreshKey((prev) => prev + 1);
+  }, []);
+
+  const backgroundRefresh = useCallback(() => {
+    showLoadingRef.current = false;
     refreshGenerationId.current += 1;
     setRefreshKey((prev) => prev + 1);
   }, []);
@@ -54,7 +66,9 @@ export function useInfiniteList<T>({
     let cancelled = false;
 
     async function fetchFirstPage() {
-      setIsLoadingInitial(true);
+      if (showLoadingRef.current) {
+        setIsLoadingInitial(true);
+      }
       setError(null);
       try {
         const page = await fetcher(0, pageSize);
@@ -122,5 +136,6 @@ export function useInfiniteList<T>({
     hasMore,
     loadMore,
     refresh,
+    backgroundRefresh,
   };
 }

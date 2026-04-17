@@ -37,6 +37,7 @@ export function useSessionList({
     hasMore,
     sentinelRef,
     refresh,
+    backgroundRefresh,
   } = useInfiniteScroll<SessionMetadata>({
     fetcher: fetchSessions,
     pageSize: 20,
@@ -45,16 +46,13 @@ export function useSessionList({
   // On session-created: refresh to pick up the newly persisted session.
   // On session-title: refresh to pick up the updated title.
   useEffect(() => {
-    const handleRefresh = () => {
-      refresh();
-    };
-    eventBus.on('session-created', handleRefresh);
-    eventBus.on('session-title', handleRefresh);
+    eventBus.on('session-created', backgroundRefresh);
+    eventBus.on('session-title', backgroundRefresh);
     return () => {
-      eventBus.off('session-created', handleRefresh);
-      eventBus.off('session-title', handleRefresh);
+      eventBus.off('session-created', backgroundRefresh);
+      eventBus.off('session-title', backgroundRefresh);
     };
-  }, [eventBus, refresh]);
+  }, [eventBus, backgroundRefresh]);
 
   return {
     sessions: items,

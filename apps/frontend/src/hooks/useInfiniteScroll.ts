@@ -17,6 +17,7 @@ interface UseInfiniteScrollReturn<T> {
   hasMore: boolean;
   sentinelRef: RefObject<HTMLDivElement | null>;
   refresh: () => void;
+  backgroundRefresh: () => void;
 }
 
 /**
@@ -50,6 +51,7 @@ export function useInfiniteScroll<T>({
     hasMore,
     loadMore,
     refresh,
+    backgroundRefresh,
   } = useInfiniteList<T>({fetcher, pageSize});
 
   const sentinelRef = useRef<HTMLDivElement | null>(null);
@@ -84,5 +86,6 @@ export function useInfiniteScroll<T>({
     hasMore,
     sentinelRef,
     refresh,
+    backgroundRefresh,
   };
 }
