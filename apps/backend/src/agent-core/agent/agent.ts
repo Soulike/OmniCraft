@@ -61,8 +61,10 @@ export abstract class Agent {
   /** Unique identifier for this agent session. */
   readonly id: string;
 
+  static readonly DEFAULT_TITLE = 'New Session';
+
   /** Short title for this session, generated after the first reply. */
-  title = '';
+  title = Agent.DEFAULT_TITLE;
 
   /** The LLM session used by this agent. */
   private readonly llmSession: LlmSession;
@@ -228,7 +230,7 @@ export abstract class Agent {
         if (
           event.type === 'done' &&
           event.reason === 'complete' &&
-          !this.title &&
+          this.title === Agent.DEFAULT_TITLE &&
           !this.isGeneratingTitle
         ) {
           this.isGeneratingTitle = true;

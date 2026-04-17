@@ -24,7 +24,6 @@ export function SessionSidebar() {
     refresh,
   } = useSessionList({
     eventBus,
-    sessionId,
   });
   const navigate = useNavigate();
 

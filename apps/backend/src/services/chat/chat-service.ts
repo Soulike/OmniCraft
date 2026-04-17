@@ -7,6 +7,7 @@ import type {SseEvent} from '@omnicraft/sse-events';
 
 import {MainAgent} from '@/agent/agents/index.js';
 import type {AgentSseLogReaderOptions} from '@/agent-core/agent/agent-sse-log.js';
+import {agentPersistence} from '@/agent-core/agent/index.js';
 import {MainAgentStore} from '@/models/agent-store/index.js';
 import {SettingsManager} from '@/models/settings-manager/index.js';
 
@@ -80,6 +81,11 @@ export const chatService = {
       workingDirectory,
       resolvedExtraFilePathEntries,
       MainAgentStore.getInstance().sessionsDir,
+    );
+    await agentPersistence.persistSnapshot(
+      MainAgentStore.getInstance().sessionsDir,
+      agent.id,
+      agent.toSnapshot(),
     );
     return {success: true, sessionId: agent.id};
   },

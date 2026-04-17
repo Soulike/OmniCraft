@@ -1,6 +1,6 @@
 import type {SessionMetadata} from '@omnicraft/api-schema';
 import type {RefObject} from 'react';
-import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
+import {useEffect} from 'react';
 
 import {listSessions} from '@/api/chat/index.js';
 import {useInfiniteScroll} from '@/hooks/useInfiniteScroll.js';
@@ -9,7 +9,6 @@ import type {ChatEventBus} from '../../StreamingMessageDisplay/index.js';
 
 interface UseSessionListOptions {
   eventBus: ChatEventBus;
-  sessionId: string | null;
 }
 
 interface UseSessionListReturn {
@@ -29,7 +28,6 @@ const fetchSessions = async (offset: number, limit: number) => {
 
 export function useSessionList({
   eventBus,
-  sessionId,
 }: UseSessionListOptions): UseSessionListReturn {
   const {
     items,
@@ -44,60 +42,22 @@ export function useSessionList({
     pageSize: 20,
   });
 
-  // Placeholder for a just-created session that hasn't been titled yet.
-  const [pendingSession, setPendingSession] = useState<SessionMetadata | null>(
-    null,
-  );
-
-  // Use a ref so the event handler always sees the latest items without
-  // re-subscribing on every items change.
-  const itemsRef = useRef(items);
+  // On session-created: refresh to pick up the newly persisted session.
+  // On session-title: refresh to pick up the updated title.
   useEffect(() => {
-    itemsRef.current = items;
-  }, [items]);
-
-  // On session-created: set a placeholder entry.
-  useEffect(() => {
-    const handleSessionCreated = ({sessionId}: {sessionId: string}) => {
-      setPendingSession({id: sessionId, title: 'New Session'});
-    };
-    eventBus.on('session-created', handleSessionCreated);
-    return () => {
-      eventBus.off('session-created', handleSessionCreated);
-    };
-  }, [eventBus]);
-
-  // On session-title: refresh the list and clear the placeholder.
-  const handleSessionTitle = useCallback(() => {
-    if (
-      sessionId !== null &&
-      !itemsRef.current.some((s) => s.id === sessionId)
-    ) {
+    const handleRefresh = () => {
       refresh();
-    }
-    setPendingSession(null);
-  }, [sessionId, refresh]);
-
-  useEffect(() => {
-    eventBus.on('session-title', handleSessionTitle);
-    return () => {
-      eventBus.off('session-title', handleSessionTitle);
     };
-  }, [eventBus, handleSessionTitle]);
-
-  // Merge: prepend pending session if it's not already in the fetched list.
-  const sessions = useMemo(() => {
-    if (
-      pendingSession === null ||
-      items.some((s) => s.id === pendingSession.id)
-    ) {
-      return items;
-    }
-    return [pendingSession, ...items];
-  }, [items, pendingSession]);
+    eventBus.on('session-created', handleRefresh);
+    eventBus.on('session-title', handleRefresh);
+    return () => {
+      eventBus.off('session-created', handleRefresh);
+      eventBus.off('session-title', handleRefresh);
+    };
+  }, [eventBus, refresh]);
 
   return {
-    sessions,
+    sessions: items,
     isLoadingInitial,
     isLoadingMore,
     error,
