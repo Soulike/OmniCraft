@@ -1,5 +1,7 @@
 import path from 'node:path';
 
+import {AgentType} from '@omnicraft/api-schema';
+
 import {CodingAgent, MainAgent} from '@/agent/agents/index.js';
 import {CoreSkillRegistry} from '@/agent/skills/index.js';
 import {
@@ -16,7 +18,6 @@ import {CodingAgentStore, MainAgentStore} from '@/models/agent-store/index.js';
 import {SettingsManager} from '@/models/settings-manager/index.js';
 import {VscodeServerManager} from '@/models/vscode-server-manager/index.js';
 import {registerAgentType} from '@/services/agent-session/index.js';
-import {AgentType} from '@/types/agent-type.js';
 
 /** Initializes all services that require async setup before the server starts. */
 export async function initServices(): Promise<void> {

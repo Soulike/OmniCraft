@@ -1,4 +1,4 @@
-import {type AgentType, agentTypeSchema} from '@/types/agent-type.js';
+import {type AgentType, agentTypeSchema} from '@omnicraft/api-schema';
 
 /** Parses and validates the :agentType path parameter. */
 export function parseAgentType(raw: string): AgentType | null {

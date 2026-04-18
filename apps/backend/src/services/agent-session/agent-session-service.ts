@@ -2,12 +2,12 @@ import assert from 'node:assert';
 import os from 'node:os';
 
 import type {SessionMetadata, ThinkingLevel} from '@omnicraft/api-schema';
+import type {AgentType} from '@omnicraft/api-schema';
 import type {AllowedPathEntry} from '@omnicraft/settings-schema';
 import type {SseEvent} from '@omnicraft/sse-events';
 
 import type {AgentSseLogReaderOptions} from '@/agent-core/agent/agent-sse-log.js';
 import {SettingsManager} from '@/models/settings-manager/index.js';
-import type {AgentType} from '@/types/agent-type.js';
 
 import {getLlmConfig} from './helpers.js';
 import type {
