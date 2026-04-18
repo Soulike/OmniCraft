@@ -2,8 +2,6 @@ import {toast} from '@heroui/react';
 import {useCallback, useState} from 'react';
 import {useNavigate} from 'react-router';
 
-import {ROUTES} from '@/routes.js';
-
 import {useChatEventBus} from '../../hooks/useChatEventBus.js';
 import {useSessionId} from '../../hooks/useSessionId.js';
 import {useSessionList} from './hooks/useSessionList.js';
@@ -12,7 +10,7 @@ import {SessionSidebarView} from './SessionSidebarView.js';
 export function SessionSidebar() {
   const [isOpen, setIsOpen] = useState(true);
   const eventBus = useChatEventBus();
-  const {sessionId} = useSessionId();
+  const {sessionId, buildSessionRoute, baseRoute} = useSessionId();
   const {
     sessions,
     isLoadingInitial,
@@ -29,10 +27,10 @@ export function SessionSidebar() {
   const handleSelectSession = useCallback(
     (id: string) => {
       if (id !== sessionId) {
-        void navigate(`${ROUTES.chat()}/${id}`);
+        void navigate(buildSessionRoute(id));
       }
     },
-    [navigate, sessionId],
+    [navigate, sessionId, buildSessionRoute],
   );
 
   const handleDeleteSession = useCallback(
@@ -46,10 +44,10 @@ export function SessionSidebar() {
       }
       toast.success('Session deleted');
       if (id === sessionId) {
-        void navigate(ROUTES.chat(), {replace: true});
+        void navigate(baseRoute, {replace: true});
       }
     },
-    [deleteSession, sessionId, navigate],
+    [deleteSession, sessionId, navigate, baseRoute],
   );
 
   return (

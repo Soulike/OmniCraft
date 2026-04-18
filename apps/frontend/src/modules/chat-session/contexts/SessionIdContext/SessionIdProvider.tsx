@@ -74,6 +74,8 @@ export function SessionIdProvider({
         createNewSessionId,
         clearSessionId,
         clearCreateNewSessionIdError,
+        buildSessionRoute,
+        baseRoute,
       }}
     >
       {children}
