@@ -1,6 +1,6 @@
 import type {ToolDefinition} from '@/agent-core/tool/index.js';
 
-import {formatTodoContent} from './helpers.js';
+import {checkStale, formatTodoContent} from './helpers.js';
 import {todoClearParametersSchema, type TodoResult} from './schemas.js';
 
 export const todoClearTool: ToolDefinition<
@@ -17,17 +17,23 @@ export const todoClearTool: ToolDefinition<
   parameters: todoClearParametersSchema,
   suppressToolEvents: true,
   execute(_args, context) {
-    try {
-      context.todoStore.clear();
-      const items = context.todoStore.list();
+    const {todoStore} = context;
+    const staleMessage = checkStale(todoStore, todoStore.lastObservedVersion);
+    if (staleMessage) {
       return {
-        data: {items},
-        content: formatTodoContent(items),
-        status: 'success',
+        data: {message: staleMessage},
+        content: staleMessage,
+        status: 'failure',
       };
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : String(error);
-      return {data: {message}, content: message, status: 'failure'};
     }
+
+    todoStore.clear();
+    const items = todoStore.list();
+    todoStore.lastObservedVersion = todoStore.version;
+    return {
+      data: {items},
+      content: formatTodoContent(items),
+      status: 'success',
+    };
   },
 };

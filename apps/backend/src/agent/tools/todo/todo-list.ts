@@ -16,7 +16,9 @@ export const todoListTool: ToolDefinition<
   parameters: todoListParametersSchema,
   suppressToolEvents: true,
   execute(_args, context) {
-    const items = context.todoStore.list();
+    const {todoStore} = context;
+    const items = todoStore.list();
+    todoStore.lastObservedVersion = todoStore.version;
     return {
       data: {items},
       content: formatTodoContent(items),

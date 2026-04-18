@@ -1,6 +1,6 @@
 import type {ToolDefinition} from '@/agent-core/tool/index.js';
 
-import {formatTodoContent} from './helpers.js';
+import {checkStale, formatTodoContent} from './helpers.js';
 import {type TodoResult, todoUpdateParametersSchema} from './schemas.js';
 
 export const todoUpdateTool: ToolDefinition<
@@ -17,10 +17,21 @@ export const todoUpdateTool: ToolDefinition<
   parameters: todoUpdateParametersSchema,
   suppressToolEvents: true,
   execute(args, context) {
+    const {todoStore} = context;
+    const staleMessage = checkStale(todoStore, todoStore.lastObservedVersion);
+    if (staleMessage) {
+      return {
+        data: {message: staleMessage},
+        content: staleMessage,
+        status: 'failure',
+      };
+    }
+
     try {
       const {index, ...fields} = args;
-      context.todoStore.update(index, fields);
-      const items = context.todoStore.list();
+      todoStore.update(index, fields);
+      const items = todoStore.list();
+      todoStore.lastObservedVersion = todoStore.version;
       return {
         data: {items},
         content: formatTodoContent(items),
