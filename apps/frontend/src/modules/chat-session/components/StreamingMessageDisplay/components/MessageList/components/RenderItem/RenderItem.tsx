@@ -43,8 +43,10 @@ export function RenderItem({item}: RenderItemProps) {
     case 'tool-execution': {
       if (item.toolName === TOOL_NAME.ASK_USER) {
         const sessionId = use(SessionIdContext);
+        // sessionId can be null during session transitions (old messages
+        // not yet cleared). Skip rendering; messages will be cleared next frame.
         if (sessionId === null) {
-          throw new Error('AskUserCard requires a sessionId');
+          return null;
         }
         if (item.status === 'running') {
           return (
