@@ -25,7 +25,7 @@ states.
 
 ## State Management
 
-### TodoStore
+### TodoStore (pure data container)
 
 A `TodoStore` class holds the in-memory todo list. One instance per `Agent`, passed into
 `ToolExecutionContext` — the same pattern as `shellState`, `fileCache`, and
@@ -37,71 +37,87 @@ agent-core/agent/todo-store.ts
 
 Public interface:
 
-- `append(subject: string, description: string): TodoItem[]` — appends a new item with
-  `status: 'pending'` to the end of the list, returns full list
-- `update(index: number, fields: { subject?: string, description?: string, status?: TodoStatus }): TodoItem[]` — updates an existing item, returns full list
-- `clear(): TodoItem[]` — clears all items, returns empty list
-- `list(): TodoItem[]` — returns all items
+- `append(subject: string, description: string): void` — appends a new item with
+  `status: 'pending'` to the end of the list
+- `update(index: number, fields: TodoUpdateFields): void` — updates an existing item
+- `clear(): void` — clears all items
+- `list(): TodoItem[]` — returns a snapshot of all items
+- `version` (readonly getter) — incremented on every mutation
 
 Internal state:
 
 - `items: TodoItem[]` — ordered by creation, accessed directly by index (`items[index]`)
-- `version: number` — starts at 0, incremented on every mutation
-- `lastObservedVersion: number | undefined` — updated when the agent "sees" the list
+- `_version: number` — starts at 0, incremented on every mutation
 
-### Version Tracking (Safety)
+The store has no knowledge of observation policy. It is a pure data container.
 
-Follows the `FileStatTracker` pattern to prevent blind edits:
+### TodoState (observation tracking)
 
-- Every mutation (`append`, `update`, `clear`) increments `version`.
-- Every operation (`append`, `update`, `clear`, `list`) sets `lastObservedVersion = version`
-  after completing (since all return the full list).
-- `update()` and `clear()` check `lastObservedVersion === version` before applying changes.
-  If the agent has never called any todo tool (`lastObservedVersion` is `undefined`), the
-  operation fails with a message instructing the agent to call `todo_list` first.
+A `TodoState` interface on `ToolExecutionContext` tracks what version the agent last
+observed. This is mutable state owned by the agent context, following the `ShellState`
+pattern.
 
-In practice, the only failure case is calling `todo_update` or `todo_clear` as the very
-first todo operation, since every tool call returns the full list and refreshes the
-observed version.
+```typescript
+interface TodoState {
+  lastObservedVersion: number | undefined;
+}
+```
+
+### Version Tracking (tool-layer policy)
+
+The staleness check is implemented in the tool layer via helpers in
+`apps/backend/src/agent/tools/todo/helpers.ts`:
+
+- `checkStale(store, state)` — returns an error message if
+  `state.lastObservedVersion` is undefined or doesn't match `store.version`, or `null`
+  if up to date.
+- `markObserved(store, state)` — sets `state.lastObservedVersion = store.version`.
+
+Tools call `checkStale` before `todo_update` and `todo_clear`. All four tools call
+`markObserved` after returning the list to the agent.
 
 ### Wiring
 
 - `ToolExecutionContext` (in `agent-core/tool/types.ts`): add `readonly todoStore: TodoStore`
-- `Agent` (in `agent-core/agent/agent.ts`): instantiate `TodoStore` in the constructor,
-  pass it into the context alongside existing state objects
+  and `readonly todoState: TodoState`
+- `Agent` (in `agent-core/agent/agent.ts`): instantiate `TodoStore` and `TodoState`,
+  pass both into the context
 
 ## Tools
 
-Four separate tools, following the existing multi-tool-per-action convention.
+Four separate tools, following the `dispatch_agent` pattern — schemas defined locally in
+the backend, not in the shared `@omnicraft/tool-schemas` package (since these tools
+suppress SSE events and have no frontend consumer).
 
 ### `todo_append`
 
 - **Parameters**: `{ subject: string, description: string }`
 - **Result**: `{ items: TodoItem[] }` (full list after append)
-- **Behavior**: Appends a new todo with `status: 'pending'` to the end of the list
+- **Behavior**: Appends a new todo with `status: 'pending'` to the end of the list.
+  Calls `store.append()`, then `store.list()`, then `markObserved()`.
 - **`suppressToolEvents`**: `true`
 
 ### `todo_update`
 
 - **Parameters**: `{ index: number, subject?: string, description?: string, status?: 'pending' | 'in_progress' | 'completed' }`
 - **Result**: `{ items: TodoItem[] }` (full list after update)
-- **Behavior**: Updates specified fields on an existing item. Fails if index is out of
-  bounds or if the agent hasn't seen the list yet (version check).
+- **Behavior**: Checks staleness first. Updates specified fields on an existing item.
+  Fails if stale or if index is out of bounds.
 - **`suppressToolEvents`**: `true`
 
 ### `todo_clear`
 
 - **Parameters**: `{}` (no params)
 - **Result**: `{ items: TodoItem[] }` (empty list)
-- **Behavior**: Clears the entire todo list. The agent can then create a fresh set of
-  items. Requires the agent to have seen the list first (version check).
+- **Behavior**: Checks staleness first. Clears the entire todo list. The agent can then
+  create a fresh set of items.
 - **`suppressToolEvents`**: `true`
 
 ### `todo_list`
 
 - **Parameters**: `{}` (no params)
 - **Result**: `{ items: TodoItem[] }` (all items)
-- **Behavior**: Returns all items regardless of status
+- **Behavior**: Returns all items regardless of status. Marks state as observed.
 - **`suppressToolEvents`**: `true`
 
 All four tools suppress SSE events since there is no frontend UI for todos yet. The
@@ -110,29 +126,22 @@ flipped to `false`.
 
 ## File Layout
 
-### `packages/tool-schemas/`
-
-| File                   | Changes                                                                                                                 |
-| ---------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| `tool-name.ts`         | Add `TODO_APPEND`, `TODO_UPDATE`, `TODO_CLEAR`, `TODO_LIST` constants and to `toolNameSchema`                           |
-| `parameter-schemas.ts` | Add `todoAppendParametersSchema`, `todoUpdateParametersSchema`, `todoClearParametersSchema`, `todoListParametersSchema` |
-| `result-schemas.ts`    | Add `todoItemSchema`, `todoResultSchema` (shared by all four tools)                                                     |
-| `registry.ts`          | Add entries for all four tools in `toolResultSchemas` and `toolResultDataSchema`                                        |
-| `index.ts`             | Re-export new schemas                                                                                                   |
-
 ### `apps/backend/src/agent-core/`
 
-| File                  | Changes                                              |
-| --------------------- | ---------------------------------------------------- |
-| `agent/todo-store.ts` | New file: `TodoStore` class                          |
-| `agent/index.ts`      | Re-export `TodoStore`                                |
-| `tool/types.ts`       | Add `todoStore: TodoStore` to `ToolExecutionContext` |
-| `agent/agent.ts`      | Instantiate `TodoStore`, pass into context           |
+| File                  | Changes                                                           |
+| --------------------- | ----------------------------------------------------------------- |
+| `agent/todo-store.ts` | New file: `TodoStore` class (pure data container)                 |
+| `agent/index.ts`      | Re-export `TodoStore`                                             |
+| `tool/types.ts`       | Add `TodoState` interface, `todoStore` and `todoState` to context |
+| `tool/testing.ts`     | Add `TodoStore` and `TodoState` to `createMockContext`            |
+| `agent/agent.ts`      | Instantiate `TodoStore` and `TodoState`, pass into context        |
 
 ### `apps/backend/src/agent/tools/todo/`
 
 | File                    | Description                                                 |
 | ----------------------- | ----------------------------------------------------------- |
+| `schemas.ts`            | Local Zod schemas for parameters and results                |
+| `helpers.ts`            | `formatTodoContent`, `checkStale`, `markObserved`           |
 | `todo-append.ts`        | `todo_append` tool definition                               |
 | `todo-update.ts`        | `todo_update` tool definition                               |
 | `todo-clear.ts`         | `todo_clear` tool definition                                |
@@ -154,11 +163,11 @@ concise formatted list:
 
 ```
 Todo List (2/5 completed):
-[completed] #0: Set up project structure
-[in_progress] #1: Implement authentication
-[pending] #2: Add unit tests
-[pending] #3: Write API docs
-[completed] #4: Configure CI
+[completed] #0: Set up project structure - Initial scaffolding
+[in_progress] #1: Implement authentication - Add JWT-based auth
+[pending] #2: Add unit tests - Cover all endpoints
+[pending] #3: Write API docs - OpenAPI spec
+[completed] #4: Configure CI - GitHub Actions workflow
 ```
 
 This gives the LLM a quick scannable view of progress.
