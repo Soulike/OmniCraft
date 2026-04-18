@@ -9,6 +9,10 @@ export {
   RUN_COMMAND_MAX_TIMEOUT_MS,
   runCommandParametersSchema,
   searchFilesParametersSchema,
+  todoAppendParametersSchema,
+  todoClearParametersSchema,
+  todoListParametersSchema,
+  todoUpdateParametersSchema,
   webFetchParametersSchema,
   webFetchRawParametersSchema,
   webSearchParametersSchema,
@@ -29,18 +33,13 @@ export {
   readFileResultSchema,
   runCommandResultSchema,
   searchFilesResultSchema,
+  todoItemSchema,
+  todoResultSchema,
+  todoStatusSchema,
   toolFailureDataSchema,
   webFetchRawResultSchema,
   webFetchResultSchema,
   webSearchResultSchema,
   writeFileResultSchema,
 } from './result-schemas.js';
-export {
-  todoAppendParametersSchema,
-  todoClearParametersSchema,
-  todoItemSchema,
-  todoListParametersSchema,
-  todoResultSchema,
-  todoUpdateParametersSchema,
-} from './todo-schemas.js';
 export {TOOL_NAME, type ToolName, toolNameSchema} from './tool-name.js';

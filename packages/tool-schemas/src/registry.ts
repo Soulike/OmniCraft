@@ -9,13 +9,13 @@ import {
   readFileResultSchema,
   runCommandResultSchema,
   searchFilesResultSchema,
+  todoResultSchema,
   toolFailureDataSchema,
   webFetchRawResultSchema,
   webFetchResultSchema,
   webSearchResultSchema,
   writeFileResultSchema,
 } from './result-schemas.js';
-import {todoResultSchema} from './todo-schemas.js';
 import {TOOL_NAME, type ToolName} from './tool-name.js';
 
 /** Maps each tool name to its success result schema. */
