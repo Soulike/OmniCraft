@@ -32,6 +32,7 @@ import {modelCapacity} from '../model-capacity/index.js';
 import type {
   AllowedPathEntry,
   ShellState,
+  TodoState,
   ToolDefinition,
   ToolExecutionContext,
 } from '../tool/index.js';
@@ -99,6 +100,9 @@ export abstract class Agent {
 
   /** In-memory todo list, shared by todo tools. */
   private readonly todoStore = new TodoStore();
+
+  /** Mutable todo observation state, shared by todo tools. */
+  private readonly todoState: TodoState = {lastObservedVersion: undefined};
 
   /** Append-only event log. All turns write to the same log. */
   readonly sseLog: AgentSseLog;
@@ -585,6 +589,7 @@ export abstract class Agent {
       },
       userInteractionBridge: this.userInteractionBridge,
       todoStore: this.todoStore,
+      todoState: this.todoState,
     };
 
     try {

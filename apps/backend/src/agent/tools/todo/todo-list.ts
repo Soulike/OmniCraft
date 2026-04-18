@@ -1,6 +1,6 @@
 import type {ToolDefinition} from '@/agent-core/tool/index.js';
 
-import {formatTodoContent} from './helpers.js';
+import {formatTodoContent, markObserved} from './helpers.js';
 import {todoListParametersSchema, type TodoResult} from './schemas.js';
 
 export const todoListTool: ToolDefinition<
@@ -16,9 +16,9 @@ export const todoListTool: ToolDefinition<
   parameters: todoListParametersSchema,
   suppressToolEvents: true,
   execute(_args, context) {
-    const {todoStore} = context;
+    const {todoStore, todoState} = context;
     const items = todoStore.list();
-    todoStore.lastObservedVersion = todoStore.version;
+    markObserved(todoStore, todoState);
     return {
       data: {items},
       content: formatTodoContent(items),

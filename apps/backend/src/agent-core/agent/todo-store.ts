@@ -28,11 +28,12 @@ export interface TodoUpdateFields {
 export class TodoStore {
   private items: TodoItem[] = [];
 
-  /** Incremented on every mutation. Callers can compare against a saved value to detect staleness. */
-  version = 0;
+  private _version = 0;
 
-  /** Set by callers after observing the list. Used to detect stale state. */
-  lastObservedVersion: number | undefined;
+  /** Incremented on every mutation. Callers can compare against a saved value to detect staleness. */
+  get version(): number {
+    return this._version;
+  }
 
   /** Appends a new item with status `pending`. */
   append(subject: string, description: string): void {
@@ -43,7 +44,7 @@ export class TodoStore {
       status: 'pending',
     };
     this.items.push(item);
-    this.version++;
+    this._version++;
   }
 
   /** Updates fields on an existing item. */
@@ -60,13 +61,13 @@ export class TodoStore {
       description: fields.description ?? current.description,
       status: fields.status ?? current.status,
     };
-    this.version++;
+    this._version++;
   }
 
   /** Clears all items. */
   clear(): void {
     this.items = [];
-    this.version++;
+    this._version++;
   }
 
   /** Returns a snapshot of all items. */

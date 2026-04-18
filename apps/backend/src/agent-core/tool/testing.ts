@@ -48,6 +48,7 @@ export function createMockContext(
     },
     userInteractionBridge: new UserInteractionBridge(),
     todoStore: new TodoStore(),
+    todoState: {lastObservedVersion: undefined},
     ...overrides,
   };
 }

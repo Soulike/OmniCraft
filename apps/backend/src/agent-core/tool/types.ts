@@ -15,6 +15,12 @@ export interface ShellState {
   cwd: string;
 }
 
+/** Mutable todo observation state tracked per-agent across tool calls. */
+export interface TodoState {
+  /** The store version the agent last observed via todo_list or a mutation result. */
+  lastObservedVersion: number | undefined;
+}
+
 /** Execution context provided by the Agent to each Tool at call time. */
 export interface ToolExecutionContext {
   /** The unique call ID for this tool invocation, from the LLM API response. */
@@ -56,6 +62,9 @@ export interface ToolExecutionContext {
 
   /** In-memory todo list for tracking work progress. */
   readonly todoStore: TodoStore;
+
+  /** Mutable todo observation state tracked across tool calls. */
+  readonly todoState: TodoState;
 }
 
 /** Successful tool execution — carries typed structured data. */

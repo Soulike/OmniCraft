@@ -1,5 +1,6 @@
-import type {TodoStore} from '@/agent-core/agent/todo-store.js';
 import type {TodoItem} from '@/agent-core/agent/todo-store.js';
+import type {TodoStore} from '@/agent-core/agent/todo-store.js';
+import type {TodoState} from '@/agent-core/tool/index.js';
 
 /** Formats the todo list as a human-readable string for the LLM. */
 export function formatTodoContent(items: readonly TodoItem[]): string {
@@ -20,15 +21,17 @@ export function formatTodoContent(items: readonly TodoItem[]): string {
  * Checks that the store version matches the last observed version.
  * Returns a failure message if stale, or `null` if up to date.
  */
-export function checkStale(
-  store: TodoStore,
-  lastObservedVersion: number | undefined,
-): string | null {
+export function checkStale(store: TodoStore, state: TodoState): string | null {
   if (
-    lastObservedVersion === undefined ||
-    lastObservedVersion !== store.version
+    state.lastObservedVersion === undefined ||
+    state.lastObservedVersion !== store.version
   ) {
     return 'Call todo_list first to see the current items before making changes.';
   }
   return null;
+}
+
+/** Marks the current store version as observed. */
+export function markObserved(store: TodoStore, state: TodoState): void {
+  state.lastObservedVersion = store.version;
 }
