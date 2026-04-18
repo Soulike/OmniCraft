@@ -2,18 +2,19 @@ import {ScrollShadow} from '@heroui/react';
 import type {ThinkingLevel} from '@omnicraft/api-schema';
 import type {RefObject} from 'react';
 
-import {ChatAlert} from './components/ChatAlert/index.js';
-import {ChatInput} from './components/ChatInput/index.js';
-import {InfoBar} from './components/InfoBar/index.js';
-import {SessionSetup} from './components/SessionSetup/index.js';
-import {SessionSidebar} from './components/SessionSidebar/index.js';
 import {
+  ChatAlert,
   type ChatEventBus,
+  ChatInput,
   type ChatMessage,
+  chatSessionStyles as styles,
+  InfoBar,
+  SessionSidebar,
   StreamingMessageDisplay,
-} from './components/StreamingMessageDisplay/index.js';
-import {TitleBarView} from './components/TitleBar/index.js';
-import styles from './styles.module.css';
+  TitleBarView,
+} from '@/modules/chat-session/index.js';
+
+import {SessionSetup} from './components/SessionSetup/index.js';
 
 interface ChatPageViewProps {
   title: string | null;

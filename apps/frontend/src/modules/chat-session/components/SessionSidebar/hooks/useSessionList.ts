@@ -2,9 +2,9 @@ import type {SessionMetadata} from '@omnicraft/api-schema';
 import type {RefObject} from 'react';
 import {useCallback, useEffect} from 'react';
 
-import {deleteSession, listSessions} from '@/api/chat/index.js';
 import {useInfiniteScroll} from '@/hooks/useInfiniteScroll.js';
 
+import {useChatSessionApi} from '../../../hooks/useChatSessionApi.js';
 import type {ChatEventBus} from '../../StreamingMessageDisplay/index.js';
 
 interface UseSessionListOptions {
@@ -21,14 +21,11 @@ interface UseSessionListReturn {
   deleteSession: (id: string) => Promise<void>;
 }
 
-const fetchSessions = async (offset: number, limit: number) => {
-  const result = await listSessions(offset, limit);
-  return {items: result.sessions, total: result.total};
-};
-
 export function useSessionList({
   eventBus,
 }: UseSessionListOptions): UseSessionListReturn {
+  const {listSessions, deleteSession: apiDeleteSession} = useChatSessionApi();
+
   const {
     items,
     isLoadingInitial,
@@ -38,7 +35,10 @@ export function useSessionList({
     sentinelRef,
     backgroundRefresh,
   } = useInfiniteScroll<SessionMetadata>({
-    fetcher: fetchSessions,
+    fetcher: async (offset: number, limit: number) => {
+      const result = await listSessions(offset, limit);
+      return {items: result.sessions, total: result.total};
+    },
     pageSize: 20,
   });
 
@@ -55,10 +55,10 @@ export function useSessionList({
 
   const handleDeleteSession = useCallback(
     async (id: string) => {
-      await deleteSession(id);
+      await apiDeleteSession(id);
       backgroundRefresh();
     },
-    [backgroundRefresh],
+    [backgroundRefresh, apiDeleteSession],
   );
 
   return {

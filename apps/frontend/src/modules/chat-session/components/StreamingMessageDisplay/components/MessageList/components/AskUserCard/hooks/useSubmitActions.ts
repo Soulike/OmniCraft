@@ -1,8 +1,7 @@
 import {toast} from '@heroui/react';
 import {useCallback, useState} from 'react';
 
-import {submitToolResponse} from '@/api/chat/index.js';
-
+import {useChatSessionApi} from '../../../../../../../hooks/useChatSessionApi.js';
 import type {AnswerEntry} from '../types.js';
 
 interface UseSubmitActionsParams {
@@ -24,6 +23,7 @@ export function useSubmitActions({
   collectAnswers,
 }: UseSubmitActionsParams): SubmitActions {
   const [submitting, setSubmitting] = useState(false);
+  const {submitToolResponse} = useChatSessionApi();
 
   const handleSubmit = useCallback(() => {
     if (submitting) return;
@@ -37,7 +37,7 @@ export function useSubmitActions({
       setSubmitting(false);
       toast.danger('Failed to submit response. Please try again.');
     });
-  }, [sessionId, callId, collectAnswers, submitting]);
+  }, [sessionId, callId, collectAnswers, submitting, submitToolResponse]);
 
   const handleCancel = useCallback(() => {
     if (submitting) return;
@@ -47,7 +47,7 @@ export function useSubmitActions({
       setSubmitting(false);
       toast.danger('Failed to cancel. Please try again.');
     });
-  }, [sessionId, callId, submitting]);
+  }, [sessionId, callId, submitting, submitToolResponse]);
 
   return {submitting, handleSubmit, handleCancel};
 }

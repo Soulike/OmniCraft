@@ -3,7 +3,7 @@ import path from 'node:path';
 import babel from '@rolldown/plugin-babel';
 import tailwindcss from '@tailwindcss/vite';
 import react, {reactCompilerPreset} from '@vitejs/plugin-react';
-import {defineConfig} from 'vite';
+import {defineConfig} from 'vitest/config';
 import {ViteImageOptimizer} from 'vite-plugin-image-optimizer';
 import svgr from 'vite-plugin-svgr';
 
@@ -39,5 +39,9 @@ export default defineConfig({
     proxy: {
       '/api': 'http://localhost:3000',
     },
+  },
+  test: {
+    environment: 'jsdom',
+    setupFiles: ['./vitest.setup.ts'],
   },
 });

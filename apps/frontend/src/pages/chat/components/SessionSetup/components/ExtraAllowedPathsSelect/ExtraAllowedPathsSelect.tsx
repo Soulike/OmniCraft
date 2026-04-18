@@ -1,4 +1,5 @@
-import {useSessionConfig} from '../../../../hooks/useSessionConfig.js';
+import {useSessionConfig} from '@/modules/chat-session/index.js';
+
 import {ExtraAllowedPathsSelectView} from './ExtraAllowedPathsSelectView.js';
 
 export function ExtraAllowedPathsSelect() {

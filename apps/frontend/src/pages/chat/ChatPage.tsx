@@ -1,30 +1,40 @@
 import {useCallback, useMemo} from 'react';
 
+import * as chatApi from '@/api/chat/index.js';
 import {getVscodeUrl} from '@/api/vscode/index.js';
 import {useAutoScroll} from '@/hooks/useAutoScroll.js';
+import {
+  ChatEventBusProvider,
+  ChatSessionApiContext,
+  SessionConfigProvider,
+  SessionIdProvider,
+  useChatEventBus,
+  useMessageCount,
+  useSessionConfig,
+  useSessionId,
+  useSessionTitle,
+  useStreamChat,
+  useVscodeStatus,
+} from '@/modules/chat-session/index.js';
+import {ROUTES} from '@/routes.js';
 
 import {ChatPageView} from './ChatPageView.js';
-import {ChatEventBusProvider} from './contexts/ChatEventBusContext/index.js';
-import {SessionConfigProvider} from './contexts/SessionConfigContext/index.js';
-import {SessionIdProvider} from './contexts/SessionIdContext/index.js';
-import {useChatEventBus} from './hooks/useChatEventBus.js';
-import {useMessageCount} from './hooks/useMessageCount.js';
-import {useSessionConfig} from './hooks/useSessionConfig.js';
-import {useSessionId} from './hooks/useSessionId.js';
-import {useSessionTitle} from './hooks/useSessionTitle.js';
-import {useStreamChat} from './hooks/useStreamChat.js';
-import {useVscodeStatus} from './hooks/useVscodeStatus.js';
 
 /** Chat page container. Wraps content in providers. */
 export function ChatPage() {
   return (
-    <ChatEventBusProvider>
-      <SessionIdProvider>
-        <SessionConfigProvider>
-          <ChatPageContent />
-        </SessionConfigProvider>
-      </SessionIdProvider>
-    </ChatEventBusProvider>
+    <ChatSessionApiContext value={chatApi}>
+      <ChatEventBusProvider>
+        <SessionIdProvider
+          buildSessionRoute={(id) => `${ROUTES.chat()}/${id}`}
+          baseRoute={ROUTES.chat()}
+        >
+          <SessionConfigProvider>
+            <ChatPageContent />
+          </SessionConfigProvider>
+        </SessionIdProvider>
+      </ChatEventBusProvider>
+    </ChatSessionApiContext>
   );
 }
 

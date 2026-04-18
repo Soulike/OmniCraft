@@ -1,6 +1,6 @@
 import {useMemo} from 'react';
 
-import {useSessionConfig} from '../../../../../hooks/useSessionConfig.js';
+import {useSessionConfig} from '@/modules/chat-session/index.js';
 
 export function useWorkspaceSelect() {
   const {
