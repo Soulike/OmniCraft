@@ -13,7 +13,6 @@ import {StatusCodes} from 'http-status-codes';
 import {ZodError} from 'zod';
 
 import {agentSessionService} from '@/services/agent-session/index.js';
-import {type AgentType, agentTypeSchema} from '@/types/agent-type.js';
 
 import {writeSseEvent} from './helpers/sse.js';
 import {
@@ -25,14 +24,9 @@ import {
   SESSION_TOOL_RESPONSE,
   SESSIONS,
 } from './path.js';
+import {parseAgentType} from './validator.js';
 
 const router = new Router();
-
-/** Parses and validates the :agentType path parameter. */
-function parseAgentType(raw: string): AgentType | null {
-  const result = agentTypeSchema.safeParse(raw);
-  return result.success ? result.data : null;
-}
 
 /** GET /:agentType/sessions — lists persisted sessions with pagination. */
 router.get(SESSIONS, async (ctx) => {
