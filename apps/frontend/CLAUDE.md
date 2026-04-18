@@ -69,6 +69,12 @@ import {Component} from 'path/to/Component/index.js';
 - Do NOT use Tailwind utility classes in our own components. Tailwind is only present as a dependency for HeroUI.
 - HeroUI (`@heroui/react`) is the UI component library. Use its components directly (e.g., `<Spinner />`, `<Button />`).
 
+## Directory Structure
+
+- `components/` - Generic, business-agnostic UI components (e.g., `CollapsibleSidebar`, `MarkdownRenderer`).
+- `modules/` - Domain-specific modules shared across multiple pages. Unlike `components/`, modules contain feature-specific logic, hooks, contexts, and components that belong to a particular business domain but are used by more than one page.
+- `pages/` - Route entry points. Each page is a thin shell that composes modules.
+
 ## Layout
 
 - A component must NOT dictate how it is laid out by its parent. Properties like `flex`, `margin`, `grid-column`, `align-self`, etc. that affect the component's placement in the parent's layout must NOT appear in the component's own styles.
