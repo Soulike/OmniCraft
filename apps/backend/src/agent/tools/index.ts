@@ -3,4 +3,5 @@ export {ClientToolRegistry} from './client/index.js';
 export {CoreToolRegistry} from './core/core-tool-registry.js';
 export {FileToolRegistry} from './file/file-tool-registry.js';
 export {SubAgentToolRegistry} from './sub-agent/index.js';
+export {TodoToolRegistry} from './todo/index.js';
 export {WebToolRegistry} from './web/index.js';

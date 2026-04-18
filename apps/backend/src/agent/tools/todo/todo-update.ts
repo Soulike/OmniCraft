@@ -1,0 +1,45 @@
+import type {ToolDefinition} from '@/agent-core/tool/index.js';
+
+import {checkStale, formatTodoContent, markObserved} from './helpers.js';
+import {type TodoResult, todoUpdateParametersSchema} from './schemas.js';
+
+export const todoUpdateTool: ToolDefinition<
+  typeof todoUpdateParametersSchema,
+  TodoResult
+> = {
+  name: 'todo_update',
+  displayName: 'Todo Update',
+  description:
+    'Updates an existing todo item by its index. ' +
+    'Requires that the current list has been retrieved first. ' +
+    'Use this to change the status of an item when starting or finishing work, ' +
+    'or to revise its subject or description.',
+  parameters: todoUpdateParametersSchema,
+  suppressToolEvents: true,
+  execute(args, context) {
+    const {todoStore, todoState} = context;
+    const staleMessage = checkStale(todoStore, todoState);
+    if (staleMessage) {
+      return {
+        data: {message: staleMessage},
+        content: staleMessage,
+        status: 'failure',
+      };
+    }
+
+    try {
+      const {index, ...fields} = args;
+      todoStore.update(index, fields);
+      const items = todoStore.list();
+      markObserved(todoStore, todoState);
+      return {
+        data: {items},
+        content: formatTodoContent(items),
+        status: 'success',
+      };
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      return {data: {message}, content: message, status: 'failure'};
+    }
+  },
+};

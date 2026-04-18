@@ -8,6 +8,7 @@ import {z} from 'zod';
 
 import {FileContentCache} from '../agent/file-content-cache.js';
 import {FileStatTracker} from '../agent/file-stat-tracker.js';
+import {TodoStore} from '../agent/todo-store.js';
 import {UserInteractionBridge} from '../user-interaction/index.js';
 import type {ToolDefinition, ToolExecutionContext} from './types.js';
 
@@ -46,6 +47,8 @@ export function createMockContext(
       // noop — mock context ignores subagent events
     },
     userInteractionBridge: new UserInteractionBridge(),
+    todoStore: new TodoStore(),
+    todoState: {lastObservedVersion: undefined},
     ...overrides,
   };
 }

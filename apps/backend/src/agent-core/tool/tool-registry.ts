@@ -62,4 +62,12 @@ export abstract class ToolRegistry {
   getAll(): ToolDefinition[] {
     return [...this.tools.values()];
   }
+
+  /**
+   * Returns an optional system prompt section for this registry's tools.
+   * Subclasses can override to contribute guidance to the agent's system prompt.
+   */
+  getSystemPromptSection(): string {
+    return '';
+  }
 }

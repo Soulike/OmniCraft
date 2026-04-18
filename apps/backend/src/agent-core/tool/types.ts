@@ -5,6 +5,7 @@ import type {z} from 'zod';
 
 import type {FileContentCache} from '../agent/file-content-cache.js';
 import type {FileStatTracker} from '../agent/file-stat-tracker.js';
+import type {TodoStore} from '../agent/todo-store.js';
 import type {SkillDefinition} from '../skill/skill-definition.js';
 import type {UserInteractionBridge} from '../user-interaction/index.js';
 
@@ -12,6 +13,12 @@ import type {UserInteractionBridge} from '../user-interaction/index.js';
 export interface ShellState {
   /** Current working directory for shell commands. */
   cwd: string;
+}
+
+/** Mutable todo observation state tracked per-agent across tool calls. */
+export interface TodoState {
+  /** The store version the agent last observed via todo_list or a mutation result. */
+  lastObservedVersion: number | undefined;
 }
 
 /** Execution context provided by the Agent to each Tool at call time. */
@@ -52,6 +59,12 @@ export interface ToolExecutionContext {
    * until the frontend submits a response via the HTTP endpoint.
    */
   readonly userInteractionBridge: UserInteractionBridge;
+
+  /** In-memory todo list for tracking work progress. */
+  readonly todoStore: TodoStore;
+
+  /** Mutable todo observation state tracked across tool calls. */
+  readonly todoState: TodoState;
 }
 
 /** Successful tool execution — carries typed structured data. */
