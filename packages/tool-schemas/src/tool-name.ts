@@ -14,6 +14,10 @@ export const TOOL_NAME = {
   WEB_SEARCH: 'web_search',
   LOAD_SKILL: 'load_skill',
   ASK_USER: 'ask_user',
+  TODO_APPEND: 'todo_append',
+  TODO_UPDATE: 'todo_update',
+  TODO_CLEAR: 'todo_clear',
+  TODO_LIST: 'todo_list',
 } as const;
 
 export type ToolName = (typeof TOOL_NAME)[keyof typeof TOOL_NAME];
@@ -32,4 +36,8 @@ export const toolNameSchema = z.enum([
   TOOL_NAME.WEB_SEARCH,
   TOOL_NAME.LOAD_SKILL,
   TOOL_NAME.ASK_USER,
+  TOOL_NAME.TODO_APPEND,
+  TOOL_NAME.TODO_UPDATE,
+  TOOL_NAME.TODO_CLEAR,
+  TOOL_NAME.TODO_LIST,
 ]);

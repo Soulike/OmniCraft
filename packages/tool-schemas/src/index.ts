@@ -35,4 +35,12 @@ export {
   webSearchResultSchema,
   writeFileResultSchema,
 } from './result-schemas.js';
+export {
+  todoAppendParametersSchema,
+  todoClearParametersSchema,
+  todoItemSchema,
+  todoListParametersSchema,
+  todoResultSchema,
+  todoUpdateParametersSchema,
+} from './todo-schemas.js';
 export {TOOL_NAME, type ToolName, toolNameSchema} from './tool-name.js';

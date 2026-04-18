@@ -15,6 +15,7 @@ import {
   webSearchResultSchema,
   writeFileResultSchema,
 } from './result-schemas.js';
+import {todoResultSchema} from './todo-schemas.js';
 import {TOOL_NAME, type ToolName} from './tool-name.js';
 
 /** Maps each tool name to its success result schema. */
@@ -31,6 +32,10 @@ export const toolResultSchemas = {
   [TOOL_NAME.WEB_SEARCH]: webSearchResultSchema,
   [TOOL_NAME.LOAD_SKILL]: loadSkillResultSchema,
   [TOOL_NAME.ASK_USER]: askUserResultSchema,
+  [TOOL_NAME.TODO_APPEND]: todoResultSchema,
+  [TOOL_NAME.TODO_UPDATE]: todoResultSchema,
+  [TOOL_NAME.TODO_CLEAR]: todoResultSchema,
+  [TOOL_NAME.TODO_LIST]: todoResultSchema,
 } as const;
 
 /** Infer the success result data type for a given tool name. */
@@ -54,6 +59,7 @@ export const toolResultDataSchema = z.union([
   webSearchResultSchema,
   loadSkillResultSchema,
   askUserResultSchema,
+  todoResultSchema,
   toolFailureDataSchema,
 ]);
 
