@@ -26,7 +26,7 @@ export function checkStale(store: TodoStore, state: TodoState): string | null {
     state.lastObservedVersion === undefined ||
     state.lastObservedVersion !== store.version
   ) {
-    return 'Call todo_list first to see the current items before making changes.';
+    return 'Retrieve the current todo list before making changes.';
   }
   return null;
 }
