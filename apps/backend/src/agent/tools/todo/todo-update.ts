@@ -19,7 +19,8 @@ export const todoUpdateTool: ToolDefinition<
   execute(args, context) {
     try {
       const {index, ...fields} = args;
-      const items = context.todoStore.update(index, fields);
+      context.todoStore.update(index, fields);
+      const items = context.todoStore.list();
       return {
         data: {items},
         content: formatTodoContent(items),

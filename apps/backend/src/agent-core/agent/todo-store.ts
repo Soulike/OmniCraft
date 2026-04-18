@@ -21,18 +21,18 @@ export interface TodoUpdateFields {
 /**
  * In-memory, per-agent todo list with version tracking.
  *
- * Items are stored in an array indexed by position. All mutating methods
- * return a snapshot of the full list. Mutating methods (`update`, `clear`)
- * enforce that the caller has observed the current list before making
- * changes — mirroring the FileStatTracker safety pattern.
+ * Items are stored in an array indexed by position. Mutating methods
+ * (`update`, `clear`) enforce that the caller has observed the current
+ * list before making changes — mirroring the FileStatTracker safety
+ * pattern. Only `list()` marks the state as observed.
  */
 export class TodoStore {
   private items: TodoItem[] = [];
   private version = 0;
   private lastObservedVersion: number | undefined;
 
-  /** Appends a new item with status `pending`. Returns the full list. */
-  append(subject: string, description: string): TodoItem[] {
+  /** Appends a new item with status `pending`. */
+  append(subject: string, description: string): void {
     const item: TodoItem = {
       index: this.items.length,
       subject,
@@ -41,12 +41,10 @@ export class TodoStore {
     };
     this.items.push(item);
     this.version++;
-    this.lastObservedVersion = this.version;
-    return this.list();
   }
 
-  /** Updates fields on an existing item. Returns the full list. */
-  update(index: number, fields: TodoUpdateFields): TodoItem[] {
+  /** Updates fields on an existing item. */
+  update(index: number, fields: TodoUpdateFields): void {
     this.assertObserved();
     assert(
       index >= 0 && index < this.items.length,
@@ -61,20 +59,16 @@ export class TodoStore {
       status: fields.status ?? current.status,
     };
     this.version++;
-    this.lastObservedVersion = this.version;
-    return this.list();
   }
 
-  /** Clears all items. Returns the (empty) list. */
-  clear(): TodoItem[] {
+  /** Clears all items. */
+  clear(): void {
     this.assertObserved();
     this.items = [];
     this.version++;
-    this.lastObservedVersion = this.version;
-    return this.list();
   }
 
-  /** Returns a snapshot of all items. */
+  /** Returns a snapshot of all items and marks the state as observed. */
   list(): TodoItem[] {
     this.lastObservedVersion = this.version;
     return [...this.items];

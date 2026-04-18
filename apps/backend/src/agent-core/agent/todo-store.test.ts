@@ -4,9 +4,10 @@ import {TodoStore} from './todo-store.js';
 
 describe('TodoStore', () => {
   describe('append', () => {
-    it('appends an item with status pending and returns full list', () => {
+    it('appends an item with status pending', () => {
       const store = new TodoStore();
-      const items = store.append('Task A', 'Do A');
+      store.append('Task A', 'Do A');
+      const items = store.list();
 
       expect(items).toHaveLength(1);
       expect(items[0]).toEqual({
@@ -20,7 +21,8 @@ describe('TodoStore', () => {
     it('appends multiple items with sequential indices', () => {
       const store = new TodoStore();
       store.append('Task A', 'Do A');
-      const items = store.append('Task B', 'Do B');
+      store.append('Task B', 'Do B');
+      const items = store.list();
 
       expect(items).toHaveLength(2);
       expect(items[0].index).toBe(0);
@@ -32,8 +34,9 @@ describe('TodoStore', () => {
     it('updates status of an existing item', () => {
       const store = new TodoStore();
       store.append('Task A', 'Do A');
-      // Observed via append, so update is allowed
-      const items = store.update(0, {status: 'in_progress'});
+      store.list(); // observe before update
+      store.update(0, {status: 'in_progress'});
+      const items = store.list();
 
       expect(items[0].status).toBe('in_progress');
     });
@@ -41,10 +44,12 @@ describe('TodoStore', () => {
     it('updates subject and description', () => {
       const store = new TodoStore();
       store.append('Old', 'Old desc');
-      const items = store.update(0, {
+      store.list(); // observe before update
+      store.update(0, {
         subject: 'New',
         description: 'New desc',
       });
+      const items = store.list();
 
       expect(items[0].subject).toBe('New');
       expect(items[0].description).toBe('New desc');
@@ -53,27 +58,36 @@ describe('TodoStore', () => {
     it('throws on out-of-bounds index', () => {
       const store = new TodoStore();
       store.append('Task A', 'Do A');
-      expect(() => store.update(5, {status: 'completed'})).toThrow();
+      store.list();
+      expect(() => {
+        store.update(5, {status: 'completed'});
+      }).toThrow();
     });
 
     it('throws when list has never been observed', () => {
       const store = new TodoStore();
       // assertObserved() runs before the bounds check, so the version guard fires first
-      expect(() => store.update(0, {status: 'completed'})).toThrow();
+      expect(() => {
+        store.update(0, {status: 'completed'});
+      }).toThrow();
     });
   });
 
   describe('clear', () => {
     it('throws when called before any observation', () => {
       const store = new TodoStore();
-      expect(() => store.clear()).toThrow();
+      expect(() => {
+        store.clear();
+      }).toThrow();
     });
 
     it('removes all items', () => {
       const store = new TodoStore();
       store.append('Task A', 'Do A');
       store.append('Task B', 'Do B');
-      const items = store.clear();
+      store.list(); // observe before clear
+      store.clear();
+      const items = store.list();
 
       expect(items).toHaveLength(0);
     });
@@ -81,8 +95,10 @@ describe('TodoStore', () => {
     it('resets indices so next append starts at 0', () => {
       const store = new TodoStore();
       store.append('Task A', 'Do A');
+      store.list();
       store.clear();
-      const items = store.append('Task B', 'Do B');
+      store.append('Task B', 'Do B');
+      const items = store.list();
 
       expect(items).toHaveLength(1);
       expect(items[0].index).toBe(0);
@@ -115,25 +131,43 @@ describe('TodoStore', () => {
   });
 
   describe('version tracking', () => {
-    it('allows update after append (append observes the list)', () => {
+    it('allows update after list', () => {
       const store = new TodoStore();
       store.append('Task A', 'Do A');
-      expect(() => store.update(0, {status: 'in_progress'})).not.toThrow();
+      store.list(); // observe
+      expect(() => {
+        store.update(0, {status: 'in_progress'});
+      }).not.toThrow();
     });
 
-    it('allows update after list (list observes the list)', () => {
+    it('rejects update without prior list', () => {
       const store = new TodoStore();
       store.append('Task A', 'Do A');
-      store.append('Task B', 'Do B');
-      store.list();
-      expect(() => store.update(0, {status: 'completed'})).not.toThrow();
+      // append does not observe, so update should fail
+      expect(() => {
+        store.update(0, {status: 'in_progress'});
+      }).toThrow();
     });
 
     it('allows clear after list', () => {
       const store = new TodoStore();
       store.append('Task A', 'Do A');
       store.list();
-      expect(() => store.clear()).not.toThrow();
+      expect(() => {
+        store.clear();
+      }).not.toThrow();
+    });
+
+    it('rejects update after mutation without re-listing', () => {
+      const store = new TodoStore();
+      store.append('Task A', 'Do A');
+      store.append('Task B', 'Do B');
+      store.list(); // observe version 2
+      store.update(0, {status: 'completed'}); // version now 3
+      // lastObservedVersion is 2 but version is 3
+      expect(() => {
+        store.update(1, {status: 'completed'});
+      }).toThrow();
     });
   });
 });

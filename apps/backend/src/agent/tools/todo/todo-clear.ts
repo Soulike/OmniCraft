@@ -18,7 +18,8 @@ export const todoClearTool: ToolDefinition<
   suppressToolEvents: true,
   execute(_args, context) {
     try {
-      const items = context.todoStore.clear();
+      context.todoStore.clear();
+      const items = context.todoStore.list();
       return {
         data: {items},
         content: formatTodoContent(items),

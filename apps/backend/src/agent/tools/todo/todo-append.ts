@@ -16,7 +16,8 @@ export const todoAppendTool: ToolDefinition<
   parameters: todoAppendParametersSchema,
   suppressToolEvents: true,
   execute(args, context) {
-    const items = context.todoStore.append(args.subject, args.description);
+    context.todoStore.append(args.subject, args.description);
+    const items = context.todoStore.list();
     return {
       data: {items},
       content: formatTodoContent(items),
