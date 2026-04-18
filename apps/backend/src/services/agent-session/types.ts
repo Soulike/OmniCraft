@@ -1,27 +1,3 @@
-import type {SessionMetadata} from '@omnicraft/api-schema';
-import type {AllowedPathEntry} from '@omnicraft/settings-schema';
-
-import type {Agent} from '@/agent-core/agent/index.js';
-
-/** Minimal store interface consumed by the agent-session service. */
-export interface AgentSessionStore {
-  readonly sessionsDir: string;
-  get(id: string): Promise<Agent | undefined>;
-  has(id: string): Promise<boolean>;
-  delete(id: string): Promise<boolean>;
-  listSessionMetadata(
-    offset: number,
-    limit: number,
-  ): Promise<{sessions: SessionMetadata[]; total: number}>;
-}
-
-/** Constructor signature shared by all top-level agent classes. */
-export type AgentConstructor = new (
-  workingDirectory: string,
-  extraAllowedPaths: readonly AllowedPathEntry[],
-  sessionsDir?: string,
-) => Agent;
-
 /** Reasons why session creation can fail. */
 export enum CreateSessionError {
   BASE_URL_NOT_CONFIGURED = 'BASE_URL_NOT_CONFIGURED',

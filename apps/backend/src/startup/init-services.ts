@@ -15,30 +15,30 @@ import {
 import {getDataDir, getVscodePort} from '@/helpers/env.js';
 import {logger} from '@/logger.js';
 import {CodingAgentStore, MainAgentStore} from '@/models/agent-store/index.js';
+import {agentTypeRegistry} from '@/models/agent-type-registry/index.js';
 import {SettingsManager} from '@/models/settings-manager/index.js';
 import {VscodeServerManager} from '@/models/vscode-server-manager/index.js';
-import {registerAgentType} from '@/services/agent-session/index.js';
 
 /** Initializes all services that require async setup before the server starts. */
 export async function initServices(): Promise<void> {
   await initSettingsManager();
-  initAgentStores();
+  initAgentTypeRegistry();
   initToolRegistries();
   initSkillRegistries();
   initVscodeServer();
 }
 
-/** Creates agent stores and registers agent types for the session service. */
-function initAgentStores(): void {
+/** Creates agent stores and registers agent types. */
+function initAgentTypeRegistry(): void {
   const dataDir = getDataDir();
 
   const chatStore = MainAgentStore.create(path.join(dataDir, 'sessions'));
-  registerAgentType(AgentType.CHAT, MainAgent, chatStore);
+  agentTypeRegistry.register(AgentType.CHAT, MainAgent, chatStore);
 
   const codingStore = CodingAgentStore.create(
     path.join(dataDir, 'coding-sessions'),
   );
-  registerAgentType(AgentType.CODING, CodingAgent, codingStore);
+  agentTypeRegistry.register(AgentType.CODING, CodingAgent, codingStore);
 }
 
 /** Initializes the SettingsManager singleton. */

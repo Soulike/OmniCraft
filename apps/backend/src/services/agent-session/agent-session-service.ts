@@ -1,48 +1,22 @@
 import assert from 'node:assert';
 import os from 'node:os';
 
-import type {SessionMetadata, ThinkingLevel} from '@omnicraft/api-schema';
-import type {AgentType} from '@omnicraft/api-schema';
+import type {
+  AgentType,
+  SessionMetadata,
+  ThinkingLevel,
+} from '@omnicraft/api-schema';
 import type {AllowedPathEntry} from '@omnicraft/settings-schema';
 import type {SseEvent} from '@omnicraft/sse-events';
 
 import type {AgentSseLogReaderOptions} from '@/agent-core/agent/agent-sse-log.js';
+import {agentTypeRegistry} from '@/models/agent-type-registry/index.js';
 import {SettingsManager} from '@/models/settings-manager/index.js';
 
 import {getLlmConfig} from './helpers.js';
-import type {
-  AgentConstructor,
-  AgentSessionStore,
-  CreateSessionResult,
-} from './types.js';
+import type {CreateSessionResult} from './types.js';
 import {CreateSessionError} from './types.js';
 import {validateSessionPaths} from './validation.js';
-
-// ---------------------------------------------------------------------------
-// Registry — populated by initServices before the server starts
-// ---------------------------------------------------------------------------
-
-interface AgentTypeConfig {
-  agentConstructor: AgentConstructor;
-  store: AgentSessionStore;
-}
-
-const registry = new Map<AgentType, AgentTypeConfig>();
-
-/** Registers an agent type with its constructor and store. Call during init. */
-export function registerAgentType(
-  type: AgentType,
-  agentConstructor: AgentConstructor,
-  store: AgentSessionStore,
-): void {
-  registry.set(type, {agentConstructor, store});
-}
-
-function getConfig(type: AgentType): AgentTypeConfig {
-  const config = registry.get(type);
-  assert(config, `No agent type registered: ${type}`);
-  return config;
-}
 
 // ---------------------------------------------------------------------------
 // Service
@@ -110,7 +84,8 @@ export const agentSessionService = {
       );
     }
 
-    const {agentConstructor: AgentClass, store} = getConfig(agentType);
+    const {agentConstructor: AgentClass, store} =
+      agentTypeRegistry.get(agentType);
     const agent = new AgentClass(
       workingDirectory,
       resolvedExtraFilePathEntries,
@@ -129,7 +104,7 @@ export const agentSessionService = {
     userMessage: string,
     thinkingLevel: ThinkingLevel,
   ): Promise<boolean> {
-    const {store} = getConfig(agentType);
+    const {store} = agentTypeRegistry.get(agentType);
     const agent = await store.get(agentId);
     if (!agent) return false;
     agent.handleUserMessage(userMessage, thinkingLevel);
@@ -145,7 +120,7 @@ export const agentSessionService = {
     agentId: string,
     options?: AgentSseLogReaderOptions,
   ): Promise<AsyncIterable<SseEvent> | undefined> {
-    const {store} = getConfig(agentType);
+    const {store} = agentTypeRegistry.get(agentType);
     const agent = await store.get(agentId);
     if (!agent) return undefined;
     return agent.subscribe(options);
@@ -159,7 +134,7 @@ export const agentSessionService = {
     agentType: AgentType,
     agentId: string,
   ): Promise<boolean> {
-    const {store} = getConfig(agentType);
+    const {store} = agentTypeRegistry.get(agentType);
     const agent = await store.get(agentId);
     if (!agent) return false;
     agent.abort();
@@ -178,7 +153,7 @@ export const agentSessionService = {
     interactionId: string,
     result: unknown,
   ): Promise<boolean> {
-    const {store} = getConfig(agentType);
+    const {store} = agentTypeRegistry.get(agentType);
     const agent = await store.get(agentId);
     if (!agent) return false;
     return agent.submitUserResponse(interactionId, result);
@@ -190,13 +165,13 @@ export const agentSessionService = {
     offset: number,
     limit: number,
   ): Promise<{sessions: SessionMetadata[]; total: number}> {
-    const {store} = getConfig(agentType);
+    const {store} = agentTypeRegistry.get(agentType);
     return store.listSessionMetadata(offset, limit);
   },
 
   /** Deletes an agent session. Returns false if session not found. */
   async deleteSession(agentType: AgentType, agentId: string): Promise<boolean> {
-    const {store} = getConfig(agentType);
+    const {store} = agentTypeRegistry.get(agentType);
     if (!(await store.has(agentId))) return false;
     await store.delete(agentId);
     return true;
