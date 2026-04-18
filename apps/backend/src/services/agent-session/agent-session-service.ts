@@ -20,20 +20,6 @@ import type {CreateSessionResult} from './types.js';
 import {CreateSessionError} from './types.js';
 import {validateSessionPaths} from './validation.js';
 
-function createAgent(
-  agentType: AgentType,
-  workingDirectory: string,
-  extraAllowedPaths: readonly AllowedPathEntry[],
-  sessionsDir: string,
-): Agent {
-  switch (agentType) {
-    case AgentType.CHAT:
-      return new MainAgent(workingDirectory, extraAllowedPaths, sessionsDir);
-    case AgentType.CODING:
-      return new CodingAgent(workingDirectory, extraAllowedPaths, sessionsDir);
-  }
-}
-
 function getStore(agentType: AgentType): MainAgentStore | CodingAgentStore {
   switch (agentType) {
     case AgentType.CHAT:
@@ -110,12 +96,24 @@ export const agentSessionService = {
     }
 
     const store = getStore(agentType);
-    const agent = createAgent(
-      agentType,
-      workingDirectory,
-      resolvedExtraFilePathEntries,
-      store.sessionsDir,
-    );
+    const sessionsDir = store.sessionsDir;
+    let agent: Agent;
+    switch (agentType) {
+      case AgentType.CHAT:
+        agent = new MainAgent(
+          workingDirectory,
+          resolvedExtraFilePathEntries,
+          sessionsDir,
+        );
+        break;
+      case AgentType.CODING:
+        agent = new CodingAgent(
+          workingDirectory,
+          resolvedExtraFilePathEntries,
+          sessionsDir,
+        );
+        break;
+    }
     return {success: true, sessionId: agent.id};
   },
 
