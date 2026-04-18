@@ -7,6 +7,7 @@ import {searchSettingsSchema} from './search/schema.js';
 
 export const settingsSchema = z.object({
   llm: llmSettingsSchema.prefault({}),
+  codingLlm: llmSettingsSchema.prefault({}),
   agent: agentSettingsSchema.prefault({}),
   search: searchSettingsSchema.prefault({}),
   fileAccess: fileAccessSettingsSchema.prefault({}),

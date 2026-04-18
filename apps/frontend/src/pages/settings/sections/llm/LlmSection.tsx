@@ -15,7 +15,7 @@ const FIELDS = [
 
 export function LlmSection() {
   return (
-    <SettingSection title='LLM' fields={FIELDS}>
+    <SettingSection title='Chat LLM' fields={FIELDS}>
       {(props) => <LlmSectionFields {...props} />}
     </SettingSection>
   );

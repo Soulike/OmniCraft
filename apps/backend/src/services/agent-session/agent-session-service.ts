@@ -49,7 +49,7 @@ export const agentSessionService = {
     agentType: AgentType,
     options: CreateSessionOptions = {},
   ): Promise<CreateSessionResult> {
-    const llmConfig = await getLlmConfig();
+    const llmConfig = await getLlmConfig(agentType);
 
     if (!llmConfig.baseUrl) {
       return {
