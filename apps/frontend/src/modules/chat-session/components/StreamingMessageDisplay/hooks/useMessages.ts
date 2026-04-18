@@ -188,15 +188,19 @@ function applyAssistantMessageStart(
   createdAt: number,
 ): ChatMessage[] {
   for (let i = prev.length - 1; i >= 0; i--) {
-    if (prev[i].role === 'assistant') {
-      if (prev[i].id === null) {
-        // Assign identity to the unassigned placeholder.
+    const msg = prev[i];
+    if (msg.role === 'assistant') {
+      const isEmpty =
+        msg.id === null ||
+        (msg.content.type === 'text' && msg.content.content === '');
+      if (isEmpty) {
+        // Reuse: unassigned placeholder, or empty message left by a
+        // previous suppressed-only tool round.
         const updated = [...prev];
         updated[i] = {...updated[i], id: messageId, createdAt};
         return updated;
       }
-      // Last assistant message already has an id (e.g. after a round of
-      // suppressed tools). Create a new placeholder instead of overwriting.
+      // Has content and id — start a new assistant message.
       break;
     }
   }
