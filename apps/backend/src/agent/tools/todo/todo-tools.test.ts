@@ -166,8 +166,8 @@ describe('todo tools', () => {
       const result = await todoListTool.execute({}, ctx);
 
       expect(result.content).toContain('1/2 completed');
-      expect(result.content).toContain('[completed] #0: Task A');
-      expect(result.content).toContain('[pending] #1: Task B');
+      expect(result.content).toContain('[completed] #0: Task A - Do A');
+      expect(result.content).toContain('[pending] #1: Task B - Do B');
     });
 
     it('shows empty message for empty list', async () => {

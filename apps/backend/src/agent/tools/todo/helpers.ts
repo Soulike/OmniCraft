@@ -11,7 +11,8 @@ export function formatTodoContent(items: readonly TodoItem[]): string {
   const completed = items.filter((i) => i.status === 'completed').length;
   const header = `Todo List (${completed}/${items.length} completed):`;
   const lines = items.map(
-    (item) => `[${item.status}] #${item.index}: ${item.subject}`,
+    (item) =>
+      `[${item.status}] #${item.index}: ${item.subject} - ${item.description}`,
   );
 
   return [header, ...lines].join('\n');
