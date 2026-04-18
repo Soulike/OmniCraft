@@ -31,11 +31,14 @@
 }
 
 .item {
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.itemContent {
   display: flex;
   align-items: flex-start;
   gap: 6px;
-  font-size: 12px;
-  line-height: 1.5;
 }
 
 .itemIcon {
