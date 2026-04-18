@@ -189,12 +189,17 @@ function applyAssistantMessageStart(
 ): ChatMessage[] {
   for (let i = prev.length - 1; i >= 0; i--) {
     if (prev[i].role === 'assistant') {
-      const updated = [...prev];
-      updated[i] = {...updated[i], id: messageId, createdAt};
-      return updated;
+      if (prev[i].id === null) {
+        // Assign identity to the unassigned placeholder.
+        const updated = [...prev];
+        updated[i] = {...updated[i], id: messageId, createdAt};
+        return updated;
+      }
+      // Last assistant message already has an id (e.g. after a round of
+      // suppressed tools). Create a new placeholder instead of overwriting.
+      break;
     }
   }
-  // No assistant message yet (e.g. subagent stream). Create a placeholder.
   return [
     ...prev,
     {
