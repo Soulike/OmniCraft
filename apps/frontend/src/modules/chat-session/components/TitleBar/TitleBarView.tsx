@@ -7,7 +7,7 @@ interface TitleBarViewProps {
   title: string | null;
   onNewSession: () => void;
   newSessionDisabled: boolean;
-  vscodeUrl: string | null;
+  vscodeUrl?: string | null;
 }
 
 export function TitleBarView({

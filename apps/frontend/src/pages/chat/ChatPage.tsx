@@ -1,20 +1,16 @@
-import {useCallback, useMemo} from 'react';
+import {useCallback} from 'react';
 
 import * as chatApi from '@/api/chat/index.js';
-import {getVscodeUrl} from '@/api/vscode/index.js';
 import {useAutoScroll} from '@/hooks/useAutoScroll.js';
 import {
   ChatEventBusProvider,
   ChatSessionApiContext,
-  SessionConfigProvider,
   SessionIdProvider,
   useChatEventBus,
   useMessageCount,
-  useSessionConfig,
   useSessionId,
   useSessionTitle,
   useStreamChat,
-  useVscodeStatus,
 } from '@/modules/chat-session/index.js';
 import {ROUTES} from '@/routes.js';
 
@@ -29,9 +25,7 @@ export function ChatPage() {
           buildSessionRoute={(id) => `${ROUTES.chat()}/${id}`}
           baseRoute={ROUTES.chat()}
         >
-          <SessionConfigProvider>
-            <ChatPageContent />
-          </SessionConfigProvider>
+          <ChatPageContent />
         </SessionIdProvider>
       </ChatEventBusProvider>
     </ChatSessionApiContext>
@@ -53,37 +47,6 @@ function ChatPageContent() {
   const {messageCount, onMessagesChange} = useMessageCount();
   const {title} = useSessionTitle();
 
-  const {selectedWorkspace, selectedExtraAllowedPaths} = useSessionConfig();
-
-  const {
-    available: vscodeAvailable,
-    port: vscodePort,
-    connectionToken: vscodeToken,
-  } = useVscodeStatus();
-
-  const vscodeUrl = useMemo(() => {
-    if (
-      sessionId === null ||
-      !vscodeAvailable ||
-      selectedWorkspace === undefined
-    ) {
-      return null;
-    }
-    return getVscodeUrl(vscodePort, vscodeToken, selectedWorkspace);
-  }, [sessionId, vscodeAvailable, vscodePort, vscodeToken, selectedWorkspace]);
-
-  const createNewSessionIdWithConfig = useCallback(
-    async () =>
-      createNewSessionId({
-        workspace: selectedWorkspace,
-        extraAllowedPaths:
-          selectedExtraAllowedPaths.length > 0
-            ? selectedExtraAllowedPaths
-            : undefined,
-      }),
-    [createNewSessionId, selectedWorkspace, selectedExtraAllowedPaths],
-  );
-
   const {
     isStreaming,
     isReconnecting,
@@ -95,7 +58,7 @@ function ChatPageContent() {
     clearMaxRoundsReached,
   } = useStreamChat({
     sessionId,
-    createNewSessionId: createNewSessionIdWithConfig,
+    createNewSessionId,
   });
 
   const {containerRef: scrollRef, scrollToBottom} = useAutoScroll();
@@ -131,7 +94,6 @@ function ChatPageContent() {
       onStop={stopGeneration}
       onNewSession={clearSessionId}
       newSessionDisabled={newSessionDisabled}
-      vscodeUrl={vscodeUrl}
       onDismissError={dismissError}
       onDismissMaxRoundsReached={clearMaxRoundsReached}
     />

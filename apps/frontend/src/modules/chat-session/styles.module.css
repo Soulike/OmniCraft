@@ -28,3 +28,11 @@
   height: 100%;
   padding: 16px;
 }
+
+.emptyStateText {
+  font-size: 1.1em;
+  font-weight: 500;
+  color: var(--color-foreground-400);
+  text-align: center;
+  margin: 0;
+}
