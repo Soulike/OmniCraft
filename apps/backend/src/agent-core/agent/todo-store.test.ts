@@ -58,12 +58,17 @@ describe('TodoStore', () => {
 
     it('throws when list has never been observed', () => {
       const store = new TodoStore();
-      // update on empty store should fail with out-of-bounds or version check
+      // assertObserved() runs before the bounds check, so the version guard fires first
       expect(() => store.update(0, {status: 'completed'})).toThrow();
     });
   });
 
   describe('clear', () => {
+    it('throws when called before any observation', () => {
+      const store = new TodoStore();
+      expect(() => store.clear()).toThrow();
+    });
+
     it('removes all items', () => {
       const store = new TodoStore();
       store.append('Task A', 'Do A');
