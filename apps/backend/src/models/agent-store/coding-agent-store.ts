@@ -7,7 +7,7 @@ import {
   sessionMetadataSchema,
 } from '@omnicraft/api-schema';
 
-import {MainAgent} from '@/agent/agents/index.js';
+import {CodingAgent} from '@/agent/agents/index.js';
 import type {Agent} from '@/agent-core/agent/index.js';
 import {agentPersistence} from '@/agent-core/agent/index.js';
 import {agentEventBus} from '@/agent-core/events/index.js';
@@ -21,8 +21,8 @@ interface CacheEntry {
   lastAccessedAt: number;
 }
 
-export class MainAgentStore {
-  private static instance: MainAgentStore | null = null;
+export class CodingAgentStore {
+  private static instance: CodingAgentStore | null = null;
   private readonly cache = new Map<string, CacheEntry>();
   private readonly loadingPromises = new Map<
     string,
@@ -31,7 +31,7 @@ export class MainAgentStore {
   private readonly _sessionsDir: string;
 
   private readonly onAgentCreated = (agent: Agent): void => {
-    if (agent instanceof MainAgent) {
+    if (agent instanceof CodingAgent) {
       this.set(agent);
     }
   };
@@ -45,35 +45,35 @@ export class MainAgentStore {
   }
 
   /** Returns the singleton instance. */
-  static getInstance(): MainAgentStore {
+  static getInstance(): CodingAgentStore {
     assert(
-      MainAgentStore.instance !== null,
-      'MainAgentStore is not initialized. Call MainAgentStore.create() first.',
+      CodingAgentStore.instance !== null,
+      'CodingAgentStore is not initialized. Call CodingAgentStore.create() first.',
     );
-    return MainAgentStore.instance;
+    return CodingAgentStore.instance;
   }
 
   /** Creates the singleton instance and subscribes to agent events. */
-  static create(sessionsDir: string): MainAgentStore {
+  static create(sessionsDir: string): CodingAgentStore {
     assert(
-      MainAgentStore.instance === null,
-      'MainAgentStore is already initialized.',
+      CodingAgentStore.instance === null,
+      'CodingAgentStore is already initialized.',
     );
-    const store = new MainAgentStore(sessionsDir);
-    MainAgentStore.instance = store;
+    const store = new CodingAgentStore(sessionsDir);
+    CodingAgentStore.instance = store;
     agentEventBus.on('agent-created', store.onAgentCreated);
     return store;
   }
 
   /** Resets the singleton instance. Only for use in tests. */
   static resetInstance(): void {
-    if (MainAgentStore.instance) {
+    if (CodingAgentStore.instance) {
       agentEventBus.off(
         'agent-created',
-        MainAgentStore.instance.onAgentCreated,
+        CodingAgentStore.instance.onAgentCreated,
       );
     }
-    MainAgentStore.instance = null;
+    CodingAgentStore.instance = null;
   }
 
   /** Registers an agent in the cache with LRU tracking. */
@@ -201,7 +201,7 @@ export class MainAgentStore {
 
   private async loadFromDisk(id: string): Promise<Agent | undefined> {
     if (!(await this.existsOnDisk(id))) return undefined;
-    const agent = await MainAgent.restore(this._sessionsDir, id);
+    const agent = await CodingAgent.restore(this._sessionsDir, id);
     const entry = this.cache.get(id);
     if (entry) entry.lastAccessedAt = Date.now();
     return agent;

@@ -2,6 +2,7 @@ import Router from '@koa/router';
 import compose from 'koa-compose';
 
 import {router as chatRouter} from './chat/index.js';
+import {router as codingRouter} from './coding/index.js';
 import {router as fileAccessSettingsRouter} from './file-access-settings/index.js';
 import {router as healthRouter} from './health/index.js';
 import {router as settingsRouter} from './settings/index.js';
@@ -15,6 +16,7 @@ apiRouter.use(async (ctx, next) => {
 });
 
 apiRouter.use(chatRouter.routes(), chatRouter.allowedMethods());
+apiRouter.use(codingRouter.routes(), codingRouter.allowedMethods());
 apiRouter.use(
   fileAccessSettingsRouter.routes(),
   fileAccessSettingsRouter.allowedMethods(),

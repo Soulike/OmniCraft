@@ -11,7 +11,7 @@ import {
 } from '@/agent/tools/index.js';
 import {getDataDir, getVscodePort} from '@/helpers/env.js';
 import {logger} from '@/logger.js';
-import {MainAgentStore} from '@/models/agent-store/index.js';
+import {CodingAgentStore, MainAgentStore} from '@/models/agent-store/index.js';
 import {SettingsManager} from '@/models/settings-manager/index.js';
 import {VscodeServerManager} from '@/models/vscode-server-manager/index.js';
 
@@ -20,6 +20,8 @@ export async function initServices(): Promise<void> {
   await initSettingsManager();
   const sessionsDir = path.join(getDataDir(), 'sessions');
   MainAgentStore.create(sessionsDir);
+  const codingSessionsDir = path.join(getDataDir(), 'coding-sessions');
+  CodingAgentStore.create(codingSessionsDir);
   initToolRegistries();
   initSkillRegistries();
   initVscodeServer();
