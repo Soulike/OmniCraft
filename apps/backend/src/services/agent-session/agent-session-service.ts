@@ -1,22 +1,47 @@
 import assert from 'node:assert';
 import os from 'node:os';
 
-import type {
+import {
   AgentType,
-  SessionMetadata,
-  ThinkingLevel,
+  type SessionMetadata,
+  type ThinkingLevel,
 } from '@omnicraft/api-schema';
 import type {AllowedPathEntry} from '@omnicraft/settings-schema';
 import type {SseEvent} from '@omnicraft/sse-events';
 
+import {CodingAgent, MainAgent} from '@/agent/agents/index.js';
 import type {AgentSseLogReaderOptions} from '@/agent-core/agent/agent-sse-log.js';
-import {agentTypeRegistry} from '@/models/agent-type-registry/index.js';
+import type {Agent} from '@/agent-core/agent/index.js';
+import {CodingAgentStore, MainAgentStore} from '@/models/agent-store/index.js';
 import {SettingsManager} from '@/models/settings-manager/index.js';
 
 import {getLlmConfig} from './helpers.js';
 import type {CreateSessionResult} from './types.js';
 import {CreateSessionError} from './types.js';
 import {validateSessionPaths} from './validation.js';
+
+function createAgent(
+  agentType: AgentType,
+  workingDirectory: string,
+  extraAllowedPaths: readonly AllowedPathEntry[],
+  sessionsDir: string,
+): Agent {
+  switch (agentType) {
+    case AgentType.CHAT:
+      return new MainAgent(workingDirectory, extraAllowedPaths, sessionsDir);
+    case AgentType.CODING:
+      return new CodingAgent(workingDirectory, extraAllowedPaths, sessionsDir);
+  }
+}
+
+function getStore(agentType: AgentType): MainAgentStore | CodingAgentStore {
+  switch (agentType) {
+    case AgentType.CHAT:
+      return MainAgentStore.getInstance();
+    case AgentType.CODING:
+      return CodingAgentStore.getInstance();
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Service
@@ -84,9 +109,9 @@ export const agentSessionService = {
       );
     }
 
-    const {agentConstructor: AgentClass, store} =
-      agentTypeRegistry.get(agentType);
-    const agent = new AgentClass(
+    const store = getStore(agentType);
+    const agent = createAgent(
+      agentType,
       workingDirectory,
       resolvedExtraFilePathEntries,
       store.sessionsDir,
@@ -104,8 +129,7 @@ export const agentSessionService = {
     userMessage: string,
     thinkingLevel: ThinkingLevel,
   ): Promise<boolean> {
-    const {store} = agentTypeRegistry.get(agentType);
-    const agent = await store.get(agentId);
+    const agent = await getStore(agentType).get(agentId);
     if (!agent) return false;
     agent.handleUserMessage(userMessage, thinkingLevel);
     return true;
@@ -120,8 +144,7 @@ export const agentSessionService = {
     agentId: string,
     options?: AgentSseLogReaderOptions,
   ): Promise<AsyncIterable<SseEvent> | undefined> {
-    const {store} = agentTypeRegistry.get(agentType);
-    const agent = await store.get(agentId);
+    const agent = await getStore(agentType).get(agentId);
     if (!agent) return undefined;
     return agent.subscribe(options);
   },
@@ -134,8 +157,7 @@ export const agentSessionService = {
     agentType: AgentType,
     agentId: string,
   ): Promise<boolean> {
-    const {store} = agentTypeRegistry.get(agentType);
-    const agent = await store.get(agentId);
+    const agent = await getStore(agentType).get(agentId);
     if (!agent) return false;
     agent.abort();
     return true;
@@ -153,8 +175,7 @@ export const agentSessionService = {
     interactionId: string,
     result: unknown,
   ): Promise<boolean> {
-    const {store} = agentTypeRegistry.get(agentType);
-    const agent = await store.get(agentId);
+    const agent = await getStore(agentType).get(agentId);
     if (!agent) return false;
     return agent.submitUserResponse(interactionId, result);
   },
@@ -165,13 +186,12 @@ export const agentSessionService = {
     offset: number,
     limit: number,
   ): Promise<{sessions: SessionMetadata[]; total: number}> {
-    const {store} = agentTypeRegistry.get(agentType);
-    return store.listSessionMetadata(offset, limit);
+    return getStore(agentType).listSessionMetadata(offset, limit);
   },
 
   /** Deletes an agent session. Returns false if session not found. */
   async deleteSession(agentType: AgentType, agentId: string): Promise<boolean> {
-    const {store} = agentTypeRegistry.get(agentType);
+    const store = getStore(agentType);
     if (!(await store.has(agentId))) return false;
     await store.delete(agentId);
     return true;

@@ -1,8 +1,5 @@
 import path from 'node:path';
 
-import {AgentType} from '@omnicraft/api-schema';
-
-import {CodingAgent, MainAgent} from '@/agent/agents/index.js';
 import {CoreSkillRegistry} from '@/agent/skills/index.js';
 import {
   BashToolRegistry,
@@ -15,30 +12,23 @@ import {
 import {getDataDir, getVscodePort} from '@/helpers/env.js';
 import {logger} from '@/logger.js';
 import {CodingAgentStore, MainAgentStore} from '@/models/agent-store/index.js';
-import {agentTypeRegistry} from '@/models/agent-type-registry/index.js';
 import {SettingsManager} from '@/models/settings-manager/index.js';
 import {VscodeServerManager} from '@/models/vscode-server-manager/index.js';
 
 /** Initializes all services that require async setup before the server starts. */
 export async function initServices(): Promise<void> {
   await initSettingsManager();
-  initAgentTypeRegistry();
+  initAgentStores();
   initToolRegistries();
   initSkillRegistries();
   initVscodeServer();
 }
 
-/** Creates agent stores and registers agent types. */
-function initAgentTypeRegistry(): void {
+/** Creates agent stores. */
+function initAgentStores(): void {
   const dataDir = getDataDir();
-
-  const chatStore = MainAgentStore.create(path.join(dataDir, 'sessions'));
-  agentTypeRegistry.register(AgentType.CHAT, MainAgent, chatStore);
-
-  const codingStore = CodingAgentStore.create(
-    path.join(dataDir, 'coding-sessions'),
-  );
-  agentTypeRegistry.register(AgentType.CODING, CodingAgent, codingStore);
+  MainAgentStore.create(path.join(dataDir, 'sessions'));
+  CodingAgentStore.create(path.join(dataDir, 'coding-sessions'));
 }
 
 /** Initializes the SettingsManager singleton. */
