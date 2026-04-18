@@ -6,14 +6,12 @@ import {z} from 'zod';
 
 import {CodingSubAgent, GeneralSubAgent} from '@/agent/agents/index.js';
 import type {Agent} from '@/agent-core/agent/index.js';
-import type {LlmConfig} from '@/agent-core/llm-api/index.js';
 import type {
   ToolDefinition,
   ToolExecuteResult,
   ToolExecutionContext,
 } from '@/agent-core/tool/index.js';
 import {AccessCheckResult, checkAccess} from '@/helpers/path-access.js';
-import {settingsService} from '@/services/settings/index.js';
 
 interface SubAgentInfo {
   name: string;
@@ -138,24 +136,9 @@ export const dispatchAgentTool: ToolDefinition<
       workingDirectory = resolved;
     }
 
-    // Build config for the subagent
-    const settings = await settingsService.getAll();
-    const {
-      apiFormat,
-      apiKey,
-      baseUrl,
-      model: mainModel,
-      lightModel,
-    } = settings.llm;
-    const selectedModel =
-      model === 'light' ? lightModel || mainModel : mainModel;
-    const getConfig = (): Promise<LlmConfig> =>
-      Promise.resolve({
-        apiFormat,
-        apiKey,
-        baseUrl,
-        model: selectedModel,
-      });
+    // Build config for the subagent — inherit from the parent agent
+    const getConfig =
+      model === 'light' ? context.getLightConfig : context.getConfig;
 
     // Create subagent
     let subagent: Agent;

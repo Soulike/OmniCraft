@@ -28,7 +28,7 @@ export class CodingAgent extends Agent {
     super(
       async () => {
         const settings = await settingsService.getAll();
-        const {apiFormat, apiKey, baseUrl, model} = settings.llm;
+        const {apiFormat, apiKey, baseUrl, model} = settings.codingLlm;
         return {apiFormat, apiKey, baseUrl, model};
       },
       {
@@ -48,7 +48,8 @@ export class CodingAgent extends Agent {
         },
         getLightConfig: async () => {
           const settings = await settingsService.getAll();
-          const {apiFormat, apiKey, baseUrl, model, lightModel} = settings.llm;
+          const {apiFormat, apiKey, baseUrl, model, lightModel} =
+            settings.codingLlm;
           return {apiFormat, apiKey, baseUrl, model: lightModel || model};
         },
         workingDirectory,

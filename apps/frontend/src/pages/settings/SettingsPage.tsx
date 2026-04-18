@@ -7,7 +7,8 @@ import {ROUTES} from '@/routes.js';
 import {SettingsPageView, type SettingsTab} from './SettingsPageView.js';
 
 const TABS: SettingsTab[] = [
-  {id: 'llm', label: 'LLM'},
+  {id: 'llm', label: 'Chat LLM'},
+  {id: 'codingLlm', label: 'Coding LLM'},
   {id: 'agent', label: 'Agent'},
   {id: 'search', label: 'Search'},
   {id: 'fileAccess', label: 'File Access'},
@@ -15,6 +16,7 @@ const TABS: SettingsTab[] = [
 
 const TAB_TO_PATH: Record<string, string> = {
   llm: ROUTES.settings.llm(),
+  codingLlm: ROUTES.settings.codingLlm(),
   agent: ROUTES.settings.agent(),
   search: ROUTES.settings.search(),
   fileAccess: ROUTES.settings.fileAccess(),

@@ -591,6 +591,8 @@ export abstract class Agent {
       userInteractionBridge: this.userInteractionBridge,
       todoStore: this.todoStore,
       todoState: this.todoState,
+      getConfig: this.getConfig,
+      getLightConfig: this.getLightConfig ?? this.getConfig,
     };
 
     try {

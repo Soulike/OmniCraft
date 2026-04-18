@@ -49,6 +49,20 @@ export function createMockContext(
     userInteractionBridge: new UserInteractionBridge(),
     todoStore: new TodoStore(),
     todoState: {lastObservedVersion: undefined},
+    getConfig: () =>
+      Promise.resolve({
+        apiFormat: 'claude' as const,
+        apiKey: '',
+        baseUrl: 'https://api.anthropic.com',
+        model: 'mock-model',
+      }),
+    getLightConfig: () =>
+      Promise.resolve({
+        apiFormat: 'claude' as const,
+        apiKey: '',
+        baseUrl: 'https://api.anthropic.com',
+        model: 'mock-light-model',
+      }),
     ...overrides,
   };
 }
