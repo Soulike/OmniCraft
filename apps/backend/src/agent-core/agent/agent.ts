@@ -325,6 +325,7 @@ export abstract class Agent {
     const toolDefs = [...availableTools.values()];
     const systemPrompt = buildSystemPrompt(
       this.baseSystemPrompt,
+      this.toolRegistries,
       this.skillRegistries,
       this.workingDirectory,
       this.extraAllowedPaths,

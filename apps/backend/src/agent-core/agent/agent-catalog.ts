@@ -57,11 +57,19 @@ export function buildAvailableTools(
 
 export function buildSystemPrompt(
   baseSystemPrompt: string,
+  toolRegistries: readonly ToolRegistry[],
   skillRegistries: readonly SkillRegistry[],
   workingDirectory: string,
   extraAllowedPaths: readonly AllowedPathEntry[],
 ): string {
   let prompt = baseSystemPrompt;
+
+  for (const registry of toolRegistries) {
+    const section = registry.getSystemPromptSection();
+    if (section) {
+      prompt += '\n\n' + section;
+    }
+  }
 
   const skills = buildAvailableSkills(skillRegistries);
   if (skills.size > 0) {
