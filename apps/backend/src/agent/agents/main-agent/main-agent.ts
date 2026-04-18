@@ -7,6 +7,7 @@ import {
   CoreToolRegistry,
   FileToolRegistry,
   SubAgentToolRegistry,
+  TodoToolRegistry,
   WebToolRegistry,
 } from '@/agent/tools/index.js';
 import {Agent, agentPersistence} from '@/agent-core/agent/index.js';
@@ -39,6 +40,7 @@ export class MainAgent extends Agent {
           BashToolRegistry.getInstance(),
           SubAgentToolRegistry.getInstance(),
           ClientToolRegistry.getInstance(),
+          TodoToolRegistry.getInstance(),
         ],
         skillRegistries: [CoreSkillRegistry.getInstance()],
         baseSystemPrompt: 'You are a helpful assistant.',
