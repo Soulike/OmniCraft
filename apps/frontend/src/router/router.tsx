@@ -6,6 +6,7 @@ import {ROUTES} from '@/routes.js';
 import {
   AgentSection,
   ChatPage,
+  CodingLlmSection,
   CodingPage,
   FileAccessSection,
   LlmSection,
@@ -45,6 +46,10 @@ export const router = createBrowserRouter([
           {
             path: ROUTES.settings.llm(),
             element: <LlmSection />,
+          },
+          {
+            path: ROUTES.settings.codingLlm(),
+            element: <CodingLlmSection />,
           },
           {
             path: ROUTES.settings.agent(),
