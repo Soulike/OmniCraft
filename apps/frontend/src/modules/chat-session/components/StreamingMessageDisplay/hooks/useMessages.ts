@@ -191,8 +191,8 @@ function applyAssistantMessageStart(
     const msg = prev[i];
     if (msg.role === 'assistant') {
       const isEmpty =
-        msg.id === null ||
-        (msg.content.type === 'text' && msg.content.content === '');
+        msg.content.type === 'text' &&
+        (msg.id === null || msg.content.content === '');
       if (isEmpty) {
         // Reuse: unassigned placeholder, or empty message left by a
         // previous suppressed-only tool round.
