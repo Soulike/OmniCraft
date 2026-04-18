@@ -19,6 +19,7 @@ export const todoClearTool: ToolDefinition<
   displayName: 'Todo Clear',
   description:
     'Clears all items from the todo list. ' +
+    'Requires that the current list has been retrieved first. ' +
     'Use this to discard the current plan and start fresh ' +
     'when the approach has changed significantly.',
   parameters: todoClearParametersSchema,

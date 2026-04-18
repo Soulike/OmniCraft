@@ -7,6 +7,7 @@ import {todoUpdateTool} from './todo-update.js';
 
 /** Registry for todo tracking tools. */
 export class TodoToolRegistry extends ToolRegistry {
+  /** Creates the singleton and registers all todo tools. */
   static override create(): TodoToolRegistry {
     const instance = super.create() as TodoToolRegistry;
     instance.register(todoAppendTool);

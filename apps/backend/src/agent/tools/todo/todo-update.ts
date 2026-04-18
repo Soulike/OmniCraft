@@ -19,6 +19,7 @@ export const todoUpdateTool: ToolDefinition<
   displayName: 'Todo Update',
   description:
     'Updates an existing todo item by its index. ' +
+    'Requires that the current list has been retrieved first. ' +
     'Use this to change the status of an item when starting or finishing work, ' +
     'or to revise its subject or description.',
   parameters: todoUpdateParametersSchema,

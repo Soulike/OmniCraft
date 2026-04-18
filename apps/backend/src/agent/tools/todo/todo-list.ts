@@ -19,8 +19,8 @@ export const todoListTool: ToolDefinition<
   displayName: 'Todo List',
   description:
     'Returns all items in the todo list with their current status. ' +
-    'Use this to review progress or to see the list ' +
-    'before making updates.',
+    'Always call this before making any changes — ' +
+    'updates and clears require an up-to-date view of the list.',
   parameters: todoListParametersSchema,
   suppressToolEvents: true,
   execute(_args, context) {

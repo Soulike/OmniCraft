@@ -2,18 +2,12 @@ import assert from 'node:assert';
 
 import {describe, expect, it} from 'vitest';
 
-import {TodoStore} from '@/agent-core/agent/todo-store.js';
 import {createMockContext} from '@/agent-core/tool/testing.js';
 
 import {todoAppendTool} from './todo-append.js';
 import {todoClearTool} from './todo-clear.js';
 import {todoListTool} from './todo-list.js';
 import {todoUpdateTool} from './todo-update.js';
-
-function createTodoContext() {
-  const todoStore = new TodoStore();
-  return createMockContext({todoStore});
-}
 
 describe('todo tools', () => {
   describe('todo_append', () => {
@@ -22,7 +16,7 @@ describe('todo tools', () => {
     });
 
     it('appends an item and returns full list', async () => {
-      const ctx = createTodoContext();
+      const ctx = createMockContext();
       const result = await todoAppendTool.execute(
         {subject: 'Task A', description: 'Do A'},
         ctx,
@@ -50,7 +44,7 @@ describe('todo tools', () => {
     });
 
     it('updates item status', async () => {
-      const ctx = createTodoContext();
+      const ctx = createMockContext();
       await todoAppendTool.execute(
         {subject: 'Task A', description: 'Do A'},
         ctx,
@@ -66,7 +60,7 @@ describe('todo tools', () => {
     });
 
     it('fails on out-of-bounds index', async () => {
-      const ctx = createTodoContext();
+      const ctx = createMockContext();
       await todoAppendTool.execute(
         {subject: 'Task A', description: 'Do A'},
         ctx,
@@ -78,6 +72,32 @@ describe('todo tools', () => {
 
       expect(result.status).toBe('failure');
     });
+
+    it('fails when called without prior observation', async () => {
+      const ctx = createMockContext();
+      const result = await todoUpdateTool.execute(
+        {index: 0, status: 'completed'},
+        ctx,
+      );
+      expect(result.status).toBe('failure');
+    });
+
+    it('updates subject and description', async () => {
+      const ctx = createMockContext();
+      await todoAppendTool.execute(
+        {subject: 'Old', description: 'Old desc'},
+        ctx,
+      );
+      const result = await todoUpdateTool.execute(
+        {index: 0, subject: 'New', description: 'New desc'},
+        ctx,
+      );
+
+      expect(result.status).toBe('success');
+      assert(result.status === 'success');
+      expect(result.data.items[0].subject).toBe('New');
+      expect(result.data.items[0].description).toBe('New desc');
+    });
   });
 
   describe('todo_clear', () => {
@@ -86,7 +106,7 @@ describe('todo tools', () => {
     });
 
     it('clears all items', async () => {
-      const ctx = createTodoContext();
+      const ctx = createMockContext();
       await todoAppendTool.execute(
         {subject: 'Task A', description: 'Do A'},
         ctx,
@@ -97,6 +117,12 @@ describe('todo tools', () => {
       assert(result.status === 'success');
       expect(result.data.items).toHaveLength(0);
     });
+
+    it('fails when called without prior observation', async () => {
+      const ctx = createMockContext();
+      const result = await todoClearTool.execute({}, ctx);
+      expect(result.status).toBe('failure');
+    });
   });
 
   describe('todo_list', () => {
@@ -105,7 +131,7 @@ describe('todo tools', () => {
     });
 
     it('returns empty list initially', async () => {
-      const ctx = createTodoContext();
+      const ctx = createMockContext();
       const result = await todoListTool.execute({}, ctx);
 
       expect(result.status).toBe('success');
@@ -114,7 +140,7 @@ describe('todo tools', () => {
     });
 
     it('returns all items', async () => {
-      const ctx = createTodoContext();
+      const ctx = createMockContext();
       await todoAppendTool.execute({subject: 'A', description: 'a'}, ctx);
       await todoAppendTool.execute({subject: 'B', description: 'b'}, ctx);
       const result = await todoListTool.execute({}, ctx);
@@ -126,7 +152,7 @@ describe('todo tools', () => {
 
   describe('content format', () => {
     it('formats content string with status summary', async () => {
-      const ctx = createTodoContext();
+      const ctx = createMockContext();
       await todoAppendTool.execute(
         {subject: 'Task A', description: 'Do A'},
         ctx,
@@ -145,7 +171,7 @@ describe('todo tools', () => {
     });
 
     it('shows empty message for empty list', async () => {
-      const ctx = createTodoContext();
+      const ctx = createMockContext();
       const result = await todoListTool.execute({}, ctx);
 
       expect(result.content).toContain('empty');
