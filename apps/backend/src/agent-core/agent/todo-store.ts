@@ -35,15 +35,16 @@ export class TodoStore {
     return this._version;
   }
 
-  /** Appends a new item with status `pending`. */
-  append(subject: string, description: string): void {
-    const item: TodoItem = {
-      index: this.items.length,
-      subject,
-      description,
-      status: 'pending',
-    };
-    this.items.push(item);
+  /** Appends one or more items, each with status `pending`. */
+  append(items: readonly Pick<TodoItem, 'subject' | 'description'>[]): void {
+    for (const {subject, description} of items) {
+      this.items.push({
+        index: this.items.length,
+        subject,
+        description,
+        status: 'pending',
+      });
+    }
     this._version++;
   }
 

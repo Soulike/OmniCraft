@@ -10,7 +10,7 @@ export const todoAppendTool: ToolDefinition<
   name: 'todo_append',
   displayName: 'Todo Append',
   description:
-    'Appends a new todo item to the end of the list with status pending. ' +
+    'Appends one or more todo items to the end of the list with status pending. ' +
     'Use this to break down work into trackable steps ' +
     'when handling a multi-step task. ' +
     'Do not create items for simple tasks that need no progress tracking.',
@@ -18,7 +18,7 @@ export const todoAppendTool: ToolDefinition<
   suppressToolEvents: true,
   execute(args, context) {
     const {todoStore, todoState} = context;
-    todoStore.append(args.subject, args.description);
+    todoStore.append(args.items);
     const items = todoStore.list();
     markObserved(todoStore, todoState);
     return {

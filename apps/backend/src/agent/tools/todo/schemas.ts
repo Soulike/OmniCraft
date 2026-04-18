@@ -21,8 +21,15 @@ export type TodoResult = z.infer<typeof todoResultSchema>;
 // --- Parameter schemas ---
 
 export const todoAppendParametersSchema = z.object({
-  subject: z.string().min(1).describe('Brief title for the todo item'),
-  description: z.string().describe('What needs to be done'),
+  items: z
+    .array(
+      z.object({
+        subject: z.string().min(1).describe('Brief title for the todo item'),
+        description: z.string().describe('What needs to be done'),
+      }),
+    )
+    .min(1)
+    .describe('Items to append to the todo list'),
 });
 
 export const todoUpdateParametersSchema = z.object({
