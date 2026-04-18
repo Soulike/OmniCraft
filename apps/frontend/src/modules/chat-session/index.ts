@@ -2,7 +2,6 @@
 export {ChatAlert} from './components/ChatAlert/index.js';
 export {ChatInput} from './components/ChatInput/index.js';
 export {InfoBar} from './components/InfoBar/index.js';
-export {SessionSetup} from './components/SessionSetup/index.js';
 export {SessionSidebar} from './components/SessionSidebar/index.js';
 export {StreamingMessageDisplay} from './components/StreamingMessageDisplay/index.js';
 export {TitleBarView} from './components/TitleBar/index.js';

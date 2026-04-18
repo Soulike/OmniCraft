@@ -9,11 +9,12 @@ import {
   type ChatMessage,
   chatSessionStyles as styles,
   InfoBar,
-  SessionSetup,
   SessionSidebar,
   StreamingMessageDisplay,
   TitleBarView,
 } from '@/modules/chat-session/index.js';
+
+import {SessionSetup} from './components/SessionSetup/index.js';
 
 interface ChatPageViewProps {
   title: string | null;
