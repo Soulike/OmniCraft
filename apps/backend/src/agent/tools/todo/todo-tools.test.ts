@@ -18,7 +18,7 @@ describe('todo tools', () => {
     it('appends an item and returns full list', async () => {
       const ctx = createMockContext();
       const result = await todoAppendTool.execute(
-        {subject: 'Task A', description: 'Do A'},
+        {items: [{subject: 'Task A', description: 'Do A'}]},
         ctx,
       );
 
@@ -31,6 +31,25 @@ describe('todo tools', () => {
         description: 'Do A',
         status: 'pending',
       });
+    });
+
+    it('appends multiple items in one call', async () => {
+      const ctx = createMockContext();
+      const result = await todoAppendTool.execute(
+        {
+          items: [
+            {subject: 'Task A', description: 'Do A'},
+            {subject: 'Task B', description: 'Do B'},
+          ],
+        },
+        ctx,
+      );
+
+      expect(result.status).toBe('success');
+      assert(result.status === 'success');
+      expect(result.data.items).toHaveLength(2);
+      expect(result.data.items[0].index).toBe(0);
+      expect(result.data.items[1].index).toBe(1);
     });
 
     it('suppresses tool events', () => {
@@ -46,7 +65,7 @@ describe('todo tools', () => {
     it('updates item status', async () => {
       const ctx = createMockContext();
       await todoAppendTool.execute(
-        {subject: 'Task A', description: 'Do A'},
+        {items: [{subject: 'Task A', description: 'Do A'}]},
         ctx,
       );
       const result = await todoUpdateTool.execute(
@@ -62,7 +81,7 @@ describe('todo tools', () => {
     it('fails on out-of-bounds index', async () => {
       const ctx = createMockContext();
       await todoAppendTool.execute(
-        {subject: 'Task A', description: 'Do A'},
+        {items: [{subject: 'Task A', description: 'Do A'}]},
         ctx,
       );
       const result = await todoUpdateTool.execute(
@@ -85,7 +104,7 @@ describe('todo tools', () => {
     it('updates subject and description', async () => {
       const ctx = createMockContext();
       await todoAppendTool.execute(
-        {subject: 'Old', description: 'Old desc'},
+        {items: [{subject: 'Old', description: 'Old desc'}]},
         ctx,
       );
       const result = await todoUpdateTool.execute(
@@ -108,7 +127,7 @@ describe('todo tools', () => {
     it('clears all items', async () => {
       const ctx = createMockContext();
       await todoAppendTool.execute(
-        {subject: 'Task A', description: 'Do A'},
+        {items: [{subject: 'Task A', description: 'Do A'}]},
         ctx,
       );
       const result = await todoClearTool.execute({}, ctx);
@@ -141,8 +160,14 @@ describe('todo tools', () => {
 
     it('returns all items', async () => {
       const ctx = createMockContext();
-      await todoAppendTool.execute({subject: 'A', description: 'a'}, ctx);
-      await todoAppendTool.execute({subject: 'B', description: 'b'}, ctx);
+      await todoAppendTool.execute(
+        {items: [{subject: 'A', description: 'a'}]},
+        ctx,
+      );
+      await todoAppendTool.execute(
+        {items: [{subject: 'B', description: 'b'}]},
+        ctx,
+      );
       const result = await todoListTool.execute({}, ctx);
 
       assert(result.status === 'success');
@@ -154,11 +179,12 @@ describe('todo tools', () => {
     it('formats content string with status summary', async () => {
       const ctx = createMockContext();
       await todoAppendTool.execute(
-        {subject: 'Task A', description: 'Do A'},
-        ctx,
-      );
-      await todoAppendTool.execute(
-        {subject: 'Task B', description: 'Do B'},
+        {
+          items: [
+            {subject: 'Task A', description: 'Do A'},
+            {subject: 'Task B', description: 'Do B'},
+          ],
+        },
         ctx,
       );
       await todoUpdateTool.execute({index: 0, status: 'completed'}, ctx);

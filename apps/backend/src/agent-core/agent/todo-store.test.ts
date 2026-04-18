@@ -4,9 +4,9 @@ import {TodoStore} from './todo-store.js';
 
 describe('TodoStore', () => {
   describe('append', () => {
-    it('appends an item with status pending', () => {
+    it('appends a single item with status pending', () => {
       const store = new TodoStore();
-      store.append('Task A', 'Do A');
+      store.append([{subject: 'Task A', description: 'Do A'}]);
       const items = store.list();
 
       expect(items).toHaveLength(1);
@@ -18,10 +18,12 @@ describe('TodoStore', () => {
       });
     });
 
-    it('appends multiple items with sequential indices', () => {
+    it('appends multiple items in one call with sequential indices', () => {
       const store = new TodoStore();
-      store.append('Task A', 'Do A');
-      store.append('Task B', 'Do B');
+      store.append([
+        {subject: 'Task A', description: 'Do A'},
+        {subject: 'Task B', description: 'Do B'},
+      ]);
       const items = store.list();
 
       expect(items).toHaveLength(2);
@@ -29,20 +31,36 @@ describe('TodoStore', () => {
       expect(items[1].index).toBe(1);
     });
 
-    it('increments version', () => {
+    it('appends to existing items with correct indices', () => {
+      const store = new TodoStore();
+      store.append([{subject: 'Task A', description: 'Do A'}]);
+      store.append([
+        {subject: 'Task B', description: 'Do B'},
+        {subject: 'Task C', description: 'Do C'},
+      ]);
+      const items = store.list();
+
+      expect(items).toHaveLength(3);
+      expect(items[0].index).toBe(0);
+      expect(items[1].index).toBe(1);
+      expect(items[2].index).toBe(2);
+    });
+
+    it('increments version once per call', () => {
       const store = new TodoStore();
       expect(store.version).toBe(0);
-      store.append('Task A', 'Do A');
+      store.append([
+        {subject: 'Task A', description: 'Do A'},
+        {subject: 'Task B', description: 'Do B'},
+      ]);
       expect(store.version).toBe(1);
-      store.append('Task B', 'Do B');
-      expect(store.version).toBe(2);
     });
   });
 
   describe('update', () => {
     it('updates status of an existing item', () => {
       const store = new TodoStore();
-      store.append('Task A', 'Do A');
+      store.append([{subject: 'Task A', description: 'Do A'}]);
       store.update(0, {status: 'in_progress'});
       const items = store.list();
 
@@ -51,7 +69,7 @@ describe('TodoStore', () => {
 
     it('updates subject and description', () => {
       const store = new TodoStore();
-      store.append('Old', 'Old desc');
+      store.append([{subject: 'Old', description: 'Old desc'}]);
       store.update(0, {subject: 'New', description: 'New desc'});
       const items = store.list();
 
@@ -61,7 +79,7 @@ describe('TodoStore', () => {
 
     it('throws on out-of-bounds index', () => {
       const store = new TodoStore();
-      store.append('Task A', 'Do A');
+      store.append([{subject: 'Task A', description: 'Do A'}]);
       expect(() => {
         store.update(5, {status: 'completed'});
       }).toThrow();
@@ -69,7 +87,7 @@ describe('TodoStore', () => {
 
     it('increments version', () => {
       const store = new TodoStore();
-      store.append('Task A', 'Do A');
+      store.append([{subject: 'Task A', description: 'Do A'}]);
       const before = store.version;
       store.update(0, {status: 'completed'});
       expect(store.version).toBe(before + 1);
@@ -79,8 +97,8 @@ describe('TodoStore', () => {
   describe('clear', () => {
     it('removes all items', () => {
       const store = new TodoStore();
-      store.append('Task A', 'Do A');
-      store.append('Task B', 'Do B');
+      store.append([{subject: 'Task A', description: 'Do A'}]);
+      store.append([{subject: 'Task B', description: 'Do B'}]);
       store.clear();
       const items = store.list();
 
@@ -89,9 +107,9 @@ describe('TodoStore', () => {
 
     it('resets indices so next append starts at 0', () => {
       const store = new TodoStore();
-      store.append('Task A', 'Do A');
+      store.append([{subject: 'Task A', description: 'Do A'}]);
       store.clear();
-      store.append('Task B', 'Do B');
+      store.append([{subject: 'Task B', description: 'Do B'}]);
       const items = store.list();
 
       expect(items).toHaveLength(1);
@@ -100,7 +118,7 @@ describe('TodoStore', () => {
 
     it('increments version', () => {
       const store = new TodoStore();
-      store.append('Task A', 'Do A');
+      store.append([{subject: 'Task A', description: 'Do A'}]);
       const before = store.version;
       store.clear();
       expect(store.version).toBe(before + 1);
@@ -115,8 +133,8 @@ describe('TodoStore', () => {
 
     it('returns all items', () => {
       const store = new TodoStore();
-      store.append('A', 'a');
-      store.append('B', 'b');
+      store.append([{subject: 'A', description: 'a'}]);
+      store.append([{subject: 'B', description: 'b'}]);
       const items = store.list();
 
       expect(items).toHaveLength(2);
@@ -124,7 +142,7 @@ describe('TodoStore', () => {
 
     it('returns a copy, not the internal array', () => {
       const store = new TodoStore();
-      store.append('A', 'a');
+      store.append([{subject: 'A', description: 'a'}]);
       const list1 = store.list();
       const list2 = store.list();
 
@@ -133,7 +151,7 @@ describe('TodoStore', () => {
 
     it('does not increment version', () => {
       const store = new TodoStore();
-      store.append('A', 'a');
+      store.append([{subject: 'A', description: 'a'}]);
       const before = store.version;
       store.list();
       expect(store.version).toBe(before);
