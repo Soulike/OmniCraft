@@ -1,7 +1,5 @@
 import {z} from 'zod';
 
-import {todoStatusSchema} from './result-schemas.js';
-
 // --- read_file ---
 
 export const readFileParametersSchema = z.object({
@@ -226,51 +224,3 @@ export const askUserBridgeResponseSchema = z.discriminatedUnion('cancelled', [
   }),
   z.object({cancelled: z.literal(true)}),
 ]);
-
-// --- todo_append ---
-
-export const todoAppendParametersSchema = z.object({
-  subject: z.string().min(1).describe('Brief title for the todo item'),
-  description: z.string().describe('What needs to be done'),
-});
-
-// --- todo_update ---
-
-export const todoUpdateParametersSchema = z.object({
-  index: z
-    .number()
-    .int()
-    .min(0)
-    .describe(
-      'The 0-based index of the todo item to update, as shown in the todo list',
-    ),
-  subject: z
-    .string()
-    .min(1)
-    .optional()
-    .describe(
-      'New title for the item. ' +
-        'Only provide this when the title needs to change.',
-    ),
-  description: z
-    .string()
-    .optional()
-    .describe(
-      'New description for the item. ' +
-        'Only provide this when the description needs to change.',
-    ),
-  status: todoStatusSchema
-    .optional()
-    .describe(
-      'New status for the item. ' +
-        'Set to in_progress when starting work, completed when done.',
-    ),
-});
-
-// --- todo_clear ---
-
-export const todoClearParametersSchema = z.object({});
-
-// --- todo_list ---
-
-export const todoListParametersSchema = z.object({});

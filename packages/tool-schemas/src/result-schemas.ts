@@ -91,17 +91,3 @@ export const askUserResultSchema = z.object({
 
 /** Structured data for failure/error results. */
 export const toolFailureDataSchema = z.object({message: z.string()});
-
-export const todoStatusSchema = z.enum(['pending', 'in_progress', 'completed']);
-
-export const todoItemSchema = z.object({
-  index: z.number().int().min(0),
-  subject: z.string().min(1),
-  description: z.string(),
-  status: todoStatusSchema,
-});
-
-/** Shared result schema — all four todo tools return the full list. */
-export const todoResultSchema = z.object({
-  items: z.array(todoItemSchema),
-});

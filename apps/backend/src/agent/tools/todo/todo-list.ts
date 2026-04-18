@@ -1,21 +1,13 @@
-import {
-  todoListParametersSchema,
-  todoResultSchema,
-  TOOL_NAME,
-} from '@omnicraft/tool-schemas';
-import {z} from 'zod';
-
 import type {ToolDefinition} from '@/agent-core/tool/index.js';
 
 import {formatTodoContent} from './helpers.js';
-
-type TodoResult = z.infer<typeof todoResultSchema>;
+import {todoListParametersSchema, type TodoResult} from './schemas.js';
 
 export const todoListTool: ToolDefinition<
   typeof todoListParametersSchema,
   TodoResult
 > = {
-  name: TOOL_NAME.TODO_LIST,
+  name: 'todo_list',
   displayName: 'Todo List',
   description:
     'Returns all items in the todo list with their current status. ' +

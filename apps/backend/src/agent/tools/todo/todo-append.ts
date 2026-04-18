@@ -1,21 +1,13 @@
-import {
-  todoAppendParametersSchema,
-  todoResultSchema,
-  TOOL_NAME,
-} from '@omnicraft/tool-schemas';
-import {z} from 'zod';
-
 import type {ToolDefinition} from '@/agent-core/tool/index.js';
 
 import {formatTodoContent} from './helpers.js';
-
-type TodoResult = z.infer<typeof todoResultSchema>;
+import {todoAppendParametersSchema, type TodoResult} from './schemas.js';
 
 export const todoAppendTool: ToolDefinition<
   typeof todoAppendParametersSchema,
   TodoResult
 > = {
-  name: TOOL_NAME.TODO_APPEND,
+  name: 'todo_append',
   displayName: 'Todo Append',
   description:
     'Appends a new todo item to the end of the list with status pending. ' +

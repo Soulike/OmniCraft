@@ -1,21 +1,13 @@
-import {
-  todoClearParametersSchema,
-  todoResultSchema,
-  TOOL_NAME,
-} from '@omnicraft/tool-schemas';
-import {z} from 'zod';
-
 import type {ToolDefinition} from '@/agent-core/tool/index.js';
 
 import {formatTodoContent} from './helpers.js';
-
-type TodoResult = z.infer<typeof todoResultSchema>;
+import {todoClearParametersSchema, type TodoResult} from './schemas.js';
 
 export const todoClearTool: ToolDefinition<
   typeof todoClearParametersSchema,
   TodoResult
 > = {
-  name: TOOL_NAME.TODO_CLEAR,
+  name: 'todo_clear',
   displayName: 'Todo Clear',
   description:
     'Clears all items from the todo list. ' +

@@ -1,21 +1,13 @@
-import {
-  todoResultSchema,
-  todoUpdateParametersSchema,
-  TOOL_NAME,
-} from '@omnicraft/tool-schemas';
-import {z} from 'zod';
-
 import type {ToolDefinition} from '@/agent-core/tool/index.js';
 
 import {formatTodoContent} from './helpers.js';
-
-type TodoResult = z.infer<typeof todoResultSchema>;
+import {type TodoResult, todoUpdateParametersSchema} from './schemas.js';
 
 export const todoUpdateTool: ToolDefinition<
   typeof todoUpdateParametersSchema,
   TodoResult
 > = {
-  name: TOOL_NAME.TODO_UPDATE,
+  name: 'todo_update',
   displayName: 'Todo Update',
   description:
     'Updates an existing todo item by its index. ' +
