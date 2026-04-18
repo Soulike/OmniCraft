@@ -14,7 +14,9 @@ import {
   TitleBarView,
 } from '@/modules/chat-session/index.js';
 
-interface ChatPageViewProps {
+import {SessionSetup} from './components/SessionSetup/index.js';
+
+interface CodingPageViewProps {
   title: string | null;
   eventBus: ChatEventBus;
   isEmpty: boolean;
@@ -29,11 +31,12 @@ interface ChatPageViewProps {
   onStop: () => void;
   onNewSession: () => void;
   newSessionDisabled: boolean;
+  vscodeUrl: string | null;
   onDismissError: () => void;
   onDismissMaxRoundsReached: () => void;
 }
 
-export function ChatPageView({
+export function CodingPageView({
   title,
   eventBus,
   isEmpty,
@@ -48,9 +51,10 @@ export function ChatPageView({
   onStop,
   onNewSession,
   newSessionDisabled,
+  vscodeUrl,
   onDismissError,
   onDismissMaxRoundsReached,
-}: ChatPageViewProps) {
+}: CodingPageViewProps) {
   return (
     <div className={styles.wrapper}>
       <SessionSidebar />
@@ -83,13 +87,12 @@ export function ChatPageView({
             title={title}
             onNewSession={onNewSession}
             newSessionDisabled={newSessionDisabled}
+            vscodeUrl={vscodeUrl}
           />
           <ScrollShadow className={styles.messageListWrapper} ref={scrollRef}>
             {isEmpty && !sessionId && (
               <div className={styles.emptyState}>
-                <p className={styles.emptyStateText}>
-                  Start a conversation below.
-                </p>
+                <SessionSetup />
               </div>
             )}
             <StreamingMessageDisplay

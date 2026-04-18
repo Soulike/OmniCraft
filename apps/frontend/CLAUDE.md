@@ -34,13 +34,10 @@ If the component is not for a page, use
 export {Component} from './container.js';
 ```
 
-If the component is for a page, consider using `React.lazy()` to export it for better code-splitting.
+If the component is for a page, use a plain named export. Lazy loading is handled centrally in `router/lazy-pages.tsx`.
 
 ```typescript
-export const Component = React.lazy(async () => {
-  const {Component} = await import('./container.js');
-  return {default: Component};
-});
+export {Component} from './Component.js';
 ```
 
 ## Component Importing

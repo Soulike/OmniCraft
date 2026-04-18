@@ -4,6 +4,6 @@ import {defineRoutes} from '@/router/define-routes/index.js';
 export const ROUTES = defineRoutes({
   dashboard: {},
   chat: {},
-  tasks: {},
+  coding: {},
   settings: {llm: {}, agent: {}, search: {}, fileAccess: {}},
 });

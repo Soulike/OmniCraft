@@ -6,6 +6,7 @@ import {ROUTES} from '@/routes.js';
 import {
   AgentSection,
   ChatPage,
+  CodingPage,
   FileAccessSection,
   LlmSection,
   SearchSection,
@@ -30,8 +31,8 @@ export const router = createBrowserRouter([
         element: <ChatPage />,
       },
       {
-        path: ROUTES.tasks(),
-        element: null,
+        path: `${ROUTES.coding()}/:sessionId?`,
+        element: <CodingPage />,
       },
       {
         path: ROUTES.settings(),

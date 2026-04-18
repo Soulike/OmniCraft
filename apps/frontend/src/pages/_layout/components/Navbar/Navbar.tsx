@@ -15,7 +15,7 @@ export function Navbar() {
     () => [
       {id: 'dashboard', label: 'Dashboard', path: ROUTES.dashboard()},
       {id: 'chat', label: 'Chat', path: ROUTES.chat()},
-      {id: 'tasks', label: 'Tasks', path: ROUTES.tasks()},
+      {id: 'coding', label: 'Coding', path: ROUTES.coding()},
       {id: 'settings', label: 'Settings', path: ROUTES.settings()},
     ],
     [],

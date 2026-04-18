@@ -1,3 +1,4 @@
+export {AgentType, agentTypeSchema} from './agent-type/schema.js';
 export {
   type ChatCompletionsRequest,
   chatCompletionsRequestSchema,

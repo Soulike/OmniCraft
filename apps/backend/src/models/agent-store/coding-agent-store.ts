@@ -7,7 +7,7 @@ import {
   sessionMetadataSchema,
 } from '@omnicraft/api-schema';
 
-import {MainAgent} from '@/agent/agents/index.js';
+import {CodingAgent} from '@/agent/agents/index.js';
 import type {Agent} from '@/agent-core/agent/index.js';
 import {agentPersistence} from '@/agent-core/agent/index.js';
 import {agentEventBus} from '@/agent-core/events/index.js';
@@ -16,11 +16,11 @@ import {logger} from '@/logger.js';
 
 import {AgentStore} from './agent-store.js';
 
-export class MainAgentStore extends AgentStore {
-  private static instance: MainAgentStore | null = null;
+export class CodingAgentStore extends AgentStore {
+  private static instance: CodingAgentStore | null = null;
 
   private readonly onAgentCreated = (agent: Agent): void => {
-    if (agent instanceof MainAgent) {
+    if (agent instanceof CodingAgent) {
       this.set(agent);
     }
   };
@@ -30,35 +30,35 @@ export class MainAgentStore extends AgentStore {
   }
 
   /** Returns the singleton instance. */
-  static getInstance(): MainAgentStore {
+  static getInstance(): CodingAgentStore {
     assert(
-      MainAgentStore.instance !== null,
-      'MainAgentStore is not initialized. Call MainAgentStore.create() first.',
+      CodingAgentStore.instance !== null,
+      'CodingAgentStore is not initialized. Call CodingAgentStore.create() first.',
     );
-    return MainAgentStore.instance;
+    return CodingAgentStore.instance;
   }
 
   /** Creates the singleton instance and subscribes to agent events. */
-  static create(sessionsDir: string): MainAgentStore {
+  static create(sessionsDir: string): CodingAgentStore {
     assert(
-      MainAgentStore.instance === null,
-      'MainAgentStore is already initialized.',
+      CodingAgentStore.instance === null,
+      'CodingAgentStore is already initialized.',
     );
-    const store = new MainAgentStore(sessionsDir);
-    MainAgentStore.instance = store;
+    const store = new CodingAgentStore(sessionsDir);
+    CodingAgentStore.instance = store;
     agentEventBus.on('agent-created', store.onAgentCreated);
     return store;
   }
 
   /** Resets the singleton instance. Only for use in tests. */
   static resetInstance(): void {
-    if (MainAgentStore.instance) {
+    if (CodingAgentStore.instance) {
       agentEventBus.off(
         'agent-created',
-        MainAgentStore.instance.onAgentCreated,
+        CodingAgentStore.instance.onAgentCreated,
       );
     }
-    MainAgentStore.instance = null;
+    CodingAgentStore.instance = null;
   }
 
   async listSessionMetadata(
@@ -72,7 +72,6 @@ export class MainAgentStore extends AgentStore {
       return {sessions: [], total: 0};
     }
 
-    // Phase 1: stat all snapshot files to get mtime for sorting.
     const statResults: {id: string; mtime: number}[] = [];
     await Promise.all(
       entries.map(async (entry) => {
@@ -94,7 +93,6 @@ export class MainAgentStore extends AgentStore {
     const total = statResults.length;
     const page = statResults.slice(offset, offset + limit);
 
-    // Phase 2: read metadata (or snapshot as fallback) for the requested page.
     const results = await Promise.all(
       page.map(async ({id}): Promise<SessionMetadata | null> => {
         try {
@@ -115,7 +113,7 @@ export class MainAgentStore extends AgentStore {
 
   protected async loadFromDisk(id: string): Promise<Agent | undefined> {
     if (!(await this.existsOnDisk(id))) return undefined;
-    return MainAgent.restore(this.sessionsDir, id);
+    return CodingAgent.restore(this.sessionsDir, id);
   }
 
   protected async existsOnDisk(id: string): Promise<boolean> {
@@ -137,10 +135,6 @@ export class MainAgentStore extends AgentStore {
     }
   }
 
-  /**
-   * Reads session metadata from metadata.json, falling back to snapshot.json
-   * for sessions created before the sidecar file was introduced.
-   */
   private async readSessionMetadataFile(id: string): Promise<string> {
     try {
       return await readFile(

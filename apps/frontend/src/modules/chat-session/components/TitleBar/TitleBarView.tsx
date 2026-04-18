@@ -7,7 +7,7 @@ interface TitleBarViewProps {
   title: string | null;
   onNewSession: () => void;
   newSessionDisabled: boolean;
-  vscodeUrl: string | null;
+  vscodeUrl?: string | null;
 }
 
 export function TitleBarView({
@@ -21,7 +21,7 @@ export function TitleBarView({
       <div className={styles.left} />
       <h2 className={styles.title}>{title ?? 'New Session'}</h2>
       <div className={styles.right}>
-        {vscodeUrl !== null && (
+        {!!vscodeUrl && (
           <Tooltip delay={0}>
             <Tooltip.Trigger>
               <a href={vscodeUrl} target='_blank' rel='noreferrer'>

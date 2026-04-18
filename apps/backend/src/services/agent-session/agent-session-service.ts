@@ -1,13 +1,18 @@
 import assert from 'node:assert';
 import os from 'node:os';
 
-import type {SessionMetadata, ThinkingLevel} from '@omnicraft/api-schema';
+import {
+  AgentType,
+  type SessionMetadata,
+  type ThinkingLevel,
+} from '@omnicraft/api-schema';
 import type {AllowedPathEntry} from '@omnicraft/settings-schema';
 import type {SseEvent} from '@omnicraft/sse-events';
 
-import {MainAgent} from '@/agent/agents/index.js';
+import {CodingAgent, MainAgent} from '@/agent/agents/index.js';
 import type {AgentSseLogReaderOptions} from '@/agent-core/agent/agent-sse-log.js';
-import {MainAgentStore} from '@/models/agent-store/index.js';
+import type {Agent} from '@/agent-core/agent/index.js';
+import {CodingAgentStore, MainAgentStore} from '@/models/agent-store/index.js';
 import {SettingsManager} from '@/models/settings-manager/index.js';
 
 import {getLlmConfig} from './helpers.js';
@@ -15,30 +20,44 @@ import type {CreateSessionResult} from './types.js';
 import {CreateSessionError} from './types.js';
 import {validateSessionPaths} from './validation.js';
 
+function getStore(agentType: AgentType) {
+  switch (agentType) {
+    case AgentType.CHAT:
+      return MainAgentStore.getInstance();
+    case AgentType.CODING:
+      return CodingAgentStore.getInstance();
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Service
+// ---------------------------------------------------------------------------
+
 interface CreateSessionOptions {
   workspace?: string;
   extraAllowedPaths?: string[];
 }
 
-/** Service layer for chat operations. */
-export const chatService = {
+/** Unified service layer for all agent-backed sessions. */
+export const agentSessionService = {
   /**
-   * Creates a new Agent Session with a MainAgent.
+   * Creates a new session for the given agent type.
    * Validates LLM configuration before creating the session.
    * If workspace is provided, validates it against settings; otherwise uses os.tmpdir().
    */
   async createSession(
+    agentType: AgentType,
     options: CreateSessionOptions = {},
   ): Promise<CreateSessionResult> {
-    const config = await getLlmConfig();
+    const llmConfig = await getLlmConfig();
 
-    if (!config.baseUrl) {
+    if (!llmConfig.baseUrl) {
       return {
         success: false,
         error: CreateSessionError.BASE_URL_NOT_CONFIGURED,
       };
     }
-    if (!config.model) {
+    if (!llmConfig.model) {
       return {success: false, error: CreateSessionError.MODEL_NOT_CONFIGURED};
     }
 
@@ -76,11 +95,25 @@ export const chatService = {
       );
     }
 
-    const agent = new MainAgent(
-      workingDirectory,
-      resolvedExtraFilePathEntries,
-      MainAgentStore.getInstance().sessionsDir,
-    );
+    const store = getStore(agentType);
+    const sessionsDir = store.sessionsDir;
+    let agent: Agent;
+    switch (agentType) {
+      case AgentType.CHAT:
+        agent = new MainAgent(
+          workingDirectory,
+          resolvedExtraFilePathEntries,
+          sessionsDir,
+        );
+        break;
+      case AgentType.CODING:
+        agent = new CodingAgent(
+          workingDirectory,
+          resolvedExtraFilePathEntries,
+          sessionsDir,
+        );
+        break;
+    }
     return {success: true, sessionId: agent.id};
   },
 
@@ -89,11 +122,12 @@ export const chatService = {
    * use {@link subscribe} to read events. Returns false if agent not found.
    */
   async sendCompletion(
+    agentType: AgentType,
     agentId: string,
     userMessage: string,
     thinkingLevel: ThinkingLevel,
   ): Promise<boolean> {
-    const agent = await MainAgentStore.getInstance().get(agentId);
+    const agent = await getStore(agentType).get(agentId);
     if (!agent) return false;
     agent.handleUserMessage(userMessage, thinkingLevel);
     return true;
@@ -104,10 +138,11 @@ export const chatService = {
    * Returns undefined if agent not found.
    */
   async subscribe(
+    agentType: AgentType,
     agentId: string,
     options?: AgentSseLogReaderOptions,
   ): Promise<AsyncIterable<SseEvent> | undefined> {
-    const agent = await MainAgentStore.getInstance().get(agentId);
+    const agent = await getStore(agentType).get(agentId);
     if (!agent) return undefined;
     return agent.subscribe(options);
   },
@@ -116,8 +151,11 @@ export const chatService = {
    * Aborts the currently running turn for the given agent.
    * Returns false if agent not found.
    */
-  async abortCompletion(agentId: string): Promise<boolean> {
-    const agent = await MainAgentStore.getInstance().get(agentId);
+  async abortCompletion(
+    agentType: AgentType,
+    agentId: string,
+  ): Promise<boolean> {
+    const agent = await getStore(agentType).get(agentId);
     if (!agent) return false;
     agent.abort();
     return true;
@@ -130,26 +168,28 @@ export const chatService = {
    *          `false` if the agent or interaction does not exist.
    */
   async submitToolResponse(
+    agentType: AgentType,
     agentId: string,
     interactionId: string,
     result: unknown,
   ): Promise<boolean> {
-    const agent = await MainAgentStore.getInstance().get(agentId);
+    const agent = await getStore(agentType).get(agentId);
     if (!agent) return false;
     return agent.submitUserResponse(interactionId, result);
   },
 
   /** Lists persisted sessions with pagination. */
   async listSessions(
+    agentType: AgentType,
     offset: number,
     limit: number,
   ): Promise<{sessions: SessionMetadata[]; total: number}> {
-    return MainAgentStore.getInstance().listSessionMetadata(offset, limit);
+    return getStore(agentType).listSessionMetadata(offset, limit);
   },
 
   /** Deletes an agent session. Returns false if session not found. */
-  async deleteSession(agentId: string): Promise<boolean> {
-    const store = MainAgentStore.getInstance();
+  async deleteSession(agentType: AgentType, agentId: string): Promise<boolean> {
+    const store = getStore(agentType);
     if (!(await store.has(agentId))) return false;
     await store.delete(agentId);
     return true;

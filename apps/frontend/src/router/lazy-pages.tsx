@@ -5,6 +5,11 @@ export const ChatPage = lazy(async () => {
   return {default: ChatPage};
 });
 
+export const CodingPage = lazy(async () => {
+  const {CodingPage} = await import('@/pages/coding/index.js');
+  return {default: CodingPage};
+});
+
 export const SettingsPage = lazy(async () => {
   const {SettingsPage} = await import('@/pages/settings/index.js');
   return {default: SettingsPage};

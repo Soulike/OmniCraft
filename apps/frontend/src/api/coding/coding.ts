@@ -8,11 +8,11 @@ import type {SseEvent} from '@omnicraft/sse-events';
 import type {CreateSessionOptions} from '../agent-session/index.js';
 import * as agentSessionApi from '../agent-session/index.js';
 
-/** Creates a new chat session. Returns the session ID. */
+/** Creates a new coding session. Returns the session ID. */
 export async function createSession(
   options: CreateSessionOptions = {},
 ): Promise<string> {
-  return agentSessionApi.createSession(AgentType.CHAT, options);
+  return agentSessionApi.createSession(AgentType.CODING, options);
 }
 
 export async function sendMessage(
@@ -21,7 +21,7 @@ export async function sendMessage(
   thinkingLevel: ThinkingLevel,
 ): Promise<void> {
   return agentSessionApi.sendMessage(
-    AgentType.CHAT,
+    AgentType.CODING,
     sessionId,
     message,
     thinkingLevel,
@@ -34,7 +34,7 @@ export async function* subscribeEvents(
   signal?: AbortSignal,
 ): AsyncGenerator<SseEvent, void, undefined> {
   yield* agentSessionApi.subscribeEvents(
-    AgentType.CHAT,
+    AgentType.CODING,
     sessionId,
     from,
     signal,
@@ -42,7 +42,7 @@ export async function* subscribeEvents(
 }
 
 export async function abortCompletion(sessionId: string): Promise<void> {
-  return agentSessionApi.abortCompletion(AgentType.CHAT, sessionId);
+  return agentSessionApi.abortCompletion(AgentType.CODING, sessionId);
 }
 
 export async function submitToolResponse(
@@ -51,7 +51,7 @@ export async function submitToolResponse(
   result: unknown,
 ): Promise<void> {
   return agentSessionApi.submitToolResponse(
-    AgentType.CHAT,
+    AgentType.CODING,
     sessionId,
     interactionId,
     result,
@@ -62,9 +62,9 @@ export async function listSessions(
   offset: number,
   limit: number,
 ): Promise<ListSessionsResponse> {
-  return agentSessionApi.listSessions(AgentType.CHAT, offset, limit);
+  return agentSessionApi.listSessions(AgentType.CODING, offset, limit);
 }
 
 export async function deleteSession(id: string): Promise<void> {
-  return agentSessionApi.deleteSession(AgentType.CHAT, id);
+  return agentSessionApi.deleteSession(AgentType.CODING, id);
 }
