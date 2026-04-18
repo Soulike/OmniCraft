@@ -1,21 +1,28 @@
 import {useCallback, useEffect, useRef, useState} from 'react';
 import {useNavigate, useParams} from 'react-router';
 
-import {createSession} from '@/api/chat/index.js';
-import {ROUTES} from '@/routes.js';
-
 import {useChatEventBus} from '../../hooks/useChatEventBus.js';
+import {useChatSessionApi} from '../../hooks/useChatSessionApi.js';
 import {SessionIdContext} from './SessionIdContext.js';
 
 interface SessionIdProviderProps {
   children: React.ReactNode;
+  /** Build the full route path for a session. e.g. (id) => `/chat/${id}` */
+  buildSessionRoute: (sessionId: string) => string;
+  /** Route to navigate to when clearing the session. e.g. '/chat' */
+  baseRoute: string;
 }
 
-export function SessionIdProvider({children}: SessionIdProviderProps) {
+export function SessionIdProvider({
+  children,
+  buildSessionRoute,
+  baseRoute,
+}: SessionIdProviderProps) {
   const {sessionId} = useParams();
   const navigate = useNavigate();
   const [error, setError] = useState<string | null>(null);
   const eventBus = useChatEventBus();
+  const {createSession} = useChatSessionApi();
 
   // Emit reset-session when sessionId changes, except for null → id
   // (session just created — display is already empty).
@@ -38,7 +45,7 @@ export function SessionIdProvider({children}: SessionIdProviderProps) {
       try {
         const id = await createSession(config);
         eventBus.emit('session-created', {sessionId: id});
-        void navigate(`/chat/${id}`, {replace: true});
+        void navigate(buildSessionRoute(id), {replace: true});
         return id;
       } catch (e: unknown) {
         const message =
@@ -47,13 +54,13 @@ export function SessionIdProvider({children}: SessionIdProviderProps) {
         return null;
       }
     },
-    [navigate, eventBus],
+    [navigate, eventBus, buildSessionRoute, createSession],
   );
 
   const clearSessionId = useCallback(() => {
     setError(null);
-    void navigate(ROUTES.chat(), {replace: true});
-  }, [navigate]);
+    void navigate(baseRoute, {replace: true});
+  }, [navigate, baseRoute]);
 
   const clearCreateNewSessionIdError = useCallback(() => {
     setError(null);
@@ -67,6 +74,8 @@ export function SessionIdProvider({children}: SessionIdProviderProps) {
         createNewSessionId,
         clearSessionId,
         clearCreateNewSessionIdError,
+        buildSessionRoute,
+        baseRoute,
       }}
     >
       {children}
