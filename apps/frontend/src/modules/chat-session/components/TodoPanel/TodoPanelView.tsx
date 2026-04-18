@@ -17,64 +17,62 @@ export function TodoPanelView({items}: TodoPanelViewProps) {
   const current = items.find((i) => i.status === 'in_progress');
 
   return (
-    <div className={styles.anchor}>
-      <Disclosure className={styles.disclosure}>
-        <Disclosure.Heading>
-          <Button slot='trigger' variant='secondary'>
-            Tasks {completed}/{items.length}
-            {current && <> &middot; {current.subject}</>}
-            <Disclosure.Indicator />
-          </Button>
-        </Disclosure.Heading>
-        <Disclosure.Content>
-          <Disclosure.Body>
-            <Surface className={styles.body} variant='secondary'>
-              <ul className={styles.list}>
-                {items.map((item) => (
-                  <li className={styles.item} key={item.index}>
-                    <Tooltip delay={300}>
-                      <Tooltip.Trigger>
-                        <span className={styles.itemContent}>
-                          <span className={styles.itemIcon}>
-                            {item.status === 'pending' && (
-                              <Circle
-                                className={styles.iconPending}
-                                size={ICON_SIZE}
-                              />
-                            )}
-                            {item.status === 'in_progress' && (
-                              <CircleDot
-                                className={styles.iconInProgress}
-                                size={ICON_SIZE}
-                              />
-                            )}
-                            {item.status === 'completed' && (
-                              <CircleCheck
-                                className={styles.iconCompleted}
-                                size={ICON_SIZE}
-                              />
-                            )}
-                          </span>
-                          <span
-                            className={
-                              item.status === 'completed'
-                                ? styles.subjectCompleted
-                                : styles.subject
-                            }
-                          >
-                            {item.subject}
-                          </span>
+    <Disclosure className={styles.disclosure}>
+      <Disclosure.Heading>
+        <Button slot='trigger' variant='secondary'>
+          Tasks {completed}/{items.length}
+          {current && <> &middot; {current.subject}</>}
+          <Disclosure.Indicator />
+        </Button>
+      </Disclosure.Heading>
+      <Disclosure.Content>
+        <Disclosure.Body>
+          <Surface className={styles.body} variant='secondary'>
+            <ul className={styles.list}>
+              {items.map((item) => (
+                <li className={styles.item} key={item.index}>
+                  <Tooltip delay={300}>
+                    <Tooltip.Trigger>
+                      <span className={styles.itemContent}>
+                        <span className={styles.itemIcon}>
+                          {item.status === 'pending' && (
+                            <Circle
+                              className={styles.iconPending}
+                              size={ICON_SIZE}
+                            />
+                          )}
+                          {item.status === 'in_progress' && (
+                            <CircleDot
+                              className={styles.iconInProgress}
+                              size={ICON_SIZE}
+                            />
+                          )}
+                          {item.status === 'completed' && (
+                            <CircleCheck
+                              className={styles.iconCompleted}
+                              size={ICON_SIZE}
+                            />
+                          )}
                         </span>
-                      </Tooltip.Trigger>
-                      <Tooltip.Content>{item.description}</Tooltip.Content>
-                    </Tooltip>
-                  </li>
-                ))}
-              </ul>
-            </Surface>
-          </Disclosure.Body>
-        </Disclosure.Content>
-      </Disclosure>
-    </div>
+                        <span
+                          className={
+                            item.status === 'completed'
+                              ? styles.subjectCompleted
+                              : styles.subject
+                          }
+                        >
+                          {item.subject}
+                        </span>
+                      </span>
+                    </Tooltip.Trigger>
+                    <Tooltip.Content>{item.description}</Tooltip.Content>
+                  </Tooltip>
+                </li>
+              ))}
+            </ul>
+          </Surface>
+        </Disclosure.Body>
+      </Disclosure.Content>
+    </Disclosure>
   );
 }
