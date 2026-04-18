@@ -12,11 +12,7 @@ import type {SseEvent} from '@omnicraft/sse-events';
 import {CodingAgent, MainAgent} from '@/agent/agents/index.js';
 import type {AgentSseLogReaderOptions} from '@/agent-core/agent/agent-sse-log.js';
 import type {Agent} from '@/agent-core/agent/index.js';
-import {
-  AgentStore,
-  CodingAgentStore,
-  MainAgentStore,
-} from '@/models/agent-store/index.js';
+import {CodingAgentStore, MainAgentStore} from '@/models/agent-store/index.js';
 import {SettingsManager} from '@/models/settings-manager/index.js';
 
 import {getLlmConfig} from './helpers.js';
@@ -24,7 +20,7 @@ import type {CreateSessionResult} from './types.js';
 import {CreateSessionError} from './types.js';
 import {validateSessionPaths} from './validation.js';
 
-function getStore(agentType: AgentType): AgentStore {
+function getStore(agentType: AgentType) {
   switch (agentType) {
     case AgentType.CHAT:
       return MainAgentStore.getInstance();
