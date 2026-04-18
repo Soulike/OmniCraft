@@ -1,4 +1,9 @@
-import {AgentType} from '@omnicraft/api-schema';
+import {
+  AgentType,
+  type ListSessionsResponse,
+  type ThinkingLevel,
+} from '@omnicraft/api-schema';
+import type {SseEvent} from '@omnicraft/sse-events';
 
 import * as agentSessionApi from '../agent-session/index.js';
 
@@ -12,7 +17,7 @@ export async function createSession(
 export async function sendMessage(
   sessionId: string,
   message: string,
-  thinkingLevel: Parameters<typeof agentSessionApi.sendMessage>[3],
+  thinkingLevel: ThinkingLevel,
 ): Promise<void> {
   return agentSessionApi.sendMessage(
     AgentType.CODING,
@@ -26,7 +31,7 @@ export async function* subscribeEvents(
   sessionId: string,
   from: number,
   signal?: AbortSignal,
-): ReturnType<typeof agentSessionApi.subscribeEvents> {
+): AsyncGenerator<SseEvent, void, undefined> {
   yield* agentSessionApi.subscribeEvents(
     AgentType.CODING,
     sessionId,
@@ -55,7 +60,7 @@ export async function submitToolResponse(
 export async function listSessions(
   offset: number,
   limit: number,
-): ReturnType<typeof agentSessionApi.listSessions> {
+): Promise<ListSessionsResponse> {
   return agentSessionApi.listSessions(AgentType.CODING, offset, limit);
 }
 
