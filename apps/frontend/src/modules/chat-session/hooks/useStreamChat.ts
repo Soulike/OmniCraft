@@ -95,6 +95,7 @@ export function useStreamChat({
               case 'thinking-start':
               case 'thinking-delta':
               case 'thinking-end':
+              case 'todo-update':
                 routeBaseEventToBus(event, eventBus);
                 break;
               case 'done':

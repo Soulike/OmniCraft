@@ -1,0 +1,65 @@
+.anchor {
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+  padding-bottom: 6px;
+  min-width: 260px;
+}
+
+.disclosure {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.body {
+  padding: 8px 12px;
+  border-radius: 12px;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 180px;
+  overflow-y: auto;
+}
+
+.item {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.itemIcon {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.iconPending {
+  color: var(--color-default-400);
+}
+
+.iconInProgress {
+  color: var(--color-primary);
+}
+
+.iconCompleted {
+  color: var(--color-success);
+}
+
+.subject {
+  color: var(--color-foreground);
+}
+
+.subjectCompleted {
+  color: var(--color-default-400);
+  text-decoration: line-through;
+}
