@@ -1,5 +1,6 @@
 import path from 'node:path';
 
+import {CodingAgent, MainAgent} from '@/agent/agents/index.js';
 import {CoreSkillRegistry} from '@/agent/skills/index.js';
 import {
   BashToolRegistry,
@@ -14,17 +15,29 @@ import {logger} from '@/logger.js';
 import {CodingAgentStore, MainAgentStore} from '@/models/agent-store/index.js';
 import {SettingsManager} from '@/models/settings-manager/index.js';
 import {VscodeServerManager} from '@/models/vscode-server-manager/index.js';
+import {registerAgentType} from '@/services/agent-session/index.js';
+import {AgentType} from '@/types/agent-type.js';
 
 /** Initializes all services that require async setup before the server starts. */
 export async function initServices(): Promise<void> {
   await initSettingsManager();
-  const sessionsDir = path.join(getDataDir(), 'sessions');
-  MainAgentStore.create(sessionsDir);
-  const codingSessionsDir = path.join(getDataDir(), 'coding-sessions');
-  CodingAgentStore.create(codingSessionsDir);
+  initAgentStores();
   initToolRegistries();
   initSkillRegistries();
   initVscodeServer();
+}
+
+/** Creates agent stores and registers agent types for the session service. */
+function initAgentStores(): void {
+  const dataDir = getDataDir();
+
+  const chatStore = MainAgentStore.create(path.join(dataDir, 'sessions'));
+  registerAgentType(AgentType.CHAT, MainAgent, chatStore);
+
+  const codingStore = CodingAgentStore.create(
+    path.join(dataDir, 'coding-sessions'),
+  );
+  registerAgentType(AgentType.CODING, CodingAgent, codingStore);
 }
 
 /** Initializes the SettingsManager singleton. */

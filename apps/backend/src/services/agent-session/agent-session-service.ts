@@ -5,40 +5,74 @@ import type {SessionMetadata, ThinkingLevel} from '@omnicraft/api-schema';
 import type {AllowedPathEntry} from '@omnicraft/settings-schema';
 import type {SseEvent} from '@omnicraft/sse-events';
 
-import {CodingAgent} from '@/agent/agents/index.js';
 import type {AgentSseLogReaderOptions} from '@/agent-core/agent/agent-sse-log.js';
-import {CodingAgentStore} from '@/models/agent-store/index.js';
 import {SettingsManager} from '@/models/settings-manager/index.js';
+import type {AgentType} from '@/types/agent-type.js';
 
 import {getLlmConfig} from './helpers.js';
-import type {CreateSessionResult} from './types.js';
+import type {
+  AgentConstructor,
+  AgentSessionStore,
+  CreateSessionResult,
+} from './types.js';
 import {CreateSessionError} from './types.js';
 import {validateSessionPaths} from './validation.js';
+
+// ---------------------------------------------------------------------------
+// Registry — populated by initServices before the server starts
+// ---------------------------------------------------------------------------
+
+interface AgentTypeConfig {
+  agentConstructor: AgentConstructor;
+  store: AgentSessionStore;
+}
+
+const registry = new Map<AgentType, AgentTypeConfig>();
+
+/** Registers an agent type with its constructor and store. Call during init. */
+export function registerAgentType(
+  type: AgentType,
+  agentConstructor: AgentConstructor,
+  store: AgentSessionStore,
+): void {
+  registry.set(type, {agentConstructor, store});
+}
+
+function getConfig(type: AgentType): AgentTypeConfig {
+  const config = registry.get(type);
+  assert(config, `No agent type registered: ${type}`);
+  return config;
+}
+
+// ---------------------------------------------------------------------------
+// Service
+// ---------------------------------------------------------------------------
 
 interface CreateSessionOptions {
   workspace?: string;
   extraAllowedPaths?: string[];
 }
 
-/** Service layer for coding operations. */
-export const codingService = {
+/** Unified service layer for all agent-backed sessions. */
+export const agentSessionService = {
   /**
-   * Creates a new Agent Session with a CodingAgent.
+   * Creates a new session for the given agent type.
    * Validates LLM configuration before creating the session.
    * If workspace is provided, validates it against settings; otherwise uses os.tmpdir().
    */
   async createSession(
+    agentType: AgentType,
     options: CreateSessionOptions = {},
   ): Promise<CreateSessionResult> {
-    const config = await getLlmConfig();
+    const llmConfig = await getLlmConfig();
 
-    if (!config.baseUrl) {
+    if (!llmConfig.baseUrl) {
       return {
         success: false,
         error: CreateSessionError.BASE_URL_NOT_CONFIGURED,
       };
     }
-    if (!config.model) {
+    if (!llmConfig.model) {
       return {success: false, error: CreateSessionError.MODEL_NOT_CONFIGURED};
     }
 
@@ -76,10 +110,11 @@ export const codingService = {
       );
     }
 
-    const agent = new CodingAgent(
+    const {agentConstructor: AgentClass, store} = getConfig(agentType);
+    const agent = new AgentClass(
       workingDirectory,
       resolvedExtraFilePathEntries,
-      CodingAgentStore.getInstance().sessionsDir,
+      store.sessionsDir,
     );
     return {success: true, sessionId: agent.id};
   },
@@ -89,11 +124,13 @@ export const codingService = {
    * use {@link subscribe} to read events. Returns false if agent not found.
    */
   async sendCompletion(
+    agentType: AgentType,
     agentId: string,
     userMessage: string,
     thinkingLevel: ThinkingLevel,
   ): Promise<boolean> {
-    const agent = await CodingAgentStore.getInstance().get(agentId);
+    const {store} = getConfig(agentType);
+    const agent = await store.get(agentId);
     if (!agent) return false;
     agent.handleUserMessage(userMessage, thinkingLevel);
     return true;
@@ -104,10 +141,12 @@ export const codingService = {
    * Returns undefined if agent not found.
    */
   async subscribe(
+    agentType: AgentType,
     agentId: string,
     options?: AgentSseLogReaderOptions,
   ): Promise<AsyncIterable<SseEvent> | undefined> {
-    const agent = await CodingAgentStore.getInstance().get(agentId);
+    const {store} = getConfig(agentType);
+    const agent = await store.get(agentId);
     if (!agent) return undefined;
     return agent.subscribe(options);
   },
@@ -116,8 +155,12 @@ export const codingService = {
    * Aborts the currently running turn for the given agent.
    * Returns false if agent not found.
    */
-  async abortCompletion(agentId: string): Promise<boolean> {
-    const agent = await CodingAgentStore.getInstance().get(agentId);
+  async abortCompletion(
+    agentType: AgentType,
+    agentId: string,
+  ): Promise<boolean> {
+    const {store} = getConfig(agentType);
+    const agent = await store.get(agentId);
     if (!agent) return false;
     agent.abort();
     return true;
@@ -130,26 +173,30 @@ export const codingService = {
    *          `false` if the agent or interaction does not exist.
    */
   async submitToolResponse(
+    agentType: AgentType,
     agentId: string,
     interactionId: string,
     result: unknown,
   ): Promise<boolean> {
-    const agent = await CodingAgentStore.getInstance().get(agentId);
+    const {store} = getConfig(agentType);
+    const agent = await store.get(agentId);
     if (!agent) return false;
     return agent.submitUserResponse(interactionId, result);
   },
 
   /** Lists persisted sessions with pagination. */
   async listSessions(
+    agentType: AgentType,
     offset: number,
     limit: number,
   ): Promise<{sessions: SessionMetadata[]; total: number}> {
-    return CodingAgentStore.getInstance().listSessionMetadata(offset, limit);
+    const {store} = getConfig(agentType);
+    return store.listSessionMetadata(offset, limit);
   },
 
   /** Deletes an agent session. Returns false if session not found. */
-  async deleteSession(agentId: string): Promise<boolean> {
-    const store = CodingAgentStore.getInstance();
+  async deleteSession(agentType: AgentType, agentId: string): Promise<boolean> {
+    const {store} = getConfig(agentType);
     if (!(await store.has(agentId))) return false;
     await store.delete(agentId);
     return true;
