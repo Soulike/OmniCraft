@@ -26,7 +26,7 @@ export function ChatPage() {
     <ChatSessionApiContext value={chatApi}>
       <ChatEventBusProvider>
         <SessionIdProvider
-          buildSessionRoute={(id) => `/chat/${id}`}
+          buildSessionRoute={(id) => `${ROUTES.chat()}/${id}`}
           baseRoute={ROUTES.chat()}
         >
           <SessionConfigProvider>
