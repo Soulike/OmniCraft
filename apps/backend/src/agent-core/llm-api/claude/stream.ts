@@ -7,6 +7,7 @@ import type {LlmCompletionOptions, LlmEventStream, LlmUsage} from '../types.js';
 import {
   addCacheBreakpoint,
   toClaudeTool,
+  toOutputConfig,
   toSdkMessage,
   toThinkingConfig,
 } from './helpers.js';
@@ -43,13 +44,8 @@ export async function* streamClaude(
   }
 
   const thinking = toThinkingConfig(options.thinkingLevel);
+  const outputConfig = toOutputConfig(options.thinkingLevel);
   const maxTokens = await modelCapacity.getMaxOutputTokens(options.config);
-  if (thinking?.type === 'enabled') {
-    assert(
-      thinking.budget_tokens < maxTokens,
-      `Thinking budget (${thinking.budget_tokens.toString()}) must be less than max_tokens (${maxTokens.toString()})`,
-    );
-  }
 
   const stream = client.messages.stream(
     {
@@ -67,7 +63,8 @@ export async function* streamClaude(
         : undefined,
       messages: sdkMessages,
       tools: claudeTools,
-      ...(thinking ? {thinking} : {}),
+      thinking,
+      ...(outputConfig ? {output_config: outputConfig} : {}),
     },
     {signal: options.signal},
   );

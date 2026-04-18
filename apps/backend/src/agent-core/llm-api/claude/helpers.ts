@@ -113,15 +113,20 @@ export function toClaudeTool(tool: ToolDefinition): Anthropic.Tool {
 /** Maps a ThinkingLevel to the Anthropic ThinkingConfigParam. */
 export function toThinkingConfig(
   level: ThinkingLevel,
-): Anthropic.ThinkingConfigParam | undefined {
-  switch (level) {
-    case 'none':
-      return undefined;
-    case 'low':
-      return {type: 'enabled', budget_tokens: 2048};
-    case 'medium':
-      return {type: 'enabled', budget_tokens: 8192};
-    case 'high':
-      return {type: 'enabled', budget_tokens: 32768};
+): Anthropic.ThinkingConfigParam {
+  if (level === 'none') {
+    return {type: 'disabled'};
   }
+  return {type: 'adaptive'};
+}
+
+/**
+ * Maps a ThinkingLevel to the Anthropic OutputConfig for adaptive effort.
+ * Returns `undefined` when thinking is disabled (no effort needed).
+ */
+export function toOutputConfig(
+  level: ThinkingLevel,
+): Anthropic.OutputConfig | undefined {
+  if (level === 'none') return undefined;
+  return {effort: level};
 }
