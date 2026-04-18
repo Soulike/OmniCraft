@@ -5,6 +5,7 @@ import type {z} from 'zod';
 
 import type {FileContentCache} from '../agent/file-content-cache.js';
 import type {FileStatTracker} from '../agent/file-stat-tracker.js';
+import type {TodoStore} from '../agent/todo-store.js';
 import type {SkillDefinition} from '../skill/skill-definition.js';
 import type {UserInteractionBridge} from '../user-interaction/index.js';
 
@@ -52,6 +53,9 @@ export interface ToolExecutionContext {
    * until the frontend submits a response via the HTTP endpoint.
    */
   readonly userInteractionBridge: UserInteractionBridge;
+
+  /** In-memory todo list for tracking work progress. */
+  readonly todoStore: TodoStore;
 }
 
 /** Successful tool execution — carries typed structured data. */

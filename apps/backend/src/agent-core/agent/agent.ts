@@ -47,6 +47,7 @@ import {AgentSseLog} from './agent-sse-log.js';
 import {generateTitle} from './agent-title.js';
 import {FileContentCache} from './file-content-cache.js';
 import {FileStatTracker} from './file-stat-tracker.js';
+import {TodoStore} from './todo-store.js';
 import type {AgentEventStream, AgentOptions, AgentSnapshot} from './types.js';
 
 /**
@@ -95,6 +96,9 @@ export abstract class Agent {
 
   /** Bridge for client-side tools that await user interaction. */
   private readonly userInteractionBridge = new UserInteractionBridge();
+
+  /** In-memory todo list, shared by todo tools. */
+  private readonly todoStore = new TodoStore();
 
   /** Append-only event log. All turns write to the same log. */
   readonly sseLog: AgentSseLog;
@@ -580,6 +584,7 @@ export abstract class Agent {
         toolSseEventChannel.push(event);
       },
       userInteractionBridge: this.userInteractionBridge,
+      todoStore: this.todoStore,
     };
 
     try {
