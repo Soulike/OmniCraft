@@ -36,8 +36,5 @@ export function routeBaseEventToBus(
     case 'done':
       bus.emit(event.type, event);
       break;
-    case 'todo-update':
-      bus.emit(event.type, event);
-      break;
   }
 }

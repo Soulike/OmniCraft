@@ -148,7 +148,6 @@ export const sseBaseEventSchema = z.discriminatedUnion('type', [
   sseToolExecuteDeltaEventSchema,
   sseToolExecuteEndEventSchema,
   sseDoneEventSchema,
-  sseTodoUpdateEventSchema,
 ]);
 export type SseBaseEvent = z.infer<typeof sseBaseEventSchema>;
 
