@@ -13,6 +13,7 @@ import type {
   SseThinkingDeltaEvent,
   SseThinkingEndEvent,
   SseThinkingStartEvent,
+  SseTodoUpdateEvent,
   SseToolExecuteDeltaEvent,
   SseToolExecuteEndEvent,
   SseToolExecuteStartEvent,
@@ -384,7 +385,10 @@ export abstract class Agent {
       }
 
       const toolSseEventChannel = new AsyncChannel<
-        SseToolExecuteEndEvent | SseToolExecuteDeltaEvent | SseSubAgentEvent
+        | SseToolExecuteEndEvent
+        | SseToolExecuteDeltaEvent
+        | SseSubAgentEvent
+        | SseTodoUpdateEvent
       >();
       const toolResults = new Map<string, ToolResult>();
 
@@ -399,6 +403,8 @@ export abstract class Agent {
       const executions = toolCalls
         .filter((tc) => availableTools.has(tc.toolName))
         .map(async (toolCall) => {
+          const todoVersionBefore = this.todoStore.version;
+
           const result = await this.executeTool(
             toolCall,
             availableTools,
@@ -415,6 +421,14 @@ export abstract class Agent {
               status: result.status,
               data: result.data,
             } satisfies SseToolExecuteEndEvent);
+          }
+
+          // Emit todo snapshot whenever a tool mutated the store.
+          if (this.todoStore.version !== todoVersionBefore) {
+            toolSseEventChannel.push({
+              type: 'todo-update',
+              items: this.todoStore.list(),
+            } satisfies SseTodoUpdateEvent);
           }
 
           toolResults.set(toolCall.callId, {
@@ -555,7 +569,10 @@ export abstract class Agent {
     toolCall: LlmToolCall,
     availableTools: ReadonlyMap<string, ToolDefinition>,
     toolSseEventChannel: AsyncChannel<
-      SseToolExecuteEndEvent | SseToolExecuteDeltaEvent | SseSubAgentEvent
+      | SseToolExecuteEndEvent
+      | SseToolExecuteDeltaEvent
+      | SseSubAgentEvent
+      | SseTodoUpdateEvent
     >,
     signal: AbortSignal,
   ): Promise<{

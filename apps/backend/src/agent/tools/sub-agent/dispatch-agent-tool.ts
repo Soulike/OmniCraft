@@ -4,7 +4,7 @@ import {thinkingLevelSchema} from '@omnicraft/api-schema';
 import type {SseBaseEvent} from '@omnicraft/sse-events';
 import {z} from 'zod';
 
-import {CodingSubAgent, GeneralSubAgent} from '@/agent/agents/index.js';
+import {GeneralSubAgent} from '@/agent/agents/index.js';
 import type {Agent} from '@/agent-core/agent/index.js';
 import type {
   ToolDefinition,
@@ -24,12 +24,6 @@ const subAgentInfos = {
     description:
       'General-purpose agent for autonomous multi-step tasks. ' +
       'Use for any work that no other specialized subagent can handle.',
-  },
-  coding: {
-    name: 'Coding',
-    description:
-      'Coding agent powered by Claude Code for autonomous software engineering tasks. ' +
-      'Excels at code reading, writing, debugging, and refactoring.',
   },
 } as const satisfies Record<string, SubAgentInfo>;
 
@@ -56,11 +50,7 @@ const parameters = z.object({
   task: z.string().min(1).describe('The task description for the subagent'),
   agentType: agentTypeSchema
     .optional()
-    .describe(
-      "Type of subagent to dispatch. Defaults to 'general'. " +
-        "Use 'coding' when the task is primarily about reading, modifying, " +
-        'or creating files.',
-    ),
+    .describe("Type of subagent to dispatch. Defaults to 'general'."),
   model: z
     .enum(['default', 'light'])
     .optional()
@@ -141,22 +131,11 @@ export const dispatchAgentTool: ToolDefinition<
       model === 'light' ? context.getLightConfig : context.getConfig;
 
     // Create subagent
-    let subagent: Agent;
-    switch (agentType) {
-      case 'general':
-        subagent = new GeneralSubAgent(
-          getConfig,
-          workingDirectory,
-          context.extraAllowedPaths,
-        );
-        break;
-      case 'coding':
-        subagent = new CodingSubAgent(
-          workingDirectory,
-          context.extraAllowedPaths,
-        );
-        break;
-    }
+    const subagent: Agent = new GeneralSubAgent(
+      getConfig,
+      workingDirectory,
+      context.extraAllowedPaths,
+    );
 
     // Link parent abort signal to subagent
     const onAbort = () => {

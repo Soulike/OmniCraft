@@ -1,4 +1,5 @@
 // Components
+export {BottomBar} from './components/BottomBar/index.js';
 export {ChatAlert} from './components/ChatAlert/index.js';
 export {ChatInput} from './components/ChatInput/index.js';
 export {InfoBar} from './components/InfoBar/index.js';
@@ -22,6 +23,7 @@ export {useSessionConfig} from './hooks/useSessionConfig.js';
 export {useSessionId} from './hooks/useSessionId.js';
 export {useSessionTitle} from './hooks/useSessionTitle.js';
 export {useStreamChat} from './hooks/useStreamChat.js';
+export {useTodoItems} from './hooks/useTodoItems.js';
 export {useVscodeStatus} from './hooks/useVscodeStatus.js';
 
 // Types

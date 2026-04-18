@@ -3,12 +3,12 @@ import type {ThinkingLevel} from '@omnicraft/api-schema';
 import type {RefObject} from 'react';
 
 import {
+  BottomBar,
   ChatAlert,
   type ChatEventBus,
   ChatInput,
   type ChatMessage,
   chatSessionStyles as styles,
-  InfoBar,
   SessionSidebar,
   StreamingMessageDisplay,
   TitleBarView,
@@ -98,7 +98,7 @@ export function ChatPageView({
               onMessagesChange={onMessagesChange}
             />
           </ScrollShadow>
-          {sessionId && <InfoBar />}
+          {sessionId && <BottomBar />}
           <ChatInput
             isStreaming={isStreaming}
             onSend={onSend}

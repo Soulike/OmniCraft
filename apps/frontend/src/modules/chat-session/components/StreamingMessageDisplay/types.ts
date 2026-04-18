@@ -7,6 +7,7 @@ import type {
   SseThinkingDeltaEvent,
   SseThinkingEndEvent,
   SseThinkingStartEvent,
+  SseTodoUpdateEvent,
   SseToolExecuteDeltaEvent,
   SseToolExecuteEndEvent,
   SseToolExecuteStartEvent,
@@ -85,6 +86,8 @@ export interface ChatEventMap {
   'session-title': SseSessionTitleEvent;
   /** An error occurred during streaming. */
   'stream-error': {message: string};
+  /** Todo list state changed. */
+  'todo-update': SseTodoUpdateEvent;
   /** Reset all session-related frontend state (messages, tool output, title, errors). */
   'reset-session': undefined;
   /** A new session was created (ID assigned, not yet titled). */
