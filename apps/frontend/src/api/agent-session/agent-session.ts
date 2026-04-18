@@ -15,7 +15,7 @@ function base(agentType: AgentType): string {
   return `/api/${agentType}`;
 }
 
-interface CreateSessionOptions {
+export interface CreateSessionOptions {
   workspace?: string;
   extraAllowedPaths?: readonly string[];
 }

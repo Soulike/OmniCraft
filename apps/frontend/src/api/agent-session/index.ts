@@ -1,6 +1,7 @@
 export {
   abortCompletion,
   createSession,
+  type CreateSessionOptions,
   deleteSession,
   listSessions,
   sendMessage,
