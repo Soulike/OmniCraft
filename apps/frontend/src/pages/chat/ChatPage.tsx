@@ -5,6 +5,7 @@ import {useAutoScroll} from '@/hooks/useAutoScroll.js';
 import {
   ChatEventBusProvider,
   ChatSessionApiContext,
+  SessionConfigProvider,
   SessionIdProvider,
   useChatEventBus,
   useMessageCount,
@@ -25,7 +26,9 @@ export function ChatPage() {
           buildSessionRoute={(id) => `${ROUTES.chat()}/${id}`}
           baseRoute={ROUTES.chat()}
         >
-          <ChatPageContent />
+          <SessionConfigProvider>
+            <ChatPageContent />
+          </SessionConfigProvider>
         </SessionIdProvider>
       </ChatEventBusProvider>
     </ChatSessionApiContext>
