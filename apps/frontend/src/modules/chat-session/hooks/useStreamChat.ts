@@ -97,6 +97,9 @@ export function useStreamChat({
               case 'thinking-end':
                 routeBaseEventToBus(event, eventBus);
                 break;
+              case 'todo-update':
+                eventBus.emit('todo-update', event);
+                break;
               case 'done':
                 receivedTerminalEvent = true;
                 if (event.reason === 'max_rounds_reached') {

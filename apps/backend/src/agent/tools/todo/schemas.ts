@@ -1,19 +1,11 @@
+import {sseTodoItemSchema, sseTodoStatusSchema} from '@omnicraft/sse-events';
 import {z} from 'zod';
 
 // --- Shared types ---
 
-const todoStatusSchema = z.enum(['pending', 'in_progress', 'completed']);
-
-const todoItemSchema = z.object({
-  index: z.number().int().min(0),
-  subject: z.string().min(1),
-  description: z.string(),
-  status: todoStatusSchema,
-});
-
 /** Shared result schema — all four todo tools return the full list. */
 export const todoResultSchema = z.object({
-  items: z.array(todoItemSchema),
+  items: z.array(sseTodoItemSchema),
 });
 
 export type TodoResult = z.infer<typeof todoResultSchema>;
@@ -55,7 +47,7 @@ export const todoUpdateParametersSchema = z.object({
       'New description for the item. ' +
         'Only provide this when the description needs to change.',
     ),
-  status: todoStatusSchema
+  status: sseTodoStatusSchema
     .optional()
     .describe(
       'New status for the item. ' +

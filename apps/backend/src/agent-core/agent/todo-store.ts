@@ -1,21 +1,20 @@
 import assert from 'node:assert';
 
-/** Status values for a todo item. */
-export type TodoStatus = 'pending' | 'in_progress' | 'completed';
+import type {SseTodoStatus} from '@omnicraft/sse-events';
 
 /** A single todo item in the store. */
 export interface TodoItem {
   readonly index: number;
   readonly subject: string;
   readonly description: string;
-  readonly status: TodoStatus;
+  readonly status: SseTodoStatus;
 }
 
 /** Fields that can be updated on a todo item. */
 export interface TodoUpdateFields {
   readonly subject?: string;
   readonly description?: string;
-  readonly status?: TodoStatus;
+  readonly status?: SseTodoStatus;
 }
 
 /**

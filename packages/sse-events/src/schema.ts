@@ -105,6 +105,34 @@ export const sseSessionTitleEventSchema = z.object({
 export type SseSessionTitleEvent = z.infer<typeof sseSessionTitleEventSchema>;
 
 // ---------------------------------------------------------------------------
+// Todo update event
+// ---------------------------------------------------------------------------
+
+/** Status of a todo item. */
+export const sseTodoStatusSchema = z.enum([
+  'pending',
+  'in_progress',
+  'completed',
+]);
+export type SseTodoStatus = z.infer<typeof sseTodoStatusSchema>;
+
+/** A single todo item snapshot. */
+export const sseTodoItemSchema = z.object({
+  index: z.number().int().min(0),
+  subject: z.string(),
+  description: z.string(),
+  status: sseTodoStatusSchema,
+});
+export type SseTodoItem = z.infer<typeof sseTodoItemSchema>;
+
+/** Todo list state changed. Carries the full current snapshot. */
+export const sseTodoUpdateEventSchema = z.object({
+  type: z.literal('todo-update'),
+  items: z.array(sseTodoItemSchema),
+});
+export type SseTodoUpdateEvent = z.infer<typeof sseTodoUpdateEventSchema>;
+
+// ---------------------------------------------------------------------------
 // Base event union (all events except error and subagent events).
 // Used as the inner event type for subagent-output to prevent recursion.
 // ---------------------------------------------------------------------------
@@ -186,6 +214,7 @@ export const sseEventSchema = z.discriminatedUnion('type', [
   sseSubagentDispatchEventSchema,
   sseSubagentOutputEventSchema,
   sseSubagentCompleteEventSchema,
+  sseTodoUpdateEventSchema,
 ]);
 
 /** Union of all known SSE events. */

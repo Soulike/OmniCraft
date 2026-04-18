@@ -7,6 +7,7 @@ import {
   CoreToolRegistry,
   FileToolRegistry,
   SubAgentToolRegistry,
+  TodoToolRegistry,
   WebToolRegistry,
 } from '@/agent/tools/index.js';
 import {getDataDir, getVscodePort} from '@/helpers/env.js';
@@ -48,6 +49,7 @@ function initToolRegistries(): void {
   BashToolRegistry.create();
   SubAgentToolRegistry.create();
   ClientToolRegistry.create();
+  TodoToolRegistry.create();
 }
 
 /** Initializes skill registries and loads skill files. */
