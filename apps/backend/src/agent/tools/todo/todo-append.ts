@@ -12,7 +12,8 @@ export const todoAppendTool: ToolDefinition<
   description:
     'Appends a new todo item to the end of the list with status pending. ' +
     'Use this to break down work into trackable steps ' +
-    'when handling a multi-step task.',
+    'when handling a multi-step task. ' +
+    'Do not create items for simple tasks that need no progress tracking.',
   parameters: todoAppendParametersSchema,
   suppressToolEvents: true,
   execute(args, context) {
