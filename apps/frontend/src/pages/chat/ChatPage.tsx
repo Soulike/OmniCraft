@@ -1,9 +1,11 @@
 import {useCallback, useMemo} from 'react';
 
+import * as chatApi from '@/api/chat/index.js';
 import {getVscodeUrl} from '@/api/vscode/index.js';
 import {useAutoScroll} from '@/hooks/useAutoScroll.js';
 import {
   ChatEventBusProvider,
+  ChatSessionApiContext,
   SessionConfigProvider,
   SessionIdProvider,
   useChatEventBus,
@@ -21,16 +23,18 @@ import {ChatPageView} from './ChatPageView.js';
 /** Chat page container. Wraps content in providers. */
 export function ChatPage() {
   return (
-    <ChatEventBusProvider>
-      <SessionIdProvider
-        buildSessionRoute={(id) => `/chat/${id}`}
-        baseRoute={ROUTES.chat()}
-      >
-        <SessionConfigProvider>
-          <ChatPageContent />
-        </SessionConfigProvider>
-      </SessionIdProvider>
-    </ChatEventBusProvider>
+    <ChatSessionApiContext value={chatApi}>
+      <ChatEventBusProvider>
+        <SessionIdProvider
+          buildSessionRoute={(id) => `/chat/${id}`}
+          baseRoute={ROUTES.chat()}
+        >
+          <SessionConfigProvider>
+            <ChatPageContent />
+          </SessionConfigProvider>
+        </SessionIdProvider>
+      </ChatEventBusProvider>
+    </ChatSessionApiContext>
   );
 }
 

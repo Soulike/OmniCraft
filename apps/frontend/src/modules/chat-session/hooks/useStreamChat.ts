@@ -1,11 +1,6 @@
 import type {ThinkingLevel} from '@omnicraft/api-schema';
 import {useCallback, useEffect, useRef, useState} from 'react';
 
-import {
-  abortCompletion,
-  sendMessage as apiSendMessage,
-  subscribeEvents,
-} from '@/api/chat/index.js';
 import {HttpError} from '@/api/helpers/http-error.js';
 import {abortableSleep} from '@/helpers/abortable-sleep.js';
 import {EventBus} from '@/helpers/event-bus.js';
@@ -13,6 +8,7 @@ import {EventBus} from '@/helpers/event-bus.js';
 import type {ChatEventMap} from '../components/StreamingMessageDisplay/index.js';
 import {routeBaseEventToBus} from '../helpers/route-base-event-to-bus.js';
 import {useChatEventBus} from './useChatEventBus.js';
+import {useChatSessionApi} from './useChatSessionApi.js';
 import type {useSessionId} from './useSessionId.js';
 
 type SessionIdHook = ReturnType<typeof useSessionId>;
@@ -38,6 +34,11 @@ export function useStreamChat({
   const [maxRoundsReached, setMaxRoundsReached] = useState(false);
   const subagentBusMapRef = useRef(new Map<string, EventBus<ChatEventMap>>());
   const eventBus = useChatEventBus();
+  const {
+    sendMessage: apiSendMessage,
+    subscribeEvents,
+    abortCompletion,
+  } = useChatSessionApi();
 
   // Reset transient state when session changes.
   useEffect(() => {
@@ -181,7 +182,7 @@ export function useStreamChat({
       controller.abort();
       subagentBusMap.clear();
     };
-  }, [sessionId, eventBus]);
+  }, [sessionId, eventBus, subscribeEvents]);
 
   const sendMessage = useCallback(
     async (content: string, thinkingLevel: ThinkingLevel) => {
@@ -210,13 +211,13 @@ export function useStreamChat({
         setIsStreaming(false);
       }
     },
-    [isStreaming, sessionId, createNewSessionId, eventBus],
+    [isStreaming, sessionId, createNewSessionId, eventBus, apiSendMessage],
   );
 
   const stopGeneration = useCallback(() => {
     if (!sessionId) return;
     void abortCompletion(sessionId);
-  }, [sessionId]);
+  }, [sessionId, abortCompletion]);
 
   const clearStreamError = useCallback(() => {
     setStreamError(null);

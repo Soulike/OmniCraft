@@ -1,9 +1,8 @@
 import {useCallback, useEffect, useRef, useState} from 'react';
 import {useNavigate, useParams} from 'react-router';
 
-import {createSession} from '@/api/chat/index.js';
-
 import {useChatEventBus} from '../../hooks/useChatEventBus.js';
+import {useChatSessionApi} from '../../hooks/useChatSessionApi.js';
 import {SessionIdContext} from './SessionIdContext.js';
 
 interface SessionIdProviderProps {
@@ -23,6 +22,7 @@ export function SessionIdProvider({
   const navigate = useNavigate();
   const [error, setError] = useState<string | null>(null);
   const eventBus = useChatEventBus();
+  const {createSession} = useChatSessionApi();
 
   // Emit reset-session when sessionId changes, except for null → id
   // (session just created — display is already empty).
@@ -54,7 +54,7 @@ export function SessionIdProvider({
         return null;
       }
     },
-    [navigate, eventBus, buildSessionRoute],
+    [navigate, eventBus, buildSessionRoute, createSession],
   );
 
   const clearSessionId = useCallback(() => {

@@ -7,8 +7,12 @@ export {SessionSidebar} from './components/SessionSidebar/index.js';
 export {StreamingMessageDisplay} from './components/StreamingMessageDisplay/index.js';
 export {TitleBarView} from './components/TitleBar/index.js';
 
-// Contexts (providers)
+// Contexts (providers + values)
 export {ChatEventBusProvider} from './contexts/ChatEventBusContext/index.js';
+export {
+  type ChatSessionApi,
+  ChatSessionApiContext,
+} from './contexts/ChatSessionApiContext/index.js';
 export {SessionConfigProvider} from './contexts/SessionConfigContext/index.js';
 export {SessionIdProvider} from './contexts/SessionIdContext/index.js';
 
