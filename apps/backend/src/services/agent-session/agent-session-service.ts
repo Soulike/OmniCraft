@@ -42,7 +42,7 @@ export const agentSessionService = {
   /**
    * Creates a new session for the given agent type.
    * Validates LLM configuration before creating the session.
-   * If workspace is provided, validates it against settings; otherwise uses os.tmpdir().
+   * If workspace is provided, validates it against settings.
    */
   async createSession(
     agentType: AgentType,
