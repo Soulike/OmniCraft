@@ -5,6 +5,7 @@ import styles from './styles.module.css';
 
 interface SessionItemViewProps {
   title: string;
+  workingDirectory: string | undefined;
   isDeleteOpen: boolean;
   onDeleteOpenChange: (open: boolean) => void;
   onConfirmDelete: () => void;
@@ -13,6 +14,7 @@ interface SessionItemViewProps {
 
 export function SessionItemView({
   title,
+  workingDirectory,
   isDeleteOpen,
   onDeleteOpenChange,
   onConfirmDelete,
@@ -23,7 +25,12 @@ export function SessionItemView({
       <div className={styles.icon}>
         <MessageSquare size={14} fill='currentColor' strokeWidth={1.5} />
       </div>
-      <span className={styles.title}>{title}</span>
+      <div className={styles.content}>
+        <span className={styles.title}>{title}</span>
+        {workingDirectory !== undefined && (
+          <span className={styles.workingDirectory}>{workingDirectory}</span>
+        )}
+      </div>
       <div className={styles.actions}>
         <Popover isOpen={isDeleteOpen} onOpenChange={onDeleteOpenChange}>
           <Popover.Trigger>

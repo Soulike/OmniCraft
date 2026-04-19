@@ -92,6 +92,7 @@ export function SessionSidebarView({
             >
               <SessionItem
                 title={session.title}
+                workingDirectory={session.workingDirectory}
                 onDelete={async () => onDeleteSession(session.id)}
               />
             </ListBox.Item>
