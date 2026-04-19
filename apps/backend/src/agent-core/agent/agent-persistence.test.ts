@@ -57,7 +57,11 @@ describe('agentPersistence', () => {
       const content = await readFile(metadataPath, 'utf-8');
       const metadata: unknown = JSON.parse(content);
 
-      expect(metadata).toEqual({id: agentId, title: 'Test Session'});
+      expect(metadata).toEqual({
+        id: agentId,
+        title: 'Test Session',
+        workingDirectory: '/tmp/test-working-dir',
+      });
     });
   });
 

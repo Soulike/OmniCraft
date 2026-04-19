@@ -372,11 +372,12 @@ describe('MainAgentStore', () => {
       await writeMetadata(sessionsDir, 'sess-1', {
         id: 'sess-1',
         title: 'Metadata Title',
+        workingDirectory: '/tmp',
       });
 
       const result = await store.listSessionMetadata(0, 100);
       expect(result.sessions).toEqual([
-        {id: 'sess-1', title: 'Metadata Title'},
+        {id: 'sess-1', title: 'Metadata Title', workingDirectory: '/tmp'},
       ]);
     });
 

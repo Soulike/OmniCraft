@@ -54,7 +54,15 @@ class AgentPersistence {
     const metadataFile = this.metadataPath(sessionsDir, id);
     const metadataTmp = `${metadataFile}.${crypto.randomUUID()}.tmp`;
     const metadataData =
-      JSON.stringify({id: snapshot.id, title: snapshot.title}, null, 2) + '\n';
+      JSON.stringify(
+        {
+          id: snapshot.id,
+          title: snapshot.title,
+          workingDirectory: snapshot.options.workingDirectory,
+        },
+        null,
+        2,
+      ) + '\n';
 
     if (options?.sync) {
       mkdirSync(dir, {recursive: true});
