@@ -1,5 +1,4 @@
 import assert from 'node:assert';
-import os from 'node:os';
 
 import {
   AgentType,
@@ -65,7 +64,6 @@ export const agentSessionService = {
     const hasExtraAllowedPaths =
       options.extraAllowedPaths !== undefined &&
       options.extraAllowedPaths.length > 0;
-    let workingDirectory = os.tmpdir();
     let resolvedExtraFilePathEntries: readonly AllowedPathEntry[] = [];
 
     if (hasWorkspace || hasExtraAllowedPaths) {
@@ -80,10 +78,6 @@ export const agentSessionService = {
 
       if (validationError) {
         return {success: false, error: validationError};
-      }
-
-      if (options.workspace) {
-        workingDirectory = options.workspace;
       }
 
       resolvedExtraFilePathEntries = (options.extraAllowedPaths ?? []).map(
@@ -101,14 +95,14 @@ export const agentSessionService = {
     switch (agentType) {
       case AgentType.CHAT:
         agent = new MainAgent(
-          workingDirectory,
+          options.workspace,
           resolvedExtraFilePathEntries,
           sessionsDir,
         );
         break;
       case AgentType.CODING:
         agent = new CodingAgent(
-          workingDirectory,
+          options.workspace,
           resolvedExtraFilePathEntries,
           sessionsDir,
         );

@@ -52,6 +52,7 @@ export type SubmitToolResponseRequest = z.infer<
 export const sessionMetadataSchema = z.object({
   id: z.string(),
   title: z.string(),
+  workingDirectory: z.string().optional(),
 });
 
 export type SessionMetadata = z.infer<typeof sessionMetadataSchema>;

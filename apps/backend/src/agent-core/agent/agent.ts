@@ -79,7 +79,7 @@ export abstract class Agent {
   private readonly getConfig: () => Promise<LlmConfig>;
   private readonly getLightConfig: (() => Promise<LlmConfig>) | null;
 
-  private readonly workingDirectory: string;
+  private readonly workingDirectory: string | undefined;
 
   private readonly extraAllowedPaths: readonly AllowedPathEntry[];
 
@@ -152,7 +152,7 @@ export abstract class Agent {
       ? new AgentSseLog(agentPersistence.eventsPath(this.sessionsDir, this.id))
       : new AgentSseLog();
 
-    this.shellState = {cwd: this.workingDirectory};
+    this.shellState = {cwd: this.workingDirectory ?? os.tmpdir()};
 
     if (!snapshot && this.sessionsDir) {
       agentPersistence.persistSnapshot(
@@ -328,7 +328,7 @@ export abstract class Agent {
       this.baseSystemPrompt,
       this.toolRegistries,
       this.skillRegistries,
-      this.workingDirectory,
+      this.workingDirectory ?? os.tmpdir(),
       this.extraAllowedPaths,
     );
 
@@ -596,7 +596,7 @@ export abstract class Agent {
     const context: ToolExecutionContext = {
       callId: toolCall.callId,
       availableSkills: buildAvailableSkills(this.skillRegistries),
-      workingDirectory: this.workingDirectory,
+      workingDirectory: this.workingDirectory ?? os.tmpdir(),
       fileCache: this.fileCache,
       fileStatTracker: this.fileStatTracker,
       extraAllowedPaths: this.extraAllowedPaths,

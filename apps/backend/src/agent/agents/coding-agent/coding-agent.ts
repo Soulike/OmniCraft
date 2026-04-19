@@ -21,7 +21,7 @@ import {settingsService} from '@/services/settings/index.js';
  */
 export class CodingAgent extends Agent {
   constructor(
-    workingDirectory: string,
+    workingDirectory: string | undefined,
     extraAllowedPaths: readonly AllowedPathEntry[] = [],
     sessionsDir?: string,
     snapshot?: AgentSnapshot,

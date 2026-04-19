@@ -23,7 +23,7 @@ export type AgentEventStream = AsyncGenerator<AgentEvent, void, undefined>;
 // ---------------------------------------------------------------------------
 
 const agentSnapshotOptionsSchema = z.object({
-  workingDirectory: z.string(),
+  workingDirectory: z.string().optional(),
   claudeCodeSessionId: z.string().optional(),
   extraAllowedPaths: z.array(allowedPathEntrySchema).optional(),
 });
@@ -52,7 +52,7 @@ export interface AgentOptions {
   readonly baseSystemPrompt: string;
   readonly getMaxToolRounds: () => Promise<number> | number;
   readonly getLightConfig?: () => Promise<LlmConfig>;
-  readonly workingDirectory: string;
+  readonly workingDirectory?: string;
   readonly extraAllowedPaths: readonly AllowedPathEntry[];
   readonly sessionsDir?: string;
 }
