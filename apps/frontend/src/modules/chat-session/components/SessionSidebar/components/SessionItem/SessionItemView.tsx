@@ -1,4 +1,4 @@
-import {Button, Popover} from '@heroui/react';
+import {Button, Popover, Tooltip} from '@heroui/react';
 import {MessageSquare, Trash2} from 'lucide-react';
 
 import styles from './styles.module.css';
@@ -28,7 +28,14 @@ export function SessionItemView({
       <div className={styles.content}>
         <span className={styles.title}>{title}</span>
         {workingDirectory !== undefined && (
-          <span className={styles.workingDirectory}>{workingDirectory}</span>
+          <Tooltip delay={0}>
+            <Tooltip.Trigger>
+              <span className={styles.workingDirectory}>
+                {workingDirectory.split('/').pop()}
+              </span>
+            </Tooltip.Trigger>
+            <Tooltip.Content>{workingDirectory}</Tooltip.Content>
+          </Tooltip>
         )}
       </div>
       <div className={styles.actions}>
