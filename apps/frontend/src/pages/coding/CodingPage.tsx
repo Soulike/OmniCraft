@@ -74,7 +74,7 @@ function CodingPageContent() {
 
   const createNewSessionIdWithConfig = useCallback(async () => {
     if (selectedWorkspace === undefined) {
-      return null;
+      throw new Error('Please select a workspace before starting a session.');
     }
     return createNewSessionId({
       workspace: selectedWorkspace,
