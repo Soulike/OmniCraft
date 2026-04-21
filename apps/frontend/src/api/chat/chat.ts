@@ -5,14 +5,11 @@ import {
 } from '@omnicraft/api-schema';
 import type {SseEvent} from '@omnicraft/sse-events';
 
-import type {CreateSessionOptions} from '../agent-session/index.js';
 import * as agentSessionApi from '../agent-session/index.js';
 
 /** Creates a new chat session. Returns the session ID. */
-export async function createSession(
-  options: CreateSessionOptions = {},
-): Promise<string> {
-  return agentSessionApi.createSession(AgentType.CHAT, options);
+export async function createSession(): Promise<string> {
+  return agentSessionApi.createSession(AgentType.CHAT);
 }
 
 export async function sendMessage(

@@ -2,8 +2,8 @@ export {AgentType, agentTypeSchema} from './agent-type/schema.js';
 export {
   type ChatCompletionsRequest,
   chatCompletionsRequestSchema,
-  type CreateSessionRequest,
-  createSessionRequestSchema,
+  type CreateCodingSessionRequest,
+  createCodingSessionRequestSchema,
   type CreateSessionResponse,
   createSessionResponseSchema,
   type ListSessionsQuery,

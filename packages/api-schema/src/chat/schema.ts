@@ -5,15 +5,15 @@ export const thinkingLevelSchema = z.enum(['none', 'low', 'medium', 'high']);
 
 export type ThinkingLevel = z.infer<typeof thinkingLevelSchema>;
 
-/** Schema for the POST /chat/session request body. */
-export const createSessionRequestSchema = z
-  .object({
-    workspace: z.string().optional(),
-    extraAllowedPaths: z.array(z.string()).optional(),
-  })
-  .optional();
+/** Schema for the POST /coding/session request body. */
+export const createCodingSessionRequestSchema = z.object({
+  workspace: z.string(),
+  extraAllowedPaths: z.array(z.string()).optional(),
+});
 
-export type CreateSessionRequest = z.infer<typeof createSessionRequestSchema>;
+export type CreateCodingSessionRequest = z.infer<
+  typeof createCodingSessionRequestSchema
+>;
 
 /** Schema for the POST /chat/session response body. */
 export const createSessionResponseSchema = z.object({
