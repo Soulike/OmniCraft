@@ -72,17 +72,18 @@ function CodingPageContent() {
     return getVscodeUrl(vscodePort, vscodeToken, selectedWorkspace);
   }, [sessionId, vscodeAvailable, vscodePort, vscodeToken, selectedWorkspace]);
 
-  const createNewSessionIdWithConfig = useCallback(
-    async () =>
-      createNewSessionId({
-        workspace: selectedWorkspace,
-        extraAllowedPaths:
-          selectedExtraAllowedPaths.length > 0
-            ? selectedExtraAllowedPaths
-            : undefined,
-      }),
-    [createNewSessionId, selectedWorkspace, selectedExtraAllowedPaths],
-  );
+  const createNewSessionIdWithConfig = useCallback(async () => {
+    if (selectedWorkspace === undefined) {
+      return null;
+    }
+    return createNewSessionId({
+      workspace: selectedWorkspace,
+      extraAllowedPaths:
+        selectedExtraAllowedPaths.length > 0
+          ? selectedExtraAllowedPaths
+          : undefined,
+    });
+  }, [createNewSessionId, selectedWorkspace, selectedExtraAllowedPaths]);
 
   const {
     isStreaming,
