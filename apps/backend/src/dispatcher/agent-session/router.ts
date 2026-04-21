@@ -3,8 +3,9 @@ import {PassThrough} from 'node:stream';
 
 import Router from '@koa/router';
 import {
+  AgentType,
   chatCompletionsRequestSchema,
-  createSessionRequestSchema,
+  createCodingSessionRequestSchema,
   listSessionsQuerySchema,
   submitToolResponseRequestSchema,
   type ThinkingLevel,
@@ -70,12 +71,17 @@ router.post(SESSION, async (ctx) => {
 
   let options = {};
   try {
-    const body = createSessionRequestSchema.parse(ctx.request.body);
-    if (body) {
-      options = {
-        workspace: body.workspace,
-        extraAllowedPaths: body.extraAllowedPaths,
-      };
+    switch (agentType) {
+      case AgentType.CHAT:
+        break;
+      case AgentType.CODING: {
+        const body = createCodingSessionRequestSchema.parse(ctx.request.body);
+        options = {
+          workspace: body.workspace,
+          extraAllowedPaths: body.extraAllowedPaths,
+        };
+        break;
+      }
     }
   } catch (e) {
     if (e instanceof ZodError) {
