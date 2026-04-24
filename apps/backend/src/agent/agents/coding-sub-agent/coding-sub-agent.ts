@@ -2,7 +2,6 @@ import assert from 'node:assert';
 import crypto from 'node:crypto';
 
 import type {ThinkingLevel} from '@omnicraft/api-schema';
-import type {AllowedPathEntry} from '@omnicraft/settings-schema';
 import type {
   SseDoneEvent,
   SseMessageStartEvent,
@@ -48,11 +47,7 @@ export class CodingSubAgent extends Agent {
   /** Claude Agent SDK session ID, captured from the init message. */
   private claudeCodeSessionId: string | undefined;
 
-  constructor(
-    workingDirectory: string,
-    extraAllowedPaths: readonly AllowedPathEntry[] = [],
-    snapshot?: AgentSnapshot,
-  ) {
+  constructor(workingDirectory: string, snapshot?: AgentSnapshot) {
     super(
       noopConfig,
       {
@@ -61,7 +56,6 @@ export class CodingSubAgent extends Agent {
         baseSystemPrompt: '',
         getMaxToolRounds: () => 0,
         workingDirectory,
-        extraAllowedPaths,
       },
       snapshot,
     );

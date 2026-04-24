@@ -1,11 +1,8 @@
-import assert from 'node:assert';
-
 import {
   AgentType,
   type SessionMetadata,
   type ThinkingLevel,
 } from '@omnicraft/api-schema';
-import type {AllowedPathEntry} from '@omnicraft/settings-schema';
 import type {SseEvent} from '@omnicraft/sse-events';
 
 import {CodingAgent, MainAgent} from '@/agent/agents/index.js';
@@ -34,7 +31,6 @@ function getStore(agentType: AgentType) {
 
 interface CreateSessionOptions {
   workspace?: string;
-  extraAllowedPaths?: string[];
 }
 
 /** Unified service layer for all agent-backed sessions. */
@@ -60,33 +56,15 @@ export const agentSessionService = {
       return {success: false, error: CreateSessionError.MODEL_NOT_CONFIGURED};
     }
 
-    const hasWorkspace = options.workspace !== undefined;
-    const hasExtraAllowedPaths =
-      options.extraAllowedPaths !== undefined &&
-      options.extraAllowedPaths.length > 0;
-    let resolvedExtraFilePathEntries: readonly AllowedPathEntry[] = [];
-
-    if (hasWorkspace || hasExtraAllowedPaths) {
+    if (options.workspace !== undefined) {
       const settings = await SettingsManager.getInstance().getAll();
-      const allowedPaths = settings.fileAccess.allowedPaths;
-
       const validationError = await validateSessionPaths(
         options.workspace,
-        options.extraAllowedPaths ?? [],
-        allowedPaths,
+        settings.fileAccess.allowedPaths,
       );
-
       if (validationError) {
         return {success: false, error: validationError};
       }
-
-      resolvedExtraFilePathEntries = (options.extraAllowedPaths ?? []).map(
-        (p) => {
-          const entry = allowedPaths.find((e) => e.path === p);
-          assert(entry, `Extra path not found in allowed paths: ${p}`);
-          return entry;
-        },
-      );
     }
 
     const store = getStore(agentType);
@@ -94,18 +72,10 @@ export const agentSessionService = {
     let agent: Agent;
     switch (agentType) {
       case AgentType.CHAT:
-        agent = new MainAgent(
-          options.workspace,
-          resolvedExtraFilePathEntries,
-          sessionsDir,
-        );
+        agent = new MainAgent(options.workspace, sessionsDir);
         break;
       case AgentType.CODING:
-        agent = new CodingAgent(
-          options.workspace,
-          resolvedExtraFilePathEntries,
-          sessionsDir,
-        );
+        agent = new CodingAgent(options.workspace, sessionsDir);
         break;
     }
     return {success: true, sessionId: agent.id};

@@ -1,11 +1,9 @@
-import {allowedPathEntrySchema} from '@omnicraft/settings-schema';
 import type {SseErrorEvent, SseEvent} from '@omnicraft/sse-events';
 import {z} from 'zod';
 
 import type {LlmConfig} from '../llm-api/index.js';
 import {llmSessionSnapshotSchema} from '../llm-session/index.js';
 import type {SkillRegistry} from '../skill/index.js';
-import type {AllowedPathEntry} from '../tool/index.js';
 import type {ToolRegistry} from '../tool/index.js';
 
 // ---------------------------------------------------------------------------
@@ -25,7 +23,6 @@ export type AgentEventStream = AsyncGenerator<AgentEvent, void, undefined>;
 const agentSnapshotOptionsSchema = z.object({
   workingDirectory: z.string().optional(),
   claudeCodeSessionId: z.string().optional(),
-  extraAllowedPaths: z.array(allowedPathEntrySchema).optional(),
 });
 
 export const agentSnapshotSchema = z.object({
@@ -53,6 +50,5 @@ export interface AgentOptions {
   readonly getMaxToolRounds: () => Promise<number> | number;
   readonly getLightConfig?: () => Promise<LlmConfig>;
   readonly workingDirectory?: string;
-  readonly extraAllowedPaths: readonly AllowedPathEntry[];
   readonly sessionsDir?: string;
 }

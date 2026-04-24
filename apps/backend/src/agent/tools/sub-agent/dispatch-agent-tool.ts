@@ -114,11 +114,7 @@ export const dispatchAgentTool: ToolDefinition<
       model === 'light' ? context.getLightConfig : context.getConfig;
 
     // Create subagent
-    const subagent: Agent = new GeneralSubAgent(
-      getConfig,
-      workingDirectory,
-      [],
-    );
+    const subagent: Agent = new GeneralSubAgent(getConfig, workingDirectory);
 
     // Link parent abort signal to subagent
     const onAbort = () => {
