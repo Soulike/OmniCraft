@@ -15,7 +15,6 @@ import type {
   ToolDefinition,
   ToolExecutionContext,
 } from '@/agent-core/tool/index.js';
-import {AccessCheckResult, checkAccess} from '@/helpers/path-access.js';
 
 const MAX_DIFF_SIZE = 4_096; // 4KB
 const MAX_FILE_SIZE = 10_485_760; // 10MB
@@ -53,32 +52,7 @@ export const editFileTool: ToolDefinition<typeof parameters, EditFileResult> = {
     // 1. Resolve path
     const absolutePath = path.resolve(workingDirectory, args.filePath);
 
-    // 2. Security check
-    const accessResult = checkAccess(
-      absolutePath,
-      'read-write',
-      workingDirectory,
-      context.extraAllowedPaths,
-    );
-    if (accessResult === AccessCheckResult.ERROR_OUTSIDE_ALLOWED_DIRECTORIES) {
-      return {
-        data: {
-          message: 'Access denied: path is outside the allowed directories',
-        },
-        content:
-          'Error: Access denied: path is outside the allowed directories',
-        status: 'failure',
-      };
-    }
-    if (accessResult === AccessCheckResult.ERROR_READ_ONLY) {
-      return {
-        data: {message: 'Access denied: path is read-only'},
-        content: 'Error: Access denied: path is read-only',
-        status: 'failure',
-      };
-    }
-
-    // 3. Read file
+    // 2. Read file
     let stat: Stats;
     try {
       stat = await fs.stat(absolutePath);
@@ -138,7 +112,7 @@ export const editFileTool: ToolDefinition<typeof parameters, EditFileResult> = {
       return {data: {message}, content: `Error: ${message}`, status: 'failure'};
     }
 
-    // 4. Check for no-op replacement
+    // 3. Check for no-op replacement
     if (args.oldString === args.newString) {
       return {
         data: {
@@ -150,7 +124,7 @@ export const editFileTool: ToolDefinition<typeof parameters, EditFileResult> = {
       };
     }
 
-    // 5. Count occurrences
+    // 4. Count occurrences
     const matchCount = countOccurrences(oldContent, args.oldString);
 
     if (matchCount === 0) {

@@ -14,7 +14,6 @@ import type {
   ToolDefinition,
   ToolExecutionContext,
 } from '@/agent-core/tool/index.js';
-import {AccessCheckResult, checkAccess} from '@/helpers/path-access.js';
 
 import {countLines} from './helpers.js';
 
@@ -53,34 +52,7 @@ export const writeFileTool: ToolDefinition<typeof parameters, WriteFileResult> =
       // 2. Resolve path
       const absolutePath = path.resolve(workingDirectory, args.filePath);
 
-      // 3. Security check
-      const accessResult = checkAccess(
-        absolutePath,
-        'read-write',
-        workingDirectory,
-        context.extraAllowedPaths,
-      );
-      if (
-        accessResult === AccessCheckResult.ERROR_OUTSIDE_ALLOWED_DIRECTORIES
-      ) {
-        return {
-          data: {
-            message: 'Access denied: path is outside the allowed directories',
-          },
-          content:
-            'Error: Access denied: path is outside the allowed directories',
-          status: 'failure',
-        };
-      }
-      if (accessResult === AccessCheckResult.ERROR_READ_ONLY) {
-        return {
-          data: {message: 'Access denied: path is read-only'},
-          content: 'Error: Access denied: path is read-only',
-          status: 'failure',
-        };
-      }
-
-      // 4. Check if file exists — if so, verify it was read first
+      // 3. Check if file exists — if so, verify it was read first
       let existingStat: Stats | null = null;
       try {
         existingStat = await fs.stat(absolutePath);
@@ -131,10 +103,10 @@ export const writeFileTool: ToolDefinition<typeof parameters, WriteFileResult> =
         }
       }
 
-      // 5. Auto-create parent directories
+      // 4. Auto-create parent directories
       await fs.mkdir(path.dirname(absolutePath), {recursive: true});
 
-      // 6. Write file
+      // 5. Write file
       try {
         await fs.writeFile(absolutePath, args.content, 'utf-8');
       } catch (error: unknown) {
@@ -151,7 +123,7 @@ export const writeFileTool: ToolDefinition<typeof parameters, WriteFileResult> =
       context.fileStatTracker.set(absolutePath, newStat.size, newStat.mtimeMs);
       context.fileCache.invalidate(absolutePath);
 
-      // 7. Count lines and return success
+      // 6. Count lines and return success
       const lineCount = await countLines(Buffer.from(args.content));
       const data: WriteFileResult = {filePath: args.filePath, lineCount};
       return {

@@ -189,58 +189,6 @@ describe('findFilesTool', () => {
     });
   });
 
-  describe('extraAllowedPaths', () => {
-    let extraDir: string;
-
-    beforeEach(async () => {
-      extraDir = await fs.mkdtemp(path.join(os.tmpdir(), 'fft-extra-'));
-    });
-
-    afterEach(async () => {
-      await fs.rm(extraDir, {recursive: true, force: true});
-    });
-
-    it('allows searching in an extra allowed path', async () => {
-      await fs.writeFile(path.join(extraDir, 'lib.ts'), '');
-
-      const extraContext = createMockContext({
-        workingDirectory: tmpDir,
-        fileCache: new FileContentCache(),
-        extraAllowedPaths: [{path: extraDir, mode: 'read'}],
-      });
-
-      const result = await findFilesTool.execute(
-        {pattern: '**/*.ts', path: extraDir},
-        extraContext,
-      );
-
-      expect(result.content).toContain('lib.ts');
-      expect(result.status).toBe('success');
-      assert(result.status === 'success');
-      expect(result.data.files).toHaveLength(1);
-    });
-
-    it('allows searching in an extra read-write path', async () => {
-      await fs.writeFile(path.join(extraDir, 'rw.ts'), '');
-
-      const extraContext = createMockContext({
-        workingDirectory: tmpDir,
-        fileCache: new FileContentCache(),
-        extraAllowedPaths: [{path: extraDir, mode: 'read-write'}],
-      });
-
-      const result = await findFilesTool.execute(
-        {pattern: '**/*.ts', path: extraDir},
-        extraContext,
-      );
-
-      expect(result.content).toContain('rw.ts');
-      expect(result.status).toBe('success');
-      assert(result.status === 'success');
-      expect(result.data.files).toHaveLength(1);
-    });
-  });
-
   describe('error cases', () => {
     it('returns partial results on timeout', async () => {
       for (let i = 0; i < 5; i++) {
@@ -263,30 +211,6 @@ describe('findFilesTool', () => {
       expect(result.content).toContain('Results may be incomplete');
       // Should have collected at least 1 file before timeout
       expect(result.content).toContain('.ts');
-      expect(result.status).toBe('failure');
-      assert(result.status === 'failure');
-      expect(result.data.message).toBeTruthy();
-    });
-
-    it('rejects path outside workingDirectory', async () => {
-      const result = await findFilesTool.execute(
-        {pattern: '**/*.ts', path: '/etc'},
-        context,
-      );
-
-      expect(result.content).toContain('Error: Access denied');
-      expect(result.status).toBe('failure');
-      assert(result.status === 'failure');
-      expect(result.data.message).toBeTruthy();
-    });
-
-    it('rejects path traversal attacks', async () => {
-      const result = await findFilesTool.execute(
-        {pattern: '**/*.ts', path: '../../../etc'},
-        context,
-      );
-
-      expect(result.content).toContain('Error: Access denied');
       expect(result.status).toBe('failure');
       assert(result.status === 'failure');
       expect(result.data.message).toBeTruthy();

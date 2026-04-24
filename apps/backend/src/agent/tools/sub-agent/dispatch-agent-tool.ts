@@ -11,7 +11,6 @@ import type {
   ToolExecuteResult,
   ToolExecutionContext,
 } from '@/agent-core/tool/index.js';
-import {AccessCheckResult, checkAccess} from '@/helpers/path-access.js';
 
 interface SubAgentInfo {
   name: string;
@@ -101,29 +100,13 @@ export const dispatchAgentTool: ToolDefinition<
       thinkingLevel = 'none',
     } = args;
 
-    // Validate and resolve working directory
+    // Resolve working directory (relative paths resolved against parent's cwd).
     let workingDirectory = context.workingDirectory;
     if (args.workingDirectory) {
-      const resolved = path.resolve(
+      workingDirectory = path.resolve(
         context.workingDirectory,
         args.workingDirectory,
       );
-      const accessResult = checkAccess(
-        resolved,
-        'read-write',
-        context.workingDirectory,
-        context.extraAllowedPaths,
-      );
-      if (accessResult !== AccessCheckResult.OK) {
-        return {
-          data: {
-            message: `working directory "${resolved}" is not in allowed paths`,
-          },
-          content: `Error: working directory "${resolved}" is not in allowed paths`,
-          status: 'failure',
-        };
-      }
-      workingDirectory = resolved;
     }
 
     // Build config for the subagent — inherit from the parent agent

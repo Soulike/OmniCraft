@@ -18,7 +18,6 @@ import type {
   ToolDefinition,
   ToolExecutionContext,
 } from '@/agent-core/tool/index.js';
-import {AccessCheckResult, checkAccess} from '@/helpers/path-access.js';
 
 import {isBinaryFile} from './helpers.js';
 
@@ -95,25 +94,7 @@ export const searchFilesTool: ToolDefinition<
     // 1. Resolve search directory
     const searchDir = path.resolve(workingDirectory, args.path ?? '.');
 
-    // 2. Security check
-    const accessResult = checkAccess(
-      searchDir,
-      'read',
-      workingDirectory,
-      context.extraAllowedPaths,
-    );
-    if (accessResult === AccessCheckResult.ERROR_OUTSIDE_ALLOWED_DIRECTORIES) {
-      return {
-        data: {
-          message: 'Access denied: path is outside the allowed directories',
-        },
-        content:
-          'Error: Access denied: path is outside the allowed directories',
-        status: 'failure',
-      };
-    }
-
-    // 3. Verify directory exists
+    // 2. Verify directory exists
     let stat: Stats;
     try {
       stat = await fs.stat(searchDir);
@@ -133,7 +114,7 @@ export const searchFilesTool: ToolDefinition<
       };
     }
 
-    // 4. Compile regex
+    // 3. Compile regex
     if (!isSafeRegex(args.pattern)) {
       return {
         data: {
@@ -158,7 +139,7 @@ export const searchFilesTool: ToolDefinition<
       };
     }
 
-    // 5. Enumerate files and search concurrently
+    // 4. Enumerate files and search concurrently
     const stream = fg.stream(args.filePattern ?? '**/*', {
       cwd: searchDir,
       onlyFiles: true,
@@ -237,10 +218,10 @@ export const searchFilesTool: ToolDefinition<
       timedOut = true;
     }
 
-    // 6. Sort by file path, then line number
+    // 5. Sort by file path, then line number
     results.sort((a, b) => a.filePath.localeCompare(b.filePath));
 
-    // 7. Format output
+    // 6. Format output
     const displayPath = args.path ?? workingDirectory;
     const hitLimit = totalMatches >= MAX_MATCHES;
 
