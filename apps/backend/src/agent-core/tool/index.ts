@@ -9,4 +9,3 @@ export type {
   ToolExecuteSuccessResult,
   ToolExecutionContext,
 } from './types.js';
-export type {AllowedPathEntry} from '@omnicraft/settings-schema';

@@ -1,27 +1,27 @@
 import Router from '@koa/router';
-import {putAllowedPathsRequestSchema} from '@omnicraft/api-schema';
+import {putWorkspacesRequestSchema} from '@omnicraft/api-schema';
 import {StatusCodes} from 'http-status-codes';
 import {ZodError} from 'zod';
 
 import {fileAccessSettingsService} from '@/services/file-access-settings/index.js';
 
-import {FILE_ACCESS_ALLOWED_PATHS} from './path.js';
+import {FILE_ACCESS_WORKSPACES} from './path.js';
 
 const router = new Router();
 
-/** GET /settings/file-access/allowed-paths — returns the current allowed paths. */
-router.get(FILE_ACCESS_ALLOWED_PATHS, async (ctx) => {
-  const allowedPaths = await fileAccessSettingsService.getAllowedPaths();
+/** GET /settings/file-access/workspaces — returns the current workspaces. */
+router.get(FILE_ACCESS_WORKSPACES, async (ctx) => {
+  const workspaces = await fileAccessSettingsService.getWorkspaces();
   ctx.response.status = StatusCodes.OK;
-  ctx.response.body = {allowedPaths};
+  ctx.response.body = {workspaces};
 });
 
-/** PUT /settings/file-access/allowed-paths — validates and saves allowed paths. */
-router.put(FILE_ACCESS_ALLOWED_PATHS, async (ctx) => {
-  let allowedPaths;
+/** PUT /settings/file-access/workspaces — validates and saves workspaces. */
+router.put(FILE_ACCESS_WORKSPACES, async (ctx) => {
+  let workspaces;
   try {
-    const body = putAllowedPathsRequestSchema.parse(ctx.request.body);
-    allowedPaths = body.allowedPaths;
+    const body = putWorkspacesRequestSchema.parse(ctx.request.body);
+    workspaces = body.workspaces;
   } catch (e) {
     if (e instanceof ZodError) {
       ctx.response.status = StatusCodes.BAD_REQUEST;
@@ -31,7 +31,7 @@ router.put(FILE_ACCESS_ALLOWED_PATHS, async (ctx) => {
     throw e;
   }
 
-  const result = await fileAccessSettingsService.setAllowedPaths(allowedPaths);
+  const result = await fileAccessSettingsService.setWorkspaces(workspaces);
 
   if (!result.success) {
     ctx.response.status = StatusCodes.UNPROCESSABLE_ENTITY;

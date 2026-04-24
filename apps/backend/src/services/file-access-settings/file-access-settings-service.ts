@@ -1,30 +1,28 @@
-import type {AllowedPathEntry} from '@omnicraft/settings-schema';
+import type {Workspace} from '@omnicraft/settings-schema';
 
 import {SettingsManager} from '@/models/settings-manager/index.js';
 
 import {normalizeAndValidatePaths} from './helpers.js';
 import type {InvalidPathEntry} from './types.js';
 
-export type SaveAllowedPathsResult =
+export type SaveWorkspacesResult =
   | {success: true}
   | {success: false; invalidPaths: InvalidPathEntry[]};
 
 export const fileAccessSettingsService = {
-  async getAllowedPaths(): Promise<readonly AllowedPathEntry[]> {
+  async getWorkspaces(): Promise<readonly Workspace[]> {
     const settings = await SettingsManager.getInstance().getAll();
-    return settings.fileAccess.allowedPaths;
+    return settings.fileAccess.workspaces;
   },
 
-  async setAllowedPaths(
-    entries: AllowedPathEntry[],
-  ): Promise<SaveAllowedPathsResult> {
+  async setWorkspaces(entries: Workspace[]): Promise<SaveWorkspacesResult> {
     const {normalized, errors} = await normalizeAndValidatePaths(entries);
     if (errors.length > 0) {
       return {success: false, invalidPaths: errors};
     }
 
     await SettingsManager.getInstance().set(
-      ['fileAccess', 'allowedPaths'],
+      ['fileAccess', 'workspaces'],
       normalized,
     );
     return {success: true};

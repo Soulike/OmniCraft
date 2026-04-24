@@ -1,1 +1,1 @@
-export const FILE_ACCESS_ALLOWED_PATHS = '/settings/file-access/allowed-paths';
+export const FILE_ACCESS_WORKSPACES = '/settings/file-access/workspaces';
