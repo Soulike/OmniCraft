@@ -13,7 +13,6 @@ import type {
   ToolDefinition,
   ToolExecutionContext,
 } from '@/agent-core/tool/index.js';
-import {AccessCheckResult, checkAccess} from '@/helpers/path-access.js';
 
 import {
   countLines,
@@ -39,8 +38,7 @@ export const readFileTool: ToolDefinition<typeof parameters, ReadFileResult> = {
     'Reads a text file and returns its contents with line numbers. ' +
     'Supports partial reads via startLine and lineCount parameters. ' +
     'Use this whenever you need to see the current content of a file ' +
-    'or review a specific section of it. ' +
-    'Only text files within the working directory are allowed.',
+    'or review a specific section of it.',
   parameters,
   suppressToolEvents: false,
   async execute(args: ReadFileArgs, context: ToolExecutionContext) {
@@ -49,25 +47,7 @@ export const readFileTool: ToolDefinition<typeof parameters, ReadFileResult> = {
     // 1. Resolve path
     const absolutePath = path.resolve(workingDirectory, args.filePath);
 
-    // 2. Security check: workingDirectory or extraAllowedPaths
-    const accessResult = checkAccess(
-      absolutePath,
-      'read',
-      workingDirectory,
-      context.extraAllowedPaths,
-    );
-    if (accessResult === AccessCheckResult.ERROR_OUTSIDE_ALLOWED_DIRECTORIES) {
-      return {
-        data: {
-          message: 'Access denied: path is outside the allowed directories',
-        },
-        content:
-          'Error: Access denied: path is outside the allowed directories',
-        status: 'failure',
-      };
-    }
-
-    // 3. Stat
+    // 2. Stat
     let stat: Stats;
     try {
       stat = await fs.stat(absolutePath);
@@ -87,7 +67,7 @@ export const readFileTool: ToolDefinition<typeof parameters, ReadFileResult> = {
       };
     }
 
-    // 4. Binary check
+    // 3. Binary check
     try {
       if (await isBinaryFile(absolutePath)) {
         return {
@@ -108,7 +88,7 @@ export const readFileTool: ToolDefinition<typeof parameters, ReadFileResult> = {
       };
     }
 
-    // 5–6. Get content and extract lines
+    // 4–5. Get content and extract lines
     const startLine = args.startLine ?? 1;
     let selectedLines: string[];
     let totalLines: number;
@@ -165,7 +145,7 @@ export const readFileTool: ToolDefinition<typeof parameters, ReadFileResult> = {
       ? Math.min(startLine + args.lineCount - 1, totalLines)
       : totalLines;
 
-    // 7. Format with line numbers and return
+    // 6. Format with line numbers and return
     const formatted = formatWithLineNumbers(
       selectedLines,
       startLine,
@@ -178,7 +158,7 @@ export const readFileTool: ToolDefinition<typeof parameters, ReadFileResult> = {
       : ` (${totalLines} lines)`;
     const header = `File: ${args.filePath}${rangeInfo}`;
 
-    // 8. Track file stat for modification safety
+    // 7. Track file stat for modification safety
     context.fileStatTracker.set(absolutePath, stat.size, stat.mtimeMs);
 
     const data: ReadFileResult = {

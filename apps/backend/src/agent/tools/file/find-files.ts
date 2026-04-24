@@ -15,7 +15,6 @@ import type {
   ToolDefinition,
   ToolExecutionContext,
 } from '@/agent-core/tool/index.js';
-import {AccessCheckResult, checkAccess} from '@/helpers/path-access.js';
 
 import {searchFilesTool} from './search-files.js';
 
@@ -44,27 +43,7 @@ export const findFilesTool: ToolDefinition<typeof parameters, FindFilesResult> =
       // 1. Resolve search directory
       const searchDir = path.resolve(workingDirectory, args.path ?? '.');
 
-      // 2. Security check
-      const accessResult = checkAccess(
-        searchDir,
-        'read',
-        workingDirectory,
-        context.extraAllowedPaths,
-      );
-      if (
-        accessResult === AccessCheckResult.ERROR_OUTSIDE_ALLOWED_DIRECTORIES
-      ) {
-        return {
-          data: {
-            message: 'Access denied: path is outside the allowed directories',
-          },
-          content:
-            'Error: Access denied: path is outside the allowed directories',
-          status: 'failure',
-        };
-      }
-
-      // 3. Verify directory exists
+      // 2. Verify directory exists
       let stat: Stats;
       try {
         stat = await fs.stat(searchDir);
@@ -84,7 +63,7 @@ export const findFilesTool: ToolDefinition<typeof parameters, FindFilesResult> =
         };
       }
 
-      // 4. Run fast-glob with stream
+      // 3. Run fast-glob with stream
       const stream = fg.stream(args.pattern, {
         cwd: searchDir,
         onlyFiles: true,
@@ -119,10 +98,10 @@ export const findFilesTool: ToolDefinition<typeof parameters, FindFilesResult> =
         }
       }
 
-      // 5. Sort alphabetically
+      // 4. Sort alphabetically
       entries.sort();
 
-      // 6. Format output
+      // 5. Format output
       const displayPath = args.path ?? workingDirectory;
       const hitLimit = entries.length >= MAX_RESULTS;
 

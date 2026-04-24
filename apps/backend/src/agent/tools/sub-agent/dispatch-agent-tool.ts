@@ -11,7 +11,7 @@ import type {
   ToolExecuteResult,
   ToolExecutionContext,
 } from '@/agent-core/tool/index.js';
-import {AccessCheckResult, checkAccess} from '@/helpers/path-access.js';
+import {isSubPathOrSelf} from '@/helpers/path-helpers.js';
 
 interface SubAgentInfo {
   name: string;
@@ -63,9 +63,11 @@ const parameters = z.object({
     .string()
     .optional()
     .describe(
-      "Working directory for the subagent. Must be within allowed paths. Defaults to the parent agent's working directory. " +
-        'Set this when the subtask operates in a different subdirectory or project root ' +
-        'than the current working directory.',
+      "Working directory for the subagent. Must be the parent agent's working directory itself or a subdirectory of it. " +
+        "Relative paths are resolved against the parent agent's working directory; absolute paths must still resolve inside it. " +
+        "Defaults to the parent agent's working directory. " +
+        'Set this when the subtask operates in a specific subdirectory ' +
+        'rather than the whole working directory.',
     ),
   thinkingLevel: thinkingLevelSchema
     .optional()
@@ -101,29 +103,23 @@ export const dispatchAgentTool: ToolDefinition<
       thinkingLevel = 'none',
     } = args;
 
-    // Validate and resolve working directory
+    // Resolve working directory (relative paths resolved against parent's cwd).
     let workingDirectory = context.workingDirectory;
     if (args.workingDirectory) {
-      const resolved = path.resolve(
+      workingDirectory = path.resolve(
         context.workingDirectory,
         args.workingDirectory,
       );
-      const accessResult = checkAccess(
-        resolved,
-        'read-write',
-        context.workingDirectory,
-        context.extraAllowedPaths,
-      );
-      if (accessResult !== AccessCheckResult.OK) {
+      if (!isSubPathOrSelf(context.workingDirectory, workingDirectory)) {
+        const message =
+          `working directory "${workingDirectory}" is outside the parent agent's working directory ` +
+          `"${context.workingDirectory}"`;
         return {
-          data: {
-            message: `working directory "${resolved}" is not in allowed paths`,
-          },
-          content: `Error: working directory "${resolved}" is not in allowed paths`,
+          data: {message},
+          content: `Error: ${message}`,
           status: 'failure',
         };
       }
-      workingDirectory = resolved;
     }
 
     // Build config for the subagent — inherit from the parent agent
@@ -131,11 +127,7 @@ export const dispatchAgentTool: ToolDefinition<
       model === 'light' ? context.getLightConfig : context.getConfig;
 
     // Create subagent
-    const subagent: Agent = new GeneralSubAgent(
-      getConfig,
-      workingDirectory,
-      context.extraAllowedPaths,
-    );
+    const subagent: Agent = new GeneralSubAgent(getConfig, workingDirectory);
 
     // Link parent abort signal to subagent
     const onAbort = () => {

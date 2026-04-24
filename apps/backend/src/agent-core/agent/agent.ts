@@ -31,7 +31,6 @@ import type {LlmSessionEventStream, ToolResult} from '../llm-session/index.js';
 import {LlmSession} from '../llm-session/index.js';
 import {modelCapacity} from '../model-capacity/index.js';
 import type {
-  AllowedPathEntry,
   ShellState,
   TodoState,
   ToolDefinition,
@@ -79,9 +78,7 @@ export abstract class Agent {
   private readonly getConfig: () => Promise<LlmConfig>;
   private readonly getLightConfig: (() => Promise<LlmConfig>) | null;
 
-  private readonly workingDirectory: string | undefined;
-
-  private readonly extraAllowedPaths: readonly AllowedPathEntry[];
+  private readonly workingDirectory: string;
 
   private readonly sessionsDir: string | null;
 
@@ -129,22 +126,17 @@ export abstract class Agent {
     this.getConfig = getConfig;
     this.getLightConfig = options.getLightConfig ?? null;
 
-    this.extraAllowedPaths = [
-      {path: os.tmpdir(), mode: 'read-write' as const},
-      ...options.extraAllowedPaths,
-    ];
-
     this.sessionsDir = options.sessionsDir ?? null;
 
     if (snapshot) {
       this.id = snapshot.id;
       this.title = snapshot.title;
       this.sseEventCount = snapshot.sseEventCount;
-      this.workingDirectory = snapshot.options.workingDirectory;
+      this.workingDirectory = snapshot.options.workingDirectory ?? os.tmpdir();
       this.llmSession = new LlmSession(getConfig, snapshot.llmSession);
     } else {
       this.id = crypto.randomUUID();
-      this.workingDirectory = options.workingDirectory;
+      this.workingDirectory = options.workingDirectory ?? os.tmpdir();
       this.llmSession = new LlmSession(getConfig);
     }
 
@@ -152,7 +144,7 @@ export abstract class Agent {
       ? new AgentSseLog(agentPersistence.eventsPath(this.sessionsDir, this.id))
       : new AgentSseLog();
 
-    this.shellState = {cwd: this.workingDirectory ?? os.tmpdir()};
+    this.shellState = {cwd: this.workingDirectory};
 
     if (!snapshot && this.sessionsDir) {
       agentPersistence.persistSnapshot(
@@ -185,9 +177,6 @@ export abstract class Agent {
       llmSession: this.llmSession.toSnapshot(),
       options: {
         workingDirectory: this.workingDirectory,
-        extraAllowedPaths: this.extraAllowedPaths.filter(
-          (p) => p.path !== os.tmpdir(),
-        ),
       },
     };
   }
@@ -328,8 +317,7 @@ export abstract class Agent {
       this.baseSystemPrompt,
       this.toolRegistries,
       this.skillRegistries,
-      this.workingDirectory ?? os.tmpdir(),
-      this.extraAllowedPaths,
+      this.workingDirectory,
     );
 
     const {
@@ -596,10 +584,9 @@ export abstract class Agent {
     const context: ToolExecutionContext = {
       callId: toolCall.callId,
       availableSkills: buildAvailableSkills(this.skillRegistries),
-      workingDirectory: this.workingDirectory ?? os.tmpdir(),
+      workingDirectory: this.workingDirectory,
       fileCache: this.fileCache,
       fileStatTracker: this.fileStatTracker,
-      extraAllowedPaths: this.extraAllowedPaths,
       shellState: this.shellState,
       signal,
       onSubAgentEvent: (event) => {

@@ -1,6 +1,6 @@
 import {describe, expect, it} from 'vitest';
 
-import {isSubPath, isSubPathOrSelf} from './path-access.js';
+import {isSubPath, isSubPathOrSelf} from './path-helpers.js';
 
 describe('isSubPath', () => {
   it('returns true for a direct child', () => {

@@ -13,7 +13,7 @@ import type {
   ToolDefinition,
   ToolExecutionContext,
 } from '@/agent-core/tool/index.js';
-import {isSubPathOrSelf} from '@/helpers/path-access.js';
+import {isSubPathOrSelf} from '@/helpers/path-helpers.js';
 import {ShellCommandRunner} from '@/helpers/shell-command-runner.js';
 
 const MAX_INLINE_BYTES = 32_768; // 32KB

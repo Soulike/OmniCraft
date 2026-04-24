@@ -1,5 +1,3 @@
-import type {AllowedPathEntry} from '@omnicraft/settings-schema';
-
 import {CoreSkillRegistry} from '@/agent/skills/index.js';
 import {
   BashToolRegistry,
@@ -22,7 +20,6 @@ import {settingsService} from '@/services/settings/index.js';
 export class MainAgent extends Agent {
   constructor(
     workingDirectory: string | undefined,
-    extraAllowedPaths: readonly AllowedPathEntry[] = [],
     sessionsDir?: string,
     snapshot?: AgentSnapshot,
   ) {
@@ -54,7 +51,6 @@ export class MainAgent extends Agent {
           return {apiFormat, apiKey, baseUrl, model: lightModel || model};
         },
         workingDirectory,
-        extraAllowedPaths,
         sessionsDir,
       },
       snapshot,
@@ -70,7 +66,6 @@ export class MainAgent extends Agent {
     );
     return new MainAgent(
       snapshot.options.workingDirectory,
-      snapshot.options.extraAllowedPaths ?? [],
       sessionsDir,
       snapshot,
     );

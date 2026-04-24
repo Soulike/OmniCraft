@@ -1,5 +1,3 @@
-import type {AllowedPathEntry} from '@omnicraft/settings-schema';
-
 import {CoreSkillRegistry} from '@/agent/skills/index.js';
 import {
   BashToolRegistry,
@@ -16,11 +14,7 @@ import {settingsService} from '@/services/settings/index.js';
  * Has the same tools/skills as MainAgent but cannot dispatch subagents itself.
  */
 export class GeneralSubAgent extends Agent {
-  constructor(
-    getConfig: () => Promise<LlmConfig>,
-    workingDirectory: string,
-    extraAllowedPaths: readonly AllowedPathEntry[] = [],
-  ) {
+  constructor(getConfig: () => Promise<LlmConfig>, workingDirectory: string) {
     super(getConfig, {
       toolRegistries: [
         CoreToolRegistry.getInstance(),
@@ -37,7 +31,6 @@ export class GeneralSubAgent extends Agent {
         return settings.agent.maxToolRounds;
       },
       workingDirectory,
-      extraAllowedPaths,
     });
   }
 }

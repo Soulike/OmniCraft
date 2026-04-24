@@ -1,5 +1,5 @@
 import type {SkillDefinition, SkillRegistry} from '../skill/index.js';
-import type {AllowedPathEntry, ToolDefinition} from '../tool/index.js';
+import type {ToolDefinition} from '../tool/index.js';
 import type {ToolRegistry} from '../tool/index.js';
 import {loadSkillTool} from '../tool/index.js';
 
@@ -60,7 +60,6 @@ export function buildSystemPrompt(
   toolRegistries: readonly ToolRegistry[],
   skillRegistries: readonly SkillRegistry[],
   workingDirectory: string,
-  extraAllowedPaths: readonly AllowedPathEntry[],
 ): string {
   let prompt = baseSystemPrompt;
 
@@ -87,16 +86,10 @@ export function buildSystemPrompt(
     ].join('\n');
   }
 
-  prompt += `\n\nWorking directory: ${workingDirectory}\nYou can read and write files within this directory.`;
   prompt +=
-    "\nWhen executing shell commands, do not access any files outside your working directory and other allowed paths unless it's necessary to finish your job or user explicitly requests it.";
-
-  if (extraAllowedPaths.length > 0) {
-    const pathLines = extraAllowedPaths
-      .map((p) => `- ${p.path} (${p.mode})`)
-      .join('\n');
-    prompt += `\n\nAdditional accessible paths:\n${pathLines}`;
-  }
+    `\n\nWorking directory: ${workingDirectory}. ` +
+    'Relative paths in file operations are resolved from this directory; ' +
+    'shell commands start here by default.';
 
   return prompt;
 }

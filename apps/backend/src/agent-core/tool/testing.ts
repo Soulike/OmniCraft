@@ -40,7 +40,6 @@ export function createMockContext(
     workingDirectory,
     fileCache: new FileContentCache(),
     fileStatTracker: new FileStatTracker(),
-    extraAllowedPaths: [],
     shellState: {cwd: workingDirectory},
     signal: new AbortController().signal,
     onSubAgentEvent: () => {

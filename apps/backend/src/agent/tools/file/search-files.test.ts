@@ -258,18 +258,6 @@ describe('searchFilesTool', () => {
   });
 
   describe('error cases', () => {
-    it('rejects path outside workingDirectory', async () => {
-      const result = await searchFilesTool.execute(
-        {pattern: 'test', path: '/etc'},
-        context,
-      );
-
-      expect(result.content).toContain('Error: Access denied');
-      expect(result.status).toBe('failure');
-      assert(result.status === 'failure');
-      expect(result.data.message).toBeTruthy();
-    });
-
     it('returns error for nonexistent directory', async () => {
       const result = await searchFilesTool.execute(
         {pattern: 'test', path: 'nonexistent'},
@@ -319,73 +307,6 @@ describe('searchFilesTool', () => {
       expect(result.status).toBe('failure');
       assert(result.status === 'failure');
       expect(result.data.message).toBeTruthy();
-    });
-
-    it('rejects path traversal attacks', async () => {
-      const result = await searchFilesTool.execute(
-        {pattern: 'test', path: '../../../etc'},
-        context,
-      );
-
-      expect(result.content).toContain('Error: Access denied');
-      expect(result.status).toBe('failure');
-      assert(result.status === 'failure');
-      expect(result.data.message).toBeTruthy();
-    });
-  });
-
-  describe('extraAllowedPaths', () => {
-    let extraDir: string;
-
-    beforeEach(async () => {
-      extraDir = await fs.mkdtemp(path.join(os.tmpdir(), 'sft-extra-'));
-    });
-
-    afterEach(async () => {
-      await fs.rm(extraDir, {recursive: true, force: true});
-    });
-
-    it('allows searching in an extra allowed path', async () => {
-      await fs.writeFile(path.join(extraDir, 'lib.ts'), 'findme\n');
-
-      const extraContext = createMockContext({
-        workingDirectory: tmpDir,
-        fileCache: new FileContentCache(),
-        extraAllowedPaths: [{path: extraDir, mode: 'read'}],
-      });
-
-      const result = await searchFilesTool.execute(
-        {pattern: 'findme', path: extraDir},
-        extraContext,
-      );
-
-      expect(result.content).toContain('lib.ts');
-      expect(result.content).toContain('findme');
-      expect(result.status).toBe('success');
-      assert(result.status === 'success');
-      expect(result.data.matches).toHaveLength(1);
-      expect(result.data.matches[0].file).toContain('lib.ts');
-      expect(result.data.matches[0].content).toBe('findme');
-    });
-
-    it('allows searching in an extra read-write path', async () => {
-      await fs.writeFile(path.join(extraDir, 'rw.ts'), 'rwmatch\n');
-
-      const extraContext = createMockContext({
-        workingDirectory: tmpDir,
-        fileCache: new FileContentCache(),
-        extraAllowedPaths: [{path: extraDir, mode: 'read-write'}],
-      });
-
-      const result = await searchFilesTool.execute(
-        {pattern: 'rwmatch', path: extraDir},
-        extraContext,
-      );
-
-      expect(result.content).toContain('rw.ts');
-      expect(result.status).toBe('success');
-      assert(result.status === 'success');
-      expect(result.data.matches).toHaveLength(1);
     });
   });
 });
