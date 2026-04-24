@@ -329,7 +329,6 @@ export abstract class Agent {
       this.toolRegistries,
       this.skillRegistries,
       this.workingDirectory ?? os.tmpdir(),
-      this.extraAllowedPaths,
     );
 
     const {
@@ -599,7 +598,6 @@ export abstract class Agent {
       workingDirectory: this.workingDirectory ?? os.tmpdir(),
       fileCache: this.fileCache,
       fileStatTracker: this.fileStatTracker,
-      extraAllowedPaths: this.extraAllowedPaths,
       shellState: this.shellState,
       signal,
       onSubAgentEvent: (event) => {

@@ -117,7 +117,7 @@ export const dispatchAgentTool: ToolDefinition<
     const subagent: Agent = new GeneralSubAgent(
       getConfig,
       workingDirectory,
-      context.extraAllowedPaths,
+      [],
     );
 
     // Link parent abort signal to subagent

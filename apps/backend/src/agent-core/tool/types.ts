@@ -1,4 +1,3 @@
-import type {AllowedPathEntry} from '@omnicraft/settings-schema';
 import type {SseSubAgentEvent} from '@omnicraft/sse-events';
 import type {ToolFailureData} from '@omnicraft/tool-schemas';
 import type {z} from 'zod';
@@ -38,12 +37,6 @@ export interface ToolExecutionContext {
 
   /** Tracks file stats to prevent blind or stale modifications. */
   readonly fileStatTracker: FileStatTracker;
-
-  /**
-   * Additional paths the agent is allowed to access beyond workingDirectory.
-   * workingDirectory is always read-write and should NOT be listed here.
-   */
-  readonly extraAllowedPaths: readonly AllowedPathEntry[];
 
   /** Mutable shell state (e.g. CWD) tracked across tool calls. */
   readonly shellState: ShellState;
