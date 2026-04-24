@@ -1,6 +1,6 @@
 import {constants} from 'node:fs';
 
-import type {AllowedPathEntry} from '@omnicraft/settings-schema';
+import type {Workspace} from '@omnicraft/settings-schema';
 
 import {checkDirectoryAccess} from '@/helpers/fs.js';
 
@@ -12,13 +12,10 @@ import {CreateSessionError} from './types.js';
  */
 export async function validateSessionPaths(
   workspace: string,
-  allowedPaths: readonly AllowedPathEntry[],
+  workspaces: readonly Workspace[],
 ): Promise<CreateSessionError | null> {
-  const entry = allowedPaths.find((e) => e.path === workspace);
-  if (!entry) return CreateSessionError.WORKSPACE_NOT_IN_ALLOWED_PATHS;
-  if (entry.mode !== 'read-write') {
-    return CreateSessionError.WORKSPACE_NOT_READ_WRITE;
-  }
+  const entry = workspaces.find((w) => w.path === workspace);
+  if (!entry) return CreateSessionError.WORKSPACE_NOT_CONFIGURED;
 
   const fsError = await checkDirectoryAccess(
     workspace,

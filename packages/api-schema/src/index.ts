@@ -18,16 +18,16 @@ export {
   thinkingLevelSchema,
 } from './chat/schema.js';
 export {
-  type GetAllowedPathsResponse,
-  getAllowedPathsResponseSchema,
+  type GetWorkspacesResponse,
+  getWorkspacesResponseSchema,
   type InvalidPathEntry,
   invalidPathEntrySchema,
   type InvalidPathsResponse,
   invalidPathsResponseSchema,
-  type PutAllowedPathsRequest,
-  putAllowedPathsRequestSchema,
-  type PutAllowedPathsSuccessResponse,
-  putAllowedPathsSuccessResponseSchema,
+  type PutWorkspacesRequest,
+  putWorkspacesRequestSchema,
+  type PutWorkspacesSuccessResponse,
+  putWorkspacesSuccessResponseSchema,
 } from './file-access/schema.js';
 export {
   type GetSettingValueResponse,

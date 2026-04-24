@@ -1,31 +1,27 @@
-import {allowedPathEntrySchema} from '@omnicraft/settings-schema';
+import {workspaceSchema} from '@omnicraft/settings-schema';
 import {z} from 'zod';
 
-/** Schema for the GET /settings/file-access/allowed-paths response body. */
-export const getAllowedPathsResponseSchema = z.object({
-  allowedPaths: z.array(allowedPathEntrySchema),
+/** Schema for the GET /settings/file-access/workspaces response body. */
+export const getWorkspacesResponseSchema = z.object({
+  workspaces: z.array(workspaceSchema),
 });
 
-export type GetAllowedPathsResponse = z.infer<
-  typeof getAllowedPathsResponseSchema
->;
+export type GetWorkspacesResponse = z.infer<typeof getWorkspacesResponseSchema>;
 
-/** Schema for the PUT /settings/file-access/allowed-paths request body. */
-export const putAllowedPathsRequestSchema = z.object({
-  allowedPaths: z.array(allowedPathEntrySchema),
+/** Schema for the PUT /settings/file-access/workspaces request body. */
+export const putWorkspacesRequestSchema = z.object({
+  workspaces: z.array(workspaceSchema),
 });
 
-export type PutAllowedPathsRequest = z.infer<
-  typeof putAllowedPathsRequestSchema
->;
+export type PutWorkspacesRequest = z.infer<typeof putWorkspacesRequestSchema>;
 
-/** Schema for the PUT /settings/file-access/allowed-paths success response body. */
-export const putAllowedPathsSuccessResponseSchema = z.object({
+/** Schema for the PUT /settings/file-access/workspaces success response body. */
+export const putWorkspacesSuccessResponseSchema = z.object({
   success: z.literal(true),
 });
 
-export type PutAllowedPathsSuccessResponse = z.infer<
-  typeof putAllowedPathsSuccessResponseSchema
+export type PutWorkspacesSuccessResponse = z.infer<
+  typeof putWorkspacesSuccessResponseSchema
 >;
 
 /** Schema for a single invalid path entry in error responses. */
@@ -36,7 +32,7 @@ export const invalidPathEntrySchema = z.object({
 
 export type InvalidPathEntry = z.infer<typeof invalidPathEntrySchema>;
 
-/** Schema for the PUT /settings/file-access/allowed-paths error response body (422). */
+/** Schema for the PUT /settings/file-access/workspaces error response body (422). */
 export const invalidPathsResponseSchema = z.object({
   error: z.literal('INVALID_PATHS'),
   invalidPaths: z.array(invalidPathEntrySchema),

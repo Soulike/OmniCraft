@@ -1,5 +1,5 @@
-import {Alert, Skeleton} from '@heroui/react';
-import type {AllowedPathEntry} from '@omnicraft/settings-schema';
+import {Skeleton} from '@heroui/react';
+import type {Workspace} from '@omnicraft/settings-schema';
 
 import {LoadError} from '@/components/LoadError/index.js';
 
@@ -8,17 +8,17 @@ import {PathList} from './components/PathList/index.js';
 import styles from './styles.module.css';
 
 interface FileAccessSectionViewProps {
-  paths: AllowedPathEntry[];
+  workspaces: Workspace[];
   isLoading: boolean;
   loadError: string | null;
   isSaving: boolean;
-  onAdd: (entry: AllowedPathEntry) => void;
+  onAdd: (entry: Workspace) => void;
   onRemove: (index: number) => void;
   onRetry: () => void;
 }
 
 export function FileAccessSectionView({
-  paths,
+  workspaces,
   isLoading,
   loadError,
   isSaving,
@@ -29,13 +29,6 @@ export function FileAccessSectionView({
   return (
     <div className={styles.section}>
       <h2 className={styles.title}>File Access</h2>
-      <Alert status={'accent'}>
-        <Alert.Indicator />
-        <Alert.Content>
-          The system temporary directory is always accessible with read-write
-          permission.
-        </Alert.Content>
-      </Alert>
       {isLoading ? (
         <div className={styles.skeletonContainer}>
           {Array.from({length: 3}).map((_, i) => (
@@ -49,7 +42,11 @@ export function FileAccessSectionView({
         <LoadError message={loadError} onRetry={onRetry} />
       ) : (
         <>
-          <PathList paths={paths} isSaving={isSaving} onRemove={onRemove} />
+          <PathList
+            workspaces={workspaces}
+            isSaving={isSaving}
+            onRemove={onRemove}
+          />
           <AddPathForm onAdd={onAdd} isSaving={isSaving} />
         </>
       )}

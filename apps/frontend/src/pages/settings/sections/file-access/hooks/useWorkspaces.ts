@@ -1,11 +1,11 @@
-import type {AllowedPathEntry} from '@omnicraft/settings-schema';
+import type {Workspace} from '@omnicraft/settings-schema';
 import {useCallback, useEffect, useState} from 'react';
 
 import {
-  getAllowedPaths,
+  getWorkspaces,
   type InvalidPathEntry,
   InvalidPathsError,
-  putAllowedPaths,
+  putWorkspaces,
 } from '@/api/settings/file-access/index.js';
 
 export type SaveResult =
@@ -13,8 +13,8 @@ export type SaveResult =
   | {success: false; invalidPaths: InvalidPathEntry[]}
   | {success: false; error: string};
 
-export function useAllowedPaths() {
-  const [paths, setPaths] = useState<AllowedPathEntry[]>([]);
+export function useWorkspaces() {
+  const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -23,8 +23,8 @@ export function useAllowedPaths() {
     setIsLoading(true);
     setLoadError(null);
     try {
-      const data = await getAllowedPaths();
-      setPaths(data);
+      const data = await getWorkspaces();
+      setWorkspaces(data);
     } catch (e) {
       setLoadError(e instanceof Error ? e.message : 'Failed to load');
     } finally {
@@ -37,10 +37,10 @@ export function useAllowedPaths() {
   }, [load]);
 
   const save = useCallback(
-    async (entries: AllowedPathEntry[]): Promise<SaveResult> => {
+    async (entries: Workspace[]): Promise<SaveResult> => {
       setIsSaving(true);
       try {
-        await putAllowedPaths(entries);
+        await putWorkspaces(entries);
         await load();
         return {success: true};
       } catch (e) {
@@ -60,23 +60,23 @@ export function useAllowedPaths() {
     [load],
   );
 
-  const addPath = useCallback(
-    (entry: AllowedPathEntry) => save([...paths, entry]),
-    [paths, save],
+  const addWorkspace = useCallback(
+    (entry: Workspace) => save([...workspaces, entry]),
+    [workspaces, save],
   );
 
-  const removePath = useCallback(
-    (index: number) => save(paths.filter((_, i) => i !== index)),
-    [paths, save],
+  const removeWorkspace = useCallback(
+    (index: number) => save(workspaces.filter((_, i) => i !== index)),
+    [workspaces, save],
   );
 
   return {
-    paths,
+    workspaces,
     isLoading,
     loadError,
     isSaving,
-    addPath,
-    removePath,
+    addWorkspace,
+    removeWorkspace,
     reload: load,
   };
 }

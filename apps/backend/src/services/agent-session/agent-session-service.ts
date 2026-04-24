@@ -60,7 +60,7 @@ export const agentSessionService = {
       const settings = await SettingsManager.getInstance().getAll();
       const validationError = await validateSessionPaths(
         options.workspace,
-        settings.fileAccess.allowedPaths,
+        settings.fileAccess.workspaces,
       );
       if (validationError) {
         return {success: false, error: validationError};

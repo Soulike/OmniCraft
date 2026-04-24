@@ -1,10 +1,10 @@
 import {
-  getAllowedPathsResponseSchema,
+  getWorkspacesResponseSchema,
   type InvalidPathEntry,
   invalidPathsResponseSchema,
-  putAllowedPathsSuccessResponseSchema,
+  putWorkspacesSuccessResponseSchema,
 } from '@omnicraft/api-schema';
-import type {AllowedPathEntry} from '@omnicraft/settings-schema';
+import type {Workspace} from '@omnicraft/settings-schema';
 import {StatusCodes} from 'http-status-codes';
 
 const BASE = '/api/settings/file-access';
@@ -21,23 +21,21 @@ export class InvalidPathsError extends Error {
   }
 }
 
-export async function getAllowedPaths(): Promise<AllowedPathEntry[]> {
-  const res = await fetch(`${BASE}/allowed-paths`);
+export async function getWorkspaces(): Promise<Workspace[]> {
+  const res = await fetch(`${BASE}/workspaces`);
   if (!res.ok) {
-    throw new Error(`Failed to fetch allowed paths: ${res.status.toString()}`);
+    throw new Error(`Failed to fetch workspaces: ${res.status.toString()}`);
   }
   const json: unknown = await res.json();
-  const {allowedPaths} = getAllowedPathsResponseSchema.parse(json);
-  return allowedPaths;
+  const {workspaces} = getWorkspacesResponseSchema.parse(json);
+  return workspaces;
 }
 
-export async function putAllowedPaths(
-  allowedPaths: AllowedPathEntry[],
-): Promise<void> {
-  const res = await fetch(`${BASE}/allowed-paths`, {
+export async function putWorkspaces(workspaces: Workspace[]): Promise<void> {
+  const res = await fetch(`${BASE}/workspaces`, {
     method: 'PUT',
     headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({allowedPaths}),
+    body: JSON.stringify({workspaces}),
   });
 
   if (res.status === (StatusCodes.UNPROCESSABLE_ENTITY as number)) {
@@ -49,10 +47,10 @@ export async function putAllowedPaths(
   if (!res.ok) {
     const body = await res.text();
     throw new Error(
-      `Failed to save allowed paths (${res.status.toString()}): ${body}`,
+      `Failed to save workspaces (${res.status.toString()}): ${body}`,
     );
   }
 
   const json: unknown = await res.json();
-  putAllowedPathsSuccessResponseSchema.parse(json);
+  putWorkspacesSuccessResponseSchema.parse(json);
 }

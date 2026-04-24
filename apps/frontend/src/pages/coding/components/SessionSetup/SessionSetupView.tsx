@@ -9,14 +9,14 @@ import styles from './styles.module.css';
 interface SessionSetupViewProps {
   readonly isLoading: boolean;
   readonly loadError: unknown;
-  readonly hasConfiguredPaths: boolean;
+  readonly hasConfiguredWorkspaces: boolean;
   readonly selectedWorkspace: string | undefined;
 }
 
 export function SessionSetupView({
   isLoading,
   loadError,
-  hasConfiguredPaths,
+  hasConfiguredWorkspaces,
   selectedWorkspace,
 }: SessionSetupViewProps) {
   return (
@@ -36,18 +36,18 @@ export function SessionSetupView({
           <Alert.Indicator />
           <Alert.Content>
             <Alert.Description>
-              Failed to load allowed paths from settings.
+              Failed to load workspaces from settings.
             </Alert.Description>
           </Alert.Content>
         </Alert>
       )}
 
-      {!isLoading && !loadError && !hasConfiguredPaths && (
+      {!isLoading && !loadError && !hasConfiguredWorkspaces && (
         <Alert status='warning'>
           <Alert.Indicator />
           <Alert.Content>
             <Alert.Description>
-              No allowed paths configured.{' '}
+              No workspaces configured.{' '}
               <Link
                 className={styles.settingsLink}
                 to={ROUTES.settings.fileAccess()}
@@ -59,7 +59,7 @@ export function SessionSetupView({
         </Alert>
       )}
 
-      {hasConfiguredPaths && !selectedWorkspace && (
+      {hasConfiguredWorkspaces && !selectedWorkspace && (
         <Alert status='warning'>
           <Alert.Indicator />
           <Alert.Content>
