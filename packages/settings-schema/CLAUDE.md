@@ -7,7 +7,7 @@ Shared Zod schemas for OmniCraft settings. Used by both frontend and backend.
 - Schemas are the single source of truth for settings structure.
 - Each schema section maps to a subdirectory (e.g., `llm/` for LLM settings).
 - Nesting stops at leaf values. Leaf values are scalars or arrays — they cannot be navigated further via key paths.
-- The root `settingsSchema` and `Settings` type are always exported. Sub-schemas and types may also be exported from `index.ts` when they serve as shared types across packages (e.g., `AllowedPathEntry`).
+- The root `settingsSchema` and `Settings` type are always exported. Sub-schemas and types may also be exported from `index.ts` when they serve as shared types across packages (e.g., `Workspace`).
 - Every leaf field has a `.describe()` for runtime introspection and a `.default()` for fallback values.
 - The schema must be convertible to JSON Schema via `z.toJSONSchema()`. Only use Zod types that support this (no `z.function()`, `z.transform()`, etc.). A test enforces this.
 
