@@ -38,10 +38,7 @@ export function SessionIdProvider({
   }, [sessionId, eventBus]);
 
   const createNewSessionId = useCallback(
-    async (config?: {
-      workspace?: string;
-      extraAllowedPaths?: readonly string[];
-    }) => {
+    async (config?: {workspace?: string}) => {
       try {
         const id = await createSession(config);
         eventBus.emit('session-created', {sessionId: id});

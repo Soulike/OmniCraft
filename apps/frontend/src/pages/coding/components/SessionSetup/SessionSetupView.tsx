@@ -3,7 +3,6 @@ import {Link} from 'react-router';
 
 import {ROUTES} from '@/routes.js';
 
-import {ExtraAllowedPathsSelect} from './components/ExtraAllowedPathsSelect/index.js';
 import {WorkspaceSelect} from './components/WorkspaceSelect/index.js';
 import styles from './styles.module.css';
 
@@ -30,13 +29,7 @@ export function SessionSetupView({
 
       <div className={styles.dropdowns}>
         <WorkspaceSelect />
-        <ExtraAllowedPathsSelect />
       </div>
-
-      <p className={styles.disclaimer}>
-        Agent may still access files outside these paths via shell when
-        explicitly requested.
-      </p>
 
       {loadError !== null && (
         <Alert status='danger'>

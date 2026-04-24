@@ -3,10 +3,7 @@ import type {SseEvent} from '@omnicraft/sse-events';
 import {createContext} from 'react';
 
 export interface ChatSessionApi {
-  createSession: (options?: {
-    workspace?: string;
-    extraAllowedPaths?: readonly string[];
-  }) => Promise<string>;
+  createSession: (options?: {workspace?: string}) => Promise<string>;
 
   sendMessage: (
     sessionId: string,
