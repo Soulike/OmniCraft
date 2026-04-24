@@ -1,13 +1,13 @@
 import {toast} from '@heroui/react';
-import type {AllowedPathEntry} from '@omnicraft/settings-schema';
+import type {Workspace} from '@omnicraft/settings-schema';
 import {useCallback} from 'react';
 
 import {FileAccessSectionView} from './FileAccessSectionView.js';
-import {type SaveResult, useAllowedPaths} from './hooks/useAllowedPaths.js';
+import {type SaveResult, useWorkspaces} from './hooks/useWorkspaces.js';
 
 function showSaveResultToast(result: SaveResult) {
   if (result.success) {
-    toast.success('Allowed paths saved');
+    toast.success('Workspaces saved');
     return;
   }
   if ('invalidPaths' in result) {
@@ -21,26 +21,33 @@ function showSaveResultToast(result: SaveResult) {
 }
 
 export function FileAccessSection() {
-  const {paths, isLoading, loadError, isSaving, addPath, removePath, reload} =
-    useAllowedPaths();
+  const {
+    workspaces,
+    isLoading,
+    loadError,
+    isSaving,
+    addWorkspace,
+    removeWorkspace,
+    reload,
+  } = useWorkspaces();
 
   const handleAdd = useCallback(
-    async (entry: AllowedPathEntry) => {
-      showSaveResultToast(await addPath(entry));
+    async (entry: Workspace) => {
+      showSaveResultToast(await addWorkspace(entry));
     },
-    [addPath],
+    [addWorkspace],
   );
 
   const handleRemove = useCallback(
     async (index: number) => {
-      showSaveResultToast(await removePath(index));
+      showSaveResultToast(await removeWorkspace(index));
     },
-    [removePath],
+    [removeWorkspace],
   );
 
   return (
     <FileAccessSectionView
-      paths={paths}
+      workspaces={workspaces}
       isLoading={isLoading}
       loadError={loadError}
       isSaving={isSaving}

@@ -2,13 +2,13 @@ import {useWorkspaceSelect} from './hooks/useWorkspaceSelect.js';
 import {WorkspaceSelectView} from './WorkspaceSelectView.js';
 
 export function WorkspaceSelect() {
-  const {isLoading, readWritePaths, selectedWorkspace, setSelectedWorkspace} =
+  const {isLoading, workspaces, selectedWorkspace, setSelectedWorkspace} =
     useWorkspaceSelect();
 
   return (
     <WorkspaceSelectView
       isLoading={isLoading}
-      readWritePaths={readWritePaths}
+      workspaces={workspaces}
       selectedWorkspace={selectedWorkspace}
       onWorkspaceChange={setSelectedWorkspace}
     />

@@ -1,6 +1,6 @@
 export {
-  getAllowedPaths,
+  getWorkspaces,
   type InvalidPathEntry,
   InvalidPathsError,
-  putAllowedPaths,
+  putWorkspaces,
 } from './file-access.js';

@@ -1,25 +1,25 @@
 import {Button, Label, ListBox, Select, Spinner, Tooltip} from '@heroui/react';
-import type {AllowedPathEntry} from '@omnicraft/settings-schema';
+import type {Workspace} from '@omnicraft/settings-schema';
 import {Info} from 'lucide-react';
 
 import styles from './styles.module.css';
 
 interface WorkspaceSelectViewProps {
   readonly isLoading: boolean;
-  readonly readWritePaths: readonly AllowedPathEntry[];
+  readonly workspaces: readonly Workspace[];
   readonly selectedWorkspace: string | undefined;
   readonly onWorkspaceChange: (value: string | undefined) => void;
 }
 
 export function WorkspaceSelectView({
   isLoading,
-  readWritePaths,
+  workspaces,
   selectedWorkspace,
   onWorkspaceChange,
 }: WorkspaceSelectViewProps) {
   return (
     <Select
-      isDisabled={isLoading || readWritePaths.length === 0}
+      isDisabled={isLoading || workspaces.length === 0}
       value={selectedWorkspace ?? ''}
       onChange={(value) => {
         onWorkspaceChange(value ? String(value) : undefined);
@@ -40,7 +40,7 @@ export function WorkspaceSelectView({
               </Button>
             </Tooltip.Trigger>
             <Tooltip.Content>
-              <p>Read-write directory the agent works in</p>
+              <p>Directory the agent works in</p>
             </Tooltip.Content>
           </Tooltip>
           {isLoading && <Spinner size='sm' />}
@@ -56,7 +56,7 @@ export function WorkspaceSelectView({
             None
             <ListBox.ItemIndicator />
           </ListBox.Item>
-          {readWritePaths.map((entry) => (
+          {workspaces.map((entry) => (
             <ListBox.Item
               key={entry.path}
               id={entry.path}

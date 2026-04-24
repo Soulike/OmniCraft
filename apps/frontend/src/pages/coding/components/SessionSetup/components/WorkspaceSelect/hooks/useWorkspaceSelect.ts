@@ -1,24 +1,12 @@
-import {useMemo} from 'react';
-
 import {useSessionConfig} from '@/modules/chat-session/index.js';
 
 export function useWorkspaceSelect() {
-  const {
-    allAllowedPathEntriesFromSettings,
-    isLoading,
-    selectedWorkspace,
-    setSelectedWorkspace,
-  } = useSessionConfig();
-
-  const readWritePaths = useMemo(
-    () =>
-      allAllowedPathEntriesFromSettings.filter((p) => p.mode === 'read-write'),
-    [allAllowedPathEntriesFromSettings],
-  );
+  const {workspaces, isLoading, selectedWorkspace, setSelectedWorkspace} =
+    useSessionConfig();
 
   return {
     isLoading,
-    readWritePaths,
+    workspaces,
     selectedWorkspace,
     setSelectedWorkspace,
   };

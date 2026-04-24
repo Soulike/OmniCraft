@@ -3,21 +3,17 @@ import {useSessionConfig} from '@/modules/chat-session/index.js';
 import {SessionSetupView} from './SessionSetupView.js';
 
 export function SessionSetup() {
-  const {
-    allAllowedPathEntriesFromSettings,
-    isLoading,
-    loadError,
-    selectedWorkspace,
-  } = useSessionConfig();
+  const {workspaces, isLoading, loadError, selectedWorkspace} =
+    useSessionConfig();
 
-  const hasConfiguredPaths =
-    !isLoading && !loadError && allAllowedPathEntriesFromSettings.length > 0;
+  const hasConfiguredWorkspaces =
+    !isLoading && !loadError && workspaces.length > 0;
 
   return (
     <SessionSetupView
       isLoading={isLoading}
       loadError={loadError}
-      hasConfiguredPaths={hasConfiguredPaths}
+      hasConfiguredWorkspaces={hasConfiguredWorkspaces}
       selectedWorkspace={selectedWorkspace}
     />
   );
