@@ -40,7 +40,7 @@ export function WorkspaceSelectView({
               </Button>
             </Tooltip.Trigger>
             <Tooltip.Content>
-              <p>Directory the agent works in</p>
+              <p>Working directory for the agent</p>
             </Tooltip.Content>
           </Tooltip>
           {isLoading && <Spinner size='sm' />}
