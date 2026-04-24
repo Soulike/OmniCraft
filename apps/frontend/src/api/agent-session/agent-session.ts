@@ -17,7 +17,6 @@ function base(agentType: AgentType): string {
 
 export interface CreateSessionOptions {
   workspace?: string;
-  extraAllowedPaths?: readonly string[];
 }
 
 /** Creates a new session. Returns the session ID. */

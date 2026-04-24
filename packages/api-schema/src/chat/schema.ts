@@ -8,7 +8,6 @@ export type ThinkingLevel = z.infer<typeof thinkingLevelSchema>;
 /** Schema for the POST /coding/session request body. */
 export const createCodingSessionRequestSchema = z.object({
   workspace: z.string(),
-  extraAllowedPaths: z.array(z.string()).optional(),
 });
 
 export type CreateCodingSessionRequest = z.infer<

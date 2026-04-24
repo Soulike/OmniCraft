@@ -78,7 +78,6 @@ router.post(SESSION, async (ctx) => {
         const body = createCodingSessionRequestSchema.parse(ctx.request.body);
         options = {
           workspace: body.workspace,
-          extraAllowedPaths: body.extraAllowedPaths,
         };
         break;
       }

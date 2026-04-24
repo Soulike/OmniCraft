@@ -15,9 +15,6 @@ export function SessionConfigProvider({children}: {children: ReactNode}) {
   const [selectedWorkspace, setSelectedWorkspace] = useState<
     string | undefined
   >(undefined);
-  const [selectedExtraAllowedPaths, setSelectedExtraAllowedPaths] = useState<
-    string[]
-  >([]);
 
   const load = useCallback(async () => {
     setIsLoading(true);
@@ -35,32 +32,19 @@ export function SessionConfigProvider({children}: {children: ReactNode}) {
     void load();
   }, [load]);
 
-  const selectedExtraAllowedPathEntries = useMemo(
-    () =>
-      allAllowedPathEntriesFromSettings.filter((p) =>
-        selectedExtraAllowedPaths.includes(p.path),
-      ),
-    [allAllowedPathEntriesFromSettings, selectedExtraAllowedPaths],
-  );
-
   const value = useMemo(
     () => ({
       allAllowedPathEntriesFromSettings,
       isLoading,
       loadError,
       selectedWorkspace,
-      selectedExtraAllowedPaths,
-      selectedExtraAllowedPathEntries,
       setSelectedWorkspace,
-      setSelectedExtraAllowedPaths,
     }),
     [
       allAllowedPathEntriesFromSettings,
       isLoading,
       loadError,
       selectedWorkspace,
-      selectedExtraAllowedPaths,
-      selectedExtraAllowedPathEntries,
     ],
   );
 

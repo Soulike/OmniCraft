@@ -53,7 +53,7 @@ function CodingPageContent() {
   const {messageCount, onMessagesChange} = useMessageCount();
   const {title} = useSessionTitle();
 
-  const {selectedWorkspace, selectedExtraAllowedPaths} = useSessionConfig();
+  const {selectedWorkspace} = useSessionConfig();
 
   const {
     available: vscodeAvailable,
@@ -78,12 +78,8 @@ function CodingPageContent() {
     }
     return createNewSessionId({
       workspace: selectedWorkspace,
-      extraAllowedPaths:
-        selectedExtraAllowedPaths.length > 0
-          ? selectedExtraAllowedPaths
-          : undefined,
     });
-  }, [createNewSessionId, selectedWorkspace, selectedExtraAllowedPaths]);
+  }, [createNewSessionId, selectedWorkspace]);
 
   const {
     isStreaming,

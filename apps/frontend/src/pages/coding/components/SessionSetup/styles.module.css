@@ -22,13 +22,6 @@
   width: 100%;
 }
 
-.disclaimer {
-  font-size: 0.75em;
-  color: var(--color-foreground-400);
-  text-align: center;
-  margin: 0;
-}
-
 .settingsLink {
   color: var(--color-accent);
   text-decoration: underline;

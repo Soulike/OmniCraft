@@ -9,23 +9,3 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
-
-.extraPaths {
-  text-decoration: underline dotted;
-  text-underline-offset: 3px;
-}
-
-.tooltipContent {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.tooltipEntry {
-  display: flex;
-  gap: 6px;
-}
-
-.tooltipPath {
-  font-family: monospace;
-}
