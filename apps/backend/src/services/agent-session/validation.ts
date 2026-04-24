@@ -11,11 +11,9 @@ import {CreateSessionError} from './types.js';
  * Returns null if valid, or the error found.
  */
 export async function validateSessionPaths(
-  workspace: string | undefined,
+  workspace: string,
   allowedPaths: readonly AllowedPathEntry[],
 ): Promise<CreateSessionError | null> {
-  if (!workspace) return null;
-
   const entry = allowedPaths.find((e) => e.path === workspace);
   if (!entry) return CreateSessionError.WORKSPACE_NOT_IN_ALLOWED_PATHS;
   if (entry.mode !== 'read-write') {
