@@ -5,5 +5,10 @@ export const ROUTES = defineRoutes({
   dashboard: {},
   chat: {},
   coding: {},
-  settings: {llm: {}, codingLlm: {}, agent: {}, search: {}, fileAccess: {}},
+  settings: {
+    llm: {chat: {}, coding: {}},
+    agent: {runtime: {}},
+    'file-access': {workspaces: {}},
+    tools: {search: {}},
+  },
 });

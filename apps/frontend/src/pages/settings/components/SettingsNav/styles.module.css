@@ -1,0 +1,71 @@
+.nav {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.group {
+  display: flex;
+  flex-direction: column;
+}
+
+.groupTrigger {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 32px;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  text-align: left;
+}
+
+.groupTrigger:hover {
+  background: color-mix(in oklch, var(--foreground) 6%, transparent);
+  color: var(--foreground);
+}
+
+.groupLabel,
+.leafLabel {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.groupLabel {
+  flex: 1;
+}
+
+.groupIndicator {
+  flex-shrink: 0;
+}
+
+.groupBody {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-left: 12px;
+  padding: 2px 0 8px 8px;
+  border-left: 1px solid var(--border);
+}
+
+.leafButton {
+  justify-content: flex-start;
+  min-height: 32px;
+  border-radius: 6px;
+  color: var(--muted);
+  font-weight: 500;
+  text-align: left;
+}
+
+.leafButton[data-selected='true'] {
+  color: var(--foreground);
+}

@@ -2,8 +2,8 @@ import {toast} from '@heroui/react';
 import type {Workspace} from '@omnicraft/settings-schema';
 import {useCallback} from 'react';
 
-import {FileAccessSectionView} from './FileAccessSectionView.js';
 import {type SaveResult, useWorkspaces} from './hooks/useWorkspaces.js';
+import {WorkspacesSectionView} from './WorkspacesSectionView.js';
 
 function showSaveResultToast(result: SaveResult) {
   if (result.success) {
@@ -20,7 +20,7 @@ function showSaveResultToast(result: SaveResult) {
   toast.danger(result.error);
 }
 
-export function FileAccessSection() {
+export function WorkspacesSection() {
   const {
     workspaces,
     isLoading,
@@ -46,7 +46,7 @@ export function FileAccessSection() {
   );
 
   return (
-    <FileAccessSectionView
+    <WorkspacesSectionView
       workspaces={workspaces}
       isLoading={isLoading}
       loadError={loadError}

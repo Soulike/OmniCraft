@@ -7,7 +7,7 @@ import {AddPathForm} from './components/AddPathForm/index.js';
 import {PathList} from './components/PathList/index.js';
 import styles from './styles.module.css';
 
-interface FileAccessSectionViewProps {
+interface WorkspacesSectionViewProps {
   workspaces: Workspace[];
   isLoading: boolean;
   loadError: string | null;
@@ -17,7 +17,7 @@ interface FileAccessSectionViewProps {
   onRetry: () => void;
 }
 
-export function FileAccessSectionView({
+export function WorkspacesSectionView({
   workspaces,
   isLoading,
   loadError,
@@ -25,10 +25,10 @@ export function FileAccessSectionView({
   onAdd,
   onRemove,
   onRetry,
-}: FileAccessSectionViewProps) {
+}: WorkspacesSectionViewProps) {
   return (
     <div className={styles.section}>
-      <h2 className={styles.title}>File Access</h2>
+      <h2 className={styles.title}>Workspaces</h2>
       {isLoading ? (
         <div className={styles.skeletonContainer}>
           {Array.from({length: 3}).map((_, i) => (

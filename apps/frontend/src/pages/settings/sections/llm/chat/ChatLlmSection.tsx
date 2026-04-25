@@ -1,7 +1,7 @@
 import {settingsSchema} from '@omnicraft/settings-schema';
 
-import {SettingSection} from '../../components/SettingSection/index.js';
-import {LlmSectionFields} from './LlmSectionFields.js';
+import {SettingSection} from '../../../components/SettingSection/index.js';
+import {ChatLlmSectionFields} from './ChatLlmSectionFields.js';
 
 const llmShape = settingsSchema.shape.llm.unwrap().shape;
 
@@ -13,10 +13,10 @@ const FIELDS = [
   {path: 'llm/lightModel', schema: llmShape.lightModel},
 ];
 
-export function LlmSection() {
+export function ChatLlmSection() {
   return (
-    <SettingSection title='Chat LLM' fields={FIELDS}>
-      {(props) => <LlmSectionFields {...props} />}
+    <SettingSection title='Chat Agent' fields={FIELDS}>
+      {(props) => <ChatLlmSectionFields {...props} />}
     </SettingSection>
   );
 }
