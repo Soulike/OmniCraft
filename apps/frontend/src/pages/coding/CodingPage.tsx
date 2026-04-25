@@ -1,3 +1,4 @@
+import type {ThinkingLevel} from '@omnicraft/api-schema';
 import {useCallback, useMemo} from 'react';
 
 import * as codingApi from '@/api/coding/index.js';
@@ -19,7 +20,6 @@ import {
 import {ROUTES} from '@/routes.js';
 
 import {CodingPageView} from './CodingPageView.js';
-import type {TaskDispatchValues} from './components/TaskDispatchCard/index.js';
 
 /** Coding page container. Wraps content in providers. */
 export function CodingPage() {
@@ -96,9 +96,9 @@ function CodingPageContent() {
 
   const {containerRef: scrollRef, scrollToBottom} = useAutoScroll();
 
-  const startTask = useCallback(
-    async ({task, thinkingLevel}: TaskDispatchValues) => {
-      await sendMessage(task, thinkingLevel);
+  const handleSend = useCallback(
+    async (content: string, thinkingLevel: ThinkingLevel) => {
+      await sendMessage(content, thinkingLevel);
       requestAnimationFrame(() => {
         scrollToBottom();
       });
@@ -127,13 +127,7 @@ function CodingPageContent() {
       scrollRef={scrollRef}
       sessionId={sessionId}
       onMessagesChange={onMessagesChange}
-      onStartTask={startTask}
-      onSend={(content, thinkingLevel) => {
-        void sendMessage(content, thinkingLevel);
-        requestAnimationFrame(() => {
-          scrollToBottom();
-        });
-      }}
+      onSend={handleSend}
       onStop={stopGeneration}
       onNewSession={clearSessionId}
       newSessionDisabled={newSessionDisabled}

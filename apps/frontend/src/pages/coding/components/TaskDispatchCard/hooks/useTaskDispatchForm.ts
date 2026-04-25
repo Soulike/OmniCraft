@@ -7,14 +7,12 @@ import type {TaskDispatchErrors, TaskDispatchValues} from '../types.js';
 interface UseTaskDispatchFormOptions {
   readonly selectedWorkspace: string | undefined;
   readonly isBlocked: boolean;
-  readonly isStarting: boolean;
   readonly onStartTask: (values: TaskDispatchValues) => Promise<void>;
 }
 
 export function useTaskDispatchForm({
   selectedWorkspace,
   isBlocked,
-  isStarting,
   onStartTask,
 }: UseTaskDispatchFormOptions) {
   const [task, setTask] = useState('');
@@ -23,7 +21,7 @@ export function useTaskDispatchForm({
   const {thinkingLevel, setThinkingLevel} = useThinkingLevel();
 
   const trimmedTask = task.trim();
-  const isBusy = isStarting || isSubmitting;
+  const isBusy = isSubmitting;
 
   const canSubmit = useMemo(
     () =>

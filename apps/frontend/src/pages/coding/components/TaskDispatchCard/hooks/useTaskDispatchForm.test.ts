@@ -11,7 +11,6 @@ describe('useTaskDispatchForm', () => {
       useTaskDispatchForm({
         selectedWorkspace: undefined,
         isBlocked: false,
-        isStarting: false,
         onStartTask,
       }),
     );
@@ -36,7 +35,6 @@ describe('useTaskDispatchForm', () => {
       useTaskDispatchForm({
         selectedWorkspace: '/repo',
         isBlocked: false,
-        isStarting: false,
         onStartTask,
       }),
     );
@@ -58,14 +56,13 @@ describe('useTaskDispatchForm', () => {
     expect(result.current.errors).toEqual({});
   });
 
-  it('treats external blocked and starting states as submit blockers', () => {
+  it('treats external blocked state as a submit blocker', () => {
     const onStartTask = vi.fn().mockResolvedValue(undefined);
 
     const blocked = renderHook(() =>
       useTaskDispatchForm({
         selectedWorkspace: '/repo',
         isBlocked: true,
-        isStarting: false,
         onStartTask,
       }),
     );
@@ -73,19 +70,6 @@ describe('useTaskDispatchForm', () => {
       blocked.result.current.setTask('Do work');
     });
     expect(blocked.result.current.canSubmit).toBe(false);
-
-    const starting = renderHook(() =>
-      useTaskDispatchForm({
-        selectedWorkspace: '/repo',
-        isBlocked: false,
-        isStarting: true,
-        onStartTask,
-      }),
-    );
-    act(() => {
-      starting.result.current.setTask('Do work');
-    });
-    expect(starting.result.current.canSubmit).toBe(false);
   });
 
   it('does not submit when externally blocked', async () => {
@@ -95,7 +79,6 @@ describe('useTaskDispatchForm', () => {
       useTaskDispatchForm({
         selectedWorkspace: '/repo',
         isBlocked: true,
-        isStarting: false,
         onStartTask,
       }),
     );
@@ -122,7 +105,6 @@ describe('useTaskDispatchForm', () => {
         useTaskDispatchForm({
           selectedWorkspace,
           isBlocked: false,
-          isStarting: false,
           onStartTask,
         }),
       {initialProps},

@@ -14,10 +14,7 @@ import {
   TitleBarView,
 } from '@/modules/chat-session/index.js';
 
-import {
-  TaskDispatchCard,
-  type TaskDispatchValues,
-} from './components/TaskDispatchCard/index.js';
+import {TaskDispatchCard} from './components/TaskDispatchCard/index.js';
 
 interface CodingPageViewProps {
   title: string | null;
@@ -29,8 +26,7 @@ interface CodingPageViewProps {
   scrollRef: RefObject<HTMLDivElement | null>;
   sessionId: string | null;
   onMessagesChange: (messages: readonly ChatMessage[]) => void;
-  onStartTask: (values: TaskDispatchValues) => Promise<void>;
-  onSend: (content: string, thinkingLevel: ThinkingLevel) => void;
+  onSend: (content: string, thinkingLevel: ThinkingLevel) => Promise<void>;
   onStop: () => void;
   onNewSession: () => void;
   newSessionDisabled: boolean;
@@ -49,7 +45,6 @@ export function CodingPageView({
   scrollRef,
   sessionId,
   onMessagesChange,
-  onStartTask,
   onSend,
   onStop,
   onNewSession,
@@ -95,10 +90,7 @@ export function CodingPageView({
           <ScrollShadow className={styles.messageListWrapper} ref={scrollRef}>
             {!sessionId && (
               <div className={styles.emptyState}>
-                <TaskDispatchCard
-                  isStarting={isStreaming}
-                  onStartTask={onStartTask}
-                />
+                <TaskDispatchCard onSend={onSend} />
               </div>
             )}
             <StreamingMessageDisplay
@@ -111,7 +103,9 @@ export function CodingPageView({
           {sessionId && (
             <ChatInput
               isStreaming={isStreaming}
-              onSend={onSend}
+              onSend={(content, thinkingLevel) => {
+                void onSend(content, thinkingLevel);
+              }}
               onStop={onStop}
             />
           )}

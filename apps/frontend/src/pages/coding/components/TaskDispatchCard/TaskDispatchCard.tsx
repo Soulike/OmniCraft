@@ -1,4 +1,5 @@
-import {useEffect, useState} from 'react';
+import type {ThinkingLevel} from '@omnicraft/api-schema';
+import {useCallback, useEffect, useState} from 'react';
 
 import {useSessionConfig} from '@/modules/chat-session/index.js';
 
@@ -7,14 +8,13 @@ import {TaskDispatchCardView} from './TaskDispatchCardView.js';
 import type {TaskDispatchValues} from './types.js';
 
 interface TaskDispatchCardProps {
-  readonly isStarting: boolean;
-  readonly onStartTask: (values: TaskDispatchValues) => Promise<void>;
+  readonly onSend: (
+    content: string,
+    thinkingLevel: ThinkingLevel,
+  ) => Promise<void>;
 }
 
-export function TaskDispatchCard({
-  isStarting,
-  onStartTask,
-}: TaskDispatchCardProps) {
+export function TaskDispatchCard({onSend}: TaskDispatchCardProps) {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const {
     workspaces,
@@ -33,11 +33,17 @@ export function TaskDispatchCard({
   const hasConfiguredWorkspaces =
     !isLoading && loadError === null && workspaces.length > 0;
 
+  const startTask = useCallback(
+    async ({task, thinkingLevel}: TaskDispatchValues) => {
+      await onSend(task, thinkingLevel);
+    },
+    [onSend],
+  );
+
   const form = useTaskDispatchForm({
     selectedWorkspace,
     isBlocked: isLoading || loadError !== null || !hasConfiguredWorkspaces,
-    isStarting,
-    onStartTask,
+    onStartTask: startTask,
   });
 
   const handleWorkspaceChange = (workspace: string | undefined) => {
@@ -71,7 +77,7 @@ export function TaskDispatchCard({
       errors={form.errors}
       submitError={submitError}
       canSubmit={form.canSubmit}
-      isStarting={isStarting || form.isSubmitting}
+      isStarting={form.isSubmitting}
       onWorkspaceChange={handleWorkspaceChange}
       onTaskChange={handleTaskChange}
       onThinkingLevelChange={form.setThinkingLevel}
