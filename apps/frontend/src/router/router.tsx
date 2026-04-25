@@ -4,14 +4,14 @@ import {Layout} from '@/pages/_layout/index.js';
 import {ROUTES} from '@/routes.js';
 
 import {
-  AgentSection,
+  AgentRuntimeSection,
+  ChatLlmSection,
   ChatPage,
   CodingLlmSection,
   CodingPage,
-  FileAccessSection,
-  LlmSection,
   SearchSection,
   SettingsPage,
+  WorkspacesSection,
 } from './lazy-pages.js';
 
 /** Application router configuration. */
@@ -41,27 +41,27 @@ export const router = createBrowserRouter([
         children: [
           {
             index: true,
-            element: <Navigate to={ROUTES.settings.llm()} replace />,
+            element: <Navigate to={ROUTES.settings.llm.chat()} replace />,
           },
           {
-            path: ROUTES.settings.llm(),
-            element: <LlmSection />,
+            path: ROUTES.settings.llm.chat(),
+            element: <ChatLlmSection />,
           },
           {
-            path: ROUTES.settings.codingLlm(),
+            path: ROUTES.settings.llm.coding(),
             element: <CodingLlmSection />,
           },
           {
-            path: ROUTES.settings.agent(),
-            element: <AgentSection />,
+            path: ROUTES.settings.agent.runtime(),
+            element: <AgentRuntimeSection />,
           },
           {
-            path: ROUTES.settings.search(),
+            path: ROUTES.settings.tools.search(),
             element: <SearchSection />,
           },
           {
-            path: ROUTES.settings.fileAccess(),
-            element: <FileAccessSection />,
+            path: ROUTES.settings['file-access'].workspaces(),
+            element: <WorkspacesSection />,
           },
         ],
       },

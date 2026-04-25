@@ -1,6 +1,6 @@
 import {settingsSchema} from '@omnicraft/settings-schema';
 
-import {SettingSection} from '../../components/SettingSection/index.js';
+import {SettingSection} from '../../../components/SettingSection/index.js';
 import {CodingLlmSectionFields} from './CodingLlmSectionFields.js';
 
 const codingLlmShape = settingsSchema.shape.codingLlm.unwrap().shape;
@@ -15,7 +15,7 @@ const FIELDS = [
 
 export function CodingLlmSection() {
   return (
-    <SettingSection title='Coding LLM' fields={FIELDS}>
+    <SettingSection title='Coding Agent' fields={FIELDS}>
       {(props) => <CodingLlmSectionFields {...props} />}
     </SettingSection>
   );

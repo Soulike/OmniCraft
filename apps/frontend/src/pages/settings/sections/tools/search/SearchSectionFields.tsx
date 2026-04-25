@@ -1,6 +1,6 @@
 import {Description, FieldError, Input, Label, TextField} from '@heroui/react';
 
-import type {SettingSectionRenderProps} from '../../components/SettingSection/index.js';
+import type {SettingSectionRenderProps} from '../../../components/SettingSection/index.js';
 
 export function SearchSectionFields({
   values,

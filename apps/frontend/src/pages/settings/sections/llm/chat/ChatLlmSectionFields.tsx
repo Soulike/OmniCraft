@@ -8,9 +8,9 @@ import {
   TextField,
 } from '@heroui/react';
 
-import type {SettingSectionRenderProps} from '../../components/SettingSection/index.js';
+import type {SettingSectionRenderProps} from '../../../components/SettingSection/index.js';
 
-export function CodingLlmSectionFields({
+export function ChatLlmSectionFields({
   values,
   setValue,
   validationErrors,
@@ -19,12 +19,12 @@ export function CodingLlmSectionFields({
   return (
     <>
       <Select
-        value={String(values['codingLlm/apiFormat'])}
-        isInvalid={'codingLlm/apiFormat' in validationErrors}
+        value={String(values['llm/apiFormat'])}
+        isInvalid={'llm/apiFormat' in validationErrors}
         isDisabled={isDisabled}
         onChange={(value) => {
           if (value) {
-            setValue('codingLlm/apiFormat', String(value));
+            setValue('llm/apiFormat', String(value));
           }
         }}
       >
@@ -50,66 +50,66 @@ export function CodingLlmSectionFields({
             </ListBox.Item>
           </ListBox>
         </Select.Popover>
-        {validationErrors['codingLlm/apiFormat'] && (
-          <FieldError>{validationErrors['codingLlm/apiFormat']}</FieldError>
+        {validationErrors['llm/apiFormat'] && (
+          <FieldError>{validationErrors['llm/apiFormat']}</FieldError>
         )}
       </Select>
 
       <TextField
-        value={String(values['codingLlm/apiKey'])}
-        isInvalid={'codingLlm/apiKey' in validationErrors}
+        value={String(values['llm/apiKey'])}
+        isInvalid={'llm/apiKey' in validationErrors}
         isDisabled={isDisabled}
         onChange={(val) => {
-          setValue('codingLlm/apiKey', val);
+          setValue('llm/apiKey', val);
         }}
         type='password'
       >
         <Label>API Key</Label>
         <Input placeholder='sk-...' />
         <Description>API key for the LLM service</Description>
-        {validationErrors['codingLlm/apiKey'] && (
-          <FieldError>{validationErrors['codingLlm/apiKey']}</FieldError>
+        {validationErrors['llm/apiKey'] && (
+          <FieldError>{validationErrors['llm/apiKey']}</FieldError>
         )}
       </TextField>
 
       <TextField
-        value={String(values['codingLlm/baseUrl'])}
-        isInvalid={'codingLlm/baseUrl' in validationErrors}
+        value={String(values['llm/baseUrl'])}
+        isInvalid={'llm/baseUrl' in validationErrors}
         isDisabled={isDisabled}
         onChange={(val) => {
-          setValue('codingLlm/baseUrl', val);
+          setValue('llm/baseUrl', val);
         }}
       >
         <Label>Base URL</Label>
         <Input placeholder='https://api.anthropic.com' type='url' />
         <Description>Base URL of the LLM API</Description>
-        {validationErrors['codingLlm/baseUrl'] && (
-          <FieldError>{validationErrors['codingLlm/baseUrl']}</FieldError>
+        {validationErrors['llm/baseUrl'] && (
+          <FieldError>{validationErrors['llm/baseUrl']}</FieldError>
         )}
       </TextField>
 
       <TextField
-        value={String(values['codingLlm/model'])}
-        isInvalid={'codingLlm/model' in validationErrors}
+        value={String(values['llm/model'])}
+        isInvalid={'llm/model' in validationErrors}
         isDisabled={isDisabled}
         onChange={(val) => {
-          setValue('codingLlm/model', val);
+          setValue('llm/model', val);
         }}
       >
         <Label>Model</Label>
         <Input placeholder='claude-sonnet-4-20250514' />
         <Description>Model name to use</Description>
-        {validationErrors['codingLlm/model'] && (
-          <FieldError>{validationErrors['codingLlm/model']}</FieldError>
+        {validationErrors['llm/model'] && (
+          <FieldError>{validationErrors['llm/model']}</FieldError>
         )}
       </TextField>
 
       <TextField
-        value={String(values['codingLlm/lightModel'])}
-        isInvalid={'codingLlm/lightModel' in validationErrors}
+        value={String(values['llm/lightModel'])}
+        isInvalid={'llm/lightModel' in validationErrors}
         isDisabled={isDisabled}
         onChange={(val) => {
-          setValue('codingLlm/lightModel', val);
+          setValue('llm/lightModel', val);
         }}
       >
         <Label>Light Model</Label>
@@ -118,8 +118,8 @@ export function CodingLlmSectionFields({
           Model for lightweight tasks (e.g. title generation). Falls back to the
           main model if empty.
         </Description>
-        {validationErrors['codingLlm/lightModel'] && (
-          <FieldError>{validationErrors['codingLlm/lightModel']}</FieldError>
+        {validationErrors['llm/lightModel'] && (
+          <FieldError>{validationErrors['llm/lightModel']}</FieldError>
         )}
       </TextField>
     </>

@@ -6,9 +6,9 @@ import {
   NumberField,
 } from '@heroui/react';
 
-import type {SettingSectionRenderProps} from '../../components/SettingSection/index.js';
+import type {SettingSectionRenderProps} from '../../../components/SettingSection/index.js';
 
-export function AgentSectionFields({
+export function AgentRuntimeSectionFields({
   values,
   setValue,
   validationErrors,

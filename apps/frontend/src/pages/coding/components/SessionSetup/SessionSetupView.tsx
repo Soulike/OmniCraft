@@ -50,9 +50,9 @@ export function SessionSetupView({
               No workspaces configured.{' '}
               <Link
                 className={styles.settingsLink}
-                to={ROUTES.settings.fileAccess()}
+                to={ROUTES.settings['file-access'].workspaces()}
               >
-                Configure in Settings &rarr; File Access
+                Configure in Settings &rarr; File Access &rarr; Workspaces
               </Link>
             </Alert.Description>
           </Alert.Content>
