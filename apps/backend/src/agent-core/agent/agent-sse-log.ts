@@ -2,43 +2,12 @@ import assert from 'node:assert';
 import {appendFile, mkdir, readFile, writeFile} from 'node:fs/promises';
 import path from 'node:path';
 
-import {
-  type SseEvent,
-  sseEventSchema,
-  type SseTextDeltaEvent,
-  type SseThinkingDeltaEvent,
-  type SseToolExecuteDeltaEvent,
-} from '@omnicraft/sse-events';
+import {type SseEvent, sseEventSchema} from '@omnicraft/sse-events';
 
 import {isFileNotFoundError} from '@/helpers/fs.js';
 import {Mutex} from '@/helpers/mutex.js';
 
-type DeltaEvent =
-  | SseTextDeltaEvent
-  | SseThinkingDeltaEvent
-  | SseToolExecuteDeltaEvent;
-
-function isDeltaEvent(event: SseEvent): event is DeltaEvent {
-  return (
-    event.type === 'text-delta' ||
-    event.type === 'thinking-delta' ||
-    event.type === 'tool-execute-delta'
-  );
-}
-
-function canMergeWithNext(
-  current: DeltaEvent,
-  next: SseEvent,
-): next is DeltaEvent {
-  if (current.type !== next.type) return false;
-  if (
-    current.type === 'tool-execute-delta' &&
-    next.type === 'tool-execute-delta'
-  ) {
-    return next.callId === current.callId;
-  }
-  return true;
-}
+import {sseReplayCompressor} from './sse-replay-compressor.js';
 
 export interface AgentSseLogReaderOptions {
   /** Index to start reading from (inclusive). Defaults to 0. */
@@ -137,21 +106,17 @@ export class AgentSseLog {
     try {
       // Phase 1: Replay — merge consecutive delta events.
       while (cursor < this.events.length) {
-        const event = this.events[cursor];
+        let event = this.events[cursor];
         cursor++;
 
-        if (isDeltaEvent(event)) {
-          let content = event.content;
-          while (cursor < this.events.length) {
-            const next = this.events[cursor];
-            if (!canMergeWithNext(event, next)) break;
-            content += next.content;
-            cursor++;
-          }
-          yield {...event, content};
-        } else {
-          yield event;
+        while (cursor < this.events.length) {
+          const next = this.events[cursor];
+          if (!sseReplayCompressor.canMerge(event, next)) break;
+          event = sseReplayCompressor.merge(event, next);
+          cursor++;
         }
+
+        yield event;
 
         if (signal?.aborted) return;
       }
