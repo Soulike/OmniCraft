@@ -187,6 +187,22 @@ describe('editFileTool', () => {
   });
 
   describe('error cases', () => {
+    it('denies editing blocked direct paths before reading content', async () => {
+      const filePath = await writeFile('.env', 'SECRET=old');
+      const stat = await fs.stat(filePath);
+      context.fileStatTracker.set(filePath, stat.size, stat.mtimeMs);
+
+      const result = await editFileTool.execute(
+        {filePath: '.env', oldString: 'old', newString: 'new'},
+        context,
+      );
+
+      expect(result.status).toBe('failure');
+      assert(result.status === 'failure');
+      expect(result.content).toContain('Access denied by file access policy');
+      await expect(fs.readFile(filePath, 'utf-8')).resolves.toBe('SECRET=old');
+    });
+
     it('returns error for nonexistent file', async () => {
       const result = await editFileTool.execute(
         {filePath: 'nope.txt', oldString: 'a', newString: 'b'},

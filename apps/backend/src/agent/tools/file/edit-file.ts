@@ -16,6 +16,12 @@ import type {
   ToolExecutionContext,
 } from '@/agent-core/tool/index.js';
 
+import {
+  checkExistingFileAccess,
+  checkLexicalFileAccess,
+} from './file-access-policy.js';
+import {formatBlockedFileAccessMessage} from './file-access-policy-messages.js';
+
 const MAX_DIFF_SIZE = 4_096; // 4KB
 const MAX_FILE_SIZE = 10_485_760; // 10MB
 
@@ -52,6 +58,12 @@ export const editFileTool: ToolDefinition<typeof parameters, EditFileResult> = {
     // 1. Resolve path
     const absolutePath = path.resolve(workingDirectory, args.filePath);
 
+    const lexicalPolicyResult = checkLexicalFileAccess(absolutePath);
+    if (!lexicalPolicyResult.allowed) {
+      const message = formatBlockedFileAccessMessage(args.filePath);
+      return {data: {message}, content: message, status: 'failure'};
+    }
+
     // 2. Read file
     let stat: Stats;
     try {
@@ -70,6 +82,12 @@ export const editFileTool: ToolDefinition<typeof parameters, EditFileResult> = {
         content: `Error: Not a file: ${args.filePath}`,
         status: 'failure',
       };
+    }
+
+    const policyResult = await checkExistingFileAccess(absolutePath);
+    if (!policyResult.allowed) {
+      const message = formatBlockedFileAccessMessage(args.filePath);
+      return {data: {message}, content: message, status: 'failure'};
     }
 
     if (stat.size > MAX_FILE_SIZE) {

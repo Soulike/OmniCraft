@@ -183,6 +183,33 @@ describe('readFileTool', () => {
   });
 
   describe('error cases', () => {
+    it('denies blocked direct paths before reading', async () => {
+      await writeFile('.env', 'SECRET=value');
+
+      const result = await readFileTool.execute({filePath: '.env'}, context);
+
+      expect(result.status).toBe('failure');
+      assert(result.status === 'failure');
+      expect(result.content).toContain('Access denied by file access policy');
+      expect(result.content).toContain('Review the file access operation');
+      expect(result.content).toContain('ask the user to perform it manually');
+    });
+
+    it('denies symlink paths whose real target is blocked', async () => {
+      const target = await writeFile('.env.local', 'SECRET=value');
+      const link = path.join(tmpDir, 'env-link');
+      await fs.symlink(target, link);
+
+      const result = await readFileTool.execute(
+        {filePath: 'env-link'},
+        context,
+      );
+
+      expect(result.status).toBe('failure');
+      assert(result.status === 'failure');
+      expect(result.content).toContain('Access denied by file access policy');
+    });
+
     it('returns error for nonexistent file', async () => {
       const result = await readFileTool.execute(
         {filePath: 'nope.txt'},

@@ -151,6 +151,54 @@ describe('writeFileTool', () => {
   });
 
   describe('error cases', () => {
+    it('denies writing a new blocked path', async () => {
+      const result = await writeFileTool.execute(
+        {filePath: '.env.local', content: 'SECRET=value'},
+        context,
+      );
+
+      expect(result.status).toBe('failure');
+      assert(result.status === 'failure');
+      expect(result.content).toContain('Access denied by file access policy');
+      await expect(fs.stat(path.join(tmpDir, '.env.local'))).rejects.toThrow();
+    });
+
+    it('denies overwriting an existing blocked path', async () => {
+      const filePath = path.join(tmpDir, '.env');
+      await fs.writeFile(filePath, 'old');
+      context.fileStatTracker.set(
+        filePath,
+        3,
+        (await fs.stat(filePath)).mtimeMs,
+      );
+
+      const result = await writeFileTool.execute(
+        {filePath: '.env', content: 'new'},
+        context,
+      );
+
+      expect(result.status).toBe('failure');
+      assert(result.status === 'failure');
+      expect(result.content).toContain('Access denied by file access policy');
+      await expect(fs.readFile(filePath, 'utf-8')).resolves.toBe('old');
+    });
+
+    it('denies new writes through a symlinked parent to a blocked real target', async () => {
+      const realProject = path.join(tmpDir, 'real-project');
+      const linkProject = path.join(tmpDir, 'link-project');
+      await fs.mkdir(path.join(realProject, '.git'), {recursive: true});
+      await fs.symlink(realProject, linkProject, 'dir');
+
+      const result = await writeFileTool.execute(
+        {filePath: 'link-project/.git/new-config', content: 'content'},
+        context,
+      );
+
+      expect(result.status).toBe('failure');
+      assert(result.status === 'failure');
+      expect(result.content).toContain('Access denied by file access policy');
+    });
+
     it('rejects content exceeding 1MB', async () => {
       const bigContent = 'x'.repeat(1_048_577);
       const result = await writeFileTool.execute(

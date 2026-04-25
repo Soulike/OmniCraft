@@ -15,6 +15,12 @@ import type {
   ToolExecutionContext,
 } from '@/agent-core/tool/index.js';
 
+import {
+  checkExistingFileAccess,
+  checkLexicalFileAccess,
+  checkNewFileAccess,
+} from './file-access-policy.js';
+import {formatBlockedFileAccessMessage} from './file-access-policy-messages.js';
 import {countLines} from './helpers.js';
 
 const MAX_CONTENT_SIZE = 1_048_576; // 1MB
@@ -52,12 +58,34 @@ export const writeFileTool: ToolDefinition<typeof parameters, WriteFileResult> =
       // 2. Resolve path
       const absolutePath = path.resolve(workingDirectory, args.filePath);
 
+      const lexicalPolicyResult = checkLexicalFileAccess(absolutePath);
+      if (!lexicalPolicyResult.allowed) {
+        const message = formatBlockedFileAccessMessage(args.filePath);
+        return {
+          data: {message},
+          content: message,
+          status: 'failure',
+        };
+      }
+
       // 3. Check if file exists — if so, verify it was read first
       let existingStat: Stats | null = null;
       try {
         existingStat = await fs.stat(absolutePath);
       } catch {
         // File doesn't exist, which is fine for write_file
+      }
+
+      const policyResult = existingStat
+        ? await checkExistingFileAccess(absolutePath)
+        : await checkNewFileAccess(absolutePath);
+      if (!policyResult.allowed) {
+        const message = formatBlockedFileAccessMessage(args.filePath);
+        return {
+          data: {message},
+          content: message,
+          status: 'failure',
+        };
       }
 
       if (existingStat) {

@@ -15,6 +15,11 @@ import type {
 } from '@/agent-core/tool/index.js';
 
 import {
+  checkExistingFileAccess,
+  checkLexicalFileAccess,
+} from './file-access-policy.js';
+import {formatBlockedFileAccessMessage} from './file-access-policy-messages.js';
+import {
   countLines,
   formatWithLineNumbers,
   isBinaryFile,
@@ -47,6 +52,12 @@ export const readFileTool: ToolDefinition<typeof parameters, ReadFileResult> = {
     // 1. Resolve path
     const absolutePath = path.resolve(workingDirectory, args.filePath);
 
+    const lexicalPolicyResult = checkLexicalFileAccess(absolutePath);
+    if (!lexicalPolicyResult.allowed) {
+      const message = formatBlockedFileAccessMessage(args.filePath);
+      return {data: {message}, content: message, status: 'failure'};
+    }
+
     // 2. Stat
     let stat: Stats;
     try {
@@ -65,6 +76,12 @@ export const readFileTool: ToolDefinition<typeof parameters, ReadFileResult> = {
         content: `Error: Not a file: ${args.filePath}`,
         status: 'failure',
       };
+    }
+
+    const policyResult = await checkExistingFileAccess(absolutePath);
+    if (!policyResult.allowed) {
+      const message = formatBlockedFileAccessMessage(args.filePath);
+      return {data: {message}, content: message, status: 'failure'};
     }
 
     // 3. Binary check
