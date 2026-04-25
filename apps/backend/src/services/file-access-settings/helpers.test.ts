@@ -101,4 +101,27 @@ describe('normalizeAndValidatePaths', () => {
       {path: '/nonexistent', reason: PathValidationError.NOT_FOUND},
     ]);
   });
+
+  it('rejects blocked workspace roots', async () => {
+    const gitDir = path.join(tempDir, '.git');
+    await fs.mkdir(gitDir);
+
+    const {errors} = await normalizeAndValidatePaths([{path: gitDir}]);
+
+    expect(errors).toEqual([
+      {path: gitDir, reason: PathValidationError.BLOCKED},
+    ]);
+  });
+
+  it('allows normal workspaces that contain blocked descendants', async () => {
+    await fs.mkdir(path.join(tempDir, '.git'));
+    await fs.writeFile(path.join(tempDir, '.env'), 'SECRET=value');
+
+    const {normalized, errors} = await normalizeAndValidatePaths([
+      {path: tempDir},
+    ]);
+
+    expect(errors).toEqual([]);
+    expect(normalized).toEqual([{path: tempDir}]);
+  });
 });

@@ -3,7 +3,9 @@ import path from 'node:path';
 
 import type {Workspace} from '@omnicraft/settings-schema';
 
+import {getDefaultSensitivePathPolicy} from '@/helpers/default-sensitive-path-policy.js';
 import {checkDirectoryAccess} from '@/helpers/fs.js';
+import {checkSensitivePathAccess} from '@/helpers/sensitive-path-policy.js';
 
 import {type InvalidPathEntry, PathValidationError} from './types.js';
 
@@ -31,6 +33,15 @@ export async function normalizeAndValidatePaths(
       continue;
     }
     seen.add(resolvedPath);
+
+    const policy = checkSensitivePathAccess(
+      resolvedPath,
+      getDefaultSensitivePathPolicy(),
+    );
+    if (!policy.allowed) {
+      errors.push({path: entry.path, reason: PathValidationError.BLOCKED});
+      continue;
+    }
 
     const reason = await validateSinglePath(resolvedPath);
     if (reason) {
