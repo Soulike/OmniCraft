@@ -4,8 +4,9 @@ import {thinkingLevelSchema} from '@omnicraft/api-schema';
 import type {SseBaseEvent} from '@omnicraft/sse-events';
 import {z} from 'zod';
 
-import {GeneralSubAgent} from '@/agent/agents/index.js';
+import {ExploreSubAgent, GeneralSubAgent} from '@/agent/agents/index.js';
 import type {Agent} from '@/agent-core/agent/index.js';
+import type {LlmConfig} from '@/agent-core/llm-api/index.js';
 import type {
   ToolDefinition,
   ToolExecuteResult,
@@ -18,26 +19,44 @@ interface SubAgentInfo {
   description: string;
 }
 
+export const SUB_AGENT_TYPE = {
+  GENERAL: 'general',
+  EXPLORE: 'explore',
+} as const;
+
+export type SubAgentType = (typeof SUB_AGENT_TYPE)[keyof typeof SUB_AGENT_TYPE];
+
 const subAgentInfos = {
-  general: {
+  [SUB_AGENT_TYPE.GENERAL]: {
     name: 'General',
     description:
       'General-purpose agent for autonomous multi-step tasks. ' +
-      'Use for any work that no other specialized subagent can handle.',
+      'Use for delegated work that no specialized subagent type covers.',
   },
-} as const satisfies Record<string, SubAgentInfo>;
+  [SUB_AGENT_TYPE.EXPLORE]: {
+    name: 'Explore',
+    description:
+      'Research-focused agent for repository research, architecture, module design, ' +
+      'cross-file behavior, call chains, data flow, historical context, dependency mapping, ' +
+      'and impact analysis. Provide the question, scope, constraints, and desired depth. ' +
+      'Do not specify a report format unless the user asked for one.',
+  },
+} as const satisfies Record<SubAgentType, SubAgentInfo>;
 
-type SubAgentType = keyof typeof subAgentInfos;
-
-const agentTypeSchema = z.enum(
-  Object.keys(subAgentInfos) as [SubAgentType, ...SubAgentType[]],
-);
+const agentTypeSchema = z.enum([
+  SUB_AGENT_TYPE.GENERAL,
+  SUB_AGENT_TYPE.EXPLORE,
+]);
 
 function buildToolDescription(): string {
   const header =
     'Dispatches a subagent to handle a subtask autonomously. ' +
     'Subagents cannot dispatch further subagents. ' +
-    'Use this when a task can be delegated and worked on independently.';
+    'Use this when delegated work can proceed independently ' +
+    'without blocking your immediate next local action. ' +
+    'Keep very small local lookups local when dispatch overhead is not worth it. ' +
+    'After the subagent returns, synthesize the subagent result for the user ' +
+    'or use it to guide implementation.';
 
   const typeDescriptions = Object.entries(subAgentInfos)
     .map(([key, info]) => `- ${key} (${info.name}): ${info.description}`)
@@ -46,11 +65,26 @@ function buildToolDescription(): string {
   return `${header}\n\nAvailable agent types:\n${typeDescriptions}`;
 }
 
+export function createSubAgent(
+  agentType: SubAgentType,
+  getConfig: () => Promise<LlmConfig>,
+  workingDirectory: string,
+): Agent {
+  switch (agentType) {
+    case SUB_AGENT_TYPE.GENERAL:
+      return new GeneralSubAgent(getConfig, workingDirectory);
+    case SUB_AGENT_TYPE.EXPLORE:
+      return new ExploreSubAgent(getConfig, workingDirectory);
+  }
+}
+
 const parameters = z.object({
   task: z.string().min(1).describe('The task description for the subagent'),
   agentType: agentTypeSchema
     .optional()
-    .describe("Type of subagent to dispatch. Defaults to 'general'."),
+    .describe(
+      `Type of subagent to dispatch. Defaults to '${SUB_AGENT_TYPE.GENERAL}'.`,
+    ),
   model: z
     .enum(['default', 'light'])
     .optional()
@@ -98,7 +132,7 @@ export const dispatchAgentTool: ToolDefinition<
   ): Promise<ToolExecuteResult<DispatchAgentResult>> {
     const {
       task,
-      agentType = 'general',
+      agentType = SUB_AGENT_TYPE.GENERAL,
       model = 'default',
       thinkingLevel = 'none',
     } = args;
@@ -127,7 +161,7 @@ export const dispatchAgentTool: ToolDefinition<
       model === 'light' ? context.getLightConfig : context.getConfig;
 
     // Create subagent
-    const subagent: Agent = new GeneralSubAgent(getConfig, workingDirectory);
+    const subagent = createSubAgent(agentType, getConfig, workingDirectory);
 
     // Link parent abort signal to subagent
     const onAbort = () => {
