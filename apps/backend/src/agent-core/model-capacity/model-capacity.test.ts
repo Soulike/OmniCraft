@@ -34,6 +34,12 @@ describe('modelCapacity', () => {
       expect(await modelCapacity.getMaxOutputTokens(config)).toBe(128_000);
     });
 
+    it('returns known limits for GPT-5.5', async () => {
+      const config = makeConfig({apiFormat: 'openai', model: 'gpt-5.5'});
+      expect(await modelCapacity.getMaxOutputTokens(config)).toBe(128_000);
+      expect(await modelCapacity.getMaxInputTokens(config)).toBe(400_000);
+    });
+
     it('returns known output limit via openai-responses format', async () => {
       const config = makeConfig({
         apiFormat: 'openai-responses',
@@ -62,6 +68,16 @@ describe('modelCapacity', () => {
   });
 
   describe('Claude path', () => {
+    it('returns known limits for a Copilot Claude model', async () => {
+      const config = makeConfig({
+        apiFormat: 'claude',
+        model: 'claude-opus-4.7',
+      });
+      expect(await modelCapacity.getMaxOutputTokens(config)).toBe(32_000);
+      expect(await modelCapacity.getMaxInputTokens(config)).toBe(200_000);
+      expect(mockRetrieve).not.toHaveBeenCalled();
+    });
+
     it('returns limits from the Anthropic Models API', async () => {
       mockRetrieve.mockResolvedValue({
         max_tokens: 128_000,
