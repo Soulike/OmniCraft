@@ -12,6 +12,8 @@ import {Agent, agentPersistence} from '@/agent-core/agent/index.js';
 import type {AgentSnapshot} from '@/agent-core/agent/types.js';
 import {settingsService} from '@/services/settings/index.js';
 
+import {codingAgentSystemPrompt} from './system-prompt.js';
+
 /**
  * Coding agent with all tools and skills.
  * Used as the entry point for coding sessions.
@@ -40,7 +42,7 @@ export class CodingAgent extends Agent {
           TodoToolRegistry.getInstance(),
         ],
         skillRegistries: [CoreSkillRegistry.getInstance()],
-        baseSystemPrompt: 'You are a helpful assistant.',
+        baseSystemPrompt: codingAgentSystemPrompt,
         getMaxToolRounds: async () => {
           const settings = await settingsService.getAll();
           return settings.agent.maxToolRounds;

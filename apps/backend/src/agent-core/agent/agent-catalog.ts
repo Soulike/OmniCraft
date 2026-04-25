@@ -1,7 +1,24 @@
+import os from 'node:os';
+
 import type {SkillDefinition, SkillRegistry} from '../skill/index.js';
 import type {ToolDefinition} from '../tool/index.js';
 import type {ToolRegistry} from '../tool/index.js';
 import {loadSkillTool} from '../tool/index.js';
+
+function buildEnvironmentSection(workingDirectory: string): string {
+  const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+  return [
+    '## Environment',
+    '',
+    `- OS: ${os.type()} ${os.release()} (${os.platform()}, ${os.arch()})`,
+    `- Shell: ${process.env.SHELL ?? 'unknown'}`,
+    `- Working directory: ${workingDirectory}`,
+    `- Time zone: ${timeZone}`,
+    '',
+    'Relative paths in file operations are resolved from the working directory. Shell commands start in the working directory by default, though shell cwd can change between command calls when commands change directories.',
+  ].join('\n');
+}
 
 export function buildAvailableSkills(
   skillRegistries: readonly SkillRegistry[],
@@ -86,10 +103,7 @@ export function buildSystemPrompt(
     ].join('\n');
   }
 
-  prompt +=
-    `\n\nWorking directory: ${workingDirectory}. ` +
-    'Relative paths in file operations are resolved from this directory; ' +
-    'shell commands start here by default.';
+  prompt += `\n\n${buildEnvironmentSection(workingDirectory)}`;
 
   return prompt;
 }

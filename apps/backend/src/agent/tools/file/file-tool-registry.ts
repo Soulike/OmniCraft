@@ -18,4 +18,12 @@ export class FileToolRegistry extends ToolRegistry {
     instance.register(editFileTool);
     return instance;
   }
+
+  override getSystemPromptSection(): string {
+    return [
+      '## File Tools',
+      '',
+      'The file tools share read/modify safety state. If a modification tool reports that a file must be read first or has changed since the last read, read the file again before retrying.',
+    ].join('\n');
+  }
 }
