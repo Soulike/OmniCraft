@@ -52,7 +52,6 @@ describe('useTaskDispatchForm', () => {
     });
 
     expect(onStartTask).toHaveBeenCalledWith({
-      workspace: '/repo',
       task: 'Fix the failing tests.',
       thinkingLevel: 'none',
     });

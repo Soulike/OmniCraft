@@ -1,7 +1,6 @@
 import type {ThinkingLevel} from '@omnicraft/api-schema';
 
 export interface TaskDispatchValues {
-  readonly workspace: string;
   readonly task: string;
   readonly thinkingLevel: ThinkingLevel;
 }

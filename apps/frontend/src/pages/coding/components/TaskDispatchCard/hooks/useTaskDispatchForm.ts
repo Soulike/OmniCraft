@@ -75,7 +75,6 @@ export function useTaskDispatchForm({
     setIsSubmitting(true);
     try {
       await onStartTask({
-        workspace: selectedWorkspace,
         task: trimmedTask,
         thinkingLevel,
       });
