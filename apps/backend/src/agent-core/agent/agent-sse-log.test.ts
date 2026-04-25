@@ -2,25 +2,27 @@ import {mkdtemp, readFile, rm, writeFile} from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
-import type {SseEvent} from '@omnicraft/sse-events';
+import type {
+  SseBaseEvent,
+  SseEvent,
+  SseMessageStartEvent,
+  SseTextDeltaEvent,
+  SseThinkingStartEvent,
+} from '@omnicraft/sse-events';
 import {afterEach, beforeEach, describe, expect, it} from 'vitest';
 
 import {AgentSseLog} from './agent-sse-log.js';
 
 /** Helper to create a minimal SseEvent for testing. */
-function textDelta(content: string): SseEvent {
+function textDelta(content: string): SseTextDeltaEvent {
   return {type: 'text-delta', content};
 }
 
-function thinkingDelta(content: string): SseEvent {
-  return {type: 'thinking-delta', content};
+function subagentOutput(agentId: string, event: SseBaseEvent): SseEvent {
+  return {type: 'subagent-output', agentId, event};
 }
 
-function toolExecuteDelta(callId: string, content: string): SseEvent {
-  return {type: 'tool-execute-delta', callId, content};
-}
-
-function messageStart(messageId = 'msg-1'): SseEvent {
+function messageStart(messageId = 'msg-1'): SseMessageStartEvent {
   return {
     type: 'message-start',
     role: 'assistant',
@@ -30,7 +32,7 @@ function messageStart(messageId = 'msg-1'): SseEvent {
   };
 }
 
-function thinkingStart(): SseEvent {
+function thinkingStart(): SseThinkingStartEvent {
   return {type: 'thinking-start'};
 }
 
@@ -470,8 +472,8 @@ describe('AgentSseLog', () => {
     });
   });
 
-  describe('delta merging during replay', () => {
-    it('merges consecutive text-delta events into one', async () => {
+  describe('replay compression integration', () => {
+    it('compresses top-level replay delta events', async () => {
       const log = new AgentSseLog();
       await log.append(textDelta('a'));
       await log.append(textDelta('b'));
@@ -485,87 +487,7 @@ describe('AgentSseLog', () => {
       expect(await collected).toEqual([textDelta('abc')]);
     });
 
-    it('merges consecutive thinking-delta events into one', async () => {
-      const log = new AgentSseLog();
-      await log.append(thinkingDelta('x'));
-      await log.append(thinkingDelta('y'));
-
-      const controller = new AbortController();
-      const collected = collect(log.createReader({signal: controller.signal}));
-      await new Promise((r) => setTimeout(r, 10));
-      controller.abort();
-
-      expect(await collected).toEqual([thinkingDelta('xy')]);
-    });
-
-    it('merges consecutive tool-execute-delta events with same callId', async () => {
-      const log = new AgentSseLog();
-      await log.append(toolExecuteDelta('call-1', 'a'));
-      await log.append(toolExecuteDelta('call-1', 'b'));
-
-      const controller = new AbortController();
-      const collected = collect(log.createReader({signal: controller.signal}));
-      await new Promise((r) => setTimeout(r, 10));
-      controller.abort();
-
-      expect(await collected).toEqual([toolExecuteDelta('call-1', 'ab')]);
-    });
-
-    it('does not merge tool-execute-delta events with different callIds', async () => {
-      const log = new AgentSseLog();
-      await log.append(toolExecuteDelta('call-1', 'a'));
-      await log.append(toolExecuteDelta('call-2', 'b'));
-
-      const controller = new AbortController();
-      const collected = collect(log.createReader({signal: controller.signal}));
-      await new Promise((r) => setTimeout(r, 10));
-      controller.abort();
-
-      expect(await collected).toEqual([
-        toolExecuteDelta('call-1', 'a'),
-        toolExecuteDelta('call-2', 'b'),
-      ]);
-    });
-
-    it('non-delta events break merge sequences', async () => {
-      const log = new AgentSseLog();
-      await log.append(textDelta('a'));
-      await log.append(textDelta('b'));
-      await log.append(messageStart());
-      await log.append(textDelta('c'));
-      await log.append(textDelta('d'));
-
-      const controller = new AbortController();
-      const collected = collect(log.createReader({signal: controller.signal}));
-      await new Promise((r) => setTimeout(r, 10));
-      controller.abort();
-
-      expect(await collected).toEqual([
-        textDelta('ab'),
-        messageStart(),
-        textDelta('cd'),
-      ]);
-    });
-
-    it('does not merge across different delta types', async () => {
-      const log = new AgentSseLog();
-      await log.append(textDelta('a'));
-      await log.append(thinkingDelta('b'));
-      await log.append(textDelta('c'));
-
-      const controller = new AbortController();
-      const collected = collect(log.createReader({signal: controller.signal}));
-      await new Promise((r) => setTimeout(r, 10));
-      controller.abort();
-
-      expect(await collected).toEqual([
-        textDelta('a'),
-        thinkingDelta('b'),
-        textDelta('c'),
-      ]);
-    });
-
-    it('does not merge live events arriving after replay', async () => {
+    it('does not compress top-level live delta events after replay', async () => {
       const log = new AgentSseLog();
       await log.append(textDelta('replay'));
 
@@ -585,6 +507,44 @@ describe('AgentSseLog', () => {
         textDelta('replay'),
         textDelta('live-1'),
         textDelta('live-2'),
+      ]);
+    });
+
+    it('compresses nested subagent replay delta events', async () => {
+      const log = new AgentSseLog();
+      await log.append(subagentOutput('subagent-1', textDelta('a')));
+      await log.append(subagentOutput('subagent-1', textDelta('b')));
+
+      const controller = new AbortController();
+      const collected = collect(log.createReader({signal: controller.signal}));
+      await new Promise((r) => setTimeout(r, 10));
+      controller.abort();
+
+      expect(await collected).toEqual([
+        subagentOutput('subagent-1', textDelta('ab')),
+      ]);
+    });
+
+    it('does not compress nested subagent live delta events after replay', async () => {
+      const log = new AgentSseLog();
+      await log.append(subagentOutput('subagent-1', textDelta('replay')));
+
+      const controller = new AbortController();
+      const collected = collect(log.createReader({signal: controller.signal}));
+
+      // Let the reader drain replay and enter live mode.
+      await new Promise((r) => setTimeout(r, 10));
+
+      await log.append(subagentOutput('subagent-1', textDelta('live-1')));
+      await log.append(subagentOutput('subagent-1', textDelta('live-2')));
+
+      await new Promise((r) => setTimeout(r, 10));
+      controller.abort();
+
+      expect(await collected).toEqual([
+        subagentOutput('subagent-1', textDelta('replay')),
+        subagentOutput('subagent-1', textDelta('live-1')),
+        subagentOutput('subagent-1', textDelta('live-2')),
       ]);
     });
   });
