@@ -72,7 +72,7 @@ const parameters = z.object({
   thinkingLevel: thinkingLevelSchema
     .optional()
     .describe(
-      "Controls extended thinking for the subagent ('none', 'low', 'medium', 'high'). Defaults to 'none'. " +
+      "Controls extended thinking for the subagent ('none', 'low', 'medium', 'high', 'xhigh'). Defaults to 'none'. " +
         'Increase this for subtasks that require multi-step reasoning, complex analysis, ' +
         'or planning before acting.',
     ),

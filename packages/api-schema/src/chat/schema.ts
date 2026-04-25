@@ -1,7 +1,13 @@
 import {z} from 'zod';
 
 /** Thinking/reasoning level for models that support extended thinking. */
-export const thinkingLevelSchema = z.enum(['none', 'low', 'medium', 'high']);
+export const thinkingLevelSchema = z.enum([
+  'none',
+  'low',
+  'medium',
+  'high',
+  'xhigh',
+]);
 
 export type ThinkingLevel = z.infer<typeof thinkingLevelSchema>;
 
