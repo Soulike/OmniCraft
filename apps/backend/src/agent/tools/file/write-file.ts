@@ -46,16 +46,7 @@ export const writeFileTool: ToolDefinition<typeof parameters, WriteFileResult> =
     async execute(args: WriteFileArgs, context: ToolExecutionContext) {
       const {workingDirectory} = context;
 
-      // 1. Check content size
-      if (Buffer.byteLength(args.content) > MAX_CONTENT_SIZE) {
-        return {
-          data: {message: `Content exceeds ${MAX_CONTENT_SIZE} byte limit`},
-          content: `Error: Content exceeds ${MAX_CONTENT_SIZE} byte limit`,
-          status: 'failure',
-        };
-      }
-
-      // 2. Resolve path
+      // 1. Resolve path
       const absolutePath = path.resolve(workingDirectory, args.filePath);
 
       const lexicalPolicyResult = checkLexicalFileAccess(absolutePath);
@@ -64,6 +55,15 @@ export const writeFileTool: ToolDefinition<typeof parameters, WriteFileResult> =
         return {
           data: {message},
           content: message,
+          status: 'failure',
+        };
+      }
+
+      // 2. Check content size
+      if (Buffer.byteLength(args.content) > MAX_CONTENT_SIZE) {
+        return {
+          data: {message: `Content exceeds ${MAX_CONTENT_SIZE} byte limit`},
+          content: `Error: Content exceeds ${MAX_CONTENT_SIZE} byte limit`,
           status: 'failure',
         };
       }

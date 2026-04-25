@@ -163,6 +163,19 @@ describe('writeFileTool', () => {
       await expect(fs.stat(path.join(tmpDir, '.env.local'))).rejects.toThrow();
     });
 
+    it('denies blocked paths before checking oversized content', async () => {
+      const bigContent = 'x'.repeat(1_048_577);
+      const result = await writeFileTool.execute(
+        {filePath: '.env.local', content: bigContent},
+        context,
+      );
+
+      expect(result.status).toBe('failure');
+      assert(result.status === 'failure');
+      expect(result.content).toContain('Access denied by file access policy');
+      expect(result.content).not.toContain('Content exceeds');
+    });
+
     it('denies overwriting an existing blocked path', async () => {
       const filePath = path.join(tmpDir, '.env');
       await fs.writeFile(filePath, 'old');
