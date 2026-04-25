@@ -1,4 +1,4 @@
-import {useCallback, useMemo, useState} from 'react';
+import {useCallback, useEffect, useMemo, useState} from 'react';
 
 import {useThinkingLevel} from '@/modules/chat-session/index.js';
 
@@ -36,8 +36,22 @@ export function useTaskDispatchForm({
 
   const setTask = useCallback((value: string) => {
     setTaskValue(value);
-    setErrors((current) => ({...current, task: undefined}));
+    setErrors((current) => {
+      if (current.task === undefined) return current;
+      if (current.workspace === undefined) return {};
+      return {workspace: current.workspace};
+    });
   }, []);
+
+  useEffect(() => {
+    if (selectedWorkspace === undefined) return;
+
+    setErrors((current) => {
+      if (current.workspace === undefined) return current;
+      if (current.task === undefined) return {};
+      return {task: current.task};
+    });
+  }, [selectedWorkspace]);
 
   const validate = useCallback((): TaskDispatchErrors => {
     const nextErrors: TaskDispatchErrors = {};
@@ -51,7 +65,7 @@ export function useTaskDispatchForm({
   }, [selectedWorkspace, trimmedTask]);
 
   const submit = useCallback(async () => {
-    if (isBusy) return;
+    if (isBlocked || isBusy) return;
 
     const nextErrors = validate();
     setErrors(nextErrors);
@@ -69,6 +83,7 @@ export function useTaskDispatchForm({
       setIsSubmitting(false);
     }
   }, [
+    isBlocked,
     isBusy,
     onStartTask,
     selectedWorkspace,

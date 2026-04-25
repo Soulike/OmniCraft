@@ -88,4 +88,59 @@ describe('useTaskDispatchForm', () => {
     });
     expect(starting.result.current.canSubmit).toBe(false);
   });
+
+  it('does not submit when externally blocked', async () => {
+    const onStartTask = vi.fn().mockResolvedValue(undefined);
+
+    const {result} = renderHook(() =>
+      useTaskDispatchForm({
+        selectedWorkspace: '/repo',
+        isBlocked: true,
+        isStarting: false,
+        onStartTask,
+      }),
+    );
+
+    act(() => {
+      result.current.setTask('Do work');
+    });
+
+    await act(async () => {
+      await result.current.submit();
+    });
+
+    expect(onStartTask).not.toHaveBeenCalled();
+  });
+
+  it('clears stale workspace errors when a workspace is selected', async () => {
+    const onStartTask = vi.fn().mockResolvedValue(undefined);
+
+    const {result, rerender} = renderHook(
+      ({selectedWorkspace}: {readonly selectedWorkspace: string | undefined}) =>
+        useTaskDispatchForm({
+          selectedWorkspace,
+          isBlocked: false,
+          isStarting: false,
+          onStartTask,
+        }),
+      {initialProps: {selectedWorkspace: undefined}},
+    );
+
+    await act(async () => {
+      await result.current.submit();
+    });
+
+    expect(result.current.errors).toEqual({
+      workspace: 'Select a workspace before starting a task.',
+      task: 'Describe the coding task before starting.',
+    });
+
+    rerender({selectedWorkspace: '/repo'});
+    act(() => {
+      result.current.setTask('Do work');
+    });
+
+    expect(result.current.canSubmit).toBe(true);
+    expect(result.current.errors).toEqual({});
+  });
 });
