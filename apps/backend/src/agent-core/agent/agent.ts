@@ -41,14 +41,14 @@ import {
   buildAvailableSkills,
   buildAvailableTools,
   buildSystemPrompt,
-} from './agent-catalog.js';
-import {agentPersistence} from './agent-persistence.js';
-import type {AgentSseLogReaderOptions} from './agent-sse-log.js';
-import {AgentSseLog} from './agent-sse-log.js';
-import {generateTitle} from './agent-title.js';
-import {FileContentCache} from './file-content-cache.js';
-import {FileStatTracker} from './file-stat-tracker.js';
-import {TodoStore} from './todo-store.js';
+} from './catalog/agent-catalog.js';
+import type {AgentSseLogReaderOptions} from './events/agent-sse-log.js';
+import {AgentSseLog} from './events/agent-sse-log.js';
+import {agentPersistence} from './persistence/agent-persistence.js';
+import {FileContentCache} from './state/file-content-cache.js';
+import {FileStatTracker} from './state/file-stat-tracker.js';
+import {TodoStore} from './state/todo-store.js';
+import {generateTitle} from './title/agent-title.js';
 import type {AgentEventStream, AgentOptions, AgentSnapshot} from './types.js';
 
 /**

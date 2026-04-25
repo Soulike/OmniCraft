@@ -9,11 +9,11 @@ import type {
   SseUsage,
 } from '@omnicraft/sse-events';
 
-import {Agent} from '@/agent-core/agent/index.js';
-import type {
-  AgentEventStream,
-  AgentSnapshot,
-} from '@/agent-core/agent/types.js';
+import {
+  Agent,
+  type AgentEventStream,
+  type AgentSnapshot,
+} from '@/agent-core/agent/index.js';
 import type {LlmConfig} from '@/agent-core/llm-api/index.js';
 
 /** Minimal config for the unused base-class LLM session. */
