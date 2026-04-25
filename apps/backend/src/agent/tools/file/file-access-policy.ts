@@ -129,42 +129,12 @@ export function getFileAccessPolicyGlobIgnorePatterns(
 
 export async function hasFileAccessPolicyIgnoredDescendant(
   searchDir: string,
+  pattern: string | string[],
   policy: SensitivePathPolicy = getDefaultSensitivePathPolicy(),
 ): Promise<boolean> {
   const resolvedSearchDir = path.resolve(searchDir);
 
-  for (const blockedRoot of policy.blockedRoots) {
-    const relativeRoot = path.relative(
-      resolvedSearchDir,
-      path.resolve(blockedRoot),
-    );
-    if (
-      relativeRoot === '' ||
-      relativeRoot === '..' ||
-      relativeRoot.startsWith(`..${path.sep}`) ||
-      path.isAbsolute(relativeRoot)
-    ) {
-      continue;
-    }
-
-    try {
-      await fs.lstat(blockedRoot);
-      return true;
-    } catch {
-      // Missing blocked roots did not prune anything.
-    }
-  }
-
-  const blockedSegmentPatterns = [...policy.blockedSegments]
-    .sort()
-    .flatMap((blockedSegment) => {
-      const segmentPattern = toPosixPath(blockedSegment);
-      return [segmentPattern, `**/${segmentPattern}`];
-    });
-
-  if (blockedSegmentPatterns.length === 0) return false;
-
-  const stream = fg.stream(blockedSegmentPatterns, {
+  const stream = fg.stream(pattern, {
     cwd: resolvedSearchDir,
     onlyFiles: false,
     dot: true,
@@ -173,7 +143,12 @@ export async function hasFileAccessPolicyIgnoredDescendant(
   });
 
   for await (const entry of stream) {
-    if (typeof entry === 'string') return true;
+    if (typeof entry !== 'string') continue;
+    const entryPolicy = checkLexicalFileAccess(
+      path.join(resolvedSearchDir, entry),
+      policy,
+    );
+    if (!entryPolicy.allowed) return true;
   }
 
   return false;

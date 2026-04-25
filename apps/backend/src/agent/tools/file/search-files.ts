@@ -198,7 +198,10 @@ export const searchFilesTool: ToolDefinition<
     const results: FileSearchResult[] = [];
     let totalMatches = 0;
     let timedOut = false;
-    let skippedByPolicy = await hasFileAccessPolicyIgnoredDescendant(searchDir);
+    let skippedByPolicy = await hasFileAccessPolicyIgnoredDescendant(
+      searchDir,
+      args.filePattern ?? '**/*',
+    );
     const startTime = Date.now();
     const controller = new AbortController();
 

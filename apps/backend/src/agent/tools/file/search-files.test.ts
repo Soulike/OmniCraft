@@ -295,6 +295,23 @@ describe('searchFilesTool', () => {
       );
     });
 
+    it('does not append the policy note for ignored sensitive directories outside the file pattern scope', async () => {
+      await writeFile('.git/config', 'target\n');
+      await writeFile('src/app.ts', 'target\n');
+
+      const result = await searchFilesTool.execute(
+        {pattern: 'target', filePattern: 'src/*.ts'},
+        context,
+      );
+
+      expect(result.status).toBe('success');
+      assert(result.status === 'success');
+      expect(result.data.matches.map((m) => m.file)).toEqual(['src/app.ts']);
+      expect(result.content).not.toContain(
+        'Some paths were skipped because they are blocked by file access policy',
+      );
+    });
+
     it('skips symlinked files', async () => {
       const target = await writeFile('target.ts', 'target\n');
       await fs.symlink(target, path.join(tmpDir, 'link.ts'));

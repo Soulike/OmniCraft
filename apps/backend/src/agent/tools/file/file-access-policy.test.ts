@@ -157,9 +157,24 @@ describe('file-access-policy', () => {
     await fs.writeFile(path.join(tempDir, '.git', 'config'), '[core]');
     await fs.mkdir(blockedRoot, {recursive: true});
 
-    expect(await hasFileAccessPolicyIgnoredDescendant(tempDir, policy)).toBe(
-      true,
-    );
+    expect(
+      await hasFileAccessPolicyIgnoredDescendant(tempDir, '**/*', policy),
+    ).toBe(true);
+  });
+
+  it('does not report ignored descendants outside the active glob scope', async () => {
+    await fs.mkdir(path.join(tempDir, '.git'), {recursive: true});
+    await fs.writeFile(path.join(tempDir, '.git', 'config'), '[core]');
+    await fs.mkdir(path.join(tempDir, 'src'), {recursive: true});
+    await fs.writeFile(path.join(tempDir, 'src', 'app.ts'), '');
+
+    expect(
+      await hasFileAccessPolicyIgnoredDescendant(
+        tempDir,
+        'src/*.ts',
+        testPolicy,
+      ),
+    ).toBe(false);
   });
 
   it('blocks existing paths whose real target is blocked', async () => {

@@ -243,6 +243,24 @@ describe('findFilesTool', () => {
       );
     });
 
+    it('does not append the policy note for ignored sensitive directories outside the glob scope', async () => {
+      await writeFile('.git/config', '[core]');
+      await writeFile('src/app.ts', '');
+
+      const result = await findFilesTool.execute(
+        {pattern: 'src/*.ts'},
+        context,
+      );
+
+      expect(result.status).toBe('success');
+      assert(result.status === 'success');
+      expect(result.content).toContain('src/app.ts');
+      expect(result.content).not.toContain(
+        'Some paths were skipped because they are blocked by file access policy',
+      );
+      expect(result.data.files).toEqual(['src/app.ts']);
+    });
+
     it('skips symlinked files', async () => {
       const target = await writeFile('target.ts', '');
       await fs.symlink(target, path.join(tmpDir, 'link.ts'));

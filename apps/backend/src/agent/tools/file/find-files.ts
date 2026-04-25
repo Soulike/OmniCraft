@@ -121,8 +121,10 @@ export const findFilesTool: ToolDefinition<typeof parameters, FindFilesResult> =
 
       const entries: string[] = [];
       let timedOut = false;
-      let skippedByPolicy =
-        await hasFileAccessPolicyIgnoredDescendant(searchDir);
+      let skippedByPolicy = await hasFileAccessPolicyIgnoredDescendant(
+        searchDir,
+        args.pattern,
+      );
 
       try {
         const startTime = Date.now();
