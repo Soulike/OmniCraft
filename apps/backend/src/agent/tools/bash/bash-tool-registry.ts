@@ -10,14 +10,4 @@ export class BashToolRegistry extends ToolRegistry {
     instance.register(runCommandTool);
     return instance;
   }
-
-  override getSystemPromptSection(): string {
-    return [
-      '## Shell Tools',
-      '',
-      'Shell tools execute local commands from the agent shell context.',
-      '',
-      'The shell working directory may persist when commands change directories inside the workspace. Process-local shell state such as aliases, functions, and environment mutations does not persist across calls.',
-    ].join('\n');
-  }
 }

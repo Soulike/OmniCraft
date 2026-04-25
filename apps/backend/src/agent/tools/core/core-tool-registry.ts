@@ -10,12 +10,4 @@ export class CoreToolRegistry extends ToolRegistry {
     instance.register(getCurrentTimeTool);
     return instance;
   }
-
-  override getSystemPromptSection(): string {
-    return [
-      '## Core Tools',
-      '',
-      'Core tools expose runtime facts from the host environment. Use them when exact runtime information matters more than model assumptions.',
-    ].join('\n');
-  }
 }

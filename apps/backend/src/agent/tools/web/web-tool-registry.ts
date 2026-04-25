@@ -14,14 +14,4 @@ export class WebToolRegistry extends ToolRegistry {
     instance.register(webSearchTool);
     return instance;
   }
-
-  override getSystemPromptSection(): string {
-    return [
-      '## Web Tools',
-      '',
-      'Web tools access external search results and pages when repository and conversation context are insufficient.',
-      '',
-      'Prefer source-specific and authoritative pages for facts that affect the answer. Individual web tool descriptions define the search, fetch, and raw-fetch boundaries.',
-    ].join('\n');
-  }
 }

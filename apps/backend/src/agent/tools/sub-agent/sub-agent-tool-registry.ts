@@ -10,14 +10,4 @@ export class SubAgentToolRegistry extends ToolRegistry {
     instance.register(dispatchAgentTool);
     return instance;
   }
-
-  override getSystemPromptSection(): string {
-    return [
-      '## Subagent Tools',
-      '',
-      'Subagent tools run delegated work in a separate agent context and return a summary for the parent agent to integrate.',
-      '',
-      'Delegate only bounded, independent subtasks. The parent agent remains responsible for reviewing results and deciding how they affect the final answer or code changes.',
-    ].join('\n');
-  }
 }
