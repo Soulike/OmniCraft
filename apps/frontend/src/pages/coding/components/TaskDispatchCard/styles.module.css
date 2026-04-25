@@ -1,0 +1,75 @@
+.card {
+  width: min(760px, 100%);
+  border-radius: 8px;
+}
+
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.title {
+  font-size: 1.125rem;
+  font-weight: 600;
+}
+
+.description {
+  line-height: 1.45;
+}
+
+.form {
+  display: contents;
+}
+
+.content {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.settingsGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 16px;
+  align-items: end;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.taskInput {
+  resize: vertical;
+}
+
+.fieldError {
+  margin: 0;
+  color: var(--danger);
+  font-size: 0.8125rem;
+}
+
+.alerts {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.settingsLink {
+  color: var(--color-accent);
+  text-decoration: underline;
+}
+
+.footer {
+  display: flex;
+  justify-content: flex-end;
+}
+
+@media (max-width: 720px) {
+  .settingsGrid {
+    grid-template-columns: 1fr;
+  }
+}
