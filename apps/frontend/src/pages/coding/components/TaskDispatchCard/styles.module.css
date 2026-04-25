@@ -1,30 +1,46 @@
-.card {
+.cardShell {
   width: min(760px, 100%);
-  border-radius: 8px;
 }
 
-.header {
+.headerContent {
   display: flex;
   flex-direction: column;
   gap: 6px;
 }
 
-.title {
-  font-size: 1.125rem;
-  font-weight: 600;
+.titleRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
-.description {
-  line-height: 1.45;
+.titleEmoji {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.labelContent {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.labelContent svg {
+  flex: 0 0 auto;
+  color: var(--color-accent);
+  stroke-width: 2;
 }
 
 .form {
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 10px;
 }
 
-.content {
+.contentLayout {
   display: flex;
   flex-direction: column;
   gap: 18px;
@@ -65,9 +81,21 @@
   text-decoration: underline;
 }
 
-.footer {
+.footerActions {
   display: flex;
+  width: 100%;
   justify-content: flex-end;
+}
+
+.buttonContent {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.buttonContent svg {
+  flex: 0 0 auto;
+  stroke-width: 2.2;
 }
 
 @media (max-width: 720px) {
