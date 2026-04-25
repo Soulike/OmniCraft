@@ -18,4 +18,19 @@ export class FileToolRegistry extends ToolRegistry {
     instance.register(editFileTool);
     return instance;
   }
+
+  override getSystemPromptSection(): string {
+    return [
+      '## File Tools',
+      '',
+      'Use file tools for workspace file discovery, reading, searching, creation, and targeted text edits.',
+      '',
+      'Workflow:',
+      '- Use file discovery and content search before assuming where code lives.',
+      '- Read an existing file before modifying it. If a modification tool reports that the file changed since it was read, read it again before retrying.',
+      '- Prefer targeted edits for small changes to existing files. Use full-file writes for new files or when replacing the complete file is clearer and proportionate.',
+      '- Use partial reads for large files or when only a known region is relevant.',
+      '- Keep generated file content consistent with existing formatting, naming, and import style.',
+    ].join('\n');
+  }
 }
