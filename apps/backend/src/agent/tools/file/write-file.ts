@@ -76,9 +76,19 @@ export const writeFileTool: ToolDefinition<typeof parameters, WriteFileResult> =
         // File doesn't exist, which is fine for write_file
       }
 
-      const policyResult = existingStat
-        ? await checkExistingFileAccess(absolutePath)
-        : await checkNewFileAccess(absolutePath);
+      let policyResult: Awaited<ReturnType<typeof checkExistingFileAccess>>;
+      try {
+        policyResult = existingStat
+          ? await checkExistingFileAccess(absolutePath)
+          : await checkNewFileAccess(absolutePath);
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : String(error);
+        return {
+          data: {message},
+          content: `Error: ${message}`,
+          status: 'failure',
+        };
+      }
       if (!policyResult.allowed) {
         const message = formatBlockedFileAccessMessage(args.filePath);
         return {

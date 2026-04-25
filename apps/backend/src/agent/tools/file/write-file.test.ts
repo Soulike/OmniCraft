@@ -212,6 +212,22 @@ describe('writeFileTool', () => {
       expect(result.content).toContain('Access denied by file access policy');
     });
 
+    it('returns a tool failure for allowed broken symlink paths', async () => {
+      await fs.symlink(
+        'missing-target.txt',
+        path.join(tmpDir, 'broken-link.txt'),
+      );
+
+      const result = await writeFileTool.execute(
+        {filePath: 'broken-link.txt', content: 'new'},
+        context,
+      );
+
+      expect(result.status).toBe('failure');
+      assert(result.status === 'failure');
+      expect(result.content).toContain('Error:');
+    });
+
     it('rejects content exceeding 1MB', async () => {
       const bigContent = 'x'.repeat(1_048_577);
       const result = await writeFileTool.execute(

@@ -208,6 +208,8 @@ describe('readFileTool', () => {
       expect(result.status).toBe('failure');
       assert(result.status === 'failure');
       expect(result.content).toContain('Access denied by file access policy');
+      expect(result.content).toContain('env-link');
+      expect(result.content).not.toContain(target);
     });
 
     it('returns error for nonexistent file', async () => {
