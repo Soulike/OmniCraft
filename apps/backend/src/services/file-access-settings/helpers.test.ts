@@ -8,14 +8,29 @@ import {normalizeAndValidatePaths} from './helpers.js';
 import {PathValidationError} from './types.js';
 
 describe('normalizeAndValidatePaths', () => {
+  let originalDataDir: string | undefined;
+  let tempRoot: string;
   let tempDir: string;
+  let dataDir: string;
 
   beforeEach(async () => {
-    tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'validate-paths-'));
+    originalDataDir = process.env.DATA_DIR;
+    tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'validate-paths-'));
+    tempDir = path.join(tempRoot, 'workspace');
+    dataDir = path.join(tempRoot, 'data-dir');
+    process.env.DATA_DIR = dataDir;
+
+    await fs.mkdir(tempDir);
   });
 
   afterEach(async () => {
-    await fs.rm(tempDir, {recursive: true});
+    if (originalDataDir === undefined) {
+      delete process.env.DATA_DIR;
+    } else {
+      process.env.DATA_DIR = originalDataDir;
+    }
+
+    await fs.rm(tempRoot, {recursive: true, force: true});
   });
 
   it('returns empty errors for valid directory', async () => {
@@ -110,6 +125,16 @@ describe('normalizeAndValidatePaths', () => {
 
     expect(errors).toEqual([
       {path: gitDir, reason: PathValidationError.BLOCKED},
+    ]);
+  });
+
+  it('rejects configured data dir workspace roots', async () => {
+    await fs.mkdir(dataDir);
+
+    const {errors} = await normalizeAndValidatePaths([{path: dataDir}]);
+
+    expect(errors).toEqual([
+      {path: dataDir, reason: PathValidationError.BLOCKED},
     ]);
   });
 

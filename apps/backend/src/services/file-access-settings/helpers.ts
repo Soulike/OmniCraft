@@ -20,6 +20,7 @@ export async function normalizeAndValidatePaths(
   const errors: InvalidPathEntry[] = [];
   const seen = new Set<string>();
   const normalized: Workspace[] = [];
+  const sensitivePathPolicy = getDefaultSensitivePathPolicy();
 
   for (const entry of entries) {
     if (!path.isAbsolute(entry.path)) {
@@ -34,10 +35,7 @@ export async function normalizeAndValidatePaths(
     }
     seen.add(resolvedPath);
 
-    const policy = checkSensitivePathAccess(
-      resolvedPath,
-      getDefaultSensitivePathPolicy(),
-    );
+    const policy = checkSensitivePathAccess(resolvedPath, sensitivePathPolicy);
     if (!policy.allowed) {
       errors.push({path: entry.path, reason: PathValidationError.BLOCKED});
       continue;
