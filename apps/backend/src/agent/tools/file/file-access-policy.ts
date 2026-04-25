@@ -8,6 +8,10 @@ import {
   type SensitivePathPolicy,
 } from '@/helpers/sensitive-path-policy.js';
 
+interface SymbolicLinkPathOptions {
+  readonly missingPathIsSymbolicLink?: boolean;
+}
+
 export function checkLexicalFileAccess(
   absolutePath: string,
   policy: SensitivePathPolicy = getDefaultSensitivePathPolicy(),
@@ -67,13 +71,22 @@ export async function isSymbolicLinkPath(
 export async function isPathThroughSymbolicLink(
   baseDir: string,
   absolutePath: string,
+  options: SymbolicLinkPathOptions = {},
 ): Promise<boolean> {
+  const missingPathIsSymbolicLink = options.missingPathIsSymbolicLink ?? true;
   const resolvedBaseDir = path.resolve(baseDir);
   const resolvedPath = path.resolve(absolutePath);
   const relativePath = path.relative(resolvedBaseDir, resolvedPath);
 
+  try {
+    const baseStat = await fs.lstat(resolvedBaseDir);
+    if (baseStat.isSymbolicLink()) return true;
+  } catch {
+    return missingPathIsSymbolicLink;
+  }
+
   if (relativePath === '') {
-    return isSymbolicLinkPath(resolvedPath);
+    return false;
   }
 
   if (
@@ -93,11 +106,48 @@ export async function isPathThroughSymbolicLink(
       const stat = await fs.lstat(currentPath);
       if (stat.isSymbolicLink()) return true;
     } catch {
-      return true;
+      return missingPathIsSymbolicLink;
     }
   }
 
   return false;
+}
+
+export function getFileAccessPolicyGlobIgnorePatterns(
+  searchDir: string,
+  policy: SensitivePathPolicy = getDefaultSensitivePathPolicy(),
+): string[] {
+  const patterns = new Set<string>();
+
+  for (const blockedSegment of [...policy.blockedSegments].sort()) {
+    const segmentPattern = toPosixPath(blockedSegment);
+    patterns.add(segmentPattern);
+    patterns.add(`${segmentPattern}/**`);
+    patterns.add(`**/${segmentPattern}`);
+    patterns.add(`**/${segmentPattern}/**`);
+  }
+
+  const resolvedSearchDir = path.resolve(searchDir);
+  for (const blockedRoot of policy.blockedRoots) {
+    const relativeRoot = path.relative(
+      resolvedSearchDir,
+      path.resolve(blockedRoot),
+    );
+    if (
+      relativeRoot === '' ||
+      relativeRoot === '..' ||
+      relativeRoot.startsWith(`..${path.sep}`) ||
+      path.isAbsolute(relativeRoot)
+    ) {
+      continue;
+    }
+
+    const rootPattern = toPosixPath(relativeRoot);
+    patterns.add(rootPattern);
+    patterns.add(`${rootPattern}/**`);
+  }
+
+  return [...patterns];
 }
 
 async function findNearestExistingParent(absolutePath: string): Promise<{
@@ -140,4 +190,8 @@ async function checkSymbolicLinkTargetAccess(
 
 function isNotFoundError(error: unknown): boolean {
   return error instanceof Error && 'code' in error && error.code === 'ENOENT';
+}
+
+function toPosixPath(filePath: string): string {
+  return filePath.split(path.sep).join('/');
 }

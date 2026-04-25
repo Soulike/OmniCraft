@@ -13,6 +13,8 @@ import {
   checkExistingFileAccess,
   checkLexicalFileAccess,
   checkNewFileAccess,
+  getFileAccessPolicyGlobIgnorePatterns,
+  isPathThroughSymbolicLink,
   isSymbolicLinkPath,
 } from './file-access-policy.js';
 
@@ -46,6 +48,57 @@ describe('file-access-policy', () => {
 
     expect(await isSymbolicLinkPath(link)).toBe(true);
     expect(await isSymbolicLinkPath(target)).toBe(false);
+  });
+
+  it('detects paths under a symlinked base directory', async () => {
+    const realWorkspace = path.join(tempDir, 'real-workspace');
+    const workspaceLink = path.join(tempDir, 'workspace-link');
+    const childPath = path.join(workspaceLink, 'sub', 'file.ts');
+    await fs.mkdir(path.join(realWorkspace, 'sub'), {recursive: true});
+    await fs.writeFile(path.join(realWorkspace, 'sub', 'file.ts'), '');
+    await fs.symlink(realWorkspace, workspaceLink, 'dir');
+
+    expect(await isPathThroughSymbolicLink(workspaceLink, childPath)).toBe(
+      true,
+    );
+  });
+
+  it('detects paths through a symlinked intermediate component', async () => {
+    const targetDir = path.join(tempDir, 'target');
+    const linkDir = path.join(tempDir, 'link');
+    const childPath = path.join(linkDir, 'file.ts');
+    await fs.mkdir(targetDir);
+    await fs.writeFile(path.join(targetDir, 'file.ts'), '');
+    await fs.symlink(targetDir, linkDir, 'dir');
+
+    expect(await isPathThroughSymbolicLink(tempDir, childPath)).toBe(true);
+  });
+
+  it('allows normal paths under a normal base directory', async () => {
+    const childPath = path.join(tempDir, 'sub', 'file.ts');
+    await fs.mkdir(path.dirname(childPath), {recursive: true});
+    await fs.writeFile(childPath, '');
+
+    expect(await isPathThroughSymbolicLink(tempDir, childPath)).toBe(false);
+  });
+
+  it('returns glob ignores for blocked segments and descendant blocked roots', () => {
+    const blockedRoot = path.join(tempDir, 'nested', 'sensitive-root');
+    const policy: SensitivePathPolicy = {
+      ...testPolicy,
+      blockedRoots: [blockedRoot],
+    };
+
+    expect(getFileAccessPolicyGlobIgnorePatterns(tempDir, policy)).toEqual(
+      expect.arrayContaining([
+        '.git',
+        '.git/**',
+        '**/.git',
+        '**/.git/**',
+        'nested/sensitive-root',
+        'nested/sensitive-root/**',
+      ]),
+    );
   });
 
   it('blocks existing paths whose real target is blocked', async () => {

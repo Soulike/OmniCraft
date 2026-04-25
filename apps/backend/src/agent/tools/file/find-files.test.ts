@@ -243,6 +243,27 @@ describe('findFilesTool', () => {
         'Some paths were skipped because they are blocked by file access policy',
       );
     });
+
+    it('denies a symlinked working directory before searching', async () => {
+      const realWorkspace = path.join(tmpDir, 'real-workspace');
+      const workspaceLink = path.join(tmpDir, 'workspace-link');
+      await fs.mkdir(path.join(realWorkspace, 'sub'), {recursive: true});
+      await fs.writeFile(path.join(realWorkspace, 'sub', 'file.ts'), '');
+      await fs.symlink(realWorkspace, workspaceLink, 'dir');
+      const linkContext = createMockContext({
+        workingDirectory: workspaceLink,
+        fileCache: new FileContentCache(),
+      });
+
+      const result = await findFilesTool.execute(
+        {pattern: '**/*.ts', path: 'sub'},
+        linkContext,
+      );
+
+      expect(result.status).toBe('failure');
+      assert(result.status === 'failure');
+      expect(result.content).toContain('Access denied by file access policy');
+    });
   });
 
   describe('error cases', () => {
@@ -288,6 +309,20 @@ describe('findFilesTool', () => {
       expect(result.status).toBe('failure');
       assert(result.status === 'failure');
       expect(result.content).toContain('Access denied by file access policy');
+    });
+
+    it('denies blocked file roots before checking directory type', async () => {
+      await writeFile('.env', 'SECRET=value');
+
+      const result = await findFilesTool.execute(
+        {pattern: '**/*', path: '.env'},
+        context,
+      );
+
+      expect(result.status).toBe('failure');
+      assert(result.status === 'failure');
+      expect(result.content).toContain('Access denied by file access policy');
+      expect(result.content).not.toContain('Not a directory');
     });
 
     it('denies a symlinked search root whose target is allowed', async () => {

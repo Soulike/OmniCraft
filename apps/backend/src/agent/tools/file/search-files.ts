@@ -22,6 +22,7 @@ import type {
 import {
   checkExistingFileAccess,
   checkLexicalFileAccess,
+  getFileAccessPolicyGlobIgnorePatterns,
   isPathThroughSymbolicLink,
 } from './file-access-policy.js';
 import {
@@ -106,6 +107,29 @@ export const searchFilesTool: ToolDefinition<
     // 1. Resolve search directory
     const searchDir = path.resolve(workingDirectory, args.path ?? '.');
 
+    const lexicalRootPolicy = checkLexicalFileAccess(searchDir);
+    if (!lexicalRootPolicy.allowed) {
+      const message = formatBlockedFileAccessMessage(args.path ?? searchDir);
+      return {
+        data: {message},
+        content: message,
+        status: 'failure',
+      };
+    }
+
+    if (
+      await isPathThroughSymbolicLink(workingDirectory, searchDir, {
+        missingPathIsSymbolicLink: false,
+      })
+    ) {
+      const message = formatBlockedFileAccessMessage(args.path ?? searchDir);
+      return {
+        data: {message},
+        content: message,
+        status: 'failure',
+      };
+    }
+
     // 2. Verify directory exists
     let stat: Stats;
     try {
@@ -127,10 +151,7 @@ export const searchFilesTool: ToolDefinition<
     }
 
     const rootPolicy = await checkExistingFileAccess(searchDir);
-    if (
-      !rootPolicy.allowed ||
-      (await isPathThroughSymbolicLink(workingDirectory, searchDir))
-    ) {
+    if (!rootPolicy.allowed) {
       const message = formatBlockedFileAccessMessage(args.path ?? searchDir);
       return {
         data: {message},
@@ -170,6 +191,7 @@ export const searchFilesTool: ToolDefinition<
       onlyFiles: false,
       dot: true,
       followSymbolicLinks: false,
+      ignore: getFileAccessPolicyGlobIgnorePatterns(searchDir),
     });
 
     const results: FileSearchResult[] = [];
@@ -308,12 +330,9 @@ export const searchFilesTool: ToolDefinition<
         matches: [],
         truncated: false,
       };
-      const content = skippedByPolicy
-        ? `No matches found in ${displayPath}.${policyNote}`
-        : `No matches found for /${args.pattern}/ in ${displayPath}.`;
       return {
         data,
-        content,
+        content: `No matches found for /${args.pattern}/ in ${displayPath}.${policyNote}`,
         status: 'success',
       };
     }

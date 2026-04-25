@@ -291,10 +291,34 @@ describe('searchFilesTool', () => {
       assert(result.status === 'success');
       expect(result.data.matches).toHaveLength(0);
       expect(result.content).not.toContain('safe-link/config');
-      expect(result.content).not.toContain('target');
+      expect(result.content).toContain('No matches found for /target/');
       expect(result.content).toContain(
         'Some paths were skipped because they are blocked by file access policy',
       );
+    });
+
+    it('denies a symlinked working directory before searching', async () => {
+      const realWorkspace = path.join(tmpDir, 'real-workspace');
+      const workspaceLink = path.join(tmpDir, 'workspace-link');
+      await fs.mkdir(path.join(realWorkspace, 'sub'), {recursive: true});
+      await fs.writeFile(
+        path.join(realWorkspace, 'sub', 'file.ts'),
+        'target\n',
+      );
+      await fs.symlink(realWorkspace, workspaceLink, 'dir');
+      const linkContext = createMockContext({
+        workingDirectory: workspaceLink,
+        fileCache: new FileContentCache(),
+      });
+
+      const result = await searchFilesTool.execute(
+        {pattern: 'target', path: 'sub'},
+        linkContext,
+      );
+
+      expect(result.status).toBe('failure');
+      assert(result.status === 'failure');
+      expect(result.content).toContain('Access denied by file access policy');
     });
 
     it('returns partial results on timeout', async () => {
@@ -347,6 +371,20 @@ describe('searchFilesTool', () => {
       expect(result.status).toBe('failure');
       assert(result.status === 'failure');
       expect(result.content).toContain('Access denied by file access policy');
+    });
+
+    it('denies blocked file roots before checking directory type', async () => {
+      await writeFile('.env', 'target\n');
+
+      const result = await searchFilesTool.execute(
+        {pattern: 'target', path: '.env'},
+        context,
+      );
+
+      expect(result.status).toBe('failure');
+      assert(result.status === 'failure');
+      expect(result.content).toContain('Access denied by file access policy');
+      expect(result.content).not.toContain('Not a directory');
     });
 
     it('denies a symlinked search root whose target is allowed', async () => {
