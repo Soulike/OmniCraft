@@ -169,6 +169,27 @@ describe('searchFilesTool', () => {
       expect(result.data.matches).toHaveLength(1);
     });
 
+    it('searches allowed absolute paths outside the working directory', async () => {
+      const externalDir = await fs.mkdtemp(
+        path.join(os.tmpdir(), 'sft-external-'),
+      );
+      try {
+        await fs.writeFile(path.join(externalDir, 'external.ts'), 'target\n');
+
+        const result = await searchFilesTool.execute(
+          {pattern: 'target', path: externalDir},
+          context,
+        );
+
+        expect(result.status).toBe('success');
+        assert(result.status === 'success');
+        expect(result.content).toContain('external.ts:1: target');
+        expect(result.data.matches.map((m) => m.file)).toEqual(['external.ts']);
+      } finally {
+        await fs.rm(externalDir, {recursive: true, force: true});
+      }
+    });
+
     it('returns no-match message when nothing found', async () => {
       await writeFile('a.ts', 'hello\n');
 
@@ -313,6 +334,31 @@ describe('searchFilesTool', () => {
 
       const result = await searchFilesTool.execute(
         {pattern: 'target', path: 'sub'},
+        linkContext,
+      );
+
+      expect(result.status).toBe('failure');
+      assert(result.status === 'failure');
+      expect(result.content).toContain('Access denied by file access policy');
+    });
+
+    it('denies a working directory below a symlinked ancestor', async () => {
+      const realWorkspace = path.join(tmpDir, 'real-workspace');
+      const workspaceLink = path.join(tmpDir, 'workspace-link');
+      const linkSubdir = path.join(workspaceLink, 'sub');
+      await fs.mkdir(path.join(realWorkspace, 'sub'), {recursive: true});
+      await fs.writeFile(
+        path.join(realWorkspace, 'sub', 'file.ts'),
+        'target\n',
+      );
+      await fs.symlink(realWorkspace, workspaceLink, 'dir');
+      const linkContext = createMockContext({
+        workingDirectory: linkSubdir,
+        fileCache: new FileContentCache(),
+      });
+
+      const result = await searchFilesTool.execute(
+        {pattern: 'target'},
         linkContext,
       );
 

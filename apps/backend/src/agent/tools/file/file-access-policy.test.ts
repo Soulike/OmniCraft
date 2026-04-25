@@ -63,6 +63,18 @@ describe('file-access-policy', () => {
     );
   });
 
+  it('detects paths whose base is below a symlinked ancestor', async () => {
+    const realWorkspace = path.join(tempDir, 'real-workspace');
+    const workspaceLink = path.join(tempDir, 'workspace-link');
+    const baseDir = path.join(workspaceLink, 'sub');
+    const childPath = path.join(baseDir, 'file.ts');
+    await fs.mkdir(path.join(realWorkspace, 'sub'), {recursive: true});
+    await fs.writeFile(path.join(realWorkspace, 'sub', 'file.ts'), '');
+    await fs.symlink(realWorkspace, workspaceLink, 'dir');
+
+    expect(await isPathThroughSymbolicLink(baseDir, childPath)).toBe(true);
+  });
+
   it('detects paths through a symlinked intermediate component', async () => {
     const targetDir = path.join(tempDir, 'target');
     const linkDir = path.join(tempDir, 'link');

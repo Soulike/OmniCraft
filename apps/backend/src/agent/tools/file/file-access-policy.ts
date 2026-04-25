@@ -78,39 +78,14 @@ export async function isPathThroughSymbolicLink(
   const resolvedPath = path.resolve(absolutePath);
   const relativePath = path.relative(resolvedBaseDir, resolvedPath);
 
-  try {
-    const baseStat = await fs.lstat(resolvedBaseDir);
-    if (baseStat.isSymbolicLink()) return true;
-  } catch {
-    return missingPathIsSymbolicLink;
-  }
-
   if (relativePath === '') {
-    return false;
+    return pathHasSymbolicLinkComponent(
+      resolvedBaseDir,
+      missingPathIsSymbolicLink,
+    );
   }
 
-  if (
-    relativePath.startsWith(`..${path.sep}`) ||
-    relativePath === '..' ||
-    path.isAbsolute(relativePath)
-  ) {
-    return true;
-  }
-
-  let currentPath = resolvedBaseDir;
-  const pathParts = relativePath.split(path.sep).filter((part) => part !== '');
-
-  for (const pathPart of pathParts) {
-    currentPath = path.join(currentPath, pathPart);
-    try {
-      const stat = await fs.lstat(currentPath);
-      if (stat.isSymbolicLink()) return true;
-    } catch {
-      return missingPathIsSymbolicLink;
-    }
-  }
-
-  return false;
+  return pathHasSymbolicLinkComponent(resolvedPath, missingPathIsSymbolicLink);
 }
 
 export function getFileAccessPolicyGlobIgnorePatterns(
@@ -194,4 +169,29 @@ function isNotFoundError(error: unknown): boolean {
 
 function toPosixPath(filePath: string): string {
   return filePath.split(path.sep).join('/');
+}
+
+async function pathHasSymbolicLinkComponent(
+  absolutePath: string,
+  missingPathIsSymbolicLink: boolean,
+): Promise<boolean> {
+  const resolvedPath = path.resolve(absolutePath);
+  const root = path.parse(resolvedPath).root;
+  const pathParts = resolvedPath
+    .slice(root.length)
+    .split(path.sep)
+    .filter((part) => part !== '');
+
+  let currentPath = root;
+  for (const [index, pathPart] of pathParts.entries()) {
+    currentPath = path.join(currentPath, pathPart);
+    try {
+      const stat = await fs.lstat(currentPath);
+      if (stat.isSymbolicLink() && index > 0) return true;
+    } catch {
+      return missingPathIsSymbolicLink;
+    }
+  }
+
+  return false;
 }
