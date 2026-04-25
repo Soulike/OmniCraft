@@ -23,8 +23,6 @@ export class FileToolRegistry extends ToolRegistry {
     return [
       '## File Tools',
       '',
-      'File tools operate on workspace text files relative to the working directory.',
-      '',
       'The file tools share read/modify safety state. If a modification tool reports that a file must be read first or has changed since the last read, read the file again before retrying.',
     ].join('\n');
   }
