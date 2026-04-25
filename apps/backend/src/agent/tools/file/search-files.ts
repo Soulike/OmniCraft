@@ -22,6 +22,7 @@ import type {
 import {
   checkExistingFileAccess,
   checkLexicalFileAccess,
+  isPathThroughSymbolicLink,
   isSymbolicLinkPath,
 } from './file-access-policy.js';
 import {
@@ -127,7 +128,7 @@ export const searchFilesTool: ToolDefinition<
     }
 
     const rootPolicy = await checkExistingFileAccess(searchDir);
-    if (!rootPolicy.allowed) {
+    if (!rootPolicy.allowed || (await isSymbolicLinkPath(searchDir))) {
       const message = formatBlockedFileAccessMessage(args.path ?? searchDir);
       return {
         data: {message},
@@ -189,7 +190,16 @@ export const searchFilesTool: ToolDefinition<
         assert(typeof entry === 'string');
         const absolutePath = path.join(searchDir, entry);
         const entryPolicy = checkLexicalFileAccess(absolutePath);
-        if (!entryPolicy.allowed || (await isSymbolicLinkPath(absolutePath))) {
+        if (
+          !entryPolicy.allowed ||
+          (await isPathThroughSymbolicLink(searchDir, absolutePath))
+        ) {
+          skippedByPolicy = true;
+          continue;
+        }
+
+        const realEntryPolicy = await checkExistingFileAccess(absolutePath);
+        if (!realEntryPolicy.allowed) {
           skippedByPolicy = true;
           continue;
         }
@@ -296,9 +306,12 @@ export const searchFilesTool: ToolDefinition<
         matches: [],
         truncated: false,
       };
+      const content = skippedByPolicy
+        ? `No matches found in ${displayPath}.${policyNote}`
+        : `No matches found for /${args.pattern}/ in ${displayPath}.`;
       return {
         data,
-        content: `No matches found for /${args.pattern}/ in ${displayPath}.${policyNote}`,
+        content,
         status: 'success',
       };
     }

@@ -64,6 +64,42 @@ export async function isSymbolicLinkPath(
   }
 }
 
+export async function isPathThroughSymbolicLink(
+  baseDir: string,
+  absolutePath: string,
+): Promise<boolean> {
+  const resolvedBaseDir = path.resolve(baseDir);
+  const resolvedPath = path.resolve(absolutePath);
+  const relativePath = path.relative(resolvedBaseDir, resolvedPath);
+
+  if (relativePath === '') {
+    return isSymbolicLinkPath(resolvedPath);
+  }
+
+  if (
+    relativePath.startsWith(`..${path.sep}`) ||
+    relativePath === '..' ||
+    path.isAbsolute(relativePath)
+  ) {
+    return true;
+  }
+
+  let currentPath = resolvedBaseDir;
+  const pathParts = relativePath.split(path.sep).filter((part) => part !== '');
+
+  for (const pathPart of pathParts) {
+    currentPath = path.join(currentPath, pathPart);
+    try {
+      const stat = await fs.lstat(currentPath);
+      if (stat.isSymbolicLink()) return true;
+    } catch {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 async function findNearestExistingParent(absolutePath: string): Promise<{
   existingParent: string;
   missingParts: string[];

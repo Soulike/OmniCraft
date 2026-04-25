@@ -221,6 +221,28 @@ describe('findFilesTool', () => {
         'Some paths were skipped because they are blocked by file access policy',
       );
     });
+
+    it('skips explicit traversal through symlinked directories', async () => {
+      await writeFile('real-project/.git/config', '[core]');
+      await fs.symlink(
+        path.join(tmpDir, 'real-project', '.git'),
+        path.join(tmpDir, 'safe-link'),
+        'dir',
+      );
+
+      const result = await findFilesTool.execute(
+        {pattern: 'safe-link/**'},
+        context,
+      );
+
+      expect(result.status).toBe('success');
+      assert(result.status === 'success');
+      expect(result.data.files).not.toContain('safe-link/config');
+      expect(result.content).not.toContain('safe-link/config');
+      expect(result.content).toContain(
+        'Some paths were skipped because they are blocked by file access policy',
+      );
+    });
   });
 
   describe('error cases', () => {
@@ -260,6 +282,24 @@ describe('findFilesTool', () => {
 
       const result = await findFilesTool.execute(
         {pattern: '**/*', path: 'git-link'},
+        context,
+      );
+
+      expect(result.status).toBe('failure');
+      assert(result.status === 'failure');
+      expect(result.content).toContain('Access denied by file access policy');
+    });
+
+    it('denies a symlinked search root whose target is allowed', async () => {
+      await writeFile('real-src/file.ts', '');
+      await fs.symlink(
+        path.join(tmpDir, 'real-src'),
+        path.join(tmpDir, 'src-link'),
+        'dir',
+      );
+
+      const result = await findFilesTool.execute(
+        {pattern: '**/*', path: 'src-link'},
         context,
       );
 
