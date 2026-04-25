@@ -1,4 +1,4 @@
-import type {TodoItem, TodoStore} from '@/agent-core/agent/todo-store.js';
+import type {TodoItem, TodoStore} from '@/agent-core/agent/state/todo-store.js';
 import type {TodoState} from '@/agent-core/tool/index.js';
 
 /** Formats the todo list as a human-readable string for the LLM. */

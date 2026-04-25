@@ -8,8 +8,11 @@ import {
   TodoToolRegistry,
   WebToolRegistry,
 } from '@/agent/tools/index.js';
-import {Agent, agentPersistence} from '@/agent-core/agent/index.js';
-import type {AgentSnapshot} from '@/agent-core/agent/types.js';
+import {
+  Agent,
+  agentPersistence,
+  type AgentSnapshot,
+} from '@/agent-core/agent/index.js';
 import {settingsService} from '@/services/settings/index.js';
 
 import {codingAgentSystemPrompt} from './system-prompt.js';

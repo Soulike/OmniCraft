@@ -5,7 +5,7 @@ import path from 'node:path';
 
 import {afterEach, beforeEach, describe, expect, it} from 'vitest';
 
-import {FileContentCache} from '@/agent-core/agent/index.js';
+import {FileContentCache} from '@/agent-core/agent/state/file-content-cache.js';
 import {createMockContext} from '@/agent-core/tool/testing.js';
 import type {ToolExecutionContext} from '@/agent-core/tool/types.js';
 

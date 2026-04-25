@@ -1,7 +1,7 @@
 import crypto from 'node:crypto';
 
-import type {LlmConfig, LlmMessage} from '../llm-api/index.js';
-import {llmApi} from '../llm-api/index.js';
+import type {LlmConfig, LlmMessage} from '../../llm-api/index.js';
+import {llmApi} from '../../llm-api/index.js';
 
 const TITLE_MAX_LENGTH = 20;
 
