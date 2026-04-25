@@ -18,6 +18,7 @@ const KNOWN_MODELS = new Map([
   ['gpt-5.3-codex', {maxOutputTokens: 128_000, maxInputTokens: 400_000}],
   ['gpt-5.4-mini', {maxOutputTokens: 128_000, maxInputTokens: 400_000}],
   ['gpt-5.4', {maxOutputTokens: 128_000, maxInputTokens: 400_000}],
+  ['gpt-5.5', {maxOutputTokens: 128_000, maxInputTokens: 400_000}],
   ['gemini-2.5-pro', {maxOutputTokens: 64_000, maxInputTokens: 128_000}],
   [
     'gemini-3-flash-preview',

@@ -14,6 +14,7 @@ const DEFAULT_MAX_INPUT_TOKENS = 200_000;
 const KNOWN_MODELS = new Map([
   ['claude-opus-4.6-1m', {maxOutputTokens: 64_000, maxInputTokens: 1_000_000}],
   ['claude-opus-4.6', {maxOutputTokens: 32_000, maxInputTokens: 200_000}],
+  ['claude-opus-4.7', {maxOutputTokens: 32_000, maxInputTokens: 200_000}],
   ['claude-sonnet-4.6', {maxOutputTokens: 32_000, maxInputTokens: 200_000}],
   ['claude-sonnet-4', {maxOutputTokens: 16_000, maxInputTokens: 216_000}],
   ['claude-sonnet-4.5', {maxOutputTokens: 32_000, maxInputTokens: 200_000}],
