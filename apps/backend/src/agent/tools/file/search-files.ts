@@ -19,6 +19,15 @@ import type {
   ToolExecutionContext,
 } from '@/agent-core/tool/index.js';
 
+import {
+  checkExistingFileAccess,
+  checkLexicalFileAccess,
+  isSymbolicLinkPath,
+} from './file-access-policy.js';
+import {
+  formatBlockedFileAccessMessage,
+  skippedByFileAccessPolicyMessage,
+} from './file-access-policy-messages.js';
 import {isBinaryFile} from './helpers.js';
 
 const MAX_MATCHES = 100;
@@ -85,7 +94,10 @@ export const searchFilesTool: ToolDefinition<
   displayName: 'Search Files',
   description:
     'Searches file contents for a regex pattern and returns matching lines with file paths and line numbers. ' +
-    'Use this to find where a specific string or pattern appears across files.',
+    'Use this to find where a specific string or pattern appears across files. ' +
+    'Symlinked directories and files are not traversed or searched. ' +
+    'If expected matches are missing, review whether the files are behind a symlink; ' +
+    'do not attempt to bypass file access policy.',
   parameters,
   suppressToolEvents: false,
   async execute(args: SearchFilesArgs, context: ToolExecutionContext) {
@@ -110,6 +122,16 @@ export const searchFilesTool: ToolDefinition<
       return {
         data: {message: `Not a directory: ${args.path}`},
         content: `Error: Not a directory: ${args.path}`,
+        status: 'failure',
+      };
+    }
+
+    const rootPolicy = await checkExistingFileAccess(searchDir);
+    if (!rootPolicy.allowed) {
+      const message = formatBlockedFileAccessMessage(args.path ?? searchDir);
+      return {
+        data: {message},
+        content: message,
         status: 'failure',
       };
     }
@@ -142,13 +164,15 @@ export const searchFilesTool: ToolDefinition<
     // 4. Enumerate files and search concurrently
     const stream = fg.stream(args.filePattern ?? '**/*', {
       cwd: searchDir,
-      onlyFiles: true,
+      onlyFiles: false,
       dot: true,
+      followSymbolicLinks: false,
     });
 
     const results: FileSearchResult[] = [];
     let totalMatches = 0;
     let timedOut = false;
+    let skippedByPolicy = false;
     const startTime = Date.now();
     const controller = new AbortController();
 
@@ -164,6 +188,23 @@ export const searchFilesTool: ToolDefinition<
 
         assert(typeof entry === 'string');
         const absolutePath = path.join(searchDir, entry);
+        const entryPolicy = checkLexicalFileAccess(absolutePath);
+        if (!entryPolicy.allowed || (await isSymbolicLinkPath(absolutePath))) {
+          skippedByPolicy = true;
+          continue;
+        }
+
+        let entryStat: Stats;
+        try {
+          entryStat = await fs.stat(absolutePath);
+        } catch {
+          continue;
+        }
+
+        if (!entryStat.isFile()) {
+          continue;
+        }
+
         const relativePath = entry;
 
         const task = (async () => {
@@ -224,6 +265,9 @@ export const searchFilesTool: ToolDefinition<
     // 6. Format output
     const displayPath = args.path ?? workingDirectory;
     const hitLimit = totalMatches >= MAX_MATCHES;
+    const policyNote = skippedByPolicy
+      ? `\n${skippedByFileAccessPolicyMessage}`
+      : '';
 
     // Build flat matches for structured data
     const flatMatches = results.flatMap((r) =>
@@ -235,11 +279,12 @@ export const searchFilesTool: ToolDefinition<
     );
 
     if (totalMatches === 0 && timedOut) {
+      const message = `No matches found for /${args.pattern}/ in ${displayPath} (search timed out after 30s).${policyNote}`;
       return {
         data: {
-          message: `No matches found for /${args.pattern}/ in ${displayPath} (search timed out after 30s).`,
+          message,
         },
-        content: `No matches found for /${args.pattern}/ in ${displayPath} (search timed out after 30s).`,
+        content: message,
         status: 'failure',
       };
     }
@@ -253,7 +298,7 @@ export const searchFilesTool: ToolDefinition<
       };
       return {
         data,
-        content: `No matches found for /${args.pattern}/ in ${displayPath}.`,
+        content: `No matches found for /${args.pattern}/ in ${displayPath}.${policyNote}`,
         status: 'success',
       };
     }
@@ -275,9 +320,9 @@ export const searchFilesTool: ToolDefinition<
       const header = `Found ${count} matches for /${args.pattern}/ in ${displayPath} (search timed out after 30s):`;
       return {
         data: {
-          message: `${header} Results may be incomplete. Use a more specific pattern to narrow down.`,
+          message: `${header} Results may be incomplete. Use a more specific pattern to narrow down.${policyNote}`,
         },
-        content: `${header}\n${body}\nResults may be incomplete. Use a more specific pattern to narrow down.`,
+        content: `${header}\n${body}\nResults may be incomplete. Use a more specific pattern to narrow down.${policyNote}`,
         status: 'failure',
       };
     }
@@ -292,7 +337,7 @@ export const searchFilesTool: ToolDefinition<
       };
       return {
         data,
-        content: `${header}\n${body}\nUse a more specific pattern to narrow down.`,
+        content: `${header}\n${body}\nUse a more specific pattern to narrow down.${policyNote}`,
         status: 'success',
       };
     }
@@ -304,6 +349,10 @@ export const searchFilesTool: ToolDefinition<
       matches: flatMatches,
       truncated: false,
     };
-    return {data, content: `${header}\n${body}`, status: 'success'};
+    return {
+      data,
+      content: `${header}\n${body}${policyNote}`,
+      status: 'success',
+    };
   },
 };

@@ -236,6 +236,44 @@ describe('searchFilesTool', () => {
       expect(result.data.truncated).toBe(true);
     });
 
+    it('skips blocked paths and appends the policy note', async () => {
+      await writeFile('src/app.ts', 'target\n');
+      await writeFile('.env', 'target\n');
+      await writeFile('.git/config', 'target\n');
+
+      const result = await searchFilesTool.execute(
+        {pattern: 'target'},
+        context,
+      );
+
+      expect(result.status).toBe('success');
+      assert(result.status === 'success');
+      expect(result.content).toContain('src/app.ts:1: target');
+      expect(result.content).not.toContain('.env');
+      expect(result.content).not.toContain('.git/config');
+      expect(result.content).toContain(
+        'Some paths were skipped because they are blocked by file access policy',
+      );
+      expect(result.data.matches.map((m) => m.file)).toEqual(['src/app.ts']);
+    });
+
+    it('skips symlinked files', async () => {
+      const target = await writeFile('target.ts', 'target\n');
+      await fs.symlink(target, path.join(tmpDir, 'link.ts'));
+
+      const result = await searchFilesTool.execute(
+        {pattern: 'target'},
+        context,
+      );
+
+      expect(result.status).toBe('success');
+      assert(result.status === 'success');
+      expect(result.data.matches.map((m) => m.file)).toEqual(['target.ts']);
+      expect(result.content).toContain(
+        'Some paths were skipped because they are blocked by file access policy',
+      );
+    });
+
     it('returns partial results on timeout', async () => {
       await writeFile('a.ts', 'match\n');
 
@@ -268,6 +306,24 @@ describe('searchFilesTool', () => {
       expect(result.status).toBe('failure');
       assert(result.status === 'failure');
       expect(result.data.message).toBeTruthy();
+    });
+
+    it('denies a search root whose real target is blocked', async () => {
+      await fs.mkdir(path.join(tmpDir, '.git'), {recursive: true});
+      await fs.symlink(
+        path.join(tmpDir, '.git'),
+        path.join(tmpDir, 'git-link'),
+        'dir',
+      );
+
+      const result = await searchFilesTool.execute(
+        {pattern: 'anything', path: 'git-link'},
+        context,
+      );
+
+      expect(result.status).toBe('failure');
+      assert(result.status === 'failure');
+      expect(result.content).toContain('Access denied by file access policy');
     });
 
     it('returns error for invalid regex', async () => {

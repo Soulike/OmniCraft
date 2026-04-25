@@ -93,13 +93,13 @@ describe('findFilesTool', () => {
     });
 
     it('matches dotfiles when dot is in pattern', async () => {
-      await writeFile('.env', '');
+      await writeFile('.env.example', '');
       await writeFile('.gitignore', '');
       await writeFile('readme.md', '');
 
       const result = await findFilesTool.execute({pattern: '.*'}, context);
 
-      expect(result.content).toContain('.env');
+      expect(result.content).toContain('.env.example');
       expect(result.content).toContain('.gitignore');
       expect(result.content).not.toContain('readme.md');
       expect(result.status).toBe('success');
@@ -187,6 +187,40 @@ describe('findFilesTool', () => {
       expect(result.data.files).toHaveLength(100);
       expect(result.data.truncated).toBe(true);
     });
+
+    it('skips blocked paths and appends the policy note', async () => {
+      await writeFile('src/app.ts', '');
+      await writeFile('.env', 'SECRET=value');
+      await writeFile('.git/config', '[core]');
+
+      const result = await findFilesTool.execute({pattern: '**/*'}, context);
+
+      expect(result.status).toBe('success');
+      assert(result.status === 'success');
+      expect(result.content).toContain('src/app.ts');
+      expect(result.content).not.toContain('.env');
+      expect(result.content).not.toContain('.git/config');
+      expect(result.content).toContain(
+        'Some paths were skipped because they are blocked by file access policy',
+      );
+      expect(result.data.files).toContain('src/app.ts');
+      expect(result.data.files).not.toContain('.env');
+    });
+
+    it('skips symlinked files', async () => {
+      const target = await writeFile('target.ts', '');
+      await fs.symlink(target, path.join(tmpDir, 'link.ts'));
+
+      const result = await findFilesTool.execute({pattern: '**/*.ts'}, context);
+
+      expect(result.status).toBe('success');
+      assert(result.status === 'success');
+      expect(result.data.files).toContain('target.ts');
+      expect(result.data.files).not.toContain('link.ts');
+      expect(result.content).toContain(
+        'Some paths were skipped because they are blocked by file access policy',
+      );
+    });
   });
 
   describe('error cases', () => {
@@ -214,6 +248,24 @@ describe('findFilesTool', () => {
       expect(result.status).toBe('failure');
       assert(result.status === 'failure');
       expect(result.data.message).toBeTruthy();
+    });
+
+    it('denies a search root whose real target is blocked', async () => {
+      await fs.mkdir(path.join(tmpDir, '.git'), {recursive: true});
+      await fs.symlink(
+        path.join(tmpDir, '.git'),
+        path.join(tmpDir, 'git-link'),
+        'dir',
+      );
+
+      const result = await findFilesTool.execute(
+        {pattern: '**/*', path: 'git-link'},
+        context,
+      );
+
+      expect(result.status).toBe('failure');
+      assert(result.status === 'failure');
+      expect(result.content).toContain('Access denied by file access policy');
     });
 
     it('returns error for nonexistent directory', async () => {
