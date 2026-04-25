@@ -14,12 +14,14 @@ import {
   TitleBarView,
 } from '@/modules/chat-session/index.js';
 
-import {SessionSetup} from './components/SessionSetup/index.js';
+import {
+  TaskDispatchCard,
+  type TaskDispatchValues,
+} from './components/TaskDispatchCard/index.js';
 
 interface CodingPageViewProps {
   title: string | null;
   eventBus: ChatEventBus;
-  isEmpty: boolean;
   isStreaming: boolean;
   isReconnecting: boolean;
   error: string | null;
@@ -27,6 +29,7 @@ interface CodingPageViewProps {
   scrollRef: RefObject<HTMLDivElement | null>;
   sessionId: string | null;
   onMessagesChange: (messages: readonly ChatMessage[]) => void;
+  onStartTask: (values: TaskDispatchValues) => Promise<void>;
   onSend: (content: string, thinkingLevel: ThinkingLevel) => void;
   onStop: () => void;
   onNewSession: () => void;
@@ -39,7 +42,6 @@ interface CodingPageViewProps {
 export function CodingPageView({
   title,
   eventBus,
-  isEmpty,
   isStreaming,
   isReconnecting,
   error,
@@ -47,6 +49,7 @@ export function CodingPageView({
   scrollRef,
   sessionId,
   onMessagesChange,
+  onStartTask,
   onSend,
   onStop,
   onNewSession,
@@ -90,9 +93,12 @@ export function CodingPageView({
             vscodeUrl={vscodeUrl}
           />
           <ScrollShadow className={styles.messageListWrapper} ref={scrollRef}>
-            {isEmpty && !sessionId && (
+            {!sessionId && (
               <div className={styles.emptyState}>
-                <SessionSetup />
+                <TaskDispatchCard
+                  isStarting={isStreaming}
+                  onStartTask={onStartTask}
+                />
               </div>
             )}
             <StreamingMessageDisplay
@@ -102,11 +108,13 @@ export function CodingPageView({
             />
           </ScrollShadow>
           {sessionId && <BottomBar />}
-          <ChatInput
-            isStreaming={isStreaming}
-            onSend={onSend}
-            onStop={onStop}
-          />
+          {sessionId && (
+            <ChatInput
+              isStreaming={isStreaming}
+              onSend={onSend}
+              onStop={onStop}
+            />
+          )}
         </div>
       </div>
     </div>

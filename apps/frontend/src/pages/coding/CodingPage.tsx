@@ -19,6 +19,7 @@ import {
 import {ROUTES} from '@/routes.js';
 
 import {CodingPageView} from './CodingPageView.js';
+import type {TaskDispatchValues} from './components/TaskDispatchCard/index.js';
 
 /** Coding page container. Wraps content in providers. */
 export function CodingPage() {
@@ -53,7 +54,7 @@ function CodingPageContent() {
   const {messageCount, onMessagesChange} = useMessageCount();
   const {title} = useSessionTitle();
 
-  const {selectedWorkspace} = useSessionConfig();
+  const {selectedWorkspace, setSelectedWorkspace} = useSessionConfig();
 
   const {
     available: vscodeAvailable,
@@ -72,14 +73,16 @@ function CodingPageContent() {
     return getVscodeUrl(vscodePort, vscodeToken, selectedWorkspace);
   }, [sessionId, vscodeAvailable, vscodePort, vscodeToken, selectedWorkspace]);
 
-  const createNewSessionIdWithConfig = useCallback(async () => {
-    if (selectedWorkspace === undefined) {
-      throw new Error('Please select a workspace before starting a session.');
-    }
-    return createNewSessionId({
-      workspace: selectedWorkspace,
-    });
-  }, [createNewSessionId, selectedWorkspace]);
+  const createNewSessionIdWithConfig = useCallback(
+    async (config?: {workspace?: string}) => {
+      const workspace = config?.workspace ?? selectedWorkspace;
+      if (workspace === undefined) {
+        throw new Error('Please select a workspace before starting a session.');
+      }
+      return createNewSessionId({workspace});
+    },
+    [createNewSessionId, selectedWorkspace],
+  );
 
   const {
     isStreaming,
@@ -97,6 +100,17 @@ function CodingPageContent() {
 
   const {containerRef: scrollRef, scrollToBottom} = useAutoScroll();
 
+  const startTask = useCallback(
+    async ({workspace, task, thinkingLevel}: TaskDispatchValues) => {
+      setSelectedWorkspace(workspace);
+      await sendMessage(task, thinkingLevel, {workspace});
+      requestAnimationFrame(() => {
+        scrollToBottom();
+      });
+    },
+    [sendMessage, scrollToBottom, setSelectedWorkspace],
+  );
+
   const displayError = createNewSessionIdError ?? streamError;
 
   const dismissError = useCallback(() => {
@@ -111,7 +125,6 @@ function CodingPageContent() {
     <CodingPageView
       title={title}
       eventBus={eventBus}
-      isEmpty={isEmpty}
       isStreaming={isStreaming}
       isReconnecting={isReconnecting}
       error={displayError}
@@ -119,6 +132,7 @@ function CodingPageContent() {
       scrollRef={scrollRef}
       sessionId={sessionId}
       onMessagesChange={onMessagesChange}
+      onStartTask={startTask}
       onSend={(content, thinkingLevel) => {
         void sendMessage(content, thinkingLevel);
         requestAnimationFrame(() => {

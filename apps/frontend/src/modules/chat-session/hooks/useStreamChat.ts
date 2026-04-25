@@ -12,6 +12,7 @@ import {useChatSessionApi} from './useChatSessionApi.js';
 import type {useSessionId} from './useSessionId.js';
 
 type SessionIdHook = ReturnType<typeof useSessionId>;
+type CreateSessionConfig = Parameters<SessionIdHook['createNewSessionId']>[0];
 
 interface UseStreamChatOptions {
   sessionId: SessionIdHook['sessionId'];
@@ -188,13 +189,18 @@ export function useStreamChat({
   }, [sessionId, eventBus, subscribeEvents]);
 
   const sendMessage = useCallback(
-    async (content: string, thinkingLevel: ThinkingLevel) => {
+    async (
+      content: string,
+      thinkingLevel: ThinkingLevel,
+      sessionConfig?: CreateSessionConfig,
+    ) => {
       if (isStreaming) return;
 
       const trimmed = content.trim();
       if (!trimmed) return;
 
-      const activeSessionId = sessionId ?? (await createNewSessionId());
+      const activeSessionId =
+        sessionId ?? (await createNewSessionId(sessionConfig));
       if (!activeSessionId) return;
 
       setStreamError(null);
