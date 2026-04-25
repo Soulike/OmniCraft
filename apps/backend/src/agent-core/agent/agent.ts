@@ -65,7 +65,7 @@ export abstract class Agent {
 
   static readonly DEFAULT_TITLE = 'New Session';
 
-  /** Short title for this session, generated after the first reply. */
+  /** Short title for this session, generated after the first user message. */
   title = Agent.DEFAULT_TITLE;
 
   /** The LLM session used by this agent. */
@@ -235,13 +235,13 @@ export abstract class Agent {
       );
       await this.pump(stream, (event) => {
         if (
-          event.type === 'done' &&
-          event.reason === 'complete' &&
+          event.type === 'message-start' &&
+          event.role === 'user' &&
           this.title === Agent.DEFAULT_TITLE &&
           !this.isGeneratingTitle
         ) {
           this.isGeneratingTitle = true;
-          void this.generateAndEmitTitle().finally(() => {
+          void this.generateAndEmitTitle(event.content).finally(() => {
             this.isGeneratingTitle = false;
           });
         }
@@ -489,14 +489,13 @@ export abstract class Agent {
   }
 
   /**
-   * Generates a session title from the first user + assistant exchange
-   * using the light LLM, then appends a `session-title` event to sseLog.
+   * Generates a session title from the first user message using the light LLM,
+   * then appends a `session-title` event to sseLog.
    * Fire-and-forget — errors are swallowed and a fallback title is used.
    */
-  private async generateAndEmitTitle(): Promise<void> {
-    const messages = this.llmSession.getMessages();
+  private async generateAndEmitTitle(userMessage: string): Promise<void> {
     const getConfig = this.getLightConfig ?? this.getConfig;
-    this.title = await generateTitle(messages, getConfig);
+    this.title = await generateTitle(userMessage, getConfig);
     if (!this.title) return;
     await this.appendSseEvent({
       type: 'session-title',
