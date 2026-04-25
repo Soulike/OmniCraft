@@ -114,6 +114,9 @@ describe('useTaskDispatchForm', () => {
 
   it('clears stale workspace errors when a workspace is selected', async () => {
     const onStartTask = vi.fn().mockResolvedValue(undefined);
+    const initialProps: {readonly selectedWorkspace: string | undefined} = {
+      selectedWorkspace: undefined,
+    };
 
     const {result, rerender} = renderHook(
       ({selectedWorkspace}: {readonly selectedWorkspace: string | undefined}) =>
@@ -123,7 +126,7 @@ describe('useTaskDispatchForm', () => {
           isStarting: false,
           onStartTask,
         }),
-      {initialProps: {selectedWorkspace: undefined}},
+      {initialProps},
     );
 
     await act(async () => {

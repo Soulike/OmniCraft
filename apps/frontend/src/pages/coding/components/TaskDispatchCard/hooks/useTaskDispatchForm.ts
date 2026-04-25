@@ -17,7 +17,7 @@ export function useTaskDispatchForm({
   isStarting,
   onStartTask,
 }: UseTaskDispatchFormOptions) {
-  const [task, setTaskValue] = useState('');
+  const [task, setTask] = useState('');
   const [errors, setErrors] = useState<TaskDispatchErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const {thinkingLevel, setThinkingLevel} = useThinkingLevel();
@@ -34,8 +34,8 @@ export function useTaskDispatchForm({
     [isBlocked, isBusy, selectedWorkspace, trimmedTask],
   );
 
-  const setTask = useCallback((value: string) => {
-    setTaskValue(value);
+  const updateTask = useCallback((value: string) => {
+    setTask(value);
     setErrors((current) => {
       if (current.task === undefined) return current;
       if (current.workspace === undefined) return {};
@@ -54,14 +54,14 @@ export function useTaskDispatchForm({
   }, [selectedWorkspace]);
 
   const validate = useCallback((): TaskDispatchErrors => {
-    const nextErrors: TaskDispatchErrors = {};
-    if (selectedWorkspace === undefined) {
-      nextErrors.workspace = 'Select a workspace before starting a task.';
-    }
-    if (!trimmedTask) {
-      nextErrors.task = 'Describe the coding task before starting.';
-    }
-    return nextErrors;
+    return {
+      ...(selectedWorkspace === undefined
+        ? {workspace: 'Select a workspace before starting a task.'}
+        : {}),
+      ...(!trimmedTask
+        ? {task: 'Describe the coding task before starting.'}
+        : {}),
+    };
   }, [selectedWorkspace, trimmedTask]);
 
   const submit = useCallback(async () => {
@@ -98,7 +98,7 @@ export function useTaskDispatchForm({
     errors,
     isSubmitting,
     canSubmit,
-    setTask,
+    setTask: updateTask,
     setThinkingLevel,
     submit,
   };
