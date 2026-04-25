@@ -51,7 +51,7 @@ export function toOpenAITool(tool: ToolDefinition): OpenAI.ChatCompletionTool {
 /** Maps a ThinkingLevel to the OpenAI reasoning_effort value. */
 export function toReasoningEffort(
   level: ThinkingLevel,
-): 'low' | 'medium' | 'high' | undefined {
+): 'low' | 'medium' | 'high' | 'xhigh' | undefined {
   if (level === 'none') return undefined;
   return level;
 }

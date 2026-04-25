@@ -9,6 +9,7 @@ const THINKING_LEVEL_LABELS: Record<ThinkingLevel, string> = {
   low: 'Low',
   medium: 'Medium',
   high: 'High',
+  xhigh: 'Extra High',
 };
 
 const THINKING_LEVELS = Object.entries(THINKING_LEVEL_LABELS) as [
