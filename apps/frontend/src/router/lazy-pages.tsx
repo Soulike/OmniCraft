@@ -15,31 +15,32 @@ export const SettingsPage = lazy(async () => {
   return {default: SettingsPage};
 });
 
-export const LlmSection = lazy(async () => {
-  const {LlmSection} = await import('@/pages/settings/sections/llm/index.js');
-  return {default: LlmSection};
+export const ChatLlmSection = lazy(async () => {
+  const {ChatLlmSection} =
+    await import('@/pages/settings/sections/llm/chat/index.js');
+  return {default: ChatLlmSection};
 });
 
 export const CodingLlmSection = lazy(async () => {
   const {CodingLlmSection} =
-    await import('@/pages/settings/sections/coding-llm/index.js');
+    await import('@/pages/settings/sections/llm/coding/index.js');
   return {default: CodingLlmSection};
 });
 
-export const AgentSection = lazy(async () => {
-  const {AgentSection} =
-    await import('@/pages/settings/sections/agent/index.js');
-  return {default: AgentSection};
+export const AgentRuntimeSection = lazy(async () => {
+  const {AgentRuntimeSection} =
+    await import('@/pages/settings/sections/agent/runtime/index.js');
+  return {default: AgentRuntimeSection};
 });
 
 export const SearchSection = lazy(async () => {
   const {SearchSection} =
-    await import('@/pages/settings/sections/search/index.js');
+    await import('@/pages/settings/sections/tools/search/index.js');
   return {default: SearchSection};
 });
 
-export const FileAccessSection = lazy(async () => {
-  const {FileAccessSection} =
-    await import('@/pages/settings/sections/file-access/index.js');
-  return {default: FileAccessSection};
+export const WorkspacesSection = lazy(async () => {
+  const {WorkspacesSection} =
+    await import('@/pages/settings/sections/file-access/workspaces/index.js');
+  return {default: WorkspacesSection};
 });

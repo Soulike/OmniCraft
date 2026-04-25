@@ -4,9 +4,9 @@
 }
 
 .sidebar {
-  width: 200px;
+  width: 220px;
   flex-shrink: 0;
-  padding: 16px 0 16px 16px;
+  padding: 16px 8px 16px 12px;
   border-right: 1px solid var(--border);
 }
 
