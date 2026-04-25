@@ -1,4 +1,4 @@
-import {useEffect} from 'react';
+import {useEffect, useState} from 'react';
 
 import {useSessionConfig} from '@/modules/chat-session/index.js';
 
@@ -15,6 +15,7 @@ export function TaskDispatchCard({
   isStarting,
   onStartTask,
 }: TaskDispatchCardProps) {
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const {
     workspaces,
     isLoading,
@@ -39,24 +40,42 @@ export function TaskDispatchCard({
     onStartTask,
   });
 
+  const handleWorkspaceChange = (workspace: string | undefined) => {
+    setSubmitError(null);
+    setSelectedWorkspace(workspace);
+  };
+
+  const handleTaskChange = (task: string) => {
+    setSubmitError(null);
+    form.setTask(task);
+  };
+
+  const handleSubmit = () => {
+    setSubmitError(null);
+    form.submit().catch((error: unknown) => {
+      setSubmitError(
+        error instanceof Error ? error.message : 'Failed to start task.',
+      );
+    });
+  };
+
   return (
     <TaskDispatchCardView
       workspaces={workspaces}
       isLoadingWorkspaces={isLoading}
-      loadError={loadError}
+      hasWorkspaceLoadError={loadError !== null}
       hasConfiguredWorkspaces={hasConfiguredWorkspaces}
       selectedWorkspace={selectedWorkspace}
       task={form.task}
       thinkingLevel={form.thinkingLevel}
       errors={form.errors}
+      submitError={submitError}
       canSubmit={form.canSubmit}
       isStarting={isStarting || form.isSubmitting}
-      onWorkspaceChange={setSelectedWorkspace}
-      onTaskChange={form.setTask}
+      onWorkspaceChange={handleWorkspaceChange}
+      onTaskChange={handleTaskChange}
       onThinkingLevelChange={form.setThinkingLevel}
-      onSubmit={() => {
-        void form.submit();
-      }}
+      onSubmit={handleSubmit}
     />
   );
 }

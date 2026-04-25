@@ -2,12 +2,14 @@ import {
   Alert,
   Button,
   Card,
+  FieldError,
   Form,
   Label,
   ListBox,
   Select,
   Spinner,
   TextArea,
+  TextField,
 } from '@heroui/react';
 import type {ThinkingLevel} from '@omnicraft/api-schema';
 import type {Workspace} from '@omnicraft/settings-schema';
@@ -22,12 +24,13 @@ import type {TaskDispatchErrors} from './types.js';
 interface TaskDispatchCardViewProps {
   readonly workspaces: readonly Workspace[];
   readonly isLoadingWorkspaces: boolean;
-  readonly loadError: unknown;
+  readonly hasWorkspaceLoadError: boolean;
   readonly hasConfiguredWorkspaces: boolean;
   readonly selectedWorkspace: string | undefined;
   readonly task: string;
   readonly thinkingLevel: ThinkingLevel;
   readonly errors: TaskDispatchErrors;
+  readonly submitError: string | null;
   readonly canSubmit: boolean;
   readonly isStarting: boolean;
   readonly onWorkspaceChange: (workspace: string | undefined) => void;
@@ -39,12 +42,13 @@ interface TaskDispatchCardViewProps {
 export function TaskDispatchCardView({
   workspaces,
   isLoadingWorkspaces,
-  loadError,
+  hasWorkspaceLoadError,
   hasConfiguredWorkspaces,
   selectedWorkspace,
   task,
   thinkingLevel,
   errors,
+  submitError,
   canSubmit,
   isStarting,
   onWorkspaceChange,
@@ -71,8 +75,9 @@ export function TaskDispatchCardView({
         <Card.Content className={styles.content}>
           <div className={styles.settingsGrid}>
             <div className={styles.field}>
-              <Label isRequired>Workspace</Label>
               <Select
+                isRequired
+                isInvalid={errors.workspace !== undefined}
                 isDisabled={
                   isLoadingWorkspaces || workspaces.length === 0 || isStarting
                 }
@@ -81,6 +86,7 @@ export function TaskDispatchCardView({
                   onWorkspaceChange(value ? String(value) : undefined);
                 }}
               >
+                <Label>Workspace</Label>
                 <Select.Trigger>
                   <Select.Value />
                   <Select.Indicator />
@@ -99,10 +105,12 @@ export function TaskDispatchCardView({
                     ))}
                   </ListBox>
                 </Select.Popover>
+                {errors.workspace && (
+                  <FieldError className={styles.fieldError}>
+                    {errors.workspace}
+                  </FieldError>
+                )}
               </Select>
-              {errors.workspace && (
-                <p className={styles.fieldError}>{errors.workspace}</p>
-              )}
             </div>
             <div className={styles.field}>
               <Label>Thinking level</Label>
@@ -114,24 +122,30 @@ export function TaskDispatchCardView({
             </div>
           </div>
 
-          <div className={styles.field}>
-            <Label isRequired>Task</Label>
+          <TextField
+            className={styles.field}
+            isRequired
+            isInvalid={errors.task !== undefined}
+            isDisabled={isStarting}
+            value={task}
+            onChange={onTaskChange}
+          >
+            <Label>Task</Label>
             <TextArea
               aria-label='Task'
               className={styles.taskInput}
-              disabled={isStarting}
               placeholder='Describe the coding task: files, expected behavior, constraints, and how to verify.'
               rows={8}
-              value={task}
-              onChange={(event) => {
-                onTaskChange(event.target.value);
-              }}
             />
-            {errors.task && <p className={styles.fieldError}>{errors.task}</p>}
-          </div>
+            {errors.task && (
+              <FieldError className={styles.fieldError}>
+                {errors.task}
+              </FieldError>
+            )}
+          </TextField>
 
           <div className={styles.alerts}>
-            {loadError !== null && (
+            {hasWorkspaceLoadError && (
               <Alert status='danger'>
                 <Alert.Indicator />
                 <Alert.Content>
@@ -142,7 +156,7 @@ export function TaskDispatchCardView({
               </Alert>
             )}
             {!isLoadingWorkspaces &&
-              loadError === null &&
+              !hasWorkspaceLoadError &&
               !hasConfiguredWorkspaces && (
                 <Alert status='warning'>
                   <Alert.Indicator />
@@ -166,6 +180,14 @@ export function TaskDispatchCardView({
                   <Alert.Description>
                     Select a workspace before starting a coding task.
                   </Alert.Description>
+                </Alert.Content>
+              </Alert>
+            )}
+            {submitError !== null && (
+              <Alert status='danger'>
+                <Alert.Indicator />
+                <Alert.Content>
+                  <Alert.Description>{submitError}</Alert.Description>
                 </Alert.Content>
               </Alert>
             )}
