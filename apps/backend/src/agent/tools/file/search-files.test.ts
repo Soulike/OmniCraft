@@ -278,6 +278,23 @@ describe('searchFilesTool', () => {
       expect(result.data.matches.map((m) => m.file)).toEqual(['src/app.ts']);
     });
 
+    it('appends the policy note when ignored sensitive directories are pruned', async () => {
+      await writeFile('.git/config', 'target\n');
+
+      const result = await searchFilesTool.execute(
+        {pattern: 'target'},
+        context,
+      );
+
+      expect(result.status).toBe('success');
+      assert(result.status === 'success');
+      expect(result.data.matches).toHaveLength(0);
+      expect(result.content).not.toContain('.git/config');
+      expect(result.content).toContain(
+        'Some paths were skipped because they are blocked by file access policy',
+      );
+    });
+
     it('skips symlinked files', async () => {
       const target = await writeFile('target.ts', 'target\n');
       await fs.symlink(target, path.join(tmpDir, 'link.ts'));

@@ -14,6 +14,8 @@ import {
   checkLexicalFileAccess,
   checkNewFileAccess,
   getFileAccessPolicyGlobIgnorePatterns,
+  hasFileAccessPolicyIgnoredDescendant,
+  isAllowedOsRootAliasSymlinkPath,
   isPathThroughSymbolicLink,
   isSymbolicLinkPath,
 } from './file-access-policy.js';
@@ -94,6 +96,38 @@ describe('file-access-policy', () => {
     expect(await isPathThroughSymbolicLink(tempDir, childPath)).toBe(false);
   });
 
+  it('does not treat normal temp paths as symlinked solely because of OS root aliases', async () => {
+    const tempWorkspace = await fs.mkdtemp(path.join(os.tmpdir(), 'fap-os-'));
+    try {
+      const childPath = path.join(tempWorkspace, 'sub', 'file.ts');
+      await fs.mkdir(path.dirname(childPath), {recursive: true});
+      await fs.writeFile(childPath, '');
+
+      expect(await isPathThroughSymbolicLink(tempWorkspace, childPath)).toBe(
+        false,
+      );
+    } finally {
+      await fs.rm(tempWorkspace, {recursive: true, force: true});
+    }
+  });
+
+  it('only allows known OS-managed root alias symlinks', () => {
+    const allowsMacOsAliases = process.platform === 'darwin';
+
+    expect(isAllowedOsRootAliasSymlinkPath('/var', '/private/var')).toBe(
+      allowsMacOsAliases,
+    );
+    expect(isAllowedOsRootAliasSymlinkPath('/tmp', '/private/tmp')).toBe(
+      allowsMacOsAliases,
+    );
+    expect(
+      isAllowedOsRootAliasSymlinkPath('/workspace-link', '/real-workspace'),
+    ).toBe(false);
+    expect(isAllowedOsRootAliasSymlinkPath('/var', '/elsewhere/var')).toBe(
+      false,
+    );
+  });
+
   it('returns glob ignores for blocked segments and descendant blocked roots', () => {
     const blockedRoot = path.join(tempDir, 'nested', 'sensitive-root');
     const policy: SensitivePathPolicy = {
@@ -110,6 +144,21 @@ describe('file-access-policy', () => {
         'nested/sensitive-root',
         'nested/sensitive-root/**',
       ]),
+    );
+  });
+
+  it('detects existing descendants that policy glob ignores would prune', async () => {
+    const blockedRoot = path.join(tempDir, 'nested', 'sensitive-root');
+    const policy: SensitivePathPolicy = {
+      ...testPolicy,
+      blockedRoots: [blockedRoot],
+    };
+    await fs.mkdir(path.join(tempDir, '.git'), {recursive: true});
+    await fs.writeFile(path.join(tempDir, '.git', 'config'), '[core]');
+    await fs.mkdir(blockedRoot, {recursive: true});
+
+    expect(await hasFileAccessPolicyIgnoredDescendant(tempDir, policy)).toBe(
+      true,
     );
   });
 

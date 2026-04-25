@@ -228,6 +228,21 @@ describe('findFilesTool', () => {
       expect(result.data.files).not.toContain('.env');
     });
 
+    it('appends the policy note when ignored sensitive directories are pruned', async () => {
+      await writeFile('.git/config', '[core]');
+
+      const result = await findFilesTool.execute({pattern: '**/*'}, context);
+
+      expect(result.status).toBe('success');
+      assert(result.status === 'success');
+      expect(result.data.files).toHaveLength(0);
+      expect(result.content).toContain('No files found matching');
+      expect(result.content).not.toContain('.git/config');
+      expect(result.content).toContain(
+        'Some paths were skipped because they are blocked by file access policy',
+      );
+    });
+
     it('skips symlinked files', async () => {
       const target = await writeFile('target.ts', '');
       await fs.symlink(target, path.join(tmpDir, 'link.ts'));

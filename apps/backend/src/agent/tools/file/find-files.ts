@@ -20,6 +20,7 @@ import {
   checkExistingFileAccess,
   checkLexicalFileAccess,
   getFileAccessPolicyGlobIgnorePatterns,
+  hasFileAccessPolicyIgnoredDescendant,
   isPathThroughSymbolicLink,
 } from './file-access-policy.js';
 import {
@@ -120,7 +121,8 @@ export const findFilesTool: ToolDefinition<typeof parameters, FindFilesResult> =
 
       const entries: string[] = [];
       let timedOut = false;
-      let skippedByPolicy = false;
+      let skippedByPolicy =
+        await hasFileAccessPolicyIgnoredDescendant(searchDir);
 
       try {
         const startTime = Date.now();

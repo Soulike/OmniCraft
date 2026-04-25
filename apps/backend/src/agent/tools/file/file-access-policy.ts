@@ -1,6 +1,8 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
+import fg from 'fast-glob';
+
 import {getDefaultSensitivePathPolicy} from '@/helpers/default-sensitive-path-policy.js';
 import {
   checkSensitivePathAccess,
@@ -125,6 +127,58 @@ export function getFileAccessPolicyGlobIgnorePatterns(
   return [...patterns];
 }
 
+export async function hasFileAccessPolicyIgnoredDescendant(
+  searchDir: string,
+  policy: SensitivePathPolicy = getDefaultSensitivePathPolicy(),
+): Promise<boolean> {
+  const resolvedSearchDir = path.resolve(searchDir);
+
+  for (const blockedRoot of policy.blockedRoots) {
+    const relativeRoot = path.relative(
+      resolvedSearchDir,
+      path.resolve(blockedRoot),
+    );
+    if (
+      relativeRoot === '' ||
+      relativeRoot === '..' ||
+      relativeRoot.startsWith(`..${path.sep}`) ||
+      path.isAbsolute(relativeRoot)
+    ) {
+      continue;
+    }
+
+    try {
+      await fs.lstat(blockedRoot);
+      return true;
+    } catch {
+      // Missing blocked roots did not prune anything.
+    }
+  }
+
+  const blockedSegmentPatterns = [...policy.blockedSegments]
+    .sort()
+    .flatMap((blockedSegment) => {
+      const segmentPattern = toPosixPath(blockedSegment);
+      return [segmentPattern, `**/${segmentPattern}`];
+    });
+
+  if (blockedSegmentPatterns.length === 0) return false;
+
+  const stream = fg.stream(blockedSegmentPatterns, {
+    cwd: resolvedSearchDir,
+    onlyFiles: false,
+    dot: true,
+    followSymbolicLinks: false,
+    unique: true,
+  });
+
+  for await (const entry of stream) {
+    if (typeof entry === 'string') return true;
+  }
+
+  return false;
+}
+
 async function findNearestExistingParent(absolutePath: string): Promise<{
   existingParent: string;
   missingParts: string[];
@@ -187,11 +241,37 @@ async function pathHasSymbolicLinkComponent(
     currentPath = path.join(currentPath, pathPart);
     try {
       const stat = await fs.lstat(currentPath);
-      if (stat.isSymbolicLink() && index > 0) return true;
+      if (stat.isSymbolicLink()) {
+        if (index === 0) {
+          const linkTarget = await fs.readlink(currentPath);
+          if (isAllowedOsRootAliasSymlinkPath(currentPath, linkTarget)) {
+            continue;
+          }
+        }
+        return true;
+      }
     } catch {
       return missingPathIsSymbolicLink;
     }
   }
 
   return false;
+}
+
+export function isAllowedOsRootAliasSymlinkPath(
+  linkPath: string,
+  linkTarget: string,
+): boolean {
+  if (process.platform !== 'darwin') return false;
+
+  const resolvedLinkPath = path.resolve(linkPath);
+  const resolvedTarget = path.resolve(
+    path.dirname(resolvedLinkPath),
+    linkTarget,
+  );
+
+  return (
+    (resolvedLinkPath === '/var' && resolvedTarget === '/private/var') ||
+    (resolvedLinkPath === '/tmp' && resolvedTarget === '/private/tmp')
+  );
 }

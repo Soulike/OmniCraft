@@ -23,6 +23,7 @@ import {
   checkExistingFileAccess,
   checkLexicalFileAccess,
   getFileAccessPolicyGlobIgnorePatterns,
+  hasFileAccessPolicyIgnoredDescendant,
   isPathThroughSymbolicLink,
 } from './file-access-policy.js';
 import {
@@ -197,7 +198,7 @@ export const searchFilesTool: ToolDefinition<
     const results: FileSearchResult[] = [];
     let totalMatches = 0;
     let timedOut = false;
-    let skippedByPolicy = false;
+    let skippedByPolicy = await hasFileAccessPolicyIgnoredDescendant(searchDir);
     const startTime = Date.now();
     const controller = new AbortController();
 
