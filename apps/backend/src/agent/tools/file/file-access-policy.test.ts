@@ -4,7 +4,10 @@ import path from 'node:path';
 
 import {afterEach, beforeEach, describe, expect, it} from 'vitest';
 
-import {createSensitivePathPolicy} from '@/helpers/sensitive-path-policy.js';
+import {
+  createSensitivePathPolicy,
+  type SensitivePathPolicy,
+} from '@/helpers/sensitive-path-policy.js';
 
 import {
   checkExistingFileAccess,
@@ -16,9 +19,14 @@ import {
 describe('file-access-policy', () => {
   const originalDataDir = process.env.DATA_DIR;
   let tempDir: string;
+  let testPolicy: SensitivePathPolicy;
 
   beforeEach(async () => {
     tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'fap-test-'));
+    testPolicy = createSensitivePathPolicy({
+      homeDir: path.join(tempDir, '..', 'explicit-home'),
+      dataDir: path.join(tempDir, '..', 'explicit-data'),
+    });
   });
 
   afterEach(async () => {
@@ -46,7 +54,7 @@ describe('file-access-policy', () => {
     await fs.writeFile(envFile, 'SECRET=value');
     await fs.symlink(envFile, link);
 
-    const result = await checkExistingFileAccess(link);
+    const result = await checkExistingFileAccess(link, testPolicy);
 
     expect(result).toEqual({
       allowed: false,
@@ -59,14 +67,10 @@ describe('file-access-policy', () => {
     process.env.DATA_DIR = os.tmpdir();
     const envFile = path.join(tempDir, '.env');
     const link = path.join(tempDir, 'env-link');
-    const policy = createSensitivePathPolicy({
-      homeDir: path.join(tempDir, '..', 'explicit-home'),
-      dataDir: path.join(tempDir, '..', 'explicit-data'),
-    });
     await fs.writeFile(envFile, 'SECRET=value');
     await fs.symlink(envFile, link);
 
-    const result = await checkExistingFileAccess(link, policy);
+    const result = await checkExistingFileAccess(link, testPolicy);
 
     expect(result).toEqual({
       allowed: false,
@@ -81,25 +85,24 @@ describe('file-access-policy', () => {
     await fs.mkdir(gitDir);
     await fs.symlink(gitDir, linkToGit, 'dir');
 
-    const result = await checkNewFileAccess(path.join(linkToGit, 'new-config'));
+    const result = await checkNewFileAccess(
+      path.join(linkToGit, 'new-config'),
+      testPolicy,
+    );
 
     expect(result.allowed).toBe(false);
   });
 
   it('uses an explicit policy for lexical and new file checks', async () => {
     process.env.DATA_DIR = os.tmpdir();
-    const policy = createSensitivePathPolicy({
-      homeDir: path.join(tempDir, '..', 'explicit-home'),
-      dataDir: path.join(tempDir, '..', 'explicit-data'),
-    });
     const newEnvFile = path.join(tempDir, 'nested', '.env.local');
 
     expect(
-      checkLexicalFileAccess(path.join(tempDir, 'safe.txt'), policy),
+      checkLexicalFileAccess(path.join(tempDir, 'safe.txt'), testPolicy),
     ).toEqual({
       allowed: true,
     });
-    expect(await checkNewFileAccess(newEnvFile, policy)).toEqual({
+    expect(await checkNewFileAccess(newEnvFile, testPolicy)).toEqual({
       allowed: false,
       blockedPath: newEnvFile,
       reason: 'blocked-pattern',
