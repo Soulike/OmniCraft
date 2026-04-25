@@ -100,40 +100,76 @@ Block pattern matches:
 
 ## Architecture
 
-Add one central backend policy helper used by file tools and workspace
+Add one central pure backend policy helper used by file tools and workspace
 validation:
 
 `apps/backend/src/helpers/sensitive-path-policy.ts`
 
 The helper owns:
 
-- default blocked root construction using `os.homedir()` and `getDataDir()`
+- blocked root construction from caller-provided `homeDir` and `dataDir`
 - normalized lexical path checks
-- realpath checks for existing paths
-- nearest-existing-parent resolution for writes to new paths
-- result helpers that format the standard policy failure and skipped-path
-  messages
+- structured policy results that identify the blocked requested path and reason
+
+The helper must not read the filesystem, read environment/default app settings,
+or format LLM-facing strings. Agent-specific filesystem adaptation and messages
+live near the agent file tools.
 
 Helper API:
 
 ```ts
 type FileAccessPolicyResult =
   | {allowed: true}
-  | {allowed: false; message: string};
+  | {
+      allowed: false;
+      blockedPath: string;
+      reason:
+        | 'blocked-root'
+        | 'blocked-segment'
+        | 'blocked-basename'
+        | 'blocked-pattern';
+    };
 
-async function checkExistingPathAccess(
+interface SensitivePathPolicy {
+  readonly homeDir: string;
+  readonly dataDir: string;
+}
+
+function createSensitivePathPolicy(options: {
+  homeDir: string;
+  dataDir: string;
+}): SensitivePathPolicy;
+
+function checkSensitivePathAccess(
   absolutePath: string,
-): Promise<FileAccessPolicyResult>;
-
-async function checkNewPathAccess(
-  absolutePath: string,
-): Promise<FileAccessPolicyResult>;
-
-function checkLexicalPathAccess(absolutePath: string): FileAccessPolicyResult;
+  policy: SensitivePathPolicy,
+): FileAccessPolicyResult;
 ```
 
-Every file tool and workspace validation path must call this policy module
-rather than duplicating blocklist logic locally.
+Workspace validation calls this pure policy module directly. File tools call it
+through the file-tool filesystem adapter below. No caller duplicates blocklist
+logic locally.
+
+Add a small default-policy factory for production callers:
+
+`apps/backend/src/helpers/default-sensitive-path-policy.ts`
+
+This module reads `os.homedir()` and `getDataDir()`, then calls the pure helper.
+
+Add file-tool-specific filesystem wrappers separately:
+
+`apps/backend/src/agent/tools/file/file-access-policy.ts`
+
+This module owns `fs.realpath`, nearest-existing-parent checks for new writes,
+and symlink detection for file tools. It returns the same structured policy
+result and does not format LLM-facing strings.
+
+Add agent file-tool message helpers separately:
+
+`apps/backend/src/agent/tools/file/file-access-policy-messages.ts`
+
+This module owns the LLM-facing denial and skipped-path messages used by
+`read_file`, `write_file`, `edit_file`, `find_files`, and `search_files`.
 
 ## Tool Behavior
 

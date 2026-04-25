@@ -4,7 +4,7 @@
 
 **Goal:** Add a default sensitive-path blocklist to agent file tools and workspace validation.
 
-**Architecture:** Create one shared backend policy helper in `apps/backend/src/helpers/sensitive-path-policy.ts` so both agent file tools and file-access settings validation use the same rules. Direct file tools fail blocked operations with the standard policy message; broad search tools skip blocked/symlinked entries and append a policy note. Workspace settings reject a blocked workspace root with `PathValidationError.BLOCKED`.
+**Architecture:** Create one shared pure backend policy helper in `apps/backend/src/helpers/sensitive-path-policy.ts` so both agent file tools and file-access settings validation use the same blocklist rules without filesystem or LLM-message concerns. Use a small default-policy factory for production home/data-dir defaults, and file-tool-local adapters for realpath, symlink, and LLM-facing message behavior. Workspace settings reject a blocked workspace root with `PathValidationError.BLOCKED`.
 
 **Tech Stack:** TypeScript, Node.js `fs/promises`, `path`, `os`, fast-glob, Vitest, Bun workspace scripts.
 
@@ -13,9 +13,19 @@
 ## File Structure
 
 - Create: `apps/backend/src/helpers/sensitive-path-policy.ts`
-  - Owns default blocked root construction, basename/pattern checks, lexical checks, realpath checks, nearest-existing-parent checks for new writes, symlink detection, and standard messages.
+  - Pure policy module. Owns blocked root construction from caller-provided `homeDir` and `dataDir`, basename/pattern checks, lexical checks, and structured policy results.
 - Create: `apps/backend/src/helpers/sensitive-path-policy.test.ts`
-  - Unit tests for all policy rules and symlink/nearest-parent behavior.
+  - Unit tests for pure policy rules.
+- Create: `apps/backend/src/helpers/default-sensitive-path-policy.ts`
+  - Builds the default policy from `os.homedir()` and `getDataDir()`.
+- Create: `apps/backend/src/agent/tools/file/file-access-policy.ts`
+  - File-tool adapter. Owns realpath checks, nearest-existing-parent checks for new writes, and symlink detection.
+- Create: `apps/backend/src/agent/tools/file/file-access-policy.test.ts`
+  - Unit tests for file-tool filesystem policy adaptation.
+- Create: `apps/backend/src/agent/tools/file/file-access-policy-messages.ts`
+  - Owns LLM-facing denial and skipped-path messages for file tools.
+- Create: `apps/backend/src/agent/tools/file/file-access-policy-messages.test.ts`
+  - Verifies exact file-tool policy message text.
 - Modify: `apps/backend/src/agent/tools/file/read-file.ts`
   - Calls policy before reading blocked paths.
 - Modify: `apps/backend/src/agent/tools/file/write-file.ts`
@@ -43,97 +53,81 @@ bun run --filter '@omnicraft/backend' test -- src/helpers/sensitive-path-policy.
 
 ---
 
-### Task 1: Add Sensitive Path Policy Helper
+### Task 1: Add Pure Policy and File-Tool Adapters
 
 **Files:**
 
 - Create: `apps/backend/src/helpers/sensitive-path-policy.ts`
 - Create: `apps/backend/src/helpers/sensitive-path-policy.test.ts`
+- Create: `apps/backend/src/helpers/default-sensitive-path-policy.ts`
+- Create: `apps/backend/src/agent/tools/file/file-access-policy.ts`
+- Create: `apps/backend/src/agent/tools/file/file-access-policy.test.ts`
+- Create: `apps/backend/src/agent/tools/file/file-access-policy-messages.ts`
+- Create: `apps/backend/src/agent/tools/file/file-access-policy-messages.test.ts`
 
 - [ ] **Step 1: Write the failing policy tests**
 
 Create `apps/backend/src/helpers/sensitive-path-policy.test.ts`:
 
 ```ts
-import fs from 'node:fs/promises';
-import os from 'node:os';
 import path from 'node:path';
 
-import {afterEach, beforeEach, describe, expect, it} from 'vitest';
+import {describe, expect, it} from 'vitest';
 
 import {
-  checkExistingPathAccess,
-  checkLexicalPathAccess,
-  checkNewPathAccess,
-  FILE_ACCESS_POLICY_SKIPPED_MESSAGE,
-  formatFileAccessPolicyDeniedMessage,
-  isSymbolicLinkPath,
+  checkSensitivePathAccess,
+  createSensitivePathPolicy,
 } from './sensitive-path-policy.js';
 
 describe('sensitive-path-policy', () => {
-  let tempDir: string;
-  let homeDir: string;
-  let dataDir: string;
-
-  beforeEach(async () => {
-    tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'spp-test-'));
-    homeDir = path.join(tempDir, 'home');
-    dataDir = path.join(tempDir, 'data');
-    await fs.mkdir(homeDir, {recursive: true});
-    await fs.mkdir(dataDir, {recursive: true});
-  });
-
-  afterEach(async () => {
-    await fs.rm(tempDir, {recursive: true, force: true});
-  });
-
-  function options() {
-    return {homeDir, dataDir};
-  }
-
-  it('exports standard policy messages', () => {
-    expect(formatFileAccessPolicyDeniedMessage('/blocked')).toBe(
-      'Error: Access denied by file access policy: /blocked. This operation would access a blocked sensitive path. Review the file access operation. If this operation is necessary, stop and ask the user to perform it manually.',
-    );
-    expect(FILE_ACCESS_POLICY_SKIPPED_MESSAGE).toBe(
-      'Some paths were skipped because they are blocked by file access policy. Do not try to bypass this policy. If accessing those paths is necessary, stop and ask the user to perform the operation manually.',
-    );
-  });
+  const root = path.join(path.sep, 'tmp', 'policy-test');
+  const homeDir = path.join(root, 'home');
+  const dataDir = path.join(root, 'data');
+  const policy = createSensitivePathPolicy({homeDir, dataDir});
 
   it('blocks configured home sensitive roots and app data dir', () => {
     const sshKey = path.join(homeDir, '.ssh', 'id_ed25519');
     const appSettings = path.join(dataDir, 'settings.json');
 
-    expect(checkLexicalPathAccess(sshKey, options()).allowed).toBe(false);
-    expect(checkLexicalPathAccess(appSettings, options()).allowed).toBe(false);
+    expect(checkSensitivePathAccess(sshKey, policy)).toEqual({
+      allowed: false,
+      blockedPath: path.join(homeDir, '.ssh'),
+      reason: 'blocked-root',
+    });
+    expect(checkSensitivePathAccess(appSettings, policy)).toEqual({
+      allowed: false,
+      blockedPath: dataDir,
+      reason: 'blocked-root',
+    });
   });
 
   it('blocks VCS metadata segments but not sibling ignore files', () => {
-    const gitConfig = path.join(tempDir, 'project', '.git', 'config');
-    const gitignore = path.join(tempDir, 'project', '.gitignore');
+    const gitConfig = path.join(root, 'project', '.git', 'config');
+    const gitignore = path.join(root, 'project', '.gitignore');
 
-    expect(checkLexicalPathAccess(gitConfig, options()).allowed).toBe(false);
-    expect(checkLexicalPathAccess(gitignore, options()).allowed).toBe(true);
+    expect(checkSensitivePathAccess(gitConfig, policy)).toEqual({
+      allowed: false,
+      blockedPath: path.join(root, 'project', '.git'),
+      reason: 'blocked-segment',
+    });
+    expect(checkSensitivePathAccess(gitignore, policy).allowed).toBe(true);
   });
 
   it('blocks env files except examples', () => {
     expect(
-      checkLexicalPathAccess(path.join(tempDir, '.env'), options()).allowed,
+      checkSensitivePathAccess(path.join(root, '.env'), policy).allowed,
     ).toBe(false);
     expect(
-      checkLexicalPathAccess(path.join(tempDir, '.env.local'), options())
-        .allowed,
+      checkSensitivePathAccess(path.join(root, '.env.local'), policy).allowed,
     ).toBe(false);
     expect(
-      checkLexicalPathAccess(path.join(tempDir, '.env.example'), options())
-        .allowed,
+      checkSensitivePathAccess(path.join(root, '.env.example'), policy).allowed,
     ).toBe(true);
     expect(
-      checkLexicalPathAccess(path.join(tempDir, '.env.sample'), options())
-        .allowed,
+      checkSensitivePathAccess(path.join(root, '.env.sample'), policy).allowed,
     ).toBe(true);
     expect(
-      checkLexicalPathAccess(path.join(tempDir, '.env.template'), options())
+      checkSensitivePathAccess(path.join(root, '.env.template'), policy)
         .allowed,
     ).toBe(true);
   });
@@ -160,9 +154,39 @@ describe('sensitive-path-policy', () => {
 
     for (const basename of blocked) {
       expect(
-        checkLexicalPathAccess(path.join(tempDir, basename), options()).allowed,
+        checkSensitivePathAccess(path.join(root, basename), policy).allowed,
       ).toBe(false);
     }
+  });
+});
+```
+
+- [ ] **Step 2: Write the failing file-tool adapter tests**
+
+Create `apps/backend/src/agent/tools/file/file-access-policy.test.ts`:
+
+```ts
+import fs from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
+
+import {afterEach, beforeEach, describe, expect, it} from 'vitest';
+
+import {
+  checkExistingFileAccess,
+  checkNewFileAccess,
+  isSymbolicLinkPath,
+} from './file-access-policy.js';
+
+describe('file-access-policy', () => {
+  let tempDir: string;
+
+  beforeEach(async () => {
+    tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'fap-test-'));
+  });
+
+  afterEach(async () => {
+    await fs.rm(tempDir, {recursive: true, force: true});
   });
 
   it('detects symbolic links', async () => {
@@ -181,71 +205,87 @@ describe('sensitive-path-policy', () => {
     await fs.writeFile(envFile, 'SECRET=value');
     await fs.symlink(envFile, link);
 
-    const result = await checkExistingPathAccess(link, options());
+    const result = await checkExistingFileAccess(link);
 
-    expect(result.allowed).toBe(false);
-    expect(result.allowed ? '' : result.message).toContain(
-      'Access denied by file access policy',
-    );
+    expect(result).toEqual({
+      allowed: false,
+      blockedPath: envFile,
+      reason: 'blocked-pattern',
+    });
   });
 
   it('blocks new paths through a symlinked parent when only the real target is blocked', async () => {
-    const linkToData = path.join(tempDir, 'link-to-data');
-    await fs.symlink(dataDir, linkToData, 'dir');
+    const gitDir = path.join(tempDir, '.git');
+    const linkToGit = path.join(tempDir, 'link-to-git');
+    await fs.mkdir(gitDir);
+    await fs.symlink(gitDir, linkToGit, 'dir');
 
-    const result = await checkNewPathAccess(
-      path.join(linkToData, 'new-settings.json'),
-      options(),
-    );
+    const result = await checkNewFileAccess(path.join(linkToGit, 'new-config'));
 
     expect(result.allowed).toBe(false);
   });
 });
 ```
 
-- [ ] **Step 2: Run policy tests to verify they fail**
+- [ ] **Step 3: Write the failing file-tool message tests**
+
+Create `apps/backend/src/agent/tools/file/file-access-policy-messages.test.ts`:
+
+```ts
+import {describe, expect, it} from 'vitest';
+
+import {
+  formatBlockedFileAccessMessage,
+  skippedByFileAccessPolicyMessage,
+} from './file-access-policy-messages.js';
+
+describe('file-access-policy-messages', () => {
+  it('formats blocked direct-operation messages for the LLM', () => {
+    expect(formatBlockedFileAccessMessage('/blocked')).toBe(
+      'Error: Access denied by file access policy: /blocked. This operation would access a blocked sensitive path. Review the file access operation. If this operation is necessary, stop and ask the user to perform it manually.',
+    );
+  });
+
+  it('exports the skipped-path policy note for broad searches', () => {
+    expect(skippedByFileAccessPolicyMessage).toBe(
+      'Some paths were skipped because they are blocked by file access policy. Do not try to bypass this policy. If accessing those paths is necessary, stop and ask the user to perform the operation manually.',
+    );
+  });
+});
+```
+
+- [ ] **Step 4: Run policy, file-adapter, and message tests to verify they fail**
 
 Run:
 
 ```bash
-bun run --filter '@omnicraft/backend' test -- src/helpers/sensitive-path-policy.test.ts
+bun run --filter '@omnicraft/backend' test -- src/helpers/sensitive-path-policy.test.ts src/agent/tools/file/file-access-policy.test.ts src/agent/tools/file/file-access-policy-messages.test.ts
 ```
 
-Expected: FAIL because `./sensitive-path-policy.js` does not exist.
+Expected: FAIL because the new modules do not exist.
 
-- [ ] **Step 3: Implement the policy helper**
+- [ ] **Step 5: Implement the pure policy helper**
 
 Create `apps/backend/src/helpers/sensitive-path-policy.ts`:
 
 ```ts
-import fs from 'node:fs/promises';
-import os from 'node:os';
 import path from 'node:path';
 
-import {getDataDir} from './env.js';
 import {isSubPathOrSelf} from './path-helpers.js';
-
-export const FILE_ACCESS_POLICY_SKIPPED_MESSAGE =
-  'Some paths were skipped because they are blocked by file access policy. ' +
-  'Do not try to bypass this policy. If accessing those paths is necessary, ' +
-  'stop and ask the user to perform the operation manually.';
-
-export function formatFileAccessPolicyDeniedMessage(filePath: string): string {
-  return (
-    `Error: Access denied by file access policy: ${filePath}. ` +
-    'This operation would access a blocked sensitive path. ' +
-    'Review the file access operation. If this operation is necessary, ' +
-    'stop and ask the user to perform it manually.'
-  );
-}
 
 export type FileAccessPolicyResult =
   | {allowed: true}
-  | {allowed: false; message: string};
+  | {allowed: false; blockedPath: string; reason: BlockedPathReason};
 
-export interface SensitivePathPolicyOptions {
-  readonly homeDir?: string;
-  readonly dataDir?: string;
+export type BlockedPathReason =
+  | 'blocked-root'
+  | 'blocked-segment'
+  | 'blocked-basename'
+  | 'blocked-pattern';
+
+export interface SensitivePathPolicy {
+  readonly homeDir: string;
+  readonly dataDir: string;
 }
 
 const BLOCKED_HOME_RELATIVE_ROOTS = [
@@ -295,71 +335,146 @@ const ALLOWED_ENV_BASENAMES = new Set([
   '.env.template',
 ]);
 
-function getPolicyRoots(options: SensitivePathPolicyOptions = {}): string[] {
-  const homeDir = path.resolve(options.homeDir ?? os.homedir());
-  const dataDir = path.resolve(options.dataDir ?? getDataDir());
+export function createSensitivePathPolicy(options: {
+  readonly homeDir: string;
+  readonly dataDir: string;
+}): SensitivePathPolicy {
+  return {
+    homeDir: path.resolve(options.homeDir),
+    dataDir: path.resolve(options.dataDir),
+  };
+}
+
+function getPolicyRoots(policy: SensitivePathPolicy): string[] {
   return [
-    dataDir,
+    policy.dataDir,
     ...BLOCKED_HOME_RELATIVE_ROOTS.map((relativeRoot) =>
-      path.resolve(homeDir, relativeRoot),
+      path.resolve(policy.homeDir, relativeRoot),
     ),
   ];
 }
 
-function hasBlockedSegment(absolutePath: string): boolean {
-  return path
-    .resolve(absolutePath)
-    .split(path.sep)
-    .some((segment) => BLOCKED_PATH_SEGMENTS.has(segment));
-}
-
-function hasBlockedBasename(absolutePath: string): boolean {
-  const basename = path.basename(absolutePath).toLowerCase();
-  if (ALLOWED_ENV_BASENAMES.has(basename)) return false;
-  if (basename === '.env' || basename.startsWith('.env.')) return true;
-  if (BLOCKED_BASENAMES.has(basename)) return true;
-  if (BLOCKED_EXTENSIONS.has(path.extname(basename))) return true;
-  return basename.endsWith('.json') && basename.includes('service-account');
-}
-
-function isBlockedPath(
-  absolutePath: string,
-  options: SensitivePathPolicyOptions = {},
-): boolean {
+function getBlockedSegmentPath(absolutePath: string): string | null {
   const resolvedPath = path.resolve(absolutePath);
-  if (hasBlockedSegment(resolvedPath)) return true;
-  if (hasBlockedBasename(resolvedPath)) return true;
-  return getPolicyRoots(options).some((root) =>
+  const root = path.parse(resolvedPath).root;
+  const parts = resolvedPath.slice(root.length).split(path.sep);
+  const blockedIndex = parts.findIndex((segment) =>
+    BLOCKED_PATH_SEGMENTS.has(segment),
+  );
+  if (blockedIndex === -1) return null;
+  return path.join(root, ...parts.slice(0, blockedIndex + 1));
+}
+
+function getBlockedBasenameReason(
+  absolutePath: string,
+): BlockedPathReason | null {
+  const basename = path.basename(absolutePath).toLowerCase();
+  if (ALLOWED_ENV_BASENAMES.has(basename)) return null;
+  if (basename === '.env' || basename.startsWith('.env.')) {
+    return 'blocked-pattern';
+  }
+  if (BLOCKED_BASENAMES.has(basename)) return 'blocked-basename';
+  if (BLOCKED_EXTENSIONS.has(path.extname(basename))) {
+    return 'blocked-pattern';
+  }
+  if (basename.endsWith('.json') && basename.includes('service-account')) {
+    return 'blocked-pattern';
+  }
+  return null;
+}
+
+function checkBlockedPath(
+  absolutePath: string,
+  policy: SensitivePathPolicy,
+): FileAccessPolicyResult {
+  const resolvedPath = path.resolve(absolutePath);
+  const blockedSegmentPath = getBlockedSegmentPath(resolvedPath);
+  if (blockedSegmentPath !== null) {
+    return {
+      allowed: false,
+      blockedPath: blockedSegmentPath,
+      reason: 'blocked-segment',
+    };
+  }
+
+  const basenameReason = getBlockedBasenameReason(resolvedPath);
+  if (basenameReason !== null) {
+    return {
+      allowed: false,
+      blockedPath: resolvedPath,
+      reason: basenameReason,
+    };
+  }
+
+  const blockedRoot = getPolicyRoots(policy).find((root) =>
     isSubPathOrSelf(root, resolvedPath),
+  );
+  if (blockedRoot !== undefined) {
+    return {allowed: false, blockedPath: blockedRoot, reason: 'blocked-root'};
+  }
+
+  return {allowed: true};
+}
+
+export function checkSensitivePathAccess(
+  absolutePath: string,
+  policy: SensitivePathPolicy,
+): FileAccessPolicyResult {
+  return checkBlockedPath(absolutePath, policy);
+}
+```
+
+- [ ] **Step 6: Implement the default policy factory**
+
+Create `apps/backend/src/helpers/default-sensitive-path-policy.ts`:
+
+```ts
+import os from 'node:os';
+
+import {getDataDir} from './env.js';
+import {
+  createSensitivePathPolicy,
+  type SensitivePathPolicy,
+} from './sensitive-path-policy.js';
+
+export function getDefaultSensitivePathPolicy(): SensitivePathPolicy {
+  return createSensitivePathPolicy({
+    homeDir: os.homedir(),
+    dataDir: getDataDir(),
+  });
+}
+```
+
+- [ ] **Step 7: Implement the file-tool filesystem adapter**
+
+Create `apps/backend/src/agent/tools/file/file-access-policy.ts`:
+
+```ts
+import fs from 'node:fs/promises';
+import path from 'node:path';
+
+import {getDefaultSensitivePathPolicy} from '@/helpers/default-sensitive-path-policy.js';
+import {
+  checkSensitivePathAccess,
+  type FileAccessPolicyResult,
+} from '@/helpers/sensitive-path-policy.js';
+
+export function checkLexicalFileAccess(
+  absolutePath: string,
+): FileAccessPolicyResult {
+  return checkSensitivePathAccess(
+    absolutePath,
+    getDefaultSensitivePathPolicy(),
   );
 }
 
-function denied(absolutePath: string): FileAccessPolicyResult {
-  return {
-    allowed: false,
-    message: formatFileAccessPolicyDeniedMessage(absolutePath),
-  };
-}
-
-export function checkLexicalPathAccess(
+export async function checkExistingFileAccess(
   absolutePath: string,
-  options: SensitivePathPolicyOptions = {},
-): FileAccessPolicyResult {
-  const resolvedPath = path.resolve(absolutePath);
-  if (isBlockedPath(resolvedPath, options)) return denied(resolvedPath);
-  return {allowed: true};
-}
-
-export async function checkExistingPathAccess(
-  absolutePath: string,
-  options: SensitivePathPolicyOptions = {},
 ): Promise<FileAccessPolicyResult> {
-  const lexical = checkLexicalPathAccess(absolutePath, options);
+  const lexical = checkLexicalFileAccess(absolutePath);
   if (!lexical.allowed) return lexical;
   const realPath = await fs.realpath(absolutePath);
-  const real = checkLexicalPathAccess(realPath, options);
-  if (!real.allowed) return denied(path.resolve(absolutePath));
-  return {allowed: true};
+  return checkLexicalFileAccess(realPath);
 }
 
 async function findNearestExistingParent(absolutePath: string): Promise<{
@@ -387,20 +502,17 @@ async function findNearestExistingParent(absolutePath: string): Promise<{
   }
 }
 
-export async function checkNewPathAccess(
+export async function checkNewFileAccess(
   absolutePath: string,
-  options: SensitivePathPolicyOptions = {},
 ): Promise<FileAccessPolicyResult> {
-  const lexical = checkLexicalPathAccess(absolutePath, options);
+  const lexical = checkLexicalFileAccess(absolutePath);
   if (!lexical.allowed) return lexical;
 
   const {existingParent, suffixParts} =
     await findNearestExistingParent(absolutePath);
   const realParent = await fs.realpath(existingParent);
   const reconstructedTarget = path.join(realParent, ...suffixParts);
-  const real = checkLexicalPathAccess(reconstructedTarget, options);
-  if (!real.allowed) return denied(path.resolve(absolutePath));
-  return {allowed: true};
+  return checkLexicalFileAccess(reconstructedTarget);
 }
 
 export async function isSymbolicLinkPath(
@@ -414,20 +526,40 @@ export async function isSymbolicLinkPath(
 }
 ```
 
-- [ ] **Step 4: Run policy tests to verify they pass**
+- [ ] **Step 8: Implement the file-tool message helper**
+
+Create `apps/backend/src/agent/tools/file/file-access-policy-messages.ts`:
+
+```ts
+export const skippedByFileAccessPolicyMessage =
+  'Some paths were skipped because they are blocked by file access policy. ' +
+  'Do not try to bypass this policy. If accessing those paths is necessary, ' +
+  'stop and ask the user to perform the operation manually.';
+
+export function formatBlockedFileAccessMessage(requestedPath: string): string {
+  return (
+    `Error: Access denied by file access policy: ${requestedPath}. ` +
+    'This operation would access a blocked sensitive path. ' +
+    'Review the file access operation. If this operation is necessary, ' +
+    'stop and ask the user to perform it manually.'
+  );
+}
+```
+
+- [ ] **Step 9: Run policy, file-adapter, and message tests to verify they pass**
 
 Run:
 
 ```bash
-bun run --filter '@omnicraft/backend' test -- src/helpers/sensitive-path-policy.test.ts
+bun run --filter '@omnicraft/backend' test -- src/helpers/sensitive-path-policy.test.ts src/agent/tools/file/file-access-policy.test.ts src/agent/tools/file/file-access-policy-messages.test.ts
 ```
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit policy helper**
+- [ ] **Step 10: Commit policy, adapter, and message helpers**
 
 ```bash
-git add apps/backend/src/helpers/sensitive-path-policy.ts apps/backend/src/helpers/sensitive-path-policy.test.ts
+git add apps/backend/src/helpers/sensitive-path-policy.ts apps/backend/src/helpers/sensitive-path-policy.test.ts apps/backend/src/helpers/default-sensitive-path-policy.ts apps/backend/src/agent/tools/file/file-access-policy.ts apps/backend/src/agent/tools/file/file-access-policy.test.ts apps/backend/src/agent/tools/file/file-access-policy-messages.ts apps/backend/src/agent/tools/file/file-access-policy-messages.test.ts
 git commit -m "feat: add sensitive path policy helper"
 ```
 
@@ -562,19 +694,22 @@ Add this import to `apps/backend/src/agent/tools/file/read-file.ts`:
 
 ```ts
 import {
-  checkExistingPathAccess,
-  checkLexicalPathAccess,
-} from '@/helpers/sensitive-path-policy.js';
+  checkExistingFileAccess,
+  checkLexicalFileAccess,
+} from './file-access-policy.js';
+
+import {formatBlockedFileAccessMessage} from './file-access-policy-messages.js';
 ```
 
 Immediately after resolving `absolutePath`, insert:
 
 ```ts
-const lexicalPolicy = checkLexicalPathAccess(absolutePath);
+const lexicalPolicy = checkLexicalFileAccess(absolutePath);
 if (!lexicalPolicy.allowed) {
+  const message = formatBlockedFileAccessMessage(args.filePath);
   return {
-    data: {message: lexicalPolicy.message},
-    content: lexicalPolicy.message,
+    data: {message},
+    content: message,
     status: 'failure',
   };
 }
@@ -584,11 +719,12 @@ Keep the existing stat block that returns `File not found` for missing files.
 After the `!stat.isFile()` branch and before the binary check, insert:
 
 ```ts
-const realPolicy = await checkExistingPathAccess(absolutePath);
+const realPolicy = await checkExistingFileAccess(absolutePath);
 if (!realPolicy.allowed) {
+  const message = formatBlockedFileAccessMessage(args.filePath);
   return {
-    data: {message: realPolicy.message},
-    content: realPolicy.message,
+    data: {message},
+    content: message,
     status: 'failure',
   };
 }
@@ -600,20 +736,23 @@ Add this import to `apps/backend/src/agent/tools/file/write-file.ts`:
 
 ```ts
 import {
-  checkExistingPathAccess,
-  checkLexicalPathAccess,
-  checkNewPathAccess,
-} from '@/helpers/sensitive-path-policy.js';
+  checkExistingFileAccess,
+  checkLexicalFileAccess,
+  checkNewFileAccess,
+} from './file-access-policy.js';
+
+import {formatBlockedFileAccessMessage} from './file-access-policy-messages.js';
 ```
 
 Immediately after resolving `absolutePath`, insert:
 
 ```ts
-const lexicalPolicy = checkLexicalPathAccess(absolutePath);
+const lexicalPolicy = checkLexicalFileAccess(absolutePath);
 if (!lexicalPolicy.allowed) {
+  const message = formatBlockedFileAccessMessage(args.filePath);
   return {
-    data: {message: lexicalPolicy.message},
-    content: lexicalPolicy.message,
+    data: {message},
+    content: message,
     status: 'failure',
   };
 }
@@ -623,12 +762,13 @@ After the existing `fs.stat(absolutePath)` attempt and before file-stat-tracker 
 
 ```ts
 const policyResult = existingStat
-  ? await checkExistingPathAccess(absolutePath)
-  : await checkNewPathAccess(absolutePath);
+  ? await checkExistingFileAccess(absolutePath)
+  : await checkNewFileAccess(absolutePath);
 if (!policyResult.allowed) {
+  const message = formatBlockedFileAccessMessage(args.filePath);
   return {
-    data: {message: policyResult.message},
-    content: policyResult.message,
+    data: {message},
+    content: message,
     status: 'failure',
   };
 }
@@ -640,19 +780,22 @@ Add this import to `apps/backend/src/agent/tools/file/edit-file.ts`:
 
 ```ts
 import {
-  checkExistingPathAccess,
-  checkLexicalPathAccess,
-} from '@/helpers/sensitive-path-policy.js';
+  checkExistingFileAccess,
+  checkLexicalFileAccess,
+} from './file-access-policy.js';
+
+import {formatBlockedFileAccessMessage} from './file-access-policy-messages.js';
 ```
 
 Immediately after resolving `absolutePath`, insert:
 
 ```ts
-const lexicalPolicy = checkLexicalPathAccess(absolutePath);
+const lexicalPolicy = checkLexicalFileAccess(absolutePath);
 if (!lexicalPolicy.allowed) {
+  const message = formatBlockedFileAccessMessage(args.filePath);
   return {
-    data: {message: lexicalPolicy.message},
-    content: lexicalPolicy.message,
+    data: {message},
+    content: message,
     status: 'failure',
   };
 }
@@ -661,11 +804,12 @@ if (!lexicalPolicy.allowed) {
 After the existing stat success and `stat.isFile()` check, insert:
 
 ```ts
-const realPolicy = await checkExistingPathAccess(absolutePath);
+const realPolicy = await checkExistingFileAccess(absolutePath);
 if (!realPolicy.allowed) {
+  const message = formatBlockedFileAccessMessage(args.filePath);
   return {
-    data: {message: realPolicy.message},
-    content: realPolicy.message,
+    data: {message},
+    content: message,
     status: 'failure',
   };
 }
@@ -837,21 +981,26 @@ Add this import:
 
 ```ts
 import {
-  checkExistingPathAccess,
-  checkLexicalPathAccess,
-  FILE_ACCESS_POLICY_SKIPPED_MESSAGE,
+  checkExistingFileAccess,
+  checkLexicalFileAccess,
   isSymbolicLinkPath,
-} from '@/helpers/sensitive-path-policy.js';
+} from './file-access-policy.js';
+
+import {
+  formatBlockedFileAccessMessage,
+  skippedByFileAccessPolicyMessage,
+} from './file-access-policy-messages.js';
 ```
 
 After verifying `searchDir` exists and is a directory, insert:
 
 ```ts
-const rootPolicy = await checkExistingPathAccess(searchDir);
+const rootPolicy = await checkExistingFileAccess(searchDir);
 if (!rootPolicy.allowed) {
+  const message = formatBlockedFileAccessMessage(args.path ?? searchDir);
   return {
-    data: {message: rootPolicy.message},
-    content: rootPolicy.message,
+    data: {message},
+    content: message,
     status: 'failure',
   };
 }
@@ -878,7 +1027,7 @@ Inside the `for await` loop, replace the direct `entries.push(entry);` with:
 
 ```ts
 const absoluteEntryPath = path.join(searchDir, entry);
-const entryPolicy = checkLexicalPathAccess(absoluteEntryPath);
+const entryPolicy = checkLexicalFileAccess(absoluteEntryPath);
 if (!entryPolicy.allowed || (await isSymbolicLinkPath(absoluteEntryPath))) {
   skippedByPolicy = true;
   continue;
@@ -891,7 +1040,7 @@ When building successful content bodies, append the note with:
 
 ```ts
 const policyNote = skippedByPolicy
-  ? `\n${FILE_ACCESS_POLICY_SKIPPED_MESSAGE}`
+  ? `\n${skippedByFileAccessPolicyMessage}`
   : '';
 ```
 
@@ -920,21 +1069,26 @@ Add this import:
 
 ```ts
 import {
-  checkExistingPathAccess,
-  checkLexicalPathAccess,
-  FILE_ACCESS_POLICY_SKIPPED_MESSAGE,
+  checkExistingFileAccess,
+  checkLexicalFileAccess,
   isSymbolicLinkPath,
-} from '@/helpers/sensitive-path-policy.js';
+} from './file-access-policy.js';
+
+import {
+  formatBlockedFileAccessMessage,
+  skippedByFileAccessPolicyMessage,
+} from './file-access-policy-messages.js';
 ```
 
 After verifying `searchDir` exists and is a directory, insert:
 
 ```ts
-const rootPolicy = await checkExistingPathAccess(searchDir);
+const rootPolicy = await checkExistingFileAccess(searchDir);
 if (!rootPolicy.allowed) {
+  const message = formatBlockedFileAccessMessage(args.path ?? searchDir);
   return {
-    data: {message: rootPolicy.message},
-    content: rootPolicy.message,
+    data: {message},
+    content: message,
     status: 'failure',
   };
 }
@@ -960,7 +1114,7 @@ let skippedByPolicy = false;
 Inside the `for await` loop, after computing `absolutePath`, insert before creating `task`:
 
 ```ts
-const entryPolicy = checkLexicalPathAccess(absolutePath);
+const entryPolicy = checkLexicalFileAccess(absolutePath);
 if (!entryPolicy.allowed || (await isSymbolicLinkPath(absolutePath))) {
   skippedByPolicy = true;
   continue;
@@ -971,7 +1125,7 @@ Before output branches, create:
 
 ```ts
 const policyNote = skippedByPolicy
-  ? `\n${FILE_ACCESS_POLICY_SKIPPED_MESSAGE}`
+  ? `\n${skippedByFileAccessPolicyMessage}`
   : '';
 ```
 
@@ -1075,13 +1229,17 @@ Modify `apps/backend/src/services/file-access-settings/helpers.ts`.
 Add import:
 
 ```ts
-import {checkLexicalPathAccess} from '@/helpers/sensitive-path-policy.js';
+import {getDefaultSensitivePathPolicy} from '@/helpers/default-sensitive-path-policy.js';
+import {checkSensitivePathAccess} from '@/helpers/sensitive-path-policy.js';
 ```
 
 Inside `normalizeAndValidatePaths`, after the duplicate check and before `validateSinglePath(resolvedPath)`, insert:
 
 ```ts
-const policy = checkLexicalPathAccess(resolvedPath);
+const policy = checkSensitivePathAccess(
+  resolvedPath,
+  getDefaultSensitivePathPolicy(),
+);
 if (!policy.allowed) {
   errors.push({path: entry.path, reason: PathValidationError.BLOCKED});
   continue;
@@ -1159,10 +1317,10 @@ Run:
 
 ```bash
 git diff --stat HEAD~4..HEAD
-git diff HEAD~4..HEAD -- apps/backend/src/helpers/sensitive-path-policy.ts apps/backend/src/agent/tools/file apps/backend/src/services/file-access-settings
+git diff HEAD~4..HEAD -- apps/backend/src/helpers/sensitive-path-policy.ts apps/backend/src/helpers/default-sensitive-path-policy.ts apps/backend/src/agent/tools/file apps/backend/src/services/file-access-settings
 ```
 
-Expected: All five file tools use `sensitive-path-policy`, search tools set `followSymbolicLinks: false`, and workspace validation uses `PathValidationError.BLOCKED`.
+Expected: `sensitive-path-policy.ts` is pure, file tools use the file-tool adapter/message helpers, search tools set `followSymbolicLinks: false`, and workspace validation uses `PathValidationError.BLOCKED`.
 
 - [ ] **Step 6: Commit verification fixes if needed**
 
