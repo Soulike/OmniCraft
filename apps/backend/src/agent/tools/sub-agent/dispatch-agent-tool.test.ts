@@ -4,10 +4,38 @@ import path from 'node:path';
 
 import {afterEach, beforeEach, describe, expect, it} from 'vitest';
 
+import {ExploreSubAgent, GeneralSubAgent} from '@/agent/agents/index.js';
+import {CoreSkillRegistry} from '@/agent/skills/index.js';
+import {
+  BashToolRegistry,
+  CoreToolRegistry,
+  FileToolRegistry,
+  WebToolRegistry,
+} from '@/agent/tools/index.js';
 import {createMockContext} from '@/agent-core/tool/testing.js';
 import type {ToolExecutionContext} from '@/agent-core/tool/types.js';
 
-import {dispatchAgentTool} from './dispatch-agent-tool.js';
+import {
+  createSubAgent,
+  dispatchAgentTool,
+  SUB_AGENT_TYPE,
+} from './dispatch-agent-tool.js';
+
+function resetAgentRegistries(): void {
+  CoreToolRegistry.resetInstance();
+  FileToolRegistry.resetInstance();
+  WebToolRegistry.resetInstance();
+  BashToolRegistry.resetInstance();
+  CoreSkillRegistry.resetInstance();
+}
+
+function initAgentRegistries(): void {
+  CoreToolRegistry.create();
+  FileToolRegistry.create();
+  WebToolRegistry.create();
+  BashToolRegistry.create();
+  CoreSkillRegistry.create();
+}
 
 describe('dispatchAgentTool', () => {
   let tmpDir: string;
@@ -24,6 +52,80 @@ describe('dispatchAgentTool', () => {
 
   it('has the correct name', () => {
     expect(dispatchAgentTool.name).toBe('dispatch_agent');
+  });
+
+  it('accepts the explore agent type', () => {
+    const result = dispatchAgentTool.parameters.safeParse({
+      task: 'Map the backend agent architecture',
+      agentType: SUB_AGENT_TYPE.EXPLORE,
+    });
+
+    expect(result.success).toBe(true);
+  });
+
+  it('documents general and explore agent types', () => {
+    expect(dispatchAgentTool.description).toContain(
+      `- ${SUB_AGENT_TYPE.GENERAL} (General):`,
+    );
+    expect(dispatchAgentTool.description).toContain(
+      `- ${SUB_AGENT_TYPE.EXPLORE} (Explore):`,
+    );
+  });
+
+  it('documents when dispatching a subagent is useful', () => {
+    expect(dispatchAgentTool.description).toContain(
+      'can proceed independently',
+    );
+    expect(dispatchAgentTool.description).toContain(
+      'Keep very small local lookups local',
+    );
+    expect(dispatchAgentTool.description).toContain(
+      'synthesize the subagent result',
+    );
+  });
+
+  it('documents explore-specific research use cases', () => {
+    expect(dispatchAgentTool.description).toContain(
+      `- ${SUB_AGENT_TYPE.EXPLORE} (Explore):`,
+    );
+    expect(dispatchAgentTool.description).toContain('architecture');
+    expect(dispatchAgentTool.description).toContain('data flow');
+    expect(dispatchAgentTool.description).toContain('impact analysis');
+    expect(dispatchAgentTool.description).toContain(
+      'Do not specify a report format unless the user asked for one',
+    );
+  });
+
+  it('creates a general subagent by default', () => {
+    resetAgentRegistries();
+    initAgentRegistries();
+    try {
+      const subagent = createSubAgent(
+        SUB_AGENT_TYPE.GENERAL,
+        context.getConfig,
+        tmpDir,
+      );
+
+      expect(subagent).toBeInstanceOf(GeneralSubAgent);
+    } finally {
+      resetAgentRegistries();
+    }
+  });
+
+  it('creates an explore subagent for explore tasks', () => {
+    resetAgentRegistries();
+    initAgentRegistries();
+    try {
+      const subagent = createSubAgent(
+        SUB_AGENT_TYPE.EXPLORE,
+        context.getConfig,
+        tmpDir,
+      );
+
+      expect(subagent).toBeInstanceOf(ExploreSubAgent);
+    } finally {
+      resetAgentRegistries();
+    }
   });
 
   describe('workingDirectory boundary check', () => {
