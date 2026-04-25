@@ -212,6 +212,24 @@ describe('writeFileTool', () => {
       expect(result.content).toContain('Access denied by file access policy');
     });
 
+    it('denies oversized writes through a symlinked parent before checking content size', async () => {
+      const realProject = path.join(tmpDir, 'real-project');
+      const linkProject = path.join(tmpDir, 'link-safe');
+      const bigContent = 'x'.repeat(1_048_577);
+      await fs.mkdir(path.join(realProject, '.git'), {recursive: true});
+      await fs.symlink(path.join(realProject, '.git'), linkProject, 'dir');
+
+      const result = await writeFileTool.execute(
+        {filePath: 'link-safe/config', content: bigContent},
+        context,
+      );
+
+      expect(result.status).toBe('failure');
+      assert(result.status === 'failure');
+      expect(result.content).toContain('Access denied by file access policy');
+      expect(result.content).not.toContain('Content exceeds');
+    });
+
     it('returns a tool failure for allowed broken symlink paths', async () => {
       await fs.symlink(
         'missing-target.txt',

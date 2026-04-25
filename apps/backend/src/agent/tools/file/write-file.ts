@@ -59,16 +59,7 @@ export const writeFileTool: ToolDefinition<typeof parameters, WriteFileResult> =
         };
       }
 
-      // 2. Check content size
-      if (Buffer.byteLength(args.content) > MAX_CONTENT_SIZE) {
-        return {
-          data: {message: `Content exceeds ${MAX_CONTENT_SIZE} byte limit`},
-          content: `Error: Content exceeds ${MAX_CONTENT_SIZE} byte limit`,
-          status: 'failure',
-        };
-      }
-
-      // 3. Check if file exists — if so, verify it was read first
+      // 2. Check if file exists — if so, verify it was read first
       let existingStat: Stats | null = null;
       try {
         existingStat = await fs.stat(absolutePath);
@@ -94,6 +85,15 @@ export const writeFileTool: ToolDefinition<typeof parameters, WriteFileResult> =
         return {
           data: {message},
           content: message,
+          status: 'failure',
+        };
+      }
+
+      // 3. Check content size
+      if (Buffer.byteLength(args.content) > MAX_CONTENT_SIZE) {
+        return {
+          data: {message: `Content exceeds ${MAX_CONTENT_SIZE} byte limit`},
+          content: `Error: Content exceeds ${MAX_CONTENT_SIZE} byte limit`,
           status: 'failure',
         };
       }
