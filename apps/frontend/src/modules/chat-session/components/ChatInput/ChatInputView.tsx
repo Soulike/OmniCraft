@@ -1,7 +1,7 @@
 import {Button, TextArea} from '@heroui/react';
 import type {ThinkingLevel} from '@omnicraft/api-schema';
 
-import {ThinkingLevelSelect} from './components/ThinkingLevelSelect/index.js';
+import {ThinkingLevelSelect} from '../ThinkingLevelSelect/index.js';
 import styles from './styles.module.css';
 
 interface ChatInputViewProps {

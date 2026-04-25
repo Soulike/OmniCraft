@@ -1,8 +1,8 @@
 import type {ThinkingLevel} from '@omnicraft/api-schema';
 import {useCallback, useState} from 'react';
 
+import {useThinkingLevel} from '../ThinkingLevelSelect/index.js';
 import {ChatInputView} from './ChatInputView.js';
-import {useThinkingLevel} from './hooks/useThinkingLevel.js';
 
 interface ChatInputProps {
   isStreaming: boolean;
