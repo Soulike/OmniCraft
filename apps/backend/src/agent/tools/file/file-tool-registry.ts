@@ -23,14 +23,9 @@ export class FileToolRegistry extends ToolRegistry {
     return [
       '## File Tools',
       '',
-      'Use file tools for workspace file discovery, reading, searching, creation, and targeted text edits.',
+      'File tools operate on workspace text files relative to the working directory.',
       '',
-      'Workflow:',
-      '- Use file discovery and content search before assuming where code lives.',
-      '- Read an existing file before modifying it. If a modification tool reports that the file changed since it was read, read it again before retrying.',
-      '- Prefer targeted edits for small changes to existing files. Use full-file writes for new files or when replacing the complete file is clearer and proportionate.',
-      '- Use partial reads for large files or when only a known region is relevant.',
-      '- Keep generated file content consistent with existing formatting, naming, and import style.',
+      'The file tools share read/modify safety state. If a modification tool reports that a file must be read first or has changed since the last read, read the file again before retrying.',
     ].join('\n');
   }
 }

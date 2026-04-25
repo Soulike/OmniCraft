@@ -15,7 +15,7 @@ export class CoreToolRegistry extends ToolRegistry {
     return [
       '## Core Tools',
       '',
-      'Use core tools for runtime facts provided by the system. Use the current-time tool when exact current date or time matters for the task, especially for relative dates, scheduling, logs, or time-sensitive reasoning.',
+      'Core tools expose runtime facts from the host environment. Use them when exact runtime information matters more than model assumptions.',
     ].join('\n');
   }
 }

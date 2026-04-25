@@ -15,13 +15,9 @@ export class ClientToolRegistry extends ToolRegistry {
     return [
       '## User Interaction Tools',
       '',
-      'Use user interaction tools when progress depends on a user decision, preference, or missing requirement that cannot be inferred safely from context.',
+      'User interaction tools pause execution for explicit user input.',
       '',
-      'Question guidance:',
-      '- Ask only for information that changes the implementation or answer.',
-      '- Keep questions concrete and concise.',
-      '- Provide predefined options when the choice space is known; use open-ended questions only when the user needs to supply free-form context.',
-      '- If a reasonable low-risk assumption is available, proceed with the assumption and mention it instead of interrupting the user.',
+      'Use them only when the task cannot proceed safely from context and the answer will materially change the implementation or response.',
     ].join('\n');
   }
 }

@@ -19,14 +19,9 @@ export class WebToolRegistry extends ToolRegistry {
     return [
       '## Web Tools',
       '',
-      'Use web tools when the task depends on current, external, or source-specific information that is not reliably available from the repository or conversation.',
+      'Web tools access external search results and pages when repository and conversation context are insufficient.',
       '',
-      'Guidance:',
-      '- Search when you need to discover sources or compare current information across sources.',
-      '- Fetch when you already have a specific URL or need the full content behind a search result.',
-      '- Prefer authoritative sources such as official documentation, primary repositories, standards, release notes, and vendor pages.',
-      '- Use raw fetching only when readable extraction hides details that matter, such as raw HTML, JSON, or machine-readable files.',
-      '- When web information affects the answer, make clear what source or version the conclusion is based on.',
+      'Prefer source-specific and authoritative pages for facts that affect the answer. Individual web tool descriptions define the search, fetch, and raw-fetch boundaries.',
     ].join('\n');
   }
 }
