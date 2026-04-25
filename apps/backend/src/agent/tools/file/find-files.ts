@@ -20,7 +20,6 @@ import {
   checkExistingFileAccess,
   checkLexicalFileAccess,
   isPathThroughSymbolicLink,
-  isSymbolicLinkPath,
 } from './file-access-policy.js';
 import {
   formatBlockedFileAccessMessage,
@@ -77,7 +76,10 @@ export const findFilesTool: ToolDefinition<typeof parameters, FindFilesResult> =
       }
 
       const rootPolicy = await checkExistingFileAccess(searchDir);
-      if (!rootPolicy.allowed || (await isSymbolicLinkPath(searchDir))) {
+      if (
+        !rootPolicy.allowed ||
+        (await isPathThroughSymbolicLink(workingDirectory, searchDir))
+      ) {
         const message = formatBlockedFileAccessMessage(args.path ?? searchDir);
         return {
           data: {message},
@@ -106,7 +108,10 @@ export const findFilesTool: ToolDefinition<typeof parameters, FindFilesResult> =
           const entryPolicy = checkLexicalFileAccess(absoluteEntryPath);
           if (
             !entryPolicy.allowed ||
-            (await isPathThroughSymbolicLink(searchDir, absoluteEntryPath))
+            (await isPathThroughSymbolicLink(
+              workingDirectory,
+              absoluteEntryPath,
+            ))
           ) {
             skippedByPolicy = true;
             continue;

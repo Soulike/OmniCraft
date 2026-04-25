@@ -308,6 +308,24 @@ describe('findFilesTool', () => {
       expect(result.content).toContain('Access denied by file access policy');
     });
 
+    it('denies a search root below a symlinked directory', async () => {
+      await writeFile('real-src/subdir/file.ts', '');
+      await fs.symlink(
+        path.join(tmpDir, 'real-src'),
+        path.join(tmpDir, 'src-link'),
+        'dir',
+      );
+
+      const result = await findFilesTool.execute(
+        {pattern: '**/*.ts', path: 'src-link/subdir'},
+        context,
+      );
+
+      expect(result.status).toBe('failure');
+      assert(result.status === 'failure');
+      expect(result.content).toContain('Access denied by file access policy');
+    });
+
     it('returns error for nonexistent directory', async () => {
       const result = await findFilesTool.execute(
         {pattern: '**/*.ts', path: 'nonexistent'},

@@ -367,6 +367,24 @@ describe('searchFilesTool', () => {
       expect(result.content).toContain('Access denied by file access policy');
     });
 
+    it('denies a search root below a symlinked directory', async () => {
+      await writeFile('real-src/subdir/file.ts', 'target\n');
+      await fs.symlink(
+        path.join(tmpDir, 'real-src'),
+        path.join(tmpDir, 'src-link'),
+        'dir',
+      );
+
+      const result = await searchFilesTool.execute(
+        {pattern: 'target', path: 'src-link/subdir'},
+        context,
+      );
+
+      expect(result.status).toBe('failure');
+      assert(result.status === 'failure');
+      expect(result.content).toContain('Access denied by file access policy');
+    });
+
     it('returns error for invalid regex', async () => {
       await writeFile('a.ts', 'hello\n');
 
