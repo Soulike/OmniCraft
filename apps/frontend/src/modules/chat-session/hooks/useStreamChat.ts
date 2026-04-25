@@ -3,10 +3,10 @@ import {useCallback, useEffect, useRef, useState} from 'react';
 
 import {HttpError} from '@/api/helpers/http-error.js';
 import {abortableSleep} from '@/helpers/abortable-sleep.js';
-import {EventBus} from '@/helpers/event-bus.js';
 
-import type {ChatEventMap} from '../components/StreamingMessageDisplay/index.js';
+import type {ChatEventBus} from '../components/StreamingMessageDisplay/index.js';
 import {routeBaseEventToBus} from '../helpers/route-base-event-to-bus.js';
+import {SubagentEventBus} from '../helpers/subagent-event-bus.js';
 import {useChatEventBus} from './useChatEventBus.js';
 import {useChatSessionApi} from './useChatSessionApi.js';
 import type {useSessionId} from './useSessionId.js';
@@ -32,7 +32,7 @@ export function useStreamChat({
   const [isReconnecting, setIsReconnecting] = useState(false);
   const [streamError, setStreamError] = useState<string | null>(null);
   const [maxRoundsReached, setMaxRoundsReached] = useState(false);
-  const subagentBusMapRef = useRef(new Map<string, EventBus<ChatEventMap>>());
+  const subagentBusMapRef = useRef(new Map<string, ChatEventBus>());
   const eventBus = useChatEventBus();
   const {
     sendMessage: apiSendMessage,
@@ -118,7 +118,7 @@ export function useStreamChat({
                 setIsStreaming(false);
                 break;
               case 'subagent-dispatch': {
-                const bus = new EventBus<ChatEventMap>();
+                const bus = new SubagentEventBus();
                 subagentBusMap.set(event.agentId, bus);
                 eventBus.emit('subagent-dispatched', {
                   agentId: event.agentId,
