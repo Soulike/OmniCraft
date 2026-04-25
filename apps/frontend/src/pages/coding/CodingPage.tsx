@@ -1,3 +1,4 @@
+import type {ThinkingLevel} from '@omnicraft/api-schema';
 import {useCallback, useMemo} from 'react';
 
 import * as codingApi from '@/api/coding/index.js';
@@ -76,9 +77,7 @@ function CodingPageContent() {
     if (selectedWorkspace === undefined) {
       throw new Error('Please select a workspace before starting a session.');
     }
-    return createNewSessionId({
-      workspace: selectedWorkspace,
-    });
+    return createNewSessionId({workspace: selectedWorkspace});
   }, [createNewSessionId, selectedWorkspace]);
 
   const {
@@ -97,6 +96,16 @@ function CodingPageContent() {
 
   const {containerRef: scrollRef, scrollToBottom} = useAutoScroll();
 
+  const handleSend = useCallback(
+    async (content: string, thinkingLevel: ThinkingLevel) => {
+      await sendMessage(content, thinkingLevel);
+      requestAnimationFrame(() => {
+        scrollToBottom();
+      });
+    },
+    [sendMessage, scrollToBottom],
+  );
+
   const displayError = createNewSessionIdError ?? streamError;
 
   const dismissError = useCallback(() => {
@@ -111,7 +120,6 @@ function CodingPageContent() {
     <CodingPageView
       title={title}
       eventBus={eventBus}
-      isEmpty={isEmpty}
       isStreaming={isStreaming}
       isReconnecting={isReconnecting}
       error={displayError}
@@ -119,12 +127,7 @@ function CodingPageContent() {
       scrollRef={scrollRef}
       sessionId={sessionId}
       onMessagesChange={onMessagesChange}
-      onSend={(content, thinkingLevel) => {
-        void sendMessage(content, thinkingLevel);
-        requestAnimationFrame(() => {
-          scrollToBottom();
-        });
-      }}
+      onSend={handleSend}
       onStop={stopGeneration}
       onNewSession={clearSessionId}
       newSessionDisabled={newSessionDisabled}

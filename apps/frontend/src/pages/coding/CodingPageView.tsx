@@ -14,12 +14,11 @@ import {
   TitleBarView,
 } from '@/modules/chat-session/index.js';
 
-import {SessionSetup} from './components/SessionSetup/index.js';
+import {TaskDispatchCard} from './components/TaskDispatchCard/index.js';
 
 interface CodingPageViewProps {
   title: string | null;
   eventBus: ChatEventBus;
-  isEmpty: boolean;
   isStreaming: boolean;
   isReconnecting: boolean;
   error: string | null;
@@ -27,7 +26,7 @@ interface CodingPageViewProps {
   scrollRef: RefObject<HTMLDivElement | null>;
   sessionId: string | null;
   onMessagesChange: (messages: readonly ChatMessage[]) => void;
-  onSend: (content: string, thinkingLevel: ThinkingLevel) => void;
+  onSend: (content: string, thinkingLevel: ThinkingLevel) => Promise<void>;
   onStop: () => void;
   onNewSession: () => void;
   newSessionDisabled: boolean;
@@ -39,7 +38,6 @@ interface CodingPageViewProps {
 export function CodingPageView({
   title,
   eventBus,
-  isEmpty,
   isStreaming,
   isReconnecting,
   error,
@@ -90,9 +88,9 @@ export function CodingPageView({
             vscodeUrl={vscodeUrl}
           />
           <ScrollShadow className={styles.messageListWrapper} ref={scrollRef}>
-            {isEmpty && !sessionId && (
+            {!sessionId && (
               <div className={styles.emptyState}>
-                <SessionSetup />
+                <TaskDispatchCard onSend={onSend} />
               </div>
             )}
             <StreamingMessageDisplay
@@ -102,11 +100,15 @@ export function CodingPageView({
             />
           </ScrollShadow>
           {sessionId && <BottomBar />}
-          <ChatInput
-            isStreaming={isStreaming}
-            onSend={onSend}
-            onStop={onStop}
-          />
+          {sessionId && (
+            <ChatInput
+              isStreaming={isStreaming}
+              onSend={(content, thinkingLevel) => {
+                void onSend(content, thinkingLevel);
+              }}
+              onStop={onStop}
+            />
+          )}
         </div>
       </div>
     </div>
