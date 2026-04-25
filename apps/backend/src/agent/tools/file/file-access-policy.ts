@@ -5,28 +5,31 @@ import {getDefaultSensitivePathPolicy} from '@/helpers/default-sensitive-path-po
 import {
   checkSensitivePathAccess,
   type FileAccessPolicyResult,
+  type SensitivePathPolicy,
 } from '@/helpers/sensitive-path-policy.js';
 
 export function checkLexicalFileAccess(
   absolutePath: string,
+  policy: SensitivePathPolicy = getDefaultSensitivePathPolicy(),
 ): FileAccessPolicyResult {
-  return checkSensitivePathAccess(
-    path.resolve(absolutePath),
-    getDefaultSensitivePathPolicy(),
-  );
+  return checkSensitivePathAccess(path.resolve(absolutePath), policy);
 }
 
 export async function checkExistingFileAccess(
   absolutePath: string,
+  policy: SensitivePathPolicy = getDefaultSensitivePathPolicy(),
 ): Promise<FileAccessPolicyResult> {
-  const lexicalResult = checkLexicalFileAccess(absolutePath);
+  const lexicalResult = checkLexicalFileAccess(absolutePath, policy);
   if (!lexicalResult.allowed) return lexicalResult;
 
   const realPath = await fs.realpath(absolutePath);
-  const realResult = checkLexicalFileAccess(realPath);
+  const realResult = checkLexicalFileAccess(realPath, policy);
   if (realResult.allowed) return realResult;
 
-  const linkTargetResult = await checkSymbolicLinkTargetAccess(absolutePath);
+  const linkTargetResult = await checkSymbolicLinkTargetAccess(
+    absolutePath,
+    policy,
+  );
   if (linkTargetResult !== undefined && !linkTargetResult.allowed) {
     return linkTargetResult;
   }
@@ -36,9 +39,10 @@ export async function checkExistingFileAccess(
 
 export async function checkNewFileAccess(
   absolutePath: string,
+  policy: SensitivePathPolicy = getDefaultSensitivePathPolicy(),
 ): Promise<FileAccessPolicyResult> {
   const resolvedPath = path.resolve(absolutePath);
-  const lexicalResult = checkLexicalFileAccess(resolvedPath);
+  const lexicalResult = checkLexicalFileAccess(resolvedPath, policy);
   if (!lexicalResult.allowed) return lexicalResult;
 
   const {existingParent, missingParts} =
@@ -46,7 +50,7 @@ export async function checkNewFileAccess(
   const realParent = await fs.realpath(existingParent);
   const intendedRealPath = path.join(realParent, ...missingParts);
 
-  return checkLexicalFileAccess(intendedRealPath);
+  return checkLexicalFileAccess(intendedRealPath, policy);
 }
 
 export async function isSymbolicLinkPath(
@@ -84,6 +88,7 @@ async function findNearestExistingParent(absolutePath: string): Promise<{
 
 async function checkSymbolicLinkTargetAccess(
   absolutePath: string,
+  policy: SensitivePathPolicy,
 ): Promise<FileAccessPolicyResult | undefined> {
   try {
     const stat = await fs.lstat(absolutePath);
@@ -91,7 +96,7 @@ async function checkSymbolicLinkTargetAccess(
 
     const linkTarget = await fs.readlink(absolutePath);
     const resolvedTarget = path.resolve(path.dirname(absolutePath), linkTarget);
-    return checkLexicalFileAccess(resolvedTarget);
+    return checkLexicalFileAccess(resolvedTarget, policy);
   } catch {
     return undefined;
   }

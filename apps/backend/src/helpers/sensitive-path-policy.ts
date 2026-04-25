@@ -5,6 +5,7 @@ import {isSubPathOrSelf} from './path-helpers.js';
 export type BlockedPathReason =
   | 'blocked-root'
   | 'blocked-segment'
+  | 'blocked-basename'
   | 'blocked-pattern';
 
 export type FileAccessPolicyResult =
@@ -110,7 +111,17 @@ export function checkSensitivePathAccess(
     };
   }
 
-  if (isBlockedBasename(path.basename(normalizedPath), policy)) {
+  const basename = path.basename(normalizedPath);
+
+  if (isBlockedExactBasename(basename, policy)) {
+    return {
+      allowed: false,
+      blockedPath: normalizedPath,
+      reason: 'blocked-basename',
+    };
+  }
+
+  if (isBlockedBasenamePattern(basename)) {
     return {
       allowed: false,
       blockedPath: normalizedPath,
@@ -141,15 +152,15 @@ function findBlockedSegmentPath(
   return undefined;
 }
 
-function isBlockedBasename(
+function isBlockedExactBasename(
   basename: string,
   policy: SensitivePathPolicy,
 ): boolean {
-  const normalizedBasename = basename.toLowerCase();
+  return policy.blockedBasenames.has(basename.toLowerCase());
+}
 
-  if (policy.blockedBasenames.has(normalizedBasename)) {
-    return true;
-  }
+function isBlockedBasenamePattern(basename: string): boolean {
+  const normalizedBasename = basename.toLowerCase();
 
   if (
     (normalizedBasename === '.env' || normalizedBasename.startsWith('.env.')) &&

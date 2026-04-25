@@ -86,4 +86,32 @@ describe('sensitive-path-policy', () => {
       ).toBe(false);
     }
   });
+
+  it('reports exact credential basenames as blocked-basename', () => {
+    for (const basename of ['.netrc', 'credentials.json', 'id_ed25519']) {
+      const targetPath = path.join(root, basename);
+
+      expect(checkSensitivePathAccess(targetPath, policy)).toEqual({
+        allowed: false,
+        blockedPath: targetPath,
+        reason: 'blocked-basename',
+      });
+    }
+  });
+
+  it('reports sensitive filename patterns as blocked-pattern', () => {
+    for (const basename of [
+      '.env.local',
+      'server.pem',
+      'my-service-account-prod.json',
+    ]) {
+      const targetPath = path.join(root, basename);
+
+      expect(checkSensitivePathAccess(targetPath, policy)).toEqual({
+        allowed: false,
+        blockedPath: targetPath,
+        reason: 'blocked-pattern',
+      });
+    }
+  });
 });
