@@ -100,9 +100,10 @@ Block pattern matches:
 
 ## Architecture
 
-Add one central backend policy helper for file tools:
+Add one central backend policy helper used by file tools and workspace
+validation:
 
-`apps/backend/src/agent/tools/file/sensitive-path-policy.ts`
+`apps/backend/src/helpers/sensitive-path-policy.ts`
 
 The helper owns:
 
@@ -110,34 +111,29 @@ The helper owns:
 - normalized lexical path checks
 - realpath checks for existing paths
 - nearest-existing-parent resolution for writes to new paths
-- result helpers that format the standard policy failure message
+- result helpers that format the standard policy failure and skipped-path
+  messages
 
 Helper API:
 
 ```ts
-type FileAccessOperation = 'read' | 'write' | 'edit' | 'find' | 'search';
-
 type FileAccessPolicyResult =
   | {allowed: true}
   | {allowed: false; message: string};
 
 async function checkExistingPathAccess(
   absolutePath: string,
-  operation: FileAccessOperation,
 ): Promise<FileAccessPolicyResult>;
 
 async function checkNewPathAccess(
   absolutePath: string,
 ): Promise<FileAccessPolicyResult>;
 
-function checkLexicalPathAccess(
-  absolutePath: string,
-  operation: FileAccessOperation,
-): FileAccessPolicyResult;
+function checkLexicalPathAccess(absolutePath: string): FileAccessPolicyResult;
 ```
 
-Every file tool must call this policy module rather than duplicating blocklist
-logic locally.
+Every file tool and workspace validation path must call this policy module
+rather than duplicating blocklist logic locally.
 
 ## Tool Behavior
 
