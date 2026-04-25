@@ -23,13 +23,13 @@ We need a specialized Explore subagent that the main agent can delegate research
 
 ## Design Decisions
 
-| Decision           | Choice                                                     | Rationale                                                                                                           |
-| ------------------ | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| Agent shape        | New `ExploreSubAgent` class                                | Matches existing `GeneralSubAgent` pattern and keeps behavior isolated.                                             |
-| Invocation surface | Existing `dispatch_agent` tool with `agentType: 'explore'` | Avoids new API or UI surface area.                                                                                  |
-| Write restriction  | Soft prompt-level read-only behavior                       | The requirement is behavioral, not a security boundary. Bash remains useful for research.                           |
-| Dispatch guidance  | `SubAgentToolRegistry.getSystemPromptSection()`            | Keeps subagent usage policy close to the tool and decoupled from individual agent base prompts.                     |
-| Report format      | Owned by Explore by default                                | The main agent should provide question, scope, and emphasis, while Explore handles research and reporting protocol. |
+| Decision           | Choice                                                                  | Rationale                                                                                                           |
+| ------------------ | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| Agent shape        | New `ExploreSubAgent` class                                             | Matches existing `GeneralSubAgent` pattern and keeps behavior isolated.                                             |
+| Invocation surface | Existing `dispatch_agent` tool with `agentType: SUB_AGENT_TYPE.EXPLORE` | Avoids new API or UI surface area.                                                                                  |
+| Write restriction  | Soft prompt-level read-only behavior                                    | The requirement is behavioral, not a security boundary. Bash remains useful for research.                           |
+| Dispatch guidance  | `SubAgentToolRegistry.getSystemPromptSection()`                         | Keeps subagent usage policy close to the tool and decoupled from individual agent base prompts.                     |
+| Report format      | Owned by Explore by default                                             | The main agent should provide question, scope, and emphasis, while Explore handles research and reporting protocol. |
 
 ## Backend Design
 
@@ -103,32 +103,40 @@ This format belongs to Explore. The main agent may override it by asking for a s
 Update `apps/backend/src/agent/tools/sub-agent/dispatch-agent-tool.ts`:
 
 - Import `ExploreSubAgent`.
-- Add `explore` to `subAgentInfos` with a description focused on codebase and document research.
+- Export a `SUB_AGENT_TYPE` constant and use it as the single source of truth for subagent type strings.
+- Add `SUB_AGENT_TYPE.EXPLORE` to `subAgentInfos` with a generic research/reporting description.
 - Instantiate the correct class based on `agentType`.
 
 Expected selection logic:
 
 ```typescript
-const subagent: Agent =
-  agentType === 'explore'
-    ? new ExploreSubAgent(getConfig, workingDirectory)
-    : new GeneralSubAgent(getConfig, workingDirectory);
+switch (agentType) {
+  case SUB_AGENT_TYPE.GENERAL:
+    return new GeneralSubAgent(getConfig, workingDirectory);
+  case SUB_AGENT_TYPE.EXPLORE:
+    return new ExploreSubAgent(getConfig, workingDirectory);
+}
 ```
 
 The existing SSE metadata already includes `agentType`, `thinkingLevel`, and `workingDirectory`, so the frontend can display `explore` without schema or UI changes.
 
 ### SubAgentToolRegistry Prompt Section
 
-Add `getSystemPromptSection()` to `apps/backend/src/agent/tools/sub-agent/sub-agent-tool-registry.ts`.
+Add `getSystemPromptSection()` to `apps/backend/src/agent/tools/sub-agent/sub-agent-tool-registry.ts`. It should use `dispatchAgentTool.name` and `SUB_AGENT_TYPE` instead of hard-coded tool/type strings.
 
-The section should guide agents that have `dispatch_agent`:
+The section should be organized into separate guidance blocks:
+
+General subagent dispatch guidance:
 
 - Use subagents when a subtask can be delegated and does not block the immediate next local action.
-- Prefer `explore` for repository research: architecture, module design, cross-file behavior, call chains, data flow, historical context, dependency mapping, and impact analysis.
-- Avoid spending main-agent context on broad file-reading research when Explore can produce a report.
 - Keep very small local lookups local when dispatch overhead is not worth it.
+- After any subagent returns, synthesize its result for the user or use it to guide implementation.
+
+Explore-specific dispatch guidance:
+
+- Prefer `SUB_AGENT_TYPE.EXPLORE` for repository research: architecture, module design, cross-file behavior, call chains, data flow, historical context, dependency mapping, and impact analysis.
+- Avoid spending main-agent context on broad file-reading research when Explore can produce a report.
 - When dispatching Explore, provide the question, scope, important constraints, and desired depth. Do not specify a report format unless the user asked for one.
-- After Explore returns, the main agent should synthesize the report for the user or use it to guide implementation.
 
 This keeps dispatch policy attached to the subagent tool capability. `CodingAgent` and `MainAgent` remain free of Explore-specific prompt text.
 
@@ -144,11 +152,11 @@ No frontend changes are required for this feature.
 
 Update `apps/backend/src/agent/tools/sub-agent/dispatch-agent-tool.test.ts`:
 
-- Assert the tool accepts `agentType: 'explore'` in its parameter schema.
-- Assert the tool description includes both `general` and `explore` in the available agent types.
+- Assert the tool accepts `agentType: SUB_AGENT_TYPE.EXPLORE` in its parameter schema.
+- Assert the tool description includes both `SUB_AGENT_TYPE.GENERAL` and `SUB_AGENT_TYPE.EXPLORE` in the available agent types.
 - Keep existing working directory boundary tests unchanged.
 
-If practical without calling a real LLM, add a narrow construction test that verifies dispatch emits `subagent-dispatch` with `agentType: 'explore'` before execution is aborted. If this is too brittle, rely on schema and typecheck coverage for selection logic.
+If practical without calling a real LLM, add a narrow construction test that verifies dispatch emits `subagent-dispatch` with `agentType: SUB_AGENT_TYPE.EXPLORE` before execution is aborted. If this is too brittle, rely on schema and typecheck coverage for selection logic.
 
 ### Verification Commands
 
@@ -167,15 +175,15 @@ bun run --filter '@omnicraft/backend' test
 
 ## Files Changed
 
-| File                                                                   | Change                                                      |
-| ---------------------------------------------------------------------- | ----------------------------------------------------------- |
-| `apps/backend/src/agent/agents/explore-sub-agent/system-prompt.ts`     | Add Explore behavior and report contract.                   |
-| `apps/backend/src/agent/agents/explore-sub-agent/explore-sub-agent.ts` | Add Explore agent class.                                    |
-| `apps/backend/src/agent/agents/explore-sub-agent/index.ts`             | Export Explore agent.                                       |
-| `apps/backend/src/agent/agents/index.ts`                               | Re-export Explore agent.                                    |
-| `apps/backend/src/agent/tools/sub-agent/dispatch-agent-tool.ts`        | Add `explore` agent type and instantiate `ExploreSubAgent`. |
-| `apps/backend/src/agent/tools/sub-agent/sub-agent-tool-registry.ts`    | Add subagent dispatch guidance prompt section.              |
-| `apps/backend/src/agent/tools/sub-agent/dispatch-agent-tool.test.ts`   | Cover the new agent type and tool description.              |
+| File                                                                   | Change                                                          |
+| ---------------------------------------------------------------------- | --------------------------------------------------------------- |
+| `apps/backend/src/agent/agents/explore-sub-agent/system-prompt.ts`     | Add Explore behavior and report contract.                       |
+| `apps/backend/src/agent/agents/explore-sub-agent/explore-sub-agent.ts` | Add Explore agent class.                                        |
+| `apps/backend/src/agent/agents/explore-sub-agent/index.ts`             | Export Explore agent.                                           |
+| `apps/backend/src/agent/agents/index.ts`                               | Re-export Explore agent.                                        |
+| `apps/backend/src/agent/tools/sub-agent/dispatch-agent-tool.ts`        | Add `SUB_AGENT_TYPE.EXPLORE` and instantiate `ExploreSubAgent`. |
+| `apps/backend/src/agent/tools/sub-agent/sub-agent-tool-registry.ts`    | Add subagent dispatch guidance prompt section.                  |
+| `apps/backend/src/agent/tools/sub-agent/dispatch-agent-tool.test.ts`   | Cover the new agent type and tool description.                  |
 
 ## Risks
 

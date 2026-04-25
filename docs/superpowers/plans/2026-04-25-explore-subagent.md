@@ -16,8 +16,8 @@
 - `apps/backend/src/agent/agents/explore-sub-agent/explore-sub-agent.ts` constructs the Explore agent with core, file, web, and Bash tools, plus core skills.
 - `apps/backend/src/agent/agents/explore-sub-agent/index.ts` exports the new agent folder.
 - `apps/backend/src/agent/agents/index.ts` re-exports Explore from the central agent barrel.
-- `apps/backend/src/agent/tools/sub-agent/dispatch-agent-tool.ts` adds `explore` to the dispatch schema and creates the correct subagent class.
-- `apps/backend/src/agent/tools/sub-agent/sub-agent-tool-registry.ts` adds system prompt guidance for when main agents should use subagents, especially Explore.
+- `apps/backend/src/agent/tools/sub-agent/dispatch-agent-tool.ts` exports subagent type constants, adds Explore to the dispatch schema, and creates the correct subagent class.
+- `apps/backend/src/agent/tools/sub-agent/sub-agent-tool-registry.ts` adds separate general dispatch guidance and Explore-specific dispatch guidance for main agents.
 - `apps/backend/src/agent/tools/sub-agent/dispatch-agent-tool.test.ts` covers the new dispatch schema, description, factory behavior, and prompt section.
 
 ---
@@ -50,7 +50,11 @@ import {
 import {createMockContext} from '@/agent-core/tool/testing.js';
 import type {ToolExecutionContext} from '@/agent-core/tool/types.js';
 
-import {createSubAgent, dispatchAgentTool} from './dispatch-agent-tool.js';
+import {
+  createSubAgent,
+  dispatchAgentTool,
+  SUB_AGENT_TYPE,
+} from './dispatch-agent-tool.js';
 import {SubAgentToolRegistry} from './sub-agent-tool-registry.js';
 ```
 
@@ -84,22 +88,30 @@ Add these tests inside the existing `describe('dispatchAgentTool', () => { ... }
 it('accepts the explore agent type', () => {
   const result = dispatchAgentTool.parameters.safeParse({
     task: 'Map the backend agent architecture',
-    agentType: 'explore',
+    agentType: SUB_AGENT_TYPE.EXPLORE,
   });
 
   expect(result.success).toBe(true);
 });
 
 it('documents general and explore agent types', () => {
-  expect(dispatchAgentTool.description).toContain('- general (General):');
-  expect(dispatchAgentTool.description).toContain('- explore (Explore):');
+  expect(dispatchAgentTool.description).toContain(
+    `- ${SUB_AGENT_TYPE.GENERAL} (General):`,
+  );
+  expect(dispatchAgentTool.description).toContain(
+    `- ${SUB_AGENT_TYPE.EXPLORE} (Explore):`,
+  );
 });
 
 it('creates a general subagent by default', () => {
   resetAgentRegistries();
   initAgentRegistries();
   try {
-    const subagent = createSubAgent('general', context.getConfig, tmpDir);
+    const subagent = createSubAgent(
+      SUB_AGENT_TYPE.GENERAL,
+      context.getConfig,
+      tmpDir,
+    );
 
     expect(subagent).toBeInstanceOf(GeneralSubAgent);
   } finally {
@@ -111,7 +123,11 @@ it('creates an explore subagent for explore tasks', () => {
   resetAgentRegistries();
   initAgentRegistries();
   try {
-    const subagent = createSubAgent('explore', context.getConfig, tmpDir);
+    const subagent = createSubAgent(
+      SUB_AGENT_TYPE.EXPLORE,
+      context.getConfig,
+      tmpDir,
+    );
 
     expect(subagent).toBeInstanceOf(ExploreSubAgent);
   } finally {
@@ -126,7 +142,10 @@ it('adds subagent dispatch guidance to the system prompt section', () => {
     const section = registry.getSystemPromptSection();
 
     expect(section).toContain('## Subagent Dispatch');
-    expect(section).toContain('explore');
+    expect(section).toContain('### General delegation');
+    expect(section).toContain('### Explore subagent');
+    expect(section).toContain(`\`${dispatchAgentTool.name}\``);
+    expect(section).toContain(`\`${SUB_AGENT_TYPE.EXPLORE}\``);
     expect(section).toContain('architecture');
     expect(section).toContain('report');
   } finally {
@@ -143,7 +162,7 @@ Run:
 bun run --filter '@omnicraft/backend' test -- src/agent/tools/sub-agent/dispatch-agent-tool.test.ts
 ```
 
-Expected: FAIL because `ExploreSubAgent` and `createSubAgent` are not exported yet, or because `agentType: 'explore'` is rejected and the prompt section is empty.
+Expected: FAIL because `ExploreSubAgent`, `createSubAgent`, and `SUB_AGENT_TYPE` are not exported yet, or because `SUB_AGENT_TYPE.EXPLORE` is rejected and the prompt section is empty.
 
 ---
 
@@ -295,25 +314,37 @@ import type {Agent} from '@/agent-core/agent/index.js';
 import type {LlmConfig} from '@/agent-core/llm-api/index.js';
 ```
 
-- [ ] **Step 2: Add the explore agent type**
+- [ ] **Step 2: Add subagent type constants and the explore agent type**
 
-Replace the `subAgentInfos` constant with:
+Replace the `subAgentInfos` constant and nearby `SubAgentType` / `agentTypeSchema` definitions with:
 
 ```typescript
+export const SUB_AGENT_TYPE = {
+  GENERAL: 'general',
+  EXPLORE: 'explore',
+} as const;
+
+export type SubAgentType = (typeof SUB_AGENT_TYPE)[keyof typeof SUB_AGENT_TYPE];
+
 const subAgentInfos = {
-  general: {
+  [SUB_AGENT_TYPE.GENERAL]: {
     name: 'General',
     description:
       'General-purpose agent for autonomous multi-step tasks. ' +
       'Use for delegated work that no specialized subagent type covers.',
   },
-  explore: {
+  [SUB_AGENT_TYPE.EXPLORE]: {
     name: 'Explore',
     description:
       'Research-focused agent for gathering information, inspecting structure, ' +
       'tracing relationships, and returning an evidence-based report.',
   },
-} as const satisfies Record<string, SubAgentInfo>;
+} as const satisfies Record<SubAgentType, SubAgentInfo>;
+
+const agentTypeSchema = z.enum([
+  SUB_AGENT_TYPE.GENERAL,
+  SUB_AGENT_TYPE.EXPLORE,
+]);
 ```
 
 - [ ] **Step 3: Export the subagent factory**
@@ -327,9 +358,9 @@ export function createSubAgent(
   workingDirectory: string,
 ): Agent {
   switch (agentType) {
-    case 'general':
+    case SUB_AGENT_TYPE.GENERAL:
       return new GeneralSubAgent(getConfig, workingDirectory);
-    case 'explore':
+    case SUB_AGENT_TYPE.EXPLORE:
       return new ExploreSubAgent(getConfig, workingDirectory);
   }
 }
@@ -376,7 +407,27 @@ Replace `apps/backend/src/agent/tools/sub-agent/sub-agent-tool-registry.ts` with
 ```typescript
 import {ToolRegistry} from '@/agent-core/tool/index.js';
 
-import {dispatchAgentTool} from './dispatch-agent-tool.js';
+import {dispatchAgentTool, SUB_AGENT_TYPE} from './dispatch-agent-tool.js';
+
+function buildGeneralDispatchGuidance(): string {
+  return [
+    '### General delegation',
+    '',
+    `- Use the \`${dispatchAgentTool.name}\` tool for delegated work that can proceed independently without blocking your immediate next local action.`,
+    '- Keep very small local lookups local when dispatch overhead is not worth it.',
+    '- After any subagent returns, synthesize its result for the user or use it to guide implementation.',
+  ].join('\n');
+}
+
+function buildExploreDispatchGuidance(): string {
+  return [
+    '### Explore subagent',
+    '',
+    `- Prefer \`${SUB_AGENT_TYPE.EXPLORE}\` for repository research, including architecture, module design, cross-file behavior, call chains, data flow, historical context, dependency mapping, and impact analysis.`,
+    '- Avoid spending main-agent context on broad file-reading research when an Explore report can answer the question.',
+    '- When dispatching Explore, provide the question, scope, important constraints, and desired depth. Do not specify a report format unless the user asked for one.',
+  ].join('\n');
+}
 
 /** Registry for subagent-related tools. */
 export class SubAgentToolRegistry extends ToolRegistry {
@@ -391,13 +442,9 @@ export class SubAgentToolRegistry extends ToolRegistry {
     return [
       '## Subagent Dispatch',
       '',
-      'Use subagents for delegated work that can proceed independently without blocking your immediate next local action.',
+      buildGeneralDispatchGuidance(),
       '',
-      '- Prefer the `explore` subagent for repository research, including architecture, module design, cross-file behavior, call chains, data flow, historical context, dependency mapping, and impact analysis.',
-      '- Avoid spending main-agent context on broad file-reading research when an Explore report can answer the question.',
-      '- Keep very small local lookups local when dispatch overhead is not worth it.',
-      '- When dispatching Explore, provide the question, scope, important constraints, and desired depth. Do not specify a report format unless the user asked for one.',
-      '- After Explore returns, synthesize its report for the user or use it to guide implementation.',
+      buildExploreDispatchGuidance(),
     ].join('\n');
   }
 }
