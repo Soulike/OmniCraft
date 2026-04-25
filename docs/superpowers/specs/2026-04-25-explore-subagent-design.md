@@ -28,7 +28,7 @@ We need a specialized Explore subagent that the main agent can delegate research
 | Agent shape        | New `ExploreSubAgent` class                                             | Matches existing `GeneralSubAgent` pattern and keeps behavior isolated.                                             |
 | Invocation surface | Existing `dispatch_agent` tool with `agentType: SUB_AGENT_TYPE.EXPLORE` | Avoids new API or UI surface area.                                                                                  |
 | Write restriction  | Soft prompt-level read-only behavior                                    | The requirement is behavioral, not a security boundary. Bash remains useful for research.                           |
-| Dispatch guidance  | `SubAgentToolRegistry.getSystemPromptSection()`                         | Keeps subagent usage policy close to the tool and decoupled from individual agent base prompts.                     |
+| Dispatch guidance  | `dispatchAgentTool.description` and agent type descriptions             | Keeps usage guidance attached to the tool schema without adding agent-specific base prompt text.                    |
 | Report format      | Owned by Explore by default                                             | The main agent should provide question, scope, and emphasis, while Explore handles research and reporting protocol. |
 
 ## Backend Design
@@ -120,25 +120,24 @@ switch (agentType) {
 
 The existing SSE metadata already includes `agentType`, `thinkingLevel`, and `workingDirectory`, so the frontend can display `explore` without schema or UI changes.
 
-### SubAgentToolRegistry Prompt Section
+### Tool Description Guidance
 
-Add `getSystemPromptSection()` to `apps/backend/src/agent/tools/sub-agent/sub-agent-tool-registry.ts`. It should use `dispatchAgentTool.name` and `SUB_AGENT_TYPE` instead of hard-coded tool/type strings.
+Keep subagent usage guidance in `apps/backend/src/agent/tools/sub-agent/dispatch-agent-tool.ts` instead of `SubAgentToolRegistry.getSystemPromptSection()`.
 
-The section should be organized into separate guidance blocks:
+`dispatchAgentTool.description` should cover general dispatch behavior:
 
-General subagent dispatch guidance:
+- What the tool does: dispatches a subagent for an autonomous delegated subtask.
+- When to use it: when the work can proceed independently and does not block the immediate next local action.
+- When not to use it: very small local lookups where dispatch overhead is not worth it.
+- What to do with the result: synthesize the subagent's result for the user or use it to guide implementation.
 
-- Use subagents when a subtask can be delegated and does not block the immediate next local action.
-- Keep very small local lookups local when dispatch overhead is not worth it.
-- After any subagent returns, synthesize its result for the user or use it to guide implementation.
+`subAgentInfos[SUB_AGENT_TYPE.EXPLORE].description` should cover Explore selection policy:
 
-Explore-specific dispatch guidance:
+- Use it for repository research, architecture, module design, cross-file behavior, call chains, data flow, historical context, dependency mapping, and impact analysis.
+- Provide the question, scope, important constraints, and desired depth when dispatching it.
+- Do not specify a report format unless the user asked for one, because Explore owns its default report contract.
 
-- Prefer `SUB_AGENT_TYPE.EXPLORE` for repository research: architecture, module design, cross-file behavior, call chains, data flow, historical context, dependency mapping, and impact analysis.
-- Avoid spending main-agent context on broad file-reading research when Explore can produce a report.
-- When dispatching Explore, provide the question, scope, important constraints, and desired depth. Do not specify a report format unless the user asked for one.
-
-This keeps dispatch policy attached to the subagent tool capability. `CodingAgent` and `MainAgent` remain free of Explore-specific prompt text.
+`SubAgentToolRegistry` should remain a registry only. This avoids mixing registry concerns with subagent behavior guidance.
 
 ## User Experience
 
@@ -154,6 +153,7 @@ Update `apps/backend/src/agent/tools/sub-agent/dispatch-agent-tool.test.ts`:
 
 - Assert the tool accepts `agentType: SUB_AGENT_TYPE.EXPLORE` in its parameter schema.
 - Assert the tool description includes both `SUB_AGENT_TYPE.GENERAL` and `SUB_AGENT_TYPE.EXPLORE` in the available agent types.
+- Assert the tool description includes general dispatch guidance and the Explore type description includes Explore-specific research guidance.
 - Keep existing working directory boundary tests unchanged.
 
 If practical without calling a real LLM, add a narrow construction test that verifies dispatch emits `subagent-dispatch` with `agentType: SUB_AGENT_TYPE.EXPLORE` before execution is aborted. If this is too brittle, rely on schema and typecheck coverage for selection logic.
@@ -182,7 +182,6 @@ bun run --filter '@omnicraft/backend' test
 | `apps/backend/src/agent/agents/explore-sub-agent/index.ts`             | Export Explore agent.                                           |
 | `apps/backend/src/agent/agents/index.ts`                               | Re-export Explore agent.                                        |
 | `apps/backend/src/agent/tools/sub-agent/dispatch-agent-tool.ts`        | Add `SUB_AGENT_TYPE.EXPLORE` and instantiate `ExploreSubAgent`. |
-| `apps/backend/src/agent/tools/sub-agent/sub-agent-tool-registry.ts`    | Add subagent dispatch guidance prompt section.                  |
 | `apps/backend/src/agent/tools/sub-agent/dispatch-agent-tool.test.ts`   | Cover the new agent type and tool description.                  |
 
 ## Risks

@@ -4,7 +4,7 @@
 
 **Goal:** Add an `explore` subagent type that main agents can delegate repository and architecture research to through the existing `dispatch_agent` tool.
 
-**Architecture:** Implement `ExploreSubAgent` as a regular `Agent` subclass with read/report behavior defined by its system prompt. Wire it into `dispatch_agent` as a new agent type, and put main-agent delegation guidance in `SubAgentToolRegistry.getSystemPromptSection()` so the policy stays attached to the subagent tool domain.
+**Architecture:** Implement `ExploreSubAgent` as a regular `Agent` subclass with read/report behavior defined by its system prompt. Wire it into `dispatch_agent` as a new agent type, and keep main-agent delegation guidance in the tool description and agent type descriptions.
 
 **Tech Stack:** TypeScript, Bun, Vitest, Zod, existing OmniCraft agent/tool registries.
 
@@ -16,9 +16,8 @@
 - `apps/backend/src/agent/agents/explore-sub-agent/explore-sub-agent.ts` constructs the Explore agent with core, file, web, and Bash tools, plus core skills.
 - `apps/backend/src/agent/agents/explore-sub-agent/index.ts` exports the new agent folder.
 - `apps/backend/src/agent/agents/index.ts` re-exports Explore from the central agent barrel.
-- `apps/backend/src/agent/tools/sub-agent/dispatch-agent-tool.ts` exports subagent type constants, adds Explore to the dispatch schema, and creates the correct subagent class.
-- `apps/backend/src/agent/tools/sub-agent/sub-agent-tool-registry.ts` adds separate general dispatch guidance and Explore-specific dispatch guidance for main agents.
-- `apps/backend/src/agent/tools/sub-agent/dispatch-agent-tool.test.ts` covers the new dispatch schema, description, factory behavior, and prompt section.
+- `apps/backend/src/agent/tools/sub-agent/dispatch-agent-tool.ts` exports subagent type constants, adds Explore to the dispatch schema, puts dispatch guidance in the tool/type descriptions, and creates the correct subagent class.
+- `apps/backend/src/agent/tools/sub-agent/dispatch-agent-tool.test.ts` covers the new dispatch schema, description guidance, and factory behavior.
 
 ---
 
@@ -55,7 +54,6 @@ import {
   dispatchAgentTool,
   SUB_AGENT_TYPE,
 } from './dispatch-agent-tool.js';
-import {SubAgentToolRegistry} from './sub-agent-tool-registry.js';
 ```
 
 - [ ] **Step 2: Add registry lifecycle helpers**
@@ -80,7 +78,7 @@ function initAgentRegistries(): void {
 }
 ```
 
-- [ ] **Step 3: Add tests for schema, tool description, factory, and registry prompt**
+- [ ] **Step 3: Add tests for schema, tool description, and factory behavior**
 
 Add these tests inside the existing `describe('dispatchAgentTool', () => { ... })`, after the `has the correct name` test and before `describe('workingDirectory boundary check', ...)`:
 
@@ -100,6 +98,28 @@ it('documents general and explore agent types', () => {
   );
   expect(dispatchAgentTool.description).toContain(
     `- ${SUB_AGENT_TYPE.EXPLORE} (Explore):`,
+  );
+});
+
+it('documents when dispatching a subagent is useful', () => {
+  expect(dispatchAgentTool.description).toContain('can proceed independently');
+  expect(dispatchAgentTool.description).toContain(
+    'Keep very small local lookups local',
+  );
+  expect(dispatchAgentTool.description).toContain(
+    'synthesize the subagent result',
+  );
+});
+
+it('documents explore-specific research use cases', () => {
+  expect(dispatchAgentTool.description).toContain(
+    `- ${SUB_AGENT_TYPE.EXPLORE} (Explore):`,
+  );
+  expect(dispatchAgentTool.description).toContain('architecture');
+  expect(dispatchAgentTool.description).toContain('data flow');
+  expect(dispatchAgentTool.description).toContain('impact analysis');
+  expect(dispatchAgentTool.description).toContain(
+    'Do not specify a report format unless the user asked for one',
   );
 });
 
@@ -134,24 +154,6 @@ it('creates an explore subagent for explore tasks', () => {
     resetAgentRegistries();
   }
 });
-
-it('adds subagent dispatch guidance to the system prompt section', () => {
-  SubAgentToolRegistry.resetInstance();
-  const registry = SubAgentToolRegistry.create();
-  try {
-    const section = registry.getSystemPromptSection();
-
-    expect(section).toContain('## Subagent Dispatch');
-    expect(section).toContain('### General delegation');
-    expect(section).toContain('### Explore subagent');
-    expect(section).toContain(`\`${dispatchAgentTool.name}\``);
-    expect(section).toContain(`\`${SUB_AGENT_TYPE.EXPLORE}\``);
-    expect(section).toContain('architecture');
-    expect(section).toContain('report');
-  } finally {
-    SubAgentToolRegistry.resetInstance();
-  }
-});
 ```
 
 - [ ] **Step 4: Run the targeted test and verify it fails**
@@ -162,7 +164,7 @@ Run:
 bun run --filter '@omnicraft/backend' test -- src/agent/tools/sub-agent/dispatch-agent-tool.test.ts
 ```
 
-Expected: FAIL because `ExploreSubAgent`, `createSubAgent`, and `SUB_AGENT_TYPE` are not exported yet, or because `SUB_AGENT_TYPE.EXPLORE` is rejected and the prompt section is empty.
+Expected: FAIL because `ExploreSubAgent`, `createSubAgent`, and `SUB_AGENT_TYPE` are not exported yet, or because `SUB_AGENT_TYPE.EXPLORE` is rejected and the tool description does not include the new guidance.
 
 ---
 
@@ -336,8 +338,10 @@ const subAgentInfos = {
   [SUB_AGENT_TYPE.EXPLORE]: {
     name: 'Explore',
     description:
-      'Research-focused agent for gathering information, inspecting structure, ' +
-      'tracing relationships, and returning an evidence-based report.',
+      'Research-focused agent for repository research, architecture, module design, ' +
+      'cross-file behavior, call chains, data flow, historical context, dependency mapping, ' +
+      'and impact analysis. Provide the question, scope, constraints, and desired depth. ' +
+      'Do not specify a report format unless the user asked for one.',
   },
 } as const satisfies Record<SubAgentType, SubAgentInfo>;
 
@@ -347,7 +351,30 @@ const agentTypeSchema = z.enum([
 ]);
 ```
 
-- [ ] **Step 3: Export the subagent factory**
+- [ ] **Step 3: Update the dispatch tool description**
+
+Replace `buildToolDescription()` with:
+
+```typescript
+function buildToolDescription(): string {
+  const header =
+    'Dispatches a subagent to handle a subtask autonomously. ' +
+    'Subagents cannot dispatch further subagents. ' +
+    'Use this when delegated work can proceed independently ' +
+    'without blocking your immediate next local action. ' +
+    'Keep very small local lookups local when dispatch overhead is not worth it. ' +
+    'After the subagent returns, synthesize the subagent result for the user ' +
+    'or use it to guide implementation.';
+
+  const typeDescriptions = Object.entries(subAgentInfos)
+    .map(([key, info]) => `- ${key} (${info.name}): ${info.description}`)
+    .join('\n');
+
+  return `${header}\n\nAvailable agent types:\n${typeDescriptions}`;
+}
+```
+
+- [ ] **Step 4: Export the subagent factory**
 
 Add this function after `buildToolDescription()` and before `const parameters = z.object({ ... })`:
 
@@ -366,7 +393,7 @@ export function createSubAgent(
 }
 ```
 
-- [ ] **Step 4: Use the factory in tool execution**
+- [ ] **Step 5: Use the factory in tool execution**
 
 Replace:
 
@@ -382,75 +409,7 @@ with:
 const subagent = createSubAgent(agentType, getConfig, workingDirectory);
 ```
 
-- [ ] **Step 5: Run the targeted test and verify only prompt-section expectations still fail**
-
-Run:
-
-```bash
-bun run --filter '@omnicraft/backend' test -- src/agent/tools/sub-agent/dispatch-agent-tool.test.ts
-```
-
-Expected: FAIL only on `adds subagent dispatch guidance to the system prompt section`, because `SubAgentToolRegistry.getSystemPromptSection()` is not implemented yet.
-
----
-
-### Task 4: Add Subagent Dispatch Prompt Guidance
-
-**Files:**
-
-- Modify: `apps/backend/src/agent/tools/sub-agent/sub-agent-tool-registry.ts`
-
-- [ ] **Step 1: Add the prompt section method**
-
-Replace `apps/backend/src/agent/tools/sub-agent/sub-agent-tool-registry.ts` with:
-
-```typescript
-import {ToolRegistry} from '@/agent-core/tool/index.js';
-
-import {dispatchAgentTool, SUB_AGENT_TYPE} from './dispatch-agent-tool.js';
-
-function buildGeneralDispatchGuidance(): string {
-  return [
-    '### General delegation',
-    '',
-    `- Use the \`${dispatchAgentTool.name}\` tool for delegated work that can proceed independently without blocking your immediate next local action.`,
-    '- Keep very small local lookups local when dispatch overhead is not worth it.',
-    '- After any subagent returns, synthesize its result for the user or use it to guide implementation.',
-  ].join('\n');
-}
-
-function buildExploreDispatchGuidance(): string {
-  return [
-    '### Explore subagent',
-    '',
-    `- Prefer \`${SUB_AGENT_TYPE.EXPLORE}\` for repository research, including architecture, module design, cross-file behavior, call chains, data flow, historical context, dependency mapping, and impact analysis.`,
-    '- Avoid spending main-agent context on broad file-reading research when an Explore report can answer the question.',
-    '- When dispatching Explore, provide the question, scope, important constraints, and desired depth. Do not specify a report format unless the user asked for one.',
-  ].join('\n');
-}
-
-/** Registry for subagent-related tools. */
-export class SubAgentToolRegistry extends ToolRegistry {
-  /** Creates the singleton and registers all subagent tools. */
-  static override create(): SubAgentToolRegistry {
-    const instance = super.create() as SubAgentToolRegistry;
-    instance.register(dispatchAgentTool);
-    return instance;
-  }
-
-  override getSystemPromptSection(): string {
-    return [
-      '## Subagent Dispatch',
-      '',
-      buildGeneralDispatchGuidance(),
-      '',
-      buildExploreDispatchGuidance(),
-    ].join('\n');
-  }
-}
-```
-
-- [ ] **Step 2: Run the targeted test and verify it passes**
+- [ ] **Step 6: Run the targeted test and verify it passes**
 
 Run:
 
@@ -460,7 +419,7 @@ bun run --filter '@omnicraft/backend' test -- src/agent/tools/sub-agent/dispatch
 
 Expected: PASS.
 
-- [ ] **Step 3: Commit the implementation and tests**
+- [ ] **Step 7: Commit the implementation and tests**
 
 Run:
 
@@ -471,14 +430,13 @@ git add \
   apps/backend/src/agent/agents/explore-sub-agent/index.ts \
   apps/backend/src/agent/agents/index.ts \
   apps/backend/src/agent/tools/sub-agent/dispatch-agent-tool.ts \
-  apps/backend/src/agent/tools/sub-agent/sub-agent-tool-registry.ts \
   apps/backend/src/agent/tools/sub-agent/dispatch-agent-tool.test.ts
 git commit -m "feat: add explore subagent"
 ```
 
 ---
 
-### Task 5: Final Verification
+### Task 4: Final Verification
 
 **Files:**
 
@@ -529,6 +487,6 @@ Expected: no uncommitted implementation changes after the implementation commit,
 
 ## Self-Review
 
-- Spec coverage: Tasks 2 and 3 add the Explore subagent type and wire it into `dispatch_agent`; Task 2 defines the soft read-only research/report prompt and report structure; Task 4 places delegation guidance in `SubAgentToolRegistry`; Task 5 verifies backend behavior.
+- Spec coverage: Tasks 2 and 3 add the Explore subagent type and wire it into `dispatch_agent`; Task 2 defines the soft read-only research/report prompt and report structure; Task 3 places delegation guidance in the dispatch tool and agent type descriptions; Task 4 verifies backend behavior.
 - No frontend work is planned because the existing SSE metadata and subagent disclosure UI already display agent type, thinking level, and working directory.
 - No hard read-only sandbox is planned because the approved design uses prompt-level behavior while retaining Bash.
