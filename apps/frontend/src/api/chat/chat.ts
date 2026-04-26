@@ -1,35 +1,28 @@
-import {
-  AgentType,
-  type ListSessionsResponse,
-  type ThinkingLevel,
-} from '@omnicraft/api-schema';
-import type {SseEvent} from '@omnicraft/sse-events';
+import {AgentType, type ListSessionsResponse} from '@omnicraft/api-schema';
+import type {SseEventCursorEntry} from '@omnicraft/sse-events';
 
+import type {CreateSessionOptions} from '../agent-session/index.js';
 import * as agentSessionApi from '../agent-session/index.js';
 
 /** Creates a new chat session. Returns the session ID. */
-export async function createSession(): Promise<string> {
-  return agentSessionApi.createSession(AgentType.CHAT);
+export async function createSession(
+  options: CreateSessionOptions,
+): Promise<string> {
+  return agentSessionApi.createSession(AgentType.CHAT, options);
 }
 
 export async function sendMessage(
   sessionId: string,
   message: string,
-  thinkingLevel: ThinkingLevel,
 ): Promise<void> {
-  return agentSessionApi.sendMessage(
-    AgentType.CHAT,
-    sessionId,
-    message,
-    thinkingLevel,
-  );
+  return agentSessionApi.sendMessage(AgentType.CHAT, sessionId, message);
 }
 
 export async function* subscribeEvents(
   sessionId: string,
   from: number,
   signal?: AbortSignal,
-): AsyncGenerator<SseEvent, void, undefined> {
+): AsyncGenerator<SseEventCursorEntry, void, undefined> {
   yield* agentSessionApi.subscribeEvents(
     AgentType.CHAT,
     sessionId,

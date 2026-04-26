@@ -43,7 +43,7 @@ export function useInfiniteList<T>({
   // Incremented on each refresh. loadMore captures this value before fetching
   // and discards results if it has changed, preventing stale pages from being
   // appended after a refresh has already replaced the list.
-  const refreshGenerationId = useRef(0);
+  const refreshGenerationIdRef = useRef(0);
 
   // Controls whether the next refresh shows a loading indicator.
   // true for the initial load and explicit refresh(), false for backgroundRefresh().
@@ -51,13 +51,13 @@ export function useInfiniteList<T>({
 
   const refresh = useCallback(() => {
     showLoadingRef.current = true;
-    refreshGenerationId.current += 1;
+    refreshGenerationIdRef.current += 1;
     setRefreshKey((prev) => prev + 1);
   }, []);
 
   const backgroundRefresh = useCallback(() => {
     showLoadingRef.current = false;
-    refreshGenerationId.current += 1;
+    refreshGenerationIdRef.current += 1;
     setRefreshKey((prev) => prev + 1);
   }, []);
 
@@ -102,24 +102,24 @@ export function useInfiniteList<T>({
     }
 
     setIsLoadingMore(true);
-    const currentRefreshGenerationId = refreshGenerationId.current;
+    const currentRefreshGenerationId = refreshGenerationIdRef.current;
     const offset = items.length;
 
     async function fetchNextPage() {
       try {
         const page = await fetcher(offset, pageSize);
-        if (currentRefreshGenerationId !== refreshGenerationId.current) {
+        if (currentRefreshGenerationId !== refreshGenerationIdRef.current) {
           return;
         }
         setItems((prev) => [...prev, ...page.items]);
         setTotal(page.total);
       } catch (e: unknown) {
-        if (currentRefreshGenerationId !== refreshGenerationId.current) {
+        if (currentRefreshGenerationId !== refreshGenerationIdRef.current) {
           return;
         }
         setError(e instanceof Error ? e.message : 'Failed to load more');
       } finally {
-        if (currentRefreshGenerationId === refreshGenerationId.current) {
+        if (currentRefreshGenerationId === refreshGenerationIdRef.current) {
           setIsLoadingMore(false);
         }
       }

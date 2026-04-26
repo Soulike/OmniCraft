@@ -1,6 +1,6 @@
 import {useCallback, useEffect, useMemo, useState} from 'react';
 
-import {useThinkingLevel} from '@/modules/chat-session/index.js';
+import {useSessionConfig} from '@/modules/chat-session/index.js';
 
 import type {TaskDispatchErrors, TaskDispatchValues} from '../types.js';
 
@@ -18,7 +18,7 @@ export function useTaskDispatchForm({
   const [task, setTask] = useState('');
   const [errors, setErrors] = useState<TaskDispatchErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const {thinkingLevel, setThinkingLevel} = useThinkingLevel();
+  const {thinkingLevel, setThinkingLevel} = useSessionConfig();
 
   const trimmedTask = task.trim();
   const isBusy = isSubmitting;
@@ -74,7 +74,6 @@ export function useTaskDispatchForm({
     try {
       await onStartTask({
         task: trimmedTask,
-        thinkingLevel,
       });
     } finally {
       setIsSubmitting(false);
@@ -84,7 +83,6 @@ export function useTaskDispatchForm({
     isBusy,
     onStartTask,
     selectedWorkspace,
-    thinkingLevel,
     trimmedTask,
     validate,
   ]);

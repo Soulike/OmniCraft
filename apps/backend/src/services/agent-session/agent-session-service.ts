@@ -3,7 +3,7 @@ import {
   type SessionMetadata,
   type ThinkingLevel,
 } from '@omnicraft/api-schema';
-import type {SseEvent} from '@omnicraft/sse-events';
+import type {SseEventCursorEntry} from '@omnicraft/sse-events';
 
 import {CodingAgent, MainAgent} from '@/agent/agents/index.js';
 import type {
@@ -32,6 +32,7 @@ function getStore(agentType: AgentType) {
 // ---------------------------------------------------------------------------
 
 interface CreateSessionOptions {
+  thinkingLevel: ThinkingLevel;
   workspace?: string;
 }
 
@@ -44,7 +45,7 @@ export const agentSessionService = {
    */
   async createSession(
     agentType: AgentType,
-    options: CreateSessionOptions = {},
+    options: CreateSessionOptions,
   ): Promise<CreateSessionResult> {
     const llmConfig = await getLlmConfig(agentType);
 
@@ -74,10 +75,18 @@ export const agentSessionService = {
     let agent: Agent;
     switch (agentType) {
       case AgentType.CHAT:
-        agent = new MainAgent(options.workspace, sessionsDir);
+        agent = new MainAgent(
+          options.workspace,
+          options.thinkingLevel,
+          sessionsDir,
+        );
         break;
       case AgentType.CODING:
-        agent = new CodingAgent(options.workspace, sessionsDir);
+        agent = new CodingAgent(
+          options.workspace,
+          options.thinkingLevel,
+          sessionsDir,
+        );
         break;
     }
     return {success: true, sessionId: agent.id};
@@ -91,23 +100,22 @@ export const agentSessionService = {
     agentType: AgentType,
     agentId: string,
     userMessage: string,
-    thinkingLevel: ThinkingLevel,
   ): Promise<boolean> {
     const agent = await getStore(agentType).get(agentId);
     if (!agent) return false;
-    agent.handleUserMessage(userMessage, thinkingLevel);
+    agent.handleUserMessage(userMessage);
     return true;
   },
 
   /**
-   * Returns an async iterable of SSE events for the given agent.
+   * Returns an async iterable of SSE events with resume cursors for the given agent.
    * Returns undefined if agent not found.
    */
   async subscribe(
     agentType: AgentType,
     agentId: string,
     options?: AgentSseLogReaderOptions,
-  ): Promise<AsyncIterable<SseEvent> | undefined> {
+  ): Promise<AsyncIterable<SseEventCursorEntry> | undefined> {
     const agent = await getStore(agentType).get(agentId);
     if (!agent) return undefined;
     return agent.subscribe(options);

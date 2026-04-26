@@ -6,6 +6,7 @@ import type {ThinkingLevel} from '@omnicraft/api-schema';
 import type {
   SseDoneEvent,
   SseEvent,
+  SseEventCursorEntry,
   SseMessageStartEvent,
   SseSessionTitleEvent,
   SseSubAgentEvent,
@@ -65,7 +66,7 @@ export abstract class Agent {
 
   static readonly DEFAULT_TITLE = 'New Session';
 
-  /** Short title for this session, generated after the first reply. */
+  /** Short title for this session, generated after the first user message. */
   title = Agent.DEFAULT_TITLE;
 
   /** The LLM session used by this agent. */
@@ -77,6 +78,7 @@ export abstract class Agent {
   private readonly getMaxToolRounds: AgentOptions['getMaxToolRounds'];
   private readonly getConfig: () => Promise<LlmConfig>;
   private readonly getLightConfig: (() => Promise<LlmConfig>) | null;
+  private readonly thinkingLevel: ThinkingLevel;
 
   private readonly workingDirectory: string;
 
@@ -129,12 +131,18 @@ export abstract class Agent {
     this.sessionsDir = options.sessionsDir ?? null;
 
     if (snapshot) {
+      assert(
+        Object.hasOwn(snapshot.options, 'thinkingLevel'),
+        'Snapshot is missing thinkingLevel',
+      );
+      this.thinkingLevel = snapshot.options.thinkingLevel;
       this.id = snapshot.id;
       this.title = snapshot.title;
       this.sseEventCount = snapshot.sseEventCount;
       this.workingDirectory = snapshot.options.workingDirectory ?? os.tmpdir();
       this.llmSession = new LlmSession(getConfig, snapshot.llmSession);
     } else {
+      this.thinkingLevel = options.thinkingLevel;
       this.id = crypto.randomUUID();
       this.workingDirectory = options.workingDirectory ?? os.tmpdir();
       this.llmSession = new LlmSession(getConfig);
@@ -177,6 +185,7 @@ export abstract class Agent {
       llmSession: this.llmSession.toSnapshot(),
       options: {
         workingDirectory: this.workingDirectory,
+        thinkingLevel: this.thinkingLevel,
       },
     };
   }
@@ -198,12 +207,14 @@ export abstract class Agent {
    * Handles a user message by running the full Agent Loop in the background.
    * Events are written to {@link sseLog}. Use {@link subscribe} to read them.
    */
-  handleUserMessage(userMessage: string, thinkingLevel: ThinkingLevel): void {
-    void this.runTurn(userMessage, thinkingLevel);
+  handleUserMessage(userMessage: string): void {
+    void this.runTurn(userMessage);
   }
 
-  /** Returns an async iterable of events from this agent's log. */
-  subscribe(options?: AgentSseLogReaderOptions): AsyncIterable<SseEvent> {
+  /** Returns an async iterable of events with raw resume cursors. */
+  subscribe(
+    options?: AgentSseLogReaderOptions,
+  ): AsyncIterable<SseEventCursorEntry> {
     return this.sseLog.createReader(options);
   }
 
@@ -221,12 +232,10 @@ export abstract class Agent {
   // Private helpers
   // -------------------------------------------------------------------------
 
-  private async runTurn(
-    userMessage: string,
-    thinkingLevel: ThinkingLevel,
-  ): Promise<void> {
+  private async runTurn(userMessage: string): Promise<void> {
     const release = await this.mutex.acquire();
     try {
+      const thinkingLevel = this.thinkingLevel;
       this.abortController = new AbortController();
       const stream = this.runAgentLoop(
         userMessage,
@@ -235,13 +244,13 @@ export abstract class Agent {
       );
       await this.pump(stream, (event) => {
         if (
-          event.type === 'done' &&
-          event.reason === 'complete' &&
+          event.type === 'message-start' &&
+          event.role === 'user' &&
           this.title === Agent.DEFAULT_TITLE &&
           !this.isGeneratingTitle
         ) {
           this.isGeneratingTitle = true;
-          void this.generateAndEmitTitle().finally(() => {
+          void this.generateAndEmitTitle(event.content).finally(() => {
             this.isGeneratingTitle = false;
           });
         }
@@ -484,19 +493,19 @@ export abstract class Agent {
     return {
       model: config.model,
       maxInputTokens,
+      thinkingLevel: this.thinkingLevel,
       ...this.llmSession.getUsage(),
     };
   }
 
   /**
-   * Generates a session title from the first user + assistant exchange
-   * using the light LLM, then appends a `session-title` event to sseLog.
+   * Generates a session title from the first user message using the light LLM,
+   * then appends a `session-title` event to sseLog.
    * Fire-and-forget — errors are swallowed and a fallback title is used.
    */
-  private async generateAndEmitTitle(): Promise<void> {
-    const messages = this.llmSession.getMessages();
+  private async generateAndEmitTitle(userMessage: string): Promise<void> {
     const getConfig = this.getLightConfig ?? this.getConfig;
-    this.title = await generateTitle(messages, getConfig);
+    this.title = await generateTitle(userMessage, getConfig);
     if (!this.title) return;
     await this.appendSseEvent({
       type: 'session-title',

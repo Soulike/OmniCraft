@@ -105,6 +105,7 @@ describe('dispatchAgentTool', () => {
         SUB_AGENT_TYPE.GENERAL,
         context.getConfig,
         tmpDir,
+        'none',
       );
 
       expect(subagent).toBeInstanceOf(GeneralSubAgent);
@@ -121,6 +122,7 @@ describe('dispatchAgentTool', () => {
         SUB_AGENT_TYPE.EXPLORE,
         context.getConfig,
         tmpDir,
+        'none',
       );
 
       expect(subagent).toBeInstanceOf(ExploreSubAgent);
@@ -160,6 +162,7 @@ describe('dispatchAgentTool', () => {
         SUB_AGENT_TYPE.GENERAL,
         context.getConfig,
         tmpDir,
+        'none',
         sessionsDir,
       );
 
@@ -179,7 +182,7 @@ describe('dispatchAgentTool', () => {
         title: 'New Session',
         sseEventCount: 0,
         llmSession: {messages: []},
-        options: {workingDirectory: tmpDir},
+        options: {workingDirectory: tmpDir, thinkingLevel: 'none'},
       });
       expect(metadata).toEqual({
         id: subagent.id,
@@ -200,6 +203,7 @@ describe('dispatchAgentTool', () => {
         SUB_AGENT_TYPE.EXPLORE,
         context.getConfig,
         tmpDir,
+        'none',
         sessionsDir,
       );
 
@@ -219,7 +223,7 @@ describe('dispatchAgentTool', () => {
         title: 'New Session',
         sseEventCount: 0,
         llmSession: {messages: []},
-        options: {workingDirectory: tmpDir},
+        options: {workingDirectory: tmpDir, thinkingLevel: 'none'},
       });
       expect(metadata).toEqual({
         id: subagent.id,

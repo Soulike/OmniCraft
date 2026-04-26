@@ -1,18 +1,24 @@
 /**
- * Parses an SSE stream from a fetch Response into raw data strings.
+ * Parses an SSE stream from a fetch Response into event metadata and raw data.
  *
  * Handles buffering across chunk boundaries. For each event (delimited
  * by `\n\n`), validates that every line starts with a known SSE field prefix
  * and throws on malformed lines. Extracts and concatenates all `data:` field
- * values (joined with `\n` for multi-line data). The space after `data:` is
- * optional per spec. Callers are responsible for further parsing (e.g., JSON).
+ * values (joined with `\n` for multi-line data), and extracts the last `id:`
+ * field when present. The space after field names is optional per spec.
+ * Callers are responsible for further parsing (e.g., JSON).
  *
  * The reader is cancelled in a finally block so that the underlying fetch
  * connection is properly cleaned up on early exit or error.
  */
+export interface ParsedSseEvent {
+  id: string | null;
+  data: string;
+}
+
 export async function* parseSseStream(
   response: Response,
-): AsyncGenerator<string, void, undefined> {
+): AsyncGenerator<ParsedSseEvent, void, undefined> {
   const body = response.body;
   if (!body) {
     throw new Error('Response body is null');
@@ -50,7 +56,7 @@ export async function* parseSseStream(
         const data = extractDataFromEvent(event);
         if (data === undefined) continue;
 
-        yield data;
+        yield {id: extractIdFromEvent(event), data};
       }
     }
   } finally {
@@ -132,4 +138,17 @@ function extractDataFromEvent(event: string): string | undefined {
 
   if (dataValues.length === 0) return undefined;
   return dataValues.join('\n');
+}
+
+function extractIdFromEvent(event: string): string | null {
+  let id: string | null = null;
+
+  for (const line of event.split('\n')) {
+    if (!line.startsWith(SSE_FIELD_PREFIXES.id)) continue;
+
+    const value = line.slice(SSE_FIELD_PREFIXES.id.length);
+    id = value.startsWith(' ') ? value.slice(1) : value;
+  }
+
+  return id;
 }

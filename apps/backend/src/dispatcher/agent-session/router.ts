@@ -6,15 +6,18 @@ import {
   AgentType,
   chatCompletionsRequestSchema,
   createCodingSessionRequestSchema,
+  createSessionRequestSchema,
   listSessionsQuerySchema,
   submitToolResponseRequestSchema,
   type ThinkingLevel,
 } from '@omnicraft/api-schema';
+import type {SseEventCursorEntry} from '@omnicraft/sse-events';
 import {StatusCodes} from 'http-status-codes';
 import {ZodError} from 'zod';
 
 import {agentSessionService} from '@/services/agent-session/index.js';
 
+import {parseSseResumeCursor} from './helpers/cursor.js';
 import {writeSseEvent} from './helpers/sse.js';
 import {
   SESSION,
@@ -69,15 +72,19 @@ router.post(SESSION, async (ctx) => {
     return;
   }
 
-  let options = {};
+  let options: {thinkingLevel: ThinkingLevel; workspace?: string};
   try {
     switch (agentType) {
-      case AgentType.CHAT:
+      case AgentType.CHAT: {
+        const body = createSessionRequestSchema.parse(ctx.request.body);
+        options = {thinkingLevel: body.thinkingLevel};
         break;
+      }
       case AgentType.CODING: {
         const body = createCodingSessionRequestSchema.parse(ctx.request.body);
         options = {
           workspace: body.workspace,
+          thinkingLevel: body.thinkingLevel,
         };
         break;
       }
@@ -114,11 +121,9 @@ router.post(SESSION_COMPLETIONS, async (ctx) => {
   const {id} = ctx.params;
 
   let message: string;
-  let thinkingLevel: ThinkingLevel;
   try {
     const body = chatCompletionsRequestSchema.parse(ctx.request.body);
     message = body.message;
-    thinkingLevel = body.thinkingLevel;
   } catch (e) {
     if (e instanceof ZodError) {
       ctx.response.status = StatusCodes.BAD_REQUEST;
@@ -132,7 +137,6 @@ router.post(SESSION_COMPLETIONS, async (ctx) => {
     agentType,
     id,
     message,
-    thinkingLevel,
   );
   if (!found) {
     ctx.response.status = StatusCodes.NOT_FOUND;
@@ -152,7 +156,17 @@ router.get(SESSION_EVENTS, async (ctx) => {
   }
 
   const {id} = ctx.params;
-  const from = Math.max(0, Number(ctx.query.from) || 0);
+
+  let from: number;
+  try {
+    from = parseSseResumeCursor(ctx.query.from);
+  } catch (e) {
+    ctx.response.status = StatusCodes.BAD_REQUEST;
+    ctx.response.body = {
+      error: e instanceof Error ? e.message : 'Invalid SSE resume cursor',
+    };
+    return;
+  }
 
   const abortController = new AbortController();
   const eventStream = await agentSessionService.subscribe(agentType, id, {
@@ -183,7 +197,7 @@ router.get(SESSION_EVENTS, async (ctx) => {
  */
 async function pumpSseEvents(
   stream: PassThrough,
-  eventStream: AsyncIterable<unknown>,
+  eventStream: AsyncIterable<SseEventCursorEntry>,
   req: IncomingMessage,
   abortController: AbortController,
 ): Promise<void> {
@@ -197,8 +211,8 @@ async function pumpSseEvents(
   req.on('close', onDisconnect);
 
   try {
-    for await (const event of eventStream) {
-      writeSseEvent(stream, event);
+    for await (const entry of eventStream) {
+      writeSseEvent(stream, entry.event, entry.nextIndex);
     }
   } finally {
     req.off('close', onDisconnect);

@@ -69,13 +69,24 @@ export function createSubAgent(
   agentType: SubAgentType,
   getConfig: () => Promise<LlmConfig>,
   workingDirectory: string,
+  thinkingLevel: z.infer<typeof thinkingLevelSchema>,
   sessionsDir?: string,
 ): Agent {
   switch (agentType) {
     case SUB_AGENT_TYPE.GENERAL:
-      return new GeneralSubAgent(getConfig, workingDirectory, sessionsDir);
+      return new GeneralSubAgent(
+        getConfig,
+        workingDirectory,
+        thinkingLevel,
+        sessionsDir,
+      );
     case SUB_AGENT_TYPE.EXPLORE:
-      return new ExploreSubAgent(getConfig, workingDirectory, sessionsDir);
+      return new ExploreSubAgent(
+        getConfig,
+        workingDirectory,
+        thinkingLevel,
+        sessionsDir,
+      );
   }
 }
 
@@ -174,6 +185,7 @@ export const dispatchAgentTool: ToolDefinition<
       agentType,
       getConfig,
       workingDirectory,
+      thinkingLevel,
       subagentSessionsDir,
     );
 
@@ -197,11 +209,14 @@ export const dispatchAgentTool: ToolDefinition<
       let completed = false;
       const eventIter = subagent.subscribe({signal: context.signal});
 
-      subagent.handleUserMessage(task, thinkingLevel);
+      subagent.handleUserMessage(task);
 
-      for await (const event of eventIter) {
+      for await (const entry of eventIter) {
+        const {event} = entry;
         // Subagents cannot emit subagent events (no SubAgentToolRegistry),
-        // so all events are base events. Cast is safe by construction.
+        // so all events are base events. Cast is safe by construction. The
+        // subagent cursor is only for resuming that internal log, so it is not
+        // forwarded through the parent session's SSE protocol.
         context.onSubAgentEvent({
           type: 'subagent-output',
           agentId: subagent.id,

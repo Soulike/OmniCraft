@@ -1,18 +1,42 @@
 import {act, renderHook} from '@testing-library/react';
+import {createElement, type ReactNode} from 'react';
 import {describe, expect, it, vi} from 'vitest';
 
+import {
+  SessionConfigContext,
+  type SessionConfigContextValue,
+} from '@/modules/chat-session/contexts/SessionConfigContext/index.js';
+
 import {useTaskDispatchForm} from './useTaskDispatchForm.js';
+
+function createWrapper() {
+  const value: SessionConfigContextValue = {
+    workspaces: [],
+    isLoading: false,
+    loadError: null,
+    selectedWorkspace: undefined,
+    setSelectedWorkspace: vi.fn(),
+    thinkingLevel: 'none',
+    setThinkingLevel: vi.fn(),
+  };
+
+  return function Wrapper({children}: {readonly children: ReactNode}) {
+    return createElement(SessionConfigContext, {value}, children);
+  };
+}
 
 describe('useTaskDispatchForm', () => {
   it('blocks submit and reports validation errors without workspace or task', async () => {
     const onStartTask = vi.fn().mockResolvedValue(undefined);
 
-    const {result} = renderHook(() =>
-      useTaskDispatchForm({
-        selectedWorkspace: undefined,
-        isBlocked: false,
-        onStartTask,
-      }),
+    const {result} = renderHook(
+      () =>
+        useTaskDispatchForm({
+          selectedWorkspace: undefined,
+          isBlocked: false,
+          onStartTask,
+        }),
+      {wrapper: createWrapper()},
     );
 
     expect(result.current.canSubmit).toBe(false);
@@ -31,12 +55,14 @@ describe('useTaskDispatchForm', () => {
   it('trims task text and submits values', async () => {
     const onStartTask = vi.fn().mockResolvedValue(undefined);
 
-    const {result} = renderHook(() =>
-      useTaskDispatchForm({
-        selectedWorkspace: '/repo',
-        isBlocked: false,
-        onStartTask,
-      }),
+    const {result} = renderHook(
+      () =>
+        useTaskDispatchForm({
+          selectedWorkspace: '/repo',
+          isBlocked: false,
+          onStartTask,
+        }),
+      {wrapper: createWrapper()},
     );
 
     act(() => {
@@ -51,7 +77,6 @@ describe('useTaskDispatchForm', () => {
 
     expect(onStartTask).toHaveBeenCalledWith({
       task: 'Fix the failing tests.',
-      thinkingLevel: 'none',
     });
     expect(result.current.errors).toEqual({});
   });
@@ -59,12 +84,14 @@ describe('useTaskDispatchForm', () => {
   it('treats external blocked state as a submit blocker', () => {
     const onStartTask = vi.fn().mockResolvedValue(undefined);
 
-    const blocked = renderHook(() =>
-      useTaskDispatchForm({
-        selectedWorkspace: '/repo',
-        isBlocked: true,
-        onStartTask,
-      }),
+    const blocked = renderHook(
+      () =>
+        useTaskDispatchForm({
+          selectedWorkspace: '/repo',
+          isBlocked: true,
+          onStartTask,
+        }),
+      {wrapper: createWrapper()},
     );
     act(() => {
       blocked.result.current.setTask('Do work');
@@ -75,12 +102,14 @@ describe('useTaskDispatchForm', () => {
   it('does not submit when externally blocked', async () => {
     const onStartTask = vi.fn().mockResolvedValue(undefined);
 
-    const {result} = renderHook(() =>
-      useTaskDispatchForm({
-        selectedWorkspace: '/repo',
-        isBlocked: true,
-        onStartTask,
-      }),
+    const {result} = renderHook(
+      () =>
+        useTaskDispatchForm({
+          selectedWorkspace: '/repo',
+          isBlocked: true,
+          onStartTask,
+        }),
+      {wrapper: createWrapper()},
     );
 
     act(() => {
@@ -107,7 +136,7 @@ describe('useTaskDispatchForm', () => {
           isBlocked: false,
           onStartTask,
         }),
-      {initialProps},
+      {initialProps, wrapper: createWrapper()},
     );
 
     await act(async () => {

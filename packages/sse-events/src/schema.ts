@@ -60,6 +60,7 @@ export const sseUsageSchema = z.object({
   inputTokens: z.number(),
   outputTokens: z.number(),
   cacheReadInputTokens: z.number(),
+  thinkingLevel: thinkingLevelSchema,
 });
 export type SseUsage = z.infer<typeof sseUsageSchema>;
 
@@ -219,3 +220,16 @@ export const sseEventSchema = z.discriminatedUnion('type', [
 
 /** Union of all known SSE events. */
 export type SseEvent = z.infer<typeof sseEventSchema>;
+
+/**
+ * A decoded SSE message paired with the backend-authoritative resume cursor.
+ * `nextIndex` is the next raw, uncompressed log index the client should use
+ * when reconnecting after receiving `event`. Replay compression can merge
+ * several raw log entries into one emitted event, so this value can jump by
+ * more than one.
+ */
+export const sseEventCursorEntrySchema = z.object({
+  event: sseEventSchema,
+  nextIndex: z.number().int().min(0),
+});
+export type SseEventCursorEntry = z.infer<typeof sseEventCursorEntrySchema>;

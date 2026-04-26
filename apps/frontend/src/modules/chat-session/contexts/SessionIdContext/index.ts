@@ -1,4 +1,5 @@
 export {
+  type CreateNewSessionOptions,
   SessionIdContext,
   type SessionIdContextValue,
 } from './SessionIdContext.js';

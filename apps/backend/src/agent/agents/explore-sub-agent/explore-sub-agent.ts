@@ -1,3 +1,5 @@
+import type {ThinkingLevel} from '@omnicraft/api-schema';
+
 import {CoreSkillRegistry} from '@/agent/skills/index.js';
 import {
   BashToolRegistry,
@@ -19,6 +21,7 @@ export class ExploreSubAgent extends Agent {
   constructor(
     getConfig: () => Promise<LlmConfig>,
     workingDirectory: string,
+    thinkingLevel: ThinkingLevel,
     sessionsDir?: string,
   ) {
     super(getConfig, {
@@ -34,6 +37,7 @@ export class ExploreSubAgent extends Agent {
         const settings = await settingsService.getAll();
         return settings.agent.maxToolRounds;
       },
+      thinkingLevel,
       workingDirectory,
       sessionsDir,
     });

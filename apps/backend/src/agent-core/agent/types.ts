@@ -1,3 +1,4 @@
+import {type ThinkingLevel, thinkingLevelSchema} from '@omnicraft/api-schema';
 import type {SseErrorEvent, SseEvent} from '@omnicraft/sse-events';
 import {z} from 'zod';
 
@@ -22,6 +23,7 @@ export type AgentEventStream = AsyncGenerator<AgentEvent, void, undefined>;
 
 const agentSnapshotOptionsSchema = z.object({
   workingDirectory: z.string().optional(),
+  thinkingLevel: thinkingLevelSchema,
   claudeCodeSessionId: z.string().optional(),
 });
 
@@ -48,6 +50,7 @@ export interface AgentOptions {
   readonly skillRegistries: SkillRegistry[];
   readonly baseSystemPrompt: string;
   readonly getMaxToolRounds: () => Promise<number> | number;
+  readonly thinkingLevel: ThinkingLevel;
   readonly getLightConfig?: () => Promise<LlmConfig>;
   readonly workingDirectory?: string;
   readonly sessionsDir?: string;
