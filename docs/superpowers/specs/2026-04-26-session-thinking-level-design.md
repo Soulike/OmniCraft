@@ -201,8 +201,7 @@ No separate Coding setup interaction is needed.
 
 ### Frontend State Ownership
 
-Do not store the created session's thinking level in `SessionConfigProvider`.
-That provider should remain focused on workspace-related session UI state.
+`SessionConfigProvider` remains focused on workspace-related session UI state.
 
 Thinking-level state has two frontend owners:
 
@@ -226,7 +225,8 @@ Display behavior:
 
 - Show `Thinking: <level>` when `usage.thinkingLevel` is known.
 - Hide the indicator while unknown, rather than showing a misleading default.
-- Do not place a disabled select in the follow-up composer.
+- The follow-up composer contains only the message textarea and send/stop
+  button.
 
 ### Subagents
 
