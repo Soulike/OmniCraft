@@ -8,7 +8,6 @@ import {
   type ChatEventBus,
   ChatInput,
   type ChatMessage,
-  ChatSessionStarterInput,
   chatSessionStyles as styles,
   SessionSidebar,
   StreamingMessageDisplay,
@@ -109,8 +108,9 @@ export function ChatPageView({
               onStop={onStop}
             />
           ) : (
-            <ChatSessionStarterInput
+            <ChatInput
               isStreaming={isStreaming}
+              showThinkingLevelSelect
               onSend={onStartSession}
               onStop={onStop}
             />
