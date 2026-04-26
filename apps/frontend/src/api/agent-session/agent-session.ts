@@ -18,13 +18,14 @@ function base(agentType: AgentType): string {
 }
 
 export interface CreateSessionOptions {
+  thinkingLevel: ThinkingLevel;
   workspace?: string;
 }
 
 /** Creates a new session. Returns the session ID. */
 export async function createSession(
   agentType: AgentType,
-  options: CreateSessionOptions = {},
+  options: CreateSessionOptions,
 ): Promise<string> {
   const res = await fetch(`${base(agentType)}/session`, {
     method: 'POST',
@@ -52,14 +53,13 @@ export async function sendMessage(
   agentType: AgentType,
   sessionId: string,
   message: string,
-  thinkingLevel: ThinkingLevel,
 ): Promise<void> {
   const res = await fetch(
     `${base(agentType)}/session/${sessionId}/completions`,
     {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({message, thinkingLevel}),
+      body: JSON.stringify({message}),
     },
   );
 

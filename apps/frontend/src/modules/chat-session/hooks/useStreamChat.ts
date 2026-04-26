@@ -1,4 +1,3 @@
-import type {ThinkingLevel} from '@omnicraft/api-schema';
 import {useCallback, useEffect, useRef, useState} from 'react';
 
 import {HttpError} from '@/api/helpers/http-error.js';
@@ -12,6 +11,9 @@ import {useChatSessionApi} from './useChatSessionApi.js';
 import type {useSessionId} from './useSessionId.js';
 
 type SessionIdHook = ReturnType<typeof useSessionId>;
+type CreateNewSessionOptions = Parameters<
+  SessionIdHook['createNewSessionId']
+>[0];
 
 interface UseStreamChatOptions {
   sessionId: SessionIdHook['sessionId'];
@@ -188,15 +190,12 @@ export function useStreamChat({
     };
   }, [sessionId, eventBus, subscribeEvents]);
 
-  const sendMessage = useCallback(
-    async (content: string, thinkingLevel: ThinkingLevel) => {
+  const sendMessageToSession = useCallback(
+    async (targetSessionId: string, content: string) => {
       if (isStreaming) return;
 
       const trimmed = content.trim();
       if (!trimmed) return;
-
-      const activeSessionId = sessionId ?? (await createNewSessionId());
-      if (!activeSessionId) return;
 
       setStreamError(null);
       setMaxRoundsReached(false);
@@ -205,7 +204,7 @@ export function useStreamChat({
       eventBus.emit('user-message-sent', {content: trimmed});
 
       try {
-        await apiSendMessage(activeSessionId, trimmed, thinkingLevel);
+        await apiSendMessage(targetSessionId, trimmed);
       } catch (e: unknown) {
         console.error('Failed to send message', e);
         const message =
@@ -215,7 +214,34 @@ export function useStreamChat({
         setIsStreaming(false);
       }
     },
-    [isStreaming, sessionId, createNewSessionId, eventBus, apiSendMessage],
+    [isStreaming, eventBus, apiSendMessage],
+  );
+
+  const sendMessageToNewSession = useCallback(
+    async (content: string, createSessionOptions?: CreateNewSessionOptions) => {
+      if (isStreaming) return null;
+
+      const trimmed = content.trim();
+      if (!trimmed) return null;
+
+      const newSessionId = await createNewSessionId(createSessionOptions);
+      if (!newSessionId) return null;
+
+      await sendMessageToSession(newSessionId, trimmed);
+      return newSessionId;
+    },
+    [isStreaming, createNewSessionId, sendMessageToSession],
+  );
+
+  const sendMessage = useCallback(
+    async (content: string) => {
+      if (sessionId === null) {
+        throw new Error('Cannot send a follow-up message without a session.');
+      }
+
+      await sendMessageToSession(sessionId, content);
+    },
+    [sessionId, sendMessageToSession],
   );
 
   const stopGeneration = useCallback(() => {
@@ -237,6 +263,7 @@ export function useStreamChat({
     streamError,
     maxRoundsReached,
     sendMessage,
+    sendMessageToNewSession,
     stopGeneration,
     clearStreamError,
     clearMaxRoundsReached,

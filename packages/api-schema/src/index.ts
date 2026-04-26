@@ -4,6 +4,8 @@ export {
   chatCompletionsRequestSchema,
   type CreateCodingSessionRequest,
   createCodingSessionRequestSchema,
+  type CreateSessionRequest,
+  createSessionRequestSchema,
   type CreateSessionResponse,
   createSessionResponseSchema,
   type ListSessionsQuery,

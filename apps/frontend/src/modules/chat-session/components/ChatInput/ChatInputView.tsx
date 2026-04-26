@@ -7,6 +7,7 @@ import styles from './styles.module.css';
 interface ChatInputViewProps {
   input: string;
   isStreaming: boolean;
+  showThinkingLevelSelect: boolean;
   thinkingLevel: ThinkingLevel;
   onInputChange: (value: string) => void;
   onKeyDown: (e: React.KeyboardEvent) => void;
@@ -18,6 +19,7 @@ interface ChatInputViewProps {
 export function ChatInputView({
   input,
   isStreaming,
+  showThinkingLevelSelect,
   thinkingLevel,
   onInputChange,
   onKeyDown,
@@ -39,11 +41,13 @@ export function ChatInputView({
         }}
         onKeyDown={onKeyDown}
       />
-      <ThinkingLevelSelect
-        value={thinkingLevel}
-        isDisabled={isStreaming}
-        onChange={onThinkingLevelChange}
-      />
+      {showThinkingLevelSelect && (
+        <ThinkingLevelSelect
+          value={thinkingLevel}
+          isDisabled={isStreaming}
+          onChange={onThinkingLevelChange}
+        />
+      )}
       {isStreaming ? (
         <Button aria-label='Stop generation' variant='danger' onPress={onStop}>
           Stop

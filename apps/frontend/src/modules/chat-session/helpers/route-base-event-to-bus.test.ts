@@ -48,11 +48,12 @@ describe('routeBaseEventToBus', () => {
       type: 'done',
       reason: 'complete',
       usage: {
-        model: 'test',
-        maxInputTokens: 0,
-        inputTokens: 0,
-        outputTokens: 0,
+        model: 'test-model',
+        maxInputTokens: 100,
+        inputTokens: 10,
+        outputTokens: 5,
         cacheReadInputTokens: 0,
+        thinkingLevel: 'none',
       },
     };
     routeBaseEventToBus(event, bus);

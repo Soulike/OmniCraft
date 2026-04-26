@@ -1,5 +1,4 @@
 import {ScrollShadow} from '@heroui/react';
-import type {ThinkingLevel} from '@omnicraft/api-schema';
 import type {RefObject} from 'react';
 
 import {
@@ -25,7 +24,8 @@ interface ChatPageViewProps {
   scrollRef: RefObject<HTMLDivElement | null>;
   sessionId: string | null;
   onMessagesChange: (messages: readonly ChatMessage[]) => void;
-  onSend: (content: string, thinkingLevel: ThinkingLevel) => void;
+  onStartSession: (content: string) => void;
+  onSend: (content: string) => void;
   onStop: () => void;
   onNewSession: () => void;
   newSessionDisabled: boolean;
@@ -44,6 +44,7 @@ export function ChatPageView({
   scrollRef,
   sessionId,
   onMessagesChange,
+  onStartSession,
   onSend,
   onStop,
   onNewSession,
@@ -99,11 +100,20 @@ export function ChatPageView({
             />
           </ScrollShadow>
           {sessionId && <BottomBar />}
-          <ChatInput
-            isStreaming={isStreaming}
-            onSend={onSend}
-            onStop={onStop}
-          />
+          {sessionId ? (
+            <ChatInput
+              isStreaming={isStreaming}
+              onSend={onSend}
+              onStop={onStop}
+            />
+          ) : (
+            <ChatInput
+              isStreaming={isStreaming}
+              showThinkingLevelSelect
+              onSend={onStartSession}
+              onStop={onStop}
+            />
+          )}
         </div>
       </div>
     </div>

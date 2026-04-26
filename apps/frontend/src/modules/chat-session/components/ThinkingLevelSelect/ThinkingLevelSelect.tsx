@@ -2,20 +2,8 @@ import {ListBox, Select} from '@heroui/react';
 import type {ThinkingLevel} from '@omnicraft/api-schema';
 import {Lightbulb} from 'lucide-react';
 
+import {THINKING_LEVEL_LABELS, THINKING_LEVELS} from '../../constants.js';
 import styles from './styles.module.css';
-
-const THINKING_LEVEL_LABELS: Record<ThinkingLevel, string> = {
-  none: 'None',
-  low: 'Low',
-  medium: 'Medium',
-  high: 'High',
-  xhigh: 'Extra High',
-};
-
-const THINKING_LEVELS = Object.entries(THINKING_LEVEL_LABELS) as [
-  ThinkingLevel,
-  string,
-][];
 
 interface ThinkingLevelSelectProps {
   value: ThinkingLevel;

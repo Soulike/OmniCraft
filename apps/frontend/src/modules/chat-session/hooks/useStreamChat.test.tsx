@@ -1,5 +1,13 @@
 import type {SseEvent} from '@omnicraft/sse-events';
-import {act, fireEvent, render, screen} from '@testing-library/react';
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react';
+import {useEffect} from 'react';
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 
 import {
@@ -51,6 +59,7 @@ function usage() {
     inputTokens: 10,
     outputTokens: 5,
     cacheReadInputTokens: 0,
+    thinkingLevel: 'none' as const,
   };
 }
 
@@ -97,6 +106,72 @@ function HarnessContent() {
   return <StreamingMessageDisplay eventBus={eventBus} sessionId='session-1' />;
 }
 
+type SendResult = {status: 'fulfilled'} | {error: unknown; status: 'rejected'};
+
+interface CreateNewSessionOptions {
+  workspace?: string;
+}
+
+interface SendHarnessProps {
+  config?: CreateNewSessionOptions;
+  content: string;
+  createNewSessionId: (
+    config?: CreateNewSessionOptions,
+  ) => Promise<string | null>;
+  onResult: (result: SendResult) => void;
+  onUserMessage?: (content: string) => void;
+  sessionId: string | null;
+  useNewSession?: boolean;
+}
+
+function SendHarness({
+  config,
+  content,
+  createNewSessionId,
+  onResult,
+  onUserMessage,
+  sessionId,
+  useNewSession = false,
+}: SendHarnessProps) {
+  const eventBus = useChatEventBus();
+  const {sendMessage, sendMessageToNewSession} = useStreamChat({
+    sessionId,
+    createNewSessionId,
+  });
+
+  useEffect(() => {
+    if (!onUserMessage) return;
+    const handler = ({content}: {content: string}) => {
+      onUserMessage(content);
+    };
+    eventBus.on('user-message-sent', handler);
+    return () => {
+      eventBus.off('user-message-sent', handler);
+    };
+  }, [eventBus, onUserMessage]);
+
+  return (
+    <button
+      onClick={() => {
+        const send = useNewSession
+          ? sendMessageToNewSession(content, config)
+          : sendMessage(content);
+        void send.then(
+          () => {
+            onResult({status: 'fulfilled'});
+          },
+          (error: unknown) => {
+            onResult({error, status: 'rejected'});
+          },
+        );
+      }}
+      type='button'
+    >
+      Send
+    </button>
+  );
+}
+
 function StreamOnlyHarnessContent() {
   useStreamChat({
     sessionId: 'session-1',
@@ -122,11 +197,136 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  cleanup();
   vi.useRealTimers();
   vi.unstubAllGlobals();
 });
 
 describe('useStreamChat', () => {
+  it('sends the first message to a new session without config', async () => {
+    const api = createApi([]);
+    const createNewSessionId = vi.fn(() => Promise.resolve('created-session'));
+    const onResult = vi.fn<(result: SendResult) => void>();
+
+    render(
+      <ChatSessionApiContext value={api}>
+        <ChatEventBusProvider>
+          <SendHarness
+            content='  hello world  '
+            createNewSessionId={createNewSessionId}
+            onResult={onResult}
+            sessionId={null}
+            useNewSession
+          />
+        </ChatEventBusProvider>
+      </ChatSessionApiContext>,
+    );
+
+    fireEvent.click(screen.getByRole('button', {name: 'Send'}));
+
+    await waitFor(() => {
+      expect(onResult).toHaveBeenCalledWith({status: 'fulfilled'});
+    });
+    expect(createNewSessionId).toHaveBeenCalledWith(undefined);
+    expect(api.sendMessage).toHaveBeenCalledWith(
+      'created-session',
+      'hello world',
+    );
+  });
+
+  it('passes workspace config when sending the first message to a new session', async () => {
+    const api = createApi([]);
+    const config = {workspace: '/repo'};
+    const createNewSessionId = vi.fn(() => Promise.resolve('created-session'));
+    const onResult = vi.fn<(result: SendResult) => void>();
+
+    render(
+      <ChatSessionApiContext value={api}>
+        <ChatEventBusProvider>
+          <SendHarness
+            config={config}
+            content='  hello world  '
+            createNewSessionId={createNewSessionId}
+            onResult={onResult}
+            sessionId={null}
+            useNewSession
+          />
+        </ChatEventBusProvider>
+      </ChatSessionApiContext>,
+    );
+
+    fireEvent.click(screen.getByRole('button', {name: 'Send'}));
+
+    await waitFor(() => {
+      expect(onResult).toHaveBeenCalledWith({status: 'fulfilled'});
+    });
+    expect(createNewSessionId).toHaveBeenCalledWith(config);
+    expect(api.sendMessage).toHaveBeenCalledWith(
+      'created-session',
+      'hello world',
+    );
+  });
+
+  it('rejects sending a follow-up message without a session', async () => {
+    const api = createApi([]);
+    const createNewSessionId = vi.fn(() => Promise.resolve('created-session'));
+    const onResult = vi.fn<(result: SendResult) => void>();
+
+    render(
+      <ChatSessionApiContext value={api}>
+        <ChatEventBusProvider>
+          <SendHarness
+            content='  hello world  '
+            createNewSessionId={createNewSessionId}
+            onResult={onResult}
+            sessionId={null}
+          />
+        </ChatEventBusProvider>
+      </ChatSessionApiContext>,
+    );
+
+    fireEvent.click(screen.getByRole('button', {name: 'Send'}));
+
+    await waitFor(() => {
+      expect(onResult).toHaveBeenCalledWith({
+        error: new Error('Cannot send a follow-up message without a session.'),
+        status: 'rejected',
+      });
+    });
+    expect(createNewSessionId).not.toHaveBeenCalled();
+    expect(api.sendMessage).not.toHaveBeenCalled();
+  });
+
+  it('sends the trimmed message for an existing session without creating a session', async () => {
+    const api = createApi([]);
+    const createNewSessionId = vi.fn(() => Promise.resolve('created-session'));
+    const onResult = vi.fn<(result: SendResult) => void>();
+
+    render(
+      <ChatSessionApiContext value={api}>
+        <ChatEventBusProvider>
+          <SendHarness
+            content='  follow up  '
+            createNewSessionId={createNewSessionId}
+            onResult={onResult}
+            sessionId='existing-session'
+          />
+        </ChatEventBusProvider>
+      </ChatSessionApiContext>,
+    );
+
+    fireEvent.click(screen.getByRole('button', {name: 'Send'}));
+
+    await waitFor(() => {
+      expect(onResult).toHaveBeenCalledWith({status: 'fulfilled'});
+    });
+    expect(createNewSessionId).not.toHaveBeenCalled();
+    expect(api.sendMessage).toHaveBeenCalledWith(
+      'existing-session',
+      'follow up',
+    );
+  });
+
   it('reconnects with the backend-provided raw cursor after a replay event', async () => {
     vi.useFakeTimers();
     const subscribeEvents = vi

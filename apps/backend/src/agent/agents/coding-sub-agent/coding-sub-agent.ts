@@ -55,6 +55,7 @@ export class CodingSubAgent extends Agent {
         skillRegistries: [],
         baseSystemPrompt: '',
         getMaxToolRounds: () => 0,
+        thinkingLevel: snapshot?.options.thinkingLevel ?? 'none',
         workingDirectory,
       },
       snapshot,
@@ -77,7 +78,7 @@ export class CodingSubAgent extends Agent {
 
   protected override async *runAgentLoop(
     userMessage: string,
-    _thinkingLevel: ThinkingLevel,
+    thinkingLevel: ThinkingLevel,
     signal: AbortSignal,
   ): AgentEventStream {
     // Dynamic import to avoid loading the SDK when no coding subagent is used.
@@ -113,6 +114,7 @@ export class CodingSubAgent extends Agent {
       inputTokens: 0,
       outputTokens: 0,
       cacheReadInputTokens: 0,
+      thinkingLevel,
     };
 
     const messageStream = query({
@@ -186,6 +188,7 @@ export class CodingSubAgent extends Agent {
           inputTokens: modelUsage.inputTokens,
           outputTokens: modelUsage.outputTokens,
           cacheReadInputTokens: modelUsage.cacheReadInputTokens,
+          thinkingLevel,
         };
 
         if (message.subtype === 'success') {

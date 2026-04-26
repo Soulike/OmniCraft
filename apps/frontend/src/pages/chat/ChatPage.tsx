@@ -22,14 +22,14 @@ export function ChatPage() {
   return (
     <ChatSessionApiContext value={chatApi}>
       <ChatEventBusProvider>
-        <SessionIdProvider
-          buildSessionRoute={(id) => `${ROUTES.chat()}/${id}`}
-          baseRoute={ROUTES.chat()}
-        >
-          <SessionConfigProvider>
+        <SessionConfigProvider>
+          <SessionIdProvider
+            buildSessionRoute={(id) => `${ROUTES.chat()}/${id}`}
+            baseRoute={ROUTES.chat()}
+          >
             <ChatPageContent />
-          </SessionConfigProvider>
-        </SessionIdProvider>
+          </SessionIdProvider>
+        </SessionConfigProvider>
       </ChatEventBusProvider>
     </ChatSessionApiContext>
   );
@@ -56,6 +56,7 @@ function ChatPageContent() {
     streamError,
     maxRoundsReached,
     sendMessage,
+    sendMessageToNewSession,
     stopGeneration,
     clearStreamError,
     clearMaxRoundsReached,
@@ -65,6 +66,26 @@ function ChatPageContent() {
   });
 
   const {containerRef: scrollRef, scrollToBottom} = useAutoScroll();
+
+  const handleStartSession = useCallback(
+    (content: string) => {
+      void sendMessageToNewSession(content);
+      requestAnimationFrame(() => {
+        scrollToBottom();
+      });
+    },
+    [sendMessageToNewSession, scrollToBottom],
+  );
+
+  const handleSend = useCallback(
+    (content: string) => {
+      void sendMessage(content);
+      requestAnimationFrame(() => {
+        scrollToBottom();
+      });
+    },
+    [sendMessage, scrollToBottom],
+  );
 
   const displayError = createNewSessionIdError ?? streamError;
 
@@ -88,12 +109,8 @@ function ChatPageContent() {
       scrollRef={scrollRef}
       sessionId={sessionId}
       onMessagesChange={onMessagesChange}
-      onSend={(content, thinkingLevel) => {
-        void sendMessage(content, thinkingLevel);
-        requestAnimationFrame(() => {
-          scrollToBottom();
-        });
-      }}
+      onStartSession={handleStartSession}
+      onSend={handleSend}
       onStop={stopGeneration}
       onNewSession={clearSessionId}
       newSessionDisabled={newSessionDisabled}

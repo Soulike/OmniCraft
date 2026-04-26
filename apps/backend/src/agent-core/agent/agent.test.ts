@@ -3,6 +3,7 @@ import {afterEach, describe, expect, it, vi} from 'vitest';
 
 import {llmApi, type LlmConfig, type LlmEventStream} from '../llm-api/index.js';
 import {Agent} from './agent.js';
+import type {AgentSnapshot} from './types.js';
 
 const MAIN_CONFIG: LlmConfig = {
   apiFormat: 'openai',
@@ -17,6 +18,17 @@ const LIGHT_CONFIG: LlmConfig = {
 };
 
 class TestAgent extends Agent {}
+
+function testAgentOptions() {
+  return {
+    toolRegistries: [],
+    skillRegistries: [],
+    baseSystemPrompt: '',
+    getMaxToolRounds: () => 1,
+    getLightConfig: () => Promise.resolve(LIGHT_CONFIG),
+    thinkingLevel: 'high' as const,
+  };
+}
 
 async function delay(ms: number): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, ms));
@@ -74,15 +86,11 @@ describe('Agent title generation', () => {
     });
 
     const agent = new TestAgent(() => Promise.resolve(MAIN_CONFIG), {
-      toolRegistries: [],
-      skillRegistries: [],
-      baseSystemPrompt: '',
-      getMaxToolRounds: () => 1,
-      getLightConfig: () => Promise.resolve(LIGHT_CONFIG),
+      ...testAgentOptions(),
     });
 
     const eventsPromise = collectUntilDone(agent);
-    agent.handleUserMessage('Please help me rename a component', 'none');
+    agent.handleUserMessage('Please help me rename a component');
     const events = await eventsPromise;
 
     const userStartIndex = events.findIndex(
@@ -96,9 +104,39 @@ describe('Agent title generation', () => {
     expect(userStartIndex).toBeGreaterThanOrEqual(0);
     expect(titleIndex).toBeGreaterThan(userStartIndex);
     expect(titleIndex).toBeLessThan(doneIndex);
+    expect(events[doneIndex]).toMatchObject({
+      type: 'done',
+      usage: {thinkingLevel: 'high'},
+    });
     expect(events[titleIndex]).toEqual({
       type: 'session-title',
       title: 'Short Title',
     });
+  });
+});
+
+describe('Agent snapshot restore', () => {
+  it('throws when a snapshot reaches the constructor without thinkingLevel', () => {
+    const snapshot = {
+      id: 'agent-with-missing-thinking-level',
+      title: 'Restored Session',
+      sseEventCount: 0,
+      llmSession: {
+        id: 'llm-session-id',
+        messages: [],
+      },
+      options: {
+        workingDirectory: '/tmp/project',
+      },
+    } as unknown as AgentSnapshot;
+
+    expect(
+      () =>
+        new TestAgent(
+          () => Promise.resolve(MAIN_CONFIG),
+          testAgentOptions(),
+          snapshot,
+        ),
+    ).toThrow('Snapshot is missing thinkingLevel');
   });
 });

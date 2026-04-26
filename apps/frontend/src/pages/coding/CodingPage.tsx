@@ -1,4 +1,3 @@
-import type {ThinkingLevel} from '@omnicraft/api-schema';
 import {useCallback, useMemo} from 'react';
 
 import * as codingApi from '@/api/coding/index.js';
@@ -26,14 +25,14 @@ export function CodingPage() {
   return (
     <ChatSessionApiContext value={codingApi}>
       <ChatEventBusProvider>
-        <SessionIdProvider
-          buildSessionRoute={(id) => `${ROUTES.coding()}/${id}`}
-          baseRoute={ROUTES.coding()}
-        >
-          <SessionConfigProvider>
+        <SessionConfigProvider>
+          <SessionIdProvider
+            buildSessionRoute={(id) => `${ROUTES.coding()}/${id}`}
+            baseRoute={ROUTES.coding()}
+          >
             <CodingPageContent />
-          </SessionConfigProvider>
-        </SessionIdProvider>
+          </SessionIdProvider>
+        </SessionConfigProvider>
       </ChatEventBusProvider>
     </ChatSessionApiContext>
   );
@@ -73,32 +72,41 @@ function CodingPageContent() {
     return getVscodeUrl(vscodePort, vscodeToken, selectedWorkspace);
   }, [sessionId, vscodeAvailable, vscodePort, vscodeToken, selectedWorkspace]);
 
-  const createNewSessionIdWithConfig = useCallback(async () => {
-    if (selectedWorkspace === undefined) {
-      throw new Error('Please select a workspace before starting a session.');
-    }
-    return createNewSessionId({workspace: selectedWorkspace});
-  }, [createNewSessionId, selectedWorkspace]);
-
   const {
     isStreaming,
     isReconnecting,
     streamError,
     maxRoundsReached,
     sendMessage,
+    sendMessageToNewSession,
     stopGeneration,
     clearStreamError,
     clearMaxRoundsReached,
   } = useStreamChat({
     sessionId,
-    createNewSessionId: createNewSessionIdWithConfig,
+    createNewSessionId,
   });
 
   const {containerRef: scrollRef, scrollToBottom} = useAutoScroll();
 
+  const handleStartTask = useCallback(
+    async (content: string) => {
+      if (selectedWorkspace === undefined) {
+        throw new Error('Please select a workspace before starting a session.');
+      }
+      await sendMessageToNewSession(content, {
+        workspace: selectedWorkspace,
+      });
+      requestAnimationFrame(() => {
+        scrollToBottom();
+      });
+    },
+    [sendMessageToNewSession, scrollToBottom, selectedWorkspace],
+  );
+
   const handleSend = useCallback(
-    async (content: string, thinkingLevel: ThinkingLevel) => {
-      await sendMessage(content, thinkingLevel);
+    async (content: string) => {
+      await sendMessage(content);
       requestAnimationFrame(() => {
         scrollToBottom();
       });
@@ -127,6 +135,7 @@ function CodingPageContent() {
       scrollRef={scrollRef}
       sessionId={sessionId}
       onMessagesChange={onMessagesChange}
+      onStartTask={handleStartTask}
       onSend={handleSend}
       onStop={stopGeneration}
       onNewSession={clearSessionId}

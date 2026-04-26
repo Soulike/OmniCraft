@@ -1,4 +1,3 @@
-import type {ThinkingLevel} from '@omnicraft/api-schema';
 import {useCallback, useEffect, useState} from 'react';
 
 import {useSessionConfig} from '@/modules/chat-session/index.js';
@@ -8,10 +7,7 @@ import {TaskDispatchCardView} from './TaskDispatchCardView.js';
 import type {TaskDispatchValues} from './types.js';
 
 interface TaskDispatchCardProps {
-  readonly onSend: (
-    content: string,
-    thinkingLevel: ThinkingLevel,
-  ) => Promise<void>;
+  readonly onSend: (content: string) => Promise<void>;
 }
 
 export function TaskDispatchCard({onSend}: TaskDispatchCardProps) {
@@ -34,8 +30,8 @@ export function TaskDispatchCard({onSend}: TaskDispatchCardProps) {
     !isLoading && loadError === null && workspaces.length > 0;
 
   const startTask = useCallback(
-    async ({task, thinkingLevel}: TaskDispatchValues) => {
-      await onSend(task, thinkingLevel);
+    async ({task}: TaskDispatchValues) => {
+      await onSend(task);
     },
     [onSend],
   );
