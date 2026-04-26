@@ -1,5 +1,5 @@
 import type {ThinkingLevel} from '@omnicraft/api-schema';
-import {useState} from 'react';
+import {useCallback, useState} from 'react';
 
 import {useThinkingLevel} from '../ThinkingLevelSelect/index.js';
 import {ChatInputView} from './ChatInputView.js';
@@ -18,33 +18,41 @@ type ChatInputProps = {
     }
 );
 
-export function ChatInput(props: ChatInputProps) {
-  const {isStreaming, onStop} = props;
+export function ChatInput({
+  isStreaming,
+  onSend,
+  onStop,
+  showThinkingLevelSelect,
+}: ChatInputProps) {
   const [input, setInput] = useState('');
   const {thinkingLevel, setThinkingLevel} = useThinkingLevel();
+  const shouldShowThinkingLevelSelect = showThinkingLevelSelect === true;
 
-  function handleSend() {
+  const handleSend = useCallback(() => {
     if (!input.trim()) return;
-    if (props.showThinkingLevelSelect) {
-      props.onSend(input, thinkingLevel);
+    if (showThinkingLevelSelect) {
+      onSend(input, thinkingLevel);
     } else {
-      props.onSend(input);
+      onSend(input);
     }
     setInput('');
-  }
+  }, [input, onSend, showThinkingLevelSelect, thinkingLevel]);
 
-  function handleKeyDown(e: React.KeyboardEvent) {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSend();
-    }
-  }
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        handleSend();
+      }
+    },
+    [handleSend],
+  );
 
   return (
     <ChatInputView
       input={input}
       isStreaming={isStreaming}
-      showThinkingLevelSelect={props.showThinkingLevelSelect === true}
+      showThinkingLevelSelect={shouldShowThinkingLevelSelect}
       thinkingLevel={thinkingLevel}
       onInputChange={setInput}
       onKeyDown={handleKeyDown}
