@@ -32,6 +32,7 @@ function getStore(agentType: AgentType) {
 // ---------------------------------------------------------------------------
 
 interface CreateSessionOptions {
+  thinkingLevel: ThinkingLevel;
   workspace?: string;
 }
 
@@ -44,7 +45,7 @@ export const agentSessionService = {
    */
   async createSession(
     agentType: AgentType,
-    options: CreateSessionOptions = {},
+    options: CreateSessionOptions,
   ): Promise<CreateSessionResult> {
     const llmConfig = await getLlmConfig(agentType);
 
@@ -74,10 +75,18 @@ export const agentSessionService = {
     let agent: Agent;
     switch (agentType) {
       case AgentType.CHAT:
-        agent = new MainAgent(options.workspace, sessionsDir);
+        agent = new MainAgent(
+          options.workspace,
+          options.thinkingLevel,
+          sessionsDir,
+        );
         break;
       case AgentType.CODING:
-        agent = new CodingAgent(options.workspace, sessionsDir);
+        agent = new CodingAgent(
+          options.workspace,
+          options.thinkingLevel,
+          sessionsDir,
+        );
         break;
     }
     return {success: true, sessionId: agent.id};
@@ -91,11 +100,10 @@ export const agentSessionService = {
     agentType: AgentType,
     agentId: string,
     userMessage: string,
-    thinkingLevel: ThinkingLevel,
   ): Promise<boolean> {
     const agent = await getStore(agentType).get(agentId);
     if (!agent) return false;
-    agent.handleUserMessage(userMessage, thinkingLevel);
+    agent.handleUserMessage(userMessage);
     return true;
   },
 

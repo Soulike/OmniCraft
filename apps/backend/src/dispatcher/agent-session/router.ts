@@ -6,6 +6,7 @@ import {
   AgentType,
   chatCompletionsRequestSchema,
   createCodingSessionRequestSchema,
+  createSessionRequestSchema,
   listSessionsQuerySchema,
   submitToolResponseRequestSchema,
   type ThinkingLevel,
@@ -69,15 +70,19 @@ router.post(SESSION, async (ctx) => {
     return;
   }
 
-  let options = {};
+  let options: {thinkingLevel: ThinkingLevel; workspace?: string};
   try {
     switch (agentType) {
-      case AgentType.CHAT:
+      case AgentType.CHAT: {
+        const body = createSessionRequestSchema.parse(ctx.request.body);
+        options = {thinkingLevel: body.thinkingLevel};
         break;
+      }
       case AgentType.CODING: {
         const body = createCodingSessionRequestSchema.parse(ctx.request.body);
         options = {
           workspace: body.workspace,
+          thinkingLevel: body.thinkingLevel,
         };
         break;
       }
@@ -114,11 +119,9 @@ router.post(SESSION_COMPLETIONS, async (ctx) => {
   const {id} = ctx.params;
 
   let message: string;
-  let thinkingLevel: ThinkingLevel;
   try {
     const body = chatCompletionsRequestSchema.parse(ctx.request.body);
     message = body.message;
-    thinkingLevel = body.thinkingLevel;
   } catch (e) {
     if (e instanceof ZodError) {
       ctx.response.status = StatusCodes.BAD_REQUEST;
@@ -132,7 +135,6 @@ router.post(SESSION_COMPLETIONS, async (ctx) => {
     agentType,
     id,
     message,
-    thinkingLevel,
   );
   if (!found) {
     ctx.response.status = StatusCodes.NOT_FOUND;
