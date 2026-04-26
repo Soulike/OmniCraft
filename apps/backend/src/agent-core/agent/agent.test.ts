@@ -60,7 +60,8 @@ async function collectUntilDone(agent: Agent): Promise<SseEvent[]> {
   const controller = new AbortController();
   const events: SseEvent[] = [];
 
-  for await (const event of agent.subscribe({signal: controller.signal})) {
+  for await (const entry of agent.subscribe({signal: controller.signal})) {
+    const {event} = entry;
     events.push(event);
     if (event.type === 'done') {
       controller.abort();

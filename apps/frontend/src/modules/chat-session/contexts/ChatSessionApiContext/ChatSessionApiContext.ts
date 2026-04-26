@@ -1,5 +1,5 @@
 import type {ListSessionsResponse} from '@omnicraft/api-schema';
-import type {SseEvent} from '@omnicraft/sse-events';
+import type {SseEventCursorEntry} from '@omnicraft/sse-events';
 import {createContext} from 'react';
 
 import type {CreateSessionOptions} from '@/api/agent-session/index.js';
@@ -13,7 +13,7 @@ export interface ChatSessionApi {
     sessionId: string,
     from: number,
     signal?: AbortSignal,
-  ) => AsyncGenerator<SseEvent, void, undefined>;
+  ) => AsyncGenerator<SseEventCursorEntry, void, undefined>;
 
   abortCompletion: (sessionId: string) => Promise<void>;
 

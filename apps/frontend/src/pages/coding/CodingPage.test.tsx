@@ -1,4 +1,4 @@
-import type {SseEvent} from '@omnicraft/sse-events';
+import type {SseEventCursorEntry} from '@omnicraft/sse-events';
 import {fireEvent, render, screen, waitFor} from '@testing-library/react';
 import {MemoryRouter, Route, Routes} from 'react-router';
 import {beforeEach, describe, expect, it, vi} from 'vitest';
@@ -65,8 +65,8 @@ async function waitForAbort(signal?: AbortSignal): Promise<void> {
 
 async function* emptyEventStream(
   signal?: AbortSignal,
-): AsyncGenerator<SseEvent, void, undefined> {
-  yield* [] as SseEvent[];
+): AsyncGenerator<SseEventCursorEntry, void, undefined> {
+  yield* [] as SseEventCursorEntry[];
   await waitForAbort(signal);
   return;
 }

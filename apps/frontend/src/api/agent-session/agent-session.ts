@@ -5,8 +5,10 @@ import {
   listSessionsResponseSchema,
   type ThinkingLevel,
 } from '@omnicraft/api-schema';
-import type {SseEvent} from '@omnicraft/sse-events';
-import {sseEventSchema} from '@omnicraft/sse-events';
+import {
+  type SseEventCursorEntry,
+  sseEventCursorEntrySchema,
+} from '@omnicraft/sse-events';
 
 import {HttpError} from '../helpers/http-error.js';
 import {parseSseStream} from '../helpers/sse.js';
@@ -76,7 +78,7 @@ export async function* subscribeEvents(
   sessionId: string,
   from: number,
   signal?: AbortSignal,
-): AsyncGenerator<SseEvent, void, undefined> {
+): AsyncGenerator<SseEventCursorEntry, void, undefined> {
   const url = `${base(agentType)}/session/${sessionId}/events?from=${from.toString()}`;
   const res = await fetch(url, {signal});
 
@@ -88,10 +90,30 @@ export async function* subscribeEvents(
     );
   }
 
-  for await (const data of parseSseStream(res)) {
+  for await (const {id, data} of parseSseStream(res)) {
     const parsed: unknown = JSON.parse(data);
-    yield sseEventSchema.parse(parsed);
+    yield sseEventCursorEntrySchema.parse({
+      event: parsed,
+      nextIndex: parseCursor(id),
+    });
   }
+}
+
+function parseCursor(id: string | null): number {
+  if (id === null) {
+    throw new Error('SSE event is missing resume cursor id');
+  }
+
+  if (!/^(0|[1-9]\d*)$/.test(id)) {
+    throw new Error(`Invalid SSE resume cursor id: ${id}`);
+  }
+
+  const cursor = Number(id);
+  if (!Number.isSafeInteger(cursor)) {
+    throw new Error(`Invalid SSE resume cursor id: ${id}`);
+  }
+
+  return cursor;
 }
 
 /** Aborts the currently running agent turn. */

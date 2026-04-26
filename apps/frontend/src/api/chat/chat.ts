@@ -1,5 +1,5 @@
 import {AgentType, type ListSessionsResponse} from '@omnicraft/api-schema';
-import type {SseEvent} from '@omnicraft/sse-events';
+import type {SseEventCursorEntry} from '@omnicraft/sse-events';
 
 import type {CreateSessionOptions} from '../agent-session/index.js';
 import * as agentSessionApi from '../agent-session/index.js';
@@ -22,7 +22,7 @@ export async function* subscribeEvents(
   sessionId: string,
   from: number,
   signal?: AbortSignal,
-): AsyncGenerator<SseEvent, void, undefined> {
+): AsyncGenerator<SseEventCursorEntry, void, undefined> {
   yield* agentSessionApi.subscribeEvents(
     AgentType.CHAT,
     sessionId,

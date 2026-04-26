@@ -77,7 +77,8 @@ export function useStreamChat({
           );
           let receivedTerminalEvent = false;
 
-          for await (const event of eventStream) {
+          for await (const streamEvent of eventStream) {
+            const {event, nextIndex} = streamEvent;
             if (consecutiveFailures > 0) {
               consecutiveFailures = 0;
               setIsReconnecting(false);
@@ -146,7 +147,7 @@ export function useStreamChat({
                 break;
               }
             }
-            lastIndex++;
+            lastIndex = nextIndex;
           }
 
           if (receivedTerminalEvent) return;

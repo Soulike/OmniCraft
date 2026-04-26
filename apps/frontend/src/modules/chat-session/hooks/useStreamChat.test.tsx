@@ -69,10 +69,26 @@ function createApi(events: readonly SseEvent[]): ChatSessionApi {
     sendMessage: vi.fn(() => Promise.resolve()),
     subscribeEvents: vi.fn(async function* () {
       await Promise.resolve();
+      let nextIndex = 0;
       for (const event of events) {
-        yield event;
+        nextIndex++;
+        yield {event, nextIndex};
       }
     }),
+    abortCompletion: vi.fn(() => Promise.resolve()),
+    submitToolResponse: vi.fn(() => Promise.resolve()),
+    listSessions: vi.fn(() => Promise.resolve({sessions: [], total: 0})),
+    deleteSession: vi.fn(() => Promise.resolve()),
+  };
+}
+
+function createApiWithSubscribeEvents(
+  subscribeEvents: ChatSessionApi['subscribeEvents'],
+): ChatSessionApi {
+  return {
+    createSession: vi.fn(() => Promise.resolve('session-1')),
+    sendMessage: vi.fn(() => Promise.resolve()),
+    subscribeEvents,
     abortCompletion: vi.fn(() => Promise.resolve()),
     submitToolResponse: vi.fn(() => Promise.resolve()),
     listSessions: vi.fn(() => Promise.resolve({sessions: [], total: 0})),
@@ -156,6 +172,15 @@ function SendHarness({
   );
 }
 
+function StreamOnlyHarnessContent() {
+  useStreamChat({
+    sessionId: 'session-1',
+    createNewSessionId: () => Promise.resolve('session-1'),
+  });
+
+  return null;
+}
+
 async function flushAsyncWork(): Promise<void> {
   await act(async () => {
     await Promise.resolve();
@@ -173,6 +198,7 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup();
+  vi.useRealTimers();
   vi.unstubAllGlobals();
 });
 
@@ -299,6 +325,64 @@ describe('useStreamChat', () => {
       'existing-session',
       'follow up',
     );
+  });
+
+  it('reconnects with the backend-provided raw cursor after a replay event', async () => {
+    vi.useFakeTimers();
+    const subscribeEvents = vi
+      .fn()
+      .mockImplementationOnce(async function* () {
+        await Promise.resolve();
+        yield {event: {type: 'text-delta', content: 'abc'}, nextIndex: 3};
+      })
+      .mockImplementationOnce(async function* (
+        _sessionId: string,
+        _from: number,
+        signal?: AbortSignal,
+      ) {
+        yield* [];
+        await new Promise<void>((resolve) => {
+          signal?.addEventListener(
+            'abort',
+            () => {
+              resolve();
+            },
+            {once: true},
+          );
+        });
+      });
+
+    const {unmount} = render(
+      <ChatSessionApiContext
+        value={createApiWithSubscribeEvents(
+          subscribeEvents as unknown as ChatSessionApi['subscribeEvents'],
+        )}
+      >
+        <ChatEventBusProvider>
+          <StreamOnlyHarnessContent />
+        </ChatEventBusProvider>
+      </ChatSessionApiContext>,
+    );
+
+    await flushAsyncWork();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1000);
+    });
+
+    expect(subscribeEvents).toHaveBeenNthCalledWith(
+      1,
+      'session-1',
+      0,
+      expect.any(AbortSignal),
+    );
+    expect(subscribeEvents).toHaveBeenNthCalledWith(
+      2,
+      'session-1',
+      3,
+      expect.any(AbortSignal),
+    );
+
+    unmount();
   });
 
   it('preserves replayed subagent output until the subagent display mounts', async () => {
