@@ -90,6 +90,10 @@ export class AgentSseLog {
     options?: AgentSseLogReaderOptions,
   ): AsyncIterable<SseEventCursorEntry> {
     const startIndex = options?.startIndex ?? 0;
+    assert(
+      Number.isSafeInteger(startIndex),
+      'startIndex must be a safe non-negative integer',
+    );
     assert(startIndex >= 0, 'startIndex must be non-negative');
     const signal = options?.signal;
     return {
@@ -111,12 +115,14 @@ export class AgentSseLog {
     }
 
     try {
+      const replayEnd = this.events.length;
+
       // Phase 1: Replay — merge consecutive delta events.
-      while (cursor < this.events.length) {
+      while (cursor < replayEnd) {
         let event = this.events[cursor];
         cursor++;
 
-        while (cursor < this.events.length) {
+        while (cursor < replayEnd) {
           const next = this.events[cursor];
           if (!sseReplayCompressor.canMerge(event, next)) break;
           event = sseReplayCompressor.merge(event, next);
@@ -130,15 +136,15 @@ export class AgentSseLog {
 
       // Phase 2: Live — pass through unchanged.
       for (;;) {
-        const aborted = await this.waitForAppendOrAbort(signal);
-        if (aborted) return;
-
         while (cursor < this.events.length) {
           const event = this.events[cursor];
           cursor++;
           yield {event, nextIndex: cursor};
           if (signal?.aborted) return;
         }
+
+        const aborted = await this.waitForAppendOrAbort(signal);
+        if (aborted) return;
       }
     } finally {
       this.readerCount--;

@@ -360,6 +360,13 @@ describe('AgentSseLog', () => {
         'startIndex must be non-negative',
       );
     });
+
+    it('throws when startIndex is not an integer', () => {
+      const log = new AgentSseLog();
+      expect(() => log.createReader({startIndex: 1.5})).toThrow(
+        'startIndex must be a safe non-negative integer',
+      );
+    });
   });
 
   describe('file-backed mode', () => {
@@ -569,6 +576,38 @@ describe('AgentSseLog', () => {
         textDelta('live-1'),
         textDelta('live-2'),
       ]);
+    });
+
+    it('does not compress live delta events appended while replay is draining', async () => {
+      const log = new AgentSseLog();
+      await log.append(messageStart('replay-1'));
+
+      const controller = new AbortController();
+      const iterator = log
+        .createReader({signal: controller.signal})
+        [Symbol.asyncIterator]();
+
+      try {
+        await expect(iterator.next()).resolves.toEqual({
+          done: false,
+          value: {event: messageStart('replay-1'), nextIndex: 1},
+        });
+
+        await log.append(textDelta('live-1'));
+        await log.append(textDelta('live-2'));
+
+        await expect(iterator.next()).resolves.toEqual({
+          done: false,
+          value: {event: textDelta('live-1'), nextIndex: 2},
+        });
+        await expect(iterator.next()).resolves.toEqual({
+          done: false,
+          value: {event: textDelta('live-2'), nextIndex: 3},
+        });
+      } finally {
+        controller.abort();
+        await iterator.return?.();
+      }
     });
 
     it('compresses nested subagent replay delta events', async () => {

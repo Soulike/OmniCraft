@@ -62,4 +62,32 @@ describe('subscribeEvents', () => {
 
     await expect(collectSubscription()).rejects.toThrow();
   });
+
+  it('rejects missing SSE cursor ids', async () => {
+    const fetchMock = vi.fn(() =>
+      Promise.resolve(
+        createMockResponse('data: {"type":"text-delta","content":"abc"}\n\n'),
+      ),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(collectSubscription()).rejects.toThrow(
+      'SSE event is missing resume cursor id',
+    );
+  });
+
+  it('rejects non-canonical SSE cursor ids', async () => {
+    const fetchMock = vi.fn(() =>
+      Promise.resolve(
+        createMockResponse(
+          'id: 1e3\ndata: {"type":"text-delta","content":"abc"}\n\n',
+        ),
+      ),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(collectSubscription()).rejects.toThrow(
+      'Invalid SSE resume cursor id: 1e3',
+    );
+  });
 });

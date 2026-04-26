@@ -104,8 +104,12 @@ function parseCursor(id: string | null): number {
     throw new Error('SSE event is missing resume cursor id');
   }
 
+  if (!/^(0|[1-9]\d*)$/.test(id)) {
+    throw new Error(`Invalid SSE resume cursor id: ${id}`);
+  }
+
   const cursor = Number(id);
-  if (!Number.isInteger(cursor) || cursor < 0) {
+  if (!Number.isSafeInteger(cursor)) {
     throw new Error(`Invalid SSE resume cursor id: ${id}`);
   }
 
