@@ -12,14 +12,14 @@ export const thinkingLevelSchema = z.enum([
 export type ThinkingLevel = z.infer<typeof thinkingLevelSchema>;
 
 /** Schema for the POST /chat/session request body. */
-export const createSessionRequestSchema = z.object({
+export const createSessionRequestSchema = z.strictObject({
   thinkingLevel: thinkingLevelSchema,
 });
 
 export type CreateSessionRequest = z.infer<typeof createSessionRequestSchema>;
 
 /** Schema for the POST /coding/session request body. */
-export const createCodingSessionRequestSchema = z.object({
+export const createCodingSessionRequestSchema = z.strictObject({
   workspace: z.string(),
   thinkingLevel: thinkingLevelSchema,
 });
@@ -36,7 +36,7 @@ export const createSessionResponseSchema = z.object({
 export type CreateSessionResponse = z.infer<typeof createSessionResponseSchema>;
 
 /** Schema for the POST /chat/session/:id/completions request body. */
-export const chatCompletionsRequestSchema = z.object({
+export const chatCompletionsRequestSchema = z.strictObject({
   message: z.string().min(1),
 });
 
