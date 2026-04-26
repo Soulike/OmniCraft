@@ -189,19 +189,12 @@ export function useStreamChat({
     };
   }, [sessionId, eventBus, subscribeEvents]);
 
-  const sendMessage = useCallback(
-    async (content: string, createSessionOptions?: CreateNewSessionOptions) => {
+  const sendMessageToSession = useCallback(
+    async (activeSessionId: string, content: string) => {
       if (isStreaming) return;
 
       const trimmed = content.trim();
       if (!trimmed) return;
-
-      const activeSessionId =
-        sessionId ??
-        (createSessionOptions === undefined
-          ? await createNewSessionId()
-          : await createNewSessionId(createSessionOptions));
-      if (!activeSessionId) return;
 
       setStreamError(null);
       setMaxRoundsReached(false);
@@ -220,7 +213,37 @@ export function useStreamChat({
         setIsStreaming(false);
       }
     },
-    [isStreaming, sessionId, createNewSessionId, eventBus, apiSendMessage],
+    [isStreaming, eventBus, apiSendMessage],
+  );
+
+  const sendMessageToNewSession = useCallback(
+    async (content: string, createSessionOptions?: CreateNewSessionOptions) => {
+      if (isStreaming) return null;
+
+      const trimmed = content.trim();
+      if (!trimmed) return null;
+
+      const activeSessionId =
+        createSessionOptions === undefined
+          ? await createNewSessionId()
+          : await createNewSessionId(createSessionOptions);
+      if (!activeSessionId) return null;
+
+      await sendMessageToSession(activeSessionId, trimmed);
+      return activeSessionId;
+    },
+    [isStreaming, createNewSessionId, sendMessageToSession],
+  );
+
+  const sendMessage = useCallback(
+    async (content: string) => {
+      if (sessionId === null) {
+        throw new Error('Cannot send a follow-up message without a session.');
+      }
+
+      await sendMessageToSession(sessionId, content);
+    },
+    [sessionId, sendMessageToSession],
   );
 
   const stopGeneration = useCallback(() => {
@@ -242,6 +265,7 @@ export function useStreamChat({
     streamError,
     maxRoundsReached,
     sendMessage,
+    sendMessageToNewSession,
     stopGeneration,
     clearStreamError,
     clearMaxRoundsReached,

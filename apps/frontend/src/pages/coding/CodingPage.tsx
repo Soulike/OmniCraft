@@ -78,6 +78,7 @@ function CodingPageContent() {
     streamError,
     maxRoundsReached,
     sendMessage,
+    sendMessageToNewSession,
     stopGeneration,
     clearStreamError,
     clearMaxRoundsReached,
@@ -93,14 +94,14 @@ function CodingPageContent() {
       if (selectedWorkspace === undefined) {
         throw new Error('Please select a workspace before starting a session.');
       }
-      await sendMessage(content, {
+      await sendMessageToNewSession(content, {
         workspace: selectedWorkspace,
       });
       requestAnimationFrame(() => {
         scrollToBottom();
       });
     },
-    [sendMessage, scrollToBottom, selectedWorkspace],
+    [sendMessageToNewSession, scrollToBottom, selectedWorkspace],
   );
 
   const handleSend = useCallback(

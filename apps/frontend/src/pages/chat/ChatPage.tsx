@@ -56,6 +56,7 @@ function ChatPageContent() {
     streamError,
     maxRoundsReached,
     sendMessage,
+    sendMessageToNewSession,
     stopGeneration,
     clearStreamError,
     clearMaxRoundsReached,
@@ -68,12 +69,12 @@ function ChatPageContent() {
 
   const handleStartSession = useCallback(
     (content: string) => {
-      void sendMessage(content);
+      void sendMessageToNewSession(content);
       requestAnimationFrame(() => {
         scrollToBottom();
       });
     },
-    [sendMessage, scrollToBottom],
+    [sendMessageToNewSession, scrollToBottom],
   );
 
   const handleSend = useCallback(
