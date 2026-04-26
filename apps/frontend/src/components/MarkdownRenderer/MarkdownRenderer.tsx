@@ -16,6 +16,13 @@ const CUSTOM_COMPONENTS: Components = {
   pre({children}) {
     return <CodeBlock>{children}</CodeBlock>;
   },
+  table({node: _node, ...rest}) {
+    return (
+      <div className={styles.tableScroll}>
+        <table {...rest} />
+      </div>
+    );
+  },
   a({href, children, node: _node, ...rest}) {
     const sanitizedHref = sanitizeLinkUrl(href ?? '');
     if (!sanitizedHref) {
