@@ -190,7 +190,7 @@ export function useStreamChat({
   }, [sessionId, eventBus, subscribeEvents]);
 
   const sendMessageToSession = useCallback(
-    async (activeSessionId: string, content: string) => {
+    async (targetSessionId: string, content: string) => {
       if (isStreaming) return;
 
       const trimmed = content.trim();
@@ -203,7 +203,7 @@ export function useStreamChat({
       eventBus.emit('user-message-sent', {content: trimmed});
 
       try {
-        await apiSendMessage(activeSessionId, trimmed);
+        await apiSendMessage(targetSessionId, trimmed);
       } catch (e: unknown) {
         console.error('Failed to send message', e);
         const message =
@@ -223,11 +223,11 @@ export function useStreamChat({
       const trimmed = content.trim();
       if (!trimmed) return null;
 
-      const activeSessionId = await createNewSessionId(createSessionOptions);
-      if (!activeSessionId) return null;
+      const newSessionId = await createNewSessionId(createSessionOptions);
+      if (!newSessionId) return null;
 
-      await sendMessageToSession(activeSessionId, trimmed);
-      return activeSessionId;
+      await sendMessageToSession(newSessionId, trimmed);
+      return newSessionId;
     },
     [isStreaming, createNewSessionId, sendMessageToSession],
   );
