@@ -4,7 +4,9 @@ import path from 'node:path';
 
 import type {
   SseBaseEvent,
+  SseDoneEvent,
   SseEvent,
+  SseEventCursorEntry,
   SseMessageStartEvent,
   SseTextDeltaEvent,
   SseThinkingStartEvent,
@@ -36,6 +38,20 @@ function thinkingStart(): SseThinkingStartEvent {
   return {type: 'thinking-start'};
 }
 
+function done(): SseDoneEvent {
+  return {
+    type: 'done',
+    reason: 'complete',
+    usage: {
+      model: 'test-model',
+      maxInputTokens: 100,
+      inputTokens: 10,
+      outputTokens: 5,
+      cacheReadInputTokens: 0,
+    },
+  };
+}
+
 /** Collects all values from an async iterable into an array. */
 async function collect<T>(iterable: AsyncIterable<T>): Promise<T[]> {
   const results: T[] = [];
@@ -43,6 +59,13 @@ async function collect<T>(iterable: AsyncIterable<T>): Promise<T[]> {
     results.push(value);
   }
   return results;
+}
+
+async function collectEvents(
+  iterable: AsyncIterable<SseEventCursorEntry>,
+): Promise<SseEvent[]> {
+  const entries = await collect(iterable);
+  return entries.map((entry) => entry.event);
 }
 
 describe('AgentSseLog', () => {
@@ -53,7 +76,9 @@ describe('AgentSseLog', () => {
       await log.append(textDelta('a'));
 
       const controller = new AbortController();
-      const collected = collect(log.createReader({signal: controller.signal}));
+      const collected = collectEvents(
+        log.createReader({signal: controller.signal}),
+      );
 
       await new Promise((r) => setTimeout(r, 10));
       controller.abort();
@@ -66,7 +91,7 @@ describe('AgentSseLog', () => {
       const log = new AgentSseLog();
       const controller = new AbortController();
 
-      const resultPromise = collect(
+      const resultPromise = collectEvents(
         log.createReader({signal: controller.signal}),
       );
 
@@ -88,7 +113,7 @@ describe('AgentSseLog', () => {
       await log.append(textDelta('existing'));
       const controller = new AbortController();
 
-      const resultPromise = collect(
+      const resultPromise = collectEvents(
         log.createReader({signal: controller.signal}),
       );
 
@@ -115,7 +140,9 @@ describe('AgentSseLog', () => {
 
       // First event is available immediately
       const first = await iter.next();
-      expect(first.value).toEqual(textDelta('a'));
+      expect(first.done).toBe(false);
+      if (first.done) return;
+      expect(first.value.event).toEqual(textDelta('a'));
 
       // Next call blocks — resolve a race to prove it
       const timeout = new Promise<'timeout'>((r) =>
@@ -133,7 +160,9 @@ describe('AgentSseLog', () => {
       await log.append(textDelta('a'));
 
       const controller = new AbortController();
-      const collected = collect(log.createReader({signal: controller.signal}));
+      const collected = collectEvents(
+        log.createReader({signal: controller.signal}),
+      );
 
       // Let the reader drain existing events, then abort
       await new Promise((r) => setTimeout(r, 10));
@@ -150,10 +179,10 @@ describe('AgentSseLog', () => {
       await log.append(textDelta('a'));
       const controller = new AbortController();
 
-      const reader1Promise = collect(
+      const reader1Promise = collectEvents(
         log.createReader({signal: controller.signal}),
       );
-      const reader2Promise = collect(
+      const reader2Promise = collectEvents(
         log.createReader({signal: controller.signal}),
       );
 
@@ -179,11 +208,11 @@ describe('AgentSseLog', () => {
       await log.append(textDelta('c'));
       const controller = new AbortController();
 
-      const all = collect(log.createReader({signal: controller.signal}));
-      const fromOne = collect(
+      const all = collectEvents(log.createReader({signal: controller.signal}));
+      const fromOne = collectEvents(
         log.createReader({startIndex: 1, signal: controller.signal}),
       );
-      const fromTwo = collect(
+      const fromTwo = collectEvents(
         log.createReader({startIndex: 2, signal: controller.signal}),
       );
 
@@ -205,7 +234,7 @@ describe('AgentSseLog', () => {
       const log = new AgentSseLog();
       const controller = new AbortController();
 
-      const resultPromise = collect(
+      const resultPromise = collectEvents(
         log.createReader({signal: controller.signal}),
       );
 
@@ -229,7 +258,7 @@ describe('AgentSseLog', () => {
       const controller = new AbortController();
       controller.abort();
 
-      const events = await collect(
+      const events = await collectEvents(
         log.createReader({signal: controller.signal}),
       );
       expect(events).toEqual([]);
@@ -240,10 +269,10 @@ describe('AgentSseLog', () => {
       const abortController = new AbortController();
       const normalController = new AbortController();
 
-      const abortablePromise = collect(
+      const abortablePromise = collectEvents(
         log.createReader({signal: abortController.signal}),
       );
-      const normalPromise = collect(
+      const normalPromise = collectEvents(
         log.createReader({signal: normalController.signal}),
       );
 
@@ -280,7 +309,7 @@ describe('AgentSseLog', () => {
       await log.append(textDelta('2'));
       const controller = new AbortController();
 
-      const collected = collect(
+      const collected = collectEvents(
         log.createReader({startIndex: 2, signal: controller.signal}),
       );
       await new Promise((r) => setTimeout(r, 10));
@@ -295,7 +324,7 @@ describe('AgentSseLog', () => {
       await log.append(textDelta('a'));
       const controller = new AbortController();
 
-      const collected = collect(
+      const collected = collectEvents(
         log.createReader({startIndex: 1, signal: controller.signal}),
       );
       await new Promise((r) => setTimeout(r, 10));
@@ -309,7 +338,7 @@ describe('AgentSseLog', () => {
       const log = new AgentSseLog();
       const controller = new AbortController();
 
-      const resultPromise = collect(
+      const resultPromise = collectEvents(
         log.createReader({startIndex: 2, signal: controller.signal}),
       );
       await Promise.resolve();
@@ -329,6 +358,13 @@ describe('AgentSseLog', () => {
       const log = new AgentSseLog();
       expect(() => log.createReader({startIndex: -1})).toThrow(
         'startIndex must be non-negative',
+      );
+    });
+
+    it('throws when startIndex is not an integer', () => {
+      const log = new AgentSseLog();
+      expect(() => log.createReader({startIndex: 1.5})).toThrow(
+        'startIndex must be a safe non-negative integer',
       );
     });
   });
@@ -380,7 +416,9 @@ describe('AgentSseLog', () => {
       await log.append(textDelta('a'));
 
       const controller = new AbortController();
-      const collected = collect(log.createReader({signal: controller.signal}));
+      const collected = collectEvents(
+        log.createReader({signal: controller.signal}),
+      );
 
       await new Promise((r) => setTimeout(r, 10));
       controller.abort();
@@ -394,7 +432,9 @@ describe('AgentSseLog', () => {
       await log.append(textDelta('a'));
 
       const controller = new AbortController();
-      const reader = collect(log.createReader({signal: controller.signal}));
+      const reader = collectEvents(
+        log.createReader({signal: controller.signal}),
+      );
 
       await new Promise((r) => setTimeout(r, 10));
       controller.abort();
@@ -408,7 +448,9 @@ describe('AgentSseLog', () => {
       await log.append(textDelta('a'));
 
       const controller = new AbortController();
-      const collected = collect(log.createReader({signal: controller.signal}));
+      const collected = collectEvents(
+        log.createReader({signal: controller.signal}),
+      );
 
       await new Promise((r) => setTimeout(r, 10));
 
@@ -432,7 +474,9 @@ describe('AgentSseLog', () => {
       await log.append(textDelta('a'));
 
       const controller = new AbortController();
-      const reader1 = collect(log.createReader({signal: controller.signal}));
+      const reader1 = collectEvents(
+        log.createReader({signal: controller.signal}),
+      );
 
       await new Promise((r) => setTimeout(r, 10));
       controller.abort();
@@ -457,7 +501,9 @@ describe('AgentSseLog', () => {
 
       const log = new AgentSseLog(filePath);
       const controller = new AbortController();
-      const collected = collect(log.createReader({signal: controller.signal}));
+      const collected = collectEvents(
+        log.createReader({signal: controller.signal}),
+      );
 
       await new Promise((r) => setTimeout(r, 10));
       controller.abort();
@@ -480,11 +526,31 @@ describe('AgentSseLog', () => {
       await log.append(textDelta('c'));
 
       const controller = new AbortController();
-      const collected = collect(log.createReader({signal: controller.signal}));
+      const collected = collectEvents(
+        log.createReader({signal: controller.signal}),
+      );
       await new Promise((r) => setTimeout(r, 10));
       controller.abort();
 
       expect(await collected).toEqual([textDelta('abc')]);
+    });
+
+    it('reports the raw next index for compressed top-level replay delta events', async () => {
+      const log = new AgentSseLog();
+      await log.append(textDelta('a'));
+      await log.append(textDelta('b'));
+      await log.append(textDelta('c'));
+      await log.append(done());
+
+      const controller = new AbortController();
+      const collected = collect(log.createReader({signal: controller.signal}));
+      await new Promise((r) => setTimeout(r, 10));
+      controller.abort();
+
+      expect(await collected).toEqual([
+        {event: textDelta('abc'), nextIndex: 3},
+        {event: done(), nextIndex: 4},
+      ]);
     });
 
     it('does not compress top-level live delta events after replay', async () => {
@@ -492,7 +558,9 @@ describe('AgentSseLog', () => {
       await log.append(textDelta('replay'));
 
       const controller = new AbortController();
-      const collected = collect(log.createReader({signal: controller.signal}));
+      const collected = collectEvents(
+        log.createReader({signal: controller.signal}),
+      );
 
       // Let the reader drain replay and enter live mode.
       await new Promise((r) => setTimeout(r, 10));
@@ -510,13 +578,47 @@ describe('AgentSseLog', () => {
       ]);
     });
 
+    it('does not compress live delta events appended while replay is draining', async () => {
+      const log = new AgentSseLog();
+      await log.append(messageStart('replay-1'));
+
+      const controller = new AbortController();
+      const iterator = log
+        .createReader({signal: controller.signal})
+        [Symbol.asyncIterator]();
+
+      try {
+        await expect(iterator.next()).resolves.toEqual({
+          done: false,
+          value: {event: messageStart('replay-1'), nextIndex: 1},
+        });
+
+        await log.append(textDelta('live-1'));
+        await log.append(textDelta('live-2'));
+
+        await expect(iterator.next()).resolves.toEqual({
+          done: false,
+          value: {event: textDelta('live-1'), nextIndex: 2},
+        });
+        await expect(iterator.next()).resolves.toEqual({
+          done: false,
+          value: {event: textDelta('live-2'), nextIndex: 3},
+        });
+      } finally {
+        controller.abort();
+        await iterator.return?.();
+      }
+    });
+
     it('compresses nested subagent replay delta events', async () => {
       const log = new AgentSseLog();
       await log.append(subagentOutput('subagent-1', textDelta('a')));
       await log.append(subagentOutput('subagent-1', textDelta('b')));
 
       const controller = new AbortController();
-      const collected = collect(log.createReader({signal: controller.signal}));
+      const collected = collectEvents(
+        log.createReader({signal: controller.signal}),
+      );
       await new Promise((r) => setTimeout(r, 10));
       controller.abort();
 
@@ -525,12 +627,42 @@ describe('AgentSseLog', () => {
       ]);
     });
 
+    it('reports the raw next index for compressed nested subagent replay delta events', async () => {
+      const log = new AgentSseLog();
+      await log.append(subagentOutput('subagent-1', textDelta('a')));
+      await log.append(subagentOutput('subagent-1', textDelta('b')));
+      await log.append({
+        type: 'subagent-complete',
+        agentId: 'subagent-1',
+        status: 'success',
+      });
+
+      const controller = new AbortController();
+      const collected = collect(log.createReader({signal: controller.signal}));
+      await new Promise((r) => setTimeout(r, 10));
+      controller.abort();
+
+      expect(await collected).toEqual([
+        {event: subagentOutput('subagent-1', textDelta('ab')), nextIndex: 2},
+        {
+          event: {
+            type: 'subagent-complete',
+            agentId: 'subagent-1',
+            status: 'success',
+          },
+          nextIndex: 3,
+        },
+      ]);
+    });
+
     it('does not compress nested subagent live delta events after replay', async () => {
       const log = new AgentSseLog();
       await log.append(subagentOutput('subagent-1', textDelta('replay')));
 
       const controller = new AbortController();
-      const collected = collect(log.createReader({signal: controller.signal}));
+      const collected = collectEvents(
+        log.createReader({signal: controller.signal}),
+      );
 
       // Let the reader drain replay and enter live mode.
       await new Promise((r) => setTimeout(r, 10));

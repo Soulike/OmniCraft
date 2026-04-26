@@ -10,11 +10,13 @@ import {
   submitToolResponseRequestSchema,
   type ThinkingLevel,
 } from '@omnicraft/api-schema';
+import type {SseEventCursorEntry} from '@omnicraft/sse-events';
 import {StatusCodes} from 'http-status-codes';
 import {ZodError} from 'zod';
 
 import {agentSessionService} from '@/services/agent-session/index.js';
 
+import {parseSseResumeCursor} from './helpers/cursor.js';
 import {writeSseEvent} from './helpers/sse.js';
 import {
   SESSION,
@@ -152,7 +154,17 @@ router.get(SESSION_EVENTS, async (ctx) => {
   }
 
   const {id} = ctx.params;
-  const from = Math.max(0, Number(ctx.query.from) || 0);
+
+  let from: number;
+  try {
+    from = parseSseResumeCursor(ctx.query.from);
+  } catch (e) {
+    ctx.response.status = StatusCodes.BAD_REQUEST;
+    ctx.response.body = {
+      error: e instanceof Error ? e.message : 'Invalid SSE resume cursor',
+    };
+    return;
+  }
 
   const abortController = new AbortController();
   const eventStream = await agentSessionService.subscribe(agentType, id, {
@@ -183,7 +195,7 @@ router.get(SESSION_EVENTS, async (ctx) => {
  */
 async function pumpSseEvents(
   stream: PassThrough,
-  eventStream: AsyncIterable<unknown>,
+  eventStream: AsyncIterable<SseEventCursorEntry>,
   req: IncomingMessage,
   abortController: AbortController,
 ): Promise<void> {
@@ -197,8 +209,8 @@ async function pumpSseEvents(
   req.on('close', onDisconnect);
 
   try {
-    for await (const event of eventStream) {
-      writeSseEvent(stream, event);
+    for await (const entry of eventStream) {
+      writeSseEvent(stream, entry.event, entry.nextIndex);
     }
   } finally {
     req.off('close', onDisconnect);

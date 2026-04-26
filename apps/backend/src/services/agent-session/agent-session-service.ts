@@ -3,7 +3,7 @@ import {
   type SessionMetadata,
   type ThinkingLevel,
 } from '@omnicraft/api-schema';
-import type {SseEvent} from '@omnicraft/sse-events';
+import type {SseEventCursorEntry} from '@omnicraft/sse-events';
 
 import {CodingAgent, MainAgent} from '@/agent/agents/index.js';
 import type {
@@ -100,14 +100,14 @@ export const agentSessionService = {
   },
 
   /**
-   * Returns an async iterable of SSE events for the given agent.
+   * Returns an async iterable of SSE events with resume cursors for the given agent.
    * Returns undefined if agent not found.
    */
   async subscribe(
     agentType: AgentType,
     agentId: string,
     options?: AgentSseLogReaderOptions,
-  ): Promise<AsyncIterable<SseEvent> | undefined> {
+  ): Promise<AsyncIterable<SseEventCursorEntry> | undefined> {
     const agent = await getStore(agentType).get(agentId);
     if (!agent) return undefined;
     return agent.subscribe(options);
