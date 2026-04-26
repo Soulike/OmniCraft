@@ -48,6 +48,7 @@ function done(): SseDoneEvent {
       inputTokens: 10,
       outputTokens: 5,
       cacheReadInputTokens: 0,
+      thinkingLevel: 'none',
     },
   };
 }
