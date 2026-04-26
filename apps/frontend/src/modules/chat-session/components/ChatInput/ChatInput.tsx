@@ -26,7 +26,6 @@ export function ChatInput({
 }: ChatInputProps) {
   const [input, setInput] = useState('');
   const {thinkingLevel, setThinkingLevel} = useThinkingLevel();
-  const shouldShowThinkingLevelSelect = showThinkingLevelSelect === true;
 
   const handleSend = useCallback(() => {
     if (!input.trim()) return;
@@ -52,7 +51,7 @@ export function ChatInput({
     <ChatInputView
       input={input}
       isStreaming={isStreaming}
-      showThinkingLevelSelect={shouldShowThinkingLevelSelect}
+      showThinkingLevelSelect={showThinkingLevelSelect ?? false}
       thinkingLevel={thinkingLevel}
       onInputChange={setInput}
       onKeyDown={handleKeyDown}
