@@ -223,10 +223,7 @@ export function useStreamChat({
       const trimmed = content.trim();
       if (!trimmed) return null;
 
-      const activeSessionId =
-        createSessionOptions === undefined
-          ? await createNewSessionId()
-          : await createNewSessionId(createSessionOptions);
+      const activeSessionId = await createNewSessionId(createSessionOptions);
       if (!activeSessionId) return null;
 
       await sendMessageToSession(activeSessionId, trimmed);

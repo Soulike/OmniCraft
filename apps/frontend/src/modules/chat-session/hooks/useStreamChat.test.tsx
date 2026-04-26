@@ -201,7 +201,7 @@ describe('useStreamChat', () => {
     await waitFor(() => {
       expect(onResult).toHaveBeenCalledWith({status: 'fulfilled'});
     });
-    expect(createNewSessionId).toHaveBeenCalledWith();
+    expect(createNewSessionId).toHaveBeenCalledWith(undefined);
     expect(api.sendMessage).toHaveBeenCalledWith(
       'created-session',
       'hello world',
