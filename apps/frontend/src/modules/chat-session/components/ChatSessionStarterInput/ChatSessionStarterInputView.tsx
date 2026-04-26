@@ -1,24 +1,30 @@
 import {Button, TextArea} from '@heroui/react';
+import type {ThinkingLevel} from '@omnicraft/api-schema';
 
+import {ThinkingLevelSelect} from '../ThinkingLevelSelect/index.js';
 import styles from './styles.module.css';
 
-interface ChatInputViewProps {
+interface ChatSessionStarterInputViewProps {
   input: string;
   isStreaming: boolean;
+  thinkingLevel: ThinkingLevel;
   onInputChange: (value: string) => void;
   onKeyDown: (e: React.KeyboardEvent) => void;
   onSend: () => void;
   onStop: () => void;
+  onThinkingLevelChange: (level: ThinkingLevel) => void;
 }
 
-export function ChatInputView({
+export function ChatSessionStarterInputView({
   input,
   isStreaming,
+  thinkingLevel,
   onInputChange,
   onKeyDown,
   onSend,
   onStop,
-}: ChatInputViewProps) {
+  onThinkingLevelChange,
+}: ChatSessionStarterInputViewProps) {
   return (
     <div className={styles.container}>
       <TextArea
@@ -32,6 +38,11 @@ export function ChatInputView({
           onInputChange(e.target.value);
         }}
         onKeyDown={onKeyDown}
+      />
+      <ThinkingLevelSelect
+        value={thinkingLevel}
+        isDisabled={isStreaming}
+        onChange={onThinkingLevelChange}
       />
       {isStreaming ? (
         <Button aria-label='Stop generation' variant='danger' onPress={onStop}>

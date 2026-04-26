@@ -1,3 +1,4 @@
+import type {ThinkingLevel} from '@omnicraft/api-schema';
 import {useCallback} from 'react';
 
 import * as chatApi from '@/api/chat/index.js';
@@ -66,6 +67,26 @@ function ChatPageContent() {
 
   const {containerRef: scrollRef, scrollToBottom} = useAutoScroll();
 
+  const handleStartSession = useCallback(
+    (content: string, thinkingLevel: ThinkingLevel) => {
+      void sendMessage(content, {thinkingLevel});
+      requestAnimationFrame(() => {
+        scrollToBottom();
+      });
+    },
+    [sendMessage, scrollToBottom],
+  );
+
+  const handleSend = useCallback(
+    (content: string) => {
+      void sendMessage(content);
+      requestAnimationFrame(() => {
+        scrollToBottom();
+      });
+    },
+    [sendMessage, scrollToBottom],
+  );
+
   const displayError = createNewSessionIdError ?? streamError;
 
   const dismissError = useCallback(() => {
@@ -88,12 +109,8 @@ function ChatPageContent() {
       scrollRef={scrollRef}
       sessionId={sessionId}
       onMessagesChange={onMessagesChange}
-      onSend={(content, thinkingLevel) => {
-        void sendMessage(content, thinkingLevel);
-        requestAnimationFrame(() => {
-          scrollToBottom();
-        });
-      }}
+      onStartSession={handleStartSession}
+      onSend={handleSend}
       onStop={stopGeneration}
       onNewSession={clearSessionId}
       newSessionDisabled={newSessionDisabled}

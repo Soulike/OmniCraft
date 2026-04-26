@@ -73,13 +73,6 @@ function CodingPageContent() {
     return getVscodeUrl(vscodePort, vscodeToken, selectedWorkspace);
   }, [sessionId, vscodeAvailable, vscodePort, vscodeToken, selectedWorkspace]);
 
-  const createNewSessionIdWithConfig = useCallback(async () => {
-    if (selectedWorkspace === undefined) {
-      throw new Error('Please select a workspace before starting a session.');
-    }
-    return createNewSessionId({workspace: selectedWorkspace});
-  }, [createNewSessionId, selectedWorkspace]);
-
   const {
     isStreaming,
     isReconnecting,
@@ -91,14 +84,30 @@ function CodingPageContent() {
     clearMaxRoundsReached,
   } = useStreamChat({
     sessionId,
-    createNewSessionId: createNewSessionIdWithConfig,
+    createNewSessionId,
   });
 
   const {containerRef: scrollRef, scrollToBottom} = useAutoScroll();
 
-  const handleSend = useCallback(
+  const handleStartTask = useCallback(
     async (content: string, thinkingLevel: ThinkingLevel) => {
-      await sendMessage(content, thinkingLevel);
+      if (selectedWorkspace === undefined) {
+        throw new Error('Please select a workspace before starting a session.');
+      }
+      await sendMessage(content, {
+        workspace: selectedWorkspace,
+        thinkingLevel,
+      });
+      requestAnimationFrame(() => {
+        scrollToBottom();
+      });
+    },
+    [sendMessage, scrollToBottom, selectedWorkspace],
+  );
+
+  const handleSend = useCallback(
+    async (content: string) => {
+      await sendMessage(content);
       requestAnimationFrame(() => {
         scrollToBottom();
       });
@@ -127,6 +136,7 @@ function CodingPageContent() {
       scrollRef={scrollRef}
       sessionId={sessionId}
       onMessagesChange={onMessagesChange}
+      onStartTask={handleStartTask}
       onSend={handleSend}
       onStop={stopGeneration}
       onNewSession={clearSessionId}

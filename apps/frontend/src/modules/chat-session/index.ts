@@ -2,6 +2,7 @@
 export {BottomBar} from './components/BottomBar/index.js';
 export {ChatAlert} from './components/ChatAlert/index.js';
 export {ChatInput} from './components/ChatInput/index.js';
+export {ChatSessionStarterInput} from './components/ChatSessionStarterInput/index.js';
 export {InfoBar} from './components/InfoBar/index.js';
 export {SessionSidebar} from './components/SessionSidebar/index.js';
 export {StreamingMessageDisplay} from './components/StreamingMessageDisplay/index.js';

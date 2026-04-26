@@ -8,6 +8,7 @@ import {
   type ChatEventBus,
   ChatInput,
   type ChatMessage,
+  ChatSessionStarterInput,
   chatSessionStyles as styles,
   SessionSidebar,
   StreamingMessageDisplay,
@@ -25,7 +26,8 @@ interface ChatPageViewProps {
   scrollRef: RefObject<HTMLDivElement | null>;
   sessionId: string | null;
   onMessagesChange: (messages: readonly ChatMessage[]) => void;
-  onSend: (content: string, thinkingLevel: ThinkingLevel) => void;
+  onStartSession: (content: string, thinkingLevel: ThinkingLevel) => void;
+  onSend: (content: string) => void;
   onStop: () => void;
   onNewSession: () => void;
   newSessionDisabled: boolean;
@@ -44,6 +46,7 @@ export function ChatPageView({
   scrollRef,
   sessionId,
   onMessagesChange,
+  onStartSession,
   onSend,
   onStop,
   onNewSession,
@@ -99,11 +102,19 @@ export function ChatPageView({
             />
           </ScrollShadow>
           {sessionId && <BottomBar />}
-          <ChatInput
-            isStreaming={isStreaming}
-            onSend={onSend}
-            onStop={onStop}
-          />
+          {sessionId ? (
+            <ChatInput
+              isStreaming={isStreaming}
+              onSend={onSend}
+              onStop={onStop}
+            />
+          ) : (
+            <ChatSessionStarterInput
+              isStreaming={isStreaming}
+              onSend={onStartSession}
+              onStop={onStop}
+            />
+          )}
         </div>
       </div>
     </div>

@@ -1,9 +1,15 @@
 import type {SseEvent} from '@omnicraft/sse-events';
-import {fireEvent, render, screen, waitFor} from '@testing-library/react';
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react';
 import {MemoryRouter, Route, Routes} from 'react-router';
-import {beforeEach, describe, expect, it, vi} from 'vitest';
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 
-import {CodingPage} from './CodingPage.js';
+import {ChatPage} from './ChatPage.js';
 
 class ResizeObserverStub implements ResizeObserver {
   disconnect = vi.fn();
@@ -15,20 +21,21 @@ class ResizeObserverStub implements ResizeObserver {
 
 globalThis.ResizeObserver = ResizeObserverStub;
 
+afterEach(() => {
+  cleanup();
+});
+
 const mocks = vi.hoisted(() => ({
   abortCompletion: vi.fn(),
   createSession: vi.fn(),
   deleteSession: vi.fn(),
-  getVscodeStatus: vi.fn(),
-  getVscodeUrl: vi.fn(),
-  getWorkspaces: vi.fn(),
   listSessions: vi.fn(),
   sendMessage: vi.fn(),
   submitToolResponse: vi.fn(),
   subscribeEvents: vi.fn(),
 }));
 
-vi.mock('@/api/coding/index.js', () => ({
+vi.mock('@/api/chat/index.js', () => ({
   abortCompletion: mocks.abortCompletion,
   createSession: mocks.createSession,
   deleteSession: mocks.deleteSession,
@@ -39,12 +46,7 @@ vi.mock('@/api/coding/index.js', () => ({
 }));
 
 vi.mock('@/api/settings/file-access/index.js', () => ({
-  getWorkspaces: mocks.getWorkspaces,
-}));
-
-vi.mock('@/api/vscode/index.js', () => ({
-  getVscodeStatus: mocks.getVscodeStatus,
-  getVscodeUrl: mocks.getVscodeUrl,
+  getWorkspaces: vi.fn(() => Promise.resolve([])),
 }));
 
 async function waitForAbort(signal?: AbortSignal): Promise<void> {
@@ -71,31 +73,23 @@ async function* emptyEventStream(
   return;
 }
 
-function renderCodingPage() {
+function renderChatPage(initialEntry = '/chat') {
   render(
-    <MemoryRouter initialEntries={['/coding']}>
+    <MemoryRouter initialEntries={[initialEntry]}>
       <Routes>
-        <Route path='/coding' element={<CodingPage />} />
-        <Route path='/coding/:sessionId' element={<CodingPage />} />
+        <Route path='/chat' element={<ChatPage />} />
+        <Route path='/chat/:sessionId' element={<ChatPage />} />
       </Routes>
     </MemoryRouter>,
   );
 }
 
-describe('CodingPage', () => {
+describe('ChatPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-
     mocks.abortCompletion.mockResolvedValue(undefined);
-    mocks.createSession.mockResolvedValue('coding-session-1');
+    mocks.createSession.mockResolvedValue('chat-session-1');
     mocks.deleteSession.mockResolvedValue(undefined);
-    mocks.getVscodeStatus.mockResolvedValue({
-      available: false,
-      port: 0,
-      connectionToken: '',
-    });
-    mocks.getVscodeUrl.mockReturnValue('http://localhost:18927');
-    mocks.getWorkspaces.mockResolvedValue([{path: '/workspace/repo'}]);
     mocks.listSessions.mockResolvedValue({sessions: [], total: 0});
     mocks.sendMessage.mockResolvedValue(undefined);
     mocks.submitToolResponse.mockResolvedValue(undefined);
@@ -105,36 +99,30 @@ describe('CodingPage', () => {
     );
   });
 
-  it('starts a coding session from the dispatch card and switches to chat input', async () => {
-    renderCodingPage();
+  it('creates a chat session with default thinking level and sends first message without it', async () => {
+    renderChatPage();
 
-    expect(screen.queryByLabelText('Chat message')).not.toBeInTheDocument();
+    const messageInput = screen.getByLabelText('Chat message');
+    expect(screen.getByLabelText('Thinking level')).toBeInTheDocument();
+    fireEvent.change(messageInput, {target: {value: '  Hello session.  '}});
 
-    const taskInput = await screen.findByLabelText('Task');
-    fireEvent.change(taskInput, {
-      target: {value: '  Implement the requested task.  '},
-    });
-
-    const startButton = screen.getByRole('button', {name: 'Start task'});
-    await waitFor(() => {
-      expect(startButton).toBeEnabled();
-    });
-
-    fireEvent.click(startButton);
+    fireEvent.click(screen.getByRole('button', {name: 'Send message'}));
 
     await waitFor(() => {
       expect(mocks.createSession).toHaveBeenCalledWith({
-        workspace: '/workspace/repo',
         thinkingLevel: 'none',
       });
     });
     expect(mocks.sendMessage).toHaveBeenCalledWith(
-      'coding-session-1',
-      'Implement the requested task.',
+      'chat-session-1',
+      'Hello session.',
     );
+  });
+
+  it('hides thinking selector on existing sessions', async () => {
+    renderChatPage('/chat/existing-session');
 
     expect(await screen.findByLabelText('Chat message')).toBeInTheDocument();
     expect(screen.queryByLabelText('Thinking level')).not.toBeInTheDocument();
-    expect(screen.queryByLabelText('Task')).not.toBeInTheDocument();
   });
 });

@@ -26,7 +26,8 @@ interface CodingPageViewProps {
   scrollRef: RefObject<HTMLDivElement | null>;
   sessionId: string | null;
   onMessagesChange: (messages: readonly ChatMessage[]) => void;
-  onSend: (content: string, thinkingLevel: ThinkingLevel) => Promise<void>;
+  onStartTask: (content: string, thinkingLevel: ThinkingLevel) => Promise<void>;
+  onSend: (content: string) => Promise<void>;
   onStop: () => void;
   onNewSession: () => void;
   newSessionDisabled: boolean;
@@ -45,6 +46,7 @@ export function CodingPageView({
   scrollRef,
   sessionId,
   onMessagesChange,
+  onStartTask,
   onSend,
   onStop,
   onNewSession,
@@ -90,7 +92,7 @@ export function CodingPageView({
           <ScrollShadow className={styles.messageListWrapper} ref={scrollRef}>
             {!sessionId && (
               <div className={styles.emptyState}>
-                <TaskDispatchCard onSend={onSend} />
+                <TaskDispatchCard onSend={onStartTask} />
               </div>
             )}
             <StreamingMessageDisplay
@@ -103,8 +105,8 @@ export function CodingPageView({
           {sessionId && (
             <ChatInput
               isStreaming={isStreaming}
-              onSend={(content, thinkingLevel) => {
-                void onSend(content, thinkingLevel);
+              onSend={(content) => {
+                void onSend(content);
               }}
               onStop={onStop}
             />
