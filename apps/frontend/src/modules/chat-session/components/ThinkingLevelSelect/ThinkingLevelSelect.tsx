@@ -2,7 +2,7 @@ import {ListBox, Select} from '@heroui/react';
 import type {ThinkingLevel} from '@omnicraft/api-schema';
 import {Lightbulb} from 'lucide-react';
 
-import {THINKING_LEVEL_LABELS, THINKING_LEVELS} from './constants.js';
+import {THINKING_LEVEL_LABELS, THINKING_LEVELS} from '../../constants.js';
 import styles from './styles.module.css';
 
 interface ThinkingLevelSelectProps {

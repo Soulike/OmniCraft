@@ -1,7 +1,7 @@
 import type {SseUsage} from '@omnicraft/sse-events';
 import clsx from 'clsx';
 
-import {THINKING_LEVEL_LABELS} from '../ThinkingLevelSelect/index.js';
+import {THINKING_LEVEL_LABELS} from '../../constants.js';
 import {formatTokenCount} from './helpers/format-token-count.js';
 import styles from './styles.module.css';
 
