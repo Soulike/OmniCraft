@@ -51,6 +51,7 @@ function usage() {
     inputTokens: 10,
     outputTokens: 5,
     cacheReadInputTokens: 0,
+    thinkingLevel: 'none' as const,
   };
 }
 

@@ -1,6 +1,6 @@
-import type {ThinkingLevel} from '@omnicraft/api-schema';
 import {useCallback, useEffect, useRef, useState} from 'react';
 
+import type {CreateSessionOptions} from '@/api/agent-session/index.js';
 import {HttpError} from '@/api/helpers/http-error.js';
 import {abortableSleep} from '@/helpers/abortable-sleep.js';
 
@@ -188,13 +188,20 @@ export function useStreamChat({
   }, [sessionId, eventBus, subscribeEvents]);
 
   const sendMessage = useCallback(
-    async (content: string, thinkingLevel: ThinkingLevel) => {
+    async (content: string, createSessionOptions?: CreateSessionOptions) => {
       if (isStreaming) return;
 
       const trimmed = content.trim();
       if (!trimmed) return;
 
-      const activeSessionId = sessionId ?? (await createNewSessionId());
+      const config = createSessionOptions;
+      let activeSessionId = sessionId;
+      if (activeSessionId === null) {
+        if (config === undefined) {
+          throw new Error('Session creation options are required.');
+        }
+        activeSessionId = await createNewSessionId(config);
+      }
       if (!activeSessionId) return;
 
       setStreamError(null);
@@ -204,7 +211,7 @@ export function useStreamChat({
       eventBus.emit('user-message-sent', {content: trimmed});
 
       try {
-        await apiSendMessage(activeSessionId, trimmed, thinkingLevel);
+        await apiSendMessage(activeSessionId, trimmed);
       } catch (e: unknown) {
         console.error('Failed to send message', e);
         const message =

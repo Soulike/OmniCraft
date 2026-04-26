@@ -1,6 +1,8 @@
 import {useCallback, useEffect, useRef, useState} from 'react';
 import {useNavigate, useParams} from 'react-router';
 
+import type {CreateSessionOptions} from '@/api/agent-session/index.js';
+
 import {useChatEventBus} from '../../hooks/useChatEventBus.js';
 import {useChatSessionApi} from '../../hooks/useChatSessionApi.js';
 import {SessionIdContext} from './SessionIdContext.js';
@@ -38,7 +40,7 @@ export function SessionIdProvider({
   }, [sessionId, eventBus]);
 
   const createNewSessionId = useCallback(
-    async (config?: {workspace?: string}) => {
+    async (config: CreateSessionOptions) => {
       try {
         const id = await createSession(config);
         eventBus.emit('session-created', {sessionId: id});

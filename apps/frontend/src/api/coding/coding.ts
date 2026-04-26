@@ -1,8 +1,4 @@
-import {
-  AgentType,
-  type ListSessionsResponse,
-  type ThinkingLevel,
-} from '@omnicraft/api-schema';
+import {AgentType, type ListSessionsResponse} from '@omnicraft/api-schema';
 import type {SseEvent} from '@omnicraft/sse-events';
 
 import type {CreateSessionOptions} from '../agent-session/index.js';
@@ -10,7 +6,7 @@ import * as agentSessionApi from '../agent-session/index.js';
 
 /** Creates a new coding session. Returns the session ID. */
 export async function createSession(
-  options: CreateSessionOptions = {},
+  options: CreateSessionOptions,
 ): Promise<string> {
   return agentSessionApi.createSession(AgentType.CODING, options);
 }
@@ -18,14 +14,8 @@ export async function createSession(
 export async function sendMessage(
   sessionId: string,
   message: string,
-  thinkingLevel: ThinkingLevel,
 ): Promise<void> {
-  return agentSessionApi.sendMessage(
-    AgentType.CODING,
-    sessionId,
-    message,
-    thinkingLevel,
-  );
+  return agentSessionApi.sendMessage(AgentType.CODING, sessionId, message);
 }
 
 export async function* subscribeEvents(

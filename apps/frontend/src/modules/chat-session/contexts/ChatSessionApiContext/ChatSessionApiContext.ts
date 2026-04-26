@@ -1,15 +1,13 @@
-import type {ListSessionsResponse, ThinkingLevel} from '@omnicraft/api-schema';
+import type {ListSessionsResponse} from '@omnicraft/api-schema';
 import type {SseEvent} from '@omnicraft/sse-events';
 import {createContext} from 'react';
 
-export interface ChatSessionApi {
-  createSession: (options?: {workspace?: string}) => Promise<string>;
+import type {CreateSessionOptions} from '@/api/agent-session/index.js';
 
-  sendMessage: (
-    sessionId: string,
-    message: string,
-    thinkingLevel: ThinkingLevel,
-  ) => Promise<void>;
+export interface ChatSessionApi {
+  createSession: (options: CreateSessionOptions) => Promise<string>;
+
+  sendMessage: (sessionId: string, message: string) => Promise<void>;
 
   subscribeEvents: (
     sessionId: string,
