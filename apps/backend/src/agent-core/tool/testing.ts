@@ -36,6 +36,8 @@ export function createMockContext(
   const workingDirectory = overrides?.workingDirectory ?? os.tmpdir();
   return {
     callId: 'mock-call-id',
+    agentId: 'mock-agent-id',
+    sessionsDir: null,
     availableSkills: new Map(),
     workingDirectory,
     fileCache: new FileContentCache(),

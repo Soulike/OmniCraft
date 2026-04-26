@@ -20,6 +20,7 @@ export class GeneralSubAgent extends Agent {
     getConfig: () => Promise<LlmConfig>,
     workingDirectory: string,
     thinkingLevel: ThinkingLevel,
+    sessionsDir?: string,
   ) {
     super(getConfig, {
       toolRegistries: [
@@ -38,6 +39,7 @@ export class GeneralSubAgent extends Agent {
       },
       thinkingLevel,
       workingDirectory,
+      sessionsDir,
     });
   }
 }

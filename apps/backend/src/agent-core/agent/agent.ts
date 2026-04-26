@@ -592,6 +592,8 @@ export abstract class Agent {
 
     const context: ToolExecutionContext = {
       callId: toolCall.callId,
+      agentId: this.id,
+      sessionsDir: this.sessionsDir,
       availableSkills: buildAvailableSkills(this.skillRegistries),
       workingDirectory: this.workingDirectory,
       fileCache: this.fileCache,

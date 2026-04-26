@@ -26,6 +26,12 @@ export interface ToolExecutionContext {
   /** The unique call ID for this tool invocation, from the LLM API response. */
   readonly callId: string;
 
+  /** The parent Agent's unique ID. */
+  readonly agentId: string;
+
+  /** Directory where the parent Agent persists sessions, or null for in-memory agents. */
+  readonly sessionsDir: string | null;
+
   /** All skills available to the current Agent, merged and deduplicated. */
   readonly availableSkills: ReadonlyMap<string, SkillDefinition>;
 
