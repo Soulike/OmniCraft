@@ -2,16 +2,12 @@ import {Disclosure, ScrollShadow, Spinner} from '@heroui/react';
 import type {ThinkingLevel} from '@omnicraft/api-schema';
 import clsx from 'clsx';
 import {Bot, CircleCheck, CircleX} from 'lucide-react';
-import {lazy, type RefObject, Suspense} from 'react';
+import type {RefObject} from 'react';
 
 import {UsageInfo} from '../../../../../UsageInfo/index.js';
+import {StreamingMessageDisplay} from '../../../../StreamingMessageDisplay.js';
 import type {ChatEventBus} from '../../../../types.js';
 import styles from './styles.module.css';
-
-const StreamingMessageDisplay = lazy(async () => {
-  const {StreamingMessageDisplay} = await import('../../../../index.js');
-  return {default: StreamingMessageDisplay};
-});
 
 interface SubagentDisclosureViewProps {
   task: string;
@@ -70,12 +66,7 @@ export function SubagentDisclosureView({
                 <span className={styles.workingDir}>{workingDirectory}</span>
               </div>
               <ScrollShadow className={styles.content} ref={scrollRef}>
-                <Suspense>
-                  <StreamingMessageDisplay
-                    eventBus={eventBus}
-                    sessionId={null}
-                  />
-                </Suspense>
+                <StreamingMessageDisplay eventBus={eventBus} sessionId={null} />
               </ScrollShadow>
             </Disclosure.Body>
             <div className={styles.footer}>
