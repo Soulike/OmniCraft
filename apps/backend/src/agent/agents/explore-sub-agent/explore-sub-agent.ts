@@ -16,7 +16,11 @@ import {exploreSubAgentSystemPrompt} from './system-prompt.js';
  * It can inspect the workspace and return reports, but its prompt forbids mutations.
  */
 export class ExploreSubAgent extends Agent {
-  constructor(getConfig: () => Promise<LlmConfig>, workingDirectory: string) {
+  constructor(
+    getConfig: () => Promise<LlmConfig>,
+    workingDirectory: string,
+    sessionsDir?: string,
+  ) {
     super(getConfig, {
       toolRegistries: [
         CoreToolRegistry.getInstance(),
@@ -31,6 +35,7 @@ export class ExploreSubAgent extends Agent {
         return settings.agent.maxToolRounds;
       },
       workingDirectory,
+      sessionsDir,
     });
   }
 }

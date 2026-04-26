@@ -14,7 +14,11 @@ import {settingsService} from '@/services/settings/index.js';
  * Has the same tools/skills as MainAgent but cannot dispatch subagents itself.
  */
 export class GeneralSubAgent extends Agent {
-  constructor(getConfig: () => Promise<LlmConfig>, workingDirectory: string) {
+  constructor(
+    getConfig: () => Promise<LlmConfig>,
+    workingDirectory: string,
+    sessionsDir?: string,
+  ) {
     super(getConfig, {
       toolRegistries: [
         CoreToolRegistry.getInstance(),
@@ -31,6 +35,7 @@ export class GeneralSubAgent extends Agent {
         return settings.agent.maxToolRounds;
       },
       workingDirectory,
+      sessionsDir,
     });
   }
 }

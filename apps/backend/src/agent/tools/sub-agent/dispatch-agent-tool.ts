@@ -69,13 +69,21 @@ export function createSubAgent(
   agentType: SubAgentType,
   getConfig: () => Promise<LlmConfig>,
   workingDirectory: string,
+  sessionsDir?: string,
 ): Agent {
   switch (agentType) {
     case SUB_AGENT_TYPE.GENERAL:
-      return new GeneralSubAgent(getConfig, workingDirectory);
+      return new GeneralSubAgent(getConfig, workingDirectory, sessionsDir);
     case SUB_AGENT_TYPE.EXPLORE:
-      return new ExploreSubAgent(getConfig, workingDirectory);
+      return new ExploreSubAgent(getConfig, workingDirectory, sessionsDir);
   }
+}
+
+export function getSubagentSessionsDir(
+  context: ToolExecutionContext,
+): string | undefined {
+  if (!context.sessionsDir) return undefined;
+  return path.join(context.sessionsDir, context.agentId, 'subagents');
 }
 
 const parameters = z.object({
@@ -161,7 +169,13 @@ export const dispatchAgentTool: ToolDefinition<
       model === 'light' ? context.getLightConfig : context.getConfig;
 
     // Create subagent
-    const subagent = createSubAgent(agentType, getConfig, workingDirectory);
+    const subagentSessionsDir = getSubagentSessionsDir(context);
+    const subagent = createSubAgent(
+      agentType,
+      getConfig,
+      workingDirectory,
+      subagentSessionsDir,
+    );
 
     // Link parent abort signal to subagent
     const onAbort = () => {
