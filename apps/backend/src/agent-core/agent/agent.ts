@@ -126,18 +126,22 @@ export abstract class Agent {
     this.getMaxToolRounds = options.getMaxToolRounds;
     this.getConfig = getConfig;
     this.getLightConfig = options.getLightConfig ?? null;
-    this.thinkingLevel =
-      snapshot?.options.thinkingLevel ?? options.thinkingLevel;
 
     this.sessionsDir = options.sessionsDir ?? null;
 
     if (snapshot) {
+      assert(
+        Object.hasOwn(snapshot.options, 'thinkingLevel'),
+        'Snapshot is missing thinkingLevel',
+      );
+      this.thinkingLevel = snapshot.options.thinkingLevel;
       this.id = snapshot.id;
       this.title = snapshot.title;
       this.sseEventCount = snapshot.sseEventCount;
       this.workingDirectory = snapshot.options.workingDirectory ?? os.tmpdir();
       this.llmSession = new LlmSession(getConfig, snapshot.llmSession);
     } else {
+      this.thinkingLevel = options.thinkingLevel;
       this.id = crypto.randomUUID();
       this.workingDirectory = options.workingDirectory ?? os.tmpdir();
       this.llmSession = new LlmSession(getConfig);
