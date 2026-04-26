@@ -93,8 +93,9 @@ For new sessions:
 
 For restored sessions:
 
-- Snapshot parsing accepts missing `thinkingLevel` for backward compatibility.
-- Missing values default to `none`.
+- Snapshot parsing requires `thinkingLevel`.
+- A snapshot missing `thinkingLevel` is invalid and should fail to load through
+  the existing snapshot validation path.
 - Restored agents use the persisted value for all future turns.
 
 The SSE event log is not the backend source of truth. `done.usage.thinkingLevel`
@@ -268,8 +269,7 @@ Backend tests:
   completion requests with missing or empty `message` values.
 - Shared API schema no longer requires `thinkingLevel` on completion requests.
 - Agent snapshot persistence includes `thinkingLevel` for new snapshots.
-- Agent snapshot restore defaults missing `thinkingLevel` to `none` for
-  compatibility with existing sessions.
+- Agent snapshot restore rejects snapshots missing `thinkingLevel`.
 - `agentSessionService.sendCompletion` calls `handleUserMessage(message)` and
   the agent uses its stored level.
 - `done.usage.thinkingLevel` is emitted for normal completion,
@@ -292,5 +292,5 @@ Manual verification:
 - Start a Coding task and confirm the task card level is used for the session.
 - Refresh a completed session route and confirm replay restores the displayed
   thinking level.
-- Restore an older snapshot without `thinkingLevel` and confirm it continues as
-  `none`.
+- Attempt to restore a snapshot without `thinkingLevel` and confirm validation
+  rejects it.
