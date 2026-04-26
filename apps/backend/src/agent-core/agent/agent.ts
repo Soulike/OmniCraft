@@ -42,14 +42,14 @@ import {
   buildAvailableSkills,
   buildAvailableTools,
   buildSystemPrompt,
-} from './agent-catalog.js';
-import {agentPersistence} from './agent-persistence.js';
-import type {AgentSseLogReaderOptions} from './agent-sse-log.js';
-import {AgentSseLog} from './agent-sse-log.js';
-import {generateTitle} from './agent-title.js';
-import {FileContentCache} from './file-content-cache.js';
-import {FileStatTracker} from './file-stat-tracker.js';
-import {TodoStore} from './todo-store.js';
+} from './catalog/agent-catalog.js';
+import type {AgentSseLogReaderOptions} from './events/agent-sse-log.js';
+import {AgentSseLog} from './events/agent-sse-log.js';
+import {agentPersistence} from './persistence/agent-persistence.js';
+import {FileContentCache} from './state/file-content-cache.js';
+import {FileStatTracker} from './state/file-stat-tracker.js';
+import {TodoStore} from './state/todo-store.js';
+import {generateTitle} from './title/agent-title.js';
 import type {AgentEventStream, AgentOptions, AgentSnapshot} from './types.js';
 
 /**
@@ -66,7 +66,7 @@ export abstract class Agent {
 
   static readonly DEFAULT_TITLE = 'New Session';
 
-  /** Short title for this session, generated after the first reply. */
+  /** Short title for this session, generated after the first user message. */
   title = Agent.DEFAULT_TITLE;
 
   /** The LLM session used by this agent. */
@@ -238,13 +238,13 @@ export abstract class Agent {
       );
       await this.pump(stream, (event) => {
         if (
-          event.type === 'done' &&
-          event.reason === 'complete' &&
+          event.type === 'message-start' &&
+          event.role === 'user' &&
           this.title === Agent.DEFAULT_TITLE &&
           !this.isGeneratingTitle
         ) {
           this.isGeneratingTitle = true;
-          void this.generateAndEmitTitle().finally(() => {
+          void this.generateAndEmitTitle(event.content).finally(() => {
             this.isGeneratingTitle = false;
           });
         }
@@ -492,14 +492,13 @@ export abstract class Agent {
   }
 
   /**
-   * Generates a session title from the first user + assistant exchange
-   * using the light LLM, then appends a `session-title` event to sseLog.
+   * Generates a session title from the first user message using the light LLM,
+   * then appends a `session-title` event to sseLog.
    * Fire-and-forget — errors are swallowed and a fallback title is used.
    */
-  private async generateAndEmitTitle(): Promise<void> {
-    const messages = this.llmSession.getMessages();
+  private async generateAndEmitTitle(userMessage: string): Promise<void> {
     const getConfig = this.getLightConfig ?? this.getConfig;
-    this.title = await generateTitle(messages, getConfig);
+    this.title = await generateTitle(userMessage, getConfig);
     if (!this.title) return;
     await this.appendSseEvent({
       type: 'session-title',

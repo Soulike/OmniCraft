@@ -1,9 +1,9 @@
 import os from 'node:os';
 
-import type {SkillDefinition, SkillRegistry} from '../skill/index.js';
-import type {ToolDefinition} from '../tool/index.js';
-import type {ToolRegistry} from '../tool/index.js';
-import {loadSkillTool} from '../tool/index.js';
+import type {SkillDefinition, SkillRegistry} from '../../skill/index.js';
+import type {ToolDefinition} from '../../tool/index.js';
+import type {ToolRegistry} from '../../tool/index.js';
+import {loadSkillTool} from '../../tool/index.js';
 
 function buildEnvironmentSection(workingDirectory: string): string {
   const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;

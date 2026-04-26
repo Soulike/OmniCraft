@@ -6,8 +6,10 @@ import {
 import type {SseEventCursorEntry} from '@omnicraft/sse-events';
 
 import {CodingAgent, MainAgent} from '@/agent/agents/index.js';
-import type {AgentSseLogReaderOptions} from '@/agent-core/agent/agent-sse-log.js';
-import type {Agent} from '@/agent-core/agent/index.js';
+import type {
+  Agent,
+  AgentSseLogReaderOptions,
+} from '@/agent-core/agent/index.js';
 import {CodingAgentStore, MainAgentStore} from '@/models/agent-store/index.js';
 import {SettingsManager} from '@/models/settings-manager/index.js';
 

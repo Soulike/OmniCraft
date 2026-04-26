@@ -5,8 +5,8 @@ import path from 'node:path';
 import type {SseEvent} from '@omnicraft/sse-events';
 import {afterEach, beforeEach, describe, expect, it} from 'vitest';
 
+import type {AgentSnapshot} from '../types.js';
 import {agentPersistence} from './agent-persistence.js';
-import type {AgentSnapshot} from './types.js';
 
 function createTestSnapshot(id: string): AgentSnapshot {
   return {

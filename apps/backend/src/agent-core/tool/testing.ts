@@ -6,9 +6,9 @@ import os from 'node:os';
 
 import {z} from 'zod';
 
-import {FileContentCache} from '../agent/file-content-cache.js';
-import {FileStatTracker} from '../agent/file-stat-tracker.js';
-import {TodoStore} from '../agent/todo-store.js';
+import {FileContentCache} from '../agent/state/file-content-cache.js';
+import {FileStatTracker} from '../agent/state/file-stat-tracker.js';
+import {TodoStore} from '../agent/state/todo-store.js';
 import {UserInteractionBridge} from '../user-interaction/index.js';
 import type {ToolDefinition, ToolExecutionContext} from './types.js';
 

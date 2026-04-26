@@ -5,8 +5,8 @@ import path from 'node:path';
 
 import {afterEach, beforeEach, describe, expect, it} from 'vitest';
 
+import {AgentSseLog} from '@/agent-core/agent/events/agent-sse-log.js';
 import type {Agent} from '@/agent-core/agent/index.js';
-import {AgentSseLog} from '@/agent-core/agent/index.js';
 
 import {MainAgentStore} from './main-agent-store.js';
 

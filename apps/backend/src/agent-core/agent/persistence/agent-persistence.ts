@@ -7,8 +7,8 @@ import {sseEventSchema} from '@omnicraft/sse-events';
 
 import {isFileNotFoundError} from '@/helpers/fs.js';
 
-import type {AgentSnapshot} from './types.js';
-import {agentSnapshotSchema} from './types.js';
+import type {AgentSnapshot} from '../types.js';
+import {agentSnapshotSchema} from '../types.js';
 
 interface PersistSnapshotOptions {
   sync?: boolean;
