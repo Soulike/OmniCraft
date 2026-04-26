@@ -86,14 +86,23 @@
 }
 
 /* Tables (GFM) */
-.markdown :global(table) {
+.tableScroll {
+  max-width: 100%;
+  overflow-x: auto;
   margin-top: 0.75em;
   margin-bottom: 0.75em;
-  border-collapse: collapse;
-  width: 100%;
-  font-size: 0.9em;
   border-radius: 8px;
-  overflow: hidden;
+}
+
+.markdown :global(table) {
+  border-collapse: collapse;
+  width: max-content;
+  min-width: 100%;
+  font-size: 0.9em;
+}
+
+.tableScroll :global(table) {
+  margin: 0;
 }
 
 .markdown :global(th),

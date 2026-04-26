@@ -12,13 +12,15 @@
 
 .userMessage {
   align-self: flex-end;
-  max-width: 80%;
+  max-width: 100%;
+  min-width: 0;
   animation: fadeInUp 0.2s ease-out;
 }
 
 .assistantMessage {
   align-self: flex-start;
-  max-width: 80%;
+  max-width: 100%;
+  min-width: 0;
   animation: fadeInUp 0.2s ease-out;
 }
 
