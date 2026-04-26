@@ -1,6 +1,16 @@
 import type {SseEvent} from '@omnicraft/sse-events';
-import {act, fireEvent, render, screen} from '@testing-library/react';
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react';
+import {useEffect} from 'react';
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
+
+import type {CreateSessionOptions} from '@/api/agent-session/index.js';
 
 import {
   ChatEventBusProvider,
@@ -82,6 +92,58 @@ function HarnessContent() {
   return <StreamingMessageDisplay eventBus={eventBus} sessionId='session-1' />;
 }
 
+type SendResult = {status: 'fulfilled'} | {error: unknown; status: 'rejected'};
+
+interface SendHarnessProps {
+  config?: CreateSessionOptions;
+  content: string;
+  createNewSessionId: (config: CreateSessionOptions) => Promise<string | null>;
+  onResult: (result: SendResult) => void;
+  onUserMessage?: (content: string) => void;
+  sessionId: string | null;
+}
+
+function SendHarness({
+  config,
+  content,
+  createNewSessionId,
+  onResult,
+  onUserMessage,
+  sessionId,
+}: SendHarnessProps) {
+  const eventBus = useChatEventBus();
+  const {sendMessage} = useStreamChat({sessionId, createNewSessionId});
+
+  useEffect(() => {
+    if (!onUserMessage) return;
+    const handler = ({content}: {content: string}) => {
+      onUserMessage(content);
+    };
+    eventBus.on('user-message-sent', handler);
+    return () => {
+      eventBus.off('user-message-sent', handler);
+    };
+  }, [eventBus, onUserMessage]);
+
+  return (
+    <button
+      onClick={() => {
+        void sendMessage(content, config).then(
+          () => {
+            onResult({status: 'fulfilled'});
+          },
+          (error: unknown) => {
+            onResult({error, status: 'rejected'});
+          },
+        );
+      }}
+      type='button'
+    >
+      Send
+    </button>
+  );
+}
+
 async function flushAsyncWork(): Promise<void> {
   await act(async () => {
     await Promise.resolve();
@@ -98,10 +160,111 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  cleanup();
   vi.unstubAllGlobals();
 });
 
 describe('useStreamChat', () => {
+  it('creates a session with config and sends the trimmed message without thinking level', async () => {
+    const api = createApi([]);
+    const config = {thinkingLevel: 'none'} as const;
+    const createNewSessionId = vi.fn(() => Promise.resolve('created-session'));
+    const onResult = vi.fn<(result: SendResult) => void>();
+
+    render(
+      <ChatSessionApiContext value={api}>
+        <ChatEventBusProvider>
+          <SendHarness
+            config={config}
+            content='  hello world  '
+            createNewSessionId={createNewSessionId}
+            onResult={onResult}
+            sessionId={null}
+          />
+        </ChatEventBusProvider>
+      </ChatSessionApiContext>,
+    );
+
+    fireEvent.click(screen.getByRole('button', {name: 'Send'}));
+
+    await waitFor(() => {
+      expect(onResult).toHaveBeenCalledWith({status: 'fulfilled'});
+    });
+    expect(createNewSessionId).toHaveBeenCalledWith(config);
+    expect(api.sendMessage).toHaveBeenCalledWith(
+      'created-session',
+      'hello world',
+    );
+  });
+
+  it('rejects without side effects when creating a session without config', async () => {
+    const api = createApi([]);
+    const createNewSessionId = vi.fn(() => Promise.resolve('created-session'));
+    const onResult = vi.fn<(result: SendResult) => void>();
+    const onUserMessage = vi.fn();
+
+    render(
+      <ChatSessionApiContext value={api}>
+        <ChatEventBusProvider>
+          <SendHarness
+            content='  hello world  '
+            createNewSessionId={createNewSessionId}
+            onResult={onResult}
+            onUserMessage={onUserMessage}
+            sessionId={null}
+          />
+        </ChatEventBusProvider>
+      </ChatSessionApiContext>,
+    );
+
+    fireEvent.click(screen.getByRole('button', {name: 'Send'}));
+
+    await waitFor(() => {
+      expect(onResult).toHaveBeenCalledTimes(1);
+    });
+    const [[result]] = onResult.mock.calls;
+    expect(result.status).toBe('rejected');
+    if (result.status === 'rejected') {
+      expect(result.error).toBeInstanceOf(Error);
+      expect((result.error as Error).message).toBe(
+        'Session creation options are required.',
+      );
+    }
+    expect(createNewSessionId).not.toHaveBeenCalled();
+    expect(api.sendMessage).not.toHaveBeenCalled();
+    expect(onUserMessage).not.toHaveBeenCalled();
+  });
+
+  it('sends the trimmed message for an existing session without creating a session', async () => {
+    const api = createApi([]);
+    const createNewSessionId = vi.fn(() => Promise.resolve('created-session'));
+    const onResult = vi.fn<(result: SendResult) => void>();
+
+    render(
+      <ChatSessionApiContext value={api}>
+        <ChatEventBusProvider>
+          <SendHarness
+            content='  follow up  '
+            createNewSessionId={createNewSessionId}
+            onResult={onResult}
+            sessionId='existing-session'
+          />
+        </ChatEventBusProvider>
+      </ChatSessionApiContext>,
+    );
+
+    fireEvent.click(screen.getByRole('button', {name: 'Send'}));
+
+    await waitFor(() => {
+      expect(onResult).toHaveBeenCalledWith({status: 'fulfilled'});
+    });
+    expect(createNewSessionId).not.toHaveBeenCalled();
+    expect(api.sendMessage).toHaveBeenCalledWith(
+      'existing-session',
+      'follow up',
+    );
+  });
+
   it('preserves replayed subagent output until the subagent display mounts', async () => {
     const terminalUsage = usage();
     const events: SseEvent[] = [
