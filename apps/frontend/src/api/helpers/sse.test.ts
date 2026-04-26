@@ -24,8 +24,18 @@ function createNullBodyResponse(): Response {
 
 async function collectResults(response: Response): Promise<string[]> {
   const results: string[] = [];
-  for await (const data of parseSseStream(response)) {
-    results.push(data);
+  for await (const event of parseSseStream(response)) {
+    results.push(event.data);
+  }
+  return results;
+}
+
+async function collectEventResults(
+  response: Response,
+): Promise<{id: string | null; data: string}[]> {
+  const results: {id: string | null; data: string}[] = [];
+  for await (const event of parseSseStream(response)) {
+    results.push(event);
   }
   return results;
 }
@@ -109,6 +119,12 @@ describe('parseSseStream', () => {
   });
 
   describe('non-data lines', () => {
+    it('should yield id and data from a single SSE event', async () => {
+      const response = createMockResponse(['id: 3\ndata: hello\n\n']);
+      const results = await collectEventResults(response);
+      expect(results).toEqual([{id: '3', data: 'hello'}]);
+    });
+
     it('should skip event blocks without data: prefix', async () => {
       const response = createMockResponse([
         'event: message\n\ndata: hello\n\n',

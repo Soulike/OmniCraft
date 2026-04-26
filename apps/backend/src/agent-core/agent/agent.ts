@@ -6,6 +6,7 @@ import type {ThinkingLevel} from '@omnicraft/api-schema';
 import type {
   SseDoneEvent,
   SseEvent,
+  SseEventCursorEntry,
   SseMessageStartEvent,
   SseSessionTitleEvent,
   SseSubAgentEvent,
@@ -202,8 +203,10 @@ export abstract class Agent {
     void this.runTurn(userMessage, thinkingLevel);
   }
 
-  /** Returns an async iterable of events from this agent's log. */
-  subscribe(options?: AgentSseLogReaderOptions): AsyncIterable<SseEvent> {
+  /** Returns an async iterable of events with raw resume cursors. */
+  subscribe(
+    options?: AgentSseLogReaderOptions,
+  ): AsyncIterable<SseEventCursorEntry> {
     return this.sseLog.createReader(options);
   }
 

@@ -10,6 +10,7 @@ import {
   submitToolResponseRequestSchema,
   type ThinkingLevel,
 } from '@omnicraft/api-schema';
+import type {SseEventCursorEntry} from '@omnicraft/sse-events';
 import {StatusCodes} from 'http-status-codes';
 import {ZodError} from 'zod';
 
@@ -183,7 +184,7 @@ router.get(SESSION_EVENTS, async (ctx) => {
  */
 async function pumpSseEvents(
   stream: PassThrough,
-  eventStream: AsyncIterable<unknown>,
+  eventStream: AsyncIterable<SseEventCursorEntry>,
   req: IncomingMessage,
   abortController: AbortController,
 ): Promise<void> {
@@ -197,8 +198,8 @@ async function pumpSseEvents(
   req.on('close', onDisconnect);
 
   try {
-    for await (const event of eventStream) {
-      writeSseEvent(stream, event);
+    for await (const entry of eventStream) {
+      writeSseEvent(stream, entry.event, entry.nextIndex);
     }
   } finally {
     req.off('close', onDisconnect);

@@ -185,9 +185,12 @@ export const dispatchAgentTool: ToolDefinition<
 
       subagent.handleUserMessage(task, thinkingLevel);
 
-      for await (const event of eventIter) {
+      for await (const entry of eventIter) {
+        const {event} = entry;
         // Subagents cannot emit subagent events (no SubAgentToolRegistry),
-        // so all events are base events. Cast is safe by construction.
+        // so all events are base events. Cast is safe by construction. The
+        // subagent cursor is only for resuming that internal log, so it is not
+        // forwarded through the parent session's SSE protocol.
         context.onSubAgentEvent({
           type: 'subagent-output',
           agentId: subagent.id,
