@@ -199,20 +199,22 @@ session creation. That value becomes session creation config:
 
 No separate Coding setup interaction is needed.
 
-### Session Config Context
+### Frontend State Ownership
 
-`SessionConfigProvider` currently stores workspace-related session UI state. It
-will also store the frontend's known session thinking level for display:
+Do not store the created session's thinking level in `SessionConfigProvider`.
+That provider should remain focused on workspace-related session UI state.
 
-- `draftThinkingLevel` for session creation forms.
-- `sessionThinkingLevel` for the active session once known.
+Thinking-level state has two frontend owners:
 
-For newly created sessions, the frontend can set `sessionThinkingLevel`
-immediately from the creation value. For restored sessions, replayed
-`done.usage.thinkingLevel` updates it.
+- Draft creation state stays local to the creation surface that needs it:
+  Chat's no-session composer and Coding's task dispatch card.
+- Created-session display state comes from the existing `UsageInfo` path, which
+  already listens for `done` events and resets on `reset-session`.
 
-When the route changes to a different session, transient known session config is
-reset. It is repopulated by local creation state or SSE replay.
+For newly created and restored sessions, replayed or live
+`done.usage.thinkingLevel` is enough for passive display. Until the first `done`
+arrives, the frontend may hide the indicator. Backend execution does not depend
+on this frontend display state.
 
 ### Display
 
@@ -222,7 +224,7 @@ session metadata such as workspace and usage.
 
 Display behavior:
 
-- Show `Thinking: <level>` when `sessionThinkingLevel` is known.
+- Show `Thinking: <level>` when `usage.thinkingLevel` is known.
 - Hide the indicator while unknown, rather than showing a misleading default.
 - Do not place a disabled select in the follow-up composer.
 
@@ -282,7 +284,8 @@ Frontend tests:
 - Chat existing-session composer does not render the thinking selector.
 - Coding task dispatch creates the session with `workspace` and `thinkingLevel`,
   then sends the task without `thinkingLevel`.
-- Replayed `done.usage.thinkingLevel` updates the known session display value.
+- `UsageInfo` renders replayed `done.usage.thinkingLevel` and resets on session
+  changes.
 
 Manual verification:
 
