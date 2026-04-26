@@ -1,3 +1,5 @@
+import type {ThinkingLevel} from '@omnicraft/api-schema';
+
 import {CoreSkillRegistry} from '@/agent/skills/index.js';
 import {
   BashToolRegistry,
@@ -23,6 +25,7 @@ import {settingsService} from '@/services/settings/index.js';
 export class MainAgent extends Agent {
   constructor(
     workingDirectory: string | undefined,
+    thinkingLevel: ThinkingLevel,
     sessionsDir?: string,
     snapshot?: AgentSnapshot,
   ) {
@@ -53,6 +56,7 @@ export class MainAgent extends Agent {
           const {apiFormat, apiKey, baseUrl, model, lightModel} = settings.llm;
           return {apiFormat, apiKey, baseUrl, model: lightModel || model};
         },
+        thinkingLevel,
         workingDirectory,
         sessionsDir,
       },
@@ -69,6 +73,7 @@ export class MainAgent extends Agent {
     );
     return new MainAgent(
       snapshot.options.workingDirectory,
+      snapshot.options.thinkingLevel,
       sessionsDir,
       snapshot,
     );

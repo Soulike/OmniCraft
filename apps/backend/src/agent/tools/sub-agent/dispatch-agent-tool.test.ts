@@ -104,6 +104,7 @@ describe('dispatchAgentTool', () => {
         SUB_AGENT_TYPE.GENERAL,
         context.getConfig,
         tmpDir,
+        'none',
       );
 
       expect(subagent).toBeInstanceOf(GeneralSubAgent);
@@ -120,6 +121,7 @@ describe('dispatchAgentTool', () => {
         SUB_AGENT_TYPE.EXPLORE,
         context.getConfig,
         tmpDir,
+        'none',
       );
 
       expect(subagent).toBeInstanceOf(ExploreSubAgent);

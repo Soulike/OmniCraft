@@ -69,12 +69,13 @@ export function createSubAgent(
   agentType: SubAgentType,
   getConfig: () => Promise<LlmConfig>,
   workingDirectory: string,
+  thinkingLevel: z.infer<typeof thinkingLevelSchema>,
 ): Agent {
   switch (agentType) {
     case SUB_AGENT_TYPE.GENERAL:
-      return new GeneralSubAgent(getConfig, workingDirectory);
+      return new GeneralSubAgent(getConfig, workingDirectory, thinkingLevel);
     case SUB_AGENT_TYPE.EXPLORE:
-      return new ExploreSubAgent(getConfig, workingDirectory);
+      return new ExploreSubAgent(getConfig, workingDirectory, thinkingLevel);
   }
 }
 
@@ -161,7 +162,12 @@ export const dispatchAgentTool: ToolDefinition<
       model === 'light' ? context.getLightConfig : context.getConfig;
 
     // Create subagent
-    const subagent = createSubAgent(agentType, getConfig, workingDirectory);
+    const subagent = createSubAgent(
+      agentType,
+      getConfig,
+      workingDirectory,
+      thinkingLevel,
+    );
 
     // Link parent abort signal to subagent
     const onAbort = () => {
@@ -183,7 +189,7 @@ export const dispatchAgentTool: ToolDefinition<
       let completed = false;
       const eventIter = subagent.subscribe({signal: context.signal});
 
-      subagent.handleUserMessage(task, thinkingLevel);
+      subagent.handleUserMessage(task);
 
       for await (const event of eventIter) {
         // Subagents cannot emit subagent events (no SubAgentToolRegistry),

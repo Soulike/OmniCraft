@@ -60,6 +60,7 @@ export const sseUsageSchema = z.object({
   inputTokens: z.number(),
   outputTokens: z.number(),
   cacheReadInputTokens: z.number(),
+  thinkingLevel: thinkingLevelSchema,
 });
 export type SseUsage = z.infer<typeof sseUsageSchema>;
 

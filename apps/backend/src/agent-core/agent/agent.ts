@@ -77,6 +77,7 @@ export abstract class Agent {
   private readonly getMaxToolRounds: AgentOptions['getMaxToolRounds'];
   private readonly getConfig: () => Promise<LlmConfig>;
   private readonly getLightConfig: (() => Promise<LlmConfig>) | null;
+  private readonly thinkingLevel: ThinkingLevel;
 
   private readonly workingDirectory: string;
 
@@ -125,6 +126,8 @@ export abstract class Agent {
     this.getMaxToolRounds = options.getMaxToolRounds;
     this.getConfig = getConfig;
     this.getLightConfig = options.getLightConfig ?? null;
+    this.thinkingLevel =
+      snapshot?.options.thinkingLevel ?? options.thinkingLevel;
 
     this.sessionsDir = options.sessionsDir ?? null;
 
@@ -177,6 +180,7 @@ export abstract class Agent {
       llmSession: this.llmSession.toSnapshot(),
       options: {
         workingDirectory: this.workingDirectory,
+        thinkingLevel: this.thinkingLevel,
       },
     };
   }
@@ -198,8 +202,8 @@ export abstract class Agent {
    * Handles a user message by running the full Agent Loop in the background.
    * Events are written to {@link sseLog}. Use {@link subscribe} to read them.
    */
-  handleUserMessage(userMessage: string, thinkingLevel: ThinkingLevel): void {
-    void this.runTurn(userMessage, thinkingLevel);
+  handleUserMessage(userMessage: string): void {
+    void this.runTurn(userMessage);
   }
 
   /** Returns an async iterable of events from this agent's log. */
@@ -221,12 +225,10 @@ export abstract class Agent {
   // Private helpers
   // -------------------------------------------------------------------------
 
-  private async runTurn(
-    userMessage: string,
-    thinkingLevel: ThinkingLevel,
-  ): Promise<void> {
+  private async runTurn(userMessage: string): Promise<void> {
     const release = await this.mutex.acquire();
     try {
+      const thinkingLevel = this.thinkingLevel;
       this.abortController = new AbortController();
       const stream = this.runAgentLoop(
         userMessage,
@@ -484,6 +486,7 @@ export abstract class Agent {
     return {
       model: config.model,
       maxInputTokens,
+      thinkingLevel: this.thinkingLevel,
       ...this.llmSession.getUsage(),
     };
   }

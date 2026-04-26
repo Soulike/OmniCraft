@@ -78,10 +78,11 @@ describe('Agent title generation', () => {
       baseSystemPrompt: '',
       getMaxToolRounds: () => 1,
       getLightConfig: () => Promise.resolve(LIGHT_CONFIG),
+      thinkingLevel: 'high',
     });
 
     const eventsPromise = collectUntilDone(agent);
-    agent.handleUserMessage('Please help me rename a component', 'none');
+    agent.handleUserMessage('Please help me rename a component');
     const events = await eventsPromise;
 
     const userStartIndex = events.findIndex(
@@ -95,6 +96,10 @@ describe('Agent title generation', () => {
     expect(userStartIndex).toBeGreaterThanOrEqual(0);
     expect(titleIndex).toBeGreaterThan(userStartIndex);
     expect(titleIndex).toBeLessThan(doneIndex);
+    expect(events[doneIndex]).toMatchObject({
+      type: 'done',
+      usage: {thinkingLevel: 'high'},
+    });
     expect(events[titleIndex]).toEqual({
       type: 'session-title',
       title: 'Short Title',

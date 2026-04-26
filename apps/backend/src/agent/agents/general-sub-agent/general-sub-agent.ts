@@ -1,3 +1,5 @@
+import type {ThinkingLevel} from '@omnicraft/api-schema';
+
 import {CoreSkillRegistry} from '@/agent/skills/index.js';
 import {
   BashToolRegistry,
@@ -14,7 +16,11 @@ import {settingsService} from '@/services/settings/index.js';
  * Has the same tools/skills as MainAgent but cannot dispatch subagents itself.
  */
 export class GeneralSubAgent extends Agent {
-  constructor(getConfig: () => Promise<LlmConfig>, workingDirectory: string) {
+  constructor(
+    getConfig: () => Promise<LlmConfig>,
+    workingDirectory: string,
+    thinkingLevel: ThinkingLevel,
+  ) {
     super(getConfig, {
       toolRegistries: [
         CoreToolRegistry.getInstance(),
@@ -30,6 +36,7 @@ export class GeneralSubAgent extends Agent {
         const settings = await settingsService.getAll();
         return settings.agent.maxToolRounds;
       },
+      thinkingLevel,
       workingDirectory,
     });
   }

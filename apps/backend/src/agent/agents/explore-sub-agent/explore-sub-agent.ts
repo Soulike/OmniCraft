@@ -1,3 +1,5 @@
+import type {ThinkingLevel} from '@omnicraft/api-schema';
+
 import {CoreSkillRegistry} from '@/agent/skills/index.js';
 import {
   BashToolRegistry,
@@ -16,7 +18,11 @@ import {exploreSubAgentSystemPrompt} from './system-prompt.js';
  * It can inspect the workspace and return reports, but its prompt forbids mutations.
  */
 export class ExploreSubAgent extends Agent {
-  constructor(getConfig: () => Promise<LlmConfig>, workingDirectory: string) {
+  constructor(
+    getConfig: () => Promise<LlmConfig>,
+    workingDirectory: string,
+    thinkingLevel: ThinkingLevel,
+  ) {
     super(getConfig, {
       toolRegistries: [
         CoreToolRegistry.getInstance(),
@@ -30,6 +36,7 @@ export class ExploreSubAgent extends Agent {
         const settings = await settingsService.getAll();
         return settings.agent.maxToolRounds;
       },
+      thinkingLevel,
       workingDirectory,
     });
   }
