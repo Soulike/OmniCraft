@@ -1,5 +1,4 @@
 import {ScrollShadow} from '@heroui/react';
-import type {ThinkingLevel} from '@omnicraft/api-schema';
 import type {RefObject} from 'react';
 
 import {
@@ -26,7 +25,7 @@ interface CodingPageViewProps {
   scrollRef: RefObject<HTMLDivElement | null>;
   sessionId: string | null;
   onMessagesChange: (messages: readonly ChatMessage[]) => void;
-  onStartTask: (content: string, thinkingLevel: ThinkingLevel) => Promise<void>;
+  onStartTask: (content: string) => Promise<void>;
   onSend: (content: string) => Promise<void>;
   onStop: () => void;
   onNewSession: () => void;

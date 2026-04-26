@@ -1,6 +1,5 @@
 import {useCallback, useEffect, useRef, useState} from 'react';
 
-import type {CreateSessionOptions} from '@/api/agent-session/index.js';
 import {HttpError} from '@/api/helpers/http-error.js';
 import {abortableSleep} from '@/helpers/abortable-sleep.js';
 
@@ -12,6 +11,9 @@ import {useChatSessionApi} from './useChatSessionApi.js';
 import type {useSessionId} from './useSessionId.js';
 
 type SessionIdHook = ReturnType<typeof useSessionId>;
+type CreateNewSessionOptions = Parameters<
+  SessionIdHook['createNewSessionId']
+>[0];
 
 interface UseStreamChatOptions {
   sessionId: SessionIdHook['sessionId'];
@@ -188,20 +190,17 @@ export function useStreamChat({
   }, [sessionId, eventBus, subscribeEvents]);
 
   const sendMessage = useCallback(
-    async (content: string, createSessionOptions?: CreateSessionOptions) => {
+    async (content: string, createSessionOptions?: CreateNewSessionOptions) => {
       if (isStreaming) return;
 
       const trimmed = content.trim();
       if (!trimmed) return;
 
-      const config = createSessionOptions;
-      let activeSessionId = sessionId;
-      if (activeSessionId === null) {
-        if (config === undefined) {
-          throw new Error('Session creation options are required.');
-        }
-        activeSessionId = await createNewSessionId(config);
-      }
+      const activeSessionId =
+        sessionId ??
+        (createSessionOptions === undefined
+          ? await createNewSessionId()
+          : await createNewSessionId(createSessionOptions));
       if (!activeSessionId) return;
 
       setStreamError(null);

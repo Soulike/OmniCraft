@@ -1,4 +1,3 @@
-import type {ThinkingLevel} from '@omnicraft/api-schema';
 import {useCallback, useMemo} from 'react';
 
 import * as codingApi from '@/api/coding/index.js';
@@ -26,14 +25,14 @@ export function CodingPage() {
   return (
     <ChatSessionApiContext value={codingApi}>
       <ChatEventBusProvider>
-        <SessionIdProvider
-          buildSessionRoute={(id) => `${ROUTES.coding()}/${id}`}
-          baseRoute={ROUTES.coding()}
-        >
-          <SessionConfigProvider>
+        <SessionConfigProvider>
+          <SessionIdProvider
+            buildSessionRoute={(id) => `${ROUTES.coding()}/${id}`}
+            baseRoute={ROUTES.coding()}
+          >
             <CodingPageContent />
-          </SessionConfigProvider>
-        </SessionIdProvider>
+          </SessionIdProvider>
+        </SessionConfigProvider>
       </ChatEventBusProvider>
     </ChatSessionApiContext>
   );
@@ -90,13 +89,12 @@ function CodingPageContent() {
   const {containerRef: scrollRef, scrollToBottom} = useAutoScroll();
 
   const handleStartTask = useCallback(
-    async (content: string, thinkingLevel: ThinkingLevel) => {
+    async (content: string) => {
       if (selectedWorkspace === undefined) {
         throw new Error('Please select a workspace before starting a session.');
       }
       await sendMessage(content, {
         workspace: selectedWorkspace,
-        thinkingLevel,
       });
       requestAnimationFrame(() => {
         scrollToBottom();

@@ -1,4 +1,3 @@
-import type {ThinkingLevel} from '@omnicraft/api-schema';
 import {useCallback} from 'react';
 
 import * as chatApi from '@/api/chat/index.js';
@@ -23,14 +22,14 @@ export function ChatPage() {
   return (
     <ChatSessionApiContext value={chatApi}>
       <ChatEventBusProvider>
-        <SessionIdProvider
-          buildSessionRoute={(id) => `${ROUTES.chat()}/${id}`}
-          baseRoute={ROUTES.chat()}
-        >
-          <SessionConfigProvider>
+        <SessionConfigProvider>
+          <SessionIdProvider
+            buildSessionRoute={(id) => `${ROUTES.chat()}/${id}`}
+            baseRoute={ROUTES.chat()}
+          >
             <ChatPageContent />
-          </SessionConfigProvider>
-        </SessionIdProvider>
+          </SessionIdProvider>
+        </SessionConfigProvider>
       </ChatEventBusProvider>
     </ChatSessionApiContext>
   );
@@ -68,8 +67,8 @@ function ChatPageContent() {
   const {containerRef: scrollRef, scrollToBottom} = useAutoScroll();
 
   const handleStartSession = useCallback(
-    (content: string, thinkingLevel: ThinkingLevel) => {
-      void sendMessage(content, {thinkingLevel});
+    (content: string) => {
+      void sendMessage(content);
       requestAnimationFrame(() => {
         scrollToBottom();
       });

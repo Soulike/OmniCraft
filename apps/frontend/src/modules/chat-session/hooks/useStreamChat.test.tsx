@@ -10,8 +10,6 @@ import {
 import {useEffect} from 'react';
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 
-import type {CreateSessionOptions} from '@/api/agent-session/index.js';
-
 import {
   ChatEventBusProvider,
   type ChatSessionApi,
@@ -94,10 +92,16 @@ function HarnessContent() {
 
 type SendResult = {status: 'fulfilled'} | {error: unknown; status: 'rejected'};
 
+interface CreateNewSessionOptions {
+  workspace?: string;
+}
+
 interface SendHarnessProps {
-  config?: CreateSessionOptions;
+  config?: CreateNewSessionOptions;
   content: string;
-  createNewSessionId: (config: CreateSessionOptions) => Promise<string | null>;
+  createNewSessionId: (
+    config?: CreateNewSessionOptions,
+  ) => Promise<string | null>;
   onResult: (result: SendResult) => void;
   onUserMessage?: (content: string) => void;
   sessionId: string | null;
@@ -165,9 +169,39 @@ afterEach(() => {
 });
 
 describe('useStreamChat', () => {
-  it('creates a session with config and sends the trimmed message without thinking level', async () => {
+  it('creates a session without config and sends the trimmed message', async () => {
     const api = createApi([]);
-    const config = {thinkingLevel: 'none'} as const;
+    const createNewSessionId = vi.fn(() => Promise.resolve('created-session'));
+    const onResult = vi.fn<(result: SendResult) => void>();
+
+    render(
+      <ChatSessionApiContext value={api}>
+        <ChatEventBusProvider>
+          <SendHarness
+            content='  hello world  '
+            createNewSessionId={createNewSessionId}
+            onResult={onResult}
+            sessionId={null}
+          />
+        </ChatEventBusProvider>
+      </ChatSessionApiContext>,
+    );
+
+    fireEvent.click(screen.getByRole('button', {name: 'Send'}));
+
+    await waitFor(() => {
+      expect(onResult).toHaveBeenCalledWith({status: 'fulfilled'});
+    });
+    expect(createNewSessionId).toHaveBeenCalledWith();
+    expect(api.sendMessage).toHaveBeenCalledWith(
+      'created-session',
+      'hello world',
+    );
+  });
+
+  it('passes workspace config when creating a session', async () => {
+    const api = createApi([]);
+    const config = {workspace: '/repo'};
     const createNewSessionId = vi.fn(() => Promise.resolve('created-session'));
     const onResult = vi.fn<(result: SendResult) => void>();
 
@@ -195,44 +229,6 @@ describe('useStreamChat', () => {
       'created-session',
       'hello world',
     );
-  });
-
-  it('rejects without side effects when creating a session without config', async () => {
-    const api = createApi([]);
-    const createNewSessionId = vi.fn(() => Promise.resolve('created-session'));
-    const onResult = vi.fn<(result: SendResult) => void>();
-    const onUserMessage = vi.fn();
-
-    render(
-      <ChatSessionApiContext value={api}>
-        <ChatEventBusProvider>
-          <SendHarness
-            content='  hello world  '
-            createNewSessionId={createNewSessionId}
-            onResult={onResult}
-            onUserMessage={onUserMessage}
-            sessionId={null}
-          />
-        </ChatEventBusProvider>
-      </ChatSessionApiContext>,
-    );
-
-    fireEvent.click(screen.getByRole('button', {name: 'Send'}));
-
-    await waitFor(() => {
-      expect(onResult).toHaveBeenCalledTimes(1);
-    });
-    const [[result]] = onResult.mock.calls;
-    expect(result.status).toBe('rejected');
-    if (result.status === 'rejected') {
-      expect(result.error).toBeInstanceOf(Error);
-      expect((result.error as Error).message).toBe(
-        'Session creation options are required.',
-      );
-    }
-    expect(createNewSessionId).not.toHaveBeenCalled();
-    expect(api.sendMessage).not.toHaveBeenCalled();
-    expect(onUserMessage).not.toHaveBeenCalled();
   });
 
   it('sends the trimmed message for an existing session without creating a session', async () => {
