@@ -296,7 +296,17 @@ remains available through SSE logs.
 ### Compaction Metadata
 
 Store lightweight metadata for debugging and future migrations. Extend
-`LlmSessionSnapshot` with an optional `compactions` array:
+`LlmSessionSnapshot` with a required `compactions` array:
+
+```typescript
+export const llmSessionSnapshotSchema = z.object({
+  id: z.string(),
+  messages: z.array(llmMessageSchema),
+  compactions: z.array(llmCompactionMetadataSchema),
+});
+```
+
+Each entry uses this shape:
 
 ```typescript
 interface LlmCompactionMetadata {
@@ -310,8 +320,8 @@ interface LlmCompactionMetadata {
 }
 ```
 
-This metadata is not used to render UI history and is not required to continue a
-session. Missing metadata in older snapshots is treated as an empty array.
+This metadata is not used to render UI history. New sessions initialize it as an
+empty array and append one entry after each successful compaction.
 
 ### Failure Handling
 
@@ -405,7 +415,8 @@ Add message mutation tests:
 - compacted history is `[summary user message] + rawSuffix`;
 - an older summary is folded into the new summary input;
 - compaction metadata is appended;
-- compacted snapshots include compaction metadata.
+- new session snapshots initialize `compactions: []`;
+- compacted snapshots append compaction metadata.
 
 ### Integration Tests
 
