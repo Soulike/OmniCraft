@@ -145,6 +145,9 @@ export const dispatchAgentTool: ToolDefinition<
   description: buildToolDescription(),
   parameters,
   suppressToolEvents: true,
+  compactResult({content}) {
+    return content.trim() || null;
+  },
   async execute(
     args: z.infer<typeof parameters>,
     context: ToolExecutionContext,

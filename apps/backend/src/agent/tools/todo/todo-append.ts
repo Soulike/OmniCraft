@@ -16,6 +16,10 @@ export const todoAppendTool: ToolDefinition<
     'Do not create items for simple tasks that need no progress tracking.',
   parameters: todoAppendParametersSchema,
   suppressToolEvents: true,
+  compactResult({content, status}) {
+    const lines = content.split('\n').filter(Boolean);
+    return [`todo state ${status}`, ...lines.slice(0, 30)].join('\n');
+  },
   execute(args, context) {
     const {todoStore, todoState} = context;
     todoStore.append(args.items);

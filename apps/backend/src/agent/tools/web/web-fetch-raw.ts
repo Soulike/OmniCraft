@@ -38,6 +38,12 @@ export const webFetchRawTool: ToolDefinition<
     'need unprocessed content (e.g., inspecting raw HTML structure).',
   parameters,
   suppressToolEvents: false,
+  compactResult({content, status}) {
+    const lines = content.split('\n').filter(Boolean);
+    return [`${TOOL_NAME.WEB_FETCH_RAW} ${status}`, ...lines.slice(0, 21)].join(
+      '\n',
+    );
+  },
   async execute(args: WebFetchRawArgs, _context: ToolExecutionContext) {
     const urlError = validateUrl(args.url);
     if (urlError) {
