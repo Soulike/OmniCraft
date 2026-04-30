@@ -14,9 +14,20 @@ import type {
   LlmUsage,
 } from '../llm-api/index.js';
 import {llmApi} from '../llm-api/index.js';
+import {modelCapacity} from '../model-capacity/index.js';
 import type {ToolDefinition} from '../tool/types.js';
+import {
+  buildCompactionPrompt,
+  COMPACTION_STRATEGY_VERSION,
+  COMPACTION_THRESHOLD_RATIO,
+  generateCompactionSummary,
+  MIN_RAW_MESSAGES,
+  slimMessagesForSummary,
+  splitCompactablePrefix,
+} from './compaction/index.js';
 import type {
   LlmCompactionMetadata,
+  LlmCompactionOptions,
   LlmSessionEventStream,
   LlmSessionSnapshot,
   SendUserMessageResult,
@@ -147,6 +158,15 @@ export class LlmSession {
     return [...this.messages];
   }
 
+  async compactIfNeeded(options: LlmCompactionOptions): Promise<boolean> {
+    const release = await this.mutex.acquire();
+    try {
+      return await this.compactIfNeededUnlocked(options);
+    } finally {
+      release();
+    }
+  }
+
   /** Clears all messages and resets usage. */
   clear(): void {
     this.messages.length = 0;
@@ -166,7 +186,8 @@ export class LlmSession {
     signal?: AbortSignal,
   ): LlmSessionEventStream {
     const release = await this.mutex.acquire();
-    const rollbackIndex = this.messages.length;
+    const rollbackMessages = [...this.messages];
+    const rollbackCompactions = [...this.compactions];
     this.messages.push(...messages);
     let completed = false;
     try {
@@ -174,10 +195,66 @@ export class LlmSession {
       completed = true;
     } finally {
       if (!completed) {
-        this.messages.length = rollbackIndex;
+        this.messages.length = 0;
+        this.messages.push(...rollbackMessages);
+        this.compactions.length = 0;
+        this.compactions.push(...rollbackCompactions);
       }
       release();
     }
+  }
+
+  private async compactIfNeededUnlocked(
+    options: LlmCompactionOptions,
+  ): Promise<boolean> {
+    const config = await this.getConfig();
+    const maxInputTokens = await modelCapacity.getMaxInputTokens(config);
+    const currentTokens = await llmApi.countToken({
+      config,
+      messages: this.messages,
+      systemPrompt: options.systemPrompt || undefined,
+      tools: options.tools,
+      thinkingLevel: options.thinkingLevel,
+    });
+
+    if (currentTokens < maxInputTokens * COMPACTION_THRESHOLD_RATIO) {
+      return false;
+    }
+
+    const beforeCharCount = JSON.stringify(this.messages).length;
+    const {compactablePrefix, rawSuffix} = splitCompactablePrefix(
+      this.messages,
+      {minRawMessages: MIN_RAW_MESSAGES},
+    );
+
+    if (compactablePrefix.length === 0) return false;
+
+    const slimmedMessages = slimMessagesForSummary(
+      compactablePrefix,
+      options.tools,
+    );
+    const prompt = buildCompactionPrompt(slimmedMessages);
+    const summary = await generateCompactionSummary({config, prompt});
+    const summaryMessage: LlmMessage = {
+      id: crypto.randomUUID(),
+      createdAt: Date.now(),
+      role: 'user',
+      content: `<conversation_summary>\n${summary}\n</conversation_summary>`,
+    };
+
+    this.messages.length = 0;
+    this.messages.push(summaryMessage, ...rawSuffix);
+    this.compactions.push({
+      id: crypto.randomUUID(),
+      compactedAt: Date.now(),
+      strategyVersion: COMPACTION_STRATEGY_VERSION,
+      coveredMessageCount: compactablePrefix.length,
+      rawSuffixCount: rawSuffix.length,
+      beforeCharCount,
+      afterCharCount: JSON.stringify(this.messages).length,
+    });
+
+    return true;
   }
 
   /**
@@ -191,6 +268,12 @@ export class LlmSession {
     thinkingLevel: ThinkingLevel,
     signal?: AbortSignal,
   ): LlmSessionEventStream {
+    await this.compactIfNeededUnlocked({
+      reason: 'before-llm-call',
+      tools,
+      systemPrompt,
+      thinkingLevel,
+    });
     const llmConfig = await this.getConfig();
     const eventStream = llmApi.streamCompletion({
       config: llmConfig,

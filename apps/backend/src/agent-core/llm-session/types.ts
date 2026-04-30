@@ -1,6 +1,8 @@
+import type {ThinkingLevel} from '@omnicraft/api-schema';
 import {z} from 'zod';
 
 import {llmMessageSchema, type LlmToolCall} from '../llm-api/index.js';
+import type {ToolDefinition} from '../tool/types.js';
 
 export const llmCompactionMetadataSchema = z.object({
   id: z.string(),
@@ -28,6 +30,15 @@ export interface ToolResult {
   callId: string;
   content: string;
   status: 'success' | 'failure';
+}
+
+export type LlmCompactionReason = 'before-llm-call' | 'after-turn';
+
+export interface LlmCompactionOptions {
+  readonly reason: LlmCompactionReason;
+  readonly tools: readonly ToolDefinition[];
+  readonly systemPrompt: string;
+  readonly thinkingLevel: ThinkingLevel;
 }
 
 /** A text content delta from the LLM. */
