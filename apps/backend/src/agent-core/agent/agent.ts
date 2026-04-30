@@ -280,10 +280,17 @@ export abstract class Agent {
         await this.appendSseEvent(event);
         onEvent?.(event);
       }
-    } catch {
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error &&
+        error.message.startsWith(
+          'Failed to compact LLM session before model call',
+        )
+          ? error.message
+          : 'An internal error occurred';
       await this.appendSseEvent({
         type: 'error',
-        message: 'An internal error occurred',
+        message,
       });
     }
   }

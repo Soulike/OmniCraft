@@ -268,12 +268,20 @@ export class LlmSession {
     thinkingLevel: ThinkingLevel,
     signal?: AbortSignal,
   ): LlmSessionEventStream {
-    await this.compactIfNeededUnlocked({
-      reason: 'before-llm-call',
-      tools,
-      systemPrompt,
-      thinkingLevel,
-    });
+    try {
+      await this.compactIfNeededUnlocked({
+        reason: 'before-llm-call',
+        tools,
+        systemPrompt,
+        thinkingLevel,
+      });
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(
+        `Failed to compact LLM session before model call: ${message}`,
+        {cause: error},
+      );
+    }
     const llmConfig = await this.getConfig();
     const eventStream = llmApi.streamCompletion({
       config: llmConfig,

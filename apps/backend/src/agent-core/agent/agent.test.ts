@@ -57,6 +57,12 @@ async function* titleCompletionStream(): LlmEventStream {
   };
 }
 
+async function* failingStream(): LlmEventStream {
+  yield {type: 'message-start', messageId: 'failed-message'};
+  await Promise.resolve();
+  throw new Error('summary failed');
+}
+
 async function collectUntilDone(agent: Agent): Promise<SseEvent[]> {
   const controller = new AbortController();
   const events: SseEvent[] = [];
@@ -65,6 +71,22 @@ async function collectUntilDone(agent: Agent): Promise<SseEvent[]> {
     const {event} = entry;
     events.push(event);
     if (event.type === 'done') {
+      controller.abort();
+      break;
+    }
+  }
+
+  return events;
+}
+
+async function collectUntilError(agent: Agent): Promise<SseEvent[]> {
+  const controller = new AbortController();
+  const events: SseEvent[] = [];
+
+  for await (const entry of agent.subscribe({signal: controller.signal})) {
+    const {event} = entry;
+    events.push(event);
+    if (event.type === 'error') {
       controller.abort();
       break;
     }
@@ -156,6 +178,44 @@ describe('Agent compaction lifecycle', () => {
     expect(compactionOptions.tools).toEqual([]);
     expect(typeof compactionOptions.systemPrompt).toBe('string');
     expect(compactionOptions.thinkingLevel).toBe('high');
+  });
+
+  it('emits a clear error when pre-call compaction fails', async () => {
+    vi.spyOn(llmApi, 'countToken').mockResolvedValue(200_000);
+    vi.spyOn(llmApi, 'streamCompletion').mockReturnValue(failingStream());
+    const agent = new TestAgent(
+      () => Promise.resolve(MAIN_CONFIG),
+      testAgentOptions(),
+      {
+        id: 'agent-1',
+        title: 'Existing Title',
+        sseEventCount: 0,
+        llmSession: {
+          id: 'llm-session-1',
+          compactions: [],
+          messages: Array.from({length: 12}, (_, index) => ({
+            id: `old-${index.toString()}`,
+            createdAt: index,
+            role: 'user' as const,
+            content: `old message ${index.toString()}`,
+          })),
+        },
+        options: {thinkingLevel: 'high'},
+      },
+    );
+
+    const eventsPromise = collectUntilError(agent);
+    agent.handleUserMessage('Trigger compaction');
+    const events = await eventsPromise;
+
+    const lastEvent = events.at(-1);
+    expect(lastEvent?.type).toBe('error');
+    if (lastEvent?.type !== 'error') {
+      throw new Error('Expected final event to be an error');
+    }
+    expect(lastEvent.message).toContain(
+      'Failed to compact LLM session before model call',
+    );
   });
 });
 

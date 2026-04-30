@@ -131,6 +131,27 @@ describe('LlmSession compaction', () => {
     });
   });
 
+  it('surfaces a clear error when pre-call compaction fails', async () => {
+    vi.spyOn(llmApi, 'countToken').mockResolvedValue(200_000);
+    vi.spyOn(llmApi, 'streamCompletion').mockReturnValue(failingStream());
+    const messages = oldMessages(12);
+    const session = new LlmSession(() => Promise.resolve(CONFIG), {
+      id: 'session-1',
+      compactions: [],
+      messages,
+    });
+
+    await expect(
+      drain(session.sendUserMessage('hello', [], '', 'none').stream),
+    ).rejects.toThrow('Failed to compact LLM session before model call');
+
+    expect(session.toSnapshot()).toEqual({
+      id: 'session-1',
+      compactions: [],
+      messages,
+    });
+  });
+
   it('keeps history unchanged when turn-end compaction fails', async () => {
     vi.spyOn(llmApi, 'countToken').mockResolvedValue(200_000);
     vi.spyOn(llmApi, 'streamCompletion').mockReturnValue(failingStream());
