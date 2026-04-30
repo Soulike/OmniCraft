@@ -161,3 +161,5 @@ export interface LlmCompletionOptions {
   readonly thinkingLevel: ThinkingLevel;
   readonly signal?: AbortSignal;
 }
+
+export type LlmTokenCountOptions = Omit<LlmCompletionOptions, 'signal'>;
