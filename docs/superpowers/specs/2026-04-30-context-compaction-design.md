@@ -107,11 +107,47 @@ The second trigger belongs inside `LlmSession.streamCompletion()` so both
 large tool results are added between model calls.
 
 The trigger checks the already-built current prompt state. It should not project
-future growth. The implementation can count the serialized current input using a
-provider-aware helper when available and a conservative local fallback when it
-is not. Existing provider-reported usage remains the source for displayed token
-usage, but accumulated session usage is not enough to decide current prompt
-size.
+future growth and must not use accumulated `LlmSession.getUsage()` counters.
+Those counters are historical usage totals for display/accounting, not the size
+of the current prompt. Trigger checks call `llmApi.countToken()` with the same
+request projection used for model calls.
+
+### Token Counting
+
+Add `countToken()` as a sibling method to `llmApi.streamCompletion()`:
+
+```typescript
+llmApi.streamCompletion(options);
+llmApi.countToken(options);
+```
+
+`countToken()` accepts the same prompt-shaping inputs as `LlmCompletionOptions`:
+
+```typescript
+interface LlmTokenCountOptions {
+  readonly config: Readonly<LlmConfig>;
+  readonly messages: readonly LlmMessage[];
+  readonly systemPrompt?: string;
+  readonly tools: readonly ToolDefinition[];
+  readonly thinkingLevel: ThinkingLevel;
+}
+```
+
+Adapter behavior:
+
+- Claude uses `client.messages.countTokens()` after converting messages, tools,
+  system prompt, and thinking config the same way the streaming adapter does.
+- OpenAI Responses uses `client.responses.inputTokens.count()` after converting
+  messages and tools with the same helpers as `streamOpenAIResponses()`.
+- OpenAI Chat Completions and OpenAI-compatible providers use a conservative
+  local estimator because a compatible token-count endpoint cannot be assumed.
+- If a provider count API fails, use the conservative local estimator rather
+  than disabling compaction checks.
+
+The local estimator should serialize the same request projection that would be
+sent to the provider and use a conservative character-to-token ratio. It only
+drives the 80% compaction threshold; it is not used for billing or displayed
+usage.
 
 ### Safe History Boundary
 
@@ -346,11 +382,30 @@ flow through it.
 
 Responsibilities:
 
-- check the pre-LLM trigger before provider calls;
+- use `llmApi.countToken()` to check the pre-LLM trigger before provider calls;
 - expose a turn-end compaction method for `Agent` to call after `done`;
 - hold and persist compaction metadata;
 - update `ToolResult` handling to store required status in tool messages;
 - preserve rollback behavior when normal model streams fail.
+
+The turn-end public method should still perform its own `llmApi.countToken()`
+check internally. `Agent` supplies the active tools, system prompt, and thinking
+level, but it does not calculate context size or mutate LLM history directly.
+
+### Agent
+
+`Agent` participates only at the lifecycle boundary. After a turn emits `done`,
+it calls the `LlmSession` turn-end compaction method with the same active tools,
+system prompt, and thinking level used during that turn. If that after-turn
+compaction fails, `Agent` logs the failure and keeps the already-completed turn
+intact; the next pre-LLM trigger will attempt compaction again.
+
+### LlmApi
+
+`llmApi` dispatches token counting by `config.apiFormat`, mirroring
+`streamCompletion()` dispatch. Token counting must use the same adapter helpers
+that build provider request payloads so the counted prompt matches the prompt
+that will be sent as closely as the provider allows.
 
 ### History Compactor
 
