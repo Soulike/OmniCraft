@@ -150,6 +150,7 @@ export class LlmSession {
   /** Clears all messages and resets usage. */
   clear(): void {
     this.messages.length = 0;
+    this.compactions.length = 0;
     this.usage = {inputTokens: 0, outputTokens: 0, cacheReadInputTokens: 0};
   }
 
