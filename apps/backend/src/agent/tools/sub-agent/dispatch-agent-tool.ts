@@ -14,17 +14,19 @@ import type {
 } from '@/agent-core/tool/index.js';
 import {isSubPathOrSelf} from '@/helpers/path-helpers.js';
 
+import {
+  agentTypeSchema,
+  type DispatchAgentResult,
+  SUB_AGENT_TYPE,
+  type SubAgentType,
+} from './subagent-types.js';
+
+type CurrentDispatchAgentResult = Pick<DispatchAgentResult, 'summary'>;
+
 interface SubAgentInfo {
   name: string;
   description: string;
 }
-
-export const SUB_AGENT_TYPE = {
-  GENERAL: 'general',
-  EXPLORE: 'explore',
-} as const;
-
-export type SubAgentType = (typeof SUB_AGENT_TYPE)[keyof typeof SUB_AGENT_TYPE];
 
 const subAgentInfos = {
   [SUB_AGENT_TYPE.GENERAL]: {
@@ -42,11 +44,6 @@ const subAgentInfos = {
       'Do not specify a report format unless the user asked for one.',
   },
 } as const satisfies Record<SubAgentType, SubAgentInfo>;
-
-const agentTypeSchema = z.enum([
-  SUB_AGENT_TYPE.GENERAL,
-  SUB_AGENT_TYPE.EXPLORE,
-]);
 
 function buildToolDescription(): string {
   const header =
@@ -131,14 +128,10 @@ const parameters = z.object({
     ),
 });
 
-interface DispatchAgentResult {
-  summary: string;
-}
-
 /** Tool that dispatches a subagent to handle a subtask autonomously. */
 export const dispatchAgentTool: ToolDefinition<
   typeof parameters,
-  DispatchAgentResult
+  CurrentDispatchAgentResult
 > = {
   name: 'dispatch_agent',
   displayName: 'Dispatch Agent',
@@ -148,7 +141,7 @@ export const dispatchAgentTool: ToolDefinition<
   async execute(
     args: z.infer<typeof parameters>,
     context: ToolExecutionContext,
-  ): Promise<ToolExecuteResult<DispatchAgentResult>> {
+  ): Promise<ToolExecuteResult<CurrentDispatchAgentResult>> {
     const {
       task,
       agentType = SUB_AGENT_TYPE.GENERAL,

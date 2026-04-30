@@ -19,8 +19,8 @@ import {
   createSubAgent,
   dispatchAgentTool,
   getSubagentSessionsDir,
-  SUB_AGENT_TYPE,
 } from './dispatch-agent-tool.js';
+import {SUB_AGENT_TYPE} from './subagent-types.js';
 
 function resetAgentRegistries(): void {
   CoreToolRegistry.resetInstance();
