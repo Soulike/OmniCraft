@@ -16,6 +16,7 @@ import type {
 import {llmApi} from '../llm-api/index.js';
 import type {ToolDefinition} from '../tool/types.js';
 import type {
+  LlmCompactionMetadata,
   LlmSessionEventStream,
   LlmSessionSnapshot,
   SendUserMessageResult,
@@ -37,6 +38,7 @@ export class LlmSession {
   readonly id: string;
 
   private readonly messages: LlmMessage[] = [];
+  private readonly compactions: LlmCompactionMetadata[] = [];
   private usage: LlmUsage = {
     inputTokens: 0,
     outputTokens: 0,
@@ -54,6 +56,7 @@ export class LlmSession {
     if (snapshot) {
       this.id = snapshot.id;
       this.messages.push(...snapshot.messages);
+      this.compactions.push(...snapshot.compactions);
     } else {
       this.id = crypto.randomUUID();
     }
@@ -61,7 +64,11 @@ export class LlmSession {
 
   /** Returns a serializable snapshot of this session. */
   toSnapshot(): LlmSessionSnapshot {
-    return {id: this.id, messages: [...this.messages]};
+    return {
+      id: this.id,
+      messages: [...this.messages],
+      compactions: [...this.compactions],
+    };
   }
 
   /**
@@ -119,6 +126,7 @@ export class LlmSession {
       role: 'tool' as const,
       callId: result.callId,
       content: result.content,
+      status: result.status,
     }));
     yield* this.sendMessages(
       toolMessages,

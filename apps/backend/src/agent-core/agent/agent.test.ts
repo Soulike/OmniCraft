@@ -124,6 +124,7 @@ describe('Agent snapshot restore', () => {
       llmSession: {
         id: 'llm-session-id',
         messages: [],
+        compactions: [],
       },
       options: {
         workingDirectory: '/tmp/project',

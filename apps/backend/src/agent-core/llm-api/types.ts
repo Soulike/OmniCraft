@@ -52,6 +52,7 @@ export type LlmAssistantMessage = z.infer<typeof llmAssistantMessageSchema>;
 export const llmToolResultMessageSchema = llmMessageBaseSchema.extend({
   role: z.literal('tool'),
   callId: z.string(),
+  status: z.enum(['success', 'failure']),
 });
 
 export type LlmToolResultMessage = z.infer<typeof llmToolResultMessageSchema>;

@@ -394,6 +394,7 @@ export abstract class Agent {
         toolResults.set(toolCall.callId, {
           callId: toolCall.callId,
           content: `Error: Unknown tool: ${toolCall.toolName}`,
+          status: 'failure',
         });
       }
 
@@ -431,6 +432,7 @@ export abstract class Agent {
           toolResults.set(toolCall.callId, {
             callId: toolCall.callId,
             content: result.content,
+            status: result.status === 'success' ? 'success' : 'failure',
           });
         });
 
