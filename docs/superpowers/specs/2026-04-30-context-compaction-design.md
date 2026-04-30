@@ -194,7 +194,7 @@ interface ToolDefinition<...> {
 
   compactResult?: (input: {
     content: string;
-    status: 'success' | 'failure' | 'unknown';
+    status: 'success' | 'failure';
     toolCall: LlmToolCall;
     message: LlmToolResultMessage;
   }) => string | null;
@@ -207,19 +207,18 @@ Semantics:
 - Return `null` to omit the old result from the summary input.
 - Omit the hook to use the default truncation policy.
 
-To support this reliably, extend tool result history with an optional status:
+To support this reliably, extend tool result history with a required status:
 
 ```typescript
 export const llmToolResultMessageSchema = llmMessageBaseSchema.extend({
   role: z.literal('tool'),
   callId: z.string(),
-  status: z.enum(['success', 'failure']).optional(),
+  status: z.enum(['success', 'failure']),
 });
 ```
 
 `Agent.runAgentLoop()` already knows each tool execution status when it builds
 `ToolResult`. It should pass the status into `LlmSession.submitToolResults()`.
-Older snapshots without `status` are treated as `unknown` by compaction.
 
 Initial tool policies:
 
@@ -340,7 +339,7 @@ Responsibilities:
 - check the pre-LLM trigger before provider calls;
 - expose a turn-end compaction method for `Agent` to call after `done`;
 - hold and persist compaction metadata;
-- update `ToolResult` handling to store optional status in tool messages;
+- update `ToolResult` handling to store required status in tool messages;
 - preserve rollback behavior when normal model streams fail.
 
 ### History Compactor
@@ -406,7 +405,7 @@ Add message mutation tests:
 - compacted history is `[summary user message] + rawSuffix`;
 - an older summary is folded into the new summary input;
 - compaction metadata is appended;
-- snapshots without tool result status or compaction metadata still parse.
+- compacted snapshots include compaction metadata.
 
 ### Integration Tests
 
@@ -419,9 +418,8 @@ Add an `LlmSession` test with a fake summary model/provider:
 
 ### Existing Tests
 
-Update tests that construct `ToolResult` or `LlmToolResultMessage` mocks to allow
-the optional status field. Existing snapshots without the field must remain
-valid.
+Update tests that construct `ToolResult` or `LlmToolResultMessage` mocks to
+provide the required status field.
 
 ## Future Work
 
