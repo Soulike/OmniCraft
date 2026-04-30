@@ -17,10 +17,12 @@ import {createMockContext} from '@/agent-core/tool/testing.js';
 import type {ToolExecutionContext} from '@/agent-core/tool/types.js';
 
 import {
+  createFreshSubagent,
   createSubAgent,
   dispatchAgentTool,
   getSubagentSessionsDir,
 } from './dispatch-agent-tool.js';
+import {loadSubagentMetadata} from './subagent-history.js';
 import {SUB_AGENT_TYPE} from './subagent-types.js';
 
 function resetAgentRegistries(): void {
@@ -286,6 +288,31 @@ describe('dispatchAgentTool', () => {
         id: subagent.id,
         title: 'New Session',
         workingDirectory: tmpDir,
+      });
+    } finally {
+      resetAgentRegistries();
+    }
+  });
+
+  it('fresh dispatch creation persists subagent sidecar metadata before running', async () => {
+    resetAgentRegistries();
+    initAgentRegistries();
+    try {
+      const sessionsDir = path.join(tmpDir, 'subagents');
+      const subagent = await createFreshSubagent({
+        agentType: SUB_AGENT_TYPE.EXPLORE,
+        getConfig: context.getConfig,
+        workingDirectory: tmpDir,
+        thinkingLevel: 'none',
+        subagentSessionsDir: sessionsDir,
+      });
+
+      await expect(
+        loadSubagentMetadata(sessionsDir, subagent.id),
+      ).resolves.toMatchObject({
+        schemaVersion: 1,
+        id: subagent.id,
+        agentType: SUB_AGENT_TYPE.EXPLORE,
       });
     } finally {
       resetAgentRegistries();

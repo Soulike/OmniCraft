@@ -1,7 +1,6 @@
 import path from 'node:path';
 
 import {thinkingLevelSchema} from '@omnicraft/api-schema';
-import type {SseBaseEvent} from '@omnicraft/sse-events';
 import {z} from 'zod';
 
 import {ExploreSubAgent, GeneralSubAgent} from '@/agent/agents/index.js';
@@ -14,14 +13,14 @@ import type {
 } from '@/agent-core/tool/index.js';
 import {isSubPathOrSelf} from '@/helpers/path-helpers.js';
 
+import {persistSubagentMetadata} from './subagent-history.js';
+import {runSubagentTurn} from './subagent-runner.js';
 import {
   agentTypeSchema,
   type DispatchAgentResult,
   SUB_AGENT_TYPE,
   type SubAgentType,
 } from './subagent-types.js';
-
-type CurrentDispatchAgentResult = Pick<DispatchAgentResult, 'summary'>;
 
 interface SubAgentInfo {
   name: string;
@@ -97,6 +96,33 @@ export function getSubagentSessionsDir(
   return path.join(context.sessionsDir, context.agentId, 'subagents');
 }
 
+export async function createFreshSubagent(params: {
+  agentType: SubAgentType;
+  getConfig: () => Promise<LlmConfig>;
+  workingDirectory: string;
+  thinkingLevel: z.infer<typeof thinkingLevelSchema>;
+  subagentSessionsDir?: string;
+}): Promise<Agent> {
+  const subagent = createSubAgent(
+    params.agentType,
+    params.getConfig,
+    params.workingDirectory,
+    params.thinkingLevel,
+    params.subagentSessionsDir,
+  );
+
+  if (params.subagentSessionsDir) {
+    await persistSubagentMetadata(params.subagentSessionsDir, subagent.id, {
+      schemaVersion: 1,
+      id: subagent.id,
+      agentType: params.agentType,
+      createdAt: Date.now(),
+    });
+  }
+
+  return subagent;
+}
+
 const parameters = z.object({
   task: z.string().min(1).describe('The task description for the subagent'),
   agentType: agentTypeSchema
@@ -134,7 +160,7 @@ const parameters = z.object({
 /** Tool that dispatches a subagent to handle a subtask autonomously. */
 export const dispatchAgentTool: ToolDefinition<
   typeof parameters,
-  CurrentDispatchAgentResult
+  DispatchAgentResult
 > = {
   name: 'dispatch_agent',
   displayName: 'Dispatch Agent',
@@ -144,7 +170,7 @@ export const dispatchAgentTool: ToolDefinition<
   async execute(
     args: z.infer<typeof parameters>,
     context: ToolExecutionContext,
-  ): Promise<ToolExecuteResult<CurrentDispatchAgentResult>> {
+  ): Promise<ToolExecuteResult<DispatchAgentResult>> {
     const {
       task,
       agentType = SUB_AGENT_TYPE.GENERAL,
@@ -175,101 +201,22 @@ export const dispatchAgentTool: ToolDefinition<
     const getConfig =
       model === 'light' ? context.getLightConfig : context.getConfig;
 
-    // Create subagent
     const subagentSessionsDir = getSubagentSessionsDir(context);
-    const subagent = createSubAgent(
+    const subagent = await createFreshSubagent({
       agentType,
       getConfig,
       workingDirectory,
       thinkingLevel,
       subagentSessionsDir,
-    );
+    });
 
-    // Link parent abort signal to subagent
-    const onAbort = () => {
-      subagent.abort();
-    };
-    context.signal.addEventListener('abort', onAbort, {once: true});
-
-    context.onSubAgentEvent({
-      type: 'subagent-dispatch',
-      agentId: subagent.id,
+    return runSubagentTurn({
+      subagent,
       task,
       agentType,
       thinkingLevel,
       workingDirectory,
+      context,
     });
-
-    try {
-      let lastReplyText = '';
-      let completed = false;
-      const eventIter = subagent.subscribe({signal: context.signal});
-
-      subagent.handleUserMessage(task);
-
-      for await (const entry of eventIter) {
-        const {event} = entry;
-        // Subagents cannot emit subagent events (no SubAgentToolRegistry),
-        // so all events are base events. Cast is safe by construction. The
-        // subagent cursor is only for resuming that internal log, so it is not
-        // forwarded through the parent session's SSE protocol.
-        context.onSubAgentEvent({
-          type: 'subagent-output',
-          agentId: subagent.id,
-          event: event as SseBaseEvent,
-        });
-
-        if (event.type === 'message-start' && event.role === 'assistant') {
-          lastReplyText = '';
-        }
-        if (event.type === 'text-delta') {
-          lastReplyText += event.content;
-        }
-        // Subagent's sseLog is never sealed — break on done to end iteration.
-        // If the parent aborts, the reader ends silently (no done seen).
-        if (event.type === 'done') {
-          completed = true;
-          break;
-        }
-      }
-
-      context.onSubAgentEvent({
-        type: 'subagent-complete',
-        agentId: subagent.id,
-        status: completed ? 'success' : 'failure',
-      });
-
-      if (completed) {
-        const summary =
-          lastReplyText ||
-          'Subagent completed the task but produced no text summary.';
-        return {
-          data: {summary},
-          content: summary,
-          status: 'success',
-        };
-      }
-
-      return {
-        data: {message: 'Subagent was aborted'},
-        content: 'Subagent was aborted.',
-        status: 'failure',
-      };
-    } catch (error: unknown) {
-      context.onSubAgentEvent({
-        type: 'subagent-complete',
-        agentId: subagent.id,
-        status: 'failure',
-      });
-
-      const message = error instanceof Error ? error.message : String(error);
-      return {
-        data: {message: `Subagent error: ${message}`},
-        content: `Subagent error: ${message}`,
-        status: 'failure',
-      };
-    } finally {
-      context.signal.removeEventListener('abort', onAbort);
-    }
   },
 };
