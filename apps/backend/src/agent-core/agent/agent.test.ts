@@ -2,6 +2,7 @@ import type {SseEvent} from '@omnicraft/sse-events';
 import {afterEach, describe, expect, it, vi} from 'vitest';
 
 import {llmApi, type LlmConfig, type LlmEventStream} from '../llm-api/index.js';
+import {LlmSession} from '../llm-session/index.js';
 import {Agent} from './agent.js';
 import type {AgentSnapshot} from './types.js';
 
@@ -72,12 +73,21 @@ async function collectUntilDone(agent: Agent): Promise<SseEvent[]> {
   return events;
 }
 
+async function waitFor(predicate: () => boolean): Promise<void> {
+  for (let attempt = 0; attempt < 20; attempt++) {
+    if (predicate()) return;
+    await delay(5);
+  }
+  expect(predicate()).toBe(true);
+}
+
 describe('Agent title generation', () => {
   afterEach(() => {
     vi.restoreAllMocks();
   });
 
   it('emits the first session title after the first user message starts', async () => {
+    vi.spyOn(llmApi, 'countToken').mockResolvedValue(1);
     vi.spyOn(llmApi, 'streamCompletion').mockImplementation((options) => {
       if (options.config.model === LIGHT_CONFIG.model) {
         return titleCompletionStream();
@@ -112,6 +122,40 @@ describe('Agent title generation', () => {
       type: 'session-title',
       title: 'Short Title',
     });
+  });
+});
+
+describe('Agent compaction lifecycle', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('requests turn-end compaction after emitting done', async () => {
+    vi.spyOn(llmApi, 'countToken').mockResolvedValue(1);
+    vi.spyOn(llmApi, 'streamCompletion').mockImplementation((options) => {
+      if (options.config.model === LIGHT_CONFIG.model) {
+        return titleCompletionStream();
+      }
+      return mainCompletionStream();
+    });
+    const compactSpy = vi
+      .spyOn(LlmSession.prototype, 'compactIfNeeded')
+      .mockResolvedValue(false);
+    const agent = new TestAgent(() => Promise.resolve(MAIN_CONFIG), {
+      ...testAgentOptions(),
+    });
+
+    const eventsPromise = collectUntilDone(agent);
+    agent.handleUserMessage('Finish the task');
+    const events = await eventsPromise;
+
+    expect(events.at(-1)).toMatchObject({type: 'done', reason: 'complete'});
+    await waitFor(() => compactSpy.mock.calls.length > 0);
+    const [compactionOptions] = compactSpy.mock.calls[0];
+    expect(compactionOptions.reason).toBe('after-turn');
+    expect(compactionOptions.tools).toEqual([]);
+    expect(typeof compactionOptions.systemPrompt).toBe('string');
+    expect(compactionOptions.thinkingLevel).toBe('high');
   });
 });
 

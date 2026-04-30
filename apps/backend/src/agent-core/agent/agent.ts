@@ -254,11 +254,9 @@ export abstract class Agent {
             this.isGeneratingTitle = false;
           });
         }
-        if (event.type === 'done') {
-          void this.persistSnapshot().catch((err: unknown) => {
-            logger.error({err}, 'Failed to persist snapshot');
-          });
-        }
+      });
+      await this.persistSnapshot().catch((err: unknown) => {
+        logger.error({err}, 'Failed to persist snapshot');
       });
     } finally {
       this.abortController = null;
@@ -309,6 +307,23 @@ export abstract class Agent {
     } satisfies SseDoneEvent;
   }
 
+  private async compactAfterTurn(
+    tools: readonly ToolDefinition[],
+    systemPrompt: string,
+    thinkingLevel: ThinkingLevel,
+  ): Promise<void> {
+    try {
+      await this.llmSession.compactIfNeeded({
+        reason: 'after-turn',
+        tools,
+        systemPrompt,
+        thinkingLevel,
+      });
+    } catch (err: unknown) {
+      logger.error({err}, 'Failed to compact LLM session after turn');
+    }
+  }
+
   protected async *runAgentLoop(
     userMessage: string,
     thinkingLevel: ThinkingLevel,
@@ -355,6 +370,7 @@ export abstract class Agent {
     while (toolCalls.length > 0) {
       if (signal.aborted) {
         yield* this.emitAbortCompletion(inFlightToolCalls);
+        await this.compactAfterTurn(toolDefs, systemPrompt, thinkingLevel);
         return;
       }
 
@@ -365,6 +381,7 @@ export abstract class Agent {
           reason: 'max_rounds_reached',
           usage: await this.buildSseUsage(),
         } satisfies SseDoneEvent;
+        await this.compactAfterTurn(toolDefs, systemPrompt, thinkingLevel);
         return;
       }
 
@@ -459,6 +476,7 @@ export abstract class Agent {
       // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
       if (signal.aborted) {
         yield* this.emitAbortCompletion(inFlightToolCalls);
+        await this.compactAfterTurn(toolDefs, systemPrompt, thinkingLevel);
         return;
       }
 
@@ -483,6 +501,7 @@ export abstract class Agent {
       reason: 'complete',
       usage: await this.buildSseUsage(),
     } satisfies SseDoneEvent;
+    await this.compactAfterTurn(toolDefs, systemPrompt, thinkingLevel);
   }
 
   /**
