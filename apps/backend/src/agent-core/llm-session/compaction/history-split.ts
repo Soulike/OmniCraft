@@ -15,7 +15,7 @@ export function splitCompactablePrefix(
 ): HistorySplitResult {
   let rawStart = Math.max(0, messages.length - options.minRawMessages);
   const returnedCallIds = new Set<string>();
-  let keptMostRecentToolGroup = false;
+  let keptMostRecentClosedToolGroup = false;
 
   for (let index = messages.length - 1; index >= 0; index--) {
     const message = messages[index];
@@ -33,9 +33,14 @@ export function splitCompactablePrefix(
       (toolCall) => !returnedCallIds.has(toolCall.callId),
     );
 
-    if (hasUnclosedToolCall || !keptMostRecentToolGroup) {
+    if (hasUnclosedToolCall) {
       rawStart = Math.min(rawStart, index);
-      keptMostRecentToolGroup = true;
+      continue;
+    }
+
+    if (!keptMostRecentClosedToolGroup) {
+      rawStart = Math.min(rawStart, index);
+      keptMostRecentClosedToolGroup = true;
     }
   }
 

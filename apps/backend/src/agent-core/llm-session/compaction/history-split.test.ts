@@ -84,4 +84,26 @@ describe('splitCompactablePrefix', () => {
       'final',
     ]);
   });
+
+  it('keeps the most recent closed tool group even when a later tool call is unclosed', () => {
+    const messages = [
+      user('old'),
+      assistantTool('assistant-tool-1', 'call-1'),
+      tool('tool-result-1', 'call-1'),
+      user('between'),
+      assistantTool('assistant-tool-2', 'call-2'),
+      user('after'),
+    ];
+
+    const result = splitCompactablePrefix(messages, {minRawMessages: 1});
+
+    expect(result.compactablePrefix.map((m) => m.id)).toEqual(['old']);
+    expect(result.rawSuffix.map((m) => m.id)).toEqual([
+      'assistant-tool-1',
+      'tool-result-1',
+      'between',
+      'assistant-tool-2',
+      'after',
+    ]);
+  });
 });
