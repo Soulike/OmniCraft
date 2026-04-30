@@ -256,4 +256,16 @@ describe('subagent history metadata helpers', () => {
       'Subagent snapshot id mismatch: expected source-id, got other-source-id',
     );
   });
+
+  it('fails resume preparation when source subagent metadata is missing', async () => {
+    const source = createSnapshot('source-id', 0);
+    await agentPersistence.persistSnapshot(tmpDir, source.id, source);
+
+    await expect(
+      prepareResumedSubagentState({
+        subagentSessionsDir: tmpDir,
+        sourceSubagentId: source.id,
+      }),
+    ).rejects.toThrow();
+  });
 });

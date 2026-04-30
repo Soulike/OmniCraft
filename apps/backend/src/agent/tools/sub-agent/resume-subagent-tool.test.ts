@@ -96,6 +96,47 @@ describe('resumeSubagentTool.execute', () => {
     });
   });
 
+  it('uses the parent config by default', async () => {
+    const snapshot = createPreparedSnapshot();
+    const subagent = {id: 'prepared-subagent-id'};
+    const {deps, tool} = createTestTool();
+    deps.createSubAgent.mockReturnValue(subagent);
+    deps.prepareResumedSubagentState.mockResolvedValue({
+      snapshot,
+      metadata: {
+        schemaVersion: 1,
+        id: 'prepared-subagent-id',
+        agentType: SUB_AGENT_TYPE.GENERAL,
+        createdAt: 123,
+      },
+      subagentSseEventStartIndex: 17,
+    });
+    deps.runSubagentTurn.mockResolvedValue({
+      data: {
+        subagentId: 'prepared-subagent-id',
+        agentType: SUB_AGENT_TYPE.GENERAL,
+        summary: 'continued',
+      },
+      content: 'Subagent completed.',
+      status: 'success',
+    });
+    const context = createMockContext({sessionsDir: '/parent-sessions'});
+
+    await tool.execute(
+      {subagentId: 'source-subagent-id', task: 'continue investigation'},
+      context,
+    );
+
+    expect(deps.createSubAgent).toHaveBeenCalledWith(
+      SUB_AGENT_TYPE.GENERAL,
+      context.getConfig,
+      '/prepared-work',
+      'medium',
+      '/mock-subagent-sessions',
+      snapshot,
+    );
+  });
+
   it('includes the prepared resumed subagent id when a post-prepare failure occurs', async () => {
     const snapshot = createPreparedSnapshot({id: 'prepared-subagent-id'});
     const {deps, tool} = createTestTool();
@@ -154,11 +195,13 @@ describe('resumeSubagentTool', () => {
 
   it('is registered in the subagent tool registry', () => {
     SubAgentToolRegistry.resetInstance();
-    const registry = SubAgentToolRegistry.create();
+    try {
+      const registry = SubAgentToolRegistry.create();
 
-    expect(registry.get('resume_subagent')).toBe(resumeSubagentTool);
-
-    SubAgentToolRegistry.resetInstance();
+      expect(registry.get('resume_subagent')).toBe(resumeSubagentTool);
+    } finally {
+      SubAgentToolRegistry.resetInstance();
+    }
   });
 });
 
