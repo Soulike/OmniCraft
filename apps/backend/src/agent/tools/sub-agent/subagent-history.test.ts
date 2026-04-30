@@ -190,6 +190,38 @@ describe('subagent history metadata helpers', () => {
     ).rejects.toThrow('expected 2 SSE events');
   });
 
+  it('fails when source event log is missing before the snapshot count is copied', async () => {
+    const source = createSnapshot('source-id', 1);
+
+    await expect(
+      copySubagentSseEvents({
+        sourceSessionsDir: tmpDir,
+        sourceSnapshot: source,
+        targetSessionsDir: tmpDir,
+        targetId: 'target-id',
+      }),
+    ).rejects.toThrow('source event log is missing');
+  });
+
+  it('fails when source event log is corrupted before the snapshot count is copied', async () => {
+    const source = createSnapshot('source-id', 2);
+    const filePath = agentPersistence.eventsPath(tmpDir, source.id);
+    await fs.mkdir(path.dirname(filePath), {recursive: true});
+    await fs.writeFile(
+      filePath,
+      JSON.stringify({type: 'text-delta', content: 'valid'}) + '\nnot-json\n',
+    );
+
+    await expect(
+      copySubagentSseEvents({
+        sourceSessionsDir: tmpDir,
+        sourceSnapshot: source,
+        targetSessionsDir: tmpDir,
+        targetId: 'target-id',
+      }),
+    ).rejects.toThrow('expected 2 SSE events but copied 1');
+  });
+
   it('prepares a resumed persisted subagent state', async () => {
     const source = createSnapshot('source-id', 1);
     await agentPersistence.persistSnapshot(tmpDir, source.id, source);
