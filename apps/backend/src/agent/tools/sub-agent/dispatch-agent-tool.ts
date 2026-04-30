@@ -5,7 +5,7 @@ import type {SseBaseEvent} from '@omnicraft/sse-events';
 import {z} from 'zod';
 
 import {ExploreSubAgent, GeneralSubAgent} from '@/agent/agents/index.js';
-import type {Agent} from '@/agent-core/agent/index.js';
+import type {Agent, AgentSnapshot} from '@/agent-core/agent/index.js';
 import type {LlmConfig} from '@/agent-core/llm-api/index.js';
 import type {
   ToolDefinition,
@@ -68,6 +68,7 @@ export function createSubAgent(
   workingDirectory: string,
   thinkingLevel: z.infer<typeof thinkingLevelSchema>,
   sessionsDir?: string,
+  snapshot?: AgentSnapshot,
 ): Agent {
   switch (agentType) {
     case SUB_AGENT_TYPE.GENERAL:
@@ -76,6 +77,7 @@ export function createSubAgent(
         workingDirectory,
         thinkingLevel,
         sessionsDir,
+        snapshot,
       );
     case SUB_AGENT_TYPE.EXPLORE:
       return new ExploreSubAgent(
@@ -83,6 +85,7 @@ export function createSubAgent(
         workingDirectory,
         thinkingLevel,
         sessionsDir,
+        snapshot,
       );
   }
 }

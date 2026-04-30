@@ -12,6 +12,7 @@ import {
   FileToolRegistry,
   WebToolRegistry,
 } from '@/agent/tools/index.js';
+import type {AgentSnapshot} from '@/agent-core/agent/index.js';
 import {createMockContext} from '@/agent-core/tool/testing.js';
 import type {ToolExecutionContext} from '@/agent-core/tool/types.js';
 
@@ -126,6 +127,62 @@ describe('dispatchAgentTool', () => {
       );
 
       expect(subagent).toBeInstanceOf(ExploreSubAgent);
+    } finally {
+      resetAgentRegistries();
+    }
+  });
+
+  it('creates a general subagent from a provided snapshot', () => {
+    resetAgentRegistries();
+    initAgentRegistries();
+    try {
+      const snapshot: AgentSnapshot = {
+        id: 'restored-general-id',
+        title: 'Restored General',
+        sseEventCount: 0,
+        llmSession: {id: 'restored-llm-id', messages: []},
+        options: {workingDirectory: tmpDir, thinkingLevel: 'none'},
+      };
+
+      const subagent = createSubAgent(
+        SUB_AGENT_TYPE.GENERAL,
+        context.getConfig,
+        tmpDir,
+        'none',
+        undefined,
+        snapshot,
+      );
+
+      expect(subagent).toBeInstanceOf(GeneralSubAgent);
+      expect(subagent.id).toBe('restored-general-id');
+    } finally {
+      resetAgentRegistries();
+    }
+  });
+
+  it('creates an explore subagent from a provided snapshot', () => {
+    resetAgentRegistries();
+    initAgentRegistries();
+    try {
+      const snapshot: AgentSnapshot = {
+        id: 'restored-explore-id',
+        title: 'Restored Explore',
+        sseEventCount: 0,
+        llmSession: {id: 'restored-llm-id', messages: []},
+        options: {workingDirectory: tmpDir, thinkingLevel: 'none'},
+      };
+
+      const subagent = createSubAgent(
+        SUB_AGENT_TYPE.EXPLORE,
+        context.getConfig,
+        tmpDir,
+        'none',
+        undefined,
+        snapshot,
+      );
+
+      expect(subagent).toBeInstanceOf(ExploreSubAgent);
+      expect(subagent.id).toBe('restored-explore-id');
     } finally {
       resetAgentRegistries();
     }

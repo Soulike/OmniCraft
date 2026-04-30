@@ -7,6 +7,7 @@ import {
   FileToolRegistry,
   WebToolRegistry,
 } from '@/agent/tools/index.js';
+import type {AgentSnapshot} from '@/agent-core/agent/index.js';
 import {Agent} from '@/agent-core/agent/index.js';
 import type {LlmConfig} from '@/agent-core/llm-api/index.js';
 import {settingsService} from '@/services/settings/index.js';
@@ -21,25 +22,30 @@ export class GeneralSubAgent extends Agent {
     workingDirectory: string,
     thinkingLevel: ThinkingLevel,
     sessionsDir?: string,
+    snapshot?: AgentSnapshot,
   ) {
-    super(getConfig, {
-      toolRegistries: [
-        CoreToolRegistry.getInstance(),
-        FileToolRegistry.getInstance(),
-        WebToolRegistry.getInstance(),
-        BashToolRegistry.getInstance(),
-      ],
-      skillRegistries: [CoreSkillRegistry.getInstance()],
-      baseSystemPrompt:
-        'You are a helpful assistant working on a delegated subtask. ' +
-        'After completing your task, provide a concise summary of what you did and the results.',
-      getMaxToolRounds: async () => {
-        const settings = await settingsService.getAll();
-        return settings.agent.maxToolRounds;
+    super(
+      getConfig,
+      {
+        toolRegistries: [
+          CoreToolRegistry.getInstance(),
+          FileToolRegistry.getInstance(),
+          WebToolRegistry.getInstance(),
+          BashToolRegistry.getInstance(),
+        ],
+        skillRegistries: [CoreSkillRegistry.getInstance()],
+        baseSystemPrompt:
+          'You are a helpful assistant working on a delegated subtask. ' +
+          'After completing your task, provide a concise summary of what you did and the results.',
+        getMaxToolRounds: async () => {
+          const settings = await settingsService.getAll();
+          return settings.agent.maxToolRounds;
+        },
+        thinkingLevel,
+        workingDirectory,
+        sessionsDir,
       },
-      thinkingLevel,
-      workingDirectory,
-      sessionsDir,
-    });
+      snapshot,
+    );
   }
 }
