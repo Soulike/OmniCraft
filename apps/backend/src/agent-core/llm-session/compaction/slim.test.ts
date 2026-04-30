@@ -1,0 +1,78 @@
+import {describe, expect, it} from 'vitest';
+import {z} from 'zod';
+
+import type {LlmMessage} from '../../llm-api/index.js';
+import type {ToolDefinition} from '../../tool/types.js';
+import {slimMessagesForSummary, truncateForCompaction} from './slim.js';
+
+const toolCall = {callId: 'call-1', toolName: 'custom_tool', arguments: '{}'};
+
+const customTool: ToolDefinition<z.ZodObject<Record<string, never>>> = {
+  name: 'custom_tool',
+  displayName: 'Custom Tool',
+  description: 'Custom tool',
+  parameters: z.object({}),
+  suppressToolEvents: false,
+  compactResult: () => 'compact custom result',
+  execute: () => ({status: 'success', content: 'ok', data: {}}),
+};
+
+describe('truncateForCompaction', () => {
+  it('keeps short content unchanged', () => {
+    expect(truncateForCompaction('short')).toBe('short');
+  });
+
+  it('adds an omitted marker for large content', () => {
+    const result = truncateForCompaction('a'.repeat(9000));
+
+    expect(result).toContain('truncated for compaction only');
+    expect(result.length).toBeLessThan(9000);
+  });
+});
+
+describe('slimMessagesForSummary', () => {
+  it('drops assistant thinking blocks', () => {
+    const messages: LlmMessage[] = [
+      {
+        id: 'assistant',
+        createdAt: 1,
+        role: 'assistant',
+        content: 'text',
+        toolCalls: [],
+        thinking: [{content: ['private'], signature: 'sig'}],
+      },
+    ];
+
+    const result = slimMessagesForSummary(messages, []);
+
+    expect(result[0]).not.toContain('private');
+    expect(result[0]).toContain('assistant');
+    expect(result[0]).toContain('text');
+  });
+
+  it('uses tool compactResult when available', () => {
+    const messages: LlmMessage[] = [
+      {
+        id: 'assistant',
+        createdAt: 1,
+        role: 'assistant',
+        content: '',
+        thinking: [],
+        toolCalls: [toolCall],
+      },
+      {
+        id: 'tool',
+        createdAt: 1,
+        role: 'tool',
+        callId: 'call-1',
+        content: 'raw result',
+        status: 'success',
+      },
+    ];
+
+    const result = slimMessagesForSummary(messages, [customTool]);
+
+    expect(result.join('\n')).toContain('compact custom result');
+    expect(result.join('\n')).not.toContain('raw result');
+  });
+});

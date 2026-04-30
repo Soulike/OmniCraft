@@ -1,0 +1,6 @@
+export const COMPACTION_THRESHOLD_RATIO = 0.8;
+export const COMPACTION_STRATEGY_VERSION = 1;
+export const MIN_RAW_MESSAGES = 8;
+export const DEFAULT_TRUNCATE_LIMIT = 8 * 1024;
+export const DEFAULT_TRUNCATE_HEAD = 4 * 1024;
+export const DEFAULT_TRUNCATE_TAIL = 2 * 1024;
