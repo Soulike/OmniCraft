@@ -10,39 +10,41 @@ import {
   SUMMARY_INPUT_CONTENT_TRUNCATE_TAIL_CHARS,
 } from './constants.js';
 
-export interface TruncateForCompactionOptions {
-  readonly limit?: number;
-  readonly head?: number;
-  readonly tail?: number;
+interface TruncationConfig {
+  readonly limit: number;
+  readonly head: number;
+  readonly tail: number;
 }
 
-export interface SlimMessagesOptions {
-  readonly truncate?: TruncateForCompactionOptions;
-}
+const SUMMARY_INPUT_TRUNCATION: TruncationConfig = {
+  limit: SUMMARY_INPUT_CONTENT_TRUNCATE_LIMIT_CHARS,
+  head: SUMMARY_INPUT_CONTENT_TRUNCATE_HEAD_CHARS,
+  tail: SUMMARY_INPUT_CONTENT_TRUNCATE_TAIL_CHARS,
+};
 
-export function truncateForCompaction(
+const RECENT_CONTEXT_TRUNCATION: TruncationConfig = {
+  limit: RECENT_CONTEXT_ENTRY_TRUNCATE_LIMIT_CHARS,
+  head: RECENT_CONTEXT_ENTRY_TRUNCATE_HEAD_CHARS,
+  tail: RECENT_CONTEXT_ENTRY_TRUNCATE_TAIL_CHARS,
+};
+
+function truncateForCompaction(
   content: string,
-  options: TruncateForCompactionOptions = {},
+  truncation: TruncationConfig,
 ): string {
-  const limit = options.limit ?? SUMMARY_INPUT_CONTENT_TRUNCATE_LIMIT_CHARS;
-  if (content.length <= limit) return content;
+  if (content.length <= truncation.limit) return content;
 
-  const head = content.slice(
-    0,
-    options.head ?? SUMMARY_INPUT_CONTENT_TRUNCATE_HEAD_CHARS,
-  );
-  const tail = content.slice(
-    -(options.tail ?? SUMMARY_INPUT_CONTENT_TRUNCATE_TAIL_CHARS),
-  );
+  const head = content.slice(0, truncation.head);
+  const tail = content.slice(-truncation.tail);
   const omitted = content.length - head.length - tail.length;
 
   return `${head}\n\n[Tool result truncated for compaction only. Original length: ${content.length.toString()} chars. Omitted ${omitted.toString()} chars.]\n\n${tail}`;
 }
 
-export function slimMessagesForSummary(
+function slimMessages(
   messages: readonly LlmMessage[],
   tools: readonly ToolDefinition[],
-  options: SlimMessagesOptions = {},
+  truncation: TruncationConfig,
 ): string[] {
   const toolsByName = new Map(tools.map((tool) => [tool.name, tool]));
   const toolCallsById = new Map<string, LlmToolCall>();
@@ -83,7 +85,7 @@ export function slimMessagesForSummary(
           callId: message.callId,
           status: message.status,
           content:
-            content ?? truncateForCompaction(message.content, options.truncate),
+            content ?? truncateForCompaction(message.content, truncation),
         }),
       );
       continue;
@@ -92,12 +94,19 @@ export function slimMessagesForSummary(
     result.push(
       JSON.stringify({
         role: 'user',
-        content: truncateForCompaction(message.content, options.truncate),
+        content: truncateForCompaction(message.content, truncation),
       }),
     );
   }
 
   return result;
+}
+
+export function slimMessagesForSummary(
+  messages: readonly LlmMessage[],
+  tools: readonly ToolDefinition[],
+): string[] {
+  return slimMessages(messages, tools, SUMMARY_INPUT_TRUNCATION);
 }
 
 export function buildRecentContext(
@@ -107,11 +116,7 @@ export function buildRecentContext(
   const recentMessages = messages.slice(-RECENT_CONTEXT_SOURCE_MESSAGE_COUNT);
   if (recentMessages.length === 0) return 'No recent context.';
 
-  return slimMessagesForSummary(recentMessages, tools, {
-    truncate: {
-      limit: RECENT_CONTEXT_ENTRY_TRUNCATE_LIMIT_CHARS,
-      head: RECENT_CONTEXT_ENTRY_TRUNCATE_HEAD_CHARS,
-      tail: RECENT_CONTEXT_ENTRY_TRUNCATE_TAIL_CHARS,
-    },
-  }).join('\n');
+  return slimMessages(recentMessages, tools, RECENT_CONTEXT_TRUNCATION).join(
+    '\n',
+  );
 }

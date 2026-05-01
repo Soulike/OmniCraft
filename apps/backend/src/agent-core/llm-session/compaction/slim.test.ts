@@ -3,11 +3,7 @@ import {z} from 'zod';
 
 import type {LlmMessage} from '../../llm-api/index.js';
 import type {ToolDefinition} from '../../tool/types.js';
-import {
-  buildRecentContext,
-  slimMessagesForSummary,
-  truncateForCompaction,
-} from './slim.js';
+import {buildRecentContext, slimMessagesForSummary} from './slim.js';
 
 const toolCall = {callId: 'call-1', toolName: 'custom_tool', arguments: '{}'};
 
@@ -21,20 +17,33 @@ const customTool: ToolDefinition<z.ZodObject<Record<string, never>>> = {
   execute: () => ({status: 'success', content: 'ok', data: {}}),
 };
 
-describe('truncateForCompaction', () => {
-  it('keeps short content unchanged', () => {
-    expect(truncateForCompaction('short')).toBe('short');
+describe('slimMessagesForSummary', () => {
+  it('keeps short user content unchanged', () => {
+    const result = slimMessagesForSummary(
+      [{id: 'user', createdAt: 1, role: 'user', content: 'short'}],
+      [],
+    );
+
+    expect(result.join('\n')).toContain('short');
   });
 
-  it('adds an omitted marker for large content', () => {
-    const result = truncateForCompaction('a'.repeat(9000));
+  it('adds an omitted marker for large user content', () => {
+    const result = slimMessagesForSummary(
+      [
+        {
+          id: 'user',
+          createdAt: 1,
+          role: 'user',
+          content: 'a'.repeat(9000),
+        },
+      ],
+      [],
+    ).join('\n');
 
     expect(result).toContain('truncated for compaction only');
     expect(result.length).toBeLessThan(9000);
   });
-});
 
-describe('slimMessagesForSummary', () => {
   it('drops assistant thinking blocks', () => {
     const messages: LlmMessage[] = [
       {
