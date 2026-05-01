@@ -17,15 +17,16 @@ import {llmApi} from '../llm-api/index.js';
 import {modelCapacity} from '../model-capacity/index.js';
 import type {ToolDefinition} from '../tool/types.js';
 import {
-  buildCompactedMessageContent,
-  buildCompactionPrompt,
-  buildRecentContext,
   COMPACTED_MESSAGE_STRATEGY_VERSION,
   COMPACTION_TRIGGER_INPUT_TOKEN_RATIO,
-  generateCompactionSummary,
   RECENT_CONTEXT_SOURCE_MESSAGE_COUNT,
-  slimMessagesForSummary,
-} from './compaction/index.js';
+} from './compaction/constants.js';
+import {
+  buildCompactedMessageContent,
+  buildCompactionPrompt,
+} from './compaction/prompt.js';
+import {buildRecentContext, slimMessagesForSummary} from './compaction/slim.js';
+import {generateCompactionSummary} from './compaction/summary.js';
 import type {
   LlmCompactionMetadata,
   LlmCompactionOptions,
