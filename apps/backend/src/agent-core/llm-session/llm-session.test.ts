@@ -46,6 +46,20 @@ async function* summaryStream(): LlmEventStream {
   };
 }
 
+async function* abortingSummaryStream(
+  controller: AbortController,
+): LlmEventStream {
+  yield {type: 'message-start', messageId: 'summary'};
+  await Promise.resolve();
+  yield {type: 'text-delta', content: 'summary text'};
+  controller.abort();
+  yield {
+    type: 'message-end',
+    stopReason: 'end_turn',
+    usage: {inputTokens: 1, outputTokens: 1, cacheReadInputTokens: 0},
+  };
+}
+
 async function* emptySummaryStream(): LlmEventStream {
   yield {type: 'message-start', messageId: 'summary'};
   await Promise.resolve();
@@ -185,6 +199,40 @@ describe('LlmSession compaction', () => {
       drain(session.sendUserMessage('hello', [], '', 'none').stream),
     ).rejects.toThrow('Failed to compact LLM session before model call');
 
+    expect(session.toSnapshot()).toEqual({
+      id: 'session-1',
+      compactions: [],
+      messages,
+    });
+  });
+
+  it('does not start the provider call when aborted during pre-call compaction', async () => {
+    const controller = new AbortController();
+    vi.spyOn(llmApi, 'countToken').mockResolvedValue(200_000);
+    const streamSpy = vi
+      .spyOn(llmApi, 'streamCompletion')
+      .mockReturnValue(abortingSummaryStream(controller));
+    const messages = oldMessages(12);
+    const session = new LlmSession(() => Promise.resolve(CONFIG), {
+      id: 'session-1',
+      compactions: [],
+      messages,
+    });
+
+    let error: unknown;
+    try {
+      await drain(
+        session.sendUserMessage('hello', [], '', 'none', controller.signal)
+          .stream,
+      );
+    } catch (err: unknown) {
+      error = err;
+    }
+
+    expect(error).toBe(controller.signal.reason);
+
+    expect(streamSpy).toHaveBeenCalledTimes(1);
+    expect(streamSpy.mock.calls[0]?.[0].signal).toBe(controller.signal);
     expect(session.toSnapshot()).toEqual({
       id: 'session-1',
       compactions: [],

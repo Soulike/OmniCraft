@@ -59,6 +59,24 @@ describe('generateCompactionSummary', () => {
     );
   });
 
+  it('passes the abort signal to the summary LLM call', async () => {
+    const controller = new AbortController();
+    const streamSpy = vi
+      .spyOn(llmApi, 'streamCompletion')
+      .mockReturnValue(summaryStream());
+
+    await generateCompactionSummary({
+      config: CONFIG,
+      messages: [{id: 'user', createdAt: 1, role: 'user', content: 'hello'}],
+      tools: [],
+      signal: controller.signal,
+    });
+
+    expect(streamSpy).toHaveBeenCalledWith(
+      expect.objectContaining({signal: controller.signal}),
+    );
+  });
+
   it('builds the summary prompt from messages internally', async () => {
     const streamSpy = vi
       .spyOn(llmApi, 'streamCompletion')

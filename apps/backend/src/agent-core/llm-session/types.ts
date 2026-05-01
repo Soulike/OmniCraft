@@ -38,6 +38,7 @@ export interface LlmCompactionOptions {
   readonly tools: readonly ToolDefinition[];
   readonly systemPrompt: string;
   readonly thinkingLevel: ThinkingLevel;
+  readonly signal?: AbortSignal;
 }
 
 /** A text content delta from the LLM. */

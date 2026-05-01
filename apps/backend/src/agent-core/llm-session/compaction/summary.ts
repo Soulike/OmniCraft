@@ -10,6 +10,7 @@ export interface GenerateCompactionSummaryOptions {
   readonly config: Readonly<LlmConfig>;
   readonly messages: readonly LlmMessage[];
   readonly tools: readonly ToolDefinition[];
+  readonly signal?: AbortSignal;
 }
 
 export async function generateCompactionSummary(
@@ -31,6 +32,7 @@ export async function generateCompactionSummary(
     messages,
     tools: [],
     thinkingLevel: 'none',
+    ...(options.signal ? {signal: options.signal} : {}),
   });
 
   let text = '';

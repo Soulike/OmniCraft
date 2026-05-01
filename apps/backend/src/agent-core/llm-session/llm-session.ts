@@ -29,6 +29,11 @@ import type {
   ToolResult,
 } from './types.js';
 
+function throwIfAborted(signal: AbortSignal | undefined): void {
+  if (!signal?.aborted) return;
+  throw signal.reason instanceof Error ? signal.reason : new Error('Aborted');
+}
+
 /**
  * In-memory LLM conversation context.
  *
@@ -186,7 +191,13 @@ export class LlmSession {
     this.messages.push(...messages);
     let completed = false;
     try {
-      await this.compactBeforeModelCall(tools, systemPrompt, thinkingLevel);
+      await this.compactBeforeModelCall(
+        tools,
+        systemPrompt,
+        thinkingLevel,
+        signal,
+      );
+      throwIfAborted(signal);
       yield* this.streamCompletion(tools, systemPrompt, thinkingLevel, signal);
       completed = true;
     } finally {
@@ -204,15 +215,22 @@ export class LlmSession {
     tools: readonly ToolDefinition[],
     systemPrompt: string,
     thinkingLevel: ThinkingLevel,
+    signal?: AbortSignal,
   ): Promise<void> {
     try {
+      throwIfAborted(signal);
       await this.compactIfNeededUnlocked({
         reason: 'before-llm-call',
         tools,
         systemPrompt,
         thinkingLevel,
+        ...(signal ? {signal} : {}),
       });
+      throwIfAborted(signal);
     } catch (error: unknown) {
+      if (signal?.aborted) {
+        throw error instanceof Error ? error : new Error('Aborted');
+      }
       const message = error instanceof Error ? error.message : String(error);
       throw new Error(
         `Failed to compact LLM session before model call: ${message}`,
@@ -247,6 +265,7 @@ export class LlmSession {
       config,
       messages: this.messages,
       tools: options.tools,
+      ...(options.signal ? {signal: options.signal} : {}),
     });
     if (!summary) {
       throw new Error('Compaction summary is empty');
