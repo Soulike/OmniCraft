@@ -16,6 +16,11 @@ interface TruncationConfig {
   readonly tail: number;
 }
 
+export interface RecentContext {
+  readonly content: string;
+  readonly sourceMessageCount: number;
+}
+
 const SUMMARY_INPUT_TRUNCATION: TruncationConfig = {
   limit: SUMMARY_INPUT_CONTENT_TRUNCATE_LIMIT_CHARS,
   head: SUMMARY_INPUT_CONTENT_TRUNCATE_HEAD_CHARS,
@@ -112,11 +117,18 @@ export function slimMessagesForSummary(
 export function buildRecentContext(
   messages: readonly LlmMessage[],
   tools: readonly ToolDefinition[],
-): string {
+): RecentContext {
   const recentMessages = messages.slice(-RECENT_CONTEXT_SOURCE_MESSAGE_COUNT);
-  if (recentMessages.length === 0) return 'No recent context.';
+  if (recentMessages.length === 0) {
+    return {content: 'No recent context.', sourceMessageCount: 0};
+  }
 
-  return slimMessages(recentMessages, tools, RECENT_CONTEXT_TRUNCATION).join(
-    '\n',
-  );
+  return {
+    content: slimMessages(
+      recentMessages,
+      tools,
+      RECENT_CONTEXT_TRUNCATION,
+    ).join('\n'),
+    sourceMessageCount: recentMessages.length,
+  };
 }

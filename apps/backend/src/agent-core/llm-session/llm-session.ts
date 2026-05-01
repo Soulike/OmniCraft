@@ -16,10 +16,7 @@ import type {
 import {llmApi} from '../llm-api/index.js';
 import {modelCapacity} from '../model-capacity/index.js';
 import type {ToolDefinition} from '../tool/types.js';
-import {
-  COMPACTION_TRIGGER_INPUT_TOKEN_RATIO,
-  RECENT_CONTEXT_SOURCE_MESSAGE_COUNT,
-} from './compaction/constants.js';
+import {COMPACTION_TRIGGER_INPUT_TOKEN_RATIO} from './compaction/constants.js';
 import {buildCompactedMessageContent} from './compaction/prompt.js';
 import {buildRecentContext} from './compaction/slim.js';
 import {generateCompactionSummary} from './compaction/summary.js';
@@ -223,10 +220,6 @@ export class LlmSession {
 
     const beforeCharCount = JSON.stringify(this.messages).length;
     const coveredMessageCount = this.messages.length;
-    const recentContextMessageCount = Math.min(
-      coveredMessageCount,
-      RECENT_CONTEXT_SOURCE_MESSAGE_COUNT,
-    );
 
     const summary = await generateCompactionSummary({
       config,
@@ -242,7 +235,10 @@ export class LlmSession {
       id: crypto.randomUUID(),
       createdAt: Date.now(),
       role: 'user',
-      content: buildCompactedMessageContent({summary, recentContext}),
+      content: buildCompactedMessageContent({
+        summary,
+        recentContext: recentContext.content,
+      }),
     };
 
     this.messages.length = 0;
@@ -251,7 +247,7 @@ export class LlmSession {
       id: crypto.randomUUID(),
       compactedAt: Date.now(),
       coveredMessageCount,
-      recentContextMessageCount,
+      recentContextMessageCount: recentContext.sourceMessageCount,
       beforeCharCount,
       afterCharCount: JSON.stringify(this.messages).length,
     });

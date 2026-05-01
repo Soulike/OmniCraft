@@ -99,8 +99,18 @@ describe('slimMessagesForSummary', () => {
 
     const result = buildRecentContext(messages, []);
 
-    expect(result).toContain('message 5');
-    expect(result).toContain('message 24');
-    expect(result).not.toContain('message 4');
+    expect(result.sourceMessageCount).toBe(20);
+    expect(result.content).toContain('message 5');
+    expect(result.content).toContain('message 24');
+    expect(result.content).not.toContain('message 4');
+  });
+
+  it('reports zero source messages for empty recent context', () => {
+    const result = buildRecentContext([], []);
+
+    expect(result).toEqual({
+      content: 'No recent context.',
+      sourceMessageCount: 0,
+    });
   });
 });
