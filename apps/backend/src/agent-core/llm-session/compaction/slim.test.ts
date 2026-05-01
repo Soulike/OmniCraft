@@ -63,6 +63,38 @@ describe('slimMessagesForSummary', () => {
     expect(result[0]).toContain('text');
   });
 
+  it('truncates assistant content and tool call arguments', () => {
+    const messages: LlmMessage[] = [
+      {
+        id: 'assistant',
+        createdAt: 1,
+        role: 'assistant',
+        content: 'a'.repeat(9000),
+        thinking: [],
+        toolCalls: [
+          {
+            callId: 'call-1',
+            toolName: 'custom_tool',
+            arguments: 'b'.repeat(9000),
+          },
+        ],
+      },
+    ];
+
+    const result = slimMessagesForSummary(messages, []);
+    const assistant = JSON.parse(result[0] ?? '{}') as {
+      content: string;
+      toolCalls: {arguments: string}[];
+    };
+
+    expect(assistant.content).toContain('truncated for compaction only');
+    expect(assistant.content.length).toBeLessThan(9000);
+    expect(assistant.toolCalls[0]?.arguments).toContain(
+      'truncated for compaction only',
+    );
+    expect(assistant.toolCalls[0]?.arguments.length).toBeLessThan(9000);
+  });
+
   it('uses tool compactResult when available', () => {
     const messages: LlmMessage[] = [
       {
@@ -87,6 +119,39 @@ describe('slimMessagesForSummary', () => {
 
     expect(result.join('\n')).toContain('compact custom result');
     expect(result.join('\n')).not.toContain('raw result');
+  });
+
+  it('truncates tool compactResult output', () => {
+    const longCompactTool: ToolDefinition<z.ZodObject<Record<string, never>>> =
+      {
+        ...customTool,
+        compactResult: () => 'c'.repeat(9000),
+      };
+    const messages: LlmMessage[] = [
+      {
+        id: 'assistant',
+        createdAt: 1,
+        role: 'assistant',
+        content: '',
+        thinking: [],
+        toolCalls: [toolCall],
+      },
+      {
+        id: 'tool',
+        createdAt: 1,
+        role: 'tool',
+        callId: 'call-1',
+        content: 'raw result',
+        status: 'success',
+      },
+    ];
+
+    const result = slimMessagesForSummary(messages, [longCompactTool]);
+    const toolResult = JSON.parse(result[1] ?? '{}') as {content: string};
+
+    expect(toolResult.content).toContain('truncated for compaction only');
+    expect(toolResult.content.length).toBeLessThan(9000);
+    expect(toolResult.content).not.toContain('raw result');
   });
 
   it('builds recent context from the latest 20 slimmed messages', () => {

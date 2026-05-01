@@ -43,7 +43,17 @@ function truncateForCompaction(
   const tail = content.slice(-truncation.tail);
   const omitted = content.length - head.length - tail.length;
 
-  return `${head}\n\n[Tool result truncated for compaction only. Original length: ${content.length.toString()} chars. Omitted ${omitted.toString()} chars.]\n\n${tail}`;
+  return `${head}\n\n[Content truncated for compaction only. Original length: ${content.length.toString()} chars. Omitted ${omitted.toString()} chars.]\n\n${tail}`;
+}
+
+function slimToolCallsForCompaction(
+  toolCalls: readonly LlmToolCall[],
+  truncation: TruncationConfig,
+): LlmToolCall[] {
+  return toolCalls.map((toolCall) => ({
+    ...toolCall,
+    arguments: truncateForCompaction(toolCall.arguments, truncation),
+  }));
 }
 
 function slimMessages(
@@ -63,8 +73,8 @@ function slimMessages(
       result.push(
         JSON.stringify({
           role: 'assistant',
-          content: message.content,
-          toolCalls: message.toolCalls,
+          content: truncateForCompaction(message.content, truncation),
+          toolCalls: slimToolCallsForCompaction(message.toolCalls, truncation),
         }),
       );
       continue;
@@ -90,7 +100,9 @@ function slimMessages(
           callId: message.callId,
           status: message.status,
           content:
-            content ?? truncateForCompaction(message.content, truncation),
+            content === undefined
+              ? truncateForCompaction(message.content, truncation)
+              : truncateForCompaction(content, truncation),
         }),
       );
       continue;
