@@ -186,6 +186,7 @@ export class LlmSession {
     this.messages.push(...messages);
     let completed = false;
     try {
+      await this.compactBeforeModelCall(tools, systemPrompt, thinkingLevel);
       yield* this.streamCompletion(tools, systemPrompt, thinkingLevel, signal);
       completed = true;
     } finally {
@@ -196,6 +197,27 @@ export class LlmSession {
         this.compactions.push(...rollbackCompactions);
       }
       release();
+    }
+  }
+
+  private async compactBeforeModelCall(
+    tools: readonly ToolDefinition[],
+    systemPrompt: string,
+    thinkingLevel: ThinkingLevel,
+  ): Promise<void> {
+    try {
+      await this.compactIfNeededUnlocked({
+        reason: 'before-llm-call',
+        tools,
+        systemPrompt,
+        thinkingLevel,
+      });
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(
+        `Failed to compact LLM session before model call: ${message}`,
+        {cause: error},
+      );
     }
   }
 
@@ -266,20 +288,6 @@ export class LlmSession {
     thinkingLevel: ThinkingLevel,
     signal?: AbortSignal,
   ): LlmSessionEventStream {
-    try {
-      await this.compactIfNeededUnlocked({
-        reason: 'before-llm-call',
-        tools,
-        systemPrompt,
-        thinkingLevel,
-      });
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : String(error);
-      throw new Error(
-        `Failed to compact LLM session before model call: ${message}`,
-        {cause: error},
-      );
-    }
     const llmConfig = await this.getConfig();
     const eventStream = llmApi.streamCompletion({
       config: llmConfig,
