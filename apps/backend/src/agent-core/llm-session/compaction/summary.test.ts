@@ -4,6 +4,7 @@ import {
   llmApi,
   type LlmConfig,
   type LlmEventStream,
+  type LlmMessage,
 } from '../../llm-api/index.js';
 import {generateCompactionSummary} from './summary.js';
 
@@ -38,7 +39,8 @@ describe('generateCompactionSummary', () => {
 
     const summary = await generateCompactionSummary({
       config: CONFIG,
-      prompt: 'summarize this',
+      messages: [{id: 'user', createdAt: 1, role: 'user', content: 'hello'}],
+      tools: [],
     });
 
     expect(summary).toBe('summary text');
@@ -49,5 +51,33 @@ describe('generateCompactionSummary', () => {
         thinkingLevel: 'none',
       }),
     );
+    expect(streamSpy.mock.calls[0]?.[0].messages[0]?.content).toContain(
+      '<history_to_summarize>',
+    );
+    expect(streamSpy.mock.calls[0]?.[0].messages[0]?.content).toContain(
+      'hello',
+    );
+  });
+
+  it('builds the summary prompt from messages internally', async () => {
+    const streamSpy = vi
+      .spyOn(llmApi, 'streamCompletion')
+      .mockReturnValue(summaryStream());
+    const messages: LlmMessage[] = [
+      {
+        id: 'assistant',
+        createdAt: 1,
+        role: 'assistant',
+        content: 'assistant text',
+        thinking: [{content: ['private thinking'], signature: 'sig'}],
+        toolCalls: [],
+      },
+    ];
+
+    await generateCompactionSummary({config: CONFIG, messages, tools: []});
+
+    const prompt = streamSpy.mock.calls[0]?.[0].messages[0]?.content ?? '';
+    expect(prompt).toContain('assistant text');
+    expect(prompt).not.toContain('private thinking');
   });
 });

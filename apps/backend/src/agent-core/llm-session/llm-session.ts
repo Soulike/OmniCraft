@@ -21,11 +21,8 @@ import {
   COMPACTION_TRIGGER_INPUT_TOKEN_RATIO,
   RECENT_CONTEXT_SOURCE_MESSAGE_COUNT,
 } from './compaction/constants.js';
-import {
-  buildCompactedMessageContent,
-  buildCompactionPrompt,
-} from './compaction/prompt.js';
-import {buildRecentContext, slimMessagesForSummary} from './compaction/slim.js';
+import {buildCompactedMessageContent} from './compaction/prompt.js';
+import {buildRecentContext} from './compaction/slim.js';
 import {generateCompactionSummary} from './compaction/summary.js';
 import type {
   LlmCompactionMetadata,
@@ -232,12 +229,11 @@ export class LlmSession {
       RECENT_CONTEXT_SOURCE_MESSAGE_COUNT,
     );
 
-    const slimmedMessages = slimMessagesForSummary(
-      this.messages,
-      options.tools,
-    );
-    const prompt = buildCompactionPrompt(slimmedMessages);
-    const summary = await generateCompactionSummary({config, prompt});
+    const summary = await generateCompactionSummary({
+      config,
+      messages: this.messages,
+      tools: options.tools,
+    });
     if (!summary) {
       throw new Error('Compaction summary is empty');
     }
