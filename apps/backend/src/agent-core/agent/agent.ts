@@ -321,6 +321,8 @@ export abstract class Agent {
         thinkingLevel,
       });
     } catch (err: unknown) {
+      // Turn-end compaction is best-effort cleanup after user-visible work is done.
+      // Keep the completed turn successful and retry compaction before the next LLM call.
       logger.error({err}, 'Failed to compact LLM session after turn');
     }
   }
