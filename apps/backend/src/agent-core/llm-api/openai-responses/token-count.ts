@@ -1,5 +1,7 @@
 import OpenAIClient from 'openai';
 
+import {logger} from '@/logger.js';
+
 import {estimatePromptTokens} from '../token-estimator.js';
 import type {LlmTokenCountOptions} from '../types.js';
 import {toFunctionTool, toInputItems, toReasoning} from './helpers.js';
@@ -26,7 +28,11 @@ export async function countOpenAIResponsesTokens(
   try {
     const result = await client.responses.inputTokens.count(request);
     return result.input_tokens;
-  } catch {
+  } catch (err: unknown) {
+    logger.warn(
+      {err, model: config.model, baseUrl: config.baseUrl},
+      'Failed to count OpenAI Responses tokens, using local estimate',
+    );
     return estimatePromptTokens(request);
   }
 }

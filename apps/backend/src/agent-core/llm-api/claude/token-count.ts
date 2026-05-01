@@ -1,5 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 
+import {logger} from '@/logger.js';
+
 import {estimatePromptTokens} from '../token-estimator.js';
 import type {LlmTokenCountOptions} from '../types.js';
 import {
@@ -32,7 +34,11 @@ export async function countClaudeTokens(
   try {
     const result = await client.messages.countTokens(request);
     return result.input_tokens;
-  } catch {
+  } catch (err: unknown) {
+    logger.warn(
+      {err, model: config.model, baseUrl: config.baseUrl},
+      'Failed to count Claude tokens, using local estimate',
+    );
     return estimatePromptTokens(request);
   }
 }
