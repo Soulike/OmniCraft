@@ -3,7 +3,11 @@ import {z} from 'zod';
 
 import type {LlmMessage} from '../../llm-api/index.js';
 import type {ToolDefinition} from '../../tool/types.js';
-import {slimMessagesForSummary, truncateForCompaction} from './slim.js';
+import {
+  buildRecentContext,
+  slimMessagesForSummary,
+  truncateForCompaction,
+} from './slim.js';
 
 const toolCall = {callId: 'call-1', toolName: 'custom_tool', arguments: '{}'};
 
@@ -74,5 +78,20 @@ describe('slimMessagesForSummary', () => {
 
     expect(result.join('\n')).toContain('compact custom result');
     expect(result.join('\n')).not.toContain('raw result');
+  });
+
+  it('builds recent context from the latest 20 slimmed messages', () => {
+    const messages: LlmMessage[] = Array.from({length: 25}, (_, index) => ({
+      id: `message-${index.toString()}`,
+      createdAt: index,
+      role: 'user' as const,
+      content: `message ${index.toString()}`,
+    }));
+
+    const result = buildRecentContext(messages, []);
+
+    expect(result).toContain('message 5');
+    expect(result).toContain('message 24');
+    expect(result).not.toContain('message 4');
   });
 });

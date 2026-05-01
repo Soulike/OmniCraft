@@ -46,6 +46,16 @@ async function* summaryStream(): LlmEventStream {
   };
 }
 
+async function* emptySummaryStream(): LlmEventStream {
+  yield {type: 'message-start', messageId: 'summary'};
+  await Promise.resolve();
+  yield {
+    type: 'message-end',
+    stopReason: 'end_turn',
+    usage: {inputTokens: 1, outputTokens: 1, cacheReadInputTokens: 0},
+  };
+}
+
 async function* failingStream(): LlmEventStream {
   yield {type: 'message-start', messageId: 'assistant'};
   await Promise.resolve();
@@ -105,7 +115,37 @@ describe('LlmSession compaction', () => {
     expect(streamSpy).toHaveBeenCalledTimes(2);
     expect(snapshot.messages[0]?.role).toBe('user');
     expect(snapshot.messages[0]?.content).toContain('<conversation_summary>');
+    expect(snapshot.messages[0]?.content).toContain('<recent_context>');
+    expect(snapshot.messages[0]?.content).toContain(
+      '<continuation_instructions>',
+    );
+    expect(snapshot.messages[0]?.content).toContain('summary text');
+    expect(snapshot.messages[0]?.content).toContain('hello');
     expect(snapshot.compactions).toHaveLength(1);
+    expect(snapshot.compactions[0]).toMatchObject({
+      coveredMessageCount: 13,
+      recentContextMessageCount: 13,
+    });
+  });
+
+  it('replaces compacted history with a single synthetic message before the next assistant reply', async () => {
+    vi.spyOn(llmApi, 'countToken').mockResolvedValue(200_000);
+    vi.spyOn(llmApi, 'streamCompletion')
+      .mockReturnValueOnce(summaryStream())
+      .mockReturnValueOnce(normalStream());
+    const session = new LlmSession(() => Promise.resolve(CONFIG), {
+      id: 'session-1',
+      compactions: [],
+      messages: oldMessages(12),
+    });
+
+    await drain(session.sendUserMessage('hello', [], '', 'none').stream);
+
+    const messages = session.toSnapshot().messages;
+    expect(messages).toHaveLength(2);
+    expect(messages[0]).toMatchObject({role: 'user'});
+    expect(messages[0]?.content).toContain('<conversation_summary>');
+    expect(messages[1]).toMatchObject({role: 'assistant', content: 'reply'});
   });
 
   it('rolls back compaction when the provider stream fails after compaction', async () => {
@@ -144,6 +184,32 @@ describe('LlmSession compaction', () => {
     await expect(
       drain(session.sendUserMessage('hello', [], '', 'none').stream),
     ).rejects.toThrow('Failed to compact LLM session before model call');
+
+    expect(session.toSnapshot()).toEqual({
+      id: 'session-1',
+      compactions: [],
+      messages,
+    });
+  });
+
+  it('fails compaction when the generated summary is empty', async () => {
+    vi.spyOn(llmApi, 'countToken').mockResolvedValue(200_000);
+    vi.spyOn(llmApi, 'streamCompletion').mockReturnValue(emptySummaryStream());
+    const messages = oldMessages(12);
+    const session = new LlmSession(() => Promise.resolve(CONFIG), {
+      id: 'session-1',
+      compactions: [],
+      messages,
+    });
+
+    await expect(
+      session.compactIfNeeded({
+        reason: 'after-turn',
+        tools: [],
+        systemPrompt: '',
+        thinkingLevel: 'none',
+      }),
+    ).rejects.toThrow('Compaction summary is empty');
 
     expect(session.toSnapshot()).toEqual({
       id: 'session-1',

@@ -17,13 +17,14 @@ import {llmApi} from '../llm-api/index.js';
 import {modelCapacity} from '../model-capacity/index.js';
 import type {ToolDefinition} from '../tool/types.js';
 import {
+  buildCompactedMessageContent,
   buildCompactionPrompt,
+  buildRecentContext,
   COMPACTION_STRATEGY_VERSION,
   COMPACTION_THRESHOLD_RATIO,
   generateCompactionSummary,
-  MIN_RAW_MESSAGES,
+  RECENT_CONTEXT_MESSAGE_COUNT,
   slimMessagesForSummary,
-  splitCompactablePrefix,
 } from './compaction/index.js';
 import type {
   LlmCompactionMetadata,
@@ -221,35 +222,41 @@ export class LlmSession {
       return false;
     }
 
+    if (this.messages.length === 0) return false;
+
     const beforeCharCount = JSON.stringify(this.messages).length;
-    const {compactablePrefix, rawSuffix} = splitCompactablePrefix(
-      this.messages,
-      {minRawMessages: MIN_RAW_MESSAGES},
+    const coveredMessageCount = this.messages.length;
+    const recentContextMessageCount = Math.min(
+      coveredMessageCount,
+      RECENT_CONTEXT_MESSAGE_COUNT,
     );
 
-    if (compactablePrefix.length === 0) return false;
-
     const slimmedMessages = slimMessagesForSummary(
-      compactablePrefix,
+      this.messages,
       options.tools,
     );
     const prompt = buildCompactionPrompt(slimmedMessages);
     const summary = await generateCompactionSummary({config, prompt});
+    if (!summary) {
+      throw new Error('Compaction summary is empty');
+    }
+
+    const recentContext = buildRecentContext(this.messages, options.tools);
     const summaryMessage: LlmMessage = {
       id: crypto.randomUUID(),
       createdAt: Date.now(),
       role: 'user',
-      content: `<conversation_summary>\n${summary}\n</conversation_summary>`,
+      content: buildCompactedMessageContent({summary, recentContext}),
     };
 
     this.messages.length = 0;
-    this.messages.push(summaryMessage, ...rawSuffix);
+    this.messages.push(summaryMessage);
     this.compactions.push({
       id: crypto.randomUUID(),
       compactedAt: Date.now(),
       strategyVersion: COMPACTION_STRATEGY_VERSION,
-      coveredMessageCount: compactablePrefix.length,
-      rawSuffixCount: rawSuffix.length,
+      coveredMessageCount,
+      recentContextMessageCount,
       beforeCharCount,
       afterCharCount: JSON.stringify(this.messages).length,
     });

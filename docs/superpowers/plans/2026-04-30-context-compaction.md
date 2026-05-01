@@ -4,7 +4,9 @@
 
 **Goal:** Add provider-independent automatic compaction for `LlmSession.messages` when the current prompt reaches 80% of model input capacity.
 
-**Architecture:** `LlmSession` owns compaction and message mutation. `llmApi.countToken()` provides provider-dispatched current prompt token counting. A focused compaction module chooses a safe raw suffix, slims the compactable prefix, asks the current model for a summary, and rewrites history to `[summary user message] + rawSuffix`.
+**Architecture:** `LlmSession` owns compaction and message mutation. `llmApi.countToken()` provides provider-dispatched current prompt token counting. The final implementation slims full history, asks the current model for a summary, appends deterministic recent context, and rewrites history to one synthetic summary user message.
+
+**Note:** Some task details below describe an earlier raw-suffix design. The current design in `../specs/2026-04-30-context-compaction-design.md` supersedes that approach.
 
 **Tech Stack:** TypeScript, Bun, Vitest, Zod, Anthropic SDK, OpenAI SDK, existing `llm-api`, `llm-session`, `Agent`, and `ToolDefinition` modules.
 
@@ -17,9 +19,7 @@ Create:
 - `apps/backend/src/agent-core/llm-api/token-estimator.ts` — provider-independent conservative fallback token estimator.
 - `apps/backend/src/agent-core/llm-api/token-estimator.test.ts` — unit tests for fallback estimator behavior.
 - `apps/backend/src/agent-core/llm-session/compaction/constants.ts` — threshold and truncation constants.
-- `apps/backend/src/agent-core/llm-session/compaction/history-split.ts` — pure safe suffix boundary logic.
-- `apps/backend/src/agent-core/llm-session/compaction/history-split.test.ts` — boundary tests for recent messages, unclosed tool calls, and recent closed tool group retention.
-- `apps/backend/src/agent-core/llm-session/compaction/slim.ts` — deterministic prefix slimming, tool hook dispatch, and default truncation.
+- `apps/backend/src/agent-core/llm-session/compaction/slim.ts` — deterministic full-history slimming, recent-context generation, tool hook dispatch, and default truncation.
 - `apps/backend/src/agent-core/llm-session/compaction/slim.test.ts` — slimming tests.
 - `apps/backend/src/agent-core/llm-session/compaction/prompt.ts` — summary prompt formatting.
 - `apps/backend/src/agent-core/llm-session/compaction/prompt.test.ts` — prompt tests.

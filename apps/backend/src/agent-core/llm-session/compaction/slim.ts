@@ -4,13 +4,31 @@ import {
   DEFAULT_TRUNCATE_HEAD,
   DEFAULT_TRUNCATE_LIMIT,
   DEFAULT_TRUNCATE_TAIL,
+  RECENT_CONTEXT_MESSAGE_COUNT,
+  RECENT_CONTEXT_TRUNCATE_HEAD,
+  RECENT_CONTEXT_TRUNCATE_LIMIT,
+  RECENT_CONTEXT_TRUNCATE_TAIL,
 } from './constants.js';
 
-export function truncateForCompaction(content: string): string {
-  if (content.length <= DEFAULT_TRUNCATE_LIMIT) return content;
+export interface TruncateForCompactionOptions {
+  readonly limit?: number;
+  readonly head?: number;
+  readonly tail?: number;
+}
 
-  const head = content.slice(0, DEFAULT_TRUNCATE_HEAD);
-  const tail = content.slice(-DEFAULT_TRUNCATE_TAIL);
+export interface SlimMessagesOptions {
+  readonly truncate?: TruncateForCompactionOptions;
+}
+
+export function truncateForCompaction(
+  content: string,
+  options: TruncateForCompactionOptions = {},
+): string {
+  const limit = options.limit ?? DEFAULT_TRUNCATE_LIMIT;
+  if (content.length <= limit) return content;
+
+  const head = content.slice(0, options.head ?? DEFAULT_TRUNCATE_HEAD);
+  const tail = content.slice(-(options.tail ?? DEFAULT_TRUNCATE_TAIL));
   const omitted = content.length - head.length - tail.length;
 
   return `${head}\n\n[Tool result truncated for compaction only. Original length: ${content.length.toString()} chars. Omitted ${omitted.toString()} chars.]\n\n${tail}`;
@@ -19,6 +37,7 @@ export function truncateForCompaction(content: string): string {
 export function slimMessagesForSummary(
   messages: readonly LlmMessage[],
   tools: readonly ToolDefinition[],
+  options: SlimMessagesOptions = {},
 ): string[] {
   const toolsByName = new Map(tools.map((tool) => [tool.name, tool]));
   const toolCallsById = new Map<string, LlmToolCall>();
@@ -58,7 +77,8 @@ export function slimMessagesForSummary(
           role: 'tool',
           callId: message.callId,
           status: message.status,
-          content: content ?? truncateForCompaction(message.content),
+          content:
+            content ?? truncateForCompaction(message.content, options.truncate),
         }),
       );
       continue;
@@ -67,10 +87,26 @@ export function slimMessagesForSummary(
     result.push(
       JSON.stringify({
         role: 'user',
-        content: truncateForCompaction(message.content),
+        content: truncateForCompaction(message.content, options.truncate),
       }),
     );
   }
 
   return result;
+}
+
+export function buildRecentContext(
+  messages: readonly LlmMessage[],
+  tools: readonly ToolDefinition[],
+): string {
+  const recentMessages = messages.slice(-RECENT_CONTEXT_MESSAGE_COUNT);
+  if (recentMessages.length === 0) return 'No recent context.';
+
+  return slimMessagesForSummary(recentMessages, tools, {
+    truncate: {
+      limit: RECENT_CONTEXT_TRUNCATE_LIMIT,
+      head: RECENT_CONTEXT_TRUNCATE_HEAD,
+      tail: RECENT_CONTEXT_TRUNCATE_TAIL,
+    },
+  }).join('\n');
 }

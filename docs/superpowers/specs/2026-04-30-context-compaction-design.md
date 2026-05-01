@@ -149,48 +149,45 @@ sent to the provider and use a conservative character-to-token ratio. It only
 drives the 80% compaction threshold; it is not used for billing or displayed
 usage.
 
-### Safe History Boundary
+### Single Message Compaction
 
-Compaction splits `messages` into two slices:
-
-```text
-compactablePrefix + rawSuffix
-```
-
-The compacted history becomes:
+Compaction rewrites the prompt history to exactly one synthetic user message:
 
 ```text
-[synthetic summary user message] + rawSuffix
+<conversation_summary>
+LLM-generated summary of the full slimmed history
+</conversation_summary>
+
+<recent_context>
+deterministically slimmed latest 20 messages
+</recent_context>
+
+<continuation_instructions>
+fixed continuation guidance
+</continuation_instructions>
 ```
 
-`rawSuffix` preserves recent and protocol-sensitive context. It must include:
+No raw `LlmMessage` suffix is retained after compaction. This keeps the
+compacted provider message sequence simple and guarantees the compaction result
+is bounded to one message instead of depending on assistant/tool-call boundary
+closure.
 
-- the most recent messages, initially the last 8 messages;
-- any unclosed assistant tool calls and every message after them;
-- the most recent assistant tool-call group plus its corresponding tool results,
-  even if that group is already closed.
+### History Slimming
 
-The compactable prefix is everything before the chosen raw suffix. If the prefix
-is empty, compaction is skipped.
+Before sending history to the summary model, deterministic slimming prepares a
+compact input representation for the full current `messages` array:
 
-The compactor must never leave an assistant tool call in the final history
-without its required tool result, and must never leave a tool result whose
-corresponding assistant tool call has been removed unless that tool result is
-also removed into the summary.
-
-### Prefix Slimming
-
-Before sending the compactable prefix to the summary model, deterministic
-slimming prepares a compact input representation:
-
-- Assistant messages in the compactable prefix drop old `thinking` blocks.
+- Assistant messages drop old `thinking` blocks.
 - Assistant text and tool call metadata are preserved.
 - User messages are preserved unless very large, in which case they use the
   same conservative truncation marker format as tool results.
 - Tool result messages use a tool-specific compaction hook when available.
 - Tool result messages without a hook use default conservative truncation.
 
-Slimming affects only the summary input. It does not mutate `messages` directly.
+The same slimming strategy is reused with a smaller per-message truncation limit
+to generate deterministic recent context from the latest 20 messages. Slimming
+affects only summary/recent-context input. It does not mutate `messages`
+directly.
 
 ### Default Truncation
 
@@ -273,8 +270,9 @@ Initial tool policies:
 
 ### Summary Generation
 
-The compactor formats the slimmed prefix into a summary prompt. The LLM returns
-only a summary string, not a replacement message array.
+The compactor formats the full slimmed history into a summary prompt. The LLM
+returns only a summary string, not a replacement message array. Empty summaries
+are treated as compaction failures.
 
 The summary prompt must require preserving:
 
@@ -284,8 +282,7 @@ The summary prompt must require preserving:
 - important files, paths, commands, and code areas;
 - tool results that still matter;
 - errors, failures, and current hypotheses;
-- pending work and next steps;
-- enough chronology to understand why the current raw suffix happened.
+- pending work and next steps.
 
 The prompt must also instruct the model not to invent facts and not to weaken or
 drop user instructions simply because they appeared early in the conversation.
@@ -310,7 +307,7 @@ const summaryMessage: LlmUserMessage = {
   id: crypto.randomUUID(),
   createdAt: Date.now(),
   role: 'user',
-  content: '<conversation_summary>\n' + summary + '\n</conversation_summary>',
+  content: buildCompactedMessageContent({summary, recentContext}),
 };
 ```
 
@@ -318,12 +315,12 @@ The final mutation is:
 
 ```typescript
 this.messages.length = 0;
-this.messages.push(summaryMessage, ...rawSuffix);
+this.messages.push(summaryMessage);
 ```
 
 If the compactable prefix already contains an earlier synthetic summary, that
 summary is included in the next summary input. The final history should still
-contain one latest summary message plus the raw suffix.
+contain one latest summary message.
 
 Older user messages do not remain verbatim in `llmSession.messages`. Their
 important content is captured in the summary. The full user-visible transcript
@@ -350,7 +347,7 @@ interface LlmCompactionMetadata {
   compactedAt: number;
   strategyVersion: number;
   coveredMessageCount: number;
-  rawSuffixCount: number;
+  recentContextMessageCount: number;
   beforeCharCount: number;
   afterCharCount: number;
 }
@@ -369,9 +366,9 @@ If compaction fails after a completed turn, keep the original messages, log the
 failure, persist normal session state if appropriate, and let the next pre-LLM
 trigger force another compaction attempt.
 
-If compacted history would still exceed the threshold, the compactor can retry
-with a smaller raw suffix down to the safety boundary. It must not break
-unclosed tool-call protocol relationships to reduce size.
+If compacted history would still exceed the threshold, future versions can retry
+with a more aggressive summary/recent-context policy. They should still preserve
+the single-message compacted history shape.
 
 ## Backend Components
 
@@ -414,13 +411,11 @@ Add focused compactor modules under
 
 Responsibilities:
 
-- find the safe raw suffix boundary;
-- build tool call lookup data for old tool results;
-- slim compactable messages;
+- slim full-history messages;
+- build deterministic recent context from the latest messages;
 - format the summary prompt;
 - call the configured summary model;
-- return `{summaryMessage, rawSuffix, metadata}` without directly emitting SSE
-  events.
+- return `{summaryMessage, metadata}` without directly emitting SSE events.
 
 ### Tool Registry Integration
 
@@ -434,8 +429,8 @@ truncation policy.
 
 ### Provider Adapters
 
-Provider adapters should not know about compaction in v1. They receive a normal
-`LlmMessage[]` containing a synthetic user summary message and raw suffix.
+Provider adapters should not know about compaction in v1. After compaction, they
+receive a normal `LlmMessage[]` containing one synthetic user summary message.
 
 Existing adapter conversion rules continue to apply:
 
@@ -447,15 +442,6 @@ Existing adapter conversion rules continue to apply:
 
 ### Unit Tests
 
-Add focused tests for history splitting:
-
-- keeps the last N messages;
-- keeps an unclosed assistant tool call and all later messages;
-- keeps the most recent closed assistant tool-call group and its tool results;
-- skips compaction when there is no compactable prefix;
-- never leaves orphan tool messages or assistant tool calls in final raw
-  history.
-
 Add slimming tests:
 
 - old assistant thinking blocks are removed from summary input;
@@ -464,10 +450,11 @@ Add slimming tests:
 - tool `compactResult()` overrides default truncation;
 - `compactResult()` returning `null` omits the old tool result from summary
   input.
+- recent context is built from the latest 20 slimmed messages.
 
 Add message mutation tests:
 
-- compacted history is `[summary user message] + rawSuffix`;
+- compacted history is a single synthetic summary user message;
 - an older summary is folded into the new summary input;
 - compaction metadata is appended;
 - new session snapshots initialize `compactions: []`;

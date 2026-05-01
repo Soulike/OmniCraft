@@ -9,7 +9,7 @@ export const llmCompactionMetadataSchema = z.object({
   compactedAt: z.number(),
   strategyVersion: z.number(),
   coveredMessageCount: z.number(),
-  rawSuffixCount: z.number(),
+  recentContextMessageCount: z.number(),
   beforeCharCount: z.number(),
   afterCharCount: z.number(),
 });
