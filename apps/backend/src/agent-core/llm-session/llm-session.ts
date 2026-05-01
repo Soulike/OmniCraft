@@ -20,10 +20,10 @@ import {
   buildCompactedMessageContent,
   buildCompactionPrompt,
   buildRecentContext,
-  COMPACTION_STRATEGY_VERSION,
-  COMPACTION_THRESHOLD_RATIO,
+  COMPACTED_MESSAGE_STRATEGY_VERSION,
+  COMPACTION_TRIGGER_INPUT_TOKEN_RATIO,
   generateCompactionSummary,
-  RECENT_CONTEXT_MESSAGE_COUNT,
+  RECENT_CONTEXT_SOURCE_MESSAGE_COUNT,
   slimMessagesForSummary,
 } from './compaction/index.js';
 import type {
@@ -218,7 +218,7 @@ export class LlmSession {
       thinkingLevel: options.thinkingLevel,
     });
 
-    if (currentTokens < maxInputTokens * COMPACTION_THRESHOLD_RATIO) {
+    if (currentTokens < maxInputTokens * COMPACTION_TRIGGER_INPUT_TOKEN_RATIO) {
       return false;
     }
 
@@ -228,7 +228,7 @@ export class LlmSession {
     const coveredMessageCount = this.messages.length;
     const recentContextMessageCount = Math.min(
       coveredMessageCount,
-      RECENT_CONTEXT_MESSAGE_COUNT,
+      RECENT_CONTEXT_SOURCE_MESSAGE_COUNT,
     );
 
     const slimmedMessages = slimMessagesForSummary(
@@ -254,7 +254,7 @@ export class LlmSession {
     this.compactions.push({
       id: crypto.randomUUID(),
       compactedAt: Date.now(),
-      strategyVersion: COMPACTION_STRATEGY_VERSION,
+      strategyVersion: COMPACTED_MESSAGE_STRATEGY_VERSION,
       coveredMessageCount,
       recentContextMessageCount,
       beforeCharCount,

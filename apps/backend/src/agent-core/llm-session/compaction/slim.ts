@@ -1,13 +1,13 @@
 import type {LlmMessage, LlmToolCall} from '../../llm-api/index.js';
 import type {ToolDefinition} from '../../tool/types.js';
 import {
-  DEFAULT_TRUNCATE_HEAD,
-  DEFAULT_TRUNCATE_LIMIT,
-  DEFAULT_TRUNCATE_TAIL,
-  RECENT_CONTEXT_MESSAGE_COUNT,
-  RECENT_CONTEXT_TRUNCATE_HEAD,
-  RECENT_CONTEXT_TRUNCATE_LIMIT,
-  RECENT_CONTEXT_TRUNCATE_TAIL,
+  RECENT_CONTEXT_ENTRY_TRUNCATE_HEAD_CHARS,
+  RECENT_CONTEXT_ENTRY_TRUNCATE_LIMIT_CHARS,
+  RECENT_CONTEXT_ENTRY_TRUNCATE_TAIL_CHARS,
+  RECENT_CONTEXT_SOURCE_MESSAGE_COUNT,
+  SUMMARY_INPUT_CONTENT_TRUNCATE_HEAD_CHARS,
+  SUMMARY_INPUT_CONTENT_TRUNCATE_LIMIT_CHARS,
+  SUMMARY_INPUT_CONTENT_TRUNCATE_TAIL_CHARS,
 } from './constants.js';
 
 export interface TruncateForCompactionOptions {
@@ -24,11 +24,16 @@ export function truncateForCompaction(
   content: string,
   options: TruncateForCompactionOptions = {},
 ): string {
-  const limit = options.limit ?? DEFAULT_TRUNCATE_LIMIT;
+  const limit = options.limit ?? SUMMARY_INPUT_CONTENT_TRUNCATE_LIMIT_CHARS;
   if (content.length <= limit) return content;
 
-  const head = content.slice(0, options.head ?? DEFAULT_TRUNCATE_HEAD);
-  const tail = content.slice(-(options.tail ?? DEFAULT_TRUNCATE_TAIL));
+  const head = content.slice(
+    0,
+    options.head ?? SUMMARY_INPUT_CONTENT_TRUNCATE_HEAD_CHARS,
+  );
+  const tail = content.slice(
+    -(options.tail ?? SUMMARY_INPUT_CONTENT_TRUNCATE_TAIL_CHARS),
+  );
   const omitted = content.length - head.length - tail.length;
 
   return `${head}\n\n[Tool result truncated for compaction only. Original length: ${content.length.toString()} chars. Omitted ${omitted.toString()} chars.]\n\n${tail}`;
@@ -99,14 +104,14 @@ export function buildRecentContext(
   messages: readonly LlmMessage[],
   tools: readonly ToolDefinition[],
 ): string {
-  const recentMessages = messages.slice(-RECENT_CONTEXT_MESSAGE_COUNT);
+  const recentMessages = messages.slice(-RECENT_CONTEXT_SOURCE_MESSAGE_COUNT);
   if (recentMessages.length === 0) return 'No recent context.';
 
   return slimMessagesForSummary(recentMessages, tools, {
     truncate: {
-      limit: RECENT_CONTEXT_TRUNCATE_LIMIT,
-      head: RECENT_CONTEXT_TRUNCATE_HEAD,
-      tail: RECENT_CONTEXT_TRUNCATE_TAIL,
+      limit: RECENT_CONTEXT_ENTRY_TRUNCATE_LIMIT_CHARS,
+      head: RECENT_CONTEXT_ENTRY_TRUNCATE_HEAD_CHARS,
+      tail: RECENT_CONTEXT_ENTRY_TRUNCATE_TAIL_CHARS,
     },
   }).join('\n');
 }
