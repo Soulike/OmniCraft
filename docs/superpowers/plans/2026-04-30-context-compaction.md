@@ -163,7 +163,6 @@ In `apps/backend/src/agent-core/llm-session/types.ts`, add metadata and status:
 export const llmCompactionMetadataSchema = z.object({
   id: z.string(),
   compactedAt: z.number(),
-  strategyVersion: z.number(),
   coveredMessageCount: z.number(),
   rawSuffixCount: z.number(),
   beforeCharCount: z.number(),
@@ -824,7 +823,6 @@ Create `apps/backend/src/agent-core/llm-session/compaction/constants.ts`:
 
 ```typescript
 export const COMPACTION_THRESHOLD_RATIO = 0.8;
-export const COMPACTION_STRATEGY_VERSION = 1;
 export const MIN_RAW_MESSAGES = 8;
 export const DEFAULT_TRUNCATE_LIMIT = 8 * 1024;
 export const DEFAULT_TRUNCATE_HEAD = 4 * 1024;
@@ -1243,7 +1241,6 @@ In `apps/backend/src/agent-core/llm-session/llm-session.ts`, import compaction h
 ```typescript
 import {
   buildCompactionPrompt,
-  COMPACTION_STRATEGY_VERSION,
   COMPACTION_THRESHOLD_RATIO,
   generateCompactionSummary,
   MIN_RAW_MESSAGES,
@@ -1293,7 +1290,6 @@ async compactIfNeeded(options: LlmCompactionOptions): Promise<boolean> {
   this.compactions.push({
     id: crypto.randomUUID(),
     compactedAt: Date.now(),
-    strategyVersion: COMPACTION_STRATEGY_VERSION,
     coveredMessageCount: compactablePrefix.length,
     rawSuffixCount: rawSuffix.length,
     beforeCharCount,

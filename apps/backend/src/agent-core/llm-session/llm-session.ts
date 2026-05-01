@@ -17,7 +17,6 @@ import {llmApi} from '../llm-api/index.js';
 import {modelCapacity} from '../model-capacity/index.js';
 import type {ToolDefinition} from '../tool/types.js';
 import {
-  COMPACTED_MESSAGE_STRATEGY_VERSION,
   COMPACTION_TRIGGER_INPUT_TOKEN_RATIO,
   RECENT_CONTEXT_SOURCE_MESSAGE_COUNT,
 } from './compaction/constants.js';
@@ -251,7 +250,6 @@ export class LlmSession {
     this.compactions.push({
       id: crypto.randomUUID(),
       compactedAt: Date.now(),
-      strategyVersion: COMPACTED_MESSAGE_STRATEGY_VERSION,
       coveredMessageCount,
       recentContextMessageCount,
       beforeCharCount,

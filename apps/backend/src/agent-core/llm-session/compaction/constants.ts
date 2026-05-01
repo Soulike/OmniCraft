@@ -1,9 +1,6 @@
 /** Compact when the current prompt reaches this fraction of model input capacity. */
 export const COMPACTION_TRIGGER_INPUT_TOKEN_RATIO = 0.8;
 
-/** Version tag for persisted compaction metadata and future strategy migrations. */
-export const COMPACTED_MESSAGE_STRATEGY_VERSION = 1;
-
 /** Number of latest messages included in the deterministic recent context. */
 export const RECENT_CONTEXT_SOURCE_MESSAGE_COUNT = 20;
 

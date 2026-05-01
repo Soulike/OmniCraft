@@ -345,7 +345,6 @@ Each entry uses this shape:
 interface LlmCompactionMetadata {
   id: string;
   compactedAt: number;
-  strategyVersion: number;
   coveredMessageCount: number;
   recentContextMessageCount: number;
   beforeCharCount: number;

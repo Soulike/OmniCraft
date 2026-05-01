@@ -98,7 +98,6 @@ describe('LlmSession snapshot metadata', () => {
         {
           id: 'compaction-1',
           compactedAt: 123,
-          strategyVersion: 1,
           coveredMessageCount: 10,
           recentContextMessageCount: 10,
           beforeCharCount: 1000,
@@ -123,7 +122,6 @@ describe('LlmSession snapshot metadata', () => {
         {
           id: 'compaction-1',
           compactedAt: 123,
-          strategyVersion: 1,
           coveredMessageCount: 10,
           recentContextMessageCount: 10,
           beforeCharCount: 1000,

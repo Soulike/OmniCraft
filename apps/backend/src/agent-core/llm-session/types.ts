@@ -7,7 +7,6 @@ import type {ToolDefinition} from '../tool/types.js';
 export const llmCompactionMetadataSchema = z.object({
   id: z.string(),
   compactedAt: z.number(),
-  strategyVersion: z.number(),
   coveredMessageCount: z.number(),
   recentContextMessageCount: z.number(),
   beforeCharCount: z.number(),
