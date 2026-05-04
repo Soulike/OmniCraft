@@ -291,6 +291,9 @@ export abstract class Agent {
 
   private async *emitAbortCompletion(
     inFlightToolCalls: Set<string>,
+    tools: readonly ToolDefinition[],
+    systemPrompt: string,
+    thinkingLevel: ThinkingLevel,
   ): AgentEventStream {
     for (const callId of inFlightToolCalls) {
       yield {
@@ -301,9 +304,24 @@ export abstract class Agent {
         data: {message: 'Aborted'},
       } satisfies SseToolExecuteEndEvent;
     }
+    yield* this.emitDoneAfterTurn(
+      'aborted',
+      tools,
+      systemPrompt,
+      thinkingLevel,
+    );
+  }
+
+  private async *emitDoneAfterTurn(
+    reason: SseDoneEvent['reason'],
+    tools: readonly ToolDefinition[],
+    systemPrompt: string,
+    thinkingLevel: ThinkingLevel,
+  ): AgentEventStream {
+    await this.compactAfterTurn(tools, systemPrompt, thinkingLevel);
     yield {
       type: 'done',
-      reason: 'aborted',
+      reason,
       usage: await this.buildSseUsage(),
     } satisfies SseDoneEvent;
   }
@@ -372,19 +390,23 @@ export abstract class Agent {
     let round = 0;
     while (toolCalls.length > 0) {
       if (signal.aborted) {
-        yield* this.emitAbortCompletion(inFlightToolCalls);
-        await this.compactAfterTurn(toolDefs, systemPrompt, thinkingLevel);
+        yield* this.emitAbortCompletion(
+          inFlightToolCalls,
+          toolDefs,
+          systemPrompt,
+          thinkingLevel,
+        );
         return;
       }
 
       round++;
       if (round > maxRounds) {
-        yield {
-          type: 'done',
-          reason: 'max_rounds_reached',
-          usage: await this.buildSseUsage(),
-        } satisfies SseDoneEvent;
-        await this.compactAfterTurn(toolDefs, systemPrompt, thinkingLevel);
+        yield* this.emitDoneAfterTurn(
+          'max_rounds_reached',
+          toolDefs,
+          systemPrompt,
+          thinkingLevel,
+        );
         return;
       }
 
@@ -478,8 +500,12 @@ export abstract class Agent {
       // signal.aborted may have changed during async tool execution
       // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
       if (signal.aborted) {
-        yield* this.emitAbortCompletion(inFlightToolCalls);
-        await this.compactAfterTurn(toolDefs, systemPrompt, thinkingLevel);
+        yield* this.emitAbortCompletion(
+          inFlightToolCalls,
+          toolDefs,
+          systemPrompt,
+          thinkingLevel,
+        );
         return;
       }
 
@@ -499,12 +525,12 @@ export abstract class Agent {
       );
     }
 
-    yield {
-      type: 'done',
-      reason: 'complete',
-      usage: await this.buildSseUsage(),
-    } satisfies SseDoneEvent;
-    await this.compactAfterTurn(toolDefs, systemPrompt, thinkingLevel);
+    yield* this.emitDoneAfterTurn(
+      'complete',
+      toolDefs,
+      systemPrompt,
+      thinkingLevel,
+    );
   }
 
   /**
