@@ -113,14 +113,21 @@ const remainingContextTokens = Math.max(
 
 ### Backend State
 
-Keep the current provider/session `LlmUsage` shape for internal accounting:
-`inputTokens`, `outputTokens`, and `cacheReadInputTokens`. These names are still
-clear for one provider call and for the existing internal cumulative counter.
+Change internal session `LlmUsage` directly so it contains both current context
+input and cumulative totals. Provider `message-end` events should keep their
+per-call usage object with `inputTokens`, `outputTokens`, and
+`cacheReadInputTokens`; those values are one completed provider call, not
+session totals.
 
-`LlmSession` will add one extra numeric state field:
+`LlmSession` will keep one `usage` object:
 
 ```typescript
-private currentContextInputTokens = 0;
+private usage: LlmUsage = {
+  currentContextInputTokens: 0,
+  inputTokens: 0,
+  outputTokens: 0,
+  cacheReadInputTokens: 0,
+};
 ```
 
 When a provider emits `message-end`, keep the existing cumulative update and set
@@ -144,7 +151,7 @@ const usage = this.llmSession.getUsage();
 return {
   model: config.model,
   contextWindowTokens,
-  currentContextInputTokens: this.llmSession.getCurrentContextInputTokens(),
+  currentContextInputTokens: usage.currentContextInputTokens,
   sessionInputTokens: usage.inputTokens,
   sessionOutputTokens: usage.outputTokens,
   sessionCacheReadInputTokens: usage.cacheReadInputTokens,

@@ -4,7 +4,7 @@
 
 **Goal:** Rename the ambiguous public usage fields first, then add the one missing current-context field and update backend/frontend behavior.
 
-**Architecture:** This is a two-phase protocol change. Phase 1 is a mechanical public `SseUsage` rename that preserves current behavior: `maxInputTokens` becomes `contextWindowTokens`, and cumulative `input/output/cache` fields become `session*` fields. Phase 2 adds `currentContextInputTokens`; backend fills it from the latest completed provider call, while the existing cumulative `LlmUsage` object stays in place for session totals.
+**Architecture:** This is a two-phase protocol change. Phase 1 is a mechanical public `SseUsage` rename that preserves current behavior: `maxInputTokens` becomes `contextWindowTokens`, and cumulative `input/output/cache` fields become `session*` fields. Phase 2 adds `currentContextInputTokens` by extending the existing session `LlmUsage` object; provider `message-end` events keep their per-call usage shape.
 
 **Tech Stack:** TypeScript, Zod, Vitest, React Testing Library, Bun workspaces.
 
@@ -13,8 +13,10 @@
 ## File Structure
 
 - Modify: `packages/sse-events/src/schema.ts` - rename existing public `SseUsage` fields, then add `currentContextInputTokens` in phase 2.
-- Modify: `apps/backend/src/agent-core/agent/agent.ts` - map internal cumulative `LlmUsage` to public `session*` field names, then add `currentContextInputTokens`.
-- Modify: `apps/backend/src/agent-core/llm-session/llm-session.ts` - keep existing cumulative `usage`; add only `currentContextInputTokens` and a getter in phase 2.
+- Modify: `apps/backend/src/agent-core/llm-api/types.ts` - extend session `LlmUsage` and keep provider `message-end` usage per-call scoped.
+- Modify: `apps/backend/src/agent-core/llm-api/claude/stream.ts` - update the local provider-call usage type after `LlmUsage` changes.
+- Modify: `apps/backend/src/agent-core/agent/agent.ts` - map internal cumulative `LlmUsage` to public `session*` field names, then include `currentContextInputTokens`.
+- Modify: `apps/backend/src/agent-core/llm-session/llm-session.ts` - add `currentContextInputTokens` directly to the existing `usage` object in phase 2.
 - Modify: `apps/backend/src/agent-core/llm-session/llm-session.test.ts` - verify latest context input differs from cumulative input.
 - Modify: `apps/backend/src/agent-core/agent/agent.test.ts` - verify final `done.usage` shape after both phases.
 - Modify: `apps/backend/src/agent/agents/coding-sub-agent/coding-sub-agent.ts` - rename public usage fields, then add `currentContextInputTokens`.
@@ -218,11 +220,13 @@ git commit -m "refactor: rename public usage token fields"
 
 ### Task 2: Add Current Context Usage And Fix UI Semantics
 
-This task adds the single missing metric: `currentContextInputTokens`. Backend sets it from the latest completed provider call; cumulative usage remains in the existing `LlmSession.usage` object.
+This task adds the single missing metric: `currentContextInputTokens`. Backend stores it directly on the existing `LlmSession.usage` object. Provider `message-end` events remain per-call scoped and do not get session field names.
 
 **Files:**
 
 - Modify: `packages/sse-events/src/schema.ts`
+- Modify: `apps/backend/src/agent-core/llm-api/types.ts`
+- Modify: `apps/backend/src/agent-core/llm-api/claude/stream.ts`
 - Modify: `apps/backend/src/agent-core/llm-session/llm-session.ts`
 - Modify: `apps/backend/src/agent-core/llm-session/llm-session.test.ts`
 - Modify: `apps/backend/src/agent-core/agent/agent.ts`
@@ -305,8 +309,8 @@ describe('LlmSession usage', () => {
     await drain(session.sendUserMessage('first', [], '', 'none').stream);
     await drain(session.sendUserMessage('second', [], '', 'none').stream);
 
-    expect(session.getCurrentContextInputTokens()).toBe(40);
     expect(session.getUsage()).toEqual({
+      currentContextInputTokens: 40,
       inputTokens: 140,
       outputTokens: 18,
       cacheReadInputTokens: 25,
@@ -323,38 +327,89 @@ Run:
 bun run --cwd apps/backend test src/agent-core/llm-session/llm-session.test.ts -t "tracks latest context input separately"
 ```
 
-Expected: FAIL because `getCurrentContextInputTokens()` does not exist yet.
+Expected: FAIL because `session.getUsage()` does not return `currentContextInputTokens` yet.
 
-- [ ] **Step 4: Add one current-context field to `LlmSession`**
+- [ ] **Step 4: Extend `LlmUsage` while keeping provider usage per-call scoped**
 
-In `apps/backend/src/agent-core/llm-session/llm-session.ts`, keep the existing `private usage: LlmUsage` field and add one field after it:
-
-```typescript
-private currentContextInputTokens = 0;
-```
-
-Add this getter after `getUsage()`:
+In `apps/backend/src/agent-core/llm-api/types.ts`, replace the current `LlmUsage` interface and `LlmMessageEndEvent` usage property with:
 
 ```typescript
-/** Returns input tokens from the latest completed LLM call. */
-getCurrentContextInputTokens(): number {
-  return this.currentContextInputTokens;
+/** Token usage statistics accumulated by an LLM session. */
+export interface LlmUsage {
+  currentContextInputTokens: number;
+  inputTokens: number;
+  outputTokens: number;
+  cacheReadInputTokens: number;
+}
+
+/** The LLM response has ended. */
+export interface LlmMessageEndEvent {
+  type: 'message-end';
+  stopReason: string;
+  usage: {
+    inputTokens: number;
+    outputTokens: number;
+    cacheReadInputTokens: number;
+  };
 }
 ```
 
-Update `clear()` to reset the new field:
+In `apps/backend/src/agent-core/llm-api/claude/stream.ts`, update the type import from:
 
 ```typescript
-this.usage = {inputTokens: 0, outputTokens: 0, cacheReadInputTokens: 0};
-this.currentContextInputTokens = 0;
+import type {LlmCompletionOptions, LlmEventStream, LlmUsage} from '../types.js';
 ```
 
-In the existing `message-end` case, set the current context value before or after the cumulative update:
+to:
+
+```typescript
+import type {
+  LlmCompletionOptions,
+  LlmEventStream,
+  LlmMessageEndEvent,
+} from '../types.js';
+```
+
+Then update the local usage declaration to:
+
+```typescript
+let usage: LlmMessageEndEvent['usage'] = {
+  inputTokens: 0,
+  outputTokens: 0,
+  cacheReadInputTokens: 0,
+};
+```
+
+- [ ] **Step 5: Store current context input directly on `LlmSession.usage`**
+
+In `apps/backend/src/agent-core/llm-session/llm-session.ts`, update the existing `private usage: LlmUsage` field to:
+
+```typescript
+private usage: LlmUsage = {
+  currentContextInputTokens: 0,
+  inputTokens: 0,
+  outputTokens: 0,
+  cacheReadInputTokens: 0,
+};
+```
+
+Update `clear()` to reset the expanded usage object:
+
+```typescript
+this.usage = {
+  currentContextInputTokens: 0,
+  inputTokens: 0,
+  outputTokens: 0,
+  cacheReadInputTokens: 0,
+};
+```
+
+In the existing `message-end` case, set `currentContextInputTokens` from the latest completed provider call and keep the cumulative fields additive:
 
 ```typescript
 case 'message-end':
-  this.currentContextInputTokens = event.usage.inputTokens;
   this.usage = {
+    currentContextInputTokens: event.usage.inputTokens,
     inputTokens: this.usage.inputTokens + event.usage.inputTokens,
     outputTokens: this.usage.outputTokens + event.usage.outputTokens,
     cacheReadInputTokens:
@@ -363,7 +418,7 @@ case 'message-end':
   break;
 ```
 
-- [ ] **Step 5: Add `currentContextInputTokens` to `Agent.buildSseUsage()`**
+- [ ] **Step 6: Add `currentContextInputTokens` to `Agent.buildSseUsage()`**
 
 In `apps/backend/src/agent-core/agent/agent.ts`, update `buildSseUsage()` to:
 
@@ -379,7 +434,7 @@ private async buildSseUsage(): Promise<SseUsage> {
   return {
     model: config.model,
     contextWindowTokens,
-    currentContextInputTokens: this.llmSession.getCurrentContextInputTokens(),
+    currentContextInputTokens: usage.currentContextInputTokens,
     sessionInputTokens: usage.inputTokens,
     sessionOutputTokens: usage.outputTokens,
     sessionCacheReadInputTokens: usage.cacheReadInputTokens,
@@ -388,7 +443,7 @@ private async buildSseUsage(): Promise<SseUsage> {
 }
 ```
 
-- [ ] **Step 6: Add an Agent-level behavior test**
+- [ ] **Step 7: Add an Agent-level behavior test**
 
 In `apps/backend/src/agent-core/agent/agent.test.ts`, update the existing `collectUntilDone` helper signature so the new multi-turn test can subscribe after the first turn's raw events:
 
@@ -498,7 +553,7 @@ describe('Agent usage reporting', () => {
 });
 ```
 
-- [ ] **Step 7: Add `currentContextInputTokens` to coding subagent usage**
+- [ ] **Step 8: Add `currentContextInputTokens` to coding subagent usage**
 
 In `apps/backend/src/agent/agents/coding-sub-agent/coding-sub-agent.ts`, add the new field to the initial object:
 
@@ -528,7 +583,7 @@ usage = {
 };
 ```
 
-- [ ] **Step 8: Add `currentContextInputTokens` to backend and frontend fixtures**
+- [ ] **Step 9: Add `currentContextInputTokens` to backend and frontend fixtures**
 
 Run:
 
@@ -550,7 +605,7 @@ usage: {
 }
 ```
 
-- [ ] **Step 9: Update frontend display semantics**
+- [ ] **Step 10: Update frontend display semantics**
 
 Replace `apps/frontend/src/modules/chat-session/components/UsageInfo/UsageInfoView.test.tsx` with:
 
@@ -625,7 +680,7 @@ Replace the usage field JSX with:
 </span>
 ```
 
-- [ ] **Step 10: Run phase-2 focused tests**
+- [ ] **Step 11: Run phase-2 focused tests**
 
 Run:
 
@@ -637,7 +692,7 @@ bun run --cwd apps/frontend test src/modules/chat-session/components/UsageInfo/U
 
 Expected: PASS.
 
-- [ ] **Step 11: Run final checks**
+- [ ] **Step 12: Run final checks**
 
 Run:
 
@@ -651,7 +706,7 @@ bun run --cwd apps/frontend test
 
 Expected: PASS.
 
-- [ ] **Step 12: Verify old public usage keys are gone**
+- [ ] **Step 13: Verify old public usage keys are gone**
 
 Run:
 
@@ -661,11 +716,11 @@ rg -n "maxInputTokens:|contextInputTokens:" packages/sse-events/src apps/backend
 
 Expected: no matches. The old public field names `inputTokens`, `outputTokens`, and `cacheReadInputTokens` may still appear in provider-call `LlmUsage` code and in test helpers that construct provider-call usage; those should not be renamed unless they are inside a public `SseUsage` object.
 
-- [ ] **Step 13: Commit phase-2 behavior change**
+- [ ] **Step 14: Commit phase-2 behavior change**
 
 Run:
 
 ```bash
-git add packages/sse-events/src/schema.ts apps/backend/src/agent-core/llm-session/llm-session.ts apps/backend/src/agent-core/llm-session/llm-session.test.ts apps/backend/src/agent-core/agent/agent.ts apps/backend/src/agent-core/agent/agent.test.ts apps/backend/src/agent/agents/coding-sub-agent/coding-sub-agent.ts apps/backend/src/agent-core/agent/events/agent-sse-log.test.ts apps/frontend/src/modules/chat-session/components/UsageInfo/UsageInfoView.tsx apps/frontend/src/modules/chat-session/components/UsageInfo/UsageInfoView.test.tsx apps/frontend/src/modules/chat-session/helpers/route-base-event-to-bus.test.ts apps/frontend/src/modules/chat-session/hooks/useStreamChat.test.tsx
+git add packages/sse-events/src/schema.ts apps/backend/src/agent-core/llm-api/types.ts apps/backend/src/agent-core/llm-api/claude/stream.ts apps/backend/src/agent-core/llm-session/llm-session.ts apps/backend/src/agent-core/llm-session/llm-session.test.ts apps/backend/src/agent-core/agent/agent.ts apps/backend/src/agent-core/agent/agent.test.ts apps/backend/src/agent/agents/coding-sub-agent/coding-sub-agent.ts apps/backend/src/agent-core/agent/events/agent-sse-log.test.ts apps/frontend/src/modules/chat-session/components/UsageInfo/UsageInfoView.tsx apps/frontend/src/modules/chat-session/components/UsageInfo/UsageInfoView.test.tsx apps/frontend/src/modules/chat-session/helpers/route-base-event-to-bus.test.ts apps/frontend/src/modules/chat-session/hooks/useStreamChat.test.tsx
 git commit -m "fix: report current context usage separately"
 ```
