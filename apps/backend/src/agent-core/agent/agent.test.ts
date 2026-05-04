@@ -84,6 +84,17 @@ async function* titleCompletionStream(): LlmEventStream {
   };
 }
 
+async function* summaryCompletionStream(): LlmEventStream {
+  yield {type: 'message-start', messageId: 'summary-message'};
+  await Promise.resolve();
+  yield {type: 'text-delta', content: 'Compacted summary'};
+  yield {
+    type: 'message-end',
+    stopReason: 'end_turn',
+    usage: {inputTokens: 1, outputTokens: 1, cacheReadInputTokens: 0},
+  };
+}
+
 async function* failingStream(): LlmEventStream {
   yield {type: 'message-start', messageId: 'failed-message'};
   await Promise.resolve();
@@ -130,14 +141,6 @@ async function collectAll(
     events.push(event);
   }
   return events;
-}
-
-async function waitFor(predicate: () => boolean): Promise<void> {
-  for (let attempt = 0; attempt < 20; attempt++) {
-    if (predicate()) return;
-    await delay(5);
-  }
-  expect(predicate()).toBe(true);
 }
 
 describe('Agent title generation', () => {
@@ -224,6 +227,41 @@ describe('Agent usage reporting', () => {
       },
     });
   });
+
+  it('emits done usage with compacted context after turn-end compaction', async () => {
+    vi.spyOn(llmApi, 'streamCompletion').mockImplementation((options) => {
+      const isSummaryRequest =
+        options.tools.length === 0 &&
+        options.messages.length === 1 &&
+        options.messages[0]?.role === 'user' &&
+        options.messages[0].content.includes('<history_to_summarize>');
+
+      if (isSummaryRequest) return summaryCompletionStream();
+
+      return usageCompletionStream({
+        inputTokens: 110_000,
+        outputTokens: 7,
+        cacheReadInputTokens: 3,
+      });
+    });
+    const agent = new UsageTestAgent(
+      () => Promise.resolve(MAIN_CONFIG),
+      testAgentOptions(),
+    );
+
+    const events = await collectAll(agent.streamForTest('compact this turn'));
+    const doneEvent = events.at(-1);
+
+    expect(doneEvent?.type).toBe('done');
+    if (doneEvent?.type !== 'done') {
+      throw new Error('Expected final event to be done');
+    }
+    expect(doneEvent.usage.currentContextInputTokens).toBeGreaterThan(0);
+    expect(doneEvent.usage.currentContextInputTokens).toBeLessThan(110_000);
+    expect(doneEvent.usage.sessionInputTokens).toBe(110_000);
+    expect(doneEvent.usage.sessionOutputTokens).toBe(7);
+    expect(doneEvent.usage.sessionCacheReadInputTokens).toBe(3);
+  });
 });
 
 describe('Agent compaction lifecycle', () => {
@@ -231,27 +269,30 @@ describe('Agent compaction lifecycle', () => {
     vi.restoreAllMocks();
   });
 
-  it('requests turn-end compaction after emitting done', async () => {
+  it('requests turn-end compaction before emitting done', async () => {
     vi.spyOn(llmApi, 'countToken').mockResolvedValue(1);
-    vi.spyOn(llmApi, 'streamCompletion').mockImplementation((options) => {
-      if (options.config.model === LIGHT_CONFIG.model) {
-        return titleCompletionStream();
-      }
-      return mainCompletionStream();
-    });
+    vi.spyOn(llmApi, 'streamCompletion').mockImplementation(() =>
+      mainCompletionStream(),
+    );
+    const order: string[] = [];
     const compactSpy = vi
       .spyOn(LlmSession.prototype, 'compactIfNeeded')
-      .mockResolvedValue(false);
-    const agent = new TestAgent(() => Promise.resolve(MAIN_CONFIG), {
-      ...testAgentOptions(),
-    });
+      .mockImplementation(() => {
+        order.push('compact');
+        return Promise.resolve(false);
+      });
+    const agent = new UsageTestAgent(
+      () => Promise.resolve(MAIN_CONFIG),
+      testAgentOptions(),
+    );
 
-    const eventsPromise = collectUntilDone(agent);
-    agent.handleUserMessage('Finish the task');
-    const events = await eventsPromise;
+    for await (const event of agent.streamForTest('Finish the task')) {
+      if (event.type === 'done') {
+        order.push('done');
+      }
+    }
 
-    expect(events.at(-1)).toMatchObject({type: 'done', reason: 'complete'});
-    await waitFor(() => compactSpy.mock.calls.length > 0);
+    expect(order).toEqual(['compact', 'done']);
     const [compactionOptions] = compactSpy.mock.calls[0];
     expect(compactionOptions.reason).toBe('after-turn');
     expect(compactionOptions.tools).toEqual([]);

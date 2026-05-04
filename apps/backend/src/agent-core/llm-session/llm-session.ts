@@ -289,6 +289,11 @@ export class LlmSession {
     this.messages.length = 0;
     this.messages.push(summaryMessage);
     this.usageBaselineMessageCount = null;
+    this.usage = {
+      ...this.usage,
+      currentContextInputTokens: this.estimatePromptTokensFromMessages(options),
+      latestCallOutputTokens: 0,
+    };
     this.compactions.push({
       id: crypto.randomUUID(),
       compactedAt: Date.now(),
@@ -307,6 +312,12 @@ export class LlmSession {
     const latestUsageEstimate = this.estimatePromptTokensFromLatestUsage();
     if (latestUsageEstimate !== null) return latestUsageEstimate;
 
+    return this.estimatePromptTokensFromMessages(options);
+  }
+
+  private estimatePromptTokensFromMessages(
+    options: LlmCompactionOptions,
+  ): number {
     return estimatePromptTokens({
       messages: this.messages,
       ...(options.systemPrompt ? {systemPrompt: options.systemPrompt} : {}),
