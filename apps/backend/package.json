@@ -22,7 +22,6 @@
     "vitest": "catalog:"
   },
   "dependencies": {
-    "@anthropic-ai/claude-agent-sdk": "^0.2.101",
     "@anthropic-ai/sdk": "^0.80.0",
     "@koa/bodyparser": "^6.1.0",
     "@koa/router": "^15.1.0",

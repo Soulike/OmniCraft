@@ -24,7 +24,6 @@ export type AgentEventStream = AsyncGenerator<AgentEvent, void, undefined>;
 const agentSnapshotOptionsSchema = z.object({
   workingDirectory: z.string().optional(),
   thinkingLevel: thinkingLevelSchema,
-  claudeCodeSessionId: z.string().optional(),
 });
 
 export const agentSnapshotSchema = z.object({
