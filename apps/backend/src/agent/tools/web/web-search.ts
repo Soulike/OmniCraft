@@ -42,6 +42,12 @@ export const webSearchTool: ToolDefinition<typeof parameters, WebSearchResult> =
       'Prefer this over guessing when you are unsure about facts.',
     parameters,
     suppressToolEvents: false,
+    compactResult({content, status}) {
+      const lines = content.split('\n').filter(Boolean);
+      return [`${TOOL_NAME.WEB_SEARCH} ${status}`, ...lines.slice(0, 21)].join(
+        '\n',
+      );
+    },
     async execute(args: WebSearchArgs, _context: ToolExecutionContext) {
       // 1. Read API key from settings
       const settings = await SettingsManager.getInstance().getAll();

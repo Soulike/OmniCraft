@@ -181,7 +181,7 @@ describe('dispatchAgentTool', () => {
         id: subagent.id,
         title: 'New Session',
         sseEventCount: 0,
-        llmSession: {messages: []},
+        llmSession: {messages: [], compactions: []},
         options: {workingDirectory: tmpDir, thinkingLevel: 'none'},
       });
       expect(metadata).toEqual({
@@ -222,7 +222,7 @@ describe('dispatchAgentTool', () => {
         id: subagent.id,
         title: 'New Session',
         sseEventCount: 0,
-        llmSession: {messages: []},
+        llmSession: {messages: [], compactions: []},
         options: {workingDirectory: tmpDir, thinkingLevel: 'none'},
       });
       expect(metadata).toEqual({

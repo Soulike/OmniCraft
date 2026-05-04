@@ -52,6 +52,7 @@ export type LlmAssistantMessage = z.infer<typeof llmAssistantMessageSchema>;
 export const llmToolResultMessageSchema = llmMessageBaseSchema.extend({
   role: z.literal('tool'),
   callId: z.string(),
+  status: z.enum(['success', 'failure']),
 });
 
 export type LlmToolResultMessage = z.infer<typeof llmToolResultMessageSchema>;
@@ -160,3 +161,5 @@ export interface LlmCompletionOptions {
   readonly thinkingLevel: ThinkingLevel;
   readonly signal?: AbortSignal;
 }
+
+export type LlmTokenCountOptions = Omit<LlmCompletionOptions, 'signal'>;

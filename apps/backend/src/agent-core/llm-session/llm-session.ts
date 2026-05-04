@@ -14,13 +14,25 @@ import type {
   LlmUsage,
 } from '../llm-api/index.js';
 import {llmApi} from '../llm-api/index.js';
+import {modelCapacity} from '../model-capacity/index.js';
 import type {ToolDefinition} from '../tool/types.js';
+import {COMPACTION_TRIGGER_INPUT_TOKEN_RATIO} from './compaction/constants.js';
+import {buildCompactedMessageContent} from './compaction/prompt.js';
+import {buildRecentContext} from './compaction/slim.js';
+import {generateCompactionSummary} from './compaction/summary.js';
 import type {
+  LlmCompactionMetadata,
+  LlmCompactionOptions,
   LlmSessionEventStream,
   LlmSessionSnapshot,
   SendUserMessageResult,
   ToolResult,
 } from './types.js';
+
+function throwIfAborted(signal: AbortSignal | undefined): void {
+  if (!signal?.aborted) return;
+  throw signal.reason instanceof Error ? signal.reason : new Error('Aborted');
+}
 
 /**
  * In-memory LLM conversation context.
@@ -37,6 +49,7 @@ export class LlmSession {
   readonly id: string;
 
   private readonly messages: LlmMessage[] = [];
+  private readonly compactions: LlmCompactionMetadata[] = [];
   private usage: LlmUsage = {
     inputTokens: 0,
     outputTokens: 0,
@@ -54,6 +67,7 @@ export class LlmSession {
     if (snapshot) {
       this.id = snapshot.id;
       this.messages.push(...snapshot.messages);
+      this.compactions.push(...snapshot.compactions);
     } else {
       this.id = crypto.randomUUID();
     }
@@ -61,7 +75,11 @@ export class LlmSession {
 
   /** Returns a serializable snapshot of this session. */
   toSnapshot(): LlmSessionSnapshot {
-    return {id: this.id, messages: [...this.messages]};
+    return {
+      id: this.id,
+      messages: [...this.messages],
+      compactions: [...this.compactions],
+    };
   }
 
   /**
@@ -119,6 +137,7 @@ export class LlmSession {
       role: 'tool' as const,
       callId: result.callId,
       content: result.content,
+      status: result.status,
     }));
     yield* this.sendMessages(
       toolMessages,
@@ -139,9 +158,19 @@ export class LlmSession {
     return [...this.messages];
   }
 
+  async compactIfNeeded(options: LlmCompactionOptions): Promise<boolean> {
+    const release = await this.mutex.acquire();
+    try {
+      return await this.compactIfNeededUnlocked(options);
+    } finally {
+      release();
+    }
+  }
+
   /** Clears all messages and resets usage. */
   clear(): void {
     this.messages.length = 0;
+    this.compactions.length = 0;
     this.usage = {inputTokens: 0, outputTokens: 0, cacheReadInputTokens: 0};
   }
 
@@ -157,18 +186,114 @@ export class LlmSession {
     signal?: AbortSignal,
   ): LlmSessionEventStream {
     const release = await this.mutex.acquire();
-    const rollbackIndex = this.messages.length;
+    const rollbackMessages = [...this.messages];
+    const rollbackCompactions = [...this.compactions];
     this.messages.push(...messages);
     let completed = false;
     try {
+      await this.compactBeforeModelCall(
+        tools,
+        systemPrompt,
+        thinkingLevel,
+        signal,
+      );
+      throwIfAborted(signal);
       yield* this.streamCompletion(tools, systemPrompt, thinkingLevel, signal);
       completed = true;
     } finally {
       if (!completed) {
-        this.messages.length = rollbackIndex;
+        this.messages.length = 0;
+        this.messages.push(...rollbackMessages);
+        this.compactions.length = 0;
+        this.compactions.push(...rollbackCompactions);
       }
       release();
     }
+  }
+
+  private async compactBeforeModelCall(
+    tools: readonly ToolDefinition[],
+    systemPrompt: string,
+    thinkingLevel: ThinkingLevel,
+    signal?: AbortSignal,
+  ): Promise<void> {
+    try {
+      throwIfAborted(signal);
+      await this.compactIfNeededUnlocked({
+        reason: 'before-llm-call',
+        tools,
+        systemPrompt,
+        thinkingLevel,
+        ...(signal ? {signal} : {}),
+      });
+      throwIfAborted(signal);
+    } catch (error: unknown) {
+      if (signal?.aborted) {
+        throw error instanceof Error ? error : new Error('Aborted');
+      }
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(
+        `Failed to compact LLM session before model call: ${message}`,
+        {cause: error},
+      );
+    }
+  }
+
+  private async compactIfNeededUnlocked(
+    options: LlmCompactionOptions,
+  ): Promise<boolean> {
+    const config = await this.getConfig();
+    const maxInputTokens = await modelCapacity.getMaxInputTokens(config);
+    const currentTokens = await llmApi.countToken({
+      config,
+      messages: this.messages,
+      systemPrompt: options.systemPrompt || undefined,
+      tools: options.tools,
+      thinkingLevel: options.thinkingLevel,
+    });
+
+    if (currentTokens < maxInputTokens * COMPACTION_TRIGGER_INPUT_TOKEN_RATIO) {
+      return false;
+    }
+
+    if (this.messages.length === 0) return false;
+
+    const beforeCharCount = JSON.stringify(this.messages).length;
+    const coveredMessageCount = this.messages.length;
+
+    const summary = await generateCompactionSummary({
+      config,
+      messages: this.messages,
+      tools: options.tools,
+      ...(options.signal ? {signal: options.signal} : {}),
+    });
+    if (!summary) {
+      throw new Error('Compaction summary is empty');
+    }
+
+    const recentContext = buildRecentContext(this.messages, options.tools);
+    const summaryMessage: LlmMessage = {
+      id: crypto.randomUUID(),
+      createdAt: Date.now(),
+      role: 'user',
+      content: buildCompactedMessageContent({
+        summary,
+        recentContext: recentContext.content,
+      }),
+    };
+
+    this.messages.length = 0;
+    this.messages.push(summaryMessage);
+    this.compactions.push({
+      id: crypto.randomUUID(),
+      compactedAt: Date.now(),
+      coveredMessageCount,
+      recentContextMessageCount: recentContext.sourceMessageCount,
+      beforeCharCount,
+      afterCharCount: JSON.stringify(this.messages).length,
+    });
+
+    return true;
   }
 
   /**

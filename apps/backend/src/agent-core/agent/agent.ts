@@ -254,11 +254,9 @@ export abstract class Agent {
             this.isGeneratingTitle = false;
           });
         }
-        if (event.type === 'done') {
-          void this.persistSnapshot().catch((err: unknown) => {
-            logger.error({err}, 'Failed to persist snapshot');
-          });
-        }
+      });
+      await this.persistSnapshot().catch((err: unknown) => {
+        logger.error({err}, 'Failed to persist snapshot');
       });
     } finally {
       this.abortController = null;
@@ -282,10 +280,11 @@ export abstract class Agent {
         await this.appendSseEvent(event);
         onEvent?.(event);
       }
-    } catch {
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
       await this.appendSseEvent({
         type: 'error',
-        message: 'An internal error occurred',
+        message,
       });
     }
   }
@@ -307,6 +306,25 @@ export abstract class Agent {
       reason: 'aborted',
       usage: await this.buildSseUsage(),
     } satisfies SseDoneEvent;
+  }
+
+  private async compactAfterTurn(
+    tools: readonly ToolDefinition[],
+    systemPrompt: string,
+    thinkingLevel: ThinkingLevel,
+  ): Promise<void> {
+    try {
+      await this.llmSession.compactIfNeeded({
+        reason: 'after-turn',
+        tools,
+        systemPrompt,
+        thinkingLevel,
+      });
+    } catch (err: unknown) {
+      // Turn-end compaction is best-effort cleanup after user-visible work is done.
+      // Keep the completed turn successful and retry compaction before the next LLM call.
+      logger.error({err}, 'Failed to compact LLM session after turn');
+    }
   }
 
   protected async *runAgentLoop(
@@ -355,6 +373,7 @@ export abstract class Agent {
     while (toolCalls.length > 0) {
       if (signal.aborted) {
         yield* this.emitAbortCompletion(inFlightToolCalls);
+        await this.compactAfterTurn(toolDefs, systemPrompt, thinkingLevel);
         return;
       }
 
@@ -365,6 +384,7 @@ export abstract class Agent {
           reason: 'max_rounds_reached',
           usage: await this.buildSseUsage(),
         } satisfies SseDoneEvent;
+        await this.compactAfterTurn(toolDefs, systemPrompt, thinkingLevel);
         return;
       }
 
@@ -394,6 +414,7 @@ export abstract class Agent {
         toolResults.set(toolCall.callId, {
           callId: toolCall.callId,
           content: `Error: Unknown tool: ${toolCall.toolName}`,
+          status: 'failure',
         });
       }
 
@@ -431,6 +452,7 @@ export abstract class Agent {
           toolResults.set(toolCall.callId, {
             callId: toolCall.callId,
             content: result.content,
+            status: result.status === 'success' ? 'success' : 'failure',
           });
         });
 
@@ -457,6 +479,7 @@ export abstract class Agent {
       // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
       if (signal.aborted) {
         yield* this.emitAbortCompletion(inFlightToolCalls);
+        await this.compactAfterTurn(toolDefs, systemPrompt, thinkingLevel);
         return;
       }
 
@@ -481,6 +504,7 @@ export abstract class Agent {
       reason: 'complete',
       usage: await this.buildSseUsage(),
     } satisfies SseDoneEvent;
+    await this.compactAfterTurn(toolDefs, systemPrompt, thinkingLevel);
   }
 
   /**

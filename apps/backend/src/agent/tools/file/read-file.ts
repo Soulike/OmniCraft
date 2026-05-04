@@ -41,6 +41,24 @@ export const readFileTool: ToolDefinition<typeof parameters, ReadFileResult> = {
     'or review a specific section of it.',
   parameters,
   suppressToolEvents: false,
+  compactResult({content, status, toolCall}) {
+    let filePath = '';
+    try {
+      const args = JSON.parse(toolCall.arguments) as {filePath?: string};
+      filePath = args.filePath ?? '';
+    } catch {
+      // Keep filePath empty when arguments are not valid JSON.
+    }
+
+    const header = content.split('\n')[0] ?? '';
+    return [
+      `${TOOL_NAME.READ_FILE} ${status}`,
+      filePath ? `File: ${filePath}` : header,
+      header && header !== filePath ? header : '',
+    ]
+      .filter(Boolean)
+      .join('\n');
+  },
   async execute(args: ReadFileArgs, context: ToolExecutionContext) {
     const {workingDirectory, fileCache} = context;
 

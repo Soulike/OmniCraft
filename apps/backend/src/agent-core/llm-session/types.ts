@@ -1,11 +1,25 @@
+import type {ThinkingLevel} from '@omnicraft/api-schema';
 import {z} from 'zod';
 
 import {llmMessageSchema, type LlmToolCall} from '../llm-api/index.js';
+import type {ToolDefinition} from '../tool/types.js';
+
+export const llmCompactionMetadataSchema = z.object({
+  id: z.string(),
+  compactedAt: z.number(),
+  coveredMessageCount: z.number(),
+  recentContextMessageCount: z.number(),
+  beforeCharCount: z.number(),
+  afterCharCount: z.number(),
+});
+
+export type LlmCompactionMetadata = z.infer<typeof llmCompactionMetadataSchema>;
 
 /** Serializable snapshot of an LlmSession, used for persistence. */
 export const llmSessionSnapshotSchema = z.object({
   id: z.string(),
   messages: z.array(llmMessageSchema),
+  compactions: z.array(llmCompactionMetadataSchema),
 });
 
 export type LlmSessionSnapshot = z.infer<typeof llmSessionSnapshotSchema>;
@@ -14,6 +28,17 @@ export type LlmSessionSnapshot = z.infer<typeof llmSessionSnapshotSchema>;
 export interface ToolResult {
   callId: string;
   content: string;
+  status: 'success' | 'failure';
+}
+
+export type LlmCompactionReason = 'before-llm-call' | 'after-turn';
+
+export interface LlmCompactionOptions {
+  readonly reason: LlmCompactionReason;
+  readonly tools: readonly ToolDefinition[];
+  readonly systemPrompt: string;
+  readonly thinkingLevel: ThinkingLevel;
+  readonly signal?: AbortSignal;
 }
 
 /** A text content delta from the LLM. */

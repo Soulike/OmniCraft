@@ -16,6 +16,10 @@ export const todoUpdateTool: ToolDefinition<
     'or to revise its subject or description.',
   parameters: todoUpdateParametersSchema,
   suppressToolEvents: true,
+  compactResult({content, status}) {
+    const lines = content.split('\n').filter(Boolean);
+    return [`todo state ${status}`, ...lines.slice(0, 30)].join('\n');
+  },
   execute(args, context) {
     const {todoStore, todoState} = context;
     const staleMessage = checkStale(todoStore, todoState);

@@ -16,6 +16,7 @@ function createTestSnapshot(id: string): AgentSnapshot {
     llmSession: {
       id: 'llm-session-id',
       messages: [],
+      compactions: [],
     },
     options: {
       workingDirectory: '/tmp/test-working-dir',
@@ -109,7 +110,7 @@ describe('agentPersistence', () => {
           id: agentId,
           title: 'Test Session',
           sseEventCount: 0,
-          llmSession: {id: 'llm-session-id', messages: []},
+          llmSession: {id: 'llm-session-id', messages: [], compactions: []},
           options: {workingDirectory: '/tmp/test-working-dir'},
         }),
       );

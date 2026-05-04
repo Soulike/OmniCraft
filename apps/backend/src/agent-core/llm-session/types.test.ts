@@ -1,0 +1,164 @@
+import {afterEach, describe, expect, it, vi} from 'vitest';
+
+import {llmApi, type LlmConfig, type LlmEventStream} from '../llm-api/index.js';
+import {LlmSession} from './llm-session.js';
+import {llmSessionSnapshotSchema} from './types.js';
+
+const TEST_CONFIG: LlmConfig = {
+  apiFormat: 'openai',
+  apiKey: 'test-key',
+  baseUrl: 'https://example.test',
+  model: 'test-model',
+};
+
+async function* emptyCompletionStream(): LlmEventStream {
+  yield {type: 'message-start', messageId: 'assistant-message'};
+  await Promise.resolve();
+  yield {
+    type: 'message-end',
+    stopReason: 'end_turn',
+    usage: {inputTokens: 1, outputTokens: 1, cacheReadInputTokens: 0},
+  };
+}
+
+async function consume(stream: AsyncIterable<unknown>): Promise<void> {
+  for await (const _event of stream) {
+    // Drain stream so LlmSession commits messages.
+  }
+}
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
+
+describe('llmSessionSnapshotSchema', () => {
+  it('requires compactions metadata', () => {
+    const result = llmSessionSnapshotSchema.safeParse({
+      id: 'session-1',
+      messages: [],
+    });
+
+    expect(result.success).toBe(false);
+  });
+
+  it('accepts an empty compactions array', () => {
+    const result = llmSessionSnapshotSchema.safeParse({
+      id: 'session-1',
+      messages: [],
+      compactions: [],
+    });
+
+    expect(result.success).toBe(true);
+  });
+
+  it('requires status on tool result messages', () => {
+    const result = llmSessionSnapshotSchema.safeParse({
+      id: 'session-1',
+      compactions: [],
+      messages: [
+        {
+          id: 'tool-message',
+          createdAt: 1,
+          role: 'tool',
+          callId: 'call-1',
+          content: 'done',
+        },
+      ],
+    });
+
+    expect(result.success).toBe(false);
+  });
+
+  it('accepts status on tool result messages', () => {
+    const result = llmSessionSnapshotSchema.safeParse({
+      id: 'session-1',
+      compactions: [],
+      messages: [
+        {
+          id: 'tool-message',
+          createdAt: 1,
+          role: 'tool',
+          callId: 'call-1',
+          content: 'done',
+          status: 'success',
+        },
+      ],
+    });
+
+    expect(result.success).toBe(true);
+  });
+});
+
+describe('LlmSession snapshot metadata', () => {
+  it('round-trips non-empty compactions through snapshots', () => {
+    const snapshot = {
+      id: 'session-1',
+      messages: [],
+      compactions: [
+        {
+          id: 'compaction-1',
+          compactedAt: 123,
+          coveredMessageCount: 10,
+          recentContextMessageCount: 10,
+          beforeCharCount: 1000,
+          afterCharCount: 200,
+        },
+      ],
+    };
+
+    const session = new LlmSession(
+      () => Promise.resolve(TEST_CONFIG),
+      snapshot,
+    );
+
+    expect(session.toSnapshot()).toEqual(snapshot);
+  });
+
+  it('clears compaction metadata', () => {
+    const session = new LlmSession(() => Promise.resolve(TEST_CONFIG), {
+      id: 'session-1',
+      messages: [],
+      compactions: [
+        {
+          id: 'compaction-1',
+          compactedAt: 123,
+          coveredMessageCount: 10,
+          recentContextMessageCount: 10,
+          beforeCharCount: 1000,
+          afterCharCount: 200,
+        },
+      ],
+    });
+
+    session.clear();
+
+    expect(session.toSnapshot().compactions).toEqual([]);
+  });
+
+  it('persists status into submitted tool result messages', async () => {
+    vi.spyOn(llmApi, 'streamCompletion').mockReturnValue(
+      emptyCompletionStream(),
+    );
+    const session = new LlmSession(() => Promise.resolve(TEST_CONFIG), {
+      id: 'session-1',
+      messages: [],
+      compactions: [],
+    });
+
+    await consume(
+      session.submitToolResults(
+        [{callId: 'call-1', content: 'done', status: 'success'}],
+        [],
+        '',
+        'none',
+      ),
+    );
+
+    expect(session.getMessages()[0]).toMatchObject({
+      role: 'tool',
+      callId: 'call-1',
+      content: 'done',
+      status: 'success',
+    });
+  });
+});

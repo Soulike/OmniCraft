@@ -13,6 +13,7 @@ export type {
   LlmThinkingDeltaEvent,
   LlmThinkingEndEvent,
   LlmThinkingStartEvent,
+  LlmTokenCountOptions,
   LlmToolCall,
   LlmToolCallDeltaEvent,
   LlmToolCallEndEvent,

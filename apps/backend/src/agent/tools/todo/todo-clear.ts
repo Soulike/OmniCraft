@@ -16,6 +16,10 @@ export const todoClearTool: ToolDefinition<
     'when the approach has changed significantly.',
   parameters: todoClearParametersSchema,
   suppressToolEvents: true,
+  compactResult({content, status}) {
+    const lines = content.split('\n').filter(Boolean);
+    return [`todo state ${status}`, ...lines.slice(0, 30)].join('\n');
+  },
   execute(_args, context) {
     const {todoStore, todoState} = context;
     const staleMessage = checkStale(todoStore, todoState);

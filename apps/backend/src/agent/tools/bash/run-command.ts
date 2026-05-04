@@ -71,6 +71,31 @@ export const runCommandTool: ToolDefinition<
     'Shell state (env vars, aliases) does not persist.',
   parameters,
   suppressToolEvents: false,
+  compactResult({content, status, toolCall}) {
+    let command = '';
+    try {
+      const args = JSON.parse(toolCall.arguments) as {command?: string};
+      command = args.command ?? '';
+    } catch {
+      // Keep command empty when arguments are not valid JSON.
+    }
+
+    const importantLines = content
+      .split('\n')
+      .filter((line) =>
+        /Error:|Exit code:|Working directory|Output saved to file|stderr saved to file|Command timed out/i.test(
+          line,
+        ),
+      );
+
+    return [
+      `${TOOL_NAME.RUN_COMMAND} ${status}`,
+      command ? `Command: ${command}` : '',
+      ...importantLines.slice(0, 20),
+    ]
+      .filter(Boolean)
+      .join('\n');
+  },
   async execute(
     args: RunCommandArgs,
     context: ToolExecutionContext,
