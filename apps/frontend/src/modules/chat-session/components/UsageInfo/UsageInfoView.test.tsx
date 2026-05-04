@@ -9,15 +9,16 @@ describe('UsageInfoView', () => {
       <UsageInfoView
         usage={{
           model: 'test-model',
-          maxInputTokens: 100,
-          inputTokens: 20,
-          outputTokens: 5,
-          cacheReadInputTokens: 10,
+          contextWindowTokens: 100,
+          sessionInputTokens: 20,
+          sessionOutputTokens: 5,
+          sessionCacheReadInputTokens: 10,
           thinkingLevel: 'high',
         }}
       />,
     );
 
     expect(screen.getByText('Thinking: High')).toBeInTheDocument();
+    expect(screen.getByText(/Input: 20 \/ 100/)).toBeInTheDocument();
   });
 });

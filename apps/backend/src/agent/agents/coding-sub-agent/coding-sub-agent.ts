@@ -110,10 +110,10 @@ export class CodingSubAgent extends Agent {
     let resultText = '';
     let usage: SseUsage = {
       model: 'claude-code',
-      maxInputTokens: 0,
-      inputTokens: 0,
-      outputTokens: 0,
-      cacheReadInputTokens: 0,
+      contextWindowTokens: 0,
+      sessionInputTokens: 0,
+      sessionOutputTokens: 0,
+      sessionCacheReadInputTokens: 0,
       thinkingLevel,
     };
 
@@ -184,10 +184,10 @@ export class CodingSubAgent extends Agent {
         const [model, modelUsage] = entries[0];
         usage = {
           model,
-          maxInputTokens: modelUsage.contextWindow,
-          inputTokens: modelUsage.inputTokens,
-          outputTokens: modelUsage.outputTokens,
-          cacheReadInputTokens: modelUsage.cacheReadInputTokens,
+          contextWindowTokens: modelUsage.contextWindow,
+          sessionInputTokens: modelUsage.inputTokens,
+          sessionOutputTokens: modelUsage.outputTokens,
+          sessionCacheReadInputTokens: modelUsage.cacheReadInputTokens,
           thinkingLevel,
         };
 

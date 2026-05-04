@@ -56,10 +56,10 @@ export type SseToolExecuteDeltaEvent = z.infer<
 /** Token usage statistics shared between backend and frontend. */
 export const sseUsageSchema = z.object({
   model: z.string(),
-  maxInputTokens: z.number(),
-  inputTokens: z.number(),
-  outputTokens: z.number(),
-  cacheReadInputTokens: z.number(),
+  contextWindowTokens: z.number(),
+  sessionInputTokens: z.number(),
+  sessionOutputTokens: z.number(),
+  sessionCacheReadInputTokens: z.number(),
   thinkingLevel: thinkingLevelSchema,
 });
 export type SseUsage = z.infer<typeof sseUsageSchema>;

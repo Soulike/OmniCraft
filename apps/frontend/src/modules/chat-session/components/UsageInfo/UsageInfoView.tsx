@@ -14,12 +14,16 @@ const CONTEXT_WARNING_THRESHOLD = 0.8;
 
 export function UsageInfoView({usage, className}: UsageInfoViewProps) {
   const cacheRate =
-    usage.inputTokens > 0
-      ? Math.round((usage.cacheReadInputTokens / usage.inputTokens) * 100)
+    usage.sessionInputTokens > 0
+      ? Math.round(
+          (usage.sessionCacheReadInputTokens / usage.sessionInputTokens) * 100,
+        )
       : 0;
 
   const contextRatio =
-    usage.maxInputTokens > 0 ? usage.inputTokens / usage.maxInputTokens : 0;
+    usage.contextWindowTokens > 0
+      ? usage.sessionInputTokens / usage.contextWindowTokens
+      : 0;
   const contextPercent = Math.round(contextRatio * 100);
   const isContextHigh = contextRatio > CONTEXT_WARNING_THRESHOLD;
 
@@ -30,15 +34,15 @@ export function UsageInfoView({usage, className}: UsageInfoViewProps) {
         Thinking: {THINKING_LEVEL_LABELS[usage.thinkingLevel]}
       </span>
       <span className={`${styles.item} ${isContextHigh ? styles.warning : ''}`}>
-        Input: {formatTokenCount(usage.inputTokens)} /{' '}
-        {formatTokenCount(usage.maxInputTokens)}
+        Input: {formatTokenCount(usage.sessionInputTokens)} /{' '}
+        {formatTokenCount(usage.contextWindowTokens)}
         <span className={styles.rate}> ({contextPercent}%)</span>
       </span>
       <span className={styles.item}>
-        Output: {formatTokenCount(usage.outputTokens)}
+        Output: {formatTokenCount(usage.sessionOutputTokens)}
       </span>
       <span className={styles.item}>
-        Cached: {formatTokenCount(usage.cacheReadInputTokens)}
+        Cached: {formatTokenCount(usage.sessionCacheReadInputTokens)}
         <span className={styles.rate}> ({cacheRate}%)</span>
       </span>
     </div>
