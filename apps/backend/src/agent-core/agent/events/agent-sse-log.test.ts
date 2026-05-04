@@ -45,6 +45,7 @@ function done(): SseDoneEvent {
     usage: {
       model: 'test-model',
       contextWindowTokens: 100,
+      currentContextInputTokens: 10,
       sessionInputTokens: 10,
       sessionOutputTokens: 5,
       sessionCacheReadInputTokens: 0,

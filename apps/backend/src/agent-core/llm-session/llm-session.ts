@@ -11,7 +11,6 @@ import type {
   LlmMessage,
   LlmThinkingBlock,
   LlmToolCall,
-  LlmUsage,
 } from '../llm-api/index.js';
 import {llmApi} from '../llm-api/index.js';
 import {modelCapacity} from '../model-capacity/index.js';
@@ -25,6 +24,7 @@ import type {
   LlmCompactionOptions,
   LlmSessionEventStream,
   LlmSessionSnapshot,
+  LlmSessionUsage,
   SendUserMessageResult,
   ToolResult,
 } from './types.js';
@@ -50,10 +50,11 @@ export class LlmSession {
 
   private readonly messages: LlmMessage[] = [];
   private readonly compactions: LlmCompactionMetadata[] = [];
-  private usage: LlmUsage = {
-    inputTokens: 0,
-    outputTokens: 0,
-    cacheReadInputTokens: 0,
+  private usage: LlmSessionUsage = {
+    currentContextInputTokens: 0,
+    sessionInputTokens: 0,
+    sessionOutputTokens: 0,
+    sessionCacheReadInputTokens: 0,
   };
   private readonly getConfig: () => Promise<LlmConfig>;
   private readonly mutex = new Mutex();
@@ -148,8 +149,8 @@ export class LlmSession {
     );
   }
 
-  /** Returns the accumulated token usage across all LLM calls in this session. */
-  getUsage(): LlmUsage {
+  /** Returns latest context usage and accumulated token totals for this session. */
+  getUsage(): LlmSessionUsage {
     return {...this.usage};
   }
 
@@ -171,7 +172,12 @@ export class LlmSession {
   clear(): void {
     this.messages.length = 0;
     this.compactions.length = 0;
-    this.usage = {inputTokens: 0, outputTokens: 0, cacheReadInputTokens: 0};
+    this.usage = {
+      currentContextInputTokens: 0,
+      sessionInputTokens: 0,
+      sessionOutputTokens: 0,
+      sessionCacheReadInputTokens: 0,
+    };
   }
 
   /**
@@ -369,10 +375,13 @@ export class LlmSession {
         }
         case 'message-end':
           this.usage = {
-            inputTokens: this.usage.inputTokens + event.usage.inputTokens,
-            outputTokens: this.usage.outputTokens + event.usage.outputTokens,
-            cacheReadInputTokens:
-              this.usage.cacheReadInputTokens +
+            currentContextInputTokens: event.usage.inputTokens,
+            sessionInputTokens:
+              this.usage.sessionInputTokens + event.usage.inputTokens,
+            sessionOutputTokens:
+              this.usage.sessionOutputTokens + event.usage.outputTokens,
+            sessionCacheReadInputTokens:
+              this.usage.sessionCacheReadInputTokens +
               event.usage.cacheReadInputTokens,
           };
           break;

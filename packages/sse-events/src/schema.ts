@@ -57,6 +57,7 @@ export type SseToolExecuteDeltaEvent = z.infer<
 export const sseUsageSchema = z.object({
   model: z.string(),
   contextWindowTokens: z.number(),
+  currentContextInputTokens: z.number(),
   sessionInputTokens: z.number(),
   sessionOutputTokens: z.number(),
   sessionCacheReadInputTokens: z.number(),

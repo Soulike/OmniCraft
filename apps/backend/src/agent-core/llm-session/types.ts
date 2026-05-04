@@ -41,6 +41,14 @@ export interface LlmCompactionOptions {
   readonly signal?: AbortSignal;
 }
 
+/** Latest context usage and accumulated token totals for an LLM session. */
+export interface LlmSessionUsage {
+  currentContextInputTokens: number;
+  sessionInputTokens: number;
+  sessionOutputTokens: number;
+  sessionCacheReadInputTokens: number;
+}
+
 /** A text content delta from the LLM. */
 export interface LlmSessionTextDeltaEvent {
   type: 'text-delta';

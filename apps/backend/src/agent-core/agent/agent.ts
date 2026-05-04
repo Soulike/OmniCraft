@@ -518,9 +518,7 @@ export abstract class Agent {
     return {
       model: config.model,
       contextWindowTokens,
-      sessionInputTokens: usage.inputTokens,
-      sessionOutputTokens: usage.outputTokens,
-      sessionCacheReadInputTokens: usage.cacheReadInputTokens,
+      ...usage,
       thinkingLevel: this.thinkingLevel,
     };
   }

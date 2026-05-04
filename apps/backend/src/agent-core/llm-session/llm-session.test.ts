@@ -35,6 +35,17 @@ async function* normalStream(): LlmEventStream {
   };
 }
 
+async function* usageStream(usage: {
+  inputTokens: number;
+  outputTokens: number;
+  cacheReadInputTokens: number;
+}): LlmEventStream {
+  yield {type: 'message-start', messageId: 'assistant'};
+  await Promise.resolve();
+  yield {type: 'text-delta', content: 'reply'};
+  yield {type: 'message-end', stopReason: 'end_turn', usage};
+}
+
 async function* summaryStream(): LlmEventStream {
   yield {type: 'message-start', messageId: 'summary'};
   await Promise.resolve();
@@ -289,6 +300,42 @@ describe('LlmSession compaction', () => {
       id: 'session-1',
       compactions: [],
       messages,
+    });
+  });
+});
+
+describe('LlmSession usage', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('tracks latest context input separately from cumulative session totals', async () => {
+    vi.spyOn(llmApi, 'countToken').mockResolvedValue(1);
+    vi.spyOn(llmApi, 'streamCompletion')
+      .mockReturnValueOnce(
+        usageStream({
+          inputTokens: 100,
+          outputTokens: 10,
+          cacheReadInputTokens: 20,
+        }),
+      )
+      .mockReturnValueOnce(
+        usageStream({
+          inputTokens: 40,
+          outputTokens: 8,
+          cacheReadInputTokens: 5,
+        }),
+      );
+    const session = new LlmSession(() => Promise.resolve(CONFIG));
+
+    await drain(session.sendUserMessage('first', [], '', 'none').stream);
+    await drain(session.sendUserMessage('second', [], '', 'none').stream);
+
+    expect(session.getUsage()).toEqual({
+      currentContextInputTokens: 40,
+      sessionInputTokens: 140,
+      sessionOutputTokens: 18,
+      sessionCacheReadInputTokens: 25,
     });
   });
 });

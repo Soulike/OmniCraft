@@ -22,7 +22,7 @@ export function UsageInfoView({usage, className}: UsageInfoViewProps) {
 
   const contextRatio =
     usage.contextWindowTokens > 0
-      ? usage.sessionInputTokens / usage.contextWindowTokens
+      ? usage.currentContextInputTokens / usage.contextWindowTokens
       : 0;
   const contextPercent = Math.round(contextRatio * 100);
   const isContextHigh = contextRatio > CONTEXT_WARNING_THRESHOLD;
@@ -34,9 +34,12 @@ export function UsageInfoView({usage, className}: UsageInfoViewProps) {
         Thinking: {THINKING_LEVEL_LABELS[usage.thinkingLevel]}
       </span>
       <span className={`${styles.item} ${isContextHigh ? styles.warning : ''}`}>
-        Input: {formatTokenCount(usage.sessionInputTokens)} /{' '}
+        Context: {formatTokenCount(usage.currentContextInputTokens)} /{' '}
         {formatTokenCount(usage.contextWindowTokens)}
         <span className={styles.rate}> ({contextPercent}%)</span>
+      </span>
+      <span className={styles.item}>
+        Input: {formatTokenCount(usage.sessionInputTokens)}
       </span>
       <span className={styles.item}>
         Output: {formatTokenCount(usage.sessionOutputTokens)}

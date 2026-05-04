@@ -111,6 +111,7 @@ export class CodingSubAgent extends Agent {
     let usage: SseUsage = {
       model: 'claude-code',
       contextWindowTokens: 0,
+      currentContextInputTokens: 0,
       sessionInputTokens: 0,
       sessionOutputTokens: 0,
       sessionCacheReadInputTokens: 0,
@@ -185,6 +186,7 @@ export class CodingSubAgent extends Agent {
         usage = {
           model,
           contextWindowTokens: modelUsage.contextWindow,
+          currentContextInputTokens: modelUsage.inputTokens,
           sessionInputTokens: modelUsage.inputTokens,
           sessionOutputTokens: modelUsage.outputTokens,
           sessionCacheReadInputTokens: modelUsage.cacheReadInputTokens,
