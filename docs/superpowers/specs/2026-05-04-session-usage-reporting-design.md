@@ -113,20 +113,39 @@ const remainingContextTokens = Math.max(
 
 ### Backend State
 
-Change internal session `LlmUsage` directly so it contains both current context
-input and cumulative totals. Provider `message-end` events should keep their
-per-call usage object with `inputTokens`, `outputTokens`, and
-`cacheReadInputTokens`; those values are one completed provider call, not
-session totals.
+Separate the provider-call usage shape from the session-facing usage shape.
+`llm-api` reports raw usage for one completed model call, and `llm-session`
+folds those per-call values into session-level business metrics.
 
-`LlmSession` will keep one `usage` object:
+`llm-api` will expose provider-call usage:
 
 ```typescript
-private usage: LlmUsage = {
+export interface LlmCallUsage {
+  inputTokens: number;
+  outputTokens: number;
+  cacheReadInputTokens: number;
+}
+```
+
+`llm-session/types.ts` will expose session usage:
+
+```typescript
+export interface LlmSessionUsage {
+  currentContextInputTokens: number;
+  sessionInputTokens: number;
+  sessionOutputTokens: number;
+  sessionCacheReadInputTokens: number;
+}
+```
+
+`LlmSession` will keep one session usage object:
+
+```typescript
+private usage: LlmSessionUsage = {
   currentContextInputTokens: 0,
-  inputTokens: 0,
-  outputTokens: 0,
-  cacheReadInputTokens: 0,
+  sessionInputTokens: 0,
+  sessionOutputTokens: 0,
+  sessionCacheReadInputTokens: 0,
 };
 ```
 
@@ -134,28 +153,25 @@ When a provider emits `message-end`, keep the existing cumulative update and set
 the new context field from that completed call's input tokens:
 
 ```typescript
-this.currentContextInputTokens = event.usage.inputTokens;
 this.usage = {
-  inputTokens: this.usage.inputTokens + event.usage.inputTokens,
-  outputTokens: this.usage.outputTokens + event.usage.outputTokens,
-  cacheReadInputTokens:
-    this.usage.cacheReadInputTokens + event.usage.cacheReadInputTokens,
+  currentContextInputTokens: event.usage.inputTokens,
+  sessionInputTokens: this.usage.sessionInputTokens + event.usage.inputTokens,
+  sessionOutputTokens:
+    this.usage.sessionOutputTokens + event.usage.outputTokens,
+  sessionCacheReadInputTokens:
+    this.usage.sessionCacheReadInputTokens + event.usage.cacheReadInputTokens,
 };
 ```
 
-`Agent.buildSseUsage()` will map the internal cumulative usage into public
-session-scoped field names and add `currentContextInputTokens`:
+`Agent.buildSseUsage()` will add model metadata around the session usage:
 
 ```typescript
 const usage = this.llmSession.getUsage();
 return {
   model: config.model,
   contextWindowTokens,
-  currentContextInputTokens: usage.currentContextInputTokens,
-  sessionInputTokens: usage.inputTokens,
-  sessionOutputTokens: usage.outputTokens,
-  sessionCacheReadInputTokens: usage.cacheReadInputTokens,
   thinkingLevel: this.thinkingLevel,
+  ...usage,
 };
 ```
 
