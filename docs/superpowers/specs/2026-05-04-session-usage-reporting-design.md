@@ -20,7 +20,7 @@ metrics.
 - Keep session-level cumulative cache-read input token usage so cached input can
   be shown and used by future cost calculations.
 - Make the frontend usage labels match the metric semantics.
-- Keep the change small and compatible with the existing `done.usage` flow.
+- Keep the change small and continue using the existing `done.usage` event flow.
 
 ## Non-Goals
 
@@ -31,6 +31,8 @@ metrics.
 - Do not change usage accounting for auxiliary LLM calls such as title
   generation or compaction summaries. The cumulative fields in this spec keep
   the current scope: conversation LLM calls managed by `LlmSession`.
+- Do not preserve compatibility with historical SSE logs that do not contain
+  `contextInputTokens`.
 
 ## Current State
 
@@ -149,17 +151,11 @@ call's input usage, matching the currently known context measurement.
 The warning threshold continues to use 80%, but it is now based on
 `contextInputTokens / maxInputTokens`.
 
-### Compatibility
+### Protocol Change
 
 This is a protocol shape change for `SseUsage`; backend and frontend are in the
 same workspace and should be updated together. Historical SSE logs without
-`contextInputTokens` are not schema-compatible after this change unless a
-migration fallback is added.
-
-Because persisted event logs are validated with `sseEventSchema`, the
-implementation will add a schema fallback that treats missing
-`contextInputTokens` as `inputTokens` for old logs. This preserves existing
-session replay and keeps the migration localized to the SSE schema boundary.
+`contextInputTokens` do not need a migration fallback for this change.
 
 ## Testing
 
@@ -169,8 +165,7 @@ session replay and keeps the migration localized to the SSE schema boundary.
   `cacheReadInputTokens` are cumulative.
 - Backend `Agent` tests should verify `done.usage.contextInputTokens` is present
   and that `done.usage.inputTokens` remains cumulative.
-- SSE schema tests should cover parsing an old usage payload without
-  `contextInputTokens` and defaulting it to `inputTokens`.
+- SSE schema tests should cover requiring `contextInputTokens` in `done.usage`.
 - Frontend `UsageInfoView` tests should verify the context percentage uses
   `contextInputTokens`, and that cumulative `Input` renders separately.
 
@@ -184,4 +179,3 @@ session replay and keeps the migration localized to the SSE schema boundary.
   tokens.
 - The frontend context percentage and warning state use `contextInputTokens`.
 - The frontend shows cumulative input tokens as a separate field.
-- Existing session replay remains compatible through the schema fallback.
