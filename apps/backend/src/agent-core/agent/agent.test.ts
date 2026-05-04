@@ -21,6 +21,7 @@ const LIGHT_CONFIG: LlmConfig = {
 function emptyUsage() {
   return {
     currentContextInputTokens: 0,
+    latestCallOutputTokens: 0,
     sessionInputTokens: 0,
     sessionOutputTokens: 0,
     sessionCacheReadInputTokens: 0,
@@ -259,7 +260,6 @@ describe('Agent compaction lifecycle', () => {
   });
 
   it('emits a clear error when pre-call compaction fails', async () => {
-    vi.spyOn(llmApi, 'countToken').mockResolvedValue(200_000);
     vi.spyOn(llmApi, 'streamCompletion').mockReturnValue(failingStream());
     const agent = new TestAgent(
       () => Promise.resolve(MAIN_CONFIG),
@@ -271,11 +271,12 @@ describe('Agent compaction lifecycle', () => {
         llmSession: {
           id: 'llm-session-1',
           compactions: [],
+          usageBaselineMessageCount: null,
           messages: Array.from({length: 12}, (_, index) => ({
             id: `old-${index.toString()}`,
             createdAt: index,
             role: 'user' as const,
-            content: `old message ${index.toString()}`,
+            content: `old message ${index.toString()} ${'x'.repeat(30_000)}`,
           })),
           usage: emptyUsage(),
         },
@@ -308,6 +309,7 @@ describe('Agent snapshot restore', () => {
         id: 'llm-session-id',
         messages: [],
         compactions: [],
+        usageBaselineMessageCount: null,
         usage: emptyUsage(),
       },
       options: {

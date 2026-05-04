@@ -2,6 +2,7 @@ import assert from 'node:assert';
 import crypto from 'node:crypto';
 
 import type {ThinkingLevel} from '@omnicraft/api-schema';
+import {z} from 'zod';
 
 import {Mutex} from '@/helpers/mutex.js';
 
@@ -13,6 +14,7 @@ import type {
   LlmToolCall,
 } from '../llm-api/index.js';
 import {llmApi} from '../llm-api/index.js';
+import {estimatePromptTokens} from '../llm-api/token-estimator.js';
 import {modelCapacity} from '../model-capacity/index.js';
 import type {ToolDefinition} from '../tool/types.js';
 import {COMPACTION_TRIGGER_INPUT_TOKEN_RATIO} from './compaction/constants.js';
@@ -52,6 +54,8 @@ export class LlmSession {
   private readonly messages: LlmMessage[] = [];
   private readonly compactions: LlmCompactionMetadata[] = [];
   private usage: LlmSessionUsage = createEmptyLlmSessionUsage();
+  /** Number of messages covered by the latest provider input-token usage. */
+  private usageBaselineMessageCount: number | null = null;
   private readonly getConfig: () => Promise<LlmConfig>;
   private readonly mutex = new Mutex();
 
@@ -66,6 +70,7 @@ export class LlmSession {
       this.messages.push(...snapshot.messages);
       this.compactions.push(...snapshot.compactions);
       this.usage = {...snapshot.usage};
+      this.usageBaselineMessageCount = snapshot.usageBaselineMessageCount;
     } else {
       this.id = crypto.randomUUID();
     }
@@ -77,6 +82,7 @@ export class LlmSession {
       id: this.id,
       messages: [...this.messages],
       compactions: [...this.compactions],
+      usageBaselineMessageCount: this.usageBaselineMessageCount,
       usage: {...this.usage},
     };
   }
@@ -171,6 +177,7 @@ export class LlmSession {
     this.messages.length = 0;
     this.compactions.length = 0;
     this.usage = createEmptyLlmSessionUsage();
+    this.usageBaselineMessageCount = null;
   }
 
   /**
@@ -187,6 +194,8 @@ export class LlmSession {
     const release = await this.mutex.acquire();
     const rollbackMessages = [...this.messages];
     const rollbackCompactions = [...this.compactions];
+    const rollbackUsage = {...this.usage};
+    const rollbackUsageBaselineMessageCount = this.usageBaselineMessageCount;
     this.messages.push(...messages);
     let completed = false;
     try {
@@ -205,6 +214,8 @@ export class LlmSession {
         this.messages.push(...rollbackMessages);
         this.compactions.length = 0;
         this.compactions.push(...rollbackCompactions);
+        this.usage = rollbackUsage;
+        this.usageBaselineMessageCount = rollbackUsageBaselineMessageCount;
       }
       release();
     }
@@ -243,13 +254,7 @@ export class LlmSession {
   ): Promise<boolean> {
     const config = await this.getConfig();
     const maxInputTokens = await modelCapacity.getMaxInputTokens(config);
-    const currentTokens = await llmApi.countToken({
-      config,
-      messages: this.messages,
-      systemPrompt: options.systemPrompt || undefined,
-      tools: options.tools,
-      thinkingLevel: options.thinkingLevel,
-    });
+    const currentTokens = this.estimatePromptTokensForCompaction(options);
 
     if (currentTokens < maxInputTokens * COMPACTION_TRIGGER_INPUT_TOKEN_RATIO) {
       return false;
@@ -283,6 +288,7 @@ export class LlmSession {
 
     this.messages.length = 0;
     this.messages.push(summaryMessage);
+    this.usageBaselineMessageCount = null;
     this.compactions.push({
       id: crypto.randomUUID(),
       compactedAt: Date.now(),
@@ -293,6 +299,42 @@ export class LlmSession {
     });
 
     return true;
+  }
+
+  private estimatePromptTokensForCompaction(
+    options: LlmCompactionOptions,
+  ): number {
+    const latestUsageEstimate = this.estimatePromptTokensFromLatestUsage();
+    if (latestUsageEstimate !== null) return latestUsageEstimate;
+
+    return estimatePromptTokens({
+      messages: this.messages,
+      ...(options.systemPrompt ? {systemPrompt: options.systemPrompt} : {}),
+      tools: options.tools.map((tool) => ({
+        name: tool.name,
+        description: tool.description,
+        parameters: z.toJSONSchema(tool.parameters),
+      })),
+      thinkingLevel: options.thinkingLevel,
+    });
+  }
+
+  private estimatePromptTokensFromLatestUsage(): number | null {
+    if (this.usageBaselineMessageCount === null) return null;
+    if (this.usage.currentContextInputTokens <= 0) return null;
+
+    const pendingStart = this.usageBaselineMessageCount + 1;
+    if (pendingStart > this.messages.length) return null;
+
+    const pendingMessages = this.messages.slice(pendingStart);
+    const pendingInputTokens =
+      pendingMessages.length > 0 ? estimatePromptTokens(pendingMessages) : 0;
+
+    return (
+      this.usage.currentContextInputTokens +
+      this.usage.latestCallOutputTokens +
+      pendingInputTokens
+    );
   }
 
   /**
@@ -307,6 +349,7 @@ export class LlmSession {
     signal?: AbortSignal,
   ): LlmSessionEventStream {
     const llmConfig = await this.getConfig();
+    const inputMessageCount = this.messages.length;
     const eventStream = llmApi.streamCompletion({
       config: llmConfig,
       messages: this.messages,
@@ -369,6 +412,7 @@ export class LlmSession {
         case 'message-end':
           this.usage = {
             currentContextInputTokens: event.usage.inputTokens,
+            latestCallOutputTokens: event.usage.outputTokens,
             sessionInputTokens:
               this.usage.sessionInputTokens + event.usage.inputTokens,
             sessionOutputTokens:
@@ -377,6 +421,7 @@ export class LlmSession {
               this.usage.sessionCacheReadInputTokens +
               event.usage.cacheReadInputTokens,
           };
+          this.usageBaselineMessageCount = inputMessageCount;
           break;
         case 'message-start':
           assistantCreatedAt = Date.now();

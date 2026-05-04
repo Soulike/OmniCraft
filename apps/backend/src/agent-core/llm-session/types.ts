@@ -17,6 +17,7 @@ export type LlmCompactionMetadata = z.infer<typeof llmCompactionMetadataSchema>;
 
 export const llmSessionUsageSchema = z.object({
   currentContextInputTokens: z.number(),
+  latestCallOutputTokens: z.number(),
   sessionInputTokens: z.number(),
   sessionOutputTokens: z.number(),
   sessionCacheReadInputTokens: z.number(),
@@ -30,6 +31,7 @@ export const llmSessionSnapshotSchema = z.object({
   id: z.string(),
   messages: z.array(llmMessageSchema),
   compactions: z.array(llmCompactionMetadataSchema),
+  usageBaselineMessageCount: z.number().nullable(),
   usage: llmSessionUsageSchema,
 });
 
