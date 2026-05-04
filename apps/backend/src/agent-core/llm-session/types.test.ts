@@ -14,6 +14,7 @@ const TEST_CONFIG: LlmConfig = {
 function emptyUsage() {
   return {
     currentContextInputTokens: 0,
+    latestCallOutputTokens: 0,
     sessionInputTokens: 0,
     sessionOutputTokens: 0,
     sessionCacheReadInputTokens: 0,
@@ -55,10 +56,22 @@ describe('llmSessionSnapshotSchema', () => {
       id: 'session-1',
       messages: [],
       compactions: [],
+      usageBaselineMessageCount: null,
       usage: emptyUsage(),
     });
 
     expect(result.success).toBe(true);
+  });
+
+  it('requires usage baseline message count', () => {
+    const result = llmSessionSnapshotSchema.safeParse({
+      id: 'session-1',
+      messages: [],
+      compactions: [],
+      usage: emptyUsage(),
+    });
+
+    expect(result.success).toBe(false);
   });
 
   it('requires usage metadata', () => {
@@ -66,6 +79,7 @@ describe('llmSessionSnapshotSchema', () => {
       id: 'session-1',
       messages: [],
       compactions: [],
+      usageBaselineMessageCount: null,
     });
 
     expect(result.success).toBe(false);
@@ -75,6 +89,7 @@ describe('llmSessionSnapshotSchema', () => {
     const result = llmSessionSnapshotSchema.safeParse({
       id: 'session-1',
       compactions: [],
+      usageBaselineMessageCount: null,
       usage: emptyUsage(),
       messages: [
         {
@@ -94,6 +109,7 @@ describe('llmSessionSnapshotSchema', () => {
     const result = llmSessionSnapshotSchema.safeParse({
       id: 'session-1',
       compactions: [],
+      usageBaselineMessageCount: null,
       usage: emptyUsage(),
       messages: [
         {
@@ -126,8 +142,10 @@ describe('LlmSession snapshot metadata', () => {
           afterCharCount: 200,
         },
       ],
+      usageBaselineMessageCount: 1,
       usage: {
         currentContextInputTokens: 40,
+        latestCallOutputTokens: 8,
         sessionInputTokens: 140,
         sessionOutputTokens: 18,
         sessionCacheReadInputTokens: 25,
@@ -157,6 +175,7 @@ describe('LlmSession snapshot metadata', () => {
           afterCharCount: 200,
         },
       ],
+      usageBaselineMessageCount: null,
       usage: emptyUsage(),
     });
 
@@ -174,6 +193,7 @@ describe('LlmSession snapshot metadata', () => {
       id: 'session-1',
       messages: [],
       compactions: [],
+      usageBaselineMessageCount: null,
       usage: emptyUsage(),
     });
 

@@ -18,18 +18,19 @@ const CONFIG: LlmConfig = {
 function emptyUsage() {
   return {
     currentContextInputTokens: 0,
+    latestCallOutputTokens: 0,
     sessionInputTokens: 0,
     sessionOutputTokens: 0,
     sessionCacheReadInputTokens: 0,
   };
 }
 
-function oldMessages(count: number): LlmMessage[] {
+function largeOldMessages(count: number): LlmMessage[] {
   return Array.from({length: count}, (_, index) => ({
     id: `old-${index.toString()}`,
     createdAt: index,
     role: 'user' as const,
-    content: `old message ${index.toString()}`,
+    content: `old message ${index.toString()} ${'x'.repeat(30_000)}`,
   }));
 }
 
@@ -96,6 +97,17 @@ async function* failingStream(): LlmEventStream {
   throw new Error('provider failed');
 }
 
+async function* failingAfterUsageStream(): LlmEventStream {
+  yield {type: 'message-start', messageId: 'assistant'};
+  await Promise.resolve();
+  yield {
+    type: 'message-end',
+    stopReason: 'end_turn',
+    usage: {inputTokens: 100, outputTokens: 10, cacheReadInputTokens: 5},
+  };
+  throw new Error('provider failed after usage');
+}
+
 async function drain(stream: AsyncIterable<unknown>): Promise<void> {
   for await (const _event of stream) {
     // Drain stream.
@@ -113,8 +125,103 @@ describe('LlmSession compaction', () => {
     expect(session.toSnapshot().compactions).toEqual([]);
   });
 
-  it('compacts before model call when countToken reaches threshold', async () => {
-    const countSpy = vi.spyOn(llmApi, 'countToken').mockResolvedValue(200_000);
+  it('uses latest call usage and pending input estimate to trigger pre-call compaction', async () => {
+    const countSpy = vi.spyOn(llmApi, 'countToken').mockResolvedValue(1);
+    let mainCallCount = 0;
+    const streamSpy = vi
+      .spyOn(llmApi, 'streamCompletion')
+      .mockImplementation((options) => {
+        const isSummaryRequest =
+          options.tools.length === 0 &&
+          options.messages.length === 1 &&
+          options.messages[0]?.role === 'user' &&
+          options.messages[0].content.includes('<history_to_summarize>');
+
+        if (isSummaryRequest) return summaryStream();
+
+        mainCallCount++;
+        if (mainCallCount === 1) {
+          return usageStream({
+            inputTokens: 102_399,
+            outputTokens: 100,
+            cacheReadInputTokens: 0,
+          });
+        }
+
+        const hasSummaryMessage = options.messages.some(
+          (message) =>
+            message.role === 'user' &&
+            message.content.includes('<conversation_summary>'),
+        );
+        expect(hasSummaryMessage).toBe(true);
+        return normalStream();
+      });
+
+    const session = new LlmSession(() => Promise.resolve(CONFIG));
+
+    await drain(session.sendUserMessage('first', [], '', 'none').stream);
+    await drain(session.sendUserMessage('second', [], '', 'none').stream);
+
+    expect(countSpy).not.toHaveBeenCalled();
+    expect(streamSpy).toHaveBeenCalledTimes(3);
+    expect(session.toSnapshot().compactions).toHaveLength(1);
+  });
+
+  it('restores usage baseline message count for compaction estimates', async () => {
+    let mainCallCount = 0;
+    const streamSpy = vi
+      .spyOn(llmApi, 'streamCompletion')
+      .mockImplementation((options) => {
+        const isSummaryRequest =
+          options.tools.length === 0 &&
+          options.messages.length === 1 &&
+          options.messages[0]?.role === 'user' &&
+          options.messages[0].content.includes('<history_to_summarize>');
+
+        if (isSummaryRequest) return summaryStream();
+
+        mainCallCount++;
+        const hasSummaryMessage = options.messages.some(
+          (message) =>
+            message.role === 'user' &&
+            message.content.includes('<conversation_summary>'),
+        );
+        expect(hasSummaryMessage).toBe(true);
+        return normalStream();
+      });
+
+    const session = new LlmSession(() => Promise.resolve(CONFIG), {
+      id: 'session-1',
+      messages: [
+        {id: 'user-1', createdAt: 1, role: 'user', content: 'first'},
+        {
+          id: 'assistant-1',
+          createdAt: 2,
+          role: 'assistant',
+          content: 'reply',
+          toolCalls: [],
+          thinking: [],
+        },
+      ],
+      compactions: [],
+      usageBaselineMessageCount: 1,
+      usage: {
+        currentContextInputTokens: 102_399,
+        latestCallOutputTokens: 100,
+        sessionInputTokens: 102_399,
+        sessionOutputTokens: 100,
+        sessionCacheReadInputTokens: 0,
+      },
+    });
+
+    await drain(session.sendUserMessage('second', [], '', 'none').stream);
+
+    expect(mainCallCount).toBe(1);
+    expect(streamSpy).toHaveBeenCalledTimes(2);
+    expect(session.toSnapshot().compactions).toHaveLength(1);
+  });
+
+  it('compacts before model call when local prompt estimate reaches threshold', async () => {
     const streamSpy = vi
       .spyOn(llmApi, 'streamCompletion')
       .mockImplementation((options) => {
@@ -138,7 +245,8 @@ describe('LlmSession compaction', () => {
     const session = new LlmSession(() => Promise.resolve(CONFIG), {
       id: 'session-1',
       compactions: [],
-      messages: oldMessages(12),
+      usageBaselineMessageCount: null,
+      messages: largeOldMessages(12),
       usage: emptyUsage(),
     });
 
@@ -146,7 +254,6 @@ describe('LlmSession compaction', () => {
 
     const snapshot = session.toSnapshot();
 
-    expect(countSpy).toHaveBeenCalled();
     expect(streamSpy).toHaveBeenCalledTimes(2);
     expect(snapshot.messages[0]?.role).toBe('user');
     expect(snapshot.messages[0]?.content).toContain('<conversation_summary>');
@@ -164,14 +271,14 @@ describe('LlmSession compaction', () => {
   });
 
   it('replaces compacted history with a single synthetic message before the next assistant reply', async () => {
-    vi.spyOn(llmApi, 'countToken').mockResolvedValue(200_000);
     vi.spyOn(llmApi, 'streamCompletion')
       .mockReturnValueOnce(summaryStream())
       .mockReturnValueOnce(normalStream());
     const session = new LlmSession(() => Promise.resolve(CONFIG), {
       id: 'session-1',
       compactions: [],
-      messages: oldMessages(12),
+      usageBaselineMessageCount: null,
+      messages: largeOldMessages(12),
       usage: emptyUsage(),
     });
 
@@ -185,14 +292,14 @@ describe('LlmSession compaction', () => {
   });
 
   it('rolls back compaction when the provider stream fails after compaction', async () => {
-    vi.spyOn(llmApi, 'countToken').mockResolvedValue(200_000);
     vi.spyOn(llmApi, 'streamCompletion')
       .mockReturnValueOnce(summaryStream())
       .mockReturnValueOnce(failingStream());
-    const messages = oldMessages(12);
+    const messages = largeOldMessages(12);
     const session = new LlmSession(() => Promise.resolve(CONFIG), {
       id: 'session-1',
       compactions: [],
+      usageBaselineMessageCount: null,
       messages,
       usage: emptyUsage(),
     });
@@ -204,18 +311,19 @@ describe('LlmSession compaction', () => {
     expect(session.toSnapshot()).toEqual({
       id: 'session-1',
       compactions: [],
+      usageBaselineMessageCount: null,
       messages,
       usage: emptyUsage(),
     });
   });
 
   it('surfaces a clear error when pre-call compaction fails', async () => {
-    vi.spyOn(llmApi, 'countToken').mockResolvedValue(200_000);
     vi.spyOn(llmApi, 'streamCompletion').mockReturnValue(failingStream());
-    const messages = oldMessages(12);
+    const messages = largeOldMessages(12);
     const session = new LlmSession(() => Promise.resolve(CONFIG), {
       id: 'session-1',
       compactions: [],
+      usageBaselineMessageCount: null,
       messages,
       usage: emptyUsage(),
     });
@@ -227,6 +335,7 @@ describe('LlmSession compaction', () => {
     expect(session.toSnapshot()).toEqual({
       id: 'session-1',
       compactions: [],
+      usageBaselineMessageCount: null,
       messages,
       usage: emptyUsage(),
     });
@@ -234,14 +343,14 @@ describe('LlmSession compaction', () => {
 
   it('does not start the provider call when aborted during pre-call compaction', async () => {
     const controller = new AbortController();
-    vi.spyOn(llmApi, 'countToken').mockResolvedValue(200_000);
     const streamSpy = vi
       .spyOn(llmApi, 'streamCompletion')
       .mockReturnValue(abortingSummaryStream(controller));
-    const messages = oldMessages(12);
+    const messages = largeOldMessages(12);
     const session = new LlmSession(() => Promise.resolve(CONFIG), {
       id: 'session-1',
       compactions: [],
+      usageBaselineMessageCount: null,
       messages,
       usage: emptyUsage(),
     });
@@ -263,18 +372,19 @@ describe('LlmSession compaction', () => {
     expect(session.toSnapshot()).toEqual({
       id: 'session-1',
       compactions: [],
+      usageBaselineMessageCount: null,
       messages,
       usage: emptyUsage(),
     });
   });
 
   it('fails compaction when the generated summary is empty', async () => {
-    vi.spyOn(llmApi, 'countToken').mockResolvedValue(200_000);
     vi.spyOn(llmApi, 'streamCompletion').mockReturnValue(emptySummaryStream());
-    const messages = oldMessages(12);
+    const messages = largeOldMessages(12);
     const session = new LlmSession(() => Promise.resolve(CONFIG), {
       id: 'session-1',
       compactions: [],
+      usageBaselineMessageCount: null,
       messages,
       usage: emptyUsage(),
     });
@@ -291,18 +401,19 @@ describe('LlmSession compaction', () => {
     expect(session.toSnapshot()).toEqual({
       id: 'session-1',
       compactions: [],
+      usageBaselineMessageCount: null,
       messages,
       usage: emptyUsage(),
     });
   });
 
   it('keeps history unchanged when turn-end compaction fails', async () => {
-    vi.spyOn(llmApi, 'countToken').mockResolvedValue(200_000);
     vi.spyOn(llmApi, 'streamCompletion').mockReturnValue(failingStream());
-    const messages = oldMessages(12);
+    const messages = largeOldMessages(12);
     const session = new LlmSession(() => Promise.resolve(CONFIG), {
       id: 'session-1',
       compactions: [],
+      usageBaselineMessageCount: null,
       messages,
       usage: emptyUsage(),
     });
@@ -319,6 +430,7 @@ describe('LlmSession compaction', () => {
     expect(session.toSnapshot()).toEqual({
       id: 'session-1',
       compactions: [],
+      usageBaselineMessageCount: null,
       messages,
       usage: emptyUsage(),
     });
@@ -331,7 +443,6 @@ describe('LlmSession usage', () => {
   });
 
   it('tracks latest context input separately from cumulative session totals', async () => {
-    vi.spyOn(llmApi, 'countToken').mockResolvedValue(1);
     vi.spyOn(llmApi, 'streamCompletion')
       .mockReturnValueOnce(
         usageStream({
@@ -354,9 +465,23 @@ describe('LlmSession usage', () => {
 
     expect(session.getUsage()).toEqual({
       currentContextInputTokens: 40,
+      latestCallOutputTokens: 8,
       sessionInputTokens: 140,
       sessionOutputTokens: 18,
       sessionCacheReadInputTokens: 25,
     });
+  });
+
+  it('rolls back usage when the provider stream fails after reporting usage', async () => {
+    vi.spyOn(llmApi, 'streamCompletion').mockReturnValue(
+      failingAfterUsageStream(),
+    );
+    const session = new LlmSession(() => Promise.resolve(CONFIG));
+
+    await expect(
+      drain(session.sendUserMessage('hello', [], '', 'none').stream),
+    ).rejects.toThrow('provider failed after usage');
+
+    expect(session.getUsage()).toEqual(emptyUsage());
   });
 });

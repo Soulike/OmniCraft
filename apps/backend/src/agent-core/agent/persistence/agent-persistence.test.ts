@@ -11,6 +11,7 @@ import {agentPersistence} from './agent-persistence.js';
 function emptyUsage() {
   return {
     currentContextInputTokens: 0,
+    latestCallOutputTokens: 0,
     sessionInputTokens: 0,
     sessionOutputTokens: 0,
     sessionCacheReadInputTokens: 0,
@@ -26,6 +27,7 @@ function createTestSnapshot(id: string): AgentSnapshot {
       id: 'llm-session-id',
       messages: [],
       compactions: [],
+      usageBaselineMessageCount: null,
       usage: emptyUsage(),
     },
     options: {
@@ -124,6 +126,7 @@ describe('agentPersistence', () => {
             id: 'llm-session-id',
             messages: [],
             compactions: [],
+            usageBaselineMessageCount: null,
             usage: emptyUsage(),
           },
           options: {workingDirectory: '/tmp/test-working-dir'},
