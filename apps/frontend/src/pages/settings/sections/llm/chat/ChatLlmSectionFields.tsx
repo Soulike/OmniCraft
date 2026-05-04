@@ -40,10 +40,6 @@ export function ChatLlmSectionFields({
               Claude
               <ListBox.ItemIndicator />
             </ListBox.Item>
-            <ListBox.Item id='openai' textValue='OpenAI Completions'>
-              OpenAI Completions
-              <ListBox.ItemIndicator />
-            </ListBox.Item>
             <ListBox.Item id='openai-responses' textValue='OpenAI Responses'>
               OpenAI Responses
               <ListBox.ItemIndicator />

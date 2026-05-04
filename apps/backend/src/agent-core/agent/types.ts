@@ -1,9 +1,5 @@
 import {type ThinkingLevel, thinkingLevelSchema} from '@omnicraft/api-schema';
-import {
-  type SseErrorEvent,
-  type SseEvent,
-  sseUsageSchema,
-} from '@omnicraft/sse-events';
+import type {SseErrorEvent, SseEvent} from '@omnicraft/sse-events';
 import {z} from 'zod';
 
 import type {LlmConfig} from '../llm-api/index.js';
@@ -28,8 +24,6 @@ export type AgentEventStream = AsyncGenerator<AgentEvent, void, undefined>;
 const agentSnapshotOptionsSchema = z.object({
   workingDirectory: z.string().optional(),
   thinkingLevel: thinkingLevelSchema,
-  claudeCodeSessionId: z.string().optional(),
-  claudeCodeUsage: sseUsageSchema.optional(),
 });
 
 export const agentSnapshotSchema = z.object({

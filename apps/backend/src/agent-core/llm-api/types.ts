@@ -68,7 +68,7 @@ export type LlmMessage = z.infer<typeof llmMessageSchema>;
 
 /** Configuration needed to call an LLM API. */
 export interface LlmConfig {
-  apiFormat: 'claude' | 'openai' | 'openai-responses';
+  apiFormat: 'claude' | 'openai-responses';
   apiKey: string;
   baseUrl: string;
   model: string;

@@ -28,14 +28,20 @@ afterEach(() => {
 });
 
 describe('modelCapacity', () => {
-  describe('OpenAI path', () => {
+  describe('OpenAI Responses path', () => {
     it('returns known output limit for a known model', async () => {
-      const config = makeConfig({apiFormat: 'openai', model: 'gpt-5.4'});
+      const config = makeConfig({
+        apiFormat: 'openai-responses',
+        model: 'gpt-5.4',
+      });
       expect(await modelCapacity.getMaxOutputTokens(config)).toBe(128_000);
     });
 
     it('returns known limits for GPT-5.5', async () => {
-      const config = makeConfig({apiFormat: 'openai', model: 'gpt-5.5'});
+      const config = makeConfig({
+        apiFormat: 'openai-responses',
+        model: 'gpt-5.5',
+      });
       expect(await modelCapacity.getMaxOutputTokens(config)).toBe(128_000);
       expect(await modelCapacity.getMaxInputTokens(config)).toBe(400_000);
     });
@@ -50,7 +56,7 @@ describe('modelCapacity', () => {
 
     it('returns default for an unknown model', async () => {
       const config = makeConfig({
-        apiFormat: 'openai',
+        apiFormat: 'openai-responses',
         model: 'unknown-model-xyz',
       });
       expect(await modelCapacity.getMaxOutputTokens(config)).toBe(16_384);
@@ -59,7 +65,7 @@ describe('modelCapacity', () => {
 
     it('returns known limits for a Gemini model', async () => {
       const config = makeConfig({
-        apiFormat: 'openai',
+        apiFormat: 'openai-responses',
         model: 'gemini-2.5-pro',
       });
       expect(await modelCapacity.getMaxOutputTokens(config)).toBe(64_000);

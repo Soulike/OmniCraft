@@ -9,7 +9,7 @@ import {
 import {LlmSession} from './llm-session.js';
 
 const CONFIG: LlmConfig = {
-  apiFormat: 'openai',
+  apiFormat: 'openai-responses',
   apiKey: 'key',
   baseUrl: 'https://example.test',
   model: 'gpt-4.1',
