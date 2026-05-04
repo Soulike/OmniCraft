@@ -38,6 +38,15 @@ function initAgentRegistries(): void {
   CoreSkillRegistry.create();
 }
 
+function emptyUsage() {
+  return {
+    currentContextInputTokens: 0,
+    sessionInputTokens: 0,
+    sessionOutputTokens: 0,
+    sessionCacheReadInputTokens: 0,
+  };
+}
+
 describe('dispatchAgentTool', () => {
   let tmpDir: string;
   let context: ToolExecutionContext;
@@ -181,7 +190,7 @@ describe('dispatchAgentTool', () => {
         id: subagent.id,
         title: 'New Session',
         sseEventCount: 0,
-        llmSession: {messages: [], compactions: []},
+        llmSession: {messages: [], compactions: [], usage: emptyUsage()},
         options: {workingDirectory: tmpDir, thinkingLevel: 'none'},
       });
       expect(metadata).toEqual({
@@ -222,7 +231,7 @@ describe('dispatchAgentTool', () => {
         id: subagent.id,
         title: 'New Session',
         sseEventCount: 0,
-        llmSession: {messages: [], compactions: []},
+        llmSession: {messages: [], compactions: [], usage: emptyUsage()},
         options: {workingDirectory: tmpDir, thinkingLevel: 'none'},
       });
       expect(metadata).toEqual({

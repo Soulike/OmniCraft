@@ -16,6 +16,47 @@ import {
 } from '@/agent-core/agent/index.js';
 import type {LlmConfig} from '@/agent-core/llm-api/index.js';
 
+interface ClaudeSdkIterationUsage {
+  readonly type: string;
+  readonly input_tokens: number;
+  readonly cache_read_input_tokens: number;
+  readonly cache_creation_input_tokens: number;
+}
+
+interface ClaudeSdkTokenUsage {
+  readonly input_tokens: number | null;
+  readonly cache_read_input_tokens?: number | null;
+  readonly cache_creation_input_tokens?: number | null;
+  readonly iterations?: readonly ClaudeSdkIterationUsage[] | null;
+}
+
+function createEmptyUsage(thinkingLevel: ThinkingLevel): SseUsage {
+  return {
+    model: 'claude-code',
+    contextWindowTokens: 0,
+    currentContextInputTokens: 0,
+    sessionInputTokens: 0,
+    sessionOutputTokens: 0,
+    sessionCacheReadInputTokens: 0,
+    thinkingLevel,
+  };
+}
+
+function totalInputTokensFromClaudeUsage(usage: ClaudeSdkTokenUsage): number {
+  const messageIterations =
+    usage.iterations?.filter((iteration) => iteration.type === 'message') ?? [];
+  const latestMessageUsage = messageIterations.at(-1);
+  return (
+    (latestMessageUsage?.input_tokens ?? usage.input_tokens ?? 0) +
+    (latestMessageUsage?.cache_read_input_tokens ??
+      usage.cache_read_input_tokens ??
+      0) +
+    (latestMessageUsage?.cache_creation_input_tokens ??
+      usage.cache_creation_input_tokens ??
+      0)
+  );
+}
+
 /** Minimal config for the unused base-class LLM session. */
 const noopConfig = (): Promise<LlmConfig> =>
   Promise.resolve({
@@ -47,7 +88,10 @@ export class CodingSubAgent extends Agent {
   /** Claude Agent SDK session ID, captured from the init message. */
   private claudeCodeSessionId: string | undefined;
 
+  private usage: SseUsage;
+
   constructor(workingDirectory: string, snapshot?: AgentSnapshot) {
+    const thinkingLevel = snapshot?.options.thinkingLevel ?? 'none';
     super(
       noopConfig,
       {
@@ -55,7 +99,7 @@ export class CodingSubAgent extends Agent {
         skillRegistries: [],
         baseSystemPrompt: '',
         getMaxToolRounds: () => 0,
-        thinkingLevel: snapshot?.options.thinkingLevel ?? 'none',
+        thinkingLevel,
         workingDirectory,
       },
       snapshot,
@@ -63,6 +107,15 @@ export class CodingSubAgent extends Agent {
 
     this.cwd = snapshot?.options.workingDirectory ?? workingDirectory;
     this.claudeCodeSessionId = snapshot?.options.claudeCodeSessionId;
+    if (snapshot) {
+      assert(
+        snapshot.options.claudeCodeUsage,
+        'CodingSubAgent snapshot is missing claudeCodeUsage',
+      );
+      this.usage = snapshot.options.claudeCodeUsage;
+    } else {
+      this.usage = createEmptyUsage(thinkingLevel);
+    }
   }
 
   override toSnapshot(): AgentSnapshot {
@@ -72,6 +125,7 @@ export class CodingSubAgent extends Agent {
       options: {
         ...base.options,
         claudeCodeSessionId: this.claudeCodeSessionId,
+        claudeCodeUsage: this.usage,
       },
     };
   }
@@ -108,15 +162,8 @@ export class CodingSubAgent extends Agent {
     }
 
     let resultText = '';
-    let usage: SseUsage = {
-      model: 'claude-code',
-      contextWindowTokens: 0,
-      currentContextInputTokens: 0,
-      sessionInputTokens: 0,
-      sessionOutputTokens: 0,
-      sessionCacheReadInputTokens: 0,
-      thinkingLevel,
-    };
+    this.usage = {...this.usage, thinkingLevel};
+    let currentContextInputTokens: number | undefined;
 
     const messageStream = query({
       prompt: userMessage,
@@ -139,6 +186,12 @@ export class CodingSubAgent extends Agent {
       // Stream text deltas from partial messages for real-time frontend display.
       if (message.type === 'stream_event') {
         const event = message.event;
+
+        if (event.type === 'message_start') {
+          currentContextInputTokens = totalInputTokensFromClaudeUsage(
+            event.message.usage,
+          );
+        }
 
         if (event.type === 'content_block_start') {
           if (event.content_block.type === 'text') {
@@ -183,13 +236,18 @@ export class CodingSubAgent extends Agent {
         const entries = Object.entries(message.modelUsage);
         assert(entries.length > 0, 'Expected at least one model in modelUsage');
         const [model, modelUsage] = entries[0];
-        usage = {
+        this.usage = {
           model,
           contextWindowTokens: modelUsage.contextWindow,
-          currentContextInputTokens: modelUsage.inputTokens,
-          sessionInputTokens: modelUsage.inputTokens,
-          sessionOutputTokens: modelUsage.outputTokens,
-          sessionCacheReadInputTokens: modelUsage.cacheReadInputTokens,
+          currentContextInputTokens:
+            currentContextInputTokens ?? modelUsage.inputTokens,
+          sessionInputTokens:
+            this.usage.sessionInputTokens + modelUsage.inputTokens,
+          sessionOutputTokens:
+            this.usage.sessionOutputTokens + modelUsage.outputTokens,
+          sessionCacheReadInputTokens:
+            this.usage.sessionCacheReadInputTokens +
+            modelUsage.cacheReadInputTokens,
           thinkingLevel,
         };
 
@@ -229,7 +287,7 @@ export class CodingSubAgent extends Agent {
     yield {
       type: 'done',
       reason: signal.aborted ? 'aborted' : 'complete',
-      usage,
+      usage: this.usage,
     } satisfies SseDoneEvent;
   }
 }

@@ -15,6 +15,15 @@ const CONFIG: LlmConfig = {
   model: 'gpt-4.1',
 };
 
+function emptyUsage() {
+  return {
+    currentContextInputTokens: 0,
+    sessionInputTokens: 0,
+    sessionOutputTokens: 0,
+    sessionCacheReadInputTokens: 0,
+  };
+}
+
 function oldMessages(count: number): LlmMessage[] {
   return Array.from({length: count}, (_, index) => ({
     id: `old-${index.toString()}`,
@@ -130,6 +139,7 @@ describe('LlmSession compaction', () => {
       id: 'session-1',
       compactions: [],
       messages: oldMessages(12),
+      usage: emptyUsage(),
     });
 
     await drain(session.sendUserMessage('hello', [], '', 'none').stream);
@@ -162,6 +172,7 @@ describe('LlmSession compaction', () => {
       id: 'session-1',
       compactions: [],
       messages: oldMessages(12),
+      usage: emptyUsage(),
     });
 
     await drain(session.sendUserMessage('hello', [], '', 'none').stream);
@@ -183,6 +194,7 @@ describe('LlmSession compaction', () => {
       id: 'session-1',
       compactions: [],
       messages,
+      usage: emptyUsage(),
     });
 
     await expect(
@@ -193,6 +205,7 @@ describe('LlmSession compaction', () => {
       id: 'session-1',
       compactions: [],
       messages,
+      usage: emptyUsage(),
     });
   });
 
@@ -204,6 +217,7 @@ describe('LlmSession compaction', () => {
       id: 'session-1',
       compactions: [],
       messages,
+      usage: emptyUsage(),
     });
 
     await expect(
@@ -214,6 +228,7 @@ describe('LlmSession compaction', () => {
       id: 'session-1',
       compactions: [],
       messages,
+      usage: emptyUsage(),
     });
   });
 
@@ -228,6 +243,7 @@ describe('LlmSession compaction', () => {
       id: 'session-1',
       compactions: [],
       messages,
+      usage: emptyUsage(),
     });
 
     let error: unknown;
@@ -248,6 +264,7 @@ describe('LlmSession compaction', () => {
       id: 'session-1',
       compactions: [],
       messages,
+      usage: emptyUsage(),
     });
   });
 
@@ -259,6 +276,7 @@ describe('LlmSession compaction', () => {
       id: 'session-1',
       compactions: [],
       messages,
+      usage: emptyUsage(),
     });
 
     await expect(
@@ -274,6 +292,7 @@ describe('LlmSession compaction', () => {
       id: 'session-1',
       compactions: [],
       messages,
+      usage: emptyUsage(),
     });
   });
 
@@ -285,6 +304,7 @@ describe('LlmSession compaction', () => {
       id: 'session-1',
       compactions: [],
       messages,
+      usage: emptyUsage(),
     });
 
     await expect(
@@ -300,6 +320,7 @@ describe('LlmSession compaction', () => {
       id: 'session-1',
       compactions: [],
       messages,
+      usage: emptyUsage(),
     });
   });
 });

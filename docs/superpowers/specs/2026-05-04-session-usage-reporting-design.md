@@ -179,6 +179,15 @@ The initial and cleared state is zero. If a turn aborts before a new
 `message-end`, `currentContextInputTokens` remains the latest successfully
 completed call's input usage, matching the currently known context measurement.
 
+`LlmSessionSnapshot` persists `LlmSessionUsage` as required session state so a
+restored session keeps cumulative token totals. Snapshots without `usage` are
+not supported by this protocol change.
+
+`CodingSubAgent` does not use `LlmSession`, so it keeps its own session-level
+usage accumulator and persists it with the Claude Code session metadata. Its
+current-context value comes from the latest SDK `message_start` usage, while its
+session totals fold in each SDK result's model usage.
+
 ### Frontend Display
 
 `UsageInfoView` will separate context capacity from cumulative usage:

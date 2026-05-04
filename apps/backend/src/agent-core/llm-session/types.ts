@@ -15,11 +15,31 @@ export const llmCompactionMetadataSchema = z.object({
 
 export type LlmCompactionMetadata = z.infer<typeof llmCompactionMetadataSchema>;
 
+export const llmSessionUsageSchema = z.object({
+  currentContextInputTokens: z.number(),
+  sessionInputTokens: z.number(),
+  sessionOutputTokens: z.number(),
+  sessionCacheReadInputTokens: z.number(),
+});
+
+/** Latest context usage and accumulated token totals for an LLM session. */
+export type LlmSessionUsage = z.infer<typeof llmSessionUsageSchema>;
+
+export function createEmptyLlmSessionUsage(): LlmSessionUsage {
+  return {
+    currentContextInputTokens: 0,
+    sessionInputTokens: 0,
+    sessionOutputTokens: 0,
+    sessionCacheReadInputTokens: 0,
+  };
+}
+
 /** Serializable snapshot of an LlmSession, used for persistence. */
 export const llmSessionSnapshotSchema = z.object({
   id: z.string(),
   messages: z.array(llmMessageSchema),
   compactions: z.array(llmCompactionMetadataSchema),
+  usage: llmSessionUsageSchema,
 });
 
 export type LlmSessionSnapshot = z.infer<typeof llmSessionSnapshotSchema>;
@@ -39,14 +59,6 @@ export interface LlmCompactionOptions {
   readonly systemPrompt: string;
   readonly thinkingLevel: ThinkingLevel;
   readonly signal?: AbortSignal;
-}
-
-/** Latest context usage and accumulated token totals for an LLM session. */
-export interface LlmSessionUsage {
-  currentContextInputTokens: number;
-  sessionInputTokens: number;
-  sessionOutputTokens: number;
-  sessionCacheReadInputTokens: number;
 }
 
 /** A text content delta from the LLM. */

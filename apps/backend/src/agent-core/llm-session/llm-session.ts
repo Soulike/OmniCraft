@@ -28,6 +28,7 @@ import type {
   SendUserMessageResult,
   ToolResult,
 } from './types.js';
+import {createEmptyLlmSessionUsage} from './types.js';
 
 function throwIfAborted(signal: AbortSignal | undefined): void {
   if (!signal?.aborted) return;
@@ -50,12 +51,7 @@ export class LlmSession {
 
   private readonly messages: LlmMessage[] = [];
   private readonly compactions: LlmCompactionMetadata[] = [];
-  private usage: LlmSessionUsage = {
-    currentContextInputTokens: 0,
-    sessionInputTokens: 0,
-    sessionOutputTokens: 0,
-    sessionCacheReadInputTokens: 0,
-  };
+  private usage: LlmSessionUsage = createEmptyLlmSessionUsage();
   private readonly getConfig: () => Promise<LlmConfig>;
   private readonly mutex = new Mutex();
 
@@ -69,6 +65,7 @@ export class LlmSession {
       this.id = snapshot.id;
       this.messages.push(...snapshot.messages);
       this.compactions.push(...snapshot.compactions);
+      this.usage = {...snapshot.usage};
     } else {
       this.id = crypto.randomUUID();
     }
@@ -80,6 +77,7 @@ export class LlmSession {
       id: this.id,
       messages: [...this.messages],
       compactions: [...this.compactions],
+      usage: {...this.usage},
     };
   }
 
@@ -172,12 +170,7 @@ export class LlmSession {
   clear(): void {
     this.messages.length = 0;
     this.compactions.length = 0;
-    this.usage = {
-      currentContextInputTokens: 0,
-      sessionInputTokens: 0,
-      sessionOutputTokens: 0,
-      sessionCacheReadInputTokens: 0,
-    };
+    this.usage = createEmptyLlmSessionUsage();
   }
 
   /**

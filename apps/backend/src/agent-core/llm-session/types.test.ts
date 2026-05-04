@@ -11,6 +11,15 @@ const TEST_CONFIG: LlmConfig = {
   model: 'test-model',
 };
 
+function emptyUsage() {
+  return {
+    currentContextInputTokens: 0,
+    sessionInputTokens: 0,
+    sessionOutputTokens: 0,
+    sessionCacheReadInputTokens: 0,
+  };
+}
+
 async function* emptyCompletionStream(): LlmEventStream {
   yield {type: 'message-start', messageId: 'assistant-message'};
   await Promise.resolve();
@@ -46,15 +55,27 @@ describe('llmSessionSnapshotSchema', () => {
       id: 'session-1',
       messages: [],
       compactions: [],
+      usage: emptyUsage(),
     });
 
     expect(result.success).toBe(true);
+  });
+
+  it('requires usage metadata', () => {
+    const result = llmSessionSnapshotSchema.safeParse({
+      id: 'session-1',
+      messages: [],
+      compactions: [],
+    });
+
+    expect(result.success).toBe(false);
   });
 
   it('requires status on tool result messages', () => {
     const result = llmSessionSnapshotSchema.safeParse({
       id: 'session-1',
       compactions: [],
+      usage: emptyUsage(),
       messages: [
         {
           id: 'tool-message',
@@ -73,6 +94,7 @@ describe('llmSessionSnapshotSchema', () => {
     const result = llmSessionSnapshotSchema.safeParse({
       id: 'session-1',
       compactions: [],
+      usage: emptyUsage(),
       messages: [
         {
           id: 'tool-message',
@@ -104,6 +126,12 @@ describe('LlmSession snapshot metadata', () => {
           afterCharCount: 200,
         },
       ],
+      usage: {
+        currentContextInputTokens: 40,
+        sessionInputTokens: 140,
+        sessionOutputTokens: 18,
+        sessionCacheReadInputTokens: 25,
+      },
     };
 
     const session = new LlmSession(
@@ -112,6 +140,7 @@ describe('LlmSession snapshot metadata', () => {
     );
 
     expect(session.toSnapshot()).toEqual(snapshot);
+    expect(session.getUsage()).toEqual(snapshot.usage);
   });
 
   it('clears compaction metadata', () => {
@@ -128,6 +157,7 @@ describe('LlmSession snapshot metadata', () => {
           afterCharCount: 200,
         },
       ],
+      usage: emptyUsage(),
     });
 
     session.clear();
@@ -143,6 +173,7 @@ describe('LlmSession snapshot metadata', () => {
       id: 'session-1',
       messages: [],
       compactions: [],
+      usage: emptyUsage(),
     });
 
     await consume(

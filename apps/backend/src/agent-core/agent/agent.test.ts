@@ -18,6 +18,15 @@ const LIGHT_CONFIG: LlmConfig = {
   model: 'light-model',
 };
 
+function emptyUsage() {
+  return {
+    currentContextInputTokens: 0,
+    sessionInputTokens: 0,
+    sessionOutputTokens: 0,
+    sessionCacheReadInputTokens: 0,
+  };
+}
+
 class TestAgent extends Agent {}
 
 class UsageTestAgent extends Agent {
@@ -268,6 +277,7 @@ describe('Agent compaction lifecycle', () => {
             role: 'user' as const,
             content: `old message ${index.toString()}`,
           })),
+          usage: emptyUsage(),
         },
         options: {thinkingLevel: 'high'},
       },
@@ -298,6 +308,7 @@ describe('Agent snapshot restore', () => {
         id: 'llm-session-id',
         messages: [],
         compactions: [],
+        usage: emptyUsage(),
       },
       options: {
         workingDirectory: '/tmp/project',
