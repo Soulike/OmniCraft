@@ -25,15 +25,6 @@ export const llmSessionUsageSchema = z.object({
 /** Latest context usage and accumulated token totals for an LLM session. */
 export type LlmSessionUsage = z.infer<typeof llmSessionUsageSchema>;
 
-export function createEmptyLlmSessionUsage(): LlmSessionUsage {
-  return {
-    currentContextInputTokens: 0,
-    sessionInputTokens: 0,
-    sessionOutputTokens: 0,
-    sessionCacheReadInputTokens: 0,
-  };
-}
-
 /** Serializable snapshot of an LlmSession, used for persistence. */
 export const llmSessionSnapshotSchema = z.object({
   id: z.string(),

@@ -19,6 +19,7 @@ import {COMPACTION_TRIGGER_INPUT_TOKEN_RATIO} from './compaction/constants.js';
 import {buildCompactedMessageContent} from './compaction/prompt.js';
 import {buildRecentContext} from './compaction/slim.js';
 import {generateCompactionSummary} from './compaction/summary.js';
+import {createEmptyLlmSessionUsage} from './helpers.js';
 import type {
   LlmCompactionMetadata,
   LlmCompactionOptions,
@@ -28,7 +29,6 @@ import type {
   SendUserMessageResult,
   ToolResult,
 } from './types.js';
-import {createEmptyLlmSessionUsage} from './types.js';
 
 function throwIfAborted(signal: AbortSignal | undefined): void {
   if (!signal?.aborted) return;
