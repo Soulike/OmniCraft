@@ -113,36 +113,46 @@ const remainingContextTokens = Math.max(
 
 ### Backend State
 
-The provider per-call usage shape should be named for what it represents, for
-example `LlmCallUsage`. `LlmSession.getUsage()` should return a separate
-session-facing shape that includes both the latest context input and cumulative
-totals.
+Keep the current provider/session `LlmUsage` shape for internal accounting:
+`inputTokens`, `outputTokens`, and `cacheReadInputTokens`. These names are still
+clear for one provider call and for the existing internal cumulative counter.
 
-`LlmSession` will track two usage values internally:
-
-- `latestUsage`: the provider usage from the latest completed LLM call.
-- `cumulativeUsage`: the sum of provider usage across completed LLM calls in
-  the session.
-
-When a provider emits `message-end`:
+`LlmSession` will add one extra numeric state field:
 
 ```typescript
-this.latestUsage = event.usage;
-this.cumulativeUsage = addUsage(this.cumulativeUsage, event.usage);
+private currentContextInputTokens = 0;
 ```
 
-`LlmSession.getUsage()` will return one object shaped for SSE assembly:
+When a provider emits `message-end`, keep the existing cumulative update and set
+the new context field from that completed call's input tokens:
 
 ```typescript
-{
-  currentContextInputTokens: this.latestUsage.inputTokens,
-  sessionInputTokens: this.cumulativeUsage.inputTokens,
-  sessionOutputTokens: this.cumulativeUsage.outputTokens,
-  sessionCacheReadInputTokens: this.cumulativeUsage.cacheReadInputTokens,
-}
+this.currentContextInputTokens = event.usage.inputTokens;
+this.usage = {
+  inputTokens: this.usage.inputTokens + event.usage.inputTokens,
+  outputTokens: this.usage.outputTokens + event.usage.outputTokens,
+  cacheReadInputTokens:
+    this.usage.cacheReadInputTokens + event.usage.cacheReadInputTokens,
+};
 ```
 
-The initial and cleared state is all zeroes. If a turn aborts before a new
+`Agent.buildSseUsage()` will map the internal cumulative usage into public
+session-scoped field names and add `currentContextInputTokens`:
+
+```typescript
+const usage = this.llmSession.getUsage();
+return {
+  model: config.model,
+  contextWindowTokens,
+  currentContextInputTokens: this.llmSession.getCurrentContextInputTokens(),
+  sessionInputTokens: usage.inputTokens,
+  sessionOutputTokens: usage.outputTokens,
+  sessionCacheReadInputTokens: usage.cacheReadInputTokens,
+  thinkingLevel: this.thinkingLevel,
+};
+```
+
+The initial and cleared state is zero. If a turn aborts before a new
 `message-end`, `currentContextInputTokens` remains the latest successfully
 completed call's input usage, matching the currently known context measurement.
 
