@@ -74,8 +74,8 @@ export interface LlmConfig {
   model: string;
 }
 
-/** Token usage statistics for internal LLM session accumulation. */
-export interface LlmUsage {
+/** Token usage statistics reported by a single provider call. */
+export interface LlmCallUsage {
   inputTokens: number;
   outputTokens: number;
   cacheReadInputTokens: number;
@@ -91,7 +91,7 @@ export interface LlmMessageStartEvent {
 export interface LlmMessageEndEvent {
   type: 'message-end';
   stopReason: string;
-  usage: LlmUsage;
+  usage: LlmCallUsage;
 }
 
 /** A text content delta from the LLM. */

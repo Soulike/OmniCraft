@@ -3,7 +3,11 @@ import assert from 'node:assert';
 import Anthropic from '@anthropic-ai/sdk';
 
 import {modelCapacity} from '../../model-capacity/index.js';
-import type {LlmCompletionOptions, LlmEventStream, LlmUsage} from '../types.js';
+import type {
+  LlmCallUsage,
+  LlmCompletionOptions,
+  LlmEventStream,
+} from '../types.js';
 import {
   addCacheBreakpoint,
   toClaudeTool,
@@ -77,7 +81,7 @@ export async function* streamClaude(
 
   // Accumulate usage across events; Claude reports input in message_start
   // and output in message_delta.
-  let usage: LlmUsage = {
+  let usage: LlmCallUsage = {
     inputTokens: 0,
     outputTokens: 0,
     cacheReadInputTokens: 0,

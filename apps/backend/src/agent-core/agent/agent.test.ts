@@ -18,7 +18,22 @@ const LIGHT_CONFIG: LlmConfig = {
   model: 'light-model',
 };
 
+function emptyUsage() {
+  return {
+    currentContextInputTokens: 0,
+    sessionInputTokens: 0,
+    sessionOutputTokens: 0,
+    sessionCacheReadInputTokens: 0,
+  };
+}
+
 class TestAgent extends Agent {}
+
+class UsageTestAgent extends Agent {
+  streamForTest(userMessage: string): AsyncIterable<SseEvent> {
+    return this.runAgentLoop(userMessage, 'high', new AbortController().signal);
+  }
+}
 
 function testAgentOptions() {
   return {
@@ -44,6 +59,17 @@ async function* mainCompletionStream(): LlmEventStream {
     stopReason: 'end_turn',
     usage: {inputTokens: 1, outputTokens: 1, cacheReadInputTokens: 0},
   };
+}
+
+async function* usageCompletionStream(usage: {
+  inputTokens: number;
+  outputTokens: number;
+  cacheReadInputTokens: number;
+}): LlmEventStream {
+  yield {type: 'message-start', messageId: 'assistant-message'};
+  await Promise.resolve();
+  yield {type: 'text-delta', content: 'Assistant response'};
+  yield {type: 'message-end', stopReason: 'end_turn', usage};
 }
 
 async function* titleCompletionStream(): LlmEventStream {
@@ -95,6 +121,16 @@ async function collectUntilError(agent: Agent): Promise<SseEvent[]> {
   return events;
 }
 
+async function collectAll(
+  stream: AsyncIterable<SseEvent>,
+): Promise<SseEvent[]> {
+  const events: SseEvent[] = [];
+  for await (const event of stream) {
+    events.push(event);
+  }
+  return events;
+}
+
 async function waitFor(predicate: () => boolean): Promise<void> {
   for (let attempt = 0; attempt < 20; attempt++) {
     if (predicate()) return;
@@ -143,6 +179,48 @@ describe('Agent title generation', () => {
     expect(events[titleIndex]).toEqual({
       type: 'session-title',
       title: 'Short Title',
+    });
+  });
+});
+
+describe('Agent usage reporting', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('emits latest context input separately from cumulative session totals', async () => {
+    vi.spyOn(llmApi, 'countToken').mockResolvedValue(1);
+    vi.spyOn(llmApi, 'streamCompletion')
+      .mockReturnValueOnce(
+        usageCompletionStream({
+          inputTokens: 100,
+          outputTokens: 10,
+          cacheReadInputTokens: 20,
+        }),
+      )
+      .mockReturnValueOnce(
+        usageCompletionStream({
+          inputTokens: 40,
+          outputTokens: 8,
+          cacheReadInputTokens: 5,
+        }),
+      );
+    const agent = new UsageTestAgent(
+      () => Promise.resolve(MAIN_CONFIG),
+      testAgentOptions(),
+    );
+
+    await collectAll(agent.streamForTest('first'));
+    const events = await collectAll(agent.streamForTest('second'));
+
+    expect(events.at(-1)).toMatchObject({
+      type: 'done',
+      usage: {
+        currentContextInputTokens: 40,
+        sessionInputTokens: 140,
+        sessionOutputTokens: 18,
+        sessionCacheReadInputTokens: 25,
+      },
     });
   });
 });
@@ -199,6 +277,7 @@ describe('Agent compaction lifecycle', () => {
             role: 'user' as const,
             content: `old message ${index.toString()}`,
           })),
+          usage: emptyUsage(),
         },
         options: {thinkingLevel: 'high'},
       },
@@ -229,6 +308,7 @@ describe('Agent snapshot restore', () => {
         id: 'llm-session-id',
         messages: [],
         compactions: [],
+        usage: emptyUsage(),
       },
       options: {
         workingDirectory: '/tmp/project',

@@ -15,11 +15,22 @@ export const llmCompactionMetadataSchema = z.object({
 
 export type LlmCompactionMetadata = z.infer<typeof llmCompactionMetadataSchema>;
 
+export const llmSessionUsageSchema = z.object({
+  currentContextInputTokens: z.number(),
+  sessionInputTokens: z.number(),
+  sessionOutputTokens: z.number(),
+  sessionCacheReadInputTokens: z.number(),
+});
+
+/** Latest context usage and accumulated token totals for an LLM session. */
+export type LlmSessionUsage = z.infer<typeof llmSessionUsageSchema>;
+
 /** Serializable snapshot of an LlmSession, used for persistence. */
 export const llmSessionSnapshotSchema = z.object({
   id: z.string(),
   messages: z.array(llmMessageSchema),
   compactions: z.array(llmCompactionMetadataSchema),
+  usage: llmSessionUsageSchema,
 });
 
 export type LlmSessionSnapshot = z.infer<typeof llmSessionSnapshotSchema>;

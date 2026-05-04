@@ -8,6 +8,15 @@ import {afterEach, beforeEach, describe, expect, it} from 'vitest';
 import type {AgentSnapshot} from '../types.js';
 import {agentPersistence} from './agent-persistence.js';
 
+function emptyUsage() {
+  return {
+    currentContextInputTokens: 0,
+    sessionInputTokens: 0,
+    sessionOutputTokens: 0,
+    sessionCacheReadInputTokens: 0,
+  };
+}
+
 function createTestSnapshot(id: string): AgentSnapshot {
   return {
     id,
@@ -17,6 +26,7 @@ function createTestSnapshot(id: string): AgentSnapshot {
       id: 'llm-session-id',
       messages: [],
       compactions: [],
+      usage: emptyUsage(),
     },
     options: {
       workingDirectory: '/tmp/test-working-dir',
@@ -110,7 +120,12 @@ describe('agentPersistence', () => {
           id: agentId,
           title: 'Test Session',
           sseEventCount: 0,
-          llmSession: {id: 'llm-session-id', messages: [], compactions: []},
+          llmSession: {
+            id: 'llm-session-id',
+            messages: [],
+            compactions: [],
+            usage: emptyUsage(),
+          },
           options: {workingDirectory: '/tmp/test-working-dir'},
         }),
       );

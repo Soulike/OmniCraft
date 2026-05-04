@@ -15,6 +15,15 @@ const CONFIG: LlmConfig = {
   model: 'gpt-4.1',
 };
 
+function emptyUsage() {
+  return {
+    currentContextInputTokens: 0,
+    sessionInputTokens: 0,
+    sessionOutputTokens: 0,
+    sessionCacheReadInputTokens: 0,
+  };
+}
+
 function oldMessages(count: number): LlmMessage[] {
   return Array.from({length: count}, (_, index) => ({
     id: `old-${index.toString()}`,
@@ -33,6 +42,17 @@ async function* normalStream(): LlmEventStream {
     stopReason: 'end_turn',
     usage: {inputTokens: 1, outputTokens: 1, cacheReadInputTokens: 0},
   };
+}
+
+async function* usageStream(usage: {
+  inputTokens: number;
+  outputTokens: number;
+  cacheReadInputTokens: number;
+}): LlmEventStream {
+  yield {type: 'message-start', messageId: 'assistant'};
+  await Promise.resolve();
+  yield {type: 'text-delta', content: 'reply'};
+  yield {type: 'message-end', stopReason: 'end_turn', usage};
 }
 
 async function* summaryStream(): LlmEventStream {
@@ -119,6 +139,7 @@ describe('LlmSession compaction', () => {
       id: 'session-1',
       compactions: [],
       messages: oldMessages(12),
+      usage: emptyUsage(),
     });
 
     await drain(session.sendUserMessage('hello', [], '', 'none').stream);
@@ -151,6 +172,7 @@ describe('LlmSession compaction', () => {
       id: 'session-1',
       compactions: [],
       messages: oldMessages(12),
+      usage: emptyUsage(),
     });
 
     await drain(session.sendUserMessage('hello', [], '', 'none').stream);
@@ -172,6 +194,7 @@ describe('LlmSession compaction', () => {
       id: 'session-1',
       compactions: [],
       messages,
+      usage: emptyUsage(),
     });
 
     await expect(
@@ -182,6 +205,7 @@ describe('LlmSession compaction', () => {
       id: 'session-1',
       compactions: [],
       messages,
+      usage: emptyUsage(),
     });
   });
 
@@ -193,6 +217,7 @@ describe('LlmSession compaction', () => {
       id: 'session-1',
       compactions: [],
       messages,
+      usage: emptyUsage(),
     });
 
     await expect(
@@ -203,6 +228,7 @@ describe('LlmSession compaction', () => {
       id: 'session-1',
       compactions: [],
       messages,
+      usage: emptyUsage(),
     });
   });
 
@@ -217,6 +243,7 @@ describe('LlmSession compaction', () => {
       id: 'session-1',
       compactions: [],
       messages,
+      usage: emptyUsage(),
     });
 
     let error: unknown;
@@ -237,6 +264,7 @@ describe('LlmSession compaction', () => {
       id: 'session-1',
       compactions: [],
       messages,
+      usage: emptyUsage(),
     });
   });
 
@@ -248,6 +276,7 @@ describe('LlmSession compaction', () => {
       id: 'session-1',
       compactions: [],
       messages,
+      usage: emptyUsage(),
     });
 
     await expect(
@@ -263,6 +292,7 @@ describe('LlmSession compaction', () => {
       id: 'session-1',
       compactions: [],
       messages,
+      usage: emptyUsage(),
     });
   });
 
@@ -274,6 +304,7 @@ describe('LlmSession compaction', () => {
       id: 'session-1',
       compactions: [],
       messages,
+      usage: emptyUsage(),
     });
 
     await expect(
@@ -289,6 +320,43 @@ describe('LlmSession compaction', () => {
       id: 'session-1',
       compactions: [],
       messages,
+      usage: emptyUsage(),
+    });
+  });
+});
+
+describe('LlmSession usage', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('tracks latest context input separately from cumulative session totals', async () => {
+    vi.spyOn(llmApi, 'countToken').mockResolvedValue(1);
+    vi.spyOn(llmApi, 'streamCompletion')
+      .mockReturnValueOnce(
+        usageStream({
+          inputTokens: 100,
+          outputTokens: 10,
+          cacheReadInputTokens: 20,
+        }),
+      )
+      .mockReturnValueOnce(
+        usageStream({
+          inputTokens: 40,
+          outputTokens: 8,
+          cacheReadInputTokens: 5,
+        }),
+      );
+    const session = new LlmSession(() => Promise.resolve(CONFIG));
+
+    await drain(session.sendUserMessage('first', [], '', 'none').stream);
+    await drain(session.sendUserMessage('second', [], '', 'none').stream);
+
+    expect(session.getUsage()).toEqual({
+      currentContextInputTokens: 40,
+      sessionInputTokens: 140,
+      sessionOutputTokens: 18,
+      sessionCacheReadInputTokens: 25,
     });
   });
 });

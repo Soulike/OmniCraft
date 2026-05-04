@@ -11,7 +11,6 @@ import type {
   LlmMessage,
   LlmThinkingBlock,
   LlmToolCall,
-  LlmUsage,
 } from '../llm-api/index.js';
 import {llmApi} from '../llm-api/index.js';
 import {modelCapacity} from '../model-capacity/index.js';
@@ -20,11 +19,13 @@ import {COMPACTION_TRIGGER_INPUT_TOKEN_RATIO} from './compaction/constants.js';
 import {buildCompactedMessageContent} from './compaction/prompt.js';
 import {buildRecentContext} from './compaction/slim.js';
 import {generateCompactionSummary} from './compaction/summary.js';
+import {createEmptyLlmSessionUsage} from './helpers.js';
 import type {
   LlmCompactionMetadata,
   LlmCompactionOptions,
   LlmSessionEventStream,
   LlmSessionSnapshot,
+  LlmSessionUsage,
   SendUserMessageResult,
   ToolResult,
 } from './types.js';
@@ -50,11 +51,7 @@ export class LlmSession {
 
   private readonly messages: LlmMessage[] = [];
   private readonly compactions: LlmCompactionMetadata[] = [];
-  private usage: LlmUsage = {
-    inputTokens: 0,
-    outputTokens: 0,
-    cacheReadInputTokens: 0,
-  };
+  private usage: LlmSessionUsage = createEmptyLlmSessionUsage();
   private readonly getConfig: () => Promise<LlmConfig>;
   private readonly mutex = new Mutex();
 
@@ -68,6 +65,7 @@ export class LlmSession {
       this.id = snapshot.id;
       this.messages.push(...snapshot.messages);
       this.compactions.push(...snapshot.compactions);
+      this.usage = {...snapshot.usage};
     } else {
       this.id = crypto.randomUUID();
     }
@@ -79,6 +77,7 @@ export class LlmSession {
       id: this.id,
       messages: [...this.messages],
       compactions: [...this.compactions],
+      usage: {...this.usage},
     };
   }
 
@@ -148,8 +147,8 @@ export class LlmSession {
     );
   }
 
-  /** Returns the accumulated token usage across all LLM calls in this session. */
-  getUsage(): LlmUsage {
+  /** Returns latest context usage and accumulated token totals for this session. */
+  getUsage(): LlmSessionUsage {
     return {...this.usage};
   }
 
@@ -171,7 +170,7 @@ export class LlmSession {
   clear(): void {
     this.messages.length = 0;
     this.compactions.length = 0;
-    this.usage = {inputTokens: 0, outputTokens: 0, cacheReadInputTokens: 0};
+    this.usage = createEmptyLlmSessionUsage();
   }
 
   /**
@@ -369,10 +368,13 @@ export class LlmSession {
         }
         case 'message-end':
           this.usage = {
-            inputTokens: this.usage.inputTokens + event.usage.inputTokens,
-            outputTokens: this.usage.outputTokens + event.usage.outputTokens,
-            cacheReadInputTokens:
-              this.usage.cacheReadInputTokens +
+            currentContextInputTokens: event.usage.inputTokens,
+            sessionInputTokens:
+              this.usage.sessionInputTokens + event.usage.inputTokens,
+            sessionOutputTokens:
+              this.usage.sessionOutputTokens + event.usage.outputTokens,
+            sessionCacheReadInputTokens:
+              this.usage.sessionCacheReadInputTokens +
               event.usage.cacheReadInputTokens,
           };
           break;

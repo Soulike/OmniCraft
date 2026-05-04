@@ -513,12 +513,13 @@ export abstract class Agent {
    */
   private async buildSseUsage(): Promise<SseUsage> {
     const config = await this.getConfig();
-    const maxInputTokens = await modelCapacity.getMaxInputTokens(config);
+    const contextWindowTokens = await modelCapacity.getMaxInputTokens(config);
+    const usage = this.llmSession.getUsage();
     return {
       model: config.model,
-      maxInputTokens,
+      contextWindowTokens,
+      ...usage,
       thinkingLevel: this.thinkingLevel,
-      ...this.llmSession.getUsage(),
     };
   }
 

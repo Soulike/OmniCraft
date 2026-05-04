@@ -1,6 +1,7 @@
 export {llmApi} from './llm-api.js';
 export type {
   LlmAssistantMessage,
+  LlmCallUsage,
   LlmCompletionOptions,
   LlmConfig,
   LlmEvent,
@@ -19,7 +20,6 @@ export type {
   LlmToolCallEndEvent,
   LlmToolCallStartEvent,
   LlmToolResultMessage,
-  LlmUsage,
   LlmUserMessage,
 } from './types.js';
 export {
