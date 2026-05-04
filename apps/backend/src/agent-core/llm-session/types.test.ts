@@ -5,7 +5,7 @@ import {LlmSession} from './llm-session.js';
 import {llmSessionSnapshotSchema} from './types.js';
 
 const TEST_CONFIG: LlmConfig = {
-  apiFormat: 'openai',
+  apiFormat: 'openai-responses',
   apiKey: 'test-key',
   baseUrl: 'https://example.test',
   model: 'test-model',
@@ -136,6 +136,7 @@ describe('LlmSession snapshot metadata', () => {
   });
 
   it('persists status into submitted tool result messages', async () => {
+    vi.spyOn(llmApi, 'countToken').mockResolvedValue(1);
     vi.spyOn(llmApi, 'streamCompletion').mockReturnValue(
       emptyCompletionStream(),
     );

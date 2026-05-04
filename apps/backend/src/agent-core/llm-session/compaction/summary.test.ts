@@ -9,7 +9,7 @@ import {
 import {generateCompactionSummary} from './summary.js';
 
 const CONFIG: LlmConfig = {
-  apiFormat: 'openai',
+  apiFormat: 'openai-responses',
   apiKey: 'key',
   baseUrl: 'https://example.test',
   model: 'model',

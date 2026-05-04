@@ -1,5 +1,4 @@
 import {countClaudeTokens, streamClaude} from './claude/index.js';
-import {countOpenAITokens, streamOpenAI} from './openai/index.js';
 import {
   countOpenAIResponsesTokens,
   streamOpenAIResponses,
@@ -20,8 +19,6 @@ export const llmApi = {
     switch (options.config.apiFormat) {
       case 'claude':
         return streamClaude(options);
-      case 'openai':
-        return streamOpenAI(options);
       case 'openai-responses':
         return streamOpenAIResponses(options);
     }
@@ -31,8 +28,6 @@ export const llmApi = {
     switch (options.config.apiFormat) {
       case 'claude':
         return countClaudeTokens(options);
-      case 'openai':
-        return countOpenAITokens(options);
       case 'openai-responses':
         return countOpenAIResponsesTokens(options);
     }
