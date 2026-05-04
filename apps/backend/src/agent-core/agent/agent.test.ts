@@ -7,7 +7,7 @@ import {Agent} from './agent.js';
 import type {AgentSnapshot} from './types.js';
 
 const MAIN_CONFIG: LlmConfig = {
-  apiFormat: 'openai',
+  apiFormat: 'openai-responses',
   apiKey: 'test-key',
   baseUrl: 'https://example.test',
   model: 'main-model',

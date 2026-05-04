@@ -15,7 +15,6 @@ export const modelCapacity = {
     switch (config.apiFormat) {
       case 'claude':
         return getClaudeMaxOutputTokens(config);
-      case 'openai':
       case 'openai-responses':
         return getOpenAIMaxOutputTokens(config);
     }
@@ -26,7 +25,6 @@ export const modelCapacity = {
     switch (config.apiFormat) {
       case 'claude':
         return getClaudeMaxInputTokens(config);
-      case 'openai':
       case 'openai-responses':
         return getOpenAIMaxInputTokens(config);
     }
