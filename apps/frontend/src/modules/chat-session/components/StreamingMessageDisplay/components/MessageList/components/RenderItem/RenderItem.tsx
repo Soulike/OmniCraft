@@ -101,7 +101,7 @@ export function RenderItem({item}: RenderItemProps) {
     }
     case 'thinking':
       return (
-        <div className={styles.assistantMessage}>
+        <div className={clsx(styles.assistantMessage, styles.fullWidthMessage)}>
           <ThinkingBlock content={item.content} done={item.done} />
         </div>
       );
