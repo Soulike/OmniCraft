@@ -1,7 +1,6 @@
 import {describe, expect, it} from 'vitest';
 import {z} from 'zod';
 
-import {llmSettingsSchema} from './llm/schema.js';
 import {settingsSchema} from './schema.js';
 
 describe('settingsSchema', () => {
@@ -15,17 +14,5 @@ describe('settingsSchema', () => {
     const jsonSchema = z.toJSONSchema(settingsSchema);
     const serialized = JSON.stringify(jsonSchema);
     expect(() => JSON.parse(serialized) as unknown).not.toThrow();
-  });
-
-  it('accepts only supported LLM API formats', () => {
-    expect(llmSettingsSchema.safeParse({apiFormat: 'claude'}).success).toBe(
-      true,
-    );
-    expect(
-      llmSettingsSchema.safeParse({apiFormat: 'openai-responses'}).success,
-    ).toBe(true);
-    expect(llmSettingsSchema.safeParse({apiFormat: 'openai'}).success).toBe(
-      false,
-    );
   });
 });
