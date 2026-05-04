@@ -24,6 +24,10 @@
   animation: fadeInUp 0.2s ease-out;
 }
 
+.fullWidthMessage {
+  width: 100%;
+}
+
 .timestamp {
   display: block;
   font-size: 0.75rem;
