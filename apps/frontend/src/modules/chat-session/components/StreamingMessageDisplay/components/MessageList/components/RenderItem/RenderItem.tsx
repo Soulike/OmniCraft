@@ -6,6 +6,7 @@ import {SessionIdContext} from '../../../../contexts/SessionIdContext/index.js';
 import {formatTimestamp} from '../../helpers/formatTimestamp.js';
 import type {MessageRenderItem} from '../../hooks/useMessageList.js';
 import {AskUserCard} from '../AskUserCard/index.js';
+import {ContextCompactionBlock} from '../ContextCompactionBlock/index.js';
 import {MessageBubble} from '../MessageBubble/index.js';
 import {SubagentDisclosure} from '../SubagentDisclosure/index.js';
 import {ThinkingBlock} from '../ThinkingBlock/index.js';
@@ -118,5 +119,38 @@ export function RenderItem({item}: RenderItemProps) {
           />
         </div>
       );
+    case 'context-compaction': {
+      if (item.status === 'in-progress') {
+        return (
+          <div
+            className={clsx(styles.assistantMessage, styles.fullWidthMessage)}
+          >
+            <ContextCompactionBlock status='in-progress' />
+          </div>
+        );
+      }
+      if (item.status === 'done') {
+        return (
+          <div
+            className={clsx(styles.assistantMessage, styles.fullWidthMessage)}
+          >
+            <ContextCompactionBlock
+              status='done'
+              beforeTokens={item.beforeTokens}
+              afterTokens={item.afterTokens}
+              summary={item.summary}
+            />
+          </div>
+        );
+      }
+      return (
+        <div className={clsx(styles.assistantMessage, styles.fullWidthMessage)}>
+          <ContextCompactionBlock
+            status='failed'
+            errorMessage={item.errorMessage}
+          />
+        </div>
+      );
+    }
   }
 }
