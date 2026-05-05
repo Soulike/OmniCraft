@@ -50,10 +50,11 @@ function doneEvent(reason: SseDoneEvent['reason'] = 'complete'): SseDoneEvent {
     reason,
     usage: {
       model: 'm',
-      maxInputTokens: 1,
-      inputTokens: 1,
-      outputTokens: 1,
-      cacheReadInputTokens: 0,
+      contextWindowTokens: 1,
+      currentContextInputTokens: 1,
+      sessionInputTokens: 1,
+      sessionOutputTokens: 1,
+      sessionCacheReadInputTokens: 0,
       thinkingLevel: 'none',
     },
   };

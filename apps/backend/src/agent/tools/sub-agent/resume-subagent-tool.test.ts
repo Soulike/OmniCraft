@@ -212,7 +212,19 @@ function createPreparedSnapshot(
     id: 'prepared-subagent-id',
     title: 'Prepared Subagent',
     sseEventCount: 17,
-    llmSession: {id: 'prepared-llm-id', messages: []},
+    llmSession: {
+      id: 'prepared-llm-id',
+      messages: [],
+      compactions: [],
+      usageBaselineMessageCount: null,
+      usage: {
+        currentContextInputTokens: 0,
+        latestCallOutputTokens: 0,
+        sessionInputTokens: 0,
+        sessionOutputTokens: 0,
+        sessionCacheReadInputTokens: 0,
+      },
+    },
     options: {workingDirectory: '/prepared-work', thinkingLevel: 'medium'},
     ...overrides,
   };

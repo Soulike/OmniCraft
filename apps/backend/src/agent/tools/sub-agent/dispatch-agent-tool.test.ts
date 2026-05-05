@@ -152,7 +152,19 @@ describe('dispatchAgentTool', () => {
         id: 'restored-general-id',
         title: 'Restored General',
         sseEventCount: 0,
-        llmSession: {id: 'restored-llm-id', messages: []},
+        llmSession: {
+          id: 'restored-llm-id',
+          messages: [],
+          compactions: [],
+          usageBaselineMessageCount: null,
+          usage: {
+            currentContextInputTokens: 0,
+            latestCallOutputTokens: 0,
+            sessionInputTokens: 0,
+            sessionOutputTokens: 0,
+            sessionCacheReadInputTokens: 0,
+          },
+        },
         options: {workingDirectory: tmpDir, thinkingLevel: 'none'},
       };
 
@@ -180,7 +192,19 @@ describe('dispatchAgentTool', () => {
         id: 'restored-explore-id',
         title: 'Restored Explore',
         sseEventCount: 0,
-        llmSession: {id: 'restored-llm-id', messages: []},
+        llmSession: {
+          id: 'restored-llm-id',
+          messages: [],
+          compactions: [],
+          usageBaselineMessageCount: null,
+          usage: {
+            currentContextInputTokens: 0,
+            latestCallOutputTokens: 0,
+            sessionInputTokens: 0,
+            sessionOutputTokens: 0,
+            sessionCacheReadInputTokens: 0,
+          },
+        },
         options: {workingDirectory: tmpDir, thinkingLevel: 'none'},
       };
 
