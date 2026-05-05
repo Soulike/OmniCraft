@@ -1,5 +1,8 @@
 import type {ThinkingLevel} from '@omnicraft/api-schema';
 import type {
+  SseContextCompactionEndEvent,
+  SseContextCompactionErrorEvent,
+  SseContextCompactionStartEvent,
   SseMessageStartEvent,
   SseTextDeltaEvent,
   SseThinkingDeltaEvent,
@@ -277,6 +280,89 @@ function updateSubagentStatus(
   });
 }
 
+export function pushCompactionStart(
+  prev: ChatMessage[],
+  event: SseContextCompactionStartEvent,
+): ChatMessage[] {
+  const base = removeTrailingAssistantMessageIfEmpty(prev);
+  return [
+    ...base,
+    {
+      id: null,
+      createdAt: null,
+      role: 'assistant' as const,
+      content: {
+        type: 'context-compaction' as const,
+        status: 'in-progress' as const,
+        compactionId: event.compactionId,
+        reason: event.reason,
+        beforeTokens: event.beforeTokens,
+        messageCount: event.messageCount,
+      },
+    },
+    {
+      id: null,
+      createdAt: null,
+      role: 'assistant' as const,
+      content: {type: 'text' as const, content: ''},
+    },
+  ];
+}
+
+export function applyCompactionEnd(
+  prev: ChatMessage[],
+  event: SseContextCompactionEndEvent,
+): ChatMessage[] {
+  return prev.map((msg) => {
+    if (
+      msg.content.type === 'context-compaction' &&
+      msg.content.compactionId === event.compactionId
+    ) {
+      return {
+        ...msg,
+        content: {
+          type: 'context-compaction' as const,
+          status: 'done' as const,
+          compactionId: msg.content.compactionId,
+          reason: msg.content.reason,
+          beforeTokens: msg.content.beforeTokens,
+          messageCount: msg.content.messageCount,
+          summary: event.summary,
+          afterTokens: event.afterTokens,
+          durationMs: event.durationMs,
+        },
+      };
+    }
+    return msg;
+  });
+}
+
+export function applyCompactionError(
+  prev: ChatMessage[],
+  event: SseContextCompactionErrorEvent,
+): ChatMessage[] {
+  return prev.map((msg) => {
+    if (
+      msg.content.type === 'context-compaction' &&
+      msg.content.compactionId === event.compactionId
+    ) {
+      return {
+        ...msg,
+        content: {
+          type: 'context-compaction' as const,
+          status: 'failed' as const,
+          compactionId: msg.content.compactionId,
+          reason: msg.content.reason,
+          beforeTokens: msg.content.beforeTokens,
+          messageCount: msg.content.messageCount,
+          errorMessage: event.message,
+        },
+      };
+    }
+    return msg;
+  });
+}
+
 /** Manages the chat message history, subscribing to chat events. */
 export function useMessages() {
   const [messages, setMessages] = useFrameBatchedState<ChatMessage[]>([]);
@@ -335,6 +421,15 @@ export function useMessages() {
     }) => {
       setMessages((prev) => updateSubagentStatus(prev, data));
     };
+    const onCompactionStart = (data: SseContextCompactionStartEvent) => {
+      setMessages((prev) => pushCompactionStart(prev, data));
+    };
+    const onCompactionEnd = (data: SseContextCompactionEndEvent) => {
+      setMessages((prev) => applyCompactionEnd(prev, data));
+    };
+    const onCompactionError = (data: SseContextCompactionErrorEvent) => {
+      setMessages((prev) => applyCompactionError(prev, data));
+    };
 
     eventBus.on('user-message-sent', onUserMessageSent);
     eventBus.on('text-delta', onTextDelta);
@@ -348,6 +443,9 @@ export function useMessages() {
     eventBus.on('reset-session', onReset);
     eventBus.on('subagent-dispatched', onSubagentDispatched);
     eventBus.on('subagent-completed', onSubagentCompleted);
+    eventBus.on('context-compaction-start', onCompactionStart);
+    eventBus.on('context-compaction-end', onCompactionEnd);
+    eventBus.on('context-compaction-error', onCompactionError);
 
     return () => {
       eventBus.off('user-message-sent', onUserMessageSent);
@@ -362,6 +460,9 @@ export function useMessages() {
       eventBus.off('reset-session', onReset);
       eventBus.off('subagent-dispatched', onSubagentDispatched);
       eventBus.off('subagent-completed', onSubagentCompleted);
+      eventBus.off('context-compaction-start', onCompactionStart);
+      eventBus.off('context-compaction-end', onCompactionEnd);
+      eventBus.off('context-compaction-error', onCompactionError);
     };
   }, [eventBus, setMessages]);
 
