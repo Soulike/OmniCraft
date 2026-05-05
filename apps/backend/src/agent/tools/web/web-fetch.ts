@@ -6,6 +6,7 @@ import {
 } from '@omnicraft/tool-schemas';
 import {parseHTML} from 'linkedom';
 import TurndownService from 'turndown';
+import {extractText, getDocumentProxy} from 'unpdf';
 import {z} from 'zod';
 
 import type {
@@ -20,7 +21,7 @@ import {
   TIMEOUT_MS,
   USER_AGENT,
 } from './config.js';
-import {fetchBody, isTextContentType} from './helpers.js';
+import {fetchBody, isPdfContentType, isTextContentType} from './helpers.js';
 import {validateUrl} from './url-validator.js';
 
 const parameters = webFetchParametersSchema;
@@ -67,6 +68,19 @@ function htmlToMarkdown(
   return {title, content: markdown, fellBack};
 }
 
+async function pdfToText(buffer: Buffer): Promise<string> {
+  try {
+    // unpdf's getDocumentProxy return type leaks `any` from PDF.js internals.
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+    const pdf = await getDocumentProxy(new Uint8Array(buffer));
+    const {text} = await extractText(pdf, {mergePages: true});
+    return Array.isArray(text) ? text.join('\n\n') : text;
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(`Failed to parse PDF: ${message}`, {cause: error});
+  }
+}
+
 function formatResponse(
   url: string,
   title: string | undefined,
@@ -92,6 +106,7 @@ export const webFetchTool: ToolDefinition<typeof parameters, WebFetchResult> = {
   description:
     'Fetches a URL and returns its content in a readable format. ' +
     'HTML pages are converted to Markdown with article extraction. ' +
+    'PDF documents are converted to plain text. ' +
     'Other text content (JSON, plain text, XML) is returned as-is. ' +
     'Use this when you already know the URL to retrieve, ' +
     'rather than needing to discover information.',
@@ -117,7 +132,8 @@ export const webFetchTool: ToolDefinition<typeof parameters, WebFetchResult> = {
         maxResponseSize: MAX_RESPONSE_SIZE,
         headers: new Headers({
           'User-Agent': USER_AGENT,
-          Accept: 'text/html, application/json, text/plain, */*',
+          Accept:
+            'text/html, application/json, application/pdf, text/plain, */*',
         }),
       });
       bodyBytes = result.body;
@@ -144,6 +160,17 @@ export const webFetchTool: ToolDefinition<typeof parameters, WebFetchResult> = {
       content = result.content;
       if (result.fellBack) {
         note = 'Article extraction failed; showing full page content instead.';
+      }
+    } else if (isPdfContentType(contentType)) {
+      try {
+        content = await pdfToText(bodyBytes);
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : String(error);
+        return {
+          data: {message},
+          content: `Error: ${message}`,
+          status: 'failure',
+        };
       }
     } else if (isTextContentType(contentType)) {
       content = new TextDecoder().decode(bodyBytes);

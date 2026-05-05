@@ -123,6 +123,75 @@ describe('webFetchTool', () => {
     });
   });
 
+  describe('PDF content', () => {
+    function buildHelloPdf(): Buffer {
+      const streamContent = 'BT\n/F1 18 Tf\n30 70 Td\n(Hello PDF) Tj\nET\n';
+      const streamLen = Buffer.byteLength(streamContent, 'latin1');
+      const objects = [
+        '<</Type /Catalog /Pages 2 0 R>>',
+        '<</Type /Pages /Kids [3 0 R] /Count 1>>',
+        '<</Type /Page /Parent 2 0 R /MediaBox [0 0 300 144] /Contents 4 0 R /Resources <</Font <</F1 5 0 R>>>>>>',
+        `<</Length ${streamLen.toString()}>>\nstream\n${streamContent}endstream`,
+        '<</Type /Font /Subtype /Type1 /BaseFont /Helvetica>>',
+      ];
+      const header = '%PDF-1.4\n%\xE2\xE3\xCF\xD3\n';
+      let body = '';
+      const offsets: number[] = [];
+      for (let i = 0; i < objects.length; i++) {
+        offsets.push(Buffer.byteLength(header + body, 'latin1'));
+        body += `${(i + 1).toString()} 0 obj\n${objects[i]}\nendobj\n`;
+      }
+      const xrefOffset = Buffer.byteLength(header + body, 'latin1');
+      let xref = `xref\n0 ${(objects.length + 1).toString()}\n0000000000 65535 f \n`;
+      for (const off of offsets) {
+        xref += `${off.toString().padStart(10, '0')} 00000 n \n`;
+      }
+      const trailer = `trailer\n<</Size ${(objects.length + 1).toString()} /Root 1 0 R>>\nstartxref\n${xrefOffset.toString()}\n%%EOF\n`;
+      return Buffer.from(header + body + xref + trailer, 'latin1');
+    }
+
+    it('extracts text from PDF responses', async () => {
+      const pdfBytes = buildHelloPdf();
+      const server = createTestServer('application/pdf', pdfBytes);
+      await startServer(server);
+
+      try {
+        const result = await webFetchTool.execute(
+          {url: serverUrl(server)},
+          context,
+        );
+        expect(result.status).toBe('success');
+        assert(result.status === 'success');
+        expect(result.content).toContain('URL:');
+        expect(result.content).toContain('Hello PDF');
+        expect(result.data.url).toBe(serverUrl(server));
+        expect(result.data.content).toContain('Hello PDF');
+      } finally {
+        await stopServer(server);
+      }
+    });
+
+    it('returns failure when PDF parsing fails', async () => {
+      const server = createTestServer(
+        'application/pdf',
+        Buffer.from('not actually a pdf', 'utf-8'),
+      );
+      await startServer(server);
+
+      try {
+        const result = await webFetchTool.execute(
+          {url: serverUrl(server)},
+          context,
+        );
+        expect(result.status).toBe('failure');
+        assert(result.status === 'failure');
+        expect(result.data.message).toMatch(/Failed to parse PDF/i);
+      } finally {
+        await stopServer(server);
+      }
+    });
+  });
+
   describe('error cases', () => {
     it('returns an error for ftp:// URLs', async () => {
       const result = await webFetchTool.execute(
