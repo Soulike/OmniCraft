@@ -124,8 +124,8 @@ describe('webFetchTool', () => {
   });
 
   describe('PDF content', () => {
-    function buildHelloPdf(): Buffer {
-      const streamContent = 'BT\n/F1 18 Tf\n30 70 Td\n(Hello PDF) Tj\nET\n';
+    function buildPdfWithText(text: string): Buffer {
+      const streamContent = `BT\n/F1 18 Tf\n30 70 Td\n(${text}) Tj\nET\n`;
       const streamLen = Buffer.byteLength(streamContent, 'latin1');
       const objects = [
         '<</Type /Catalog /Pages 2 0 R>>',
@@ -150,8 +150,48 @@ describe('webFetchTool', () => {
       return Buffer.from(header + body + xref + trailer, 'latin1');
     }
 
+    function buildPdfWithManyTextShows(
+      perLineText: string,
+      lineCount: number,
+    ): Buffer {
+      // Start near bottom-left and move up; PDF origin is bottom-left, so
+      // moving with positive Y keeps subsequent text on-page.
+      const lines: string[] = ['BT', '/F1 18 Tf', '30 30 Td'];
+      for (let i = 0; i < lineCount; i++) {
+        // Make each line unique to avoid any text-deduplication in extractors.
+        lines.push(`(${i.toString().padStart(6, '0')}-${perLineText}) Tj`);
+        lines.push('0 20 Td');
+      }
+      lines.push('ET');
+      const streamContent = `${lines.join('\n')}\n`;
+      const streamLen = Buffer.byteLength(streamContent, 'latin1');
+      // Use a very tall MediaBox so all lines stay on-page; some PDF text
+      // extractors skip text that falls outside the page bounds.
+      const objects = [
+        '<</Type /Catalog /Pages 2 0 R>>',
+        '<</Type /Pages /Kids [3 0 R] /Count 1>>',
+        '<</Type /Page /Parent 2 0 R /MediaBox [0 0 10000 1000000] /Contents 4 0 R /Resources <</Font <</F1 5 0 R>>>>>>',
+        `<</Length ${streamLen.toString()}>>\nstream\n${streamContent}endstream`,
+        '<</Type /Font /Subtype /Type1 /BaseFont /Helvetica>>',
+      ];
+      const header = '%PDF-1.4\n%\xE2\xE3\xCF\xD3\n';
+      let body = '';
+      const offsets: number[] = [];
+      for (let i = 0; i < objects.length; i++) {
+        offsets.push(Buffer.byteLength(header + body, 'latin1'));
+        body += `${(i + 1).toString()} 0 obj\n${objects[i]}\nendobj\n`;
+      }
+      const xrefOffset = Buffer.byteLength(header + body, 'latin1');
+      let xref = `xref\n0 ${(objects.length + 1).toString()}\n0000000000 65535 f \n`;
+      for (const off of offsets) {
+        xref += `${off.toString().padStart(10, '0')} 00000 n \n`;
+      }
+      const trailer = `trailer\n<</Size ${(objects.length + 1).toString()} /Root 1 0 R>>\nstartxref\n${xrefOffset.toString()}\n%%EOF\n`;
+      return Buffer.from(header + body + xref + trailer, 'latin1');
+    }
+
     it('extracts text from PDF responses', async () => {
-      const pdfBytes = buildHelloPdf();
+      const pdfBytes = buildPdfWithText('Hello PDF');
       const server = createTestServer('application/pdf', pdfBytes);
       await startServer(server);
 
@@ -186,6 +226,27 @@ describe('webFetchTool', () => {
         expect(result.status).toBe('failure');
         assert(result.status === 'failure');
         expect(result.data.message).toMatch(/Failed to parse PDF/i);
+      } finally {
+        await stopServer(server);
+      }
+    });
+
+    it('writes extracted PDF text to a temp file when over 32KB', async () => {
+      // Use many separate text-show operators because PDF.js truncates
+      // the extracted text from a single very long Tj. ~3000 lines of 20
+      // chars each yields well over 32KB of extracted text.
+      const pdfBytes = buildPdfWithManyTextShows('A'.repeat(20), 3000);
+      const server = createTestServer('application/pdf', pdfBytes);
+      await startServer(server);
+
+      try {
+        const result = await webFetchTool.execute(
+          {url: serverUrl(server)},
+          context,
+        );
+        expect(result.status).toBe('success');
+        assert(result.status === 'success');
+        expect(result.content).toContain('Content saved to file:');
       } finally {
         await stopServer(server);
       }
