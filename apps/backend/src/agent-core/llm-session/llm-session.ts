@@ -315,7 +315,7 @@ export class LlmSession {
         latestCallOutputTokens: 0,
       };
       this.compactions.push({
-        id: crypto.randomUUID(),
+        id: compactionId,
         compactedAt: Date.now(),
         coveredMessageCount,
         recentContextMessageCount: recentContext.sourceMessageCount,
