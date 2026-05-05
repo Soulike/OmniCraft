@@ -277,9 +277,9 @@ describe('Agent compaction lifecycle', () => {
     const order: string[] = [];
     const compactSpy = vi
       .spyOn(LlmSession.prototype, 'compactIfNeeded')
-      .mockImplementation(() => {
+      // eslint-disable-next-line @typescript-eslint/require-await, require-yield
+      .mockImplementation(async function* () {
         order.push('compact');
-        return Promise.resolve(false);
       });
     const agent = new UsageTestAgent(
       () => Promise.resolve(MAIN_CONFIG),
@@ -336,6 +336,152 @@ describe('Agent compaction lifecycle', () => {
     }
     expect(lastEvent.message).toContain(
       'Failed to compact LLM session before model call',
+    );
+  });
+
+  it('emits start → end → done in that order on after-turn success', async () => {
+    vi.spyOn(llmApi, 'countToken').mockResolvedValue(1);
+    vi.spyOn(llmApi, 'streamCompletion').mockImplementation(() =>
+      mainCompletionStream(),
+    );
+    const fakeStart = {
+      type: 'context-compaction-start',
+      compactionId: 'cid-1',
+      reason: 'after-turn',
+      beforeTokens: 1000,
+      messageCount: 5,
+    } as const;
+    const fakeEnd = {
+      type: 'context-compaction-end',
+      compactionId: 'cid-1',
+      summary: 'summary',
+      beforeTokens: 1000,
+      afterTokens: 200,
+      messageCount: 5,
+      durationMs: 100,
+    } as const;
+    vi.spyOn(LlmSession.prototype, 'compactIfNeeded')
+      // eslint-disable-next-line @typescript-eslint/require-await
+      .mockImplementation(async function* () {
+        yield fakeStart;
+        yield fakeEnd;
+      });
+
+    const agent = new TestAgent(
+      () => Promise.resolve(MAIN_CONFIG),
+      testAgentOptions(),
+    );
+    const eventsPromise = collectUntilDone(agent);
+    agent.handleUserMessage('hi');
+    const events = await eventsPromise;
+
+    const types = events.map((e) => e.type);
+    const startIdx = types.indexOf('context-compaction-start');
+    const endIdx = types.indexOf('context-compaction-end');
+    const doneIdx = types.lastIndexOf('done');
+    expect(startIdx).toBeGreaterThan(-1);
+    expect(endIdx).toBe(startIdx + 1);
+    expect(doneIdx).toBe(endIdx + 1);
+  });
+
+  it('emits start → error → done on after-turn failure (no top-level error)', async () => {
+    vi.spyOn(llmApi, 'countToken').mockResolvedValue(1);
+    vi.spyOn(llmApi, 'streamCompletion').mockImplementation(() =>
+      mainCompletionStream(),
+    );
+    const fakeStart = {
+      type: 'context-compaction-start',
+      compactionId: 'cid-2',
+      reason: 'after-turn',
+      beforeTokens: 1000,
+      messageCount: 5,
+    } as const;
+    const fakeError = {
+      type: 'context-compaction-error',
+      compactionId: 'cid-2',
+      reason: 'after-turn',
+      message: 'provider failed',
+      beforeTokens: 1000,
+      messageCount: 5,
+    } as const;
+    vi.spyOn(LlmSession.prototype, 'compactIfNeeded')
+      // eslint-disable-next-line @typescript-eslint/require-await
+      .mockImplementation(async function* () {
+        yield fakeStart;
+        yield fakeError;
+        throw new Error('provider failed');
+      });
+
+    const agent = new TestAgent(
+      () => Promise.resolve(MAIN_CONFIG),
+      testAgentOptions(),
+    );
+    const eventsPromise = collectUntilDone(agent);
+    agent.handleUserMessage('hi');
+    const events = await eventsPromise;
+
+    const types = events.map((e) => e.type);
+    expect(types).toContain('context-compaction-start');
+    expect(types).toContain('context-compaction-error');
+    expect(types).toContain('done');
+    // After-turn failure must NOT emit a top-level error.
+    expect(types.filter((t) => t === 'error')).toHaveLength(0);
+  });
+
+  it('emits start → error → top-level error on before-llm-call failure', async () => {
+    vi.spyOn(llmApi, 'countToken').mockResolvedValue(1);
+    vi.spyOn(llmApi, 'streamCompletion').mockImplementation(() =>
+      mainCompletionStream(),
+    );
+    const fakeStart = {
+      type: 'context-compaction-start',
+      compactionId: 'cid-3',
+      reason: 'before-llm-call',
+      beforeTokens: 1000,
+      messageCount: 5,
+    } as const;
+    const fakeError = {
+      type: 'context-compaction-error',
+      compactionId: 'cid-3',
+      reason: 'before-llm-call',
+      message: 'provider failed',
+      beforeTokens: 1000,
+      messageCount: 5,
+    } as const;
+    // Spy on the private method. Cast to bypass the private modifier.
+    vi.spyOn(
+      LlmSession.prototype as unknown as {
+        compactIfNeededUnlocked: (
+          options: unknown,
+        ) => AsyncGenerator<unknown, void, void>;
+      },
+      'compactIfNeededUnlocked',
+    )
+      // eslint-disable-next-line @typescript-eslint/require-await
+      .mockImplementation(async function* () {
+        yield fakeStart;
+        yield fakeError;
+        throw new Error('provider failed');
+      });
+
+    const agent = new TestAgent(
+      () => Promise.resolve(MAIN_CONFIG),
+      testAgentOptions(),
+    );
+    const eventsPromise = collectUntilError(agent);
+    agent.handleUserMessage('hi');
+    const events = await eventsPromise;
+
+    const types = events.map((e) => e.type);
+    expect(types).toContain('context-compaction-start');
+    expect(types).toContain('context-compaction-error');
+    expect(types).toContain('error');
+    // Wire ordering: start before error before top-level error.
+    expect(types.indexOf('context-compaction-start')).toBeLessThan(
+      types.indexOf('context-compaction-error'),
+    );
+    expect(types.indexOf('context-compaction-error')).toBeLessThan(
+      types.indexOf('error'),
     );
   });
 });
