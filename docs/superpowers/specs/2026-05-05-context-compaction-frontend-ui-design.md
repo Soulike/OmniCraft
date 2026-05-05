@@ -314,17 +314,27 @@ components/MessageList/components/ContextCompactionBlock/
 
 The view renders three states:
 
-| status        | Trigger left side             | Trigger label                             | Body                                          |
-| ------------- | ----------------------------- | ----------------------------------------- | --------------------------------------------- |
-| `in-progress` | `<Spinner size='sm' />`       | `Compacting context…`                     | Hidden while in-progress (no partial text)    |
-| `done`        | `<Archive size={16} />`       | `Context compacted (47.2k → 8.1k tokens)` | `<MarkdownRenderer content={summary} />`      |
-| `failed`      | `<TriangleAlert size={16} />` | `Compaction failed`                       | `<MarkdownRenderer content={errorMessage} />` |
+| status        | Trigger left side             | Trigger label                             | Chevron | Body                                          |
+| ------------- | ----------------------------- | ----------------------------------------- | ------- | --------------------------------------------- |
+| `in-progress` | `<Spinner size='sm' />`       | `Compacting context…`                     | hidden  | not rendered (disclosure is disabled)         |
+| `done`        | `<Archive size={16} />`       | `Context compacted (47.2k → 8.1k tokens)` | shown   | `<MarkdownRenderer content={summary} />`      |
+| `failed`      | `<TriangleAlert size={16} />` | `Compaction failed`                       | shown   | `<MarkdownRenderer content={errorMessage} />` |
 
 User-initiated abort renders as `failed` with `errorMessage: 'Aborted'`,
 mirroring how in-flight tool calls render abort. `failed` cards default to
-**expanded** so the error message is visible immediately. The other two
-states default to collapsed. Token counts are formatted with the same
-helper used by `UsageInfoView` for consistency.
+**expanded** so the error message is visible immediately; `done` defaults to
+collapsed. Token counts are formatted with the same helper used by
+`UsageInfoView` for consistency.
+
+The `in-progress` card is intentionally **non-interactive**: there is no
+body to reveal yet, so showing a chevron would be a dead affordance. Pass
+`isDisabled={status === 'in-progress'}` to `Disclosure` (so keyboard and
+screen-reader users get the correct `aria-disabled="true"` state) and
+conditionally omit `<Disclosure.Indicator />` when `status === 'in-progress'`
+(so sighted users don't see a chevron they can't act on). The same
+`Disclosure` structure is used across all three states — only the
+`isDisabled` prop and the indicator's presence vary, which keeps the JSX
+single-shape and easy to reason about.
 
 Mocks:
 
@@ -344,9 +354,9 @@ expanded (done):
 │ the new JWT-based flow. All tests pass.                  │
 └──────────────────────────────────────────────────────────┘
 
-in-progress:
+in-progress (no chevron, non-interactive):
 ┌──────────────────────────────────────────────────────────┐
-│ ◐  Compacting context…                                ▸ │
+│ ◐  Compacting context…                                  │
 └──────────────────────────────────────────────────────────┘
 ```
 
