@@ -1,5 +1,10 @@
 export type {
   SseBaseEvent,
+  SseCompactionReason,
+  SseContextCompactionEndEvent,
+  SseContextCompactionErrorEvent,
+  SseContextCompactionEvent,
+  SseContextCompactionStartEvent,
   SseDoneEvent,
   SseErrorEvent,
   SseEvent,
@@ -24,7 +29,11 @@ export type {
   SseUsageUpdateEvent,
 } from './schema.js';
 export {
+  compactionReasonSchema,
   sseBaseEventSchema,
+  sseContextCompactionEndEventSchema,
+  sseContextCompactionErrorEventSchema,
+  sseContextCompactionStartEventSchema,
   sseDoneEventSchema,
   sseErrorEventSchema,
   sseEventCursorEntrySchema,

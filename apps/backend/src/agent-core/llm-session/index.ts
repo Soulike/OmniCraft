@@ -2,7 +2,6 @@ export {LlmSession} from './llm-session.js';
 export type {
   LlmCompactionMetadata,
   LlmCompactionOptions,
-  LlmCompactionReason,
   LlmSessionEvent,
   LlmSessionEventStream,
   LlmSessionMessageStartEvent,

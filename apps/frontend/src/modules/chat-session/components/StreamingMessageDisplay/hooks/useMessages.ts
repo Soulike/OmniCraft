@@ -1,5 +1,9 @@
 import type {ThinkingLevel} from '@omnicraft/api-schema';
 import type {
+  SseContextCompactionEndEvent,
+  SseContextCompactionErrorEvent,
+  SseContextCompactionEvent,
+  SseContextCompactionStartEvent,
   SseMessageStartEvent,
   SseTextDeltaEvent,
   SseThinkingDeltaEvent,
@@ -277,6 +281,16 @@ function updateSubagentStatus(
   });
 }
 
+export function pushCompactionEvent(
+  prev: ChatMessage[],
+  event: SseContextCompactionEvent,
+): ChatMessage[] {
+  return [
+    ...removeTrailingAssistantMessageIfEmpty(prev),
+    {id: null, createdAt: null, role: 'assistant' as const, content: event},
+  ];
+}
+
 /** Manages the chat message history, subscribing to chat events. */
 export function useMessages() {
   const [messages, setMessages] = useFrameBatchedState<ChatMessage[]>([]);
@@ -335,6 +349,15 @@ export function useMessages() {
     }) => {
       setMessages((prev) => updateSubagentStatus(prev, data));
     };
+    const onCompactionStart = (data: SseContextCompactionStartEvent) => {
+      setMessages((prev) => pushCompactionEvent(prev, data));
+    };
+    const onCompactionEnd = (data: SseContextCompactionEndEvent) => {
+      setMessages((prev) => pushCompactionEvent(prev, data));
+    };
+    const onCompactionError = (data: SseContextCompactionErrorEvent) => {
+      setMessages((prev) => pushCompactionEvent(prev, data));
+    };
 
     eventBus.on('user-message-sent', onUserMessageSent);
     eventBus.on('text-delta', onTextDelta);
@@ -348,6 +371,9 @@ export function useMessages() {
     eventBus.on('reset-session', onReset);
     eventBus.on('subagent-dispatched', onSubagentDispatched);
     eventBus.on('subagent-completed', onSubagentCompleted);
+    eventBus.on('context-compaction-start', onCompactionStart);
+    eventBus.on('context-compaction-end', onCompactionEnd);
+    eventBus.on('context-compaction-error', onCompactionError);
 
     return () => {
       eventBus.off('user-message-sent', onUserMessageSent);
@@ -362,6 +388,9 @@ export function useMessages() {
       eventBus.off('reset-session', onReset);
       eventBus.off('subagent-dispatched', onSubagentDispatched);
       eventBus.off('subagent-completed', onSubagentCompleted);
+      eventBus.off('context-compaction-start', onCompactionStart);
+      eventBus.off('context-compaction-end', onCompactionEnd);
+      eventBus.off('context-compaction-error', onCompactionError);
     };
   }, [eventBus, setMessages]);
 

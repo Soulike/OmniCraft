@@ -36,6 +36,15 @@ export function routeBaseEventToBus(
     case 'done':
       bus.emit(event.type, event);
       break;
+    case 'context-compaction-start':
+      bus.emit(event.type, event);
+      break;
+    case 'context-compaction-end':
+      bus.emit(event.type, event);
+      break;
+    case 'context-compaction-error':
+      bus.emit(event.type, event);
+      break;
     case 'usage-update':
       bus.emit(event.type, event);
       break;
