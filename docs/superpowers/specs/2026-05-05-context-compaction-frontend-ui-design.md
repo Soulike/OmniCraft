@@ -17,7 +17,7 @@ GitHub issue: <https://github.com/Soulike/OmniCraft/issues/227>.
 
 ## Goals
 
-- Add SSE events that mark compaction start and completion.
+- Add SSE events that mark compaction start, completion, and failure.
 - Persist those events in the existing `AgentSseLog` so reloaded sessions show
   compaction history naturally.
 - Render a collapsible card in the message list at the position where
@@ -34,13 +34,8 @@ GitHub issue: <https://github.com/Soulike/OmniCraft/issues/227>.
 - Do not stream the summary text token-by-token (no `context-compaction-delta`
   event). The card is collapsed by default, so live token streaming would be
   invisible most of the time and is not worth the extra wiring. If we later
-  decide to surface live text, this design extends naturally by adding a third
-  event without breaking the start/end pair.
-- Do not add a dedicated `context-compaction-error` event. Failures during the
-  `before-model-call` path already abort the turn via the existing `error`
-  event. Failures during the `after-turn` path are already swallowed by
-  `compactAfterTurn`. The frontend handles a missing `end` as an
-  `interrupted` UI state.
+  decide to surface live text, this design extends naturally by adding a
+  delta event without breaking the start/end/error contract.
 - Do not change the compaction trigger logic, the summarization prompt, or the
   token-estimate formula. This is a UI-surfacing change only.
 - Do not add controls to manually trigger or undo compaction.
@@ -49,8 +44,8 @@ GitHub issue: <https://github.com/Soulike/OmniCraft/issues/227>.
 
 ### SSE event schema
 
-Two new events are added to `packages/sse-events/src/schema.ts` and re-exported
-from `packages/sse-events/src/index.ts`. Both are added to
+Three new events are added to `packages/sse-events/src/schema.ts` and
+re-exported from `packages/sse-events/src/index.ts`. All three are added to
 `sseBaseEventSchema` so they will also flow through `subagent-output` if a
 subagent ever compacts.
 
@@ -72,11 +67,51 @@ subagent ever compacts.
   messageCount: number,
   durationMs: number,
 }
+
+// context-compaction-error
+{
+  type: 'context-compaction-error',
+  reason: 'before-model-call' | 'after-turn',
+  message: string,         // underlying error message
+  beforeTokens: number,
+  messageCount: number,
+}
 ```
 
 There is no compaction ID on the wire. The mutex in `LlmSession` guarantees at
 most one in-flight compaction per session, so "the most recent unended
 compaction" is unambiguous on the frontend.
+
+#### Why a dedicated error event alongside the generic `error` event
+
+`context-compaction-error` and the existing top-level `error` event answer
+different questions and both belong in the UI for the `before-model-call`
+case:
+
+- `context-compaction-error` answers "what happened to _this_ compaction, and
+  why?" It attaches to the compaction card in the message list as a piece of
+  history.
+- The generic `error` event answers "your turn failed; the chat cannot
+  proceed." It is an operational state surfaced in the chat-level error UI.
+
+For `before-model-call` failure both are true: the compaction was triggered at
+≥80% context and failed, so the next LLM call would almost certainly hit the
+provider's context-window limit. The chat is effectively blocked until the
+user takes action (start a new session, fix a transient provider issue, etc.).
+A `failed` status buried mid-scroll on a compaction card is not enough — the
+user might miss it and send another message that fails confusingly at the
+provider. The chat-level error banner makes the operational state explicit.
+
+For `after-turn` failure only the first applies — the turn already succeeded,
+the next turn retries compaction at the before-call boundary, no operational
+impact yet. So only `context-compaction-error` fires; no generic `error`.
+
+Behavior summary:
+
+| Trigger                     | `context-compaction-error` | Generic `error` |
+| --------------------------- | -------------------------- | --------------- |
+| `after-turn` failure        | yes                        | no              |
+| `before-model-call` failure | yes                        | yes             |
 
 ### Backend emission
 
@@ -99,9 +134,12 @@ Behavior:
   immediately before `generateCompactionSummary()` is called.
 - After `this.messages` is replaced and `this.compactions` is updated, it
   yields `context-compaction-end`.
-- If `generateCompactionSummary()` throws, the throw propagates out of the
-  generator. `start` is already on the wire; `end` never fires. The mutex still
-  wraps the generator body, so callers cannot interleave compactions.
+- If `generateCompactionSummary()` (or any other step inside the generator)
+  throws, the generator catches the error, yields `context-compaction-error`
+  with the underlying message, then re-throws. Callers do not need to know
+  about the error event; it is always emitted before the throw escapes.
+- The mutex still wraps the generator body, so callers cannot interleave
+  compactions.
 
 `Agent` has two call sites
 (`apps/backend/src/agent-core/agent/agent.ts:224` and `:329`). Each becomes a
@@ -115,10 +153,23 @@ for await (const event of this.llmSession.compactIfNeeded({
 }
 ```
 
-The existing try/catch in `compactAfterTurn` continues to swallow errors after
-`start` may have been emitted.
+The throw rules at the call sites are intentionally left as they are today:
 
-Wire ordering for an after-turn compaction is preserved:
+- `compactBeforeModelCall` re-wraps and re-throws. The throw propagates up
+  through `sendMessages` → `runAgentLoop`, where the agent's existing
+  catch-all converts it into a top-level `error` SSE event. The `try/finally`
+  in `sendMessages` rolls back `this.messages`, `this.compactions`,
+  `this.usage`, and `this.usageBaselineMessageCount` to the pre-call snapshot.
+  Net result on the wire:
+  `context-compaction-start → context-compaction-error → error`.
+- `compactAfterTurn` swallows the throw with the existing `logger.error` call.
+  `context-compaction-error` has already been written to the SSE log via the
+  loop, so the user still sees the failure on the compaction card. The
+  completed turn remains successful and `done` arrives normally. Net result on
+  the wire:
+  `…assistant text… → context-compaction-start → context-compaction-error → done`.
+
+Wire ordering for a successful after-turn compaction is preserved:
 
 ```
 …assistant text… → context-compaction-start → context-compaction-end → done
@@ -133,7 +184,7 @@ yielded (commit `88f904a`).
 #### Bus contract
 
 `apps/frontend/src/modules/chat-session/components/StreamingMessageDisplay/types.ts`
-adds two `ChatEventMap` entries and a new `MessageContent` variant:
+adds three `ChatEventMap` entries and a new `MessageContent` variant:
 
 ```ts
 'context-compaction-start': {
@@ -150,18 +201,26 @@ adds two `ChatEventMap` entries and a new `MessageContent` variant:
   messageCount: number;
   durationMs: number;
 };
+'context-compaction-error': {
+  compactionId: string;
+  reason: 'before-model-call' | 'after-turn';
+  message: string;
+  beforeTokens: number;
+  messageCount: number;
+};
 
 // MessageContent variant
 {
   type: 'context-compaction',
   compactionId: string,
-  status: 'in-progress' | 'done' | 'interrupted',
+  status: 'in-progress' | 'done' | 'failed' | 'interrupted',
   reason: 'before-model-call' | 'after-turn',
   beforeTokens: number,
   messageCount: number,
   summary?: string,
   afterTokens?: number,
   durationMs?: number,
+  errorMessage?: string,
 }
 ```
 
@@ -171,16 +230,16 @@ key used to pair `start` with its matching `end`.
 
 #### Routing
 
-`apps/frontend/src/modules/chat-session/hooks/useStreamChat.ts` adds two
-`case` branches in the event switch (around lines 87-149) that forward both
-events to `ChatEventBus`. The same handlers are added in
+`apps/frontend/src/modules/chat-session/hooks/useStreamChat.ts` adds three
+`case` branches in the event switch (around lines 87-149) that forward all
+three events to `ChatEventBus`. The same handlers are added in
 `route-base-event-to-bus.ts` so a future subagent compaction renders inside
 that subagent's bubble via `subagent-output`.
 
 #### Message state
 
 `apps/frontend/src/modules/chat-session/components/StreamingMessageDisplay/hooks/useMessages.ts`
-gains two handlers:
+gains three handlers:
 
 - On `context-compaction-start`: push a synthetic `ChatMessage` with content
   `{type: 'context-compaction', status: 'in-progress', ...}` and a freshly
@@ -188,9 +247,14 @@ gains two handlers:
 - On `context-compaction-end`: locate the most recent in-progress compaction
   message, set its status to `'done'`, and merge in `summary`, `afterTokens`,
   and `durationMs`.
-- On `done`, `error`, or `reset-session`: any compaction message still in
-  `'in-progress'` is flipped to `'interrupted'`. This covers the case where
-  `start` arrived but the summarization call failed.
+- On `context-compaction-error`: locate the most recent in-progress compaction
+  message, set its status to `'failed'`, and store `errorMessage`.
+- On `done`, generic `error`, or `reset-session`: any compaction message still
+  in `'in-progress'` is flipped to `'interrupted'`. This is the catch-all for
+  the case where neither `end` nor `context-compaction-error` ever arrives
+  (e.g. mid-stream abort, process crash before the error event was written).
+  In normal failure flows, `'failed'` will already be set by the time these
+  events arrive, so this rule is a no-op.
 
 #### Render item and dispatch
 
@@ -211,16 +275,19 @@ components/MessageList/components/ContextCompactionBlock/
   index.ts
 ```
 
-The view renders three states:
+The view renders four states:
 
-| status        | Trigger left side             | Trigger label                             | Body                                       |
-| ------------- | ----------------------------- | ----------------------------------------- | ------------------------------------------ |
-| `in-progress` | `<Spinner size='sm' />`       | `Compacting context…`                     | Hidden while in-progress (no partial text) |
-| `done`        | `<Archive size={16} />`       | `Context compacted (47.2k → 8.1k tokens)` | `<MarkdownRenderer content={summary} />`   |
-| `interrupted` | `<TriangleAlert size={16} />` | `Compaction interrupted`                  | Hidden                                     |
+| status        | Trigger left side             | Trigger label                             | Body                                          |
+| ------------- | ----------------------------- | ----------------------------------------- | --------------------------------------------- |
+| `in-progress` | `<Spinner size='sm' />`       | `Compacting context…`                     | Hidden while in-progress (no partial text)    |
+| `done`        | `<Archive size={16} />`       | `Context compacted (47.2k → 8.1k tokens)` | `<MarkdownRenderer content={summary} />`      |
+| `failed`      | `<TriangleAlert size={16} />` | `Compaction failed`                       | `<MarkdownRenderer content={errorMessage} />` |
+| `interrupted` | `<TriangleAlert size={16} />` | `Compaction interrupted`                  | Hidden                                        |
 
-All states default to collapsed. Token counts are formatted with the same
-helper used by `UsageInfoView` for consistency.
+`failed` cards default to **expanded** so the error message is visible
+immediately — failures are rare and worth surfacing. The other three states
+default to collapsed. Token counts are formatted with the same helper used by
+`UsageInfoView` for consistency.
 
 Mocks:
 
@@ -262,35 +329,57 @@ way they do for any other event.
 
 ## Failure modes
 
-- **Summarization throws (before-model-call)**: the throw propagates up through
-  `compactBeforeModelCall` and aborts the turn via the normal `error` event.
-  `start` may already be on the wire. `useMessages` also flips any
-  still-in-progress compaction card to `interrupted` when an `error` event
-  arrives, applying the same rule as for `done` and `reset-session`.
-- **Summarization throws (after-turn)**: `compactAfterTurn` swallows the error
-  as today. `done` arrives, and the `useMessages` handler flips the in-progress
-  card to `interrupted`.
+- **Summarization throws (before-model-call)**: the generator yields
+  `context-compaction-error`, then re-throws. `compactBeforeModelCall` wraps
+  and re-throws; the agent's catch-all converts it into a top-level `error`
+  SSE event. Net wire sequence:
+  `context-compaction-start → context-compaction-error → error`. The
+  compaction card flips to `'failed'` with the error message; the chat-level
+  error UI surfaces the operational state ("the chat is blocked"). Both
+  surfaces are intentional — they convey different information (see "Why a
+  dedicated error event alongside the generic `error` event" above). The LLM
+  history rollback in `sendMessages` runs as today.
+- **Summarization throws (after-turn)**: the generator still yields
+  `context-compaction-error` before throwing. `compactAfterTurn` swallows the
+  throw with the existing `logger.error` call. The compaction card flips to
+  `'failed'` with the error message; the turn remains successful and `done`
+  arrives normally. No chat-level `error` event is emitted.
+- **`start` arrives but neither `end` nor `error` ever arrives** (e.g.
+  mid-stream abort, process crash before the error event is appended): the
+  `'interrupted'` catch-all rule in `useMessages` flips the card on the next
+  `done` / generic `error` / `reset-session`.
+- **Persisted log inconsistency on `before-model-call` rollback**: when
+  `before-model-call` compaction fails, `sendMessages` rolls back
+  `this.messages` and `this.compactions`, but the SSE events are already in
+  `AgentSseLog` and are not rolled back. On reload the frontend will see
+  `start → error → top-level error` and render the `'failed'` card. This is
+  desired: the SSE log is the user-visible transcript and should preserve
+  what the user saw at the time, even though the LLM-side history has been
+  reverted.
 - **`end` event lost in transit**: SSE is ordered per connection. If the
   connection drops mid-stream, reload replays from `AgentSseLog`, which has
-  both events written atomically (via `appendSseEvent`'s normal flow). No
-  partial state survives a reload.
+  every appended event. No partial state survives a reload.
 
 ## Testing
 
-- `packages/sse-events`: schema parse tests for both new events (existing test
-  pattern).
+- `packages/sse-events`: schema parse tests for all three new events
+  (existing test pattern).
 - `apps/backend/src/agent-core/llm-session/`: a unit test that runs
   `compactIfNeeded` and asserts the yielded events for the success and skip
-  paths. A second test asserts the throw path: `start` yields, then the
-  generator throws.
-- `apps/backend/src/agent-core/agent/`: a test that exercises the agent loop
-  end-to-end and asserts the wire ordering
-  `…assistant → start → end → done`.
-- `apps/frontend/.../useMessages`: tests for the three transitions
-  (`start → end → done`, `start → done` with no end, reset).
+  paths. A second test asserts the error path: `start` yields, then
+  `context-compaction-error` yields, then the generator throws.
+- `apps/backend/src/agent-core/agent/`: tests that exercise the agent loop
+  end-to-end and assert wire ordering for both compaction reasons:
+  - success: `…assistant → start → end → done`
+  - after-turn failure: `…assistant → start → error → done`
+    (no top-level `error`)
+  - before-model-call failure: `start → error → error` (top-level)
+- `apps/frontend/.../useMessages`: tests for all transitions
+  (`start → end → done`, `start → error`, `start` with no end/error followed
+  by `done`, reset).
 - Manual UI verification in the dev server: trigger a synthetic compaction by
-  lowering the trigger ratio in dev, exercise expand/collapse, verify
-  `interrupted` styling.
+  lowering the trigger ratio in dev, exercise expand/collapse for each state,
+  verify `failed` defaults to expanded and `interrupted` styling looks right.
 
 ## Rollout
 
