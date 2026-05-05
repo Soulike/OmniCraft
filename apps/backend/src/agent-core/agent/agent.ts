@@ -20,6 +20,7 @@ import type {
   SseToolExecuteEndEvent,
   SseToolExecuteStartEvent,
   SseUsage,
+  SseUsageUpdateEvent,
 } from '@omnicraft/sse-events';
 import type {AnyToolResultData, ToolName} from '@omnicraft/tool-schemas';
 
@@ -320,11 +321,8 @@ export abstract class Agent {
     thinkingLevel: ThinkingLevel,
   ): AgentEventStream {
     await this.compactAfterTurn(tools, systemPrompt, thinkingLevel);
-    yield {
-      type: 'done',
-      reason,
-      usage: await this.buildSseUsage(),
-    } satisfies SseDoneEvent;
+    yield await this.buildUsageUpdateEvent();
+    yield {type: 'done', reason} satisfies SseDoneEvent;
   }
 
   private async compactAfterTurn(
@@ -388,7 +386,22 @@ export abstract class Agent {
       content: userMessage,
     } satisfies SseMessageStartEvent;
 
-    let toolCalls = yield* this.consumeStream(userStream);
+    let toolCalls: LlmToolCall[];
+    try {
+      toolCalls = yield* this.consumeStream(userStream);
+    } catch (error: unknown) {
+      if (signal.aborted) {
+        yield* this.emitAbortCompletion(
+          inFlightToolCalls,
+          toolDefs,
+          systemPrompt,
+          thinkingLevel,
+        );
+        return;
+      }
+      throw error;
+    }
+    yield await this.buildUsageUpdateEvent();
 
     let round = 0;
     while (toolCalls.length > 0) {
@@ -517,15 +530,31 @@ export abstract class Agent {
         return result ? [result] : [];
       });
 
-      toolCalls = yield* this.consumeStream(
-        this.llmSession.submitToolResults(
-          orderedResults,
-          toolDefs,
-          systemPrompt,
-          thinkingLevel,
-          signal,
-        ),
-      );
+      try {
+        toolCalls = yield* this.consumeStream(
+          this.llmSession.submitToolResults(
+            orderedResults,
+            toolDefs,
+            systemPrompt,
+            thinkingLevel,
+            signal,
+          ),
+        );
+      } catch (error: unknown) {
+        // signal.aborted may have changed during async stream consumption
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+        if (signal.aborted) {
+          yield* this.emitAbortCompletion(
+            inFlightToolCalls,
+            toolDefs,
+            systemPrompt,
+            thinkingLevel,
+          );
+          return;
+        }
+        throw error;
+      }
+      yield await this.buildUsageUpdateEvent();
     }
 
     yield* this.emitDoneAfterTurn(
@@ -549,6 +578,14 @@ export abstract class Agent {
       contextWindowTokens,
       ...usage,
       thinkingLevel: this.thinkingLevel,
+    };
+  }
+
+  /** Builds a real-time `usage-update` SSE event with the latest token totals. */
+  private async buildUsageUpdateEvent(): Promise<SseUsageUpdateEvent> {
+    return {
+      type: 'usage-update',
+      usage: await this.buildSseUsage(),
     };
   }
 

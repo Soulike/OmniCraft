@@ -45,5 +45,8 @@ export function routeBaseEventToBus(
     case 'context-compaction-error':
       bus.emit(event.type, event);
       break;
+    case 'usage-update':
+      bus.emit(event.type, event);
+      break;
   }
 }

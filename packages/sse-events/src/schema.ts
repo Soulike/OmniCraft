@@ -69,9 +69,16 @@ export type SseUsage = z.infer<typeof sseUsageSchema>;
 export const sseDoneEventSchema = z.object({
   type: z.literal('done'),
   reason: z.enum(['complete', 'max_rounds_reached', 'aborted']),
-  usage: sseUsageSchema,
 });
 export type SseDoneEvent = z.infer<typeof sseDoneEventSchema>;
+
+/** Real-time token usage update. Emitted after each LLM call and after
+ *  post-turn compaction. The latest event always carries the current totals. */
+export const sseUsageUpdateEventSchema = z.object({
+  type: z.literal('usage-update'),
+  usage: sseUsageSchema,
+});
+export type SseUsageUpdateEvent = z.infer<typeof sseUsageUpdateEventSchema>;
 
 /** Thinking/reasoning has started. */
 export const sseThinkingStartEventSchema = z.object({
@@ -206,6 +213,7 @@ export const sseBaseEventSchema = z.discriminatedUnion('type', [
   sseContextCompactionStartEventSchema,
   sseContextCompactionEndEventSchema,
   sseContextCompactionErrorEventSchema,
+  sseUsageUpdateEventSchema,
 ]);
 export type SseBaseEvent = z.infer<typeof sseBaseEventSchema>;
 
@@ -267,6 +275,7 @@ export const sseEventSchema = z.discriminatedUnion('type', [
   sseToolExecuteDeltaEventSchema,
   sseToolExecuteEndEventSchema,
   sseDoneEventSchema,
+  sseUsageUpdateEventSchema,
   sseErrorEventSchema,
   sseSessionTitleEventSchema,
   sseSubagentDispatchEventSchema,

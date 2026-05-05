@@ -5,6 +5,8 @@ import type {
   SseTextDeltaEvent,
   SseThinkingDeltaEvent,
   SseToolExecuteDeltaEvent,
+  SseUsage,
+  SseUsageUpdateEvent,
 } from '@omnicraft/sse-events';
 import {describe, expect, it} from 'vitest';
 
@@ -37,6 +39,22 @@ function messageStart(messageId = 'msg-1'): SseMessageStartEvent {
 
 function subagentOutput(agentId: string, event: SseBaseEvent): SseEvent {
   return {type: 'subagent-output', agentId, event};
+}
+
+function usageUpdate(overrides: Partial<SseUsage> = {}): SseUsageUpdateEvent {
+  return {
+    type: 'usage-update',
+    usage: {
+      model: 'test-model',
+      contextWindowTokens: 200_000,
+      currentContextInputTokens: 0,
+      sessionInputTokens: 0,
+      sessionOutputTokens: 0,
+      sessionCacheReadInputTokens: 0,
+      thinkingLevel: 'none',
+      ...overrides,
+    },
+  };
 }
 
 function expectMerge(
@@ -147,5 +165,50 @@ describe('sseReplayCompressor', () => {
         subagentOutput('subagent-1', textDelta('b')),
       ),
     ).toBe(false);
+  });
+
+  it('supersedes consecutive top-level usage-update events with the latest', () => {
+    const earlier = usageUpdate({sessionInputTokens: 100});
+    const later = usageUpdate({sessionInputTokens: 250});
+    expectMerge(earlier, later, later);
+  });
+
+  it('supersedes consecutive subagent usage-update events for the same agent', () => {
+    const earlier = subagentOutput(
+      'subagent-1',
+      usageUpdate({sessionInputTokens: 10}),
+    );
+    const later = subagentOutput(
+      'subagent-1',
+      usageUpdate({sessionInputTokens: 30}),
+    );
+    expectMerge(earlier, later, later);
+  });
+
+  it('does not merge usage-update events across different subagents', () => {
+    expect(
+      sseReplayCompressor.canMerge(
+        subagentOutput('subagent-1', usageUpdate()),
+        subagentOutput('subagent-2', usageUpdate()),
+      ),
+    ).toBe(false);
+  });
+
+  it('does not merge top-level usage-update with subagent usage-update', () => {
+    expect(
+      sseReplayCompressor.canMerge(
+        usageUpdate(),
+        subagentOutput('subagent-1', usageUpdate()),
+      ),
+    ).toBe(false);
+  });
+
+  it('does not merge usage-update with text-delta', () => {
+    expect(sseReplayCompressor.canMerge(usageUpdate(), textDelta('a'))).toBe(
+      false,
+    );
+    expect(sseReplayCompressor.canMerge(textDelta('a'), usageUpdate())).toBe(
+      false,
+    );
   });
 });

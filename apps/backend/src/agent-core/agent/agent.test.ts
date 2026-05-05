@@ -3,6 +3,9 @@ import {afterEach, describe, expect, it, vi} from 'vitest';
 
 import {llmApi, type LlmConfig, type LlmEventStream} from '../llm-api/index.js';
 import {LlmSession} from '../llm-session/index.js';
+import {createMockTool} from '../tool/testing.js';
+import {ToolRegistry} from '../tool/tool-registry.js';
+import type {ToolDefinition} from '../tool/types.js';
 import {Agent} from './agent.js';
 import type {AgentSnapshot} from './types.js';
 
@@ -33,6 +36,16 @@ class TestAgent extends Agent {}
 class UsageTestAgent extends Agent {
   streamForTest(userMessage: string): AsyncIterable<SseEvent> {
     return this.runAgentLoop(userMessage, 'high', new AbortController().signal);
+  }
+}
+
+class TestToolRegistry extends ToolRegistry {
+  static createForTest(): TestToolRegistry {
+    return new TestToolRegistry();
+  }
+
+  public override register(tool: ToolDefinition): void {
+    super.register(tool);
   }
 }
 
@@ -71,6 +84,22 @@ async function* usageCompletionStream(usage: {
   await Promise.resolve();
   yield {type: 'text-delta', content: 'Assistant response'};
   yield {type: 'message-end', stopReason: 'end_turn', usage};
+}
+
+async function* toolCallCompletionStream(
+  toolName: string,
+  usage: {
+    inputTokens: number;
+    outputTokens: number;
+    cacheReadInputTokens: number;
+  },
+): LlmEventStream {
+  yield {type: 'message-start', messageId: 'assistant-tool-call-message'};
+  await Promise.resolve();
+  yield {type: 'tool-call-start', callId: 'call-1', toolName};
+  yield {type: 'tool-call-delta', callId: 'call-1', argumentsDelta: '{}'};
+  yield {type: 'tool-call-end', callId: 'call-1'};
+  yield {type: 'message-end', stopReason: 'tool_use', usage};
 }
 
 async function* titleCompletionStream(): LlmEventStream {
@@ -143,6 +172,51 @@ async function collectAll(
   return events;
 }
 
+async function collectUntilTerminal(
+  agent: Agent,
+  startIndex = 0,
+): Promise<{events: SseEvent[]; nextIndex: number}> {
+  const controller = new AbortController();
+  const events: SseEvent[] = [];
+  let nextIndex = startIndex;
+
+  for await (const entry of agent.subscribe({
+    startIndex,
+    signal: controller.signal,
+  })) {
+    events.push(entry.event);
+    nextIndex = entry.nextIndex;
+    if (entry.event.type === 'done' || entry.event.type === 'error') {
+      controller.abort();
+      break;
+    }
+  }
+
+  return {events, nextIndex};
+}
+
+async function* streamUntilAbortedThenThrow(
+  signal: AbortSignal | undefined,
+): LlmEventStream {
+  yield {type: 'message-start', messageId: 'aborted-message'};
+  await new Promise<void>((resolve) => {
+    if (!signal || signal.aborted) {
+      resolve();
+      return;
+    }
+    signal.addEventListener('abort', () => {
+      resolve();
+    });
+  });
+  throw new Error('Request aborted');
+}
+
+async function* failingStreamAfterStart(): LlmEventStream {
+  yield {type: 'message-start', messageId: 'failed-message'};
+  await Promise.resolve();
+  throw new Error('provider exploded');
+}
+
 describe('Agent title generation', () => {
   afterEach(() => {
     vi.restoreAllMocks();
@@ -178,6 +252,14 @@ describe('Agent title generation', () => {
     expect(titleIndex).toBeLessThan(doneIndex);
     expect(events[doneIndex]).toMatchObject({
       type: 'done',
+      reason: 'complete',
+    });
+    const lastUsageUpdate = events.findLast(
+      (event) => event.type === 'usage-update',
+    );
+    expect(lastUsageUpdate).toBeDefined();
+    expect(lastUsageUpdate).toMatchObject({
+      type: 'usage-update',
       usage: {thinkingLevel: 'high'},
     });
     expect(events[titleIndex]).toEqual({
@@ -217,8 +299,12 @@ describe('Agent usage reporting', () => {
     await collectAll(agent.streamForTest('first'));
     const events = await collectAll(agent.streamForTest('second'));
 
-    expect(events.at(-1)).toMatchObject({
-      type: 'done',
+    expect(events.at(-1)).toMatchObject({type: 'done', reason: 'complete'});
+    const lastUsageUpdate = events.findLast(
+      (event) => event.type === 'usage-update',
+    );
+    expect(lastUsageUpdate).toMatchObject({
+      type: 'usage-update',
       usage: {
         currentContextInputTokens: 40,
         sessionInputTokens: 140,
@@ -251,16 +337,104 @@ describe('Agent usage reporting', () => {
 
     const events = await collectAll(agent.streamForTest('compact this turn'));
     const doneEvent = events.at(-1);
-
     expect(doneEvent?.type).toBe('done');
-    if (doneEvent?.type !== 'done') {
-      throw new Error('Expected final event to be done');
+
+    const lastUsageUpdate = events.findLast(
+      (event) => event.type === 'usage-update',
+    );
+    if (lastUsageUpdate?.type !== 'usage-update') {
+      throw new Error('Expected a usage-update event before done');
     }
-    expect(doneEvent.usage.currentContextInputTokens).toBeGreaterThan(0);
-    expect(doneEvent.usage.currentContextInputTokens).toBeLessThan(110_000);
-    expect(doneEvent.usage.sessionInputTokens).toBe(110_000);
-    expect(doneEvent.usage.sessionOutputTokens).toBe(7);
-    expect(doneEvent.usage.sessionCacheReadInputTokens).toBe(3);
+    expect(lastUsageUpdate.usage.currentContextInputTokens).toBeGreaterThan(0);
+    expect(lastUsageUpdate.usage.currentContextInputTokens).toBeLessThan(
+      110_000,
+    );
+    expect(lastUsageUpdate.usage.sessionInputTokens).toBe(110_000);
+    expect(lastUsageUpdate.usage.sessionOutputTokens).toBe(7);
+    expect(lastUsageUpdate.usage.sessionCacheReadInputTokens).toBe(3);
+  });
+
+  it('emits a usage-update event after each LLM round', async () => {
+    vi.spyOn(llmApi, 'countToken').mockResolvedValue(1);
+    vi.spyOn(llmApi, 'streamCompletion').mockReturnValue(
+      usageCompletionStream({
+        inputTokens: 100,
+        outputTokens: 10,
+        cacheReadInputTokens: 0,
+      }),
+    );
+    const agent = new UsageTestAgent(
+      () => Promise.resolve(MAIN_CONFIG),
+      testAgentOptions(),
+    );
+
+    const events = await collectAll(agent.streamForTest('one round'));
+
+    const usageUpdates = events.filter(
+      (event) => event.type === 'usage-update',
+    );
+    // One usage-update after the LLM call, plus one in emitDoneAfterTurn
+    // after compaction. UsageTestAgent's stream emits no tool calls, so the
+    // loop body doesn't execute.
+    expect(usageUpdates.length).toBe(2);
+
+    const doneIndex = events.findIndex((event) => event.type === 'done');
+    expect(doneIndex).toBeGreaterThanOrEqual(0);
+    const lastEventBeforeDone = events[doneIndex - 1];
+    expect(lastEventBeforeDone.type).toBe('usage-update');
+  });
+
+  it('emits a usage-update event after the in-loop submitToolResults round', async () => {
+    vi.spyOn(llmApi, 'countToken').mockResolvedValue(1);
+    vi.spyOn(llmApi, 'streamCompletion')
+      // First call: assistant requests one tool call.
+      .mockReturnValueOnce(
+        toolCallCompletionStream('mock_tool', {
+          inputTokens: 100,
+          outputTokens: 10,
+          cacheReadInputTokens: 0,
+        }),
+      )
+      // Second call: assistant responds with text after tool result, no more tool calls.
+      .mockReturnValueOnce(
+        usageCompletionStream({
+          inputTokens: 50,
+          outputTokens: 5,
+          cacheReadInputTokens: 0,
+        }),
+      );
+
+    const registry = TestToolRegistry.createForTest();
+    registry.register(createMockTool('mock_tool'));
+
+    const agent = new UsageTestAgent(() => Promise.resolve(MAIN_CONFIG), {
+      ...testAgentOptions(),
+      toolRegistries: [registry],
+      getMaxToolRounds: () => 5,
+    });
+
+    const events = await collectAll(agent.streamForTest('use the tool'));
+
+    // Three usage-update events: after the first LLM call, after
+    // submitToolResults consumed the second LLM call, and the
+    // post-compaction emit in emitDoneAfterTurn.
+    const usageUpdates = events.filter(
+      (event) => event.type === 'usage-update',
+    );
+    expect(usageUpdates.length).toBe(3);
+
+    // The in-loop usage-update for the tool-result round must appear AFTER
+    // the tool finishes and BEFORE the next round (which here is the
+    // post-compaction final emit + done).
+    const toolEndIndex = events.findIndex(
+      (event) => event.type === 'tool-execute-end',
+    );
+    expect(toolEndIndex).toBeGreaterThanOrEqual(0);
+    const usageUpdatesAfterTool = events
+      .slice(toolEndIndex + 1)
+      .filter((event) => event.type === 'usage-update');
+    // One after submitToolResults, one after compaction.
+    expect(usageUpdatesAfterTool.length).toBe(2);
   });
 });
 
@@ -388,7 +562,7 @@ describe('Agent compaction lifecycle', () => {
     const doneIdx = types.lastIndexOf('done');
     expect(startIdx).toBeGreaterThan(-1);
     expect(endIdx).toBe(startIdx + 1);
-    expect(doneIdx).toBe(endIdx + 1);
+    expect(doneIdx).toBeGreaterThan(endIdx);
   });
 
   it('emits start → error → done on after-turn failure (no top-level error)', async () => {
@@ -437,7 +611,180 @@ describe('Agent compaction lifecycle', () => {
     const errorIdx = types.indexOf('context-compaction-error');
     const doneIdx = types.lastIndexOf('done');
     expect(errorIdx).toBe(startIdx + 1);
-    expect(doneIdx).toBe(errorIdx + 1);
+    expect(doneIdx).toBeGreaterThan(errorIdx);
+  });
+});
+
+describe('Agent abort flow', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('emits done:aborted when the provider stream throws after a user abort', async () => {
+    vi.spyOn(llmApi, 'countToken').mockResolvedValue(1);
+    vi.spyOn(llmApi, 'streamCompletion').mockImplementation((options) =>
+      streamUntilAbortedThenThrow(options.signal),
+    );
+
+    const agent = new TestAgent(
+      () => Promise.resolve(MAIN_CONFIG),
+      testAgentOptions(),
+    );
+
+    const eventsPromise = collectUntilTerminal(agent);
+    agent.handleUserMessage('Stop me mid-stream');
+    // Wait until the user message-start has been emitted before aborting,
+    // so the abort lands while the stream is being consumed.
+    await delay(10);
+    agent.abort();
+    const {events} = await eventsPromise;
+
+    const lastEvent = events.at(-1);
+    expect(lastEvent).toMatchObject({type: 'done', reason: 'aborted'});
+    expect(events.some((event) => event.type === 'error')).toBe(false);
+  });
+
+  it('still emits error when the provider stream throws without a user abort', async () => {
+    vi.spyOn(llmApi, 'countToken').mockResolvedValue(1);
+    vi.spyOn(llmApi, 'streamCompletion').mockImplementation(() =>
+      failingStreamAfterStart(),
+    );
+
+    const agent = new TestAgent(
+      () => Promise.resolve(MAIN_CONFIG),
+      testAgentOptions(),
+    );
+
+    const eventsPromise = collectUntilTerminal(agent);
+    agent.handleUserMessage('Trigger a real provider error');
+    const {events} = await eventsPromise;
+
+    const lastEvent = events.at(-1);
+    expect(lastEvent?.type).toBe('error');
+    if (lastEvent?.type !== 'error') {
+      throw new Error('Expected final event to be an error');
+    }
+    expect(lastEvent.message).toBe('provider exploded');
+  });
+
+  it('emits done:aborted, skips the real provider call, and releases the mutex when pre-call compaction is aborted', async () => {
+    const streamSpy = vi
+      .spyOn(llmApi, 'streamCompletion')
+      .mockImplementation((options) => {
+        const isSummaryRequest =
+          options.tools.length === 0 &&
+          options.messages.length === 1 &&
+          options.messages[0]?.role === 'user' &&
+          options.messages[0].content.includes('<history_to_summarize>');
+
+        if (isSummaryRequest) {
+          return streamUntilAbortedThenThrow(options.signal);
+        }
+
+        // The real (non-summary) completion call. If we end up here after
+        // an abort, the fix is broken.
+        return mainCompletionStream();
+      });
+
+    const agent = new TestAgent(
+      () => Promise.resolve(MAIN_CONFIG),
+      testAgentOptions(),
+      {
+        id: 'agent-compaction-abort',
+        title: 'Existing Title',
+        sseEventCount: 0,
+        llmSession: {
+          id: 'llm-session-compaction-abort',
+          compactions: [],
+          usageBaselineMessageCount: null,
+          messages: Array.from({length: 12}, (_, index) => ({
+            id: `old-${index.toString()}`,
+            createdAt: index,
+            role: 'user' as const,
+            content: `old message ${index.toString()} ${'x'.repeat(30_000)}`,
+          })),
+          usage: emptyUsage(),
+        },
+        options: {thinkingLevel: 'high'},
+      },
+    );
+
+    const firstTurn = collectUntilTerminal(agent);
+    agent.handleUserMessage('Trigger compaction then abort');
+    await delay(10);
+    agent.abort();
+    const {events, nextIndex} = await firstTurn;
+
+    const lastEvent = events.at(-1);
+    expect(lastEvent).toMatchObject({type: 'done', reason: 'aborted'});
+    expect(events.some((event) => event.type === 'error')).toBe(false);
+
+    // Only the compaction-summary call should have been made — the real
+    // provider call must not start after the user aborted.
+    const nonSummaryCalls = streamSpy.mock.calls.filter(([options]) => {
+      const isSummary =
+        options.tools.length === 0 &&
+        options.messages.length === 1 &&
+        options.messages[0]?.role === 'user' &&
+        options.messages[0].content.includes('<history_to_summarize>');
+      return !isSummary;
+    });
+    expect(nonSummaryCalls).toHaveLength(0);
+
+    // The session mutex must have been released so a follow-up turn can run.
+    streamSpy.mockReset();
+    streamSpy.mockImplementation(() =>
+      usageCompletionStream({
+        inputTokens: 1,
+        outputTokens: 1,
+        cacheReadInputTokens: 0,
+      }),
+    );
+    const followUpPromise = collectUntilTerminal(agent, nextIndex);
+    agent.handleUserMessage('Follow-up turn');
+    const {events: followUpEvents} = await followUpPromise;
+    expect(followUpEvents.at(-1)).toMatchObject({
+      type: 'done',
+      reason: 'complete',
+    });
+  });
+
+  it('emits done:aborted when the post-tool-results stream throws after a user abort', async () => {
+    vi.spyOn(llmApi, 'countToken').mockResolvedValue(1);
+    vi.spyOn(llmApi, 'streamCompletion')
+      // First call: assistant requests one tool call.
+      .mockReturnValueOnce(
+        toolCallCompletionStream('mock_tool', {
+          inputTokens: 10,
+          outputTokens: 1,
+          cacheReadInputTokens: 0,
+        }),
+      )
+      // Second call (after submitToolResults): user aborts mid-stream.
+      .mockImplementation((options) =>
+        streamUntilAbortedThenThrow(options.signal),
+      );
+
+    const registry = TestToolRegistry.createForTest();
+    registry.register(createMockTool('mock_tool'));
+
+    const agent = new TestAgent(() => Promise.resolve(MAIN_CONFIG), {
+      ...testAgentOptions(),
+      toolRegistries: [registry],
+      getMaxToolRounds: () => 5,
+    });
+
+    const eventsPromise = collectUntilTerminal(agent);
+    agent.handleUserMessage('Use the tool then abort');
+    // Wait long enough for the tool round to complete and the next stream
+    // to start before aborting.
+    await delay(30);
+    agent.abort();
+    const {events} = await eventsPromise;
+
+    const lastEvent = events.at(-1);
+    expect(lastEvent).toMatchObject({type: 'done', reason: 'aborted'});
+    expect(events.some((event) => event.type === 'error')).toBe(false);
   });
 });
 

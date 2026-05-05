@@ -26,6 +26,7 @@ export type {
   SseToolExecuteEndEvent,
   SseToolExecuteStartEvent,
   SseUsage,
+  SseUsageUpdateEvent,
 } from './schema.js';
 export {
   compactionReasonSchema,
@@ -53,4 +54,5 @@ export {
   sseToolExecuteEndEventSchema,
   sseToolExecuteStartEventSchema,
   sseUsageSchema,
+  sseUsageUpdateEventSchema,
 } from './schema.js';
