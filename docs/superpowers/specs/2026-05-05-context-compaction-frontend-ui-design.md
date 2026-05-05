@@ -142,16 +142,15 @@ Behavior:
 - After `this.messages` is replaced and `this.compactions` is updated, it
   yields `context-compaction-end`.
 - If `generateCompactionSummary()` (or any other step inside the generator)
-  throws, the generator catches the error and inspects it:
-  - If the abort signal is set (`signal.aborted`), the generator skips the
-    error event and just re-throws. Abort is not a failure — it is a
-    user-initiated stop. The frontend's catch-all rule will turn the orphaned
-    `start` into the `interrupted` state when the abort propagates as
-    `done({reason: 'aborted'})`.
-  - Otherwise, the generator yields `context-compaction-error` with the
-    underlying message, then re-throws. Callers do not need to know about
-    the error event; it is always emitted before the throw escapes for
-    non-abort failures.
+  throws, the generator catches the error, yields `context-compaction-error`
+  with the underlying message, then re-throws. Abort is treated the same way
+  as any other failure: when the abort signal trips,
+  `generateCompactionSummary()` throws an `Aborted` error, the catch yields
+  `context-compaction-error` with `message: 'Aborted'`, and the throw
+  propagates. The user explicitly stopped the stream, so an error card with
+  the message "Aborted" is the honest representation. This mirrors how
+  in-flight tool calls render abort today (`tool-execute-end` with
+  `status: 'error'`, `result: 'Aborted'`).
 - The mutex still wraps the generator body, so callers cannot interleave
   compactions.
 
@@ -227,7 +226,7 @@ adds three `ChatEventMap` entries and a new `MessageContent` variant:
 {
   type: 'context-compaction',
   compactionId: string,
-  status: 'in-progress' | 'done' | 'failed' | 'interrupted',
+  status: 'in-progress' | 'done' | 'failed',
   reason: 'before-model-call' | 'after-turn',
   beforeTokens: number,
   messageCount: number,
@@ -267,15 +266,14 @@ gains three handlers:
 - On `context-compaction-error`: find the compaction message with the matching
   `compactionId`, set its status to `'failed'`, and store `errorMessage`. If
   no match exists, log and ignore.
-- On `done`, generic `error`, or `reset-session`: any compaction message still
-  in `'in-progress'` is flipped to `'interrupted'`. The dominant case is the
-  user clicking stop while compaction is in flight — the generator catches
-  the abort, skips the error event, and re-throws, so the stream ends with
-  `done({reason: 'aborted'})` and an orphaned `start`. This rule turns that
-  orphan into the `interrupted` card. Also covers rare cases like a process
-  crash before the error event was written. In normal failure flows
-  `'failed'` is already set by the time these events arrive, so this rule is
-  a no-op.
+
+Compaction has no catch-all rule for "still in-progress when the stream
+ends." The generator is responsible for always emitting a terminal event
+(`end` for success, `error` for any failure including abort) before
+returning. The only way a `start` could be persisted without a follow-up is
+a process crash between writing `start` and writing the terminal event —
+in which case the card stays as a spinner in the persisted log, which is an
+honest representation of what happened.
 
 #### Render item and dispatch
 
@@ -296,19 +294,19 @@ components/MessageList/components/ContextCompactionBlock/
   index.ts
 ```
 
-The view renders four states:
+The view renders three states:
 
 | status        | Trigger left side             | Trigger label                             | Body                                          |
 | ------------- | ----------------------------- | ----------------------------------------- | --------------------------------------------- |
 | `in-progress` | `<Spinner size='sm' />`       | `Compacting context…`                     | Hidden while in-progress (no partial text)    |
 | `done`        | `<Archive size={16} />`       | `Context compacted (47.2k → 8.1k tokens)` | `<MarkdownRenderer content={summary} />`      |
 | `failed`      | `<TriangleAlert size={16} />` | `Compaction failed`                       | `<MarkdownRenderer content={errorMessage} />` |
-| `interrupted` | `<TriangleAlert size={16} />` | `Compaction stopped`                      | Hidden                                        |
 
-`failed` cards default to **expanded** so the error message is visible
-immediately — failures are rare and worth surfacing. The other three states
-default to collapsed. Token counts are formatted with the same helper used by
-`UsageInfoView` for consistency.
+User-initiated abort renders as `failed` with `errorMessage: 'Aborted'`,
+mirroring how in-flight tool calls render abort. `failed` cards default to
+**expanded** so the error message is visible immediately. The other two
+states default to collapsed. Token counts are formatted with the same
+helper used by `UsageInfoView` for consistency.
 
 Mocks:
 
@@ -365,19 +363,21 @@ way they do for any other event.
   throw with the existing `logger.error` call. The compaction card flips to
   `'failed'` with the error message; the turn remains successful and `done`
   arrives normally. No chat-level `error` event is emitted.
-- **User aborts mid-compaction**: the abort signal trips inside the
-  generator. The catch detects `signal.aborted`, **skips** yielding
-  `context-compaction-error`, and just re-throws. The throw propagates as it
-  does today, eventually arriving at the agent loop where the abort path
-  emits `done({reason: 'aborted'})`. Net wire sequence:
-  `context-compaction-start → done({reason: 'aborted'})`. The frontend's
-  catch-all rule flips the orphaned `start` to `'interrupted'`. The card
-  shows "Compaction stopped" — distinct from "Compaction failed" because
-  the user did this on purpose.
-- **`start` arrives but neither `end` nor `error` ever arrives** for some
-  other reason (e.g. process crash before the error event is appended): the
-  same `'interrupted'` catch-all rule in `useMessages` covers it on the next
-  `done` / generic `error` / `reset-session`.
+- **User aborts mid-compaction**: the abort signal trips inside
+  `generateCompactionSummary()`, which throws an `Aborted` error. The
+  generator's catch yields `context-compaction-error` with
+  `message: 'Aborted'` and re-throws. The throw propagates as it does today,
+  eventually arriving at the agent loop where the abort path emits
+  `done({reason: 'aborted'})`. Net wire sequence:
+  `context-compaction-start → context-compaction-error('Aborted') → done({reason: 'aborted'})`.
+  The compaction card flips to `'failed'` with the message "Aborted",
+  matching how in-flight tool calls render abort. No special-case handling
+  is needed in the generator or the frontend.
+- **`start` arrives but no terminal event ever arrives**: only possible if
+  the process crashes between writing `start` and writing the terminal
+  event. On reload the card renders as a permanent spinner. This is rare and
+  honest about what happened; no catch-all rule attempts to retroactively
+  resolve the state.
 - **Persisted log inconsistency on `before-model-call` rollback**: when
   `before-model-call` compaction fails, `sendMessages` rolls back
   `this.messages` and `this.compactions`, but the SSE events are already in
@@ -397,22 +397,24 @@ way they do for any other event.
 - `apps/backend/src/agent-core/llm-session/`: a unit test that runs
   `compactIfNeeded` and asserts the yielded events for the success and skip
   paths. A second test asserts the error path: `start` yields, then
-  `context-compaction-error` yields, then the generator throws. A third test
-  asserts the abort path: `start` yields, the abort signal is set, then the
-  generator throws **without** yielding `context-compaction-error`.
+  `context-compaction-error` yields, then the generator throws. Abort is
+  covered by the same error path test (an abort signal causes
+  `generateCompactionSummary()` to throw, and the generator handles it
+  exactly like any other failure, yielding an error event with
+  `message: 'Aborted'`).
 - `apps/backend/src/agent-core/agent/`: tests that exercise the agent loop
   end-to-end and assert wire ordering for both compaction reasons:
   - success: `…assistant → start → end → done`
   - after-turn failure: `…assistant → start → error → done`
     (no top-level `error`)
   - before-model-call failure: `start → error → error` (top-level)
-  - mid-compaction abort: `start → done({reason: 'aborted'})`
+  - mid-compaction abort: `start → error('Aborted') → done({reason: 'aborted'})`
 - `apps/frontend/.../useMessages`: tests for all transitions
-  (`start → end → done`, `start → error`, `start` with no end/error followed
-  by `done({reason: 'aborted'})` → `interrupted`, reset).
+  (`start → end → done`, `start → error → failed`, reset clears state).
 - Manual UI verification in the dev server: trigger a synthetic compaction by
   lowering the trigger ratio in dev, exercise expand/collapse for each state,
-  verify `failed` defaults to expanded and `interrupted` styling looks right.
+  verify `failed` defaults to expanded and the abort case renders as a
+  `failed` card with message "Aborted".
 
 ## Rollout
 
