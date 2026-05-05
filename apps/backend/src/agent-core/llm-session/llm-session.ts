@@ -202,33 +202,13 @@ export class LlmSession {
     this.messages.push(...messages);
     let completed = false;
     try {
-      const compactionEvents: SseContextCompactionEvent[] = [];
-      let compactError: unknown = null;
-      // Defer rethrow until after buffered events are yielded so that
-      // start + error events always reach the consumer even when compaction fails.
-      try {
-        for await (const event of this.compactBeforeModelCall(
-          tools,
-          systemPrompt,
-          thinkingLevel,
-          signal,
-        )) {
-          compactionEvents.push(event);
-        }
-      } catch (e: unknown) {
-        compactError = e;
-      }
-      for (const event of compactionEvents) {
+      for await (const event of this.compactBeforeModelCall(
+        tools,
+        systemPrompt,
+        thinkingLevel,
+        signal,
+      )) {
         yield {type: 'compaction-sse', event};
-      }
-      if (compactError !== null) {
-        throw compactError instanceof Error
-          ? compactError
-          : new Error(
-              typeof compactError === 'string'
-                ? compactError
-                : 'Unknown compaction error',
-            );
       }
       throwIfAborted(signal);
       yield* this.streamCompletion(tools, systemPrompt, thinkingLevel, signal);
