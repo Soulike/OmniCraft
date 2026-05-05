@@ -2,11 +2,7 @@ import assert from 'node:assert';
 import crypto from 'node:crypto';
 
 import type {ThinkingLevel} from '@omnicraft/api-schema';
-import type {
-  SseContextCompactionEndEvent,
-  SseContextCompactionErrorEvent,
-  SseContextCompactionStartEvent,
-} from '@omnicraft/sse-events';
+import type {SseContextCompactionEvent} from '@omnicraft/sse-events';
 import {z} from 'zod';
 
 import {Mutex} from '@/helpers/mutex.js';
@@ -170,13 +166,7 @@ export class LlmSession {
 
   async *compactIfNeeded(
     options: LlmCompactionOptions,
-  ): AsyncGenerator<
-    | SseContextCompactionStartEvent
-    | SseContextCompactionEndEvent
-    | SseContextCompactionErrorEvent,
-    void,
-    void
-  > {
+  ): AsyncGenerator<SseContextCompactionEvent, void, void> {
     const release = await this.mutex.acquire();
     try {
       yield* this.compactIfNeededUnlocked(options);
@@ -212,11 +202,7 @@ export class LlmSession {
     this.messages.push(...messages);
     let completed = false;
     try {
-      const compactionEvents: (
-        | SseContextCompactionStartEvent
-        | SseContextCompactionEndEvent
-        | SseContextCompactionErrorEvent
-      )[] = [];
+      const compactionEvents: SseContextCompactionEvent[] = [];
       let compactError: unknown = null;
       // Defer rethrow until after buffered events are yielded so that
       // start + error events always reach the consumer even when compaction fails.
@@ -263,14 +249,7 @@ export class LlmSession {
     tools: readonly ToolDefinition[],
     systemPrompt: string,
     thinkingLevel: ThinkingLevel,
-    onSseEvent:
-      | ((
-          event:
-            | SseContextCompactionStartEvent
-            | SseContextCompactionEndEvent
-            | SseContextCompactionErrorEvent,
-        ) => void)
-      | undefined,
+    onSseEvent: ((event: SseContextCompactionEvent) => void) | undefined,
     signal?: AbortSignal,
   ): Promise<void> {
     try {
@@ -299,13 +278,7 @@ export class LlmSession {
 
   private async *compactIfNeededUnlocked(
     options: LlmCompactionOptions,
-  ): AsyncGenerator<
-    | SseContextCompactionStartEvent
-    | SseContextCompactionEndEvent
-    | SseContextCompactionErrorEvent,
-    void,
-    void
-  > {
+  ): AsyncGenerator<SseContextCompactionEvent, void, void> {
     const config = await this.getConfig();
     const maxInputTokens = await modelCapacity.getMaxInputTokens(config);
     const currentTokens = this.estimatePromptTokensForCompaction(options);

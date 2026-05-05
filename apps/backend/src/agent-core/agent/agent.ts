@@ -4,9 +4,7 @@ import os from 'node:os';
 
 import type {ThinkingLevel} from '@omnicraft/api-schema';
 import type {
-  SseContextCompactionEndEvent,
-  SseContextCompactionErrorEvent,
-  SseContextCompactionStartEvent,
+  SseContextCompactionEvent,
   SseDoneEvent,
   SseEvent,
   SseEventCursorEntry,
@@ -573,8 +571,8 @@ export abstract class Agent {
   }
 
   /**
-   * Consumes an LLM event stream, yielding text, thinking, and
-   * message-start events to the caller and collecting tool-call events.
+   * Consumes an LLM event stream, yielding text, thinking, message-start,
+   * and compaction SSE events to the caller and collecting tool-call events.
    * Returns the collected tool calls.
    */
   private async *consumeStream(
@@ -585,9 +583,7 @@ export abstract class Agent {
     | SseThinkingDeltaEvent
     | SseThinkingEndEvent
     | SseMessageStartEvent
-    | SseContextCompactionStartEvent
-    | SseContextCompactionEndEvent
-    | SseContextCompactionErrorEvent,
+    | SseContextCompactionEvent,
     LlmToolCall[],
     undefined
   > {

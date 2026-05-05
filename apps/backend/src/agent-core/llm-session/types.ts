@@ -1,9 +1,5 @@
 import type {ThinkingLevel} from '@omnicraft/api-schema';
-import type {
-  SseContextCompactionEndEvent,
-  SseContextCompactionErrorEvent,
-  SseContextCompactionStartEvent,
-} from '@omnicraft/sse-events';
+import type {SseContextCompactionEvent} from '@omnicraft/sse-events';
 import {z} from 'zod';
 
 import {llmMessageSchema, type LlmToolCall} from '../llm-api/index.js';
@@ -97,10 +93,7 @@ export interface LlmSessionMessageStartEvent {
 /** A context compaction SSE event surfaced from inside sendMessages. */
 export interface LlmSessionCompactionSseEvent {
   type: 'compaction-sse';
-  event:
-    | SseContextCompactionStartEvent
-    | SseContextCompactionEndEvent
-    | SseContextCompactionErrorEvent;
+  event: SseContextCompactionEvent;
 }
 
 /** Events yielded by LlmSession.sendMessage(). */

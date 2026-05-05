@@ -2,6 +2,7 @@ export type {
   SseBaseEvent,
   SseContextCompactionEndEvent,
   SseContextCompactionErrorEvent,
+  SseContextCompactionEvent,
   SseContextCompactionStartEvent,
   SseDoneEvent,
   SseErrorEvent,

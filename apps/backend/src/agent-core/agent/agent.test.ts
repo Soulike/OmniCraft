@@ -337,6 +337,13 @@ describe('Agent compaction lifecycle', () => {
     expect(lastEvent.message).toContain(
       'Failed to compact LLM session before model call',
     );
+    const types = events.map((e) => e.type);
+    expect(types.indexOf('context-compaction-start')).toBeLessThan(
+      types.indexOf('context-compaction-error'),
+    );
+    expect(types.indexOf('context-compaction-error')).toBeLessThan(
+      types.indexOf('error'),
+    );
   });
 
   it('emits start → end → done in that order on after-turn success', async () => {
@@ -431,63 +438,6 @@ describe('Agent compaction lifecycle', () => {
     const doneIdx = types.lastIndexOf('done');
     expect(errorIdx).toBe(startIdx + 1);
     expect(doneIdx).toBe(errorIdx + 1);
-  });
-
-  it('emits start → error → top-level error on before-llm-call failure', async () => {
-    vi.spyOn(llmApi, 'countToken').mockResolvedValue(1);
-    vi.spyOn(llmApi, 'streamCompletion').mockImplementation(() =>
-      mainCompletionStream(),
-    );
-    const fakeStart = {
-      type: 'context-compaction-start',
-      compactionId: 'cid-3',
-      reason: 'before-llm-call',
-      beforeTokens: 1000,
-      messageCount: 5,
-    } as const;
-    const fakeError = {
-      type: 'context-compaction-error',
-      compactionId: 'cid-3',
-      reason: 'before-llm-call',
-      message: 'provider failed',
-      beforeTokens: 1000,
-      messageCount: 5,
-    } as const;
-    // Spy on the private method. Cast to bypass the private modifier.
-    vi.spyOn(
-      LlmSession.prototype as unknown as {
-        compactIfNeededUnlocked: (
-          options: unknown,
-        ) => AsyncGenerator<unknown, void, void>;
-      },
-      'compactIfNeededUnlocked',
-    )
-      // eslint-disable-next-line @typescript-eslint/require-await
-      .mockImplementation(async function* () {
-        yield fakeStart;
-        yield fakeError;
-        throw new Error('provider failed');
-      });
-
-    const agent = new TestAgent(
-      () => Promise.resolve(MAIN_CONFIG),
-      testAgentOptions(),
-    );
-    const eventsPromise = collectUntilError(agent);
-    agent.handleUserMessage('hi');
-    const events = await eventsPromise;
-
-    const types = events.map((e) => e.type);
-    expect(types).toContain('context-compaction-start');
-    expect(types).toContain('context-compaction-error');
-    expect(types).toContain('error');
-    // Wire ordering: start before error before top-level error.
-    expect(types.indexOf('context-compaction-start')).toBeLessThan(
-      types.indexOf('context-compaction-error'),
-    );
-    expect(types.indexOf('context-compaction-error')).toBeLessThan(
-      types.indexOf('error'),
-    );
   });
 });
 

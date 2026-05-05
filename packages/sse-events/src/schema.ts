@@ -179,6 +179,12 @@ export type SseContextCompactionErrorEvent = z.infer<
   typeof sseContextCompactionErrorEventSchema
 >;
 
+/** Union of all context compaction SSE events. */
+export type SseContextCompactionEvent =
+  | SseContextCompactionStartEvent
+  | SseContextCompactionEndEvent
+  | SseContextCompactionErrorEvent;
+
 // ---------------------------------------------------------------------------
 // Base event union (all events except error and subagent events).
 // Used as the inner event type for subagent-output to prevent recursion.
