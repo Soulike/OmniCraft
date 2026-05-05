@@ -28,24 +28,37 @@ const errorEvent = {
 };
 
 describe('pushCompactionEvent', () => {
-  it('appends a start event and a trailing text placeholder', () => {
+  it('appends a start event as the only new message', () => {
     const result = pushCompactionEvent([], startEvent);
-    expect(result).toHaveLength(2);
+    expect(result).toHaveLength(1);
     expect(result[0].content).toBe(startEvent);
-    expect(result[1].content).toEqual({type: 'text', content: ''});
   });
 
-  it('appends an end event and a trailing text placeholder', () => {
+  it('appends an end event as the only new message', () => {
     const result = pushCompactionEvent([], endEvent);
-    expect(result).toHaveLength(2);
+    expect(result).toHaveLength(1);
     expect(result[0].content).toBe(endEvent);
-    expect(result[1].content).toEqual({type: 'text', content: ''});
   });
 
-  it('appends an error event and a trailing text placeholder', () => {
+  it('appends an error event as the only new message', () => {
     const result = pushCompactionEvent([], errorEvent);
-    expect(result).toHaveLength(2);
+    expect(result).toHaveLength(1);
     expect(result[0].content).toBe(errorEvent);
-    expect(result[1].content).toEqual({type: 'text', content: ''});
+  });
+
+  it('strips a trailing empty assistant placeholder before appending', () => {
+    const result = pushCompactionEvent(
+      [
+        {
+          id: null,
+          createdAt: null,
+          role: 'assistant',
+          content: {type: 'text', content: ''},
+        },
+      ],
+      startEvent,
+    );
+    expect(result).toHaveLength(1);
+    expect(result[0].content).toBe(startEvent);
   });
 });

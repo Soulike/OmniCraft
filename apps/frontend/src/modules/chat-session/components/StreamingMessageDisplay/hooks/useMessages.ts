@@ -285,16 +285,9 @@ export function pushCompactionEvent(
   prev: ChatMessage[],
   event: SseContextCompactionEvent,
 ): ChatMessage[] {
-  const base = removeTrailingAssistantMessageIfEmpty(prev);
   return [
-    ...base,
+    ...removeTrailingAssistantMessageIfEmpty(prev),
     {id: null, createdAt: null, role: 'assistant' as const, content: event},
-    {
-      id: null,
-      createdAt: null,
-      role: 'assistant' as const,
-      content: {type: 'text' as const, content: ''},
-    },
   ];
 }
 
