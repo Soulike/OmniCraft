@@ -1,5 +1,8 @@
 import type {ThinkingLevel} from '@omnicraft/api-schema';
 import type {
+  SseContextCompactionEndEvent,
+  SseContextCompactionErrorEvent,
+  SseContextCompactionStartEvent,
   SseDoneEvent,
   SseMessageStartEvent,
   SseSessionTitleEvent,
@@ -47,7 +50,10 @@ export type MessageContent =
   | ThinkingContent
   | SseToolExecuteStartEvent
   | SseToolExecuteEndEvent
-  | SubagentContent;
+  | SubagentContent
+  | SseContextCompactionStartEvent
+  | SseContextCompactionEndEvent
+  | SseContextCompactionErrorEvent;
 
 /** A chat message for UI rendering. Each message has exactly one content. */
 export interface ChatMessage {
@@ -81,6 +87,12 @@ export interface ChatEventMap {
   'thinking-delta': SseThinkingDeltaEvent;
   /** Thinking/reasoning has ended. */
   'thinking-end': SseThinkingEndEvent;
+  /** Context compaction has started. */
+  'context-compaction-start': SseContextCompactionStartEvent;
+  /** Context compaction completed successfully. */
+  'context-compaction-end': SseContextCompactionEndEvent;
+  /** Context compaction failed (or was aborted). */
+  'context-compaction-error': SseContextCompactionErrorEvent;
   /** SSE done event pass-through. Universal for agent and subagent. */
   done: SseDoneEvent;
   /** Real-time token usage update from the backend. */

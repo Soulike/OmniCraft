@@ -38,5 +38,7 @@ function itemKey(item: MessageRenderItem, index: number): string {
       return `thinking-${index.toString()}`;
     case 'subagent':
       return `subagent-${index.toString()}`;
+    case 'context-compaction':
+      return `context-compaction-${item.compactionId}`;
   }
 }

@@ -4,6 +4,7 @@ import os from 'node:os';
 
 import type {ThinkingLevel} from '@omnicraft/api-schema';
 import type {
+  SseContextCompactionEvent,
   SseDoneEvent,
   SseEvent,
   SseEventCursorEntry,
@@ -330,12 +331,14 @@ export abstract class Agent {
     thinkingLevel: ThinkingLevel,
   ): Promise<void> {
     try {
-      await this.llmSession.compactIfNeeded({
+      for await (const event of this.llmSession.compactIfNeeded({
         reason: 'after-turn',
         tools,
         systemPrompt,
         thinkingLevel,
-      });
+      })) {
+        await this.appendSseEvent(event);
+      }
     } catch (err: unknown) {
       // Turn-end compaction is best-effort cleanup after user-visible work is done.
       // Keep the completed turn successful and retry compaction before the next LLM call.
@@ -605,8 +608,8 @@ export abstract class Agent {
   }
 
   /**
-   * Consumes an LLM event stream, yielding text, thinking, and
-   * message-start events to the caller and collecting tool-call events.
+   * Consumes an LLM event stream, yielding text, thinking, message-start,
+   * and compaction SSE events to the caller and collecting tool-call events.
    * Returns the collected tool calls.
    */
   private async *consumeStream(
@@ -616,7 +619,8 @@ export abstract class Agent {
     | SseThinkingStartEvent
     | SseThinkingDeltaEvent
     | SseThinkingEndEvent
-    | SseMessageStartEvent,
+    | SseMessageStartEvent
+    | SseContextCompactionEvent,
     LlmToolCall[],
     undefined
   > {
@@ -640,6 +644,9 @@ export abstract class Agent {
           break;
         case 'tool-call':
           toolCalls.push(event.toolCall);
+          break;
+        case 'compaction-sse':
+          yield event.event;
           break;
       }
     }

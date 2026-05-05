@@ -1,0 +1,67 @@
+.card {
+  border-radius: 12px;
+  overflow: hidden;
+  width: 100%;
+  max-width: 100%;
+  background: var(--surface);
+}
+
+.inProgress {
+  border: 1px dashed color-mix(in oklch, var(--accent) 50%, transparent);
+}
+
+.done {
+  border: 1px solid var(--border);
+}
+
+.failed {
+  border: 1px solid color-mix(in oklch, var(--danger) 60%, transparent);
+  background: color-mix(in oklch, var(--danger) 6%, var(--surface));
+}
+
+.trigger {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 12px;
+  cursor: pointer;
+  background: none;
+  border: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+
+.iconDone {
+  color: var(--muted);
+}
+
+.iconFailed {
+  color: var(--danger);
+}
+
+.label {
+  flex: 1;
+  font-weight: 600;
+  font-size: 0.875rem;
+  color: var(--muted);
+}
+
+.failed .label {
+  color: var(--danger);
+}
+
+.body {
+  padding: 0 12px 12px;
+}
+
+.content {
+  font-size: 0.8125rem;
+  line-height: 1.6;
+  color: var(--muted);
+}
+
+.failed .content {
+  color: var(--foreground);
+}

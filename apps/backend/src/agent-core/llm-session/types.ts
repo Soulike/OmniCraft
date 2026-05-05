@@ -1,4 +1,8 @@
 import type {ThinkingLevel} from '@omnicraft/api-schema';
+import type {
+  SseCompactionReason,
+  SseContextCompactionEvent,
+} from '@omnicraft/sse-events';
 import {z} from 'zod';
 
 import {llmMessageSchema, type LlmToolCall} from '../llm-api/index.js';
@@ -44,10 +48,8 @@ export interface ToolResult {
   status: 'success' | 'failure';
 }
 
-export type LlmCompactionReason = 'before-llm-call' | 'after-turn';
-
 export interface LlmCompactionOptions {
-  readonly reason: LlmCompactionReason;
+  readonly reason: SseCompactionReason;
   readonly tools: readonly ToolDefinition[];
   readonly systemPrompt: string;
   readonly thinkingLevel: ThinkingLevel;
@@ -89,6 +91,12 @@ export interface LlmSessionMessageStartEvent {
   createdAt: number;
 }
 
+/** A context compaction SSE event surfaced from inside sendMessages. */
+export interface LlmSessionCompactionSseEvent {
+  type: 'compaction-sse';
+  event: SseContextCompactionEvent;
+}
+
 /** Events yielded by LlmSession.sendMessage(). */
 export type LlmSessionEvent =
   | LlmSessionTextDeltaEvent
@@ -96,7 +104,8 @@ export type LlmSessionEvent =
   | LlmSessionThinkingDeltaEvent
   | LlmSessionThinkingEndEvent
   | LlmSessionToolCallEvent
-  | LlmSessionMessageStartEvent;
+  | LlmSessionMessageStartEvent
+  | LlmSessionCompactionSseEvent;
 
 /** An async generator that yields LlmSession events. */
 export type LlmSessionEventStream = AsyncGenerator<

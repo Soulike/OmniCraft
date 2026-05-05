@@ -2,6 +2,7 @@ import assert from 'node:assert';
 import crypto from 'node:crypto';
 
 import type {ThinkingLevel} from '@omnicraft/api-schema';
+import type {SseContextCompactionEvent} from '@omnicraft/sse-events';
 import {z} from 'zod';
 
 import {Mutex} from '@/helpers/mutex.js';
@@ -163,10 +164,12 @@ export class LlmSession {
     return [...this.messages];
   }
 
-  async compactIfNeeded(options: LlmCompactionOptions): Promise<boolean> {
+  async *compactIfNeeded(
+    options: LlmCompactionOptions,
+  ): AsyncGenerator<SseContextCompactionEvent, void, void> {
     const release = await this.mutex.acquire();
     try {
-      return await this.compactIfNeededUnlocked(options);
+      yield* this.compactIfNeededUnlocked(options);
     } finally {
       release();
     }
@@ -199,12 +202,14 @@ export class LlmSession {
     this.messages.push(...messages);
     let completed = false;
     try {
-      await this.compactBeforeModelCall(
+      for await (const event of this.compactBeforeModelCall(
         tools,
         systemPrompt,
         thinkingLevel,
         signal,
-      );
+      )) {
+        yield {type: 'compaction-sse', event};
+      }
       throwIfAborted(signal);
       yield* this.streamCompletion(tools, systemPrompt, thinkingLevel, signal);
       completed = true;
@@ -221,15 +226,15 @@ export class LlmSession {
     }
   }
 
-  private async compactBeforeModelCall(
+  private async *compactBeforeModelCall(
     tools: readonly ToolDefinition[],
     systemPrompt: string,
     thinkingLevel: ThinkingLevel,
     signal?: AbortSignal,
-  ): Promise<void> {
+  ): AsyncGenerator<SseContextCompactionEvent, void, void> {
     try {
       throwIfAborted(signal);
-      await this.compactIfNeededUnlocked({
+      yield* this.compactIfNeededUnlocked({
         reason: 'before-llm-call',
         tools,
         systemPrompt,
@@ -249,61 +254,101 @@ export class LlmSession {
     }
   }
 
-  private async compactIfNeededUnlocked(
+  private async *compactIfNeededUnlocked(
     options: LlmCompactionOptions,
-  ): Promise<boolean> {
+  ): AsyncGenerator<SseContextCompactionEvent, void, void> {
     const config = await this.getConfig();
     const maxInputTokens = await modelCapacity.getMaxInputTokens(config);
     const currentTokens = this.estimatePromptTokensForCompaction(options);
 
     if (currentTokens < maxInputTokens * COMPACTION_TRIGGER_INPUT_TOKEN_RATIO) {
-      return false;
+      return;
     }
 
-    if (this.messages.length === 0) return false;
+    if (this.messages.length === 0) return;
+
+    const compactionId = crypto.randomUUID();
+    const beforeTokens = currentTokens;
+    const coveredMessageCount = this.messages.length;
+    const startedAt = Date.now();
+
+    yield {
+      type: 'context-compaction-start',
+      compactionId,
+      reason: options.reason,
+      beforeTokens,
+      messageCount: coveredMessageCount,
+    };
 
     const beforeCharCount = JSON.stringify(this.messages).length;
-    const coveredMessageCount = this.messages.length;
 
-    const summary = await generateCompactionSummary({
-      config,
-      messages: this.messages,
-      tools: options.tools,
-      ...(options.signal ? {signal: options.signal} : {}),
-    });
-    if (!summary) {
-      throw new Error('Compaction summary is empty');
-    }
+    try {
+      const summary = await generateCompactionSummary({
+        config,
+        messages: this.messages,
+        tools: options.tools,
+        ...(options.signal ? {signal: options.signal} : {}),
+      });
+      throwIfAborted(options.signal);
+      if (!summary) {
+        throw new Error('Compaction summary is empty');
+      }
 
-    const recentContext = buildRecentContext(this.messages, options.tools);
-    const summaryMessage: LlmMessage = {
-      id: crypto.randomUUID(),
-      createdAt: Date.now(),
-      role: 'user',
-      content: buildCompactedMessageContent({
+      const recentContext = buildRecentContext(this.messages, options.tools);
+      const summaryMessage: LlmMessage = {
+        id: crypto.randomUUID(),
+        createdAt: Date.now(),
+        role: 'user',
+        content: buildCompactedMessageContent({
+          summary,
+          recentContext: recentContext.content,
+        }),
+      };
+
+      this.messages.length = 0;
+      this.messages.push(summaryMessage);
+      this.usageBaselineMessageCount = null;
+      const afterTokens = this.estimatePromptTokensFromMessages(options);
+      this.usage = {
+        ...this.usage,
+        currentContextInputTokens: afterTokens,
+        latestCallOutputTokens: 0,
+      };
+      this.compactions.push({
+        id: compactionId,
+        compactedAt: Date.now(),
+        coveredMessageCount,
+        recentContextMessageCount: recentContext.sourceMessageCount,
+        beforeCharCount,
+        afterCharCount: JSON.stringify(this.messages).length,
+      });
+
+      yield {
+        type: 'context-compaction-end',
+        compactionId,
         summary,
-        recentContext: recentContext.content,
-      }),
-    };
-
-    this.messages.length = 0;
-    this.messages.push(summaryMessage);
-    this.usageBaselineMessageCount = null;
-    this.usage = {
-      ...this.usage,
-      currentContextInputTokens: this.estimatePromptTokensFromMessages(options),
-      latestCallOutputTokens: 0,
-    };
-    this.compactions.push({
-      id: crypto.randomUUID(),
-      compactedAt: Date.now(),
-      coveredMessageCount,
-      recentContextMessageCount: recentContext.sourceMessageCount,
-      beforeCharCount,
-      afterCharCount: JSON.stringify(this.messages).length,
-    });
-
-    return true;
+        beforeTokens,
+        afterTokens,
+        messageCount: coveredMessageCount,
+        durationMs: Date.now() - startedAt,
+      };
+    } catch (err: unknown) {
+      const errMessage =
+        err instanceof Error
+          ? err.message
+          : typeof err === 'string'
+            ? err
+            : 'Unknown error';
+      yield {
+        type: 'context-compaction-error',
+        compactionId,
+        reason: options.reason,
+        message: options.signal?.aborted ? 'Aborted' : errMessage,
+        beforeTokens,
+        messageCount: coveredMessageCount,
+      };
+      throw err instanceof Error ? err : new Error(errMessage);
+    }
   }
 
   private estimatePromptTokensForCompaction(
