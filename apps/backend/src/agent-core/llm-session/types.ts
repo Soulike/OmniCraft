@@ -57,12 +57,6 @@ export interface LlmCompactionOptions {
   readonly systemPrompt: string;
   readonly thinkingLevel: ThinkingLevel;
   readonly signal?: AbortSignal;
-  readonly onSseEvent?: (
-    event:
-      | SseContextCompactionStartEvent
-      | SseContextCompactionEndEvent
-      | SseContextCompactionErrorEvent,
-  ) => void;
 }
 
 /** A text content delta from the LLM. */

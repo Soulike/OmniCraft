@@ -218,6 +218,8 @@ export class LlmSession {
         | SseContextCompactionErrorEvent
       )[] = [];
       let compactError: unknown = null;
+      // Defer rethrow until after buffered events are yielded so that
+      // start + error events always reach the consumer even when compaction fails.
       try {
         await this.compactBeforeModelCall(
           tools,
