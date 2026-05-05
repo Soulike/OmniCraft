@@ -33,6 +33,8 @@ export class TodoToolRegistry extends ToolRegistry {
       `4. Always call ${todoListTool.name} before using ${todoUpdateTool.name} or ${todoClearTool.name} — they require an up-to-date view and will fail otherwise.`,
       '',
       'Keep items actionable and update status as you work, not in bulk at the end.',
+      '',
+      `Before ending a turn, the list must contain no item left in pending or in_progress. Mark each finished item completed, update items whose status no longer reflects reality, or call ${todoClearTool.name} if the list is no longer relevant.`,
     ].join('\n');
   }
 }
