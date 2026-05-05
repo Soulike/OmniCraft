@@ -579,4 +579,149 @@ describe('transformMessages', () => {
       },
     ]);
   });
+
+  it('renders an in-progress compaction card when only the start event is present', () => {
+    const messages: ChatMessage[] = [
+      {
+        id: null,
+        createdAt: null,
+        role: 'assistant',
+        content: {
+          type: 'context-compaction-start',
+          compactionId: 'cid-1',
+          reason: 'after-turn',
+          beforeTokens: 1000,
+          messageCount: 5,
+        },
+      },
+    ];
+    expect(transformMessages(messages)).toEqual([
+      {
+        type: 'context-compaction',
+        status: 'in-progress',
+        compactionId: 'cid-1',
+        reason: 'after-turn',
+        beforeTokens: 1000,
+        messageCount: 5,
+      },
+    ]);
+  });
+
+  it('pairs context-compaction-start with -end into a done card', () => {
+    const messages: ChatMessage[] = [
+      {
+        id: null,
+        createdAt: null,
+        role: 'assistant',
+        content: {
+          type: 'context-compaction-start',
+          compactionId: 'cid-1',
+          reason: 'after-turn',
+          beforeTokens: 1000,
+          messageCount: 5,
+        },
+      },
+      {
+        id: null,
+        createdAt: null,
+        role: 'assistant',
+        content: {
+          type: 'context-compaction-end',
+          compactionId: 'cid-1',
+          summary: 'a summary',
+          beforeTokens: 1000,
+          afterTokens: 200,
+          messageCount: 5,
+          durationMs: 50,
+        },
+      },
+    ];
+    expect(transformMessages(messages)).toEqual([
+      {
+        type: 'context-compaction',
+        status: 'done',
+        compactionId: 'cid-1',
+        reason: 'after-turn',
+        beforeTokens: 1000,
+        messageCount: 5,
+        summary: 'a summary',
+        afterTokens: 200,
+        durationMs: 50,
+      },
+    ]);
+  });
+
+  it('pairs context-compaction-start with -error into a failed card', () => {
+    const messages: ChatMessage[] = [
+      {
+        id: null,
+        createdAt: null,
+        role: 'assistant',
+        content: {
+          type: 'context-compaction-start',
+          compactionId: 'cid-1',
+          reason: 'before-llm-call',
+          beforeTokens: 1000,
+          messageCount: 5,
+        },
+      },
+      {
+        id: null,
+        createdAt: null,
+        role: 'assistant',
+        content: {
+          type: 'context-compaction-error',
+          compactionId: 'cid-1',
+          reason: 'before-llm-call',
+          message: 'Aborted',
+          beforeTokens: 1000,
+          messageCount: 5,
+        },
+      },
+    ];
+    expect(transformMessages(messages)).toEqual([
+      {
+        type: 'context-compaction',
+        status: 'failed',
+        compactionId: 'cid-1',
+        reason: 'before-llm-call',
+        beforeTokens: 1000,
+        messageCount: 5,
+        errorMessage: 'Aborted',
+      },
+    ]);
+  });
+
+  it('drops orphan context-compaction-end and -error events with no matching start', () => {
+    const messages: ChatMessage[] = [
+      {
+        id: null,
+        createdAt: null,
+        role: 'assistant',
+        content: {
+          type: 'context-compaction-end',
+          compactionId: 'orphan',
+          summary: 's',
+          beforeTokens: 0,
+          afterTokens: 0,
+          messageCount: 0,
+          durationMs: 0,
+        },
+      },
+      {
+        id: null,
+        createdAt: null,
+        role: 'assistant',
+        content: {
+          type: 'context-compaction-error',
+          compactionId: 'orphan',
+          reason: 'after-turn',
+          message: 'oops',
+          beforeTokens: 0,
+          messageCount: 0,
+        },
+      },
+    ];
+    expect(transformMessages(messages)).toEqual([]);
+  });
 });

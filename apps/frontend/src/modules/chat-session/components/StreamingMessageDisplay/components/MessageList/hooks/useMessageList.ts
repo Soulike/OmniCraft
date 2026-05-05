@@ -1,5 +1,9 @@
 import type {ThinkingLevel} from '@omnicraft/api-schema';
 import type {
+  SseContextCompactionEndEvent,
+  SseContextCompactionErrorEvent,
+} from '@omnicraft/sse-events';
+import type {
   AnyToolResultData,
   ToolFailureData,
   ToolName,
@@ -129,6 +133,9 @@ export function transformMessages(
       data: AnyToolResultData;
     }
   >();
+  // Collect compaction terminal events by compactionId
+  const compactionEnds = new Map<string, SseContextCompactionEndEvent>();
+  const compactionErrors = new Map<string, SseContextCompactionErrorEvent>();
   for (const message of messages) {
     if (message.content.type === 'tool-execute-end') {
       endEvents.set(message.content.callId, {
@@ -136,6 +143,10 @@ export function transformMessages(
         status: message.content.status,
         data: message.content.data,
       });
+    } else if (message.content.type === 'context-compaction-end') {
+      compactionEnds.set(message.content.compactionId, message.content);
+    } else if (message.content.type === 'context-compaction-error') {
+      compactionErrors.set(message.content.compactionId, message.content);
     }
   }
 
@@ -221,12 +232,47 @@ export function transformMessages(
         });
         break;
       }
-      case 'context-compaction': {
-        // The MessageContent and RenderItem unions are structurally identical,
-        // so passthrough is type-safe.
-        items.push(content);
+      case 'context-compaction-start': {
+        const end = compactionEnds.get(content.compactionId);
+        const error = compactionErrors.get(content.compactionId);
+        if (end) {
+          items.push({
+            type: 'context-compaction',
+            status: 'done',
+            compactionId: content.compactionId,
+            reason: content.reason,
+            beforeTokens: content.beforeTokens,
+            messageCount: content.messageCount,
+            summary: end.summary,
+            afterTokens: end.afterTokens,
+            durationMs: end.durationMs,
+          });
+        } else if (error) {
+          items.push({
+            type: 'context-compaction',
+            status: 'failed',
+            compactionId: content.compactionId,
+            reason: content.reason,
+            beforeTokens: content.beforeTokens,
+            messageCount: content.messageCount,
+            errorMessage: error.message,
+          });
+        } else {
+          items.push({
+            type: 'context-compaction',
+            status: 'in-progress',
+            compactionId: content.compactionId,
+            reason: content.reason,
+            beforeTokens: content.beforeTokens,
+            messageCount: content.messageCount,
+          });
+        }
         break;
       }
+      case 'context-compaction-end':
+      case 'context-compaction-error':
+        // Already paired with the matching start event above.
+        break;
     }
   }
 

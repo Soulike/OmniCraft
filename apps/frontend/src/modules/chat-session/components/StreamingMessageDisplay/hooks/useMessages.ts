@@ -287,19 +287,7 @@ export function pushCompactionStart(
   const base = removeTrailingAssistantMessageIfEmpty(prev);
   return [
     ...base,
-    {
-      id: null,
-      createdAt: null,
-      role: 'assistant' as const,
-      content: {
-        type: 'context-compaction' as const,
-        status: 'in-progress' as const,
-        compactionId: event.compactionId,
-        reason: event.reason,
-        beforeTokens: event.beforeTokens,
-        messageCount: event.messageCount,
-      },
-    },
+    {id: null, createdAt: null, role: 'assistant' as const, content: event},
     {
       id: null,
       createdAt: null,
@@ -309,72 +297,38 @@ export function pushCompactionStart(
   ];
 }
 
-export function applyCompactionEnd(
+export function pushCompactionEnd(
   prev: ChatMessage[],
   event: SseContextCompactionEndEvent,
 ): ChatMessage[] {
-  const targetIndex = prev.findIndex(
-    (msg) =>
-      msg.content.type === 'context-compaction' &&
-      msg.content.compactionId === event.compactionId,
-  );
-  if (targetIndex === -1) {
-    console.warn(
-      `[useMessages] context-compaction-end has no matching in-progress card (compactionId=${event.compactionId})`,
-    );
-    return prev;
-  }
-  const target = prev[targetIndex];
-  if (target.content.type !== 'context-compaction') return prev;
-  const updated = [...prev];
-  updated[targetIndex] = {
-    ...target,
-    content: {
-      type: 'context-compaction' as const,
-      status: 'done' as const,
-      compactionId: target.content.compactionId,
-      reason: target.content.reason,
-      beforeTokens: target.content.beforeTokens,
-      messageCount: target.content.messageCount,
-      summary: event.summary,
-      afterTokens: event.afterTokens,
-      durationMs: event.durationMs,
+  const base = removeTrailingAssistantMessageIfEmpty(prev);
+  return [
+    ...base,
+    {id: null, createdAt: null, role: 'assistant' as const, content: event},
+    {
+      id: null,
+      createdAt: null,
+      role: 'assistant' as const,
+      content: {type: 'text' as const, content: ''},
     },
-  };
-  return updated;
+  ];
 }
 
-export function applyCompactionError(
+export function pushCompactionError(
   prev: ChatMessage[],
   event: SseContextCompactionErrorEvent,
 ): ChatMessage[] {
-  const targetIndex = prev.findIndex(
-    (msg) =>
-      msg.content.type === 'context-compaction' &&
-      msg.content.compactionId === event.compactionId,
-  );
-  if (targetIndex === -1) {
-    console.warn(
-      `[useMessages] context-compaction-error has no matching in-progress card (compactionId=${event.compactionId})`,
-    );
-    return prev;
-  }
-  const target = prev[targetIndex];
-  if (target.content.type !== 'context-compaction') return prev;
-  const updated = [...prev];
-  updated[targetIndex] = {
-    ...target,
-    content: {
-      type: 'context-compaction' as const,
-      status: 'failed' as const,
-      compactionId: target.content.compactionId,
-      reason: target.content.reason,
-      beforeTokens: target.content.beforeTokens,
-      messageCount: target.content.messageCount,
-      errorMessage: event.message,
+  const base = removeTrailingAssistantMessageIfEmpty(prev);
+  return [
+    ...base,
+    {id: null, createdAt: null, role: 'assistant' as const, content: event},
+    {
+      id: null,
+      createdAt: null,
+      role: 'assistant' as const,
+      content: {type: 'text' as const, content: ''},
     },
-  };
-  return updated;
+  ];
 }
 
 /** Manages the chat message history, subscribing to chat events. */
@@ -439,10 +393,10 @@ export function useMessages() {
       setMessages((prev) => pushCompactionStart(prev, data));
     };
     const onCompactionEnd = (data: SseContextCompactionEndEvent) => {
-      setMessages((prev) => applyCompactionEnd(prev, data));
+      setMessages((prev) => pushCompactionEnd(prev, data));
     };
     const onCompactionError = (data: SseContextCompactionErrorEvent) => {
-      setMessages((prev) => applyCompactionError(prev, data));
+      setMessages((prev) => pushCompactionError(prev, data));
     };
 
     eventBus.on('user-message-sent', onUserMessageSent);

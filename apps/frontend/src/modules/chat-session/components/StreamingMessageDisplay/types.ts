@@ -43,37 +43,6 @@ export interface SubagentContent {
   eventBus: ChatEventBus;
 }
 
-/** Compaction history entry — discriminated by status. */
-export type ContextCompactionMessageContent =
-  | {
-      type: 'context-compaction';
-      status: 'in-progress';
-      compactionId: string;
-      reason: 'before-llm-call' | 'after-turn';
-      beforeTokens: number;
-      messageCount: number;
-    }
-  | {
-      type: 'context-compaction';
-      status: 'done';
-      compactionId: string;
-      reason: 'before-llm-call' | 'after-turn';
-      beforeTokens: number;
-      messageCount: number;
-      summary: string;
-      afterTokens: number;
-      durationMs: number;
-    }
-  | {
-      type: 'context-compaction';
-      status: 'failed';
-      compactionId: string;
-      reason: 'before-llm-call' | 'after-turn';
-      beforeTokens: number;
-      messageCount: number;
-      errorMessage: string;
-    };
-
 /** A single content entry in a chat message. */
 export type MessageContent =
   | TextContent
@@ -81,7 +50,9 @@ export type MessageContent =
   | SseToolExecuteStartEvent
   | SseToolExecuteEndEvent
   | SubagentContent
-  | ContextCompactionMessageContent;
+  | SseContextCompactionStartEvent
+  | SseContextCompactionEndEvent
+  | SseContextCompactionErrorEvent;
 
 /** A chat message for UI rendering. Each message has exactly one content. */
 export interface ChatMessage {
