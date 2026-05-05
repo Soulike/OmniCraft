@@ -17,7 +17,7 @@ import {
   TIMEOUT_MS,
   USER_AGENT,
 } from './config.js';
-import {fetchBody} from './helpers.js';
+import {fetchBody, isTextContentType} from './helpers.js';
 import {validateUrl} from './url-validator.js';
 import {webFetchTool} from './web-fetch.js';
 
@@ -60,7 +60,15 @@ export const webFetchRawTool: ToolDefinition<
           Accept: '*/*',
         }),
       });
-      body = result.body;
+      if (!isTextContentType(result.contentType)) {
+        const message = `Unsupported content type: ${result.contentType}`;
+        return {
+          data: {message},
+          content: `Error: ${message}`,
+          status: 'failure',
+        };
+      }
+      body = new TextDecoder().decode(result.body);
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
       return {

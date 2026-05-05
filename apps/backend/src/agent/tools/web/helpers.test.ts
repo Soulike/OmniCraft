@@ -77,23 +77,23 @@ describe('fetchBody', () => {
 
     it('returns body and content type', async () => {
       const result = await fetchBody(serverUrl(server), opts);
-      expect(result.body).toContain('<h1>Hello</h1>');
+      expect(result.body).toBeInstanceOf(Buffer);
+      expect(result.body.toString('utf-8')).toContain('<h1>Hello</h1>');
       expect(result.contentType).toContain('text/html');
     });
   });
 
   describe('errors', () => {
-    it('throws for non-text content types', async () => {
-      const server = createTestServer(
-        'image/png',
-        Buffer.from([0x89, 0x50, 0x4e, 0x47]),
-      );
+    it('returns raw bytes for non-text content types without throwing', async () => {
+      const pngBytes = Buffer.from([0x89, 0x50, 0x4e, 0x47]);
+      const server = createTestServer('image/png', pngBytes);
       await startServer(server);
 
       try {
-        await expect(fetchBody(serverUrl(server), opts)).rejects.toThrow(
-          'Unsupported content type',
-        );
+        const result = await fetchBody(serverUrl(server), opts);
+        expect(result.body).toBeInstanceOf(Buffer);
+        expect(Buffer.compare(result.body, pngBytes)).toBe(0);
+        expect(result.contentType).toContain('image/png');
       } finally {
         await stopServer(server);
       }

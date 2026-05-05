@@ -7,7 +7,7 @@ export interface FetchBodyOptions {
 
 /** Successful fetch result. */
 export interface FetchBodyResult {
-  readonly body: string;
+  readonly body: Buffer;
   readonly contentType: string;
 }
 
@@ -24,10 +24,16 @@ export function isTextContentType(contentType: string): boolean {
   );
 }
 
+/** Returns true if the Content-Type is application/pdf. */
+export function isPdfContentType(contentType: string): boolean {
+  return contentType.toLowerCase().includes('application/pdf');
+}
+
 /**
- * Fetches a URL and returns the response body as text.
- * Throws on network errors, non-2xx status, non-text content types,
- * or responses exceeding the size limit.
+ * Fetches a URL and returns the raw response bytes plus Content-Type.
+ * Throws on network errors, non-2xx status, missing Content-Type,
+ * or responses exceeding the size limit. Does NOT filter by content type
+ * or decode bytes — callers handle conversion.
  */
 export async function fetchBody(
   url: string,
@@ -61,10 +67,6 @@ export async function fetchBody(
     clearTimeout(timeoutId);
     throw new Error('Response has no Content-Type header');
   }
-  if (!isTextContentType(contentType)) {
-    clearTimeout(timeoutId);
-    throw new Error(`Unsupported content type: ${contentType}`);
-  }
 
   const contentLength = response.headers.get('content-length');
   if (contentLength && parseInt(contentLength, 10) > options.maxResponseSize) {
@@ -74,7 +76,6 @@ export async function fetchBody(
     );
   }
 
-  // Stream body and enforce size limit
   if (!response.body) {
     clearTimeout(timeoutId);
     throw new Error('Response body is not readable');
@@ -101,7 +102,5 @@ export async function fetchBody(
     clearTimeout(timeoutId);
   }
 
-  const body = new TextDecoder().decode(Buffer.concat(chunks));
-
-  return {body, contentType};
+  return {body: Buffer.concat(chunks), contentType};
 }

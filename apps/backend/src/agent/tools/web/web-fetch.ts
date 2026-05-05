@@ -20,7 +20,7 @@ import {
   TIMEOUT_MS,
   USER_AGENT,
 } from './config.js';
-import {fetchBody} from './helpers.js';
+import {fetchBody, isTextContentType} from './helpers.js';
 import {validateUrl} from './url-validator.js';
 
 const parameters = webFetchParametersSchema;
@@ -109,7 +109,7 @@ export const webFetchTool: ToolDefinition<typeof parameters, WebFetchResult> = {
       return {data: {message: urlError}, content: urlError, status: 'failure'};
     }
 
-    let body: string;
+    let bodyBytes: Buffer;
     let contentType: string;
     try {
       const result = await fetchBody(args.url, {
@@ -120,7 +120,7 @@ export const webFetchTool: ToolDefinition<typeof parameters, WebFetchResult> = {
           Accept: 'text/html, application/json, text/plain, */*',
         }),
       });
-      body = result.body;
+      bodyBytes = result.body;
       contentType = result.contentType;
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
@@ -138,14 +138,22 @@ export const webFetchTool: ToolDefinition<typeof parameters, WebFetchResult> = {
     let note: string | undefined;
 
     if (contentType.toLowerCase().includes('text/html')) {
+      const body = new TextDecoder().decode(bodyBytes);
       const result = htmlToMarkdown(body, includeFullPage);
       title = result.title;
       content = result.content;
       if (result.fellBack) {
         note = 'Article extraction failed; showing full page content instead.';
       }
+    } else if (isTextContentType(contentType)) {
+      content = new TextDecoder().decode(bodyBytes);
     } else {
-      content = body;
+      const message = `Unsupported content type: ${contentType}`;
+      return {
+        data: {message},
+        content: `Error: ${message}`,
+        status: 'failure',
+      };
     }
 
     if (Buffer.byteLength(content) > MAX_INLINE_SIZE) {
