@@ -98,6 +98,9 @@ export function useStreamChat({
               case 'thinking-start':
               case 'thinking-delta':
               case 'thinking-end':
+              case 'context-compaction-start':
+              case 'context-compaction-end':
+              case 'context-compaction-error':
                 routeBaseEventToBus(event, eventBus);
                 break;
               case 'todo-update':
