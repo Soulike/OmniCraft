@@ -37,6 +37,12 @@ export const findFilesTool: ToolDefinition<typeof parameters, FindFilesResult> =
       `To search file contents instead, use ${searchFilesTool.name}.`,
     parameters,
     suppressToolEvents: false,
+    compactResult({content, status}) {
+      const lines = content.split('\n').filter(Boolean);
+      return [`${TOOL_NAME.FIND_FILES} ${status}`, ...lines.slice(0, 21)].join(
+        '\n',
+      );
+    },
     async execute(args: FindFilesArgs, context: ToolExecutionContext) {
       const {workingDirectory} = context;
 

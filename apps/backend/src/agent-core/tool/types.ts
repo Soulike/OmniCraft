@@ -5,7 +5,11 @@ import type {z} from 'zod';
 import type {FileContentCache} from '../agent/state/file-content-cache.js';
 import type {FileStatTracker} from '../agent/state/file-stat-tracker.js';
 import type {TodoStore} from '../agent/state/todo-store.js';
-import type {LlmConfig} from '../llm-api/types.js';
+import type {
+  LlmConfig,
+  LlmToolCall,
+  LlmToolResultMessage,
+} from '../llm-api/types.js';
 import type {SkillDefinition} from '../skill/skill-definition.js';
 import type {UserInteractionBridge} from '../user-interaction/index.js';
 
@@ -95,6 +99,13 @@ export type ToolExecuteResult<T> =
   | ToolExecuteSuccessResult<T>
   | ToolExecuteFailureResult;
 
+export interface ToolCompactResultInput {
+  readonly content: string;
+  readonly status: 'success' | 'failure';
+  readonly toolCall: LlmToolCall;
+  readonly message: LlmToolResultMessage;
+}
+
 /**
  * A stateless, singleton tool definition.
  *
@@ -117,6 +128,7 @@ export interface ToolDefinition<
    * SSE events for this tool. The tool result is still submitted to the LLM.
    */
   readonly suppressToolEvents: boolean;
+  readonly compactResult?: (input: ToolCompactResultInput) => string | null;
   execute(
     args: z.infer<TParams>,
     context: ToolExecutionContext,

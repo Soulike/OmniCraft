@@ -97,6 +97,12 @@ export const webFetchTool: ToolDefinition<typeof parameters, WebFetchResult> = {
     'rather than needing to discover information.',
   parameters,
   suppressToolEvents: false,
+  compactResult({content, status}) {
+    const lines = content.split('\n').filter(Boolean);
+    return [`${TOOL_NAME.WEB_FETCH} ${status}`, ...lines.slice(0, 21)].join(
+      '\n',
+    );
+  },
   async execute(args: WebFetchArgs, _context: ToolExecutionContext) {
     const urlError = validateUrl(args.url);
     if (urlError) {

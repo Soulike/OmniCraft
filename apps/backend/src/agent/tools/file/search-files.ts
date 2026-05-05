@@ -88,6 +88,12 @@ export const searchFilesTool: ToolDefinition<
     'Use this to find where a specific string or pattern appears across files.',
   parameters,
   suppressToolEvents: false,
+  compactResult({content, status}) {
+    const lines = content.split('\n').filter(Boolean);
+    return [`${TOOL_NAME.SEARCH_FILES} ${status}`, ...lines.slice(0, 21)].join(
+      '\n',
+    );
+  },
   async execute(args: SearchFilesArgs, context: ToolExecutionContext) {
     const {workingDirectory} = context;
 

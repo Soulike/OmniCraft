@@ -1,5 +1,8 @@
 export {LlmSession} from './llm-session.js';
 export type {
+  LlmCompactionMetadata,
+  LlmCompactionOptions,
+  LlmCompactionReason,
   LlmSessionEvent,
   LlmSessionEventStream,
   LlmSessionMessageStartEvent,
@@ -9,6 +12,7 @@ export type {
   LlmSessionThinkingEndEvent,
   LlmSessionThinkingStartEvent,
   LlmSessionToolCallEvent,
+  LlmSessionUsage,
   SendUserMessageResult,
   ToolResult,
 } from './types.js';

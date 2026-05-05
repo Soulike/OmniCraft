@@ -52,6 +52,7 @@ export type LlmAssistantMessage = z.infer<typeof llmAssistantMessageSchema>;
 export const llmToolResultMessageSchema = llmMessageBaseSchema.extend({
   role: z.literal('tool'),
   callId: z.string(),
+  status: z.enum(['success', 'failure']),
 });
 
 export type LlmToolResultMessage = z.infer<typeof llmToolResultMessageSchema>;
@@ -67,14 +68,14 @@ export type LlmMessage = z.infer<typeof llmMessageSchema>;
 
 /** Configuration needed to call an LLM API. */
 export interface LlmConfig {
-  apiFormat: 'claude' | 'openai' | 'openai-responses';
+  apiFormat: 'claude' | 'openai-responses';
   apiKey: string;
   baseUrl: string;
   model: string;
 }
 
-/** Token usage statistics for internal LLM session accumulation. */
-export interface LlmUsage {
+/** Token usage statistics reported by a single provider call. */
+export interface LlmCallUsage {
   inputTokens: number;
   outputTokens: number;
   cacheReadInputTokens: number;
@@ -90,7 +91,7 @@ export interface LlmMessageStartEvent {
 export interface LlmMessageEndEvent {
   type: 'message-end';
   stopReason: string;
-  usage: LlmUsage;
+  usage: LlmCallUsage;
 }
 
 /** A text content delta from the LLM. */
@@ -160,3 +161,5 @@ export interface LlmCompletionOptions {
   readonly thinkingLevel: ThinkingLevel;
   readonly signal?: AbortSignal;
 }
+
+export type LlmTokenCountOptions = Omit<LlmCompletionOptions, 'signal'>;

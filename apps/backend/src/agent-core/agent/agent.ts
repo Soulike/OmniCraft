@@ -254,11 +254,9 @@ export abstract class Agent {
             this.isGeneratingTitle = false;
           });
         }
-        if (event.type === 'done') {
-          void this.persistSnapshot().catch((err: unknown) => {
-            logger.error({err}, 'Failed to persist snapshot');
-          });
-        }
+      });
+      await this.persistSnapshot().catch((err: unknown) => {
+        logger.error({err}, 'Failed to persist snapshot');
       });
     } finally {
       this.abortController = null;
@@ -282,16 +280,20 @@ export abstract class Agent {
         await this.appendSseEvent(event);
         onEvent?.(event);
       }
-    } catch {
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
       await this.appendSseEvent({
         type: 'error',
-        message: 'An internal error occurred',
+        message,
       });
     }
   }
 
   private async *emitAbortCompletion(
     inFlightToolCalls: Set<string>,
+    tools: readonly ToolDefinition[],
+    systemPrompt: string,
+    thinkingLevel: ThinkingLevel,
   ): AgentEventStream {
     for (const callId of inFlightToolCalls) {
       yield {
@@ -302,11 +304,45 @@ export abstract class Agent {
         data: {message: 'Aborted'},
       } satisfies SseToolExecuteEndEvent;
     }
+    yield* this.emitDoneAfterTurn(
+      'aborted',
+      tools,
+      systemPrompt,
+      thinkingLevel,
+    );
+  }
+
+  private async *emitDoneAfterTurn(
+    reason: SseDoneEvent['reason'],
+    tools: readonly ToolDefinition[],
+    systemPrompt: string,
+    thinkingLevel: ThinkingLevel,
+  ): AgentEventStream {
+    await this.compactAfterTurn(tools, systemPrompt, thinkingLevel);
     yield {
       type: 'done',
-      reason: 'aborted',
+      reason,
       usage: await this.buildSseUsage(),
     } satisfies SseDoneEvent;
+  }
+
+  private async compactAfterTurn(
+    tools: readonly ToolDefinition[],
+    systemPrompt: string,
+    thinkingLevel: ThinkingLevel,
+  ): Promise<void> {
+    try {
+      await this.llmSession.compactIfNeeded({
+        reason: 'after-turn',
+        tools,
+        systemPrompt,
+        thinkingLevel,
+      });
+    } catch (err: unknown) {
+      // Turn-end compaction is best-effort cleanup after user-visible work is done.
+      // Keep the completed turn successful and retry compaction before the next LLM call.
+      logger.error({err}, 'Failed to compact LLM session after turn');
+    }
   }
 
   protected async *runAgentLoop(
@@ -354,17 +390,23 @@ export abstract class Agent {
     let round = 0;
     while (toolCalls.length > 0) {
       if (signal.aborted) {
-        yield* this.emitAbortCompletion(inFlightToolCalls);
+        yield* this.emitAbortCompletion(
+          inFlightToolCalls,
+          toolDefs,
+          systemPrompt,
+          thinkingLevel,
+        );
         return;
       }
 
       round++;
       if (round > maxRounds) {
-        yield {
-          type: 'done',
-          reason: 'max_rounds_reached',
-          usage: await this.buildSseUsage(),
-        } satisfies SseDoneEvent;
+        yield* this.emitDoneAfterTurn(
+          'max_rounds_reached',
+          toolDefs,
+          systemPrompt,
+          thinkingLevel,
+        );
         return;
       }
 
@@ -394,6 +436,7 @@ export abstract class Agent {
         toolResults.set(toolCall.callId, {
           callId: toolCall.callId,
           content: `Error: Unknown tool: ${toolCall.toolName}`,
+          status: 'failure',
         });
       }
 
@@ -431,6 +474,7 @@ export abstract class Agent {
           toolResults.set(toolCall.callId, {
             callId: toolCall.callId,
             content: result.content,
+            status: result.status === 'success' ? 'success' : 'failure',
           });
         });
 
@@ -456,7 +500,12 @@ export abstract class Agent {
       // signal.aborted may have changed during async tool execution
       // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
       if (signal.aborted) {
-        yield* this.emitAbortCompletion(inFlightToolCalls);
+        yield* this.emitAbortCompletion(
+          inFlightToolCalls,
+          toolDefs,
+          systemPrompt,
+          thinkingLevel,
+        );
         return;
       }
 
@@ -476,11 +525,12 @@ export abstract class Agent {
       );
     }
 
-    yield {
-      type: 'done',
-      reason: 'complete',
-      usage: await this.buildSseUsage(),
-    } satisfies SseDoneEvent;
+    yield* this.emitDoneAfterTurn(
+      'complete',
+      toolDefs,
+      systemPrompt,
+      thinkingLevel,
+    );
   }
 
   /**
@@ -489,12 +539,13 @@ export abstract class Agent {
    */
   private async buildSseUsage(): Promise<SseUsage> {
     const config = await this.getConfig();
-    const maxInputTokens = await modelCapacity.getMaxInputTokens(config);
+    const contextWindowTokens = await modelCapacity.getMaxInputTokens(config);
+    const usage = this.llmSession.getUsage();
     return {
       model: config.model,
-      maxInputTokens,
+      contextWindowTokens,
+      ...usage,
       thinkingLevel: this.thinkingLevel,
-      ...this.llmSession.getUsage(),
     };
   }
 

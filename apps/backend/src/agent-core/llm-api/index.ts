@@ -1,6 +1,7 @@
 export {llmApi} from './llm-api.js';
 export type {
   LlmAssistantMessage,
+  LlmCallUsage,
   LlmCompletionOptions,
   LlmConfig,
   LlmEvent,
@@ -13,12 +14,12 @@ export type {
   LlmThinkingDeltaEvent,
   LlmThinkingEndEvent,
   LlmThinkingStartEvent,
+  LlmTokenCountOptions,
   LlmToolCall,
   LlmToolCallDeltaEvent,
   LlmToolCallEndEvent,
   LlmToolCallStartEvent,
   LlmToolResultMessage,
-  LlmUsage,
   LlmUserMessage,
 } from './types.js';
 export {

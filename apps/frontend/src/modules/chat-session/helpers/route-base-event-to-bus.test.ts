@@ -49,10 +49,11 @@ describe('routeBaseEventToBus', () => {
       reason: 'complete',
       usage: {
         model: 'test-model',
-        maxInputTokens: 100,
-        inputTokens: 10,
-        outputTokens: 5,
-        cacheReadInputTokens: 0,
+        contextWindowTokens: 100,
+        currentContextInputTokens: 10,
+        sessionInputTokens: 10,
+        sessionOutputTokens: 5,
+        sessionCacheReadInputTokens: 0,
         thinkingLevel: 'none',
       },
     };
