@@ -10,6 +10,16 @@ import {
 import {SubAgentToolRegistry} from './sub-agent-tool-registry.js';
 import {SUB_AGENT_TYPE} from './subagent-types.js';
 
+function emptyUsage() {
+  return {
+    currentContextInputTokens: 0,
+    latestCallOutputTokens: 0,
+    sessionInputTokens: 0,
+    sessionOutputTokens: 0,
+    sessionCacheReadInputTokens: 0,
+  };
+}
+
 describe('resumeSubagentTool.execute', () => {
   it('returns failure without persisted parent sessionsDir and does not prepare resume state', async () => {
     const {deps, tool} = createTestTool();
@@ -217,13 +227,7 @@ function createPreparedSnapshot(
       messages: [],
       compactions: [],
       usageBaselineMessageCount: null,
-      usage: {
-        currentContextInputTokens: 0,
-        latestCallOutputTokens: 0,
-        sessionInputTokens: 0,
-        sessionOutputTokens: 0,
-        sessionCacheReadInputTokens: 0,
-      },
+      usage: emptyUsage(),
     },
     options: {workingDirectory: '/prepared-work', thinkingLevel: 'medium'},
     ...overrides,

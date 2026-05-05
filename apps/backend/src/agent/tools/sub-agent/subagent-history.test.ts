@@ -20,6 +20,16 @@ import {
 } from './subagent-history.js';
 import {SUB_AGENT_TYPE} from './subagent-types.js';
 
+function emptyUsage() {
+  return {
+    currentContextInputTokens: 0,
+    latestCallOutputTokens: 0,
+    sessionInputTokens: 0,
+    sessionOutputTokens: 0,
+    sessionCacheReadInputTokens: 0,
+  };
+}
+
 describe('subagent history metadata helpers', () => {
   let tmpDir: string;
 
@@ -40,13 +50,7 @@ describe('subagent history metadata helpers', () => {
         ],
         compactions: [],
         usageBaselineMessageCount: null,
-        usage: {
-          currentContextInputTokens: 0,
-          latestCallOutputTokens: 0,
-          sessionInputTokens: 0,
-          sessionOutputTokens: 0,
-          sessionCacheReadInputTokens: 0,
-        },
+        usage: emptyUsage(),
       },
       options: {workingDirectory: tmpDir, thinkingLevel: 'none'},
     };
