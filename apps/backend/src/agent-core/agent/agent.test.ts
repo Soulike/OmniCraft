@@ -178,6 +178,14 @@ describe('Agent title generation', () => {
     expect(titleIndex).toBeLessThan(doneIndex);
     expect(events[doneIndex]).toMatchObject({
       type: 'done',
+      reason: 'complete',
+    });
+    const lastUsageUpdate = events.findLast(
+      (event) => event.type === 'usage-update',
+    );
+    expect(lastUsageUpdate).toBeDefined();
+    expect(lastUsageUpdate).toMatchObject({
+      type: 'usage-update',
       usage: {thinkingLevel: 'high'},
     });
     expect(events[titleIndex]).toEqual({
@@ -217,8 +225,12 @@ describe('Agent usage reporting', () => {
     await collectAll(agent.streamForTest('first'));
     const events = await collectAll(agent.streamForTest('second'));
 
-    expect(events.at(-1)).toMatchObject({
-      type: 'done',
+    expect(events.at(-1)).toMatchObject({type: 'done', reason: 'complete'});
+    const lastUsageUpdate = events.findLast(
+      (event) => event.type === 'usage-update',
+    );
+    expect(lastUsageUpdate).toMatchObject({
+      type: 'usage-update',
       usage: {
         currentContextInputTokens: 40,
         sessionInputTokens: 140,
@@ -251,16 +263,51 @@ describe('Agent usage reporting', () => {
 
     const events = await collectAll(agent.streamForTest('compact this turn'));
     const doneEvent = events.at(-1);
-
     expect(doneEvent?.type).toBe('done');
-    if (doneEvent?.type !== 'done') {
-      throw new Error('Expected final event to be done');
+
+    const lastUsageUpdate = events.findLast(
+      (event) => event.type === 'usage-update',
+    );
+    if (lastUsageUpdate?.type !== 'usage-update') {
+      throw new Error('Expected a usage-update event before done');
     }
-    expect(doneEvent.usage.currentContextInputTokens).toBeGreaterThan(0);
-    expect(doneEvent.usage.currentContextInputTokens).toBeLessThan(110_000);
-    expect(doneEvent.usage.sessionInputTokens).toBe(110_000);
-    expect(doneEvent.usage.sessionOutputTokens).toBe(7);
-    expect(doneEvent.usage.sessionCacheReadInputTokens).toBe(3);
+    expect(lastUsageUpdate.usage.currentContextInputTokens).toBeGreaterThan(0);
+    expect(lastUsageUpdate.usage.currentContextInputTokens).toBeLessThan(
+      110_000,
+    );
+    expect(lastUsageUpdate.usage.sessionInputTokens).toBe(110_000);
+    expect(lastUsageUpdate.usage.sessionOutputTokens).toBe(7);
+    expect(lastUsageUpdate.usage.sessionCacheReadInputTokens).toBe(3);
+  });
+
+  it('emits a usage-update event after each LLM round', async () => {
+    vi.spyOn(llmApi, 'countToken').mockResolvedValue(1);
+    vi.spyOn(llmApi, 'streamCompletion').mockReturnValue(
+      usageCompletionStream({
+        inputTokens: 100,
+        outputTokens: 10,
+        cacheReadInputTokens: 0,
+      }),
+    );
+    const agent = new UsageTestAgent(
+      () => Promise.resolve(MAIN_CONFIG),
+      testAgentOptions(),
+    );
+
+    const events = await collectAll(agent.streamForTest('one round'));
+
+    const usageUpdates = events.filter(
+      (event) => event.type === 'usage-update',
+    );
+    // One usage-update after the LLM call, plus one in emitDoneAfterTurn
+    // after compaction. UsageTestAgent's stream emits no tool calls, so the
+    // loop body doesn't execute.
+    expect(usageUpdates.length).toBeGreaterThanOrEqual(2);
+
+    const doneIndex = events.findIndex((event) => event.type === 'done');
+    expect(doneIndex).toBeGreaterThanOrEqual(0);
+    const lastEventBeforeDone = events[doneIndex - 1];
+    expect(lastEventBeforeDone.type).toBe('usage-update');
   });
 });
 

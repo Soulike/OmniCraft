@@ -19,6 +19,7 @@ import type {
   SseToolExecuteEndEvent,
   SseToolExecuteStartEvent,
   SseUsage,
+  SseUsageUpdateEvent,
 } from '@omnicraft/sse-events';
 import type {AnyToolResultData, ToolName} from '@omnicraft/tool-schemas';
 
@@ -319,11 +320,8 @@ export abstract class Agent {
     thinkingLevel: ThinkingLevel,
   ): AgentEventStream {
     await this.compactAfterTurn(tools, systemPrompt, thinkingLevel);
-    yield {
-      type: 'done',
-      reason,
-      usage: await this.buildSseUsage(),
-    } satisfies SseDoneEvent;
+    yield await this.buildUsageUpdateEvent();
+    yield {type: 'done', reason} satisfies SseDoneEvent;
   }
 
   private async compactAfterTurn(
@@ -386,6 +384,7 @@ export abstract class Agent {
     } satisfies SseMessageStartEvent;
 
     let toolCalls = yield* this.consumeStream(userStream);
+    yield await this.buildUsageUpdateEvent();
 
     let round = 0;
     while (toolCalls.length > 0) {
@@ -523,6 +522,7 @@ export abstract class Agent {
           signal,
         ),
       );
+      yield await this.buildUsageUpdateEvent();
     }
 
     yield* this.emitDoneAfterTurn(
@@ -546,6 +546,14 @@ export abstract class Agent {
       contextWindowTokens,
       ...usage,
       thinkingLevel: this.thinkingLevel,
+    };
+  }
+
+  /** Builds a real-time `usage-update` SSE event with the latest token totals. */
+  private async buildUsageUpdateEvent(): Promise<SseUsageUpdateEvent> {
+    return {
+      type: 'usage-update',
+      usage: await this.buildSseUsage(),
     };
   }
 
