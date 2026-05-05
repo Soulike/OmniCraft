@@ -124,13 +124,12 @@ describe('webFetchTool', () => {
   });
 
   describe('PDF content', () => {
-    function buildPdfWithText(text: string): Buffer {
-      const streamContent = `BT\n/F1 18 Tf\n30 70 Td\n(${text}) Tj\nET\n`;
+    function buildPdf(streamContent: string, mediaBox = '0 0 300 144'): Buffer {
       const streamLen = Buffer.byteLength(streamContent, 'latin1');
       const objects = [
         '<</Type /Catalog /Pages 2 0 R>>',
         '<</Type /Pages /Kids [3 0 R] /Count 1>>',
-        '<</Type /Page /Parent 2 0 R /MediaBox [0 0 300 144] /Contents 4 0 R /Resources <</Font <</F1 5 0 R>>>>>>',
+        `<</Type /Page /Parent 2 0 R /MediaBox [${mediaBox}] /Contents 4 0 R /Resources <</Font <</F1 5 0 R>>>>>>`,
         `<</Length ${streamLen.toString()}>>\nstream\n${streamContent}endstream`,
         '<</Type /Font /Subtype /Type1 /BaseFont /Helvetica>>',
       ];
@@ -150,6 +149,10 @@ describe('webFetchTool', () => {
       return Buffer.from(header + body + xref + trailer, 'latin1');
     }
 
+    function buildPdfWithText(text: string): Buffer {
+      return buildPdf(`BT\n/F1 18 Tf\n30 70 Td\n(${text}) Tj\nET\n`);
+    }
+
     function buildPdfWithManyTextShows(
       perLineText: string,
       lineCount: number,
@@ -164,30 +167,9 @@ describe('webFetchTool', () => {
       }
       lines.push('ET');
       const streamContent = `${lines.join('\n')}\n`;
-      const streamLen = Buffer.byteLength(streamContent, 'latin1');
       // Use a very tall MediaBox so all lines stay on-page; some PDF text
       // extractors skip text that falls outside the page bounds.
-      const objects = [
-        '<</Type /Catalog /Pages 2 0 R>>',
-        '<</Type /Pages /Kids [3 0 R] /Count 1>>',
-        '<</Type /Page /Parent 2 0 R /MediaBox [0 0 10000 1000000] /Contents 4 0 R /Resources <</Font <</F1 5 0 R>>>>>>',
-        `<</Length ${streamLen.toString()}>>\nstream\n${streamContent}endstream`,
-        '<</Type /Font /Subtype /Type1 /BaseFont /Helvetica>>',
-      ];
-      const header = '%PDF-1.4\n%\xE2\xE3\xCF\xD3\n';
-      let body = '';
-      const offsets: number[] = [];
-      for (let i = 0; i < objects.length; i++) {
-        offsets.push(Buffer.byteLength(header + body, 'latin1'));
-        body += `${(i + 1).toString()} 0 obj\n${objects[i]}\nendobj\n`;
-      }
-      const xrefOffset = Buffer.byteLength(header + body, 'latin1');
-      let xref = `xref\n0 ${(objects.length + 1).toString()}\n0000000000 65535 f \n`;
-      for (const off of offsets) {
-        xref += `${off.toString().padStart(10, '0')} 00000 n \n`;
-      }
-      const trailer = `trailer\n<</Size ${(objects.length + 1).toString()} /Root 1 0 R>>\nstartxref\n${xrefOffset.toString()}\n%%EOF\n`;
-      return Buffer.from(header + body + xref + trailer, 'latin1');
+      return buildPdf(streamContent, '0 0 10000 1000000');
     }
 
     it('extracts text from PDF responses', async () => {
