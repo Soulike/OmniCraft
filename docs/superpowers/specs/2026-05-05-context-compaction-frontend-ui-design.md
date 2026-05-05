@@ -208,22 +208,46 @@ matching the existing pattern (`'text-delta': SseTextDeltaEvent`,
 ```
 
 The new `MessageContent` variant in the same file is the bus-internal
-view-model representation that `useMessages` builds up from the events:
+view-model representation that `useMessages` builds up from the events. It
+is a discriminated union on `status` so each state's required fields are
+expressed in the type system, with no optional fields:
 
 ```ts
-{
-  type: 'context-compaction',
-  compactionId: string,
-  status: 'in-progress' | 'done' | 'failed',
-  reason: 'before-model-call' | 'after-turn',
-  beforeTokens: number,
-  messageCount: number,
-  summary?: string,
-  afterTokens?: number,
-  durationMs?: number,
-  errorMessage?: string,
-}
+type ContextCompactionMessageContent =
+  | {
+      type: 'context-compaction';
+      status: 'in-progress';
+      compactionId: string;
+      reason: 'before-model-call' | 'after-turn';
+      beforeTokens: number;
+      messageCount: number;
+    }
+  | {
+      type: 'context-compaction';
+      status: 'done';
+      compactionId: string;
+      reason: 'before-model-call' | 'after-turn';
+      beforeTokens: number;
+      messageCount: number;
+      summary: string;
+      afterTokens: number;
+      durationMs: number;
+    }
+  | {
+      type: 'context-compaction';
+      status: 'failed';
+      compactionId: string;
+      reason: 'before-model-call' | 'after-turn';
+      beforeTokens: number;
+      messageCount: number;
+      errorMessage: string;
+    };
 ```
+
+Common fields (`compactionId`, `reason`, `beforeTokens`, `messageCount`) are
+present in every variant and copied from the `start` event. Variant-specific
+fields (`summary`/`afterTokens`/`durationMs` for `done`, `errorMessage` for
+`failed`) come from the matching terminal event.
 
 `compactionId` flows through from the SSE event (backend-generated). The
 frontend never generates one of its own. The synthetic `ChatMessage`'s
@@ -244,16 +268,22 @@ that subagent's bubble via `subagent-output`.
 `apps/frontend/src/modules/chat-session/components/StreamingMessageDisplay/hooks/useMessages.ts`
 gains three handlers:
 
-- On `context-compaction-start`: push a synthetic `ChatMessage` with content
-  `{type: 'context-compaction', status: 'in-progress', compactionId, ...}`,
-  copying `compactionId` from the event.
+- On `context-compaction-start`: push a synthetic `ChatMessage` whose
+  content is the `'in-progress'` variant of the union, with `compactionId`,
+  `reason`, `beforeTokens`, and `messageCount` copied from the event.
 - On `context-compaction-end`: find the compaction message with the matching
-  `compactionId`, set its status to `'done'`, and merge in `summary`,
-  `afterTokens`, and `durationMs`. If no match exists (e.g. start event was
-  dropped), log and ignore.
-- On `context-compaction-error`: find the compaction message with the matching
-  `compactionId`, set its status to `'failed'`, and store `errorMessage`. If
-  no match exists, log and ignore.
+  `compactionId`, and **replace** its content with the `'done'` variant,
+  carrying the original common fields plus the new `summary`, `afterTokens`,
+  and `durationMs`. If no match exists (e.g. start event was dropped), log
+  and ignore.
+- On `context-compaction-error`: find the compaction message with the
+  matching `compactionId`, and **replace** its content with the `'failed'`
+  variant, carrying the original common fields plus `errorMessage`. If no
+  match exists, log and ignore.
+
+Replacement (rather than mutation/spread) is what keeps the discriminated
+union honest — the new value is a complete instance of the target variant,
+so TypeScript can narrow on `status` everywhere downstream.
 
 Compaction has no catch-all rule for "still in-progress when the stream
 ends." The generator is responsible for always emitting a terminal event
