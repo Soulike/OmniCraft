@@ -78,12 +78,43 @@ export interface SubagentRenderItem {
   eventBus: ChatEventBus;
 }
 
+export type ContextCompactionRenderItem =
+  | {
+      type: 'context-compaction';
+      status: 'in-progress';
+      compactionId: string;
+      reason: 'before-llm-call' | 'after-turn';
+      beforeTokens: number;
+      messageCount: number;
+    }
+  | {
+      type: 'context-compaction';
+      status: 'done';
+      compactionId: string;
+      reason: 'before-llm-call' | 'after-turn';
+      beforeTokens: number;
+      messageCount: number;
+      summary: string;
+      afterTokens: number;
+      durationMs: number;
+    }
+  | {
+      type: 'context-compaction';
+      status: 'failed';
+      compactionId: string;
+      reason: 'before-llm-call' | 'after-turn';
+      beforeTokens: number;
+      messageCount: number;
+      errorMessage: string;
+    };
+
 export type MessageRenderItem =
   | UserTextRenderItem
   | AssistantTextRenderItem
   | ToolExecutionRenderItem
   | ThinkingRenderItem
-  | SubagentRenderItem;
+  | SubagentRenderItem
+  | ContextCompactionRenderItem;
 
 /** Converts a ChatMessage[] into renderable MessageRenderItem[]. */
 export function transformMessages(
@@ -188,6 +219,12 @@ export function transformMessages(
           status: content.status,
           eventBus: content.eventBus,
         });
+        break;
+      }
+      case 'context-compaction': {
+        // The MessageContent and RenderItem unions are structurally identical,
+        // so passthrough is type-safe.
+        items.push(content);
         break;
       }
     }
