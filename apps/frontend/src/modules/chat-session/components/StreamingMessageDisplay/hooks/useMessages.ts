@@ -313,54 +313,68 @@ export function applyCompactionEnd(
   prev: ChatMessage[],
   event: SseContextCompactionEndEvent,
 ): ChatMessage[] {
-  return prev.map((msg) => {
-    if (
+  const targetIndex = prev.findIndex(
+    (msg) =>
       msg.content.type === 'context-compaction' &&
-      msg.content.compactionId === event.compactionId
-    ) {
-      return {
-        ...msg,
-        content: {
-          type: 'context-compaction' as const,
-          status: 'done' as const,
-          compactionId: msg.content.compactionId,
-          reason: msg.content.reason,
-          beforeTokens: msg.content.beforeTokens,
-          messageCount: msg.content.messageCount,
-          summary: event.summary,
-          afterTokens: event.afterTokens,
-          durationMs: event.durationMs,
-        },
-      };
-    }
-    return msg;
-  });
+      msg.content.compactionId === event.compactionId,
+  );
+  if (targetIndex === -1) {
+    console.warn(
+      `[useMessages] context-compaction-end has no matching in-progress card (compactionId=${event.compactionId})`,
+    );
+    return prev;
+  }
+  const target = prev[targetIndex];
+  if (target.content.type !== 'context-compaction') return prev;
+  const updated = [...prev];
+  updated[targetIndex] = {
+    ...target,
+    content: {
+      type: 'context-compaction' as const,
+      status: 'done' as const,
+      compactionId: target.content.compactionId,
+      reason: target.content.reason,
+      beforeTokens: target.content.beforeTokens,
+      messageCount: target.content.messageCount,
+      summary: event.summary,
+      afterTokens: event.afterTokens,
+      durationMs: event.durationMs,
+    },
+  };
+  return updated;
 }
 
 export function applyCompactionError(
   prev: ChatMessage[],
   event: SseContextCompactionErrorEvent,
 ): ChatMessage[] {
-  return prev.map((msg) => {
-    if (
+  const targetIndex = prev.findIndex(
+    (msg) =>
       msg.content.type === 'context-compaction' &&
-      msg.content.compactionId === event.compactionId
-    ) {
-      return {
-        ...msg,
-        content: {
-          type: 'context-compaction' as const,
-          status: 'failed' as const,
-          compactionId: msg.content.compactionId,
-          reason: msg.content.reason,
-          beforeTokens: msg.content.beforeTokens,
-          messageCount: msg.content.messageCount,
-          errorMessage: event.message,
-        },
-      };
-    }
-    return msg;
-  });
+      msg.content.compactionId === event.compactionId,
+  );
+  if (targetIndex === -1) {
+    console.warn(
+      `[useMessages] context-compaction-error has no matching in-progress card (compactionId=${event.compactionId})`,
+    );
+    return prev;
+  }
+  const target = prev[targetIndex];
+  if (target.content.type !== 'context-compaction') return prev;
+  const updated = [...prev];
+  updated[targetIndex] = {
+    ...target,
+    content: {
+      type: 'context-compaction' as const,
+      status: 'failed' as const,
+      compactionId: target.content.compactionId,
+      reason: target.content.reason,
+      beforeTokens: target.content.beforeTokens,
+      messageCount: target.content.messageCount,
+      errorMessage: event.message,
+    },
+  };
+  return updated;
 }
 
 /** Manages the chat message history, subscribing to chat events. */
