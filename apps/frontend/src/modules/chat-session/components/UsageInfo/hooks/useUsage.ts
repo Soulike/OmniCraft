@@ -1,4 +1,4 @@
-import type {SseUsage} from '@omnicraft/sse-events';
+import type {SseUsage, SseUsageUpdateEvent} from '@omnicraft/sse-events';
 import {useEffect, useState} from 'react';
 
 import type {ChatEventBus} from '../../StreamingMessageDisplay/index.js';
@@ -8,8 +8,8 @@ export function useUsage(eventBus: ChatEventBus) {
   const [usage, setUsage] = useState<SseUsage | null>(null);
 
   useEffect(() => {
-    const handler = (data: {usage: SseUsage}) => {
-      setUsage(data.usage);
+    const handler = (event: SseUsageUpdateEvent) => {
+      setUsage(event.usage);
     };
 
     const onReset = () => {

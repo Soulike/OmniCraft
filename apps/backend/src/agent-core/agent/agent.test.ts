@@ -302,7 +302,7 @@ describe('Agent usage reporting', () => {
     // One usage-update after the LLM call, plus one in emitDoneAfterTurn
     // after compaction. UsageTestAgent's stream emits no tool calls, so the
     // loop body doesn't execute.
-    expect(usageUpdates.length).toBeGreaterThanOrEqual(2);
+    expect(usageUpdates.length).toBe(2);
 
     const doneIndex = events.findIndex((event) => event.type === 'done');
     expect(doneIndex).toBeGreaterThanOrEqual(0);
