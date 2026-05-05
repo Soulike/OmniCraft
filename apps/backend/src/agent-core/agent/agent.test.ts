@@ -426,6 +426,11 @@ describe('Agent compaction lifecycle', () => {
     expect(types).toContain('done');
     // After-turn failure must NOT emit a top-level error.
     expect(types.filter((t) => t === 'error')).toHaveLength(0);
+    const startIdx = types.indexOf('context-compaction-start');
+    const errorIdx = types.indexOf('context-compaction-error');
+    const doneIdx = types.lastIndexOf('done');
+    expect(errorIdx).toBe(startIdx + 1);
+    expect(doneIdx).toBe(errorIdx + 1);
   });
 
   it('emits start → error → top-level error on before-llm-call failure', async () => {
