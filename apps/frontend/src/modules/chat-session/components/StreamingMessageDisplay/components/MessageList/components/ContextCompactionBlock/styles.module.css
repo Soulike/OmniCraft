@@ -63,5 +63,5 @@
 }
 
 .failed .content {
-  color: var(--text);
+  color: var(--foreground);
 }
