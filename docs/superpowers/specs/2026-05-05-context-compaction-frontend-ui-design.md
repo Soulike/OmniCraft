@@ -142,9 +142,16 @@ Behavior:
 - After `this.messages` is replaced and `this.compactions` is updated, it
   yields `context-compaction-end`.
 - If `generateCompactionSummary()` (or any other step inside the generator)
-  throws, the generator catches the error, yields `context-compaction-error`
-  with the underlying message, then re-throws. Callers do not need to know
-  about the error event; it is always emitted before the throw escapes.
+  throws, the generator catches the error and inspects it:
+  - If the abort signal is set (`signal.aborted`), the generator skips the
+    error event and just re-throws. Abort is not a failure — it is a
+    user-initiated stop. The frontend's catch-all rule will turn the orphaned
+    `start` into the `interrupted` state when the abort propagates as
+    `done({reason: 'aborted'})`.
+  - Otherwise, the generator yields `context-compaction-error` with the
+    underlying message, then re-throws. Callers do not need to know about
+    the error event; it is always emitted before the throw escapes for
+    non-abort failures.
 - The mutex still wraps the generator body, so callers cannot interleave
   compactions.
 
@@ -261,11 +268,14 @@ gains three handlers:
   `compactionId`, set its status to `'failed'`, and store `errorMessage`. If
   no match exists, log and ignore.
 - On `done`, generic `error`, or `reset-session`: any compaction message still
-  in `'in-progress'` is flipped to `'interrupted'`. This is the catch-all for
-  the case where neither `end` nor `context-compaction-error` ever arrives
-  (e.g. mid-stream abort, process crash before the error event was written).
-  In normal failure flows, `'failed'` will already be set by the time these
-  events arrive, so this rule is a no-op.
+  in `'in-progress'` is flipped to `'interrupted'`. The dominant case is the
+  user clicking stop while compaction is in flight — the generator catches
+  the abort, skips the error event, and re-throws, so the stream ends with
+  `done({reason: 'aborted'})` and an orphaned `start`. This rule turns that
+  orphan into the `interrupted` card. Also covers rare cases like a process
+  crash before the error event was written. In normal failure flows
+  `'failed'` is already set by the time these events arrive, so this rule is
+  a no-op.
 
 #### Render item and dispatch
 
@@ -293,7 +303,7 @@ The view renders four states:
 | `in-progress` | `<Spinner size='sm' />`       | `Compacting context…`                     | Hidden while in-progress (no partial text)    |
 | `done`        | `<Archive size={16} />`       | `Context compacted (47.2k → 8.1k tokens)` | `<MarkdownRenderer content={summary} />`      |
 | `failed`      | `<TriangleAlert size={16} />` | `Compaction failed`                       | `<MarkdownRenderer content={errorMessage} />` |
-| `interrupted` | `<TriangleAlert size={16} />` | `Compaction interrupted`                  | Hidden                                        |
+| `interrupted` | `<TriangleAlert size={16} />` | `Compaction stopped`                      | Hidden                                        |
 
 `failed` cards default to **expanded** so the error message is visible
 immediately — failures are rare and worth surfacing. The other three states
@@ -355,9 +365,18 @@ way they do for any other event.
   throw with the existing `logger.error` call. The compaction card flips to
   `'failed'` with the error message; the turn remains successful and `done`
   arrives normally. No chat-level `error` event is emitted.
-- **`start` arrives but neither `end` nor `error` ever arrives** (e.g.
-  mid-stream abort, process crash before the error event is appended): the
-  `'interrupted'` catch-all rule in `useMessages` flips the card on the next
+- **User aborts mid-compaction**: the abort signal trips inside the
+  generator. The catch detects `signal.aborted`, **skips** yielding
+  `context-compaction-error`, and just re-throws. The throw propagates as it
+  does today, eventually arriving at the agent loop where the abort path
+  emits `done({reason: 'aborted'})`. Net wire sequence:
+  `context-compaction-start → done({reason: 'aborted'})`. The frontend's
+  catch-all rule flips the orphaned `start` to `'interrupted'`. The card
+  shows "Compaction stopped" — distinct from "Compaction failed" because
+  the user did this on purpose.
+- **`start` arrives but neither `end` nor `error` ever arrives** for some
+  other reason (e.g. process crash before the error event is appended): the
+  same `'interrupted'` catch-all rule in `useMessages` covers it on the next
   `done` / generic `error` / `reset-session`.
 - **Persisted log inconsistency on `before-model-call` rollback**: when
   `before-model-call` compaction fails, `sendMessages` rolls back
@@ -378,16 +397,19 @@ way they do for any other event.
 - `apps/backend/src/agent-core/llm-session/`: a unit test that runs
   `compactIfNeeded` and asserts the yielded events for the success and skip
   paths. A second test asserts the error path: `start` yields, then
-  `context-compaction-error` yields, then the generator throws.
+  `context-compaction-error` yields, then the generator throws. A third test
+  asserts the abort path: `start` yields, the abort signal is set, then the
+  generator throws **without** yielding `context-compaction-error`.
 - `apps/backend/src/agent-core/agent/`: tests that exercise the agent loop
   end-to-end and assert wire ordering for both compaction reasons:
   - success: `…assistant → start → end → done`
   - after-turn failure: `…assistant → start → error → done`
     (no top-level `error`)
   - before-model-call failure: `start → error → error` (top-level)
+  - mid-compaction abort: `start → done({reason: 'aborted'})`
 - `apps/frontend/.../useMessages`: tests for all transitions
   (`start → end → done`, `start → error`, `start` with no end/error followed
-  by `done`, reset).
+  by `done({reason: 'aborted'})` → `interrupted`, reset).
 - Manual UI verification in the dev server: trigger a synthetic compaction by
   lowering the trigger ratio in dev, exercise expand/collapse for each state,
   verify `failed` defaults to expanded and `interrupted` styling looks right.
