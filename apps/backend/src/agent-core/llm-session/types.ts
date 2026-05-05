@@ -1,4 +1,9 @@
 import type {ThinkingLevel} from '@omnicraft/api-schema';
+import type {
+  SseContextCompactionEndEvent,
+  SseContextCompactionErrorEvent,
+  SseContextCompactionStartEvent,
+} from '@omnicraft/sse-events';
 import {z} from 'zod';
 
 import {llmMessageSchema, type LlmToolCall} from '../llm-api/index.js';
@@ -52,6 +57,12 @@ export interface LlmCompactionOptions {
   readonly systemPrompt: string;
   readonly thinkingLevel: ThinkingLevel;
   readonly signal?: AbortSignal;
+  readonly onSseEvent?: (
+    event:
+      | SseContextCompactionStartEvent
+      | SseContextCompactionEndEvent
+      | SseContextCompactionErrorEvent,
+  ) => void;
 }
 
 /** A text content delta from the LLM. */
@@ -89,6 +100,15 @@ export interface LlmSessionMessageStartEvent {
   createdAt: number;
 }
 
+/** A context compaction SSE event surfaced from inside sendMessages. */
+export interface LlmSessionCompactionSseEvent {
+  type: 'compaction-sse';
+  event:
+    | SseContextCompactionStartEvent
+    | SseContextCompactionEndEvent
+    | SseContextCompactionErrorEvent;
+}
+
 /** Events yielded by LlmSession.sendMessage(). */
 export type LlmSessionEvent =
   | LlmSessionTextDeltaEvent
@@ -96,7 +116,8 @@ export type LlmSessionEvent =
   | LlmSessionThinkingDeltaEvent
   | LlmSessionThinkingEndEvent
   | LlmSessionToolCallEvent
-  | LlmSessionMessageStartEvent;
+  | LlmSessionMessageStartEvent
+  | LlmSessionCompactionSseEvent;
 
 /** An async generator that yields LlmSession events. */
 export type LlmSessionEventStream = AsyncGenerator<

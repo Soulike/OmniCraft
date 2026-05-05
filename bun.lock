@@ -183,6 +183,7 @@
         "@config/eslint": "workspace:^",
         "@config/typescript": "workspace:^",
         "typescript": "catalog:",
+        "vitest": "catalog:",
       },
     },
     "packages/tool-schemas": {
