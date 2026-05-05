@@ -383,7 +383,21 @@ export abstract class Agent {
       content: userMessage,
     } satisfies SseMessageStartEvent;
 
-    let toolCalls = yield* this.consumeStream(userStream);
+    let toolCalls: LlmToolCall[];
+    try {
+      toolCalls = yield* this.consumeStream(userStream);
+    } catch (error: unknown) {
+      if (signal.aborted) {
+        yield* this.emitAbortCompletion(
+          inFlightToolCalls,
+          toolDefs,
+          systemPrompt,
+          thinkingLevel,
+        );
+        return;
+      }
+      throw error;
+    }
     yield await this.buildUsageUpdateEvent();
 
     let round = 0;
@@ -513,15 +527,30 @@ export abstract class Agent {
         return result ? [result] : [];
       });
 
-      toolCalls = yield* this.consumeStream(
-        this.llmSession.submitToolResults(
-          orderedResults,
-          toolDefs,
-          systemPrompt,
-          thinkingLevel,
-          signal,
-        ),
-      );
+      try {
+        toolCalls = yield* this.consumeStream(
+          this.llmSession.submitToolResults(
+            orderedResults,
+            toolDefs,
+            systemPrompt,
+            thinkingLevel,
+            signal,
+          ),
+        );
+      } catch (error: unknown) {
+        // signal.aborted may have changed during async stream consumption
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+        if (signal.aborted) {
+          yield* this.emitAbortCompletion(
+            inFlightToolCalls,
+            toolDefs,
+            systemPrompt,
+            thinkingLevel,
+          );
+          return;
+        }
+        throw error;
+      }
       yield await this.buildUsageUpdateEvent();
     }
 
