@@ -1,5 +1,8 @@
 import type {ThinkingLevel} from '@omnicraft/api-schema';
-import type {SseContextCompactionEvent} from '@omnicraft/sse-events';
+import type {
+  SseCompactionReason,
+  SseContextCompactionEvent,
+} from '@omnicraft/sse-events';
 import {z} from 'zod';
 
 import {llmMessageSchema, type LlmToolCall} from '../llm-api/index.js';
@@ -45,10 +48,8 @@ export interface ToolResult {
   status: 'success' | 'failure';
 }
 
-export type LlmCompactionReason = 'before-llm-call' | 'after-turn';
-
 export interface LlmCompactionOptions {
-  readonly reason: LlmCompactionReason;
+  readonly reason: SseCompactionReason;
   readonly tools: readonly ToolDefinition[];
   readonly systemPrompt: string;
   readonly thinkingLevel: ThinkingLevel;

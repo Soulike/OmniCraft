@@ -138,7 +138,9 @@ export type SseTodoUpdateEvent = z.infer<typeof sseTodoUpdateEventSchema>;
 // Context compaction events
 // ---------------------------------------------------------------------------
 
-const compactionReasonSchema = z.enum(['before-llm-call', 'after-turn']);
+/** When a context compaction was triggered. */
+export const compactionReasonSchema = z.enum(['before-llm-call', 'after-turn']);
+export type SseCompactionReason = z.infer<typeof compactionReasonSchema>;
 
 /** Context compaction has started. */
 export const sseContextCompactionStartEventSchema = z.object({

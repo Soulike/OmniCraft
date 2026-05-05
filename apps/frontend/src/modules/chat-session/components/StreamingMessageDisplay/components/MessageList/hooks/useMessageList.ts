@@ -1,5 +1,6 @@
 import type {ThinkingLevel} from '@omnicraft/api-schema';
 import type {
+  SseCompactionReason,
   SseContextCompactionEndEvent,
   SseContextCompactionErrorEvent,
 } from '@omnicraft/sse-events';
@@ -87,7 +88,7 @@ export type ContextCompactionRenderItem =
       type: 'context-compaction';
       status: 'in-progress';
       compactionId: string;
-      reason: 'before-llm-call' | 'after-turn';
+      reason: SseCompactionReason;
       beforeTokens: number;
       messageCount: number;
     }
@@ -95,7 +96,7 @@ export type ContextCompactionRenderItem =
       type: 'context-compaction';
       status: 'done';
       compactionId: string;
-      reason: 'before-llm-call' | 'after-turn';
+      reason: SseCompactionReason;
       beforeTokens: number;
       messageCount: number;
       summary: string;
@@ -106,7 +107,7 @@ export type ContextCompactionRenderItem =
       type: 'context-compaction';
       status: 'failed';
       compactionId: string;
-      reason: 'before-llm-call' | 'after-turn';
+      reason: SseCompactionReason;
       beforeTokens: number;
       messageCount: number;
       errorMessage: string;
