@@ -197,32 +197,20 @@ yielded (commit `88f904a`).
 #### Bus contract
 
 `apps/frontend/src/modules/chat-session/components/StreamingMessageDisplay/types.ts`
-adds three `ChatEventMap` entries and a new `MessageContent` variant:
+adds three `ChatEventMap` entries by reusing the SSE event types directly,
+matching the existing pattern (`'text-delta': SseTextDeltaEvent`,
+`'tool-execute-start': SseToolExecuteStartEvent`, etc.):
 
 ```ts
-'context-compaction-start': {
-  compactionId: string;
-  reason: 'before-model-call' | 'after-turn';
-  beforeTokens: number;
-  messageCount: number;
-};
-'context-compaction-end': {
-  compactionId: string;
-  summary: string;
-  beforeTokens: number;
-  afterTokens: number;
-  messageCount: number;
-  durationMs: number;
-};
-'context-compaction-error': {
-  compactionId: string;
-  reason: 'before-model-call' | 'after-turn';
-  message: string;
-  beforeTokens: number;
-  messageCount: number;
-};
+'context-compaction-start': SseContextCompactionStartEvent;
+'context-compaction-end': SseContextCompactionEndEvent;
+'context-compaction-error': SseContextCompactionErrorEvent;
+```
 
-// MessageContent variant
+The new `MessageContent` variant in the same file is the bus-internal
+view-model representation that `useMessages` builds up from the events:
+
+```ts
 {
   type: 'context-compaction',
   compactionId: string,
