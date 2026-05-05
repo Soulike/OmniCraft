@@ -207,13 +207,14 @@ export class LlmSession {
       // Defer rethrow until after buffered events are yielded so that
       // start + error events always reach the consumer even when compaction fails.
       try {
-        await this.compactBeforeModelCall(
+        for await (const event of this.compactBeforeModelCall(
           tools,
           systemPrompt,
           thinkingLevel,
-          (event) => compactionEvents.push(event),
           signal,
-        );
+        )) {
+          compactionEvents.push(event);
+        }
       } catch (e: unknown) {
         compactError = e;
       }
@@ -245,24 +246,21 @@ export class LlmSession {
     }
   }
 
-  private async compactBeforeModelCall(
+  private async *compactBeforeModelCall(
     tools: readonly ToolDefinition[],
     systemPrompt: string,
     thinkingLevel: ThinkingLevel,
-    onSseEvent: ((event: SseContextCompactionEvent) => void) | undefined,
     signal?: AbortSignal,
-  ): Promise<void> {
+  ): AsyncGenerator<SseContextCompactionEvent, void, void> {
     try {
       throwIfAborted(signal);
-      for await (const event of this.compactIfNeededUnlocked({
+      yield* this.compactIfNeededUnlocked({
         reason: 'before-llm-call',
         tools,
         systemPrompt,
         thinkingLevel,
         ...(signal ? {signal} : {}),
-      })) {
-        onSseEvent?.(event);
-      }
+      });
       throwIfAborted(signal);
     } catch (error: unknown) {
       if (signal?.aborted) {
