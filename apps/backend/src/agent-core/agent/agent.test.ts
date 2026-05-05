@@ -172,6 +172,51 @@ async function collectAll(
   return events;
 }
 
+async function collectUntilTerminal(
+  agent: Agent,
+  startIndex = 0,
+): Promise<{events: SseEvent[]; nextIndex: number}> {
+  const controller = new AbortController();
+  const events: SseEvent[] = [];
+  let nextIndex = startIndex;
+
+  for await (const entry of agent.subscribe({
+    startIndex,
+    signal: controller.signal,
+  })) {
+    events.push(entry.event);
+    nextIndex = entry.nextIndex;
+    if (entry.event.type === 'done' || entry.event.type === 'error') {
+      controller.abort();
+      break;
+    }
+  }
+
+  return {events, nextIndex};
+}
+
+async function* streamUntilAbortedThenThrow(
+  signal: AbortSignal | undefined,
+): LlmEventStream {
+  yield {type: 'message-start', messageId: 'aborted-message'};
+  await new Promise<void>((resolve) => {
+    if (!signal || signal.aborted) {
+      resolve();
+      return;
+    }
+    signal.addEventListener('abort', () => {
+      resolve();
+    });
+  });
+  throw new Error('Request aborted');
+}
+
+async function* failingStreamAfterStart(): LlmEventStream {
+  yield {type: 'message-start', messageId: 'failed-message'};
+  await Promise.resolve();
+  throw new Error('provider exploded');
+}
+
 describe('Agent title generation', () => {
   afterEach(() => {
     vi.restoreAllMocks();
@@ -466,6 +511,179 @@ describe('Agent compaction lifecycle', () => {
     expect(lastEvent.message).toContain(
       'Failed to compact LLM session before model call',
     );
+  });
+});
+
+describe('Agent abort flow', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('emits done:aborted when the provider stream throws after a user abort', async () => {
+    vi.spyOn(llmApi, 'countToken').mockResolvedValue(1);
+    vi.spyOn(llmApi, 'streamCompletion').mockImplementation((options) =>
+      streamUntilAbortedThenThrow(options.signal),
+    );
+
+    const agent = new TestAgent(
+      () => Promise.resolve(MAIN_CONFIG),
+      testAgentOptions(),
+    );
+
+    const eventsPromise = collectUntilTerminal(agent);
+    agent.handleUserMessage('Stop me mid-stream');
+    // Wait until the user message-start has been emitted before aborting,
+    // so the abort lands while the stream is being consumed.
+    await delay(10);
+    agent.abort();
+    const {events} = await eventsPromise;
+
+    const lastEvent = events.at(-1);
+    expect(lastEvent).toMatchObject({type: 'done', reason: 'aborted'});
+    expect(events.some((event) => event.type === 'error')).toBe(false);
+  });
+
+  it('still emits error when the provider stream throws without a user abort', async () => {
+    vi.spyOn(llmApi, 'countToken').mockResolvedValue(1);
+    vi.spyOn(llmApi, 'streamCompletion').mockImplementation(() =>
+      failingStreamAfterStart(),
+    );
+
+    const agent = new TestAgent(
+      () => Promise.resolve(MAIN_CONFIG),
+      testAgentOptions(),
+    );
+
+    const eventsPromise = collectUntilTerminal(agent);
+    agent.handleUserMessage('Trigger a real provider error');
+    const {events} = await eventsPromise;
+
+    const lastEvent = events.at(-1);
+    expect(lastEvent?.type).toBe('error');
+    if (lastEvent?.type !== 'error') {
+      throw new Error('Expected final event to be an error');
+    }
+    expect(lastEvent.message).toBe('provider exploded');
+  });
+
+  it('emits done:aborted, skips the real provider call, and releases the mutex when pre-call compaction is aborted', async () => {
+    const streamSpy = vi
+      .spyOn(llmApi, 'streamCompletion')
+      .mockImplementation((options) => {
+        const isSummaryRequest =
+          options.tools.length === 0 &&
+          options.messages.length === 1 &&
+          options.messages[0]?.role === 'user' &&
+          options.messages[0].content.includes('<history_to_summarize>');
+
+        if (isSummaryRequest) {
+          return streamUntilAbortedThenThrow(options.signal);
+        }
+
+        // The real (non-summary) completion call. If we end up here after
+        // an abort, the fix is broken.
+        return mainCompletionStream();
+      });
+
+    const agent = new TestAgent(
+      () => Promise.resolve(MAIN_CONFIG),
+      testAgentOptions(),
+      {
+        id: 'agent-compaction-abort',
+        title: 'Existing Title',
+        sseEventCount: 0,
+        llmSession: {
+          id: 'llm-session-compaction-abort',
+          compactions: [],
+          usageBaselineMessageCount: null,
+          messages: Array.from({length: 12}, (_, index) => ({
+            id: `old-${index.toString()}`,
+            createdAt: index,
+            role: 'user' as const,
+            content: `old message ${index.toString()} ${'x'.repeat(30_000)}`,
+          })),
+          usage: emptyUsage(),
+        },
+        options: {thinkingLevel: 'high'},
+      },
+    );
+
+    const firstTurn = collectUntilTerminal(agent);
+    agent.handleUserMessage('Trigger compaction then abort');
+    await delay(10);
+    agent.abort();
+    const {events, nextIndex} = await firstTurn;
+
+    const lastEvent = events.at(-1);
+    expect(lastEvent).toMatchObject({type: 'done', reason: 'aborted'});
+    expect(events.some((event) => event.type === 'error')).toBe(false);
+
+    // Only the compaction-summary call should have been made — the real
+    // provider call must not start after the user aborted.
+    const nonSummaryCalls = streamSpy.mock.calls.filter(([options]) => {
+      const isSummary =
+        options.tools.length === 0 &&
+        options.messages.length === 1 &&
+        options.messages[0]?.role === 'user' &&
+        options.messages[0].content.includes('<history_to_summarize>');
+      return !isSummary;
+    });
+    expect(nonSummaryCalls).toHaveLength(0);
+
+    // The session mutex must have been released so a follow-up turn can run.
+    streamSpy.mockReset();
+    streamSpy.mockImplementation(() =>
+      usageCompletionStream({
+        inputTokens: 1,
+        outputTokens: 1,
+        cacheReadInputTokens: 0,
+      }),
+    );
+    const followUpPromise = collectUntilTerminal(agent, nextIndex);
+    agent.handleUserMessage('Follow-up turn');
+    const {events: followUpEvents} = await followUpPromise;
+    expect(followUpEvents.at(-1)).toMatchObject({
+      type: 'done',
+      reason: 'complete',
+    });
+  });
+
+  it('emits done:aborted when the post-tool-results stream throws after a user abort', async () => {
+    vi.spyOn(llmApi, 'countToken').mockResolvedValue(1);
+    vi.spyOn(llmApi, 'streamCompletion')
+      // First call: assistant requests one tool call.
+      .mockReturnValueOnce(
+        toolCallCompletionStream('mock_tool', {
+          inputTokens: 10,
+          outputTokens: 1,
+          cacheReadInputTokens: 0,
+        }),
+      )
+      // Second call (after submitToolResults): user aborts mid-stream.
+      .mockImplementation((options) =>
+        streamUntilAbortedThenThrow(options.signal),
+      );
+
+    const registry = TestToolRegistry.createForTest();
+    registry.register(createMockTool('mock_tool'));
+
+    const agent = new TestAgent(() => Promise.resolve(MAIN_CONFIG), {
+      ...testAgentOptions(),
+      toolRegistries: [registry],
+      getMaxToolRounds: () => 5,
+    });
+
+    const eventsPromise = collectUntilTerminal(agent);
+    agent.handleUserMessage('Use the tool then abort');
+    // Wait long enough for the tool round to complete and the next stream
+    // to start before aborting.
+    await delay(30);
+    agent.abort();
+    const {events} = await eventsPromise;
+
+    const lastEvent = events.at(-1);
+    expect(lastEvent).toMatchObject({type: 'done', reason: 'aborted'});
+    expect(events.some((event) => event.type === 'error')).toBe(false);
   });
 });
 
