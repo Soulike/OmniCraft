@@ -1,10 +1,6 @@
 import {describe, expect, it} from 'vitest';
 
-import {
-  pushCompactionEnd,
-  pushCompactionError,
-  pushCompactionStart,
-} from './useMessages.js';
+import {pushCompactionEvent} from './useMessages.js';
 
 const startEvent = {
   type: 'context-compaction-start' as const,
@@ -31,23 +27,23 @@ const errorEvent = {
   messageCount: 5,
 };
 
-describe('compaction pushers', () => {
-  it('pushCompactionStart appends the event and a trailing text placeholder', () => {
-    const result = pushCompactionStart([], startEvent);
+describe('pushCompactionEvent', () => {
+  it('appends a start event and a trailing text placeholder', () => {
+    const result = pushCompactionEvent([], startEvent);
     expect(result).toHaveLength(2);
     expect(result[0].content).toBe(startEvent);
     expect(result[1].content).toEqual({type: 'text', content: ''});
   });
 
-  it('pushCompactionEnd appends the event and a trailing text placeholder', () => {
-    const result = pushCompactionEnd([], endEvent);
+  it('appends an end event and a trailing text placeholder', () => {
+    const result = pushCompactionEvent([], endEvent);
     expect(result).toHaveLength(2);
     expect(result[0].content).toBe(endEvent);
     expect(result[1].content).toEqual({type: 'text', content: ''});
   });
 
-  it('pushCompactionError appends the event and a trailing text placeholder', () => {
-    const result = pushCompactionError([], errorEvent);
+  it('appends an error event and a trailing text placeholder', () => {
+    const result = pushCompactionEvent([], errorEvent);
     expect(result).toHaveLength(2);
     expect(result[0].content).toBe(errorEvent);
     expect(result[1].content).toEqual({type: 'text', content: ''});

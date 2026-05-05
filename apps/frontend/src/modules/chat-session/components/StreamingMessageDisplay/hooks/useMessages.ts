@@ -2,6 +2,7 @@ import type {ThinkingLevel} from '@omnicraft/api-schema';
 import type {
   SseContextCompactionEndEvent,
   SseContextCompactionErrorEvent,
+  SseContextCompactionEvent,
   SseContextCompactionStartEvent,
   SseMessageStartEvent,
   SseTextDeltaEvent,
@@ -280,43 +281,9 @@ function updateSubagentStatus(
   });
 }
 
-export function pushCompactionStart(
+export function pushCompactionEvent(
   prev: ChatMessage[],
-  event: SseContextCompactionStartEvent,
-): ChatMessage[] {
-  const base = removeTrailingAssistantMessageIfEmpty(prev);
-  return [
-    ...base,
-    {id: null, createdAt: null, role: 'assistant' as const, content: event},
-    {
-      id: null,
-      createdAt: null,
-      role: 'assistant' as const,
-      content: {type: 'text' as const, content: ''},
-    },
-  ];
-}
-
-export function pushCompactionEnd(
-  prev: ChatMessage[],
-  event: SseContextCompactionEndEvent,
-): ChatMessage[] {
-  const base = removeTrailingAssistantMessageIfEmpty(prev);
-  return [
-    ...base,
-    {id: null, createdAt: null, role: 'assistant' as const, content: event},
-    {
-      id: null,
-      createdAt: null,
-      role: 'assistant' as const,
-      content: {type: 'text' as const, content: ''},
-    },
-  ];
-}
-
-export function pushCompactionError(
-  prev: ChatMessage[],
-  event: SseContextCompactionErrorEvent,
+  event: SseContextCompactionEvent,
 ): ChatMessage[] {
   const base = removeTrailingAssistantMessageIfEmpty(prev);
   return [
@@ -390,13 +357,13 @@ export function useMessages() {
       setMessages((prev) => updateSubagentStatus(prev, data));
     };
     const onCompactionStart = (data: SseContextCompactionStartEvent) => {
-      setMessages((prev) => pushCompactionStart(prev, data));
+      setMessages((prev) => pushCompactionEvent(prev, data));
     };
     const onCompactionEnd = (data: SseContextCompactionEndEvent) => {
-      setMessages((prev) => pushCompactionEnd(prev, data));
+      setMessages((prev) => pushCompactionEvent(prev, data));
     };
     const onCompactionError = (data: SseContextCompactionErrorEvent) => {
-      setMessages((prev) => pushCompactionError(prev, data));
+      setMessages((prev) => pushCompactionEvent(prev, data));
     };
 
     eventBus.on('user-message-sent', onUserMessageSent);
