@@ -21,6 +21,7 @@ export type {
   SseToolExecuteEndEvent,
   SseToolExecuteStartEvent,
   SseUsage,
+  SseUsageUpdateEvent,
 } from './schema.js';
 export {
   sseBaseEventSchema,
@@ -44,4 +45,5 @@ export {
   sseToolExecuteEndEventSchema,
   sseToolExecuteStartEventSchema,
   sseUsageSchema,
+  sseUsageUpdateEventSchema,
 } from './schema.js';
