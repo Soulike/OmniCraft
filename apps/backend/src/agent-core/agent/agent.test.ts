@@ -3,6 +3,9 @@ import {afterEach, describe, expect, it, vi} from 'vitest';
 
 import {llmApi, type LlmConfig, type LlmEventStream} from '../llm-api/index.js';
 import {LlmSession} from '../llm-session/index.js';
+import {createMockTool} from '../tool/testing.js';
+import {ToolRegistry} from '../tool/tool-registry.js';
+import type {ToolDefinition} from '../tool/types.js';
 import {Agent} from './agent.js';
 import type {AgentSnapshot} from './types.js';
 
@@ -33,6 +36,16 @@ class TestAgent extends Agent {}
 class UsageTestAgent extends Agent {
   streamForTest(userMessage: string): AsyncIterable<SseEvent> {
     return this.runAgentLoop(userMessage, 'high', new AbortController().signal);
+  }
+}
+
+class TestToolRegistry extends ToolRegistry {
+  static createForTest(): TestToolRegistry {
+    return new TestToolRegistry();
+  }
+
+  public override register(tool: ToolDefinition): void {
+    super.register(tool);
   }
 }
 
@@ -71,6 +84,22 @@ async function* usageCompletionStream(usage: {
   await Promise.resolve();
   yield {type: 'text-delta', content: 'Assistant response'};
   yield {type: 'message-end', stopReason: 'end_turn', usage};
+}
+
+async function* toolCallCompletionStream(
+  toolName: string,
+  usage: {
+    inputTokens: number;
+    outputTokens: number;
+    cacheReadInputTokens: number;
+  },
+): LlmEventStream {
+  yield {type: 'message-start', messageId: 'assistant-tool-call-message'};
+  await Promise.resolve();
+  yield {type: 'tool-call-start', callId: 'call-1', toolName};
+  yield {type: 'tool-call-delta', callId: 'call-1', argumentsDelta: '{}'};
+  yield {type: 'tool-call-end', callId: 'call-1'};
+  yield {type: 'message-end', stopReason: 'tool_use', usage};
 }
 
 async function* titleCompletionStream(): LlmEventStream {
@@ -308,6 +337,59 @@ describe('Agent usage reporting', () => {
     expect(doneIndex).toBeGreaterThanOrEqual(0);
     const lastEventBeforeDone = events[doneIndex - 1];
     expect(lastEventBeforeDone.type).toBe('usage-update');
+  });
+
+  it('emits a usage-update event after the in-loop submitToolResults round', async () => {
+    vi.spyOn(llmApi, 'countToken').mockResolvedValue(1);
+    vi.spyOn(llmApi, 'streamCompletion')
+      // First call: assistant requests one tool call.
+      .mockReturnValueOnce(
+        toolCallCompletionStream('mock_tool', {
+          inputTokens: 100,
+          outputTokens: 10,
+          cacheReadInputTokens: 0,
+        }),
+      )
+      // Second call: assistant responds with text after tool result, no more tool calls.
+      .mockReturnValueOnce(
+        usageCompletionStream({
+          inputTokens: 50,
+          outputTokens: 5,
+          cacheReadInputTokens: 0,
+        }),
+      );
+
+    const registry = TestToolRegistry.createForTest();
+    registry.register(createMockTool('mock_tool'));
+
+    const agent = new UsageTestAgent(() => Promise.resolve(MAIN_CONFIG), {
+      ...testAgentOptions(),
+      toolRegistries: [registry],
+      getMaxToolRounds: () => 5,
+    });
+
+    const events = await collectAll(agent.streamForTest('use the tool'));
+
+    // Three usage-update events: after the first LLM call, after
+    // submitToolResults consumed the second LLM call, and the
+    // post-compaction emit in emitDoneAfterTurn.
+    const usageUpdates = events.filter(
+      (event) => event.type === 'usage-update',
+    );
+    expect(usageUpdates.length).toBe(3);
+
+    // The in-loop usage-update for the tool-result round must appear AFTER
+    // the tool finishes and BEFORE the next round (which here is the
+    // post-compaction final emit + done).
+    const toolEndIndex = events.findIndex(
+      (event) => event.type === 'tool-execute-end',
+    );
+    expect(toolEndIndex).toBeGreaterThanOrEqual(0);
+    const usageUpdatesAfterTool = events
+      .slice(toolEndIndex + 1)
+      .filter((event) => event.type === 'usage-update');
+    // One after submitToolResults, one after compaction.
+    expect(usageUpdatesAfterTool.length).toBe(2);
   });
 });
 
