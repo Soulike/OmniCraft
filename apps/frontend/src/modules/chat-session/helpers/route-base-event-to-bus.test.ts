@@ -47,6 +47,19 @@ describe('routeBaseEventToBus', () => {
     const event: SseBaseEvent = {
       type: 'done',
       reason: 'complete',
+    };
+    routeBaseEventToBus(event, bus);
+
+    expect(handler).toHaveBeenCalledWith(event);
+  });
+
+  it('routes usage-update to bus', () => {
+    const bus = createBus();
+    const handler = vi.fn();
+    bus.on('usage-update', handler);
+
+    const event: SseBaseEvent = {
+      type: 'usage-update',
       usage: {
         model: 'test-model',
         contextWindowTokens: 100,

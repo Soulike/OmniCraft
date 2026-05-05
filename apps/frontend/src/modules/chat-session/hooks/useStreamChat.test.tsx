@@ -52,18 +52,6 @@ function flushRaf(): void {
   }
 }
 
-function usage() {
-  return {
-    model: 'test-model',
-    contextWindowTokens: 100,
-    currentContextInputTokens: 10,
-    sessionInputTokens: 10,
-    sessionOutputTokens: 5,
-    sessionCacheReadInputTokens: 0,
-    thinkingLevel: 'none' as const,
-  };
-}
-
 function createApi(events: readonly SseEvent[]): ChatSessionApi {
   return {
     createSession: vi.fn(() => Promise.resolve('session-1')),
@@ -387,7 +375,6 @@ describe('useStreamChat', () => {
   });
 
   it('preserves replayed subagent output until the subagent display mounts', async () => {
-    const terminalUsage = usage();
     const events: SseEvent[] = [
       {
         type: 'message-start',
@@ -441,10 +428,10 @@ describe('useStreamChat', () => {
       {
         type: 'subagent-output',
         agentId: 'subagent-1',
-        event: {type: 'done', reason: 'complete', usage: terminalUsage},
+        event: {type: 'done', reason: 'complete'},
       },
       {type: 'subagent-complete', agentId: 'subagent-1', status: 'success'},
-      {type: 'done', reason: 'complete', usage: terminalUsage},
+      {type: 'done', reason: 'complete'},
     ];
 
     render(
