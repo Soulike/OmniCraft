@@ -1,5 +1,8 @@
 export type {
   SseBaseEvent,
+  SseContextCompactionEndEvent,
+  SseContextCompactionErrorEvent,
+  SseContextCompactionStartEvent,
   SseDoneEvent,
   SseErrorEvent,
   SseEvent,
@@ -24,6 +27,9 @@ export type {
 } from './schema.js';
 export {
   sseBaseEventSchema,
+  sseContextCompactionEndEventSchema,
+  sseContextCompactionErrorEventSchema,
+  sseContextCompactionStartEventSchema,
   sseDoneEventSchema,
   sseErrorEventSchema,
   sseEventCursorEntrySchema,

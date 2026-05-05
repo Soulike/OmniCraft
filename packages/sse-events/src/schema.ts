@@ -135,6 +135,51 @@ export const sseTodoUpdateEventSchema = z.object({
 export type SseTodoUpdateEvent = z.infer<typeof sseTodoUpdateEventSchema>;
 
 // ---------------------------------------------------------------------------
+// Context compaction events
+// ---------------------------------------------------------------------------
+
+const compactionReasonSchema = z.enum(['before-llm-call', 'after-turn']);
+
+/** Context compaction has started. */
+export const sseContextCompactionStartEventSchema = z.object({
+  type: z.literal('context-compaction-start'),
+  compactionId: z.string(),
+  reason: compactionReasonSchema,
+  beforeTokens: z.number(),
+  messageCount: z.number(),
+});
+export type SseContextCompactionStartEvent = z.infer<
+  typeof sseContextCompactionStartEventSchema
+>;
+
+/** Context compaction completed successfully. */
+export const sseContextCompactionEndEventSchema = z.object({
+  type: z.literal('context-compaction-end'),
+  compactionId: z.string(),
+  summary: z.string(),
+  beforeTokens: z.number(),
+  afterTokens: z.number(),
+  messageCount: z.number(),
+  durationMs: z.number(),
+});
+export type SseContextCompactionEndEvent = z.infer<
+  typeof sseContextCompactionEndEventSchema
+>;
+
+/** Context compaction failed (or was aborted). */
+export const sseContextCompactionErrorEventSchema = z.object({
+  type: z.literal('context-compaction-error'),
+  compactionId: z.string(),
+  reason: compactionReasonSchema,
+  message: z.string(),
+  beforeTokens: z.number(),
+  messageCount: z.number(),
+});
+export type SseContextCompactionErrorEvent = z.infer<
+  typeof sseContextCompactionErrorEventSchema
+>;
+
+// ---------------------------------------------------------------------------
 // Base event union (all events except error and subagent events).
 // Used as the inner event type for subagent-output to prevent recursion.
 // ---------------------------------------------------------------------------
@@ -150,6 +195,9 @@ export const sseBaseEventSchema = z.discriminatedUnion('type', [
   sseToolExecuteDeltaEventSchema,
   sseToolExecuteEndEventSchema,
   sseDoneEventSchema,
+  sseContextCompactionStartEventSchema,
+  sseContextCompactionEndEventSchema,
+  sseContextCompactionErrorEventSchema,
 ]);
 export type SseBaseEvent = z.infer<typeof sseBaseEventSchema>;
 
@@ -217,6 +265,9 @@ export const sseEventSchema = z.discriminatedUnion('type', [
   sseSubagentOutputEventSchema,
   sseSubagentCompleteEventSchema,
   sseTodoUpdateEventSchema,
+  sseContextCompactionStartEventSchema,
+  sseContextCompactionEndEventSchema,
+  sseContextCompactionErrorEventSchema,
 ]);
 
 /** Union of all known SSE events. */
