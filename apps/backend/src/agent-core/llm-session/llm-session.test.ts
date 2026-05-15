@@ -167,7 +167,7 @@ describe('LlmSession compaction', () => {
     expect(session.toSnapshot().compactions).toHaveLength(1);
   });
 
-  it('restores usage baseline message count for compaction estimates', async () => {
+  it('restores latest usage input message count for compaction estimates', async () => {
     let mainCallCount = 0;
     const streamSpy = vi
       .spyOn(llmApi, 'streamCompletion')
@@ -204,7 +204,7 @@ describe('LlmSession compaction', () => {
         },
       ],
       compactions: [],
-      usageBaselineMessageCount: 1,
+      latestUsageInputMessageCount: 1,
       usage: {
         currentContextInputTokens: 102_399,
         latestCallOutputTokens: 100,
@@ -245,7 +245,7 @@ describe('LlmSession compaction', () => {
     const session = new LlmSession(() => Promise.resolve(CONFIG), {
       id: 'session-1',
       compactions: [],
-      usageBaselineMessageCount: null,
+      latestUsageInputMessageCount: null,
       messages: largeOldMessages(12),
       usage: emptyUsage(),
     });
@@ -277,7 +277,7 @@ describe('LlmSession compaction', () => {
     const session = new LlmSession(() => Promise.resolve(CONFIG), {
       id: 'session-1',
       compactions: [],
-      usageBaselineMessageCount: null,
+      latestUsageInputMessageCount: null,
       messages: largeOldMessages(12),
       usage: emptyUsage(),
     });
@@ -299,7 +299,7 @@ describe('LlmSession compaction', () => {
     const session = new LlmSession(() => Promise.resolve(CONFIG), {
       id: 'session-1',
       compactions: [],
-      usageBaselineMessageCount: null,
+      latestUsageInputMessageCount: null,
       messages,
       usage: emptyUsage(),
     });
@@ -311,7 +311,7 @@ describe('LlmSession compaction', () => {
     expect(session.toSnapshot()).toEqual({
       id: 'session-1',
       compactions: [],
-      usageBaselineMessageCount: null,
+      latestUsageInputMessageCount: null,
       messages,
       usage: emptyUsage(),
     });
@@ -323,7 +323,7 @@ describe('LlmSession compaction', () => {
     const session = new LlmSession(() => Promise.resolve(CONFIG), {
       id: 'session-1',
       compactions: [],
-      usageBaselineMessageCount: null,
+      latestUsageInputMessageCount: null,
       messages,
       usage: emptyUsage(),
     });
@@ -335,7 +335,7 @@ describe('LlmSession compaction', () => {
     expect(session.toSnapshot()).toEqual({
       id: 'session-1',
       compactions: [],
-      usageBaselineMessageCount: null,
+      latestUsageInputMessageCount: null,
       messages,
       usage: emptyUsage(),
     });
@@ -350,7 +350,7 @@ describe('LlmSession compaction', () => {
     const session = new LlmSession(() => Promise.resolve(CONFIG), {
       id: 'session-1',
       compactions: [],
-      usageBaselineMessageCount: null,
+      latestUsageInputMessageCount: null,
       messages,
       usage: emptyUsage(),
     });
@@ -372,7 +372,7 @@ describe('LlmSession compaction', () => {
     expect(session.toSnapshot()).toEqual({
       id: 'session-1',
       compactions: [],
-      usageBaselineMessageCount: null,
+      latestUsageInputMessageCount: null,
       messages,
       usage: emptyUsage(),
     });
@@ -384,7 +384,7 @@ describe('LlmSession compaction', () => {
     const session = new LlmSession(() => Promise.resolve(CONFIG), {
       id: 'session-1',
       compactions: [],
-      usageBaselineMessageCount: null,
+      latestUsageInputMessageCount: null,
       messages,
       usage: emptyUsage(),
     });
@@ -409,7 +409,7 @@ describe('LlmSession compaction', () => {
     expect(session.toSnapshot()).toEqual({
       id: 'session-1',
       compactions: [],
-      usageBaselineMessageCount: null,
+      latestUsageInputMessageCount: null,
       messages,
       usage: emptyUsage(),
     });
@@ -421,7 +421,7 @@ describe('LlmSession compaction', () => {
     const session = new LlmSession(() => Promise.resolve(CONFIG), {
       id: 'session-1',
       compactions: [],
-      usageBaselineMessageCount: null,
+      latestUsageInputMessageCount: null,
       messages,
       usage: emptyUsage(),
     });
@@ -444,7 +444,7 @@ describe('LlmSession compaction', () => {
     expect(session.toSnapshot()).toEqual({
       id: 'session-1',
       compactions: [],
-      usageBaselineMessageCount: null,
+      latestUsageInputMessageCount: null,
       messages,
       usage: emptyUsage(),
     });
@@ -456,7 +456,7 @@ describe('LlmSession compaction', () => {
     const session = new LlmSession(() => Promise.resolve(CONFIG), {
       id: 'session-1',
       compactions: [],
-      usageBaselineMessageCount: null,
+      latestUsageInputMessageCount: null,
       messages,
       usage: emptyUsage(),
     });
@@ -491,7 +491,7 @@ describe('LlmSession compaction', () => {
     const session = new LlmSession(() => Promise.resolve(CONFIG), {
       id: 'session-1',
       compactions: [],
-      usageBaselineMessageCount: null,
+      latestUsageInputMessageCount: null,
       messages: [],
       usage: emptyUsage(),
     });
@@ -515,7 +515,7 @@ describe('LlmSession compaction', () => {
     const session = new LlmSession(() => Promise.resolve(CONFIG), {
       id: 'session-1',
       compactions: [],
-      usageBaselineMessageCount: null,
+      latestUsageInputMessageCount: null,
       messages,
       usage: emptyUsage(),
     });
@@ -555,7 +555,7 @@ describe('LlmSession compaction', () => {
     const session = new LlmSession(() => Promise.resolve(CONFIG), {
       id: 'session-1',
       compactions: [],
-      usageBaselineMessageCount: null,
+      latestUsageInputMessageCount: null,
       messages,
       usage: emptyUsage(),
     });

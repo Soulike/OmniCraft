@@ -56,7 +56,7 @@ export class LlmSession {
   private readonly compactions: LlmCompactionMetadata[] = [];
   private usage: LlmSessionUsage = createEmptyLlmSessionUsage();
   /** Number of messages covered by the latest provider input-token usage. */
-  private usageBaselineMessageCount: number | null = null;
+  private latestUsageInputMessageCount: number | null = null;
   private readonly getConfig: () => Promise<LlmConfig>;
   private readonly mutex = new Mutex();
 
@@ -71,7 +71,7 @@ export class LlmSession {
       this.messages.push(...snapshot.messages);
       this.compactions.push(...snapshot.compactions);
       this.usage = {...snapshot.usage};
-      this.usageBaselineMessageCount = snapshot.usageBaselineMessageCount;
+      this.latestUsageInputMessageCount = snapshot.latestUsageInputMessageCount;
     } else {
       this.id = crypto.randomUUID();
     }
@@ -83,7 +83,7 @@ export class LlmSession {
       id: this.id,
       messages: [...this.messages],
       compactions: [...this.compactions],
-      usageBaselineMessageCount: this.usageBaselineMessageCount,
+      latestUsageInputMessageCount: this.latestUsageInputMessageCount,
       usage: {...this.usage},
     };
   }
@@ -180,7 +180,7 @@ export class LlmSession {
     this.messages.length = 0;
     this.compactions.length = 0;
     this.usage = createEmptyLlmSessionUsage();
-    this.usageBaselineMessageCount = null;
+    this.latestUsageInputMessageCount = null;
   }
 
   /**
@@ -198,7 +198,8 @@ export class LlmSession {
     const rollbackMessages = [...this.messages];
     const rollbackCompactions = [...this.compactions];
     const rollbackUsage = {...this.usage};
-    const rollbackUsageBaselineMessageCount = this.usageBaselineMessageCount;
+    const rollbackLatestUsageInputMessageCount =
+      this.latestUsageInputMessageCount;
     this.messages.push(...messages);
     let completed = false;
     try {
@@ -220,7 +221,8 @@ export class LlmSession {
         this.compactions.length = 0;
         this.compactions.push(...rollbackCompactions);
         this.usage = rollbackUsage;
-        this.usageBaselineMessageCount = rollbackUsageBaselineMessageCount;
+        this.latestUsageInputMessageCount =
+          rollbackLatestUsageInputMessageCount;
       }
       release();
     }
@@ -307,7 +309,7 @@ export class LlmSession {
 
       this.messages.length = 0;
       this.messages.push(summaryMessage);
-      this.usageBaselineMessageCount = null;
+      this.latestUsageInputMessageCount = null;
       const afterTokens = this.estimatePromptTokensFromMessages(options);
       this.usage = {
         ...this.usage,
@@ -376,10 +378,10 @@ export class LlmSession {
   }
 
   private estimatePromptTokensFromLatestUsage(): number | null {
-    if (this.usageBaselineMessageCount === null) return null;
+    if (this.latestUsageInputMessageCount === null) return null;
     if (this.usage.currentContextInputTokens <= 0) return null;
 
-    const pendingStart = this.usageBaselineMessageCount + 1;
+    const pendingStart = this.latestUsageInputMessageCount + 1;
     if (pendingStart > this.messages.length) return null;
 
     const pendingMessages = this.messages.slice(pendingStart);
@@ -477,7 +479,7 @@ export class LlmSession {
               this.usage.sessionCacheReadInputTokens +
               event.usage.cacheReadInputTokens,
           };
-          this.usageBaselineMessageCount = inputMessageCount;
+          this.latestUsageInputMessageCount = inputMessageCount;
           break;
         case 'message-start':
           assistantCreatedAt = Date.now();
