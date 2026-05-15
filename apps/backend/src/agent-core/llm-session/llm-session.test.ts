@@ -1,3 +1,4 @@
+import type {SseContextCompactionEvent} from '@omnicraft/sse-events';
 import {afterEach, describe, expect, it, vi} from 'vitest';
 
 import {
@@ -6,6 +7,11 @@ import {
   type LlmEventStream,
   type LlmMessage,
 } from '../llm-api/index.js';
+import {llmSessionCompactor} from './compaction/index.js';
+import type {
+  CompactLlmSessionIfNeededInput,
+  LlmSessionCompactionPatch,
+} from './compaction/llm-compaction-types.js';
 import {LlmSession} from './llm-session.js';
 
 const CONFIG: LlmConfig = {
@@ -13,6 +19,14 @@ const CONFIG: LlmConfig = {
   apiKey: 'key',
   baseUrl: 'https://example.test',
   model: 'gpt-4.1',
+};
+
+const startEvent: SseContextCompactionEvent = {
+  type: 'context-compaction-start',
+  compactionId: 'compaction-1',
+  reason: 'before-llm-call',
+  beforeTokens: 100,
+  messageCount: 1,
 };
 
 function emptyUsage() {
@@ -25,13 +39,33 @@ function emptyUsage() {
   };
 }
 
-function largeOldMessages(count: number): LlmMessage[] {
-  return Array.from({length: count}, (_, index) => ({
-    id: `old-${index.toString()}`,
-    createdAt: index,
-    role: 'user' as const,
-    content: `old message ${index.toString()} ${'x'.repeat(30_000)}`,
-  }));
+function createPatch(): LlmSessionCompactionPatch {
+  return {
+    messages: [
+      {
+        id: 'compacted-message',
+        createdAt: 10,
+        role: 'user',
+        content: 'compacted history',
+      },
+    ],
+    latestUsageInputMessageCount: null,
+    usage: {
+      currentContextInputTokens: 11,
+      latestCallOutputTokens: 0,
+      sessionInputTokens: 20,
+      sessionOutputTokens: 3,
+      sessionCacheReadInputTokens: 2,
+    },
+    metadata: {
+      id: 'compaction-1',
+      compactedAt: 12,
+      coveredMessageCount: 2,
+      recentContextMessageCount: 1,
+      beforeCharCount: 200,
+      afterCharCount: 20,
+    },
+  };
 }
 
 async function* normalStream(): LlmEventStream {
@@ -54,41 +88,6 @@ async function* usageStream(usage: {
   await Promise.resolve();
   yield {type: 'text-delta', content: 'reply'};
   yield {type: 'message-end', stopReason: 'end_turn', usage};
-}
-
-async function* summaryStream(): LlmEventStream {
-  yield {type: 'message-start', messageId: 'summary'};
-  await Promise.resolve();
-  yield {type: 'text-delta', content: 'summary text'};
-  yield {
-    type: 'message-end',
-    stopReason: 'end_turn',
-    usage: {inputTokens: 1, outputTokens: 1, cacheReadInputTokens: 0},
-  };
-}
-
-async function* abortingSummaryStream(
-  controller: AbortController,
-): LlmEventStream {
-  yield {type: 'message-start', messageId: 'summary'};
-  await Promise.resolve();
-  yield {type: 'text-delta', content: 'summary text'};
-  controller.abort();
-  yield {
-    type: 'message-end',
-    stopReason: 'end_turn',
-    usage: {inputTokens: 1, outputTokens: 1, cacheReadInputTokens: 0},
-  };
-}
-
-async function* emptySummaryStream(): LlmEventStream {
-  yield {type: 'message-start', messageId: 'summary'};
-  await Promise.resolve();
-  yield {
-    type: 'message-end',
-    stopReason: 'end_turn',
-    usage: {inputTokens: 1, outputTokens: 1, cacheReadInputTokens: 0},
-  };
 }
 
 async function* failingStream(): LlmEventStream {
@@ -114,6 +113,12 @@ async function drain(stream: AsyncIterable<unknown>): Promise<void> {
   }
 }
 
+async function collect(stream: AsyncIterable<unknown>): Promise<unknown[]> {
+  const events: unknown[] = [];
+  for await (const event of stream) events.push(event);
+  return events;
+}
+
 describe('LlmSession compaction', () => {
   afterEach(() => {
     vi.restoreAllMocks();
@@ -125,183 +130,150 @@ describe('LlmSession compaction', () => {
     expect(session.toSnapshot().compactions).toEqual([]);
   });
 
-  it('uses latest call usage and pending input estimate to trigger pre-call compaction', async () => {
-    const countSpy = vi.spyOn(llmApi, 'countToken').mockResolvedValue(1);
-    let mainCallCount = 0;
-    const streamSpy = vi
-      .spyOn(llmApi, 'streamCompletion')
-      .mockImplementation((options) => {
-        const isSummaryRequest =
-          options.tools.length === 0 &&
-          options.messages.length === 1 &&
-          options.messages[0]?.role === 'user' &&
-          options.messages[0].content.includes('<history_to_summarize>');
-
-        if (isSummaryRequest) return summaryStream();
-
-        mainCallCount++;
-        if (mainCallCount === 1) {
-          return usageStream({
-            inputTokens: 102_399,
-            outputTokens: 100,
-            cacheReadInputTokens: 0,
-          });
-        }
-
-        const hasSummaryMessage = options.messages.some(
-          (message) =>
-            message.role === 'user' &&
-            message.content.includes('<conversation_summary>'),
-        );
-        expect(hasSummaryMessage).toBe(true);
-        return normalStream();
-      });
-
+  it('forwards before-call compactor events as compaction-sse events during message streaming', async () => {
+    vi.spyOn(llmSessionCompactor, 'compactIfNeeded').mockImplementation(
+      async function* (input: CompactLlmSessionIfNeededInput) {
+        expect(input.options.reason).toBe('before-llm-call');
+        expect(input.messages).toMatchObject([{role: 'user', content: 'hi'}]);
+        await Promise.resolve();
+        yield startEvent;
+      },
+    );
+    vi.spyOn(llmApi, 'streamCompletion').mockReturnValue(normalStream());
     const session = new LlmSession(() => Promise.resolve(CONFIG));
 
-    await drain(session.sendUserMessage('first', [], '', 'none').stream);
-    await drain(session.sendUserMessage('second', [], '', 'none').stream);
+    const events = await collect(
+      session.sendUserMessage('hi', [], '', 'none').stream,
+    );
 
-    expect(countSpy).not.toHaveBeenCalled();
-    expect(streamSpy).toHaveBeenCalledTimes(3);
-    expect(session.toSnapshot().compactions).toHaveLength(1);
+    expect(events).toEqual([
+      {type: 'compaction-sse', event: startEvent},
+      {
+        type: 'message-start',
+        messageId: expect.any(String) as unknown,
+        createdAt: expect.any(Number) as unknown,
+      },
+      {type: 'text-delta', content: 'reply'},
+    ]);
   });
 
-  it('restores latest usage input message count for compaction estimates', async () => {
-    let mainCallCount = 0;
-    const streamSpy = vi
-      .spyOn(llmApi, 'streamCompletion')
-      .mockImplementation((options) => {
-        const isSummaryRequest =
-          options.tools.length === 0 &&
-          options.messages.length === 1 &&
-          options.messages[0]?.role === 'user' &&
-          options.messages[0].content.includes('<history_to_summarize>');
+  it('wraps before-call compactor failures', async () => {
+    vi.spyOn(llmSessionCompactor, 'compactIfNeeded').mockImplementation(
+      async function* (input: CompactLlmSessionIfNeededInput) {
+        await Promise.resolve();
+        if (input.options.systemPrompt === '__yield__') yield startEvent;
+        throw new Error('compactor failed');
+      },
+    );
+    const providerSpy = vi.spyOn(llmApi, 'streamCompletion');
+    const session = new LlmSession(() => Promise.resolve(CONFIG));
 
-        if (isSummaryRequest) return summaryStream();
+    await expect(
+      drain(session.sendUserMessage('hi', [], '', 'none').stream),
+    ).rejects.toThrow(
+      'Failed to compact LLM session before model call: compactor failed',
+    );
 
-        mainCallCount++;
-        const hasSummaryMessage = options.messages.some(
-          (message) =>
-            message.role === 'user' &&
-            message.content.includes('<conversation_summary>'),
-        );
-        expect(hasSummaryMessage).toBe(true);
-        return normalStream();
+    expect(providerSpy).not.toHaveBeenCalled();
+  });
+
+  it('does not wrap before-call compactor failures when the signal is aborted', async () => {
+    const controller = new AbortController();
+    const abortError = new Error('stop now');
+    vi.spyOn(llmSessionCompactor, 'compactIfNeeded').mockImplementation(
+      async function* (input: CompactLlmSessionIfNeededInput) {
+        await Promise.resolve();
+        if (input.options.systemPrompt === '__yield__') yield startEvent;
+        controller.abort(abortError);
+        throw abortError;
+      },
+    );
+    const session = new LlmSession(() => Promise.resolve(CONFIG));
+
+    await expect(
+      drain(
+        session.sendUserMessage('hi', [], '', 'none', controller.signal).stream,
+      ),
+    ).rejects.toBe(abortError);
+  });
+
+  it('delegates public after-turn compaction to the compactor under the session mutex', async () => {
+    let releaseCompaction: (() => void) | undefined;
+    const compactionCanFinish = new Promise<void>((resolve) => {
+      releaseCompaction = resolve;
+    });
+    const compactorSpy = vi
+      .spyOn(llmSessionCompactor, 'compactIfNeeded')
+      .mockImplementation(async function* (
+        input: CompactLlmSessionIfNeededInput,
+      ) {
+        if (input.options.reason !== 'after-turn') return;
+        await input.commit(createPatch());
+        yield startEvent;
+        await compactionCanFinish;
       });
-
+    const providerSpy = vi
+      .spyOn(llmApi, 'streamCompletion')
+      .mockReturnValue(normalStream());
     const session = new LlmSession(() => Promise.resolve(CONFIG), {
       id: 'session-1',
-      messages: [
-        {id: 'user-1', createdAt: 1, role: 'user', content: 'first'},
-        {
-          id: 'assistant-1',
-          createdAt: 2,
-          role: 'assistant',
-          content: 'reply',
-          toolCalls: [],
-          thinking: [],
-        },
-      ],
       compactions: [],
       latestUsageInputMessageCount: 1,
-      usage: {
-        currentContextInputTokens: 102_399,
-        latestCallOutputTokens: 100,
-        sessionInputTokens: 102_399,
-        sessionOutputTokens: 100,
-        sessionCacheReadInputTokens: 0,
-      },
-    });
-
-    await drain(session.sendUserMessage('second', [], '', 'none').stream);
-
-    expect(mainCallCount).toBe(1);
-    expect(streamSpy).toHaveBeenCalledTimes(2);
-    expect(session.toSnapshot().compactions).toHaveLength(1);
-  });
-
-  it('compacts before model call when local prompt estimate reaches threshold', async () => {
-    const streamSpy = vi
-      .spyOn(llmApi, 'streamCompletion')
-      .mockImplementation((options) => {
-        const isSummaryRequest =
-          options.tools.length === 0 &&
-          options.messages.length === 1 &&
-          options.messages[0]?.role === 'user' &&
-          options.messages[0].content.includes('<history_to_summarize>');
-
-        if (isSummaryRequest) return summaryStream();
-
-        const hasSummaryMessage = options.messages.some(
-          (message) =>
-            message.role === 'user' &&
-            message.content.includes('<conversation_summary>'),
-        );
-        expect(hasSummaryMessage).toBe(true);
-        return normalStream();
-      });
-
-    const session = new LlmSession(() => Promise.resolve(CONFIG), {
-      id: 'session-1',
-      compactions: [],
-      latestUsageInputMessageCount: null,
-      messages: largeOldMessages(12),
+      messages: [{id: 'user-1', createdAt: 1, role: 'user', content: 'first'}],
       usage: emptyUsage(),
     });
 
-    await drain(session.sendUserMessage('hello', [], '', 'none').stream);
-
-    const snapshot = session.toSnapshot();
-
-    expect(streamSpy).toHaveBeenCalledTimes(2);
-    expect(snapshot.messages[0]?.role).toBe('user');
-    expect(snapshot.messages[0]?.content).toContain('<conversation_summary>');
-    expect(snapshot.messages[0]?.content).toContain('<recent_context>');
-    expect(snapshot.messages[0]?.content).toContain(
-      '<continuation_instructions>',
+    const afterTurnPromise = collect(
+      session.compactIfNeeded({
+        reason: 'after-turn',
+        tools: [],
+        systemPrompt: '',
+        thinkingLevel: 'none',
+      }),
     );
-    expect(snapshot.messages[0]?.content).toContain('summary text');
-    expect(snapshot.messages[0]?.content).toContain('hello');
-    expect(snapshot.compactions).toHaveLength(1);
-    expect(snapshot.compactions[0]).toMatchObject({
-      coveredMessageCount: 13,
-      recentContextMessageCount: 13,
-    });
+    await Promise.resolve();
+
+    const messagePromise = drain(
+      session.sendUserMessage('blocked', [], '', 'none').stream,
+    );
+    await Promise.resolve();
+
+    expect(providerSpy).not.toHaveBeenCalled();
+    releaseCompaction?.();
+    await afterTurnPromise;
+    await messagePromise;
+
+    expect(compactorSpy).toHaveBeenCalledTimes(2);
+    expect(providerSpy).toHaveBeenCalledTimes(1);
+    expect(session.toSnapshot().compactions).toContainEqual(
+      createPatch().metadata,
+    );
   });
 
-  it('replaces compacted history with a single synthetic message before the next assistant reply', async () => {
-    vi.spyOn(llmApi, 'streamCompletion')
-      .mockReturnValueOnce(summaryStream())
-      .mockReturnValueOnce(normalStream());
+  it('rolls back a committed compaction patch when provider streaming fails', async () => {
+    vi.spyOn(llmSessionCompactor, 'compactIfNeeded').mockImplementation(
+      async function* (input: CompactLlmSessionIfNeededInput) {
+        await input.commit(createPatch());
+        yield startEvent;
+      },
+    );
+    vi.spyOn(llmApi, 'streamCompletion').mockReturnValue(failingStream());
+    const messages: LlmMessage[] = [
+      {id: 'user-1', createdAt: 1, role: 'user', content: 'first'},
+    ];
+    const usage = {
+      currentContextInputTokens: 5,
+      latestCallOutputTokens: 2,
+      sessionInputTokens: 5,
+      sessionOutputTokens: 2,
+      sessionCacheReadInputTokens: 1,
+    };
     const session = new LlmSession(() => Promise.resolve(CONFIG), {
       id: 'session-1',
       compactions: [],
-      latestUsageInputMessageCount: null,
-      messages: largeOldMessages(12),
-      usage: emptyUsage(),
-    });
-
-    await drain(session.sendUserMessage('hello', [], '', 'none').stream);
-
-    const messages = session.toSnapshot().messages;
-    expect(messages).toHaveLength(2);
-    expect(messages[0]).toMatchObject({role: 'user'});
-    expect(messages[0]?.content).toContain('<conversation_summary>');
-    expect(messages[1]).toMatchObject({role: 'assistant', content: 'reply'});
-  });
-
-  it('rolls back compaction when the provider stream fails after compaction', async () => {
-    vi.spyOn(llmApi, 'streamCompletion')
-      .mockReturnValueOnce(summaryStream())
-      .mockReturnValueOnce(failingStream());
-    const messages = largeOldMessages(12);
-    const session = new LlmSession(() => Promise.resolve(CONFIG), {
-      id: 'session-1',
-      compactions: [],
-      latestUsageInputMessageCount: null,
+      latestUsageInputMessageCount: 1,
       messages,
-      usage: emptyUsage(),
+      usage,
     });
 
     await expect(
@@ -311,278 +283,22 @@ describe('LlmSession compaction', () => {
     expect(session.toSnapshot()).toEqual({
       id: 'session-1',
       compactions: [],
-      latestUsageInputMessageCount: null,
+      latestUsageInputMessageCount: 1,
       messages,
-      usage: emptyUsage(),
+      usage,
     });
   });
 
-  it('surfaces a clear error when pre-call compaction fails', async () => {
-    vi.spyOn(llmApi, 'streamCompletion').mockReturnValue(failingStream());
-    const messages = largeOldMessages(12);
+  it('restores latest usage input message count in snapshots', () => {
     const session = new LlmSession(() => Promise.resolve(CONFIG), {
       id: 'session-1',
+      messages: [{id: 'user-1', createdAt: 1, role: 'user', content: 'first'}],
       compactions: [],
-      latestUsageInputMessageCount: null,
-      messages,
+      latestUsageInputMessageCount: 1,
       usage: emptyUsage(),
     });
 
-    await expect(
-      drain(session.sendUserMessage('hello', [], '', 'none').stream),
-    ).rejects.toThrow('Failed to compact LLM session before model call');
-
-    expect(session.toSnapshot()).toEqual({
-      id: 'session-1',
-      compactions: [],
-      latestUsageInputMessageCount: null,
-      messages,
-      usage: emptyUsage(),
-    });
-  });
-
-  it('does not start the provider call when aborted during pre-call compaction', async () => {
-    const controller = new AbortController();
-    const streamSpy = vi
-      .spyOn(llmApi, 'streamCompletion')
-      .mockReturnValue(abortingSummaryStream(controller));
-    const messages = largeOldMessages(12);
-    const session = new LlmSession(() => Promise.resolve(CONFIG), {
-      id: 'session-1',
-      compactions: [],
-      latestUsageInputMessageCount: null,
-      messages,
-      usage: emptyUsage(),
-    });
-
-    let error: unknown;
-    try {
-      await drain(
-        session.sendUserMessage('hello', [], '', 'none', controller.signal)
-          .stream,
-      );
-    } catch (err: unknown) {
-      error = err;
-    }
-
-    expect(error).toBe(controller.signal.reason);
-
-    expect(streamSpy).toHaveBeenCalledTimes(1);
-    expect(streamSpy.mock.calls[0]?.[0].signal).toBe(controller.signal);
-    expect(session.toSnapshot()).toEqual({
-      id: 'session-1',
-      compactions: [],
-      latestUsageInputMessageCount: null,
-      messages,
-      usage: emptyUsage(),
-    });
-  });
-
-  it('fails compaction when the generated summary is empty', async () => {
-    vi.spyOn(llmApi, 'streamCompletion').mockReturnValue(emptySummaryStream());
-    const messages = largeOldMessages(12);
-    const session = new LlmSession(() => Promise.resolve(CONFIG), {
-      id: 'session-1',
-      compactions: [],
-      latestUsageInputMessageCount: null,
-      messages,
-      usage: emptyUsage(),
-    });
-
-    async function drainCompaction() {
-      const events: unknown[] = [];
-      for await (const event of session.compactIfNeeded({
-        reason: 'after-turn',
-        tools: [],
-        systemPrompt: '',
-        thinkingLevel: 'none',
-      })) {
-        events.push(event);
-      }
-      return events;
-    }
-
-    await expect(drainCompaction()).rejects.toThrow(
-      'Compaction summary is empty',
-    );
-
-    expect(session.toSnapshot()).toEqual({
-      id: 'session-1',
-      compactions: [],
-      latestUsageInputMessageCount: null,
-      messages,
-      usage: emptyUsage(),
-    });
-  });
-
-  it('keeps history unchanged when turn-end compaction fails', async () => {
-    vi.spyOn(llmApi, 'streamCompletion').mockReturnValue(failingStream());
-    const messages = largeOldMessages(12);
-    const session = new LlmSession(() => Promise.resolve(CONFIG), {
-      id: 'session-1',
-      compactions: [],
-      latestUsageInputMessageCount: null,
-      messages,
-      usage: emptyUsage(),
-    });
-
-    async function drainCompaction() {
-      const events: unknown[] = [];
-      for await (const event of session.compactIfNeeded({
-        reason: 'after-turn',
-        tools: [],
-        systemPrompt: '',
-        thinkingLevel: 'none',
-      })) {
-        events.push(event);
-      }
-      return events;
-    }
-
-    await expect(drainCompaction()).rejects.toThrow('provider failed');
-
-    expect(session.toSnapshot()).toEqual({
-      id: 'session-1',
-      compactions: [],
-      latestUsageInputMessageCount: null,
-      messages,
-      usage: emptyUsage(),
-    });
-  });
-
-  it('yields start and end events on a successful compaction', async () => {
-    vi.spyOn(llmApi, 'streamCompletion').mockReturnValue(summaryStream());
-    const messages = largeOldMessages(12);
-    const session = new LlmSession(() => Promise.resolve(CONFIG), {
-      id: 'session-1',
-      compactions: [],
-      latestUsageInputMessageCount: null,
-      messages,
-      usage: emptyUsage(),
-    });
-
-    const events: unknown[] = [];
-    for await (const event of session.compactIfNeeded({
-      reason: 'after-turn',
-      tools: [],
-      systemPrompt: '',
-      thinkingLevel: 'none',
-    })) {
-      events.push(event);
-    }
-
-    expect(events).toHaveLength(2);
-    expect(events[0]).toMatchObject({
-      type: 'context-compaction-start',
-      reason: 'after-turn',
-      messageCount: 12,
-    });
-    expect(events[1]).toMatchObject({
-      type: 'context-compaction-end',
-      summary: expect.any(String) as unknown,
-      messageCount: 12,
-    });
-    expect((events[0] as {compactionId: string}).compactionId).toBe(
-      (events[1] as {compactionId: string}).compactionId,
-    );
-  });
-
-  it('yields nothing when the threshold is not met', async () => {
-    const session = new LlmSession(() => Promise.resolve(CONFIG), {
-      id: 'session-1',
-      compactions: [],
-      latestUsageInputMessageCount: null,
-      messages: [],
-      usage: emptyUsage(),
-    });
-
-    const events: unknown[] = [];
-    for await (const event of session.compactIfNeeded({
-      reason: 'after-turn',
-      tools: [],
-      systemPrompt: '',
-      thinkingLevel: 'none',
-    })) {
-      events.push(event);
-    }
-
-    expect(events).toEqual([]);
-  });
-
-  it('yields start + error then re-throws on failure', async () => {
-    vi.spyOn(llmApi, 'streamCompletion').mockReturnValue(failingStream());
-    const messages = largeOldMessages(12);
-    const session = new LlmSession(() => Promise.resolve(CONFIG), {
-      id: 'session-1',
-      compactions: [],
-      latestUsageInputMessageCount: null,
-      messages,
-      usage: emptyUsage(),
-    });
-
-    const events: unknown[] = [];
-    let thrown: unknown;
-    try {
-      for await (const event of session.compactIfNeeded({
-        reason: 'after-turn',
-        tools: [],
-        systemPrompt: '',
-        thinkingLevel: 'none',
-      })) {
-        events.push(event);
-      }
-    } catch (err: unknown) {
-      thrown = err;
-    }
-
-    expect(thrown).toBeInstanceOf(Error);
-    expect((thrown as Error).message).toContain('provider failed');
-    expect(events).toHaveLength(2);
-    expect(events[0]).toMatchObject({type: 'context-compaction-start'});
-    expect(events[1]).toMatchObject({
-      type: 'context-compaction-error',
-      reason: 'after-turn',
-      message: expect.stringContaining('provider failed') as unknown,
-    });
-  });
-
-  it('yields error with message "Aborted" when the signal trips mid-compaction', async () => {
-    const controller = new AbortController();
-    vi.spyOn(llmApi, 'streamCompletion').mockReturnValue(
-      abortingSummaryStream(controller),
-    );
-    const messages = largeOldMessages(12);
-    const session = new LlmSession(() => Promise.resolve(CONFIG), {
-      id: 'session-1',
-      compactions: [],
-      latestUsageInputMessageCount: null,
-      messages,
-      usage: emptyUsage(),
-    });
-
-    const events: unknown[] = [];
-    let thrown: unknown;
-    try {
-      for await (const event of session.compactIfNeeded({
-        reason: 'after-turn',
-        tools: [],
-        systemPrompt: '',
-        thinkingLevel: 'none',
-        signal: controller.signal,
-      })) {
-        events.push(event);
-      }
-    } catch (err: unknown) {
-      thrown = err;
-    }
-
-    expect(thrown).toBeDefined();
-    expect(events).toHaveLength(2);
-    expect(events[0]).toMatchObject({type: 'context-compaction-start'});
-    expect(events[1]).toMatchObject({
-      type: 'context-compaction-error',
-      message: 'Aborted',
-    });
+    expect(session.toSnapshot().latestUsageInputMessageCount).toBe(1);
   });
 });
 
@@ -592,6 +308,12 @@ describe('LlmSession usage', () => {
   });
 
   it('tracks latest context input separately from cumulative session totals', async () => {
+    vi.spyOn(llmSessionCompactor, 'compactIfNeeded').mockImplementation(
+      async function* (input: CompactLlmSessionIfNeededInput) {
+        await Promise.resolve();
+        if (input.options.systemPrompt === '__yield__') yield startEvent;
+      },
+    );
     vi.spyOn(llmApi, 'streamCompletion')
       .mockReturnValueOnce(
         usageStream({
@@ -622,6 +344,12 @@ describe('LlmSession usage', () => {
   });
 
   it('rolls back usage when the provider stream fails after reporting usage', async () => {
+    vi.spyOn(llmSessionCompactor, 'compactIfNeeded').mockImplementation(
+      async function* (input: CompactLlmSessionIfNeededInput) {
+        await Promise.resolve();
+        if (input.options.systemPrompt === '__yield__') yield startEvent;
+      },
+    );
     vi.spyOn(llmApi, 'streamCompletion').mockReturnValue(
       failingAfterUsageStream(),
     );
