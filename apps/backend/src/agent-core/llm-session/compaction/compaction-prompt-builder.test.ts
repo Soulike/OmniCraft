@@ -1,10 +1,12 @@
 import {describe, expect, it} from 'vitest';
 
-import {buildCompactedMessageContent, buildCompactionPrompt} from './prompt.js';
+import {compactionPromptBuilder} from './compaction-prompt-builder.js';
 
 describe('buildCompactionPrompt', () => {
   it('includes summary instructions and history', () => {
-    const prompt = buildCompactionPrompt(['message one']);
+    const prompt = compactionPromptBuilder.buildCompactionPrompt([
+      'message one',
+    ]);
 
     expect(prompt).toContain('Preserve user goals');
     expect(prompt).toContain('<history_to_summarize>');
@@ -14,7 +16,7 @@ describe('buildCompactionPrompt', () => {
 
 describe('buildCompactedMessageContent', () => {
   it('wraps summary, recent context, and continuation instructions', () => {
-    const content = buildCompactedMessageContent({
+    const content = compactionPromptBuilder.buildCompactedMessageContent({
       summary: 'summary text',
       recentContext: 'recent text',
     });

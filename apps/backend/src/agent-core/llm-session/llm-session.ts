@@ -18,10 +18,10 @@ import {llmApi} from '../llm-api/index.js';
 import {estimatePromptTokens} from '../llm-api/token-estimator.js';
 import {modelCapacity} from '../model-capacity/index.js';
 import type {ToolDefinition} from '../tool/types.js';
-import {COMPACTION_TRIGGER_INPUT_TOKEN_RATIO} from './compaction/constants.js';
-import {buildCompactedMessageContent} from './compaction/prompt.js';
-import {buildRecentContext} from './compaction/slim.js';
-import {generateCompactionSummary} from './compaction/summary.js';
+import {COMPACTION_TRIGGER_INPUT_TOKEN_RATIO} from './compaction/compaction-constants.js';
+import {compactionMessageSlimmer} from './compaction/compaction-message-slimmer.js';
+import {compactionPromptBuilder} from './compaction/compaction-prompt-builder.js';
+import {compactionSummaryGenerator} from './compaction/compaction-summary-generator.js';
 import {createEmptyLlmSessionUsage} from './helpers.js';
 import type {
   LlmCompactionMetadata,
@@ -285,7 +285,7 @@ export class LlmSession {
     const beforeCharCount = JSON.stringify(this.messages).length;
 
     try {
-      const summary = await generateCompactionSummary({
+      const summary = await compactionSummaryGenerator.generate({
         config,
         messages: this.messages,
         tools: options.tools,
@@ -296,12 +296,15 @@ export class LlmSession {
         throw new Error('Compaction summary is empty');
       }
 
-      const recentContext = buildRecentContext(this.messages, options.tools);
+      const recentContext = compactionMessageSlimmer.buildRecentContext(
+        this.messages,
+        options.tools,
+      );
       const summaryMessage: LlmMessage = {
         id: crypto.randomUUID(),
         createdAt: Date.now(),
         role: 'user',
-        content: buildCompactedMessageContent({
+        content: compactionPromptBuilder.buildCompactedMessageContent({
           summary,
           recentContext: recentContext.content,
         }),

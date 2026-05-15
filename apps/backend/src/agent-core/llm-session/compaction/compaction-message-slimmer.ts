@@ -8,7 +8,7 @@ import {
   SUMMARY_INPUT_CONTENT_TRUNCATE_HEAD_CHARS,
   SUMMARY_INPUT_CONTENT_TRUNCATE_LIMIT_CHARS,
   SUMMARY_INPUT_CONTENT_TRUNCATE_TAIL_CHARS,
-} from './constants.js';
+} from './compaction-constants.js';
 
 interface TruncationConfig {
   readonly limit: number;
@@ -119,28 +119,32 @@ function slimMessages(
   return result;
 }
 
-export function slimMessagesForSummary(
-  messages: readonly LlmMessage[],
-  tools: readonly ToolDefinition[],
-): string[] {
-  return slimMessages(messages, tools, SUMMARY_INPUT_TRUNCATION);
-}
-
-export function buildRecentContext(
-  messages: readonly LlmMessage[],
-  tools: readonly ToolDefinition[],
-): RecentContext {
-  const recentMessages = messages.slice(-RECENT_CONTEXT_SOURCE_MESSAGE_COUNT);
-  if (recentMessages.length === 0) {
-    return {content: 'No recent context.', sourceMessageCount: 0};
+export class CompactionMessageSlimmer {
+  slimMessagesForSummary(
+    messages: readonly LlmMessage[],
+    tools: readonly ToolDefinition[],
+  ): string[] {
+    return slimMessages(messages, tools, SUMMARY_INPUT_TRUNCATION);
   }
 
-  return {
-    content: slimMessages(
-      recentMessages,
-      tools,
-      RECENT_CONTEXT_TRUNCATION,
-    ).join('\n'),
-    sourceMessageCount: recentMessages.length,
-  };
+  buildRecentContext(
+    messages: readonly LlmMessage[],
+    tools: readonly ToolDefinition[],
+  ): RecentContext {
+    const recentMessages = messages.slice(-RECENT_CONTEXT_SOURCE_MESSAGE_COUNT);
+    if (recentMessages.length === 0) {
+      return {content: 'No recent context.', sourceMessageCount: 0};
+    }
+
+    return {
+      content: slimMessages(
+        recentMessages,
+        tools,
+        RECENT_CONTEXT_TRUNCATION,
+      ).join('\n'),
+      sourceMessageCount: recentMessages.length,
+    };
+  }
 }
+
+export const compactionMessageSlimmer = new CompactionMessageSlimmer();
