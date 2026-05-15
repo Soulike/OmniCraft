@@ -229,6 +229,21 @@ Test files should follow the same object names where practical, for example
 
 ## Proposed API Shape
 
+### Usage Count Terminology
+
+Rename the existing `usageBaselineMessageCount` concept to
+`latestUsageInputMessageCount`.
+
+The new name describes the value more directly: it is the number of messages
+included in the input prompt for the latest completed LLM call whose provider
+usage is stored in `LlmSessionUsage.currentContextInputTokens`. It intentionally
+does not include the assistant message produced by that call; that output is
+represented separately by `LlmSessionUsage.latestCallOutputTokens`.
+
+Persisted snapshots should use the new field name. Because sessions are
+persisted, the snapshot parser must accept `usageBaselineMessageCount` as a
+legacy input and normalize it to `latestUsageInputMessageCount`.
+
 ### Public Facade
 
 ```typescript
@@ -236,7 +251,7 @@ export interface CompactLlmSessionIfNeededInput {
   readonly config: Readonly<LlmConfig>;
   readonly messages: readonly LlmMessage[];
   readonly usage: Readonly<LlmSessionUsage>;
-  readonly usageBaselineMessageCount: number | null;
+  readonly latestUsageInputMessageCount: number | null;
   readonly options: LlmCompactionOptions;
   readonly commit: (patch: LlmSessionCompactionPatch) => void;
 }
@@ -256,7 +271,7 @@ export const llmSessionCompactor = new LlmSessionCompactor(...);
 export interface LlmSessionCompactionPatch {
   readonly messages: readonly LlmMessage[];
   readonly usage: LlmSessionUsage;
-  readonly usageBaselineMessageCount: number | null;
+  readonly latestUsageInputMessageCount: number | null;
   readonly metadata: LlmCompactionMetadata;
 }
 ```
@@ -268,7 +283,7 @@ private applyCompactionPatch(patch: LlmSessionCompactionPatch): void {
   this.messages.length = 0;
   this.messages.push(...patch.messages);
   this.usage = patch.usage;
-  this.usageBaselineMessageCount = patch.usageBaselineMessageCount;
+  this.latestUsageInputMessageCount = patch.latestUsageInputMessageCount;
   this.compactions.push(patch.metadata);
 }
 ```
@@ -288,7 +303,7 @@ private async *compactIfNeededUnlocked(
     config,
     messages: this.messages,
     usage: this.usage,
-    usageBaselineMessageCount: this.usageBaselineMessageCount,
+    latestUsageInputMessageCount: this.latestUsageInputMessageCount,
     options,
     commit: (patch) => this.applyCompactionPatch(patch),
   });
@@ -387,19 +402,22 @@ Keep existing behavior tests and add focused tests for the new service boundary.
 
 1. Add `llm-compaction-types.ts` for internal compaction input, decision,
    result, and patch types.
-2. Rename helper files and focused helper tests to object-named files and
+2. Rename `usageBaselineMessageCount` to `latestUsageInputMessageCount` in
+   `LlmSession`, snapshot types, and tests. Add legacy snapshot normalization
+   for previously persisted snapshots.
+3. Rename helper files and focused helper tests to object-named files and
    update internal imports.
-3. Extract token estimation from `LlmSession` into
+4. Extract token estimation from `LlmSession` into
    `LlmCompactionTokenEstimator`.
-4. Add `LlmCompactionDecisionService`.
-5. Add `LlmHistoryCompactor` around summary generation, recent context, and
+5. Add `LlmCompactionDecisionService`.
+6. Add `LlmHistoryCompactor` around summary generation, recent context, and
    synthetic message creation.
-6. Add `LlmCompactionEventFactory`.
-7. Add `LlmSessionCompactor` as the package facade and export only
+7. Add `LlmCompactionEventFactory`.
+8. Add `LlmSessionCompactor` as the package facade and export only
    `llmSessionCompactor` from `compaction/index.ts`.
-8. Replace `LlmSession.compactIfNeededUnlocked()` internals with a call to the
+9. Replace `LlmSession.compactIfNeededUnlocked()` internals with a call to the
    facade and a small `applyCompactionPatch()` method.
-9. Run focused backend tests for `llm-session` and `agent` compaction behavior.
+10. Run focused backend tests for `llm-session` and `agent` compaction behavior.
 
 ## Acceptance Criteria
 
@@ -411,5 +429,7 @@ Keep existing behavior tests and add focused tests for the new service boundary.
   export.
 - Production code outside `compaction/` does not import compaction internal
   files directly.
+- `usageBaselineMessageCount` is renamed to `latestUsageInputMessageCount`,
+  with snapshot compatibility for previously persisted snapshots.
 - Existing compaction behavior and event ordering are unchanged.
 - Focused tests pass.
