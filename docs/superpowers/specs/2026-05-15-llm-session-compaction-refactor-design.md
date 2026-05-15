@@ -240,9 +240,7 @@ usage is stored in `LlmSessionUsage.currentContextInputTokens`. It intentionally
 does not include the assistant message produced by that call; that output is
 represented separately by `LlmSessionUsage.latestCallOutputTokens`.
 
-Persisted snapshots should use the new field name. Because sessions are
-persisted, the snapshot parser must accept `usageBaselineMessageCount` as a
-legacy input and normalize it to `latestUsageInputMessageCount`.
+Persisted snapshots should use only `latestUsageInputMessageCount`.
 
 ### Public Facade
 
@@ -378,21 +376,52 @@ Preserve current behavior:
 
 ## Testing
 
-Keep existing behavior tests and add focused tests for the new service boundary.
+Tests should follow the same ownership boundaries as the code. Logic moved into
+compaction singletons should be tested in that singleton's test file, not
+duplicated through `LlmSession` tests.
 
-### Existing Tests To Preserve
+Existing `LlmSession` tests that currently assert compaction internals should be
+moved, rewritten, or deleted during the refactor. `LlmSession` tests should only
+cover the behavior that still belongs to `LlmSession`.
 
-- `LlmSession` compacts before model calls when threshold is met.
-- `LlmSession` yields start/end events on successful compaction.
-- `LlmSession` yields start/error and rethrows on compaction failure.
-- `LlmSession` rolls back compaction if the provider stream fails afterward.
+### `LlmSession` Boundary Tests
+
+- `LlmSession` delegates compaction to `llmSessionCompactor` at the before-call
+  boundary.
+- `LlmSession.compactIfNeeded()` delegates public after-turn compaction to
+  `llmSessionCompactor` under the session mutex.
+- `LlmSession` forwards compactor-yielded events as `compaction-sse` events
+  during normal message streaming.
+- `LlmSession` wraps before-call compactor failures with the current clear error
+  message unless the signal was aborted.
+- `LlmSession` rolls back a compactor-applied patch if the following provider
+  stream fails.
+
+These tests should use a mocked or fake compactor where practical. They should
+not re-test threshold math, token estimation, event payload construction,
+summary generation, recent-context construction, empty-summary handling, or
+compaction metadata construction.
+
+### `Agent` Boundary Tests
+
 - `Agent` emits before-call compaction events before generic errors.
 - `Agent` emits after-turn compaction events before `done`.
 
-### New Focused Tests
+`Agent` tests should assert event ordering and log integration only. They should
+not assert compaction decision details or event payload construction that belong
+to compaction singletons.
+
+### Compaction Singleton Tests
 
 - `LlmCompactionDecisionService` returns skip below threshold.
 - `LlmCompactionDecisionService` returns compact at or above threshold.
+- `LlmCompactionTokenEstimator` prefers latest provider usage when valid.
+- `LlmCompactionTokenEstimator` falls back to local prompt estimation when
+  latest provider usage is not valid for the current message state.
+- `LlmHistoryCompactor` returns replacement messages, summary text, and metadata
+  inputs without mutating input messages.
+- `LlmHistoryCompactor` rejects empty summaries.
+- `LlmCompactionEventFactory` builds start, end, and error event payloads.
 - `LlmSessionCompactor` calls `commit()` before yielding the end event.
 - `LlmSessionCompactor` does not call `commit()` when history compaction fails.
 - `LlmSessionCompactor` yields error events and rethrows failures.
@@ -403,8 +432,7 @@ Keep existing behavior tests and add focused tests for the new service boundary.
 1. Add `llm-compaction-types.ts` for internal compaction input, decision,
    result, and patch types.
 2. Rename `usageBaselineMessageCount` to `latestUsageInputMessageCount` in
-   `LlmSession`, snapshot types, and tests. Add legacy snapshot normalization
-   for previously persisted snapshots.
+   `LlmSession`, snapshot types, and tests.
 3. Rename helper files and focused helper tests to object-named files and
    update internal imports.
 4. Extract token estimation from `LlmSession` into
@@ -429,7 +457,7 @@ Keep existing behavior tests and add focused tests for the new service boundary.
   export.
 - Production code outside `compaction/` does not import compaction internal
   files directly.
-- `usageBaselineMessageCount` is renamed to `latestUsageInputMessageCount`,
-  with snapshot compatibility for previously persisted snapshots.
+- `usageBaselineMessageCount` is replaced by `latestUsageInputMessageCount` in
+  persisted snapshot schema and runtime session state.
 - Existing compaction behavior and event ordering are unchanged.
 - Focused tests pass.
