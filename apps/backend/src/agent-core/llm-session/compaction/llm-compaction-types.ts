@@ -59,7 +59,9 @@ export interface LlmSessionCompactionPatch {
   readonly messages: readonly LlmMessage[];
   readonly latestUsageInputMessageCount: number | null;
   readonly usage: LlmSessionUsage;
-  readonly compaction?: LlmCompactionMetadata;
+  readonly metadata: LlmCompactionMetadata;
 }
 
-export type CompactLlmSessionIfNeededInput = LlmCompactionDecisionInput;
+export interface CompactLlmSessionIfNeededInput extends LlmCompactionDecisionInput {
+  commit(patch: LlmSessionCompactionPatch): void | Promise<void>;
+}
