@@ -16,7 +16,6 @@ import type {
 import {llmApi} from '../llm-api/index.js';
 import type {ToolDefinition} from '../tool/types.js';
 import {llmSessionCompactor} from './compaction/index.js';
-import type {LlmSessionCompactionPatch} from './compaction/llm-compaction-types.js';
 import {createEmptyLlmSessionUsage} from './helpers.js';
 import type {
   LlmCompactionMetadata,
@@ -27,6 +26,10 @@ import type {
   SendUserMessageResult,
   ToolResult,
 } from './types.js';
+
+type LlmSessionCompactionPatch = Parameters<
+  Parameters<typeof llmSessionCompactor.compactIfNeeded>[0]['commit']
+>[0];
 
 function throwIfAborted(signal: AbortSignal | undefined): void {
   if (!signal?.aborted) return;
