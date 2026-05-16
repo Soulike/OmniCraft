@@ -71,44 +71,58 @@ Expansion keeps the current content model:
 
 The visual shell changes so the detail reads as attached to the compact row instead of as a separate large card. Padding should be tighter than the current `12px` card body, and the inner pre/result surfaces should keep bounded height and scrolling.
 
-### Summary Helper
+### Tool-Owned Pill Content
 
-Add a small helper near `ToolExecutionCard` to parse `toolArguments` and produce the closed-row target summary.
+The compact row should not depend on one central helper that knows how every tool wants to summarize itself. Instead, `ToolExecutionCard` owns the execution shell, and each tool-specific frontend adapter owns the text shown inside the pill.
 
-The helper should:
+The shell owns:
 
-1. Accept `toolName`, `displayName`, `toolArguments`, `status`, `data`, and `output` availability.
-2. Parse `toolArguments` with `JSON.parse` and narrow with existing parameter schemas where practical.
-3. Return a structured summary object rather than JSX:
+1. Status icon and status styling.
+2. Disclosure trigger/content behavior.
+3. Generic execution meta: `live output`, `running`, `done`, `failed`, or `error`.
+4. Fallback rendering when a tool adapter cannot parse its arguments.
+
+Each tool adapter owns:
+
+1. The short action label, such as `Read`, `Command`, `Search`, `Fetch`, or `Skill`.
+2. The primary target text, such as a file path, command, query, URL, pattern, or skill name.
+3. Whether the target should be rendered as code or plain text.
+4. Optional tool-specific secondary text if it is compact enough for the row.
+
+Adapters return structured data rather than JSX:
 
 ```typescript
-interface ToolExecutionSummary {
+interface ToolExecutionPillContent {
   action: string;
   target: string;
   targetKind: 'code' | 'text';
-  meta: string | null;
+  detail: string | null;
 }
 ```
 
-Fallback behavior: if parsing or schema validation fails, use `displayName` as the action, `toolName` as the target, `code` as `targetKind`, and a status-derived meta value.
+The shell combines this tool-owned content with the shell-owned execution meta. For example, a `run_command` adapter can return `Command` plus the command string; the shell still decides whether the row says `running`, `done`, `failed`, or `error`.
 
-Recommended target mapping:
+The dispatch layer may still be centralized, but it should only route to tool-owned adapters and provide fallback behavior. It should not contain the per-tool string-formatting rules itself.
 
-| Tool               | Target summary                                                             |
-| ------------------ | -------------------------------------------------------------------------- |
-| `read_file`        | `filePath`                                                                 |
-| `write_file`       | `filePath`                                                                 |
-| `edit_file`        | `filePath`                                                                 |
-| `find_files`       | `pattern` when no `path` exists; otherwise `pattern in path`               |
-| `search_files`     | `pattern` when no `filePattern` exists; otherwise `pattern in filePattern` |
-| `run_command`      | `command`                                                                  |
-| `web_search`       | `query`                                                                    |
-| `web_fetch`        | `url`                                                                      |
-| `web_fetch_raw`    | `url`                                                                      |
-| `load_skill`       | `name`                                                                     |
-| `get_current_time` | `toolName` fallback                                                        |
+Recommended adapter ownership:
+
+| Tool               | Adapter decides                                        |
+| ------------------ | ------------------------------------------------------ |
+| `read_file`        | File-oriented action and path target.                  |
+| `write_file`       | File-oriented action and path target.                  |
+| `edit_file`        | Edit-oriented action and path target.                  |
+| `find_files`       | Search-oriented action and pattern/path target.        |
+| `search_files`     | Search-oriented action and pattern/filter target.      |
+| `run_command`      | Command-oriented action and command target.            |
+| `web_search`       | Search-oriented action and query target.               |
+| `web_fetch`        | Fetch-oriented action and URL target.                  |
+| `web_fetch_raw`    | Fetch-oriented action and URL target.                  |
+| `load_skill`       | Skill-oriented action and skill-name target.           |
+| `get_current_time` | Time-oriented action, or fallback if no useful target. |
 
 `ask_user` does not need a summary because it does not render through `ToolExecutionCard`.
+
+Fallback behavior: if parsing or schema validation fails, use `displayName` as the action, `toolName` as the target, `code` as `targetKind`, and `null` as the tool-owned detail. The shell still adds the status-derived execution meta.
 
 ### Component Boundaries
 
@@ -116,7 +130,7 @@ Keep the existing MVVM shape:
 
 - `ToolExecutionCard.tsx` remains the container that reads `useToolOutput(callId)`.
 - `ToolExecutionCardView.tsx` remains the stateless view.
-- Add helper files under `ToolExecutionCard/helpers/` for summary derivation if the logic is more than trivial.
+- Add tool-owned pill adapters near the existing per-tool display code. A small central dispatcher may live under `ToolExecutionCard/helpers/`, but it should delegate immediately to the adapter for the active tool.
 - Keep `ParametersSection` and `ResultSection` as internal detail components.
 
 No parent layout rules such as margins or alignment should move into `ToolExecutionCard` styles. The row/card can define its own internal dimensions, padding, border, and overflow.
@@ -130,12 +144,11 @@ No parent layout rules such as margins or alignment should move into `ToolExecut
 
 ## Testing
 
-Add focused coverage for the summary helper:
+Add focused coverage for compact pill content:
 
-- It extracts file paths for file tools.
-- It extracts commands, queries, URLs, and skill names for the relevant tools.
-- It falls back safely on malformed JSON.
-- It returns status-derived meta for `running`, `done`, `failure`, and `error`.
+- Per-tool adapters extract their own file paths, commands, queries, URLs, patterns, and skill names.
+- The central dispatcher falls back safely on malformed JSON or adapter parse failures.
+- The shell returns status-derived execution meta for `running`, `done`, `failure`, and `error`.
 
 Existing rendering tests should continue to cover message transformation. Add a component test only if the row behavior or disclosure rendering becomes conditional enough that helper tests are insufficient.
 
@@ -143,4 +156,5 @@ Existing rendering tests should continue to cover message transformation. Add a 
 
 - `apps/frontend/src/modules/chat-session/components/StreamingMessageDisplay/components/MessageList/components/ToolExecutionCard/ToolExecutionCardView.tsx`
 - `apps/frontend/src/modules/chat-session/components/StreamingMessageDisplay/components/MessageList/components/ToolExecutionCard/styles.module.css`
-- New helper/test files under `ToolExecutionCard/helpers/` if summary extraction is factored out.
+- New per-tool pill adapter/test files near the existing tool-specific display modules.
+- New dispatcher/fallback helper under `ToolExecutionCard/helpers/`.
