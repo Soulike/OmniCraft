@@ -1,6 +1,8 @@
 import assert from 'node:assert';
 import crypto from 'node:crypto';
+import {mkdirSync, realpathSync} from 'node:fs';
 import os from 'node:os';
+import path from 'node:path';
 
 import type {ThinkingLevel} from '@omnicraft/api-schema';
 import type {
@@ -53,6 +55,12 @@ import {FileStatTracker} from './state/file-stat-tracker.js';
 import {TodoStore} from './state/todo-store.js';
 import {generateTitle} from './title/agent-title.js';
 import type {AgentEventStream, AgentOptions, AgentSnapshot} from './types.js';
+
+function createAgentTmpDir(agentId: string): string {
+  const dir = path.join(os.tmpdir(), agentId);
+  mkdirSync(dir, {recursive: true, mode: 0o700});
+  return realpathSync(dir);
+}
 
 /**
  * Base class for all agents.
@@ -141,12 +149,14 @@ export abstract class Agent {
       this.id = snapshot.id;
       this.title = snapshot.title;
       this.sseEventCount = snapshot.sseEventCount;
-      this.workingDirectory = snapshot.options.workingDirectory ?? os.tmpdir();
+      this.workingDirectory =
+        snapshot.options.workingDirectory ?? createAgentTmpDir(this.id);
       this.llmSession = new LlmSession(getConfig, snapshot.llmSession);
     } else {
       this.thinkingLevel = options.thinkingLevel;
       this.id = crypto.randomUUID();
-      this.workingDirectory = options.workingDirectory ?? os.tmpdir();
+      this.workingDirectory =
+        options.workingDirectory ?? createAgentTmpDir(this.id);
       this.llmSession = new LlmSession(getConfig);
     }
 
