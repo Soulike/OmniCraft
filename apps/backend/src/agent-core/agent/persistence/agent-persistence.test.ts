@@ -27,7 +27,7 @@ function createTestSnapshot(id: string): AgentSnapshot {
       id: 'llm-session-id',
       messages: [],
       compactions: [],
-      usageBaselineMessageCount: null,
+      latestUsageInputMessageCount: null,
       usage: emptyUsage(),
     },
     options: {
@@ -126,7 +126,7 @@ describe('agentPersistence', () => {
             id: 'llm-session-id',
             messages: [],
             compactions: [],
-            usageBaselineMessageCount: null,
+            latestUsageInputMessageCount: null,
             usage: emptyUsage(),
           },
           options: {workingDirectory: '/tmp/test-working-dir'},

@@ -3,7 +3,6 @@ import crypto from 'node:crypto';
 
 import type {ThinkingLevel} from '@omnicraft/api-schema';
 import type {SseContextCompactionEvent} from '@omnicraft/sse-events';
-import {z} from 'zod';
 
 import {Mutex} from '@/helpers/mutex.js';
 
@@ -15,13 +14,11 @@ import type {
   LlmToolCall,
 } from '../llm-api/index.js';
 import {llmApi} from '../llm-api/index.js';
-import {estimatePromptTokens} from '../llm-api/token-estimator.js';
-import {modelCapacity} from '../model-capacity/index.js';
 import type {ToolDefinition} from '../tool/types.js';
-import {COMPACTION_TRIGGER_INPUT_TOKEN_RATIO} from './compaction/constants.js';
-import {buildCompactedMessageContent} from './compaction/prompt.js';
-import {buildRecentContext} from './compaction/slim.js';
-import {generateCompactionSummary} from './compaction/summary.js';
+import {
+  type LlmSessionCompactionPatch,
+  llmSessionCompactor,
+} from './compaction/index.js';
 import {createEmptyLlmSessionUsage} from './helpers.js';
 import type {
   LlmCompactionMetadata,
@@ -56,7 +53,7 @@ export class LlmSession {
   private readonly compactions: LlmCompactionMetadata[] = [];
   private usage: LlmSessionUsage = createEmptyLlmSessionUsage();
   /** Number of messages covered by the latest provider input-token usage. */
-  private usageBaselineMessageCount: number | null = null;
+  private latestUsageInputMessageCount: number | null = null;
   private readonly getConfig: () => Promise<LlmConfig>;
   private readonly mutex = new Mutex();
 
@@ -71,7 +68,7 @@ export class LlmSession {
       this.messages.push(...snapshot.messages);
       this.compactions.push(...snapshot.compactions);
       this.usage = {...snapshot.usage};
-      this.usageBaselineMessageCount = snapshot.usageBaselineMessageCount;
+      this.latestUsageInputMessageCount = snapshot.latestUsageInputMessageCount;
     } else {
       this.id = crypto.randomUUID();
     }
@@ -83,7 +80,7 @@ export class LlmSession {
       id: this.id,
       messages: [...this.messages],
       compactions: [...this.compactions],
-      usageBaselineMessageCount: this.usageBaselineMessageCount,
+      latestUsageInputMessageCount: this.latestUsageInputMessageCount,
       usage: {...this.usage},
     };
   }
@@ -166,7 +163,7 @@ export class LlmSession {
 
   async *compactIfNeeded(
     options: LlmCompactionOptions,
-  ): AsyncGenerator<SseContextCompactionEvent, void, void> {
+  ): AsyncGenerator<SseContextCompactionEvent, void, undefined> {
     const release = await this.mutex.acquire();
     try {
       yield* this.compactIfNeededUnlocked(options);
@@ -180,7 +177,7 @@ export class LlmSession {
     this.messages.length = 0;
     this.compactions.length = 0;
     this.usage = createEmptyLlmSessionUsage();
-    this.usageBaselineMessageCount = null;
+    this.latestUsageInputMessageCount = null;
   }
 
   /**
@@ -198,7 +195,8 @@ export class LlmSession {
     const rollbackMessages = [...this.messages];
     const rollbackCompactions = [...this.compactions];
     const rollbackUsage = {...this.usage};
-    const rollbackUsageBaselineMessageCount = this.usageBaselineMessageCount;
+    const rollbackLatestUsageInputMessageCount =
+      this.latestUsageInputMessageCount;
     this.messages.push(...messages);
     let completed = false;
     try {
@@ -220,7 +218,8 @@ export class LlmSession {
         this.compactions.length = 0;
         this.compactions.push(...rollbackCompactions);
         this.usage = rollbackUsage;
-        this.usageBaselineMessageCount = rollbackUsageBaselineMessageCount;
+        this.latestUsageInputMessageCount =
+          rollbackLatestUsageInputMessageCount;
       }
       release();
     }
@@ -231,7 +230,7 @@ export class LlmSession {
     systemPrompt: string,
     thinkingLevel: ThinkingLevel,
     signal?: AbortSignal,
-  ): AsyncGenerator<SseContextCompactionEvent, void, void> {
+  ): AsyncGenerator<SseContextCompactionEvent, void, undefined> {
     try {
       throwIfAborted(signal);
       yield* this.compactIfNeededUnlocked({
@@ -256,141 +255,26 @@ export class LlmSession {
 
   private async *compactIfNeededUnlocked(
     options: LlmCompactionOptions,
-  ): AsyncGenerator<SseContextCompactionEvent, void, void> {
+  ): AsyncGenerator<SseContextCompactionEvent, void, undefined> {
     const config = await this.getConfig();
-    const maxInputTokens = await modelCapacity.getMaxInputTokens(config);
-    const currentTokens = this.estimatePromptTokensForCompaction(options);
-
-    if (currentTokens < maxInputTokens * COMPACTION_TRIGGER_INPUT_TOKEN_RATIO) {
-      return;
-    }
-
-    if (this.messages.length === 0) return;
-
-    const compactionId = crypto.randomUUID();
-    const beforeTokens = currentTokens;
-    const coveredMessageCount = this.messages.length;
-    const startedAt = Date.now();
-
-    yield {
-      type: 'context-compaction-start',
-      compactionId,
-      reason: options.reason,
-      beforeTokens,
-      messageCount: coveredMessageCount,
-    };
-
-    const beforeCharCount = JSON.stringify(this.messages).length;
-
-    try {
-      const summary = await generateCompactionSummary({
-        config,
-        messages: this.messages,
-        tools: options.tools,
-        ...(options.signal ? {signal: options.signal} : {}),
-      });
-      throwIfAborted(options.signal);
-      if (!summary) {
-        throw new Error('Compaction summary is empty');
-      }
-
-      const recentContext = buildRecentContext(this.messages, options.tools);
-      const summaryMessage: LlmMessage = {
-        id: crypto.randomUUID(),
-        createdAt: Date.now(),
-        role: 'user',
-        content: buildCompactedMessageContent({
-          summary,
-          recentContext: recentContext.content,
-        }),
-      };
-
-      this.messages.length = 0;
-      this.messages.push(summaryMessage);
-      this.usageBaselineMessageCount = null;
-      const afterTokens = this.estimatePromptTokensFromMessages(options);
-      this.usage = {
-        ...this.usage,
-        currentContextInputTokens: afterTokens,
-        latestCallOutputTokens: 0,
-      };
-      this.compactions.push({
-        id: compactionId,
-        compactedAt: Date.now(),
-        coveredMessageCount,
-        recentContextMessageCount: recentContext.sourceMessageCount,
-        beforeCharCount,
-        afterCharCount: JSON.stringify(this.messages).length,
-      });
-
-      yield {
-        type: 'context-compaction-end',
-        compactionId,
-        summary,
-        beforeTokens,
-        afterTokens,
-        messageCount: coveredMessageCount,
-        durationMs: Date.now() - startedAt,
-      };
-    } catch (err: unknown) {
-      const errMessage =
-        err instanceof Error
-          ? err.message
-          : typeof err === 'string'
-            ? err
-            : 'Unknown error';
-      yield {
-        type: 'context-compaction-error',
-        compactionId,
-        reason: options.reason,
-        message: options.signal?.aborted ? 'Aborted' : errMessage,
-        beforeTokens,
-        messageCount: coveredMessageCount,
-      };
-      throw err instanceof Error ? err : new Error(errMessage);
-    }
-  }
-
-  private estimatePromptTokensForCompaction(
-    options: LlmCompactionOptions,
-  ): number {
-    const latestUsageEstimate = this.estimatePromptTokensFromLatestUsage();
-    if (latestUsageEstimate !== null) return latestUsageEstimate;
-
-    return this.estimatePromptTokensFromMessages(options);
-  }
-
-  private estimatePromptTokensFromMessages(
-    options: LlmCompactionOptions,
-  ): number {
-    return estimatePromptTokens({
+    yield* llmSessionCompactor.compactIfNeeded({
+      config,
       messages: this.messages,
-      ...(options.systemPrompt ? {systemPrompt: options.systemPrompt} : {}),
-      tools: options.tools.map((tool) => ({
-        name: tool.name,
-        description: tool.description,
-        parameters: z.toJSONSchema(tool.parameters),
-      })),
-      thinkingLevel: options.thinkingLevel,
+      usage: this.usage,
+      latestUsageInputMessageCount: this.latestUsageInputMessageCount,
+      options,
+      commit: (patch) => {
+        this.applyCompactionPatch(patch);
+      },
     });
   }
 
-  private estimatePromptTokensFromLatestUsage(): number | null {
-    if (this.usageBaselineMessageCount === null) return null;
-    if (this.usage.currentContextInputTokens <= 0) return null;
-
-    const pendingStart = this.usageBaselineMessageCount + 1;
-    if (pendingStart > this.messages.length) return null;
-
-    const pendingMessages = this.messages.slice(pendingStart);
-    const pendingInputTokens =
-      pendingMessages.length > 0 ? estimatePromptTokens(pendingMessages) : 0;
-
-    return (
-      this.usage.currentContextInputTokens +
-      this.usage.latestCallOutputTokens +
-      pendingInputTokens
-    );
+  private applyCompactionPatch(patch: LlmSessionCompactionPatch): void {
+    this.messages.length = 0;
+    this.messages.push(...patch.messages);
+    this.latestUsageInputMessageCount = patch.latestUsageInputMessageCount;
+    this.usage = patch.usage;
+    this.compactions.push(patch.metadata);
   }
 
   /**
@@ -477,7 +361,7 @@ export class LlmSession {
               this.usage.sessionCacheReadInputTokens +
               event.usage.cacheReadInputTokens,
           };
-          this.usageBaselineMessageCount = inputMessageCount;
+          this.latestUsageInputMessageCount = inputMessageCount;
           break;
         case 'message-start':
           assistantCreatedAt = Date.now();

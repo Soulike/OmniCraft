@@ -56,14 +56,14 @@ describe('llmSessionSnapshotSchema', () => {
       id: 'session-1',
       messages: [],
       compactions: [],
-      usageBaselineMessageCount: null,
+      latestUsageInputMessageCount: null,
       usage: emptyUsage(),
     });
 
     expect(result.success).toBe(true);
   });
 
-  it('requires usage baseline message count', () => {
+  it('requires latest usage input message count', () => {
     const result = llmSessionSnapshotSchema.safeParse({
       id: 'session-1',
       messages: [],
@@ -79,7 +79,7 @@ describe('llmSessionSnapshotSchema', () => {
       id: 'session-1',
       messages: [],
       compactions: [],
-      usageBaselineMessageCount: null,
+      latestUsageInputMessageCount: null,
     });
 
     expect(result.success).toBe(false);
@@ -89,7 +89,7 @@ describe('llmSessionSnapshotSchema', () => {
     const result = llmSessionSnapshotSchema.safeParse({
       id: 'session-1',
       compactions: [],
-      usageBaselineMessageCount: null,
+      latestUsageInputMessageCount: null,
       usage: emptyUsage(),
       messages: [
         {
@@ -109,7 +109,7 @@ describe('llmSessionSnapshotSchema', () => {
     const result = llmSessionSnapshotSchema.safeParse({
       id: 'session-1',
       compactions: [],
-      usageBaselineMessageCount: null,
+      latestUsageInputMessageCount: null,
       usage: emptyUsage(),
       messages: [
         {
@@ -142,7 +142,7 @@ describe('LlmSession snapshot metadata', () => {
           afterCharCount: 200,
         },
       ],
-      usageBaselineMessageCount: 1,
+      latestUsageInputMessageCount: 1,
       usage: {
         currentContextInputTokens: 40,
         latestCallOutputTokens: 8,
@@ -175,7 +175,7 @@ describe('LlmSession snapshot metadata', () => {
           afterCharCount: 200,
         },
       ],
-      usageBaselineMessageCount: null,
+      latestUsageInputMessageCount: null,
       usage: emptyUsage(),
     });
 
@@ -193,7 +193,7 @@ describe('LlmSession snapshot metadata', () => {
       id: 'session-1',
       messages: [],
       compactions: [],
-      usageBaselineMessageCount: null,
+      latestUsageInputMessageCount: null,
       usage: emptyUsage(),
     });
 

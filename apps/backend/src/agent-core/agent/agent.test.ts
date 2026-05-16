@@ -486,7 +486,7 @@ describe('Agent compaction lifecycle', () => {
         llmSession: {
           id: 'llm-session-1',
           compactions: [],
-          usageBaselineMessageCount: null,
+          latestUsageInputMessageCount: null,
           messages: Array.from({length: 12}, (_, index) => ({
             id: `old-${index.toString()}`,
             createdAt: index,
@@ -696,7 +696,7 @@ describe('Agent abort flow', () => {
         llmSession: {
           id: 'llm-session-compaction-abort',
           compactions: [],
-          usageBaselineMessageCount: null,
+          latestUsageInputMessageCount: null,
           messages: Array.from({length: 12}, (_, index) => ({
             id: `old-${index.toString()}`,
             createdAt: index,
@@ -798,7 +798,7 @@ describe('Agent snapshot restore', () => {
         id: 'llm-session-id',
         messages: [],
         compactions: [],
-        usageBaselineMessageCount: null,
+        latestUsageInputMessageCount: null,
         usage: emptyUsage(),
       },
       options: {

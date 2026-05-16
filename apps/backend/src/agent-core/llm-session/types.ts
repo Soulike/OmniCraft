@@ -35,7 +35,7 @@ export const llmSessionSnapshotSchema = z.object({
   id: z.string(),
   messages: z.array(llmMessageSchema),
   compactions: z.array(llmCompactionMetadataSchema),
-  usageBaselineMessageCount: z.number().nullable(),
+  latestUsageInputMessageCount: z.number().nullable(),
   usage: llmSessionUsageSchema,
 });
 

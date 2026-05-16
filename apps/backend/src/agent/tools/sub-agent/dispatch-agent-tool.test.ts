@@ -194,7 +194,7 @@ describe('dispatchAgentTool', () => {
         llmSession: {
           messages: [],
           compactions: [],
-          usageBaselineMessageCount: null,
+          latestUsageInputMessageCount: null,
           usage: emptyUsage(),
         },
         options: {workingDirectory: tmpDir, thinkingLevel: 'none'},
@@ -240,7 +240,7 @@ describe('dispatchAgentTool', () => {
         llmSession: {
           messages: [],
           compactions: [],
-          usageBaselineMessageCount: null,
+          latestUsageInputMessageCount: null,
           usage: emptyUsage(),
         },
         options: {workingDirectory: tmpDir, thinkingLevel: 'none'},

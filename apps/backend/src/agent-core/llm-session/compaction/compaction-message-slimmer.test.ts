@@ -3,7 +3,7 @@ import {z} from 'zod';
 
 import type {LlmMessage} from '../../llm-api/index.js';
 import type {ToolDefinition} from '../../tool/types.js';
-import {buildRecentContext, slimMessagesForSummary} from './slim.js';
+import {compactionMessageSlimmer} from './compaction-message-slimmer.js';
 
 const toolCall = {callId: 'call-1', toolName: 'custom_tool', arguments: '{}'};
 
@@ -19,7 +19,7 @@ const customTool: ToolDefinition<z.ZodObject<Record<string, never>>> = {
 
 describe('slimMessagesForSummary', () => {
   it('keeps short user content unchanged', () => {
-    const result = slimMessagesForSummary(
+    const result = compactionMessageSlimmer.slimMessagesForSummary(
       [{id: 'user', createdAt: 1, role: 'user', content: 'short'}],
       [],
     );
@@ -28,17 +28,19 @@ describe('slimMessagesForSummary', () => {
   });
 
   it('adds an omitted marker for large user content', () => {
-    const result = slimMessagesForSummary(
-      [
-        {
-          id: 'user',
-          createdAt: 1,
-          role: 'user',
-          content: 'a'.repeat(9000),
-        },
-      ],
-      [],
-    ).join('\n');
+    const result = compactionMessageSlimmer
+      .slimMessagesForSummary(
+        [
+          {
+            id: 'user',
+            createdAt: 1,
+            role: 'user',
+            content: 'a'.repeat(9000),
+          },
+        ],
+        [],
+      )
+      .join('\n');
 
     expect(result).toContain('truncated for compaction only');
     expect(result.length).toBeLessThan(9000);
@@ -56,7 +58,10 @@ describe('slimMessagesForSummary', () => {
       },
     ];
 
-    const result = slimMessagesForSummary(messages, []);
+    const result = compactionMessageSlimmer.slimMessagesForSummary(
+      messages,
+      [],
+    );
 
     expect(result[0]).not.toContain('private');
     expect(result[0]).toContain('assistant');
@@ -81,7 +86,10 @@ describe('slimMessagesForSummary', () => {
       },
     ];
 
-    const result = slimMessagesForSummary(messages, []);
+    const result = compactionMessageSlimmer.slimMessagesForSummary(
+      messages,
+      [],
+    );
     const assistant = JSON.parse(result[0] ?? '{}') as {
       content: string;
       toolCalls: {arguments: string}[];
@@ -115,7 +123,9 @@ describe('slimMessagesForSummary', () => {
       },
     ];
 
-    const result = slimMessagesForSummary(messages, [customTool]);
+    const result = compactionMessageSlimmer.slimMessagesForSummary(messages, [
+      customTool,
+    ]);
 
     expect(result.join('\n')).toContain('compact custom result');
     expect(result.join('\n')).not.toContain('raw result');
@@ -146,7 +156,9 @@ describe('slimMessagesForSummary', () => {
       },
     ];
 
-    const result = slimMessagesForSummary(messages, [longCompactTool]);
+    const result = compactionMessageSlimmer.slimMessagesForSummary(messages, [
+      longCompactTool,
+    ]);
     const toolResult = JSON.parse(result[1] ?? '{}') as {content: string};
 
     expect(toolResult.content).toContain('truncated for compaction only');
@@ -162,7 +174,7 @@ describe('slimMessagesForSummary', () => {
       content: `message ${index.toString()}`,
     }));
 
-    const result = buildRecentContext(messages, []);
+    const result = compactionMessageSlimmer.buildRecentContext(messages, []);
 
     expect(result.sourceMessageCount).toBe(20);
     expect(result.content).toContain('message 5');
@@ -171,7 +183,7 @@ describe('slimMessagesForSummary', () => {
   });
 
   it('reports zero source messages for empty recent context', () => {
-    const result = buildRecentContext([], []);
+    const result = compactionMessageSlimmer.buildRecentContext([], []);
 
     expect(result).toEqual({
       content: 'No recent context.',

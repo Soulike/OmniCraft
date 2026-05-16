@@ -6,7 +6,7 @@ import {
   type LlmEventStream,
   type LlmMessage,
 } from '../../llm-api/index.js';
-import {generateCompactionSummary} from './summary.js';
+import {compactionSummaryGenerator} from './compaction-summary-generator.js';
 
 const CONFIG: LlmConfig = {
   apiFormat: 'openai-responses',
@@ -27,7 +27,7 @@ async function* summaryStream(): LlmEventStream {
   };
 }
 
-describe('generateCompactionSummary', () => {
+describe('compactionSummaryGenerator', () => {
   afterEach(() => {
     vi.restoreAllMocks();
   });
@@ -37,7 +37,7 @@ describe('generateCompactionSummary', () => {
       .spyOn(llmApi, 'streamCompletion')
       .mockReturnValue(summaryStream());
 
-    const summary = await generateCompactionSummary({
+    const summary = await compactionSummaryGenerator.generate({
       config: CONFIG,
       messages: [{id: 'user', createdAt: 1, role: 'user', content: 'hello'}],
       tools: [],
@@ -65,7 +65,7 @@ describe('generateCompactionSummary', () => {
       .spyOn(llmApi, 'streamCompletion')
       .mockReturnValue(summaryStream());
 
-    await generateCompactionSummary({
+    await compactionSummaryGenerator.generate({
       config: CONFIG,
       messages: [{id: 'user', createdAt: 1, role: 'user', content: 'hello'}],
       tools: [],
@@ -92,7 +92,11 @@ describe('generateCompactionSummary', () => {
       },
     ];
 
-    await generateCompactionSummary({config: CONFIG, messages, tools: []});
+    await compactionSummaryGenerator.generate({
+      config: CONFIG,
+      messages,
+      tools: [],
+    });
 
     const prompt = streamSpy.mock.calls[0]?.[0].messages[0]?.content ?? '';
     expect(prompt).toContain('assistant text');
