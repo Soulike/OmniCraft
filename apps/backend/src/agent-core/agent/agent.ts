@@ -3,17 +3,12 @@ import crypto from 'node:crypto';
 
 import type {ThinkingLevel} from '@omnicraft/api-schema';
 import type {
-  SseContextCompactionEvent,
   SseDoneEvent,
   SseEvent,
   SseEventCursorEntry,
   SseMessageStartEvent,
   SseSessionTitleEvent,
   SseSubAgentEvent,
-  SseTextDeltaEvent,
-  SseThinkingDeltaEvent,
-  SseThinkingEndEvent,
-  SseThinkingStartEvent,
   SseTodoUpdateEvent,
   SseToolExecuteDeltaEvent,
   SseToolExecuteEndEvent,
@@ -29,11 +24,12 @@ import {logger} from '@/logger.js';
 
 import {agentEventBus} from '../events/index.js';
 import type {LlmConfig, LlmToolCall} from '../llm-api/index.js';
-import type {LlmSessionEventStream, ToolResult} from '../llm-session/index.js';
+import type {ToolResult} from '../llm-session/index.js';
 import {LlmSession} from '../llm-session/index.js';
 import {modelCapacity} from '../model-capacity/index.js';
 import type {ToolDefinition} from '../tool/index.js';
 import {AgentRuntimeState} from './agent-runtime-state.js';
+import {agentStreamConsumer} from './agent-stream-consumer.js';
 import {agentWorkingDirectoryService} from './agent-working-directory-service.js';
 import {
   buildAvailableSkills,
@@ -372,7 +368,7 @@ export abstract class Agent {
 
     let toolCalls: LlmToolCall[];
     try {
-      toolCalls = yield* this.consumeStream(userStream);
+      toolCalls = yield* agentStreamConsumer.consume(userStream);
     } catch (error: unknown) {
       if (signal.aborted) {
         yield* this.emitAbortCompletion(
@@ -515,7 +511,7 @@ export abstract class Agent {
       });
 
       try {
-        toolCalls = yield* this.consumeStream(
+        toolCalls = yield* agentStreamConsumer.consume(
           this.llmSession.submitToolResults(
             orderedResults,
             toolDefs,
@@ -589,52 +585,6 @@ export abstract class Agent {
     await this.persistSnapshot().catch((err: unknown) => {
       logger.error({err}, 'Failed to persist snapshot after title generation');
     });
-  }
-
-  /**
-   * Consumes an LLM event stream, yielding text, thinking, message-start,
-   * and compaction SSE events to the caller and collecting tool-call events.
-   * Returns the collected tool calls.
-   */
-  private async *consumeStream(
-    stream: LlmSessionEventStream,
-  ): AsyncGenerator<
-    | SseTextDeltaEvent
-    | SseThinkingStartEvent
-    | SseThinkingDeltaEvent
-    | SseThinkingEndEvent
-    | SseMessageStartEvent
-    | SseContextCompactionEvent,
-    LlmToolCall[],
-    undefined
-  > {
-    const toolCalls: LlmToolCall[] = [];
-    for await (const event of stream) {
-      switch (event.type) {
-        case 'text-delta':
-        case 'thinking-start':
-        case 'thinking-delta':
-        case 'thinking-end':
-          yield event;
-          break;
-        case 'message-start':
-          yield {
-            type: 'message-start',
-            role: 'assistant',
-            messageId: event.messageId,
-            createdAt: event.createdAt,
-            content: '',
-          } satisfies SseMessageStartEvent;
-          break;
-        case 'tool-call':
-          toolCalls.push(event.toolCall);
-          break;
-        case 'compaction-sse':
-          yield event.event;
-          break;
-      }
-    }
-    return toolCalls;
   }
 
   /**
