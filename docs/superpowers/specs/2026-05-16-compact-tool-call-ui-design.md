@@ -102,7 +102,30 @@ interface ToolExecutionPillContent {
 
 The shell combines this tool-owned content with the shell-owned execution meta. For example, a `run_command` adapter can return `Command` plus the command string; the shell still decides whether the row says `running`, `done`, `failed`, or `error`.
 
-The dispatch layer may still be centralized, but it should only route to tool-owned adapters and provide fallback behavior. It should not contain the per-tool string-formatting rules itself.
+Use a small helper structure inside `ToolExecutionCard`, mirroring the existing `ResultSection/helpers/renderToolResult.tsx` pattern:
+
+```text
+ToolExecutionCard/
+  helpers/
+    pill-content/
+      getToolPillContent.ts
+      fallbackToolPillContent.ts
+      types.ts
+      adapters/
+        read-file.ts
+        write-file.ts
+        edit-file.ts
+        find-files.ts
+        search-files.ts
+        run-command.ts
+        web-search.ts
+        web-fetch.ts
+        web-fetch-raw.ts
+        load-skill.ts
+        get-current-time.ts
+```
+
+`getToolPillContent.ts` is the only public helper entry point. It parses the JSON arguments, switches on `toolName`, and calls the matching adapter. It should stay thin: routing, fallback, and shared error handling only. The adapters contain the per-tool string-formatting rules.
 
 Recommended adapter ownership:
 
@@ -130,7 +153,7 @@ Keep the existing MVVM shape:
 
 - `ToolExecutionCard.tsx` remains the container that reads `useToolOutput(callId)`.
 - `ToolExecutionCardView.tsx` remains the stateless view.
-- Add tool-owned pill adapters near the existing per-tool display code. A small central dispatcher may live under `ToolExecutionCard/helpers/`, but it should delegate immediately to the adapter for the active tool.
+- Add `ToolExecutionCard/helpers/pill-content/` for the pill dispatcher, fallback, types, and per-tool adapters.
 - Keep `ParametersSection` and `ResultSection` as internal detail components.
 
 No parent layout rules such as margins or alignment should move into `ToolExecutionCard` styles. The row/card can define its own internal dimensions, padding, border, and overflow.
@@ -146,8 +169,8 @@ No parent layout rules such as margins or alignment should move into `ToolExecut
 
 Add focused coverage for compact pill content:
 
-- Per-tool adapters extract their own file paths, commands, queries, URLs, patterns, and skill names.
-- The central dispatcher falls back safely on malformed JSON or adapter parse failures.
+- Per-tool pill adapters extract their own file paths, commands, queries, URLs, patterns, and skill names.
+- `getToolPillContent.ts` falls back safely on malformed JSON or adapter parse failures.
 - The shell returns status-derived execution meta for `running`, `done`, `failure`, and `error`.
 
 Existing rendering tests should continue to cover message transformation. Add a component test only if the row behavior or disclosure rendering becomes conditional enough that helper tests are insufficient.
@@ -156,5 +179,4 @@ Existing rendering tests should continue to cover message transformation. Add a 
 
 - `apps/frontend/src/modules/chat-session/components/StreamingMessageDisplay/components/MessageList/components/ToolExecutionCard/ToolExecutionCardView.tsx`
 - `apps/frontend/src/modules/chat-session/components/StreamingMessageDisplay/components/MessageList/components/ToolExecutionCard/styles.module.css`
-- New per-tool pill adapter/test files near the existing tool-specific display modules.
-- New dispatcher/fallback helper under `ToolExecutionCard/helpers/`.
+- New files under `ToolExecutionCard/helpers/pill-content/` for `getToolPillContent.ts`, fallback content, types, per-tool adapters, and focused tests.
