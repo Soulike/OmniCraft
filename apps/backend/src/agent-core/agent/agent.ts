@@ -3,40 +3,21 @@ import crypto from 'node:crypto';
 
 import type {ThinkingLevel} from '@omnicraft/api-schema';
 import type {
-  SseDoneEvent,
   SseEvent,
   SseEventCursorEntry,
-  SseMessageStartEvent,
   SseSessionTitleEvent,
-  SseTodoUpdateEvent,
-  SseToolExecuteEndEvent,
-  SseToolExecuteStartEvent,
-  SseUsageUpdateEvent,
 } from '@omnicraft/sse-events';
-import type {ToolName} from '@omnicraft/tool-schemas';
 
-import {AsyncChannel} from '@/helpers/async-channel.js';
 import {Mutex} from '@/helpers/mutex.js';
 import {logger} from '@/logger.js';
 
 import {agentEventBus} from '../events/index.js';
-import type {LlmConfig, LlmToolCall} from '../llm-api/index.js';
-import type {ToolResult} from '../llm-session/index.js';
+import type {LlmConfig} from '../llm-api/index.js';
 import {LlmSession} from '../llm-session/index.js';
 import type {ToolDefinition} from '../tool/index.js';
 import {AgentRuntimeState} from './agent-runtime-state.js';
-import {agentStreamConsumer} from './agent-stream-consumer.js';
-import {
-  agentToolExecutor,
-  type AgentToolSseEvent,
-} from './agent-tool-executor.js';
-import {agentUsageReporter} from './agent-usage-reporter.js';
+import {agentTurnRunner} from './agent-turn-runner.js';
 import {agentWorkingDirectoryService} from './agent-working-directory-service.js';
-import {
-  buildAvailableSkills,
-  buildAvailableTools,
-  buildSystemPrompt,
-} from './catalog/agent-catalog.js';
 import type {AgentSseLogReaderOptions} from './events/agent-sse-log.js';
 import {AgentSseLog} from './events/agent-sse-log.js';
 import {agentPersistence} from './persistence/agent-persistence.js';
@@ -272,40 +253,6 @@ export abstract class Agent {
     }
   }
 
-  private async *emitAbortCompletion(
-    inFlightToolCalls: Set<string>,
-    tools: readonly ToolDefinition[],
-    systemPrompt: string,
-    thinkingLevel: ThinkingLevel,
-  ): AgentEventStream {
-    for (const callId of inFlightToolCalls) {
-      yield {
-        type: 'tool-execute-end',
-        callId,
-        result: 'Aborted',
-        status: 'error',
-        data: {message: 'Aborted'},
-      } satisfies SseToolExecuteEndEvent;
-    }
-    yield* this.emitDoneAfterTurn(
-      'aborted',
-      tools,
-      systemPrompt,
-      thinkingLevel,
-    );
-  }
-
-  private async *emitDoneAfterTurn(
-    reason: SseDoneEvent['reason'],
-    tools: readonly ToolDefinition[],
-    systemPrompt: string,
-    thinkingLevel: ThinkingLevel,
-  ): AgentEventStream {
-    await this.compactAfterTurn(tools, systemPrompt, thinkingLevel);
-    yield await this.buildUsageUpdateEvent();
-    yield {type: 'done', reason} satisfies SseDoneEvent;
-  }
-
   private async compactAfterTurn(
     tools: readonly ToolDefinition[],
     systemPrompt: string,
@@ -327,234 +274,28 @@ export abstract class Agent {
     }
   }
 
-  protected async *runAgentLoop(
+  protected runAgentLoop(
     userMessage: string,
     thinkingLevel: ThinkingLevel,
     signal: AbortSignal,
   ): AgentEventStream {
-    const inFlightToolCalls = new Set<string>();
-    const maxRounds = await this.getMaxToolRounds();
-
-    const availableTools = buildAvailableTools(
-      this.toolRegistries,
-      this.skillRegistries,
-    );
-    const availableSkills = buildAvailableSkills(this.skillRegistries);
-    const toolDefs = [...availableTools.values()];
-    const systemPrompt = buildSystemPrompt(
-      this.baseSystemPrompt,
-      this.toolRegistries,
-      this.skillRegistries,
-      this.workingDirectory,
-    );
-
-    const {
-      stream: userStream,
-      messageId,
-      createdAt,
-    } = this.llmSession.sendUserMessage(
+    return agentTurnRunner.run({
       userMessage,
-      toolDefs,
-      systemPrompt,
+      agentId: this.id,
+      sessionsDir: this.sessionsDir,
+      workingDirectory: this.workingDirectory,
       thinkingLevel,
       signal,
-    );
-
-    yield {
-      type: 'message-start',
-      role: 'user',
-      messageId,
-      createdAt,
-      content: userMessage,
-    } satisfies SseMessageStartEvent;
-
-    let toolCalls: LlmToolCall[];
-    try {
-      toolCalls = yield* agentStreamConsumer.consume(userStream);
-    } catch (error: unknown) {
-      if (signal.aborted) {
-        yield* this.emitAbortCompletion(
-          inFlightToolCalls,
-          toolDefs,
-          systemPrompt,
-          thinkingLevel,
-        );
-        return;
-      }
-      throw error;
-    }
-    yield await this.buildUsageUpdateEvent();
-
-    let round = 0;
-    while (toolCalls.length > 0) {
-      if (signal.aborted) {
-        yield* this.emitAbortCompletion(
-          inFlightToolCalls,
-          toolDefs,
-          systemPrompt,
-          thinkingLevel,
-        );
-        return;
-      }
-
-      round++;
-      if (round > maxRounds) {
-        yield* this.emitDoneAfterTurn(
-          'max_rounds_reached',
-          toolDefs,
-          systemPrompt,
-          thinkingLevel,
-        );
-        return;
-      }
-
-      for (const toolCall of toolCalls) {
-        const tool = availableTools.get(toolCall.toolName);
-        if (!tool || tool.suppressToolEvents) continue;
-        inFlightToolCalls.add(toolCall.callId);
-        yield {
-          type: 'tool-execute-start',
-          callId: toolCall.callId,
-          toolName: tool.name as ToolName,
-          displayName: tool.displayName,
-          arguments: toolCall.arguments,
-        } satisfies SseToolExecuteStartEvent;
-      }
-
-      const toolSseEventChannel = new AsyncChannel<AgentToolSseEvent>();
-      const toolResults = new Map<string, ToolResult>();
-
-      for (const toolCall of toolCalls) {
-        if (availableTools.has(toolCall.toolName)) continue;
-        toolResults.set(toolCall.callId, {
-          callId: toolCall.callId,
-          content: `Error: Unknown tool: ${toolCall.toolName}`,
-          status: 'failure',
-        });
-      }
-
-      const executions = toolCalls
-        .filter((tc) => availableTools.has(tc.toolName))
-        .map(async (toolCall) => {
-          const todoVersionBefore = this.runtimeState.todoVersion;
-
-          const result = await agentToolExecutor.execute({
-            toolCall,
-            availableTools,
-            toolSseEventChannel,
-            runtimeState: this.runtimeState,
-            agentId: this.id,
-            sessionsDir: this.sessionsDir,
-            availableSkills,
-            workingDirectory: this.workingDirectory,
-            signal,
-            getConfig: this.getConfig,
-            getLightConfig: this.getLightConfig ?? this.getConfig,
-          });
-
-          const tool = availableTools.get(toolCall.toolName);
-          if (!tool?.suppressToolEvents) {
-            toolSseEventChannel.push({
-              type: 'tool-execute-end' as const,
-              callId: toolCall.callId,
-              result: result.content,
-              status: result.status,
-              data: result.data,
-            } satisfies SseToolExecuteEndEvent);
-          }
-
-          // Emit todo snapshot whenever a tool mutated the store.
-          if (this.runtimeState.todoVersion !== todoVersionBefore) {
-            toolSseEventChannel.push({
-              type: 'todo-update',
-              items: this.runtimeState.listTodos(),
-            } satisfies SseTodoUpdateEvent);
-          }
-
-          toolResults.set(toolCall.callId, {
-            callId: toolCall.callId,
-            content: result.content,
-            status: result.status === 'success' ? 'success' : 'failure',
-          });
-        });
-
-      void Promise.all(executions)
-        .catch(() => {
-          // Individual tool errors are already handled by executeTool.
-          // This catch prevents an unhandled rejection from hanging the channel.
-        })
-        .finally(() => {
-          toolSseEventChannel.close();
-        });
-
-      for await (const event of toolSseEventChannel) {
-        if (event.type === 'tool-execute-end') {
-          inFlightToolCalls.delete(event.callId);
-        }
-        yield event;
-        // signal.aborted may have changed during async tool execution
-        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-        if (signal.aborted) break;
-      }
-
-      // signal.aborted may have changed during async tool execution
-      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-      if (signal.aborted) {
-        yield* this.emitAbortCompletion(
-          inFlightToolCalls,
-          toolDefs,
-          systemPrompt,
-          thinkingLevel,
-        );
-        return;
-      }
-
-      const orderedResults = toolCalls.flatMap((tc) => {
-        const result = toolResults.get(tc.callId);
-        return result ? [result] : [];
-      });
-
-      try {
-        toolCalls = yield* agentStreamConsumer.consume(
-          this.llmSession.submitToolResults(
-            orderedResults,
-            toolDefs,
-            systemPrompt,
-            thinkingLevel,
-            signal,
-          ),
-        );
-      } catch (error: unknown) {
-        // signal.aborted may have changed during async stream consumption
-        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-        if (signal.aborted) {
-          yield* this.emitAbortCompletion(
-            inFlightToolCalls,
-            toolDefs,
-            systemPrompt,
-            thinkingLevel,
-          );
-          return;
-        }
-        throw error;
-      }
-      yield await this.buildUsageUpdateEvent();
-    }
-
-    yield* this.emitDoneAfterTurn(
-      'complete',
-      toolDefs,
-      systemPrompt,
-      thinkingLevel,
-    );
-  }
-
-  /** Builds a real-time `usage-update` SSE event with the latest token totals. */
-  private async buildUsageUpdateEvent(): Promise<SseUsageUpdateEvent> {
-    return agentUsageReporter.buildUsageUpdateEvent({
-      getConfig: this.getConfig,
       llmSession: this.llmSession,
-      thinkingLevel: this.thinkingLevel,
+      runtimeState: this.runtimeState,
+      toolRegistries: this.toolRegistries,
+      skillRegistries: this.skillRegistries,
+      baseSystemPrompt: this.baseSystemPrompt,
+      getConfig: this.getConfig,
+      getLightConfig: this.getLightConfig ?? this.getConfig,
+      getMaxToolRounds: this.getMaxToolRounds,
+      compactAfterTurn: (tools, systemPrompt, compactThinkingLevel) =>
+        this.compactAfterTurn(tools, systemPrompt, compactThinkingLevel),
     });
   }
 
