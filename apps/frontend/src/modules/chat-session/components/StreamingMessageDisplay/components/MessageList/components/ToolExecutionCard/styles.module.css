@@ -1,18 +1,39 @@
 .card {
-  border-radius: 12px;
-  background: var(--surface);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--surface) 92%, var(--background));
   border: 1px solid var(--border);
   overflow: hidden;
-  width: 600px;
+  width: min(520px, 100%);
   max-width: 100%;
 }
 
+.cardRunning {
+  border-color: color-mix(in srgb, var(--accent) 32%, var(--border));
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface));
+}
+
+.cardDone {
+  border-color: color-mix(in srgb, var(--border) 82%, transparent);
+}
+
+.cardFailure {
+  border-color: color-mix(in srgb, var(--warning) 42%, var(--border));
+  background: color-mix(in srgb, var(--warning) 9%, var(--surface));
+}
+
+.cardError {
+  border-color: color-mix(in srgb, var(--danger) 44%, var(--border));
+  background: color-mix(in srgb, var(--danger) 9%, var(--surface));
+}
+
 .trigger {
-  display: flex;
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr) minmax(0, auto) auto auto;
   align-items: center;
   gap: 8px;
   width: 100%;
-  padding: 8px 12px;
+  min-height: 32px;
+  padding: 5px 8px;
   cursor: pointer;
   background: none;
   border: none;
@@ -24,10 +45,47 @@
 .toolName {
   font-weight: 600;
   font-size: 0.875rem;
+  line-height: 1.3;
+  white-space: nowrap;
+}
+
+.target,
+.targetCode,
+.detail,
+.meta {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.8125rem;
+  line-height: 1.3;
+}
+
+.target,
+.targetCode {
+  color: var(--foreground);
+}
+
+.targetCode {
+  font-family: monospace;
+}
+
+.detail {
+  color: var(--muted);
+}
+
+.meta {
+  justify-self: end;
+  color: var(--muted);
+}
+
+.indicator {
+  color: var(--muted);
+  flex-shrink: 0;
 }
 
 .statusDone {
-  color: var(--success);
+  color: var(--muted);
   flex-shrink: 0;
 }
 
@@ -42,7 +100,8 @@
 }
 
 .body {
-  padding: 0 12px 12px;
+  padding: 2px 8px 8px;
+  border-top: 1px solid color-mix(in srgb, var(--border) 78%, transparent);
 }
 
 .section {
