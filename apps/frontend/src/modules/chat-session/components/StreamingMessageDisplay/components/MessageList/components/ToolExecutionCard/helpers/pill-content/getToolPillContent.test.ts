@@ -144,4 +144,60 @@ describe('getToolPillContent', () => {
       }),
     ).toEqual({target: 'read_file', targetKind: 'code', detail: null});
   });
+
+  it.each([
+    {
+      name: 'no line options',
+      toolArguments: JSON.stringify({filePath: 'src/index.ts'}),
+      expectedDetail: null,
+    },
+    {
+      name: 'line count only',
+      toolArguments: JSON.stringify({filePath: 'src/index.ts', lineCount: 7}),
+      expectedDetail: '7 lines',
+    },
+    {
+      name: 'start line only',
+      toolArguments: JSON.stringify({filePath: 'src/index.ts', startLine: 4}),
+      expectedDetail: 'from line 4',
+    },
+    {
+      name: 'start line and line count',
+      toolArguments: JSON.stringify({
+        filePath: 'src/index.ts',
+        startLine: 10,
+        lineCount: 5,
+      }),
+      expectedDetail: 'lines 10-14',
+    },
+  ])(
+    'returns read_file line detail for $name',
+    ({toolArguments, expectedDetail}) => {
+      expect(
+        getToolPillContent({toolName: 'read_file', toolArguments}),
+      ).toEqual({
+        target: 'src/index.ts',
+        targetKind: 'code',
+        detail: expectedDetail,
+      });
+    },
+  );
+
+  it('returns fallback pill content for ask_user', () => {
+    expect(
+      getToolPillContent({
+        toolName: 'ask_user',
+        toolArguments: JSON.stringify({questions: []}),
+      }),
+    ).toEqual({target: 'ask_user', targetKind: 'code', detail: null});
+  });
+
+  it('rethrows unrelated errors', () => {
+    expect(() =>
+      getToolPillContent({
+        toolName: 'run_command',
+        toolArguments: Symbol('arguments') as unknown as string,
+      }),
+    ).toThrow(TypeError);
+  });
 });

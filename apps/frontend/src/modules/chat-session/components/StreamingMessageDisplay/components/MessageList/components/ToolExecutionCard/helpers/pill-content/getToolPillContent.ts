@@ -1,4 +1,5 @@
 import type {ToolName} from '@omnicraft/tool-schemas';
+import {ZodError} from 'zod';
 
 import {editFileToolPillContent} from './adapters/edit-file.js';
 import {findFilesToolPillContent} from './adapters/find-files.js';
@@ -22,6 +23,10 @@ interface GetToolPillContentInput {
 export function getToolPillContent(
   input: GetToolPillContentInput,
 ): ToolExecutionPillContent {
+  if (input.toolName === 'ask_user') {
+    return fallbackToolPillContent(input);
+  }
+
   try {
     const parsed = JSON.parse(input.toolArguments) as unknown;
 
@@ -49,11 +54,13 @@ export function getToolPillContent(
       case 'get_current_time':
         return getCurrentTimeToolPillContent();
       case 'ask_user':
-        throw new Error(
-          'ask_user is a client-side tool and should not render pill content',
-        );
+        return fallbackToolPillContent(input);
     }
-  } catch {
-    return fallbackToolPillContent(input);
+  } catch (error) {
+    if (error instanceof SyntaxError || error instanceof ZodError) {
+      return fallbackToolPillContent(input);
+    }
+
+    throw error;
   }
 }
