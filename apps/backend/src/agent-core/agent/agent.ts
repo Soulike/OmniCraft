@@ -8,15 +8,13 @@ import type {
   SseEventCursorEntry,
   SseMessageStartEvent,
   SseSessionTitleEvent,
-  SseSubAgentEvent,
   SseTodoUpdateEvent,
-  SseToolExecuteDeltaEvent,
   SseToolExecuteEndEvent,
   SseToolExecuteStartEvent,
   SseUsage,
   SseUsageUpdateEvent,
 } from '@omnicraft/sse-events';
-import type {AnyToolResultData, ToolName} from '@omnicraft/tool-schemas';
+import type {ToolName} from '@omnicraft/tool-schemas';
 
 import {AsyncChannel} from '@/helpers/async-channel.js';
 import {Mutex} from '@/helpers/mutex.js';
@@ -30,6 +28,10 @@ import {modelCapacity} from '../model-capacity/index.js';
 import type {ToolDefinition} from '../tool/index.js';
 import {AgentRuntimeState} from './agent-runtime-state.js';
 import {agentStreamConsumer} from './agent-stream-consumer.js';
+import {
+  agentToolExecutor,
+  type AgentToolSseEvent,
+} from './agent-tool-executor.js';
 import {agentWorkingDirectoryService} from './agent-working-directory-service.js';
 import {
   buildAvailableSkills,
@@ -338,6 +340,7 @@ export abstract class Agent {
       this.toolRegistries,
       this.skillRegistries,
     );
+    const availableSkills = buildAvailableSkills(this.skillRegistries);
     const toolDefs = [...availableTools.values()];
     const systemPrompt = buildSystemPrompt(
       this.baseSystemPrompt,
@@ -419,12 +422,7 @@ export abstract class Agent {
         } satisfies SseToolExecuteStartEvent;
       }
 
-      const toolSseEventChannel = new AsyncChannel<
-        | SseToolExecuteEndEvent
-        | SseToolExecuteDeltaEvent
-        | SseSubAgentEvent
-        | SseTodoUpdateEvent
-      >();
+      const toolSseEventChannel = new AsyncChannel<AgentToolSseEvent>();
       const toolResults = new Map<string, ToolResult>();
 
       for (const toolCall of toolCalls) {
@@ -441,12 +439,19 @@ export abstract class Agent {
         .map(async (toolCall) => {
           const todoVersionBefore = this.runtimeState.todoVersion;
 
-          const result = await this.executeTool(
+          const result = await agentToolExecutor.execute({
             toolCall,
             availableTools,
             toolSseEventChannel,
+            runtimeState: this.runtimeState,
+            agentId: this.id,
+            sessionsDir: this.sessionsDir,
+            availableSkills,
+            workingDirectory: this.workingDirectory,
             signal,
-          );
+            getConfig: this.getConfig,
+            getLightConfig: this.getLightConfig ?? this.getConfig,
+          });
 
           const tool = availableTools.get(toolCall.toolName);
           if (!tool?.suppressToolEvents) {
@@ -585,67 +590,5 @@ export abstract class Agent {
     await this.persistSnapshot().catch((err: unknown) => {
       logger.error({err}, 'Failed to persist snapshot after title generation');
     });
-  }
-
-  /**
-   * Executes a single tool call. Returns the result content and execution status.
-   * Assembles onOutput and onSubAgentEvent callbacks from the channel.
-   */
-  private async executeTool(
-    toolCall: LlmToolCall,
-    availableTools: ReadonlyMap<string, ToolDefinition>,
-    toolSseEventChannel: AsyncChannel<
-      | SseToolExecuteEndEvent
-      | SseToolExecuteDeltaEvent
-      | SseSubAgentEvent
-      | SseTodoUpdateEvent
-    >,
-    signal: AbortSignal,
-  ): Promise<{
-    content: string;
-    status: 'success' | 'failure' | 'error';
-    data: AnyToolResultData;
-  }> {
-    const tool = availableTools.get(toolCall.toolName);
-    assert(tool, `executeTool called with unknown tool: ${toolCall.toolName}`);
-
-    const onOutput = tool.suppressToolEvents
-      ? undefined
-      : (chunk: string) => {
-          toolSseEventChannel.push({
-            type: 'tool-execute-delta',
-            callId: toolCall.callId,
-            content: chunk,
-          } satisfies SseToolExecuteDeltaEvent);
-        };
-
-    const context = this.runtimeState.buildToolExecutionContext({
-      callId: toolCall.callId,
-      agentId: this.id,
-      sessionsDir: this.sessionsDir,
-      availableSkills: buildAvailableSkills(this.skillRegistries),
-      workingDirectory: this.workingDirectory,
-      signal,
-      onSubAgentEvent: (event) => {
-        toolSseEventChannel.push(event);
-      },
-      getConfig: this.getConfig,
-      getLightConfig: this.getLightConfig ?? this.getConfig,
-    });
-
-    try {
-      const parsedArgs: unknown = tool.parameters.parse(
-        JSON.parse(toolCall.arguments),
-      );
-      const result = await tool.execute(parsedArgs, context, onOutput);
-      return {
-        content: result.content,
-        status: result.status,
-        data: result.data as AnyToolResultData,
-      };
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : String(error);
-      return {content: `Error: ${message}`, status: 'error', data: {message}};
-    }
   }
 }
