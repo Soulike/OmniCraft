@@ -8,11 +8,14 @@ import {
   type LlmMessage,
 } from '../llm-api/index.js';
 import {llmSessionCompactor} from './compaction/index.js';
-import type {
-  CompactLlmSessionIfNeededInput,
-  LlmSessionCompactionPatch,
-} from './compaction/llm-compaction-types.js';
 import {LlmSession} from './llm-session.js';
+
+type CompactLlmSessionIfNeededInput = Parameters<
+  typeof llmSessionCompactor.compactIfNeeded
+>[0];
+type LlmSessionCompactionPatch = Parameters<
+  CompactLlmSessionIfNeededInput['commit']
+>[0];
 
 const CONFIG: LlmConfig = {
   apiFormat: 'openai-responses',
