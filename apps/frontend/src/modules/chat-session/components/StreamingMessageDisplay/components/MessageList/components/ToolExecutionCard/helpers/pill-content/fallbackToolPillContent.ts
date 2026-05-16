@@ -9,5 +9,5 @@ interface FallbackToolPillContentInput {
 export function fallbackToolPillContent({
   toolName,
 }: FallbackToolPillContentInput): ToolExecutionPillContent {
-  return {target: toolName, targetKind: 'code', detail: null};
+  return {target: toolName, targetKind: 'code'};
 }

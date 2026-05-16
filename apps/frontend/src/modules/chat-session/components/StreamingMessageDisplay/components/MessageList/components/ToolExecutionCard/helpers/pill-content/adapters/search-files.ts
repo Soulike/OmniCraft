@@ -10,6 +10,5 @@ export function searchFilesToolPillContent(
   return {
     target: d.pattern,
     targetKind: 'code',
-    detail: d.filePattern ?? d.path ?? null,
   };
 }

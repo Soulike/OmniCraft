@@ -7,5 +7,5 @@ export function writeFileToolPillContent(
 ): ToolExecutionPillContent {
   const d = writeFileParametersSchema.parse(parsed);
 
-  return {target: d.filePath, targetKind: 'code', detail: null};
+  return {target: d.filePath, targetKind: 'code'};
 }

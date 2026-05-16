@@ -28,9 +28,7 @@
 
 .trigger {
   display: grid;
-  grid-template-columns:
-    16px auto minmax(0, 1fr) minmax(0, min(12rem, 28%))
-    16px;
+  grid-template-columns: 16px auto minmax(0, 1fr) 16px;
   align-items: center;
   gap: 8px;
   width: 100%;
@@ -61,8 +59,7 @@
 }
 
 .target,
-.targetCode,
-.detail {
+.targetCode {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -81,14 +78,8 @@
   font-family: monospace;
 }
 
-.detail {
-  grid-column: 4;
-  color: var(--muted);
-  max-width: min(12rem, 28vw);
-}
-
 .indicator {
-  grid-column: 5;
+  grid-column: 4;
   justify-self: center;
   color: var(--muted);
   flex-shrink: 0;

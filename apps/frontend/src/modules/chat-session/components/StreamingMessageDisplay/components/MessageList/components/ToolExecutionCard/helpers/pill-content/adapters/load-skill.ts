@@ -7,5 +7,5 @@ export function loadSkillToolPillContent(
 ): ToolExecutionPillContent {
   const d = loadSkillParametersSchema.parse(parsed);
 
-  return {target: d.name, targetKind: 'text', detail: null};
+  return {target: d.name, targetKind: 'text'};
 }

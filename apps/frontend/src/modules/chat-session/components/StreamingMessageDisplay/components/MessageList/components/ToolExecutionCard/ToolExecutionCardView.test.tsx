@@ -33,7 +33,7 @@ afterEach(() => {
 });
 
 describe('ToolExecutionCardView', () => {
-  it('renders display name, adapter target, and adapter detail for run_command', () => {
+  it('renders display name and adapter target for run_command', () => {
     render(
       <ToolExecutionCardView
         arguments={JSON.stringify({command: 'bun test', timeout: 30000})}
@@ -45,7 +45,7 @@ describe('ToolExecutionCardView', () => {
 
     expect(screen.getByText('Run command')).toBeInTheDocument();
     expect(screen.getByText('bun test')).toBeInTheDocument();
-    expect(screen.getByText('30s timeout')).toBeInTheDocument();
+    expect(screen.queryByText('30s timeout')).not.toBeInTheDocument();
   });
 
   it('keeps details collapsed by default and shows them after expanding', () => {

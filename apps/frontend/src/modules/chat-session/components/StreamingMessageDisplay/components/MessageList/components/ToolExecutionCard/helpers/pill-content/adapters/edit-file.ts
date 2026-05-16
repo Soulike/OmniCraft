@@ -10,6 +10,5 @@ export function editFileToolPillContent(
   return {
     target: d.filePath,
     targetKind: 'code',
-    detail: d.replaceAll === true ? 'replace all' : null,
   };
 }

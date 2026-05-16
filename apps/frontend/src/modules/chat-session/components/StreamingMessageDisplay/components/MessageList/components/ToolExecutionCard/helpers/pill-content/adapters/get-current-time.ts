@@ -9,5 +9,5 @@ export function getCurrentTimeToolPillContent(
 ): ToolExecutionPillContent {
   getCurrentTimeParametersSchema.parse(parsed);
 
-  return {target: 'current time', targetKind: 'text', detail: null};
+  return {target: 'current time', targetKind: 'text'};
 }

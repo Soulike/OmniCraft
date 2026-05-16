@@ -7,5 +7,5 @@ export function findFilesToolPillContent(
 ): ToolExecutionPillContent {
   const d = findFilesParametersSchema.parse(parsed);
 
-  return {target: d.pattern, targetKind: 'code', detail: d.path ?? null};
+  return {target: d.pattern, targetKind: 'code'};
 }

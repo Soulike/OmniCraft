@@ -7,5 +7,5 @@ export function webFetchRawToolPillContent(
 ): ToolExecutionPillContent {
   const d = webFetchRawParametersSchema.parse(parsed);
 
-  return {target: d.url, targetKind: 'code', detail: null};
+  return {target: d.url, targetKind: 'code'};
 }

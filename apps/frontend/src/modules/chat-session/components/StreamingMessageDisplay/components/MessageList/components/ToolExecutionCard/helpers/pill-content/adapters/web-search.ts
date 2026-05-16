@@ -10,6 +10,5 @@ export function webSearchToolPillContent(
   return {
     target: d.query,
     targetKind: 'text',
-    detail: d.maxResults === undefined ? null : `max ${d.maxResults}`,
   };
 }

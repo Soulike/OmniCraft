@@ -10,6 +10,5 @@ export function webFetchToolPillContent(
   return {
     target: d.url,
     targetKind: 'code',
-    detail: d.includeFullPage === true ? 'full page' : null,
   };
 }

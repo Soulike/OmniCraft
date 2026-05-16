@@ -69,9 +69,6 @@ export function ToolExecutionCardView({
             ) : (
               <span className={styles.target}>{pillContent.target}</span>
             )}
-            {pillContent.detail !== null && (
-              <span className={styles.detail}>{pillContent.detail}</span>
-            )}
             <Disclosure.Indicator className={styles.indicator} />
           </Disclosure.Trigger>
         </Disclosure.Heading>

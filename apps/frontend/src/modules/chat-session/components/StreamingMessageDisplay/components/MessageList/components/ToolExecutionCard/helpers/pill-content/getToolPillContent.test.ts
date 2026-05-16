@@ -22,7 +22,6 @@ describe('getToolPillContent', () => {
       expected: {
         target: 'src/index.ts',
         targetKind: 'code',
-        detail: 'lines 10-14',
       },
     },
     {
@@ -31,7 +30,7 @@ describe('getToolPillContent', () => {
         filePath: 'src/new.ts',
         content: 'export {};',
       }),
-      expected: {target: 'src/new.ts', targetKind: 'code', detail: null},
+      expected: {target: 'src/new.ts', targetKind: 'code'},
     },
     {
       toolName: 'edit_file',
@@ -44,7 +43,6 @@ describe('getToolPillContent', () => {
       expected: {
         target: 'src/edit.ts',
         targetKind: 'code',
-        detail: 'replace all',
       },
     },
     {
@@ -53,7 +51,7 @@ describe('getToolPillContent', () => {
         pattern: '**/*.ts',
         path: 'src',
       }),
-      expected: {target: '**/*.ts', targetKind: 'code', detail: 'src'},
+      expected: {target: '**/*.ts', targetKind: 'code'},
     },
     {
       toolName: 'search_files',
@@ -65,7 +63,6 @@ describe('getToolPillContent', () => {
       expected: {
         target: 'getToolPillContent',
         targetKind: 'code',
-        detail: '**/*.ts',
       },
     },
     {
@@ -74,7 +71,7 @@ describe('getToolPillContent', () => {
         command: 'bun test',
         timeout: 30000,
       }),
-      expected: {target: 'bun test', targetKind: 'code', detail: '30s timeout'},
+      expected: {target: 'bun test', targetKind: 'code'},
     },
     {
       toolName: 'web_search',
@@ -85,7 +82,6 @@ describe('getToolPillContent', () => {
       expected: {
         target: 'Vite Vitest TypeScript',
         targetKind: 'text',
-        detail: 'max 8',
       },
     },
     {
@@ -97,7 +93,6 @@ describe('getToolPillContent', () => {
       expected: {
         target: 'https://example.com/docs',
         targetKind: 'code',
-        detail: 'full page',
       },
     },
     {
@@ -106,7 +101,6 @@ describe('getToolPillContent', () => {
       expected: {
         target: 'https://example.com/raw',
         targetKind: 'code',
-        detail: null,
       },
     },
     {
@@ -115,13 +109,12 @@ describe('getToolPillContent', () => {
       expected: {
         target: 'test-driven-development',
         targetKind: 'text',
-        detail: null,
       },
     },
     {
       toolName: 'get_current_time',
       toolArguments: JSON.stringify({}),
-      expected: {target: 'current time', targetKind: 'text', detail: null},
+      expected: {target: 'current time', targetKind: 'text'},
     },
   ])(
     'returns pill content for $toolName',
@@ -133,7 +126,7 @@ describe('getToolPillContent', () => {
   it('returns fallback pill content for malformed JSON', () => {
     expect(
       getToolPillContent({toolName: 'run_command', toolArguments: '{'}),
-    ).toEqual({target: 'run_command', targetKind: 'code', detail: null});
+    ).toEqual({target: 'run_command', targetKind: 'code'});
   });
 
   it('returns fallback pill content for adapter validation errors', () => {
@@ -142,7 +135,7 @@ describe('getToolPillContent', () => {
         toolName: 'read_file',
         toolArguments: JSON.stringify({startLine: 1}),
       }),
-    ).toEqual({target: 'read_file', targetKind: 'code', detail: null});
+    ).toEqual({target: 'read_file', targetKind: 'code'});
   });
 
   it('returns fallback pill content for invalid get_current_time arguments', () => {
@@ -151,46 +144,8 @@ describe('getToolPillContent', () => {
         toolName: 'get_current_time',
         toolArguments: JSON.stringify([]),
       }),
-    ).toEqual({target: 'get_current_time', targetKind: 'code', detail: null});
+    ).toEqual({target: 'get_current_time', targetKind: 'code'});
   });
-
-  it.each([
-    {
-      name: 'no line options',
-      toolArguments: JSON.stringify({filePath: 'src/index.ts'}),
-      expectedDetail: null,
-    },
-    {
-      name: 'line count only',
-      toolArguments: JSON.stringify({filePath: 'src/index.ts', lineCount: 7}),
-      expectedDetail: '7 lines',
-    },
-    {
-      name: 'start line only',
-      toolArguments: JSON.stringify({filePath: 'src/index.ts', startLine: 4}),
-      expectedDetail: 'from line 4',
-    },
-    {
-      name: 'start line and line count',
-      toolArguments: JSON.stringify({
-        filePath: 'src/index.ts',
-        startLine: 10,
-        lineCount: 5,
-      }),
-      expectedDetail: 'lines 10-14',
-    },
-  ])(
-    'returns read_file line detail for $name',
-    ({toolArguments, expectedDetail}) => {
-      expect(
-        getToolPillContent({toolName: 'read_file', toolArguments}),
-      ).toEqual({
-        target: 'src/index.ts',
-        targetKind: 'code',
-        detail: expectedDetail,
-      });
-    },
-  );
 
   it('throws when ask_user reaches tool pill content', () => {
     expect(() =>

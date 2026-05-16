@@ -10,6 +10,5 @@ export function runCommandToolPillContent(
   return {
     target: d.command,
     targetKind: 'code',
-    detail: d.timeout === undefined ? null : `${d.timeout / 1000}s timeout`,
   };
 }
