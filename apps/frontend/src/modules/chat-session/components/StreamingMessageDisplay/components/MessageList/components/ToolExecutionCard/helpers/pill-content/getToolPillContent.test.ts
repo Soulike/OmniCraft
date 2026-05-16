@@ -145,6 +145,15 @@ describe('getToolPillContent', () => {
     ).toEqual({target: 'read_file', targetKind: 'code', detail: null});
   });
 
+  it('returns fallback pill content for invalid get_current_time arguments', () => {
+    expect(
+      getToolPillContent({
+        toolName: 'get_current_time',
+        toolArguments: JSON.stringify([]),
+      }),
+    ).toEqual({target: 'get_current_time', targetKind: 'code', detail: null});
+  });
+
   it.each([
     {
       name: 'no line options',
