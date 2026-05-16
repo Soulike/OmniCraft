@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import {mkdir, mkdtemp, readFile, rm, writeFile} from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -43,7 +44,7 @@ function sseTextDelta(content: string): SseEvent {
 
 describe('agentPersistence', () => {
   let tmpDir: string;
-  const agentId = 'test-agent-id';
+  const agentId = crypto.randomUUID();
 
   beforeEach(async () => {
     tmpDir = await mkdtemp(path.join(os.tmpdir(), 'agent-persistence-test-'));

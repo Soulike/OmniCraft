@@ -1,4 +1,5 @@
 import assert from 'node:assert';
+import crypto from 'node:crypto';
 import {mkdir, mkdtemp, rm, utimes, writeFile} from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -245,26 +246,29 @@ describe('MainAgentStore', () => {
 
     it('returns metadata from valid snapshots', async () => {
       const store = MainAgentStore.create(sessionsDir);
-      await writeSnapshot(sessionsDir, 'session-a', {
-        id: 'session-a',
+      const id = crypto.randomUUID();
+      await writeSnapshot(sessionsDir, id, {
+        id,
         title: 'Title A',
       });
       const result = await store.listSessionMetadata(0, 100);
       expect(result).toEqual({
-        sessions: [{id: 'session-a', title: 'Title A'}],
+        sessions: [{id, title: 'Title A'}],
         total: 1,
       });
     });
 
     it('sorts by file mtime descending (most recent first)', async () => {
       const store = MainAgentStore.create(sessionsDir);
+      const olderId = crypto.randomUUID();
+      const newerId = crypto.randomUUID();
 
-      await writeSnapshot(sessionsDir, 'older', {
-        id: 'older',
+      await writeSnapshot(sessionsDir, olderId, {
+        id: olderId,
         title: 'Older',
       });
-      await writeSnapshot(sessionsDir, 'newer', {
-        id: 'newer',
+      await writeSnapshot(sessionsDir, newerId, {
+        id: newerId,
         title: 'Newer',
       });
 
@@ -272,30 +276,31 @@ describe('MainAgentStore', () => {
       const past = new Date(Date.now() - 60_000);
       const now = new Date();
       await utimes(
-        path.join(sessionsDir, 'older', 'snapshot.json'),
+        path.join(sessionsDir, olderId, 'snapshot.json'),
         past,
         past,
       );
-      await utimes(path.join(sessionsDir, 'newer', 'snapshot.json'), now, now);
+      await utimes(path.join(sessionsDir, newerId, 'snapshot.json'), now, now);
 
       const result = await store.listSessionMetadata(0, 100);
       expect(result.sessions).toEqual([
-        {id: 'newer', title: 'Newer'},
-        {id: 'older', title: 'Older'},
+        {id: newerId, title: 'Newer'},
+        {id: olderId, title: 'Older'},
       ]);
     });
 
     it('skips directories with missing snapshot.json', async () => {
       const store = MainAgentStore.create(sessionsDir);
+      const validId = crypto.randomUUID();
       await mkdir(path.join(sessionsDir, 'no-snapshot'));
-      await writeSnapshot(sessionsDir, 'valid', {
-        id: 'valid',
+      await writeSnapshot(sessionsDir, validId, {
+        id: validId,
         title: 'Valid',
       });
 
       const result = await store.listSessionMetadata(0, 100);
       expect(result).toEqual({
-        sessions: [{id: 'valid', title: 'Valid'}],
+        sessions: [{id: validId, title: 'Valid'}],
         total: 1,
       });
     });
@@ -306,85 +311,91 @@ describe('MainAgentStore', () => {
       await mkdir(dir);
       await writeFile(path.join(dir, 'snapshot.json'), 'not valid json{{{');
 
-      await writeSnapshot(sessionsDir, 'good', {id: 'good', title: 'Good'});
+      const goodId = crypto.randomUUID();
+      await writeSnapshot(sessionsDir, goodId, {id: goodId, title: 'Good'});
 
       const result = await store.listSessionMetadata(0, 100);
-      expect(result.sessions).toEqual([{id: 'good', title: 'Good'}]);
+      expect(result.sessions).toEqual([{id: goodId, title: 'Good'}]);
     });
 
     it('skips snapshots missing required fields', async () => {
       const store = MainAgentStore.create(sessionsDir);
-      await writeSnapshot(sessionsDir, 'no-title', {id: 'no-title'});
-      await writeSnapshot(sessionsDir, 'complete', {
-        id: 'complete',
+      const noTitleId = crypto.randomUUID();
+      const completeId = crypto.randomUUID();
+      await writeSnapshot(sessionsDir, noTitleId, {id: noTitleId});
+      await writeSnapshot(sessionsDir, completeId, {
+        id: completeId,
         title: 'Complete',
       });
 
       const result = await store.listSessionMetadata(0, 100);
-      expect(result.sessions).toEqual([{id: 'complete', title: 'Complete'}]);
+      expect(result.sessions).toEqual([{id: completeId, title: 'Complete'}]);
     });
 
     it('paginates with offset and limit', async () => {
       const store = MainAgentStore.create(sessionsDir);
 
-      for (let i = 0; i < 5; i++) {
-        await writeSnapshot(sessionsDir, `s${i}`, {
-          id: `s${i}`,
+      const ids = Array.from({length: 5}, () => crypto.randomUUID());
+      for (let i = 0; i < ids.length; i++) {
+        await writeSnapshot(sessionsDir, ids[i], {
+          id: ids[i],
           title: `T${i}`,
         });
         const mtime = new Date(Date.now() - (4 - i) * 60_000);
         await utimes(
-          path.join(sessionsDir, `s${i}`, 'snapshot.json'),
+          path.join(sessionsDir, ids[i], 'snapshot.json'),
           mtime,
           mtime,
         );
       }
 
-      // Sorted order by mtime desc: s4, s3, s2, s1, s0
+      // Sorted order by mtime desc: ids[4], ids[3], ids[2], ids[1], ids[0]
       const page1 = await store.listSessionMetadata(0, 2);
       expect(page1.total).toBe(5);
       expect(page1.sessions).toEqual([
-        {id: 's4', title: 'T4'},
-        {id: 's3', title: 'T3'},
+        {id: ids[4], title: 'T4'},
+        {id: ids[3], title: 'T3'},
       ]);
 
       const page2 = await store.listSessionMetadata(2, 2);
       expect(page2.total).toBe(5);
       expect(page2.sessions).toEqual([
-        {id: 's2', title: 'T2'},
-        {id: 's1', title: 'T1'},
+        {id: ids[2], title: 'T2'},
+        {id: ids[1], title: 'T1'},
       ]);
 
       const page3 = await store.listSessionMetadata(4, 2);
       expect(page3.total).toBe(5);
-      expect(page3.sessions).toEqual([{id: 's0', title: 'T0'}]);
+      expect(page3.sessions).toEqual([{id: ids[0], title: 'T0'}]);
     });
 
     it('reads from metadata.json when present', async () => {
       const store = MainAgentStore.create(sessionsDir);
-      await writeSnapshot(sessionsDir, 'sess-1', {
-        id: 'sess-1',
+      const id = crypto.randomUUID();
+      await writeSnapshot(sessionsDir, id, {
+        id,
         title: 'Snapshot Title',
         sseEventCount: 0,
         llmSession: {id: 'llm-1', messages: [{large: 'data'}]},
         options: {workingDirectory: '/tmp'},
       });
-      await writeMetadata(sessionsDir, 'sess-1', {
-        id: 'sess-1',
+      await writeMetadata(sessionsDir, id, {
+        id,
         title: 'Metadata Title',
         workingDirectory: '/tmp',
       });
 
       const result = await store.listSessionMetadata(0, 100);
       expect(result.sessions).toEqual([
-        {id: 'sess-1', title: 'Metadata Title', workingDirectory: '/tmp'},
+        {id, title: 'Metadata Title', workingDirectory: '/tmp'},
       ]);
     });
 
     it('falls back to snapshot.json when metadata.json is missing', async () => {
       const store = MainAgentStore.create(sessionsDir);
-      await writeSnapshot(sessionsDir, 'legacy', {
-        id: 'legacy',
+      const id = crypto.randomUUID();
+      await writeSnapshot(sessionsDir, id, {
+        id,
         title: 'Legacy Title',
         sseEventCount: 0,
         llmSession: {id: 'llm-1', messages: []},
@@ -392,7 +403,7 @@ describe('MainAgentStore', () => {
       });
 
       const result = await store.listSessionMetadata(0, 100);
-      expect(result.sessions).toEqual([{id: 'legacy', title: 'Legacy Title'}]);
+      expect(result.sessions).toEqual([{id, title: 'Legacy Title'}]);
     });
   });
 

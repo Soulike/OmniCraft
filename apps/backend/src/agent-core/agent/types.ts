@@ -27,7 +27,7 @@ const agentSnapshotOptionsSchema = z.object({
 });
 
 export const agentSnapshotSchema = z.object({
-  id: z.string(),
+  id: z.uuid(),
   title: z.string(),
   sseEventCount: z.number(),
   llmSession: llmSessionSnapshotSchema,
