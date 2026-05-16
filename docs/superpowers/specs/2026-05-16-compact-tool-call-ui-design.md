@@ -36,11 +36,11 @@ The detail body is useful and should remain available. It already delegates stru
 The closed state becomes a compact row, approximately 32px tall:
 
 ```text
-[status icon] [action] [target summary] [meta] [disclosure indicator]
+[status icon] [display name] [target summary] [meta] [disclosure indicator]
 ```
 
 - **Status icon** shows running, done, failure, or error.
-- **Action** is a short human label derived from `displayName` or the tool name, such as `Read`, `Command`, `Search`, `Fetch`, or `Skill`.
+- **Display name** is the existing `displayName` carried by the tool execution event, such as `Read File`, `Run Command`, or `Web Search`.
 - **Target summary** is the most useful parsed argument for the tool: file path, command, search pattern, URL, query, skill name, or `toolName` fallback.
 - **Meta** is short status/result context: `live output` for running tools with streamed output, `running` for running tools without output, `done` for success, `failed` for tool failures, and `error` for execution errors.
 - **Disclosure indicator** remains the affordance for opening the detail body.
@@ -79,28 +79,27 @@ The shell owns:
 
 1. Status icon and status styling.
 2. Disclosure trigger/content behavior.
-3. Generic execution meta: `live output`, `running`, `done`, `failed`, or `error`.
-4. Fallback rendering when a tool adapter cannot parse its arguments.
+3. Rendering the existing `displayName` as the row label.
+4. Generic execution meta: `live output`, `running`, `done`, `failed`, or `error`.
+5. Fallback rendering when a tool adapter cannot parse its arguments.
 
 Each tool adapter owns:
 
-1. The short action label, such as `Read`, `Command`, `Search`, `Fetch`, or `Skill`.
-2. The primary target text, such as a file path, command, query, URL, pattern, or skill name.
-3. Whether the target should be rendered as code or plain text.
-4. Optional tool-specific secondary text if it is compact enough for the row.
+1. The primary target text, such as a file path, command, query, URL, pattern, or skill name.
+2. Whether the target should be rendered as code or plain text.
+3. Optional tool-specific secondary text if it is compact enough for the row.
 
 Adapters return structured data rather than JSX:
 
 ```typescript
 interface ToolExecutionPillContent {
-  action: string;
   target: string;
   targetKind: 'code' | 'text';
   detail: string | null;
 }
 ```
 
-The shell combines this tool-owned content with the shell-owned execution meta. For example, a `run_command` adapter can return `Command` plus the command string; the shell still decides whether the row says `running`, `done`, `failed`, or `error`.
+The shell combines `displayName`, this tool-owned content, and the shell-owned execution meta. For example, a `run_command` adapter returns the command string; the shell renders `Run Command` and still decides whether the row says `running`, `done`, `failed`, or `error`.
 
 Use a small helper structure inside `ToolExecutionCard`, mirroring the existing `ResultSection/helpers/renderToolResult.tsx` pattern:
 
@@ -129,23 +128,23 @@ ToolExecutionCard/
 
 Recommended adapter ownership:
 
-| Tool               | Adapter decides                                        |
-| ------------------ | ------------------------------------------------------ |
-| `read_file`        | File-oriented action and path target.                  |
-| `write_file`       | File-oriented action and path target.                  |
-| `edit_file`        | Edit-oriented action and path target.                  |
-| `find_files`       | Search-oriented action and pattern/path target.        |
-| `search_files`     | Search-oriented action and pattern/filter target.      |
-| `run_command`      | Command-oriented action and command target.            |
-| `web_search`       | Search-oriented action and query target.               |
-| `web_fetch`        | Fetch-oriented action and URL target.                  |
-| `web_fetch_raw`    | Fetch-oriented action and URL target.                  |
-| `load_skill`       | Skill-oriented action and skill-name target.           |
-| `get_current_time` | Time-oriented action, or fallback if no useful target. |
+| Tool               | Adapter decides                                 |
+| ------------------ | ----------------------------------------------- |
+| `read_file`        | File path target and optional line detail.      |
+| `write_file`       | File path target.                               |
+| `edit_file`        | File path target and optional edit detail.      |
+| `find_files`       | Pattern target and optional path detail.        |
+| `search_files`     | Pattern target and optional filter/path detail. |
+| `run_command`      | Command target and optional timeout detail.     |
+| `web_search`       | Query target and optional result-count detail.  |
+| `web_fetch`        | URL target and optional full-page detail.       |
+| `web_fetch_raw`    | URL target.                                     |
+| `load_skill`       | Skill-name target.                              |
+| `get_current_time` | Current-time target.                            |
 
 `ask_user` does not need a summary because it does not render through `ToolExecutionCard`.
 
-Fallback behavior: if parsing or schema validation fails, use `displayName` as the action, `toolName` as the target, `code` as `targetKind`, and `null` as the tool-owned detail. The shell still adds the status-derived execution meta.
+Fallback behavior: if parsing or schema validation fails, use `toolName` as the target, `code` as `targetKind`, and `null` as the tool-owned detail. The shell still renders `displayName` and the status-derived execution meta.
 
 ### Component Boundaries
 

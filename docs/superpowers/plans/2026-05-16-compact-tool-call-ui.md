@@ -62,7 +62,6 @@ import type {ToolExecutionPillContent} from './types.js';
 
 interface KnownToolCase {
   toolName: ToolName;
-  displayName: string;
   toolArguments: string;
   expected: ToolExecutionPillContent;
 }
@@ -70,10 +69,8 @@ interface KnownToolCase {
 const knownToolCases: KnownToolCase[] = [
   {
     toolName: 'read_file',
-    displayName: 'Read File',
     toolArguments: JSON.stringify({filePath: 'src/App.tsx'}),
     expected: {
-      action: 'Read',
       target: 'src/App.tsx',
       targetKind: 'code',
       detail: null,
@@ -81,10 +78,8 @@ const knownToolCases: KnownToolCase[] = [
   },
   {
     toolName: 'write_file',
-    displayName: 'Write File',
     toolArguments: JSON.stringify({filePath: 'src/App.tsx', content: 'x'}),
     expected: {
-      action: 'Write',
       target: 'src/App.tsx',
       targetKind: 'code',
       detail: null,
@@ -92,14 +87,12 @@ const knownToolCases: KnownToolCase[] = [
   },
   {
     toolName: 'edit_file',
-    displayName: 'Edit File',
     toolArguments: JSON.stringify({
       filePath: 'src/App.tsx',
       oldString: 'old',
       newString: 'new',
     }),
     expected: {
-      action: 'Edit',
       target: 'src/App.tsx',
       targetKind: 'code',
       detail: null,
@@ -107,10 +100,8 @@ const knownToolCases: KnownToolCase[] = [
   },
   {
     toolName: 'find_files',
-    displayName: 'Find Files',
     toolArguments: JSON.stringify({pattern: '**/*.tsx', path: 'src'}),
     expected: {
-      action: 'Find',
       target: '**/*.tsx',
       targetKind: 'code',
       detail: 'src',
@@ -118,13 +109,11 @@ const knownToolCases: KnownToolCase[] = [
   },
   {
     toolName: 'search_files',
-    displayName: 'Search Files',
     toolArguments: JSON.stringify({
       pattern: 'ToolExecutionCard',
       filePattern: '**/*.tsx',
     }),
     expected: {
-      action: 'Search',
       target: 'ToolExecutionCard',
       targetKind: 'code',
       detail: '**/*.tsx',
@@ -132,10 +121,8 @@ const knownToolCases: KnownToolCase[] = [
   },
   {
     toolName: 'run_command',
-    displayName: 'Run Command',
     toolArguments: JSON.stringify({command: 'bun test', timeout: 5000}),
     expected: {
-      action: 'Command',
       target: 'bun test',
       targetKind: 'code',
       detail: '5s timeout',
@@ -143,10 +130,8 @@ const knownToolCases: KnownToolCase[] = [
   },
   {
     toolName: 'web_search',
-    displayName: 'Web Search',
     toolArguments: JSON.stringify({query: 'React Disclosure', maxResults: 8}),
     expected: {
-      action: 'Search',
       target: 'React Disclosure',
       targetKind: 'text',
       detail: 'max 8',
@@ -154,13 +139,11 @@ const knownToolCases: KnownToolCase[] = [
   },
   {
     toolName: 'web_fetch',
-    displayName: 'Web Fetch',
     toolArguments: JSON.stringify({
       url: 'https://example.com/article',
       includeFullPage: true,
     }),
     expected: {
-      action: 'Fetch',
       target: 'https://example.com/article',
       targetKind: 'code',
       detail: 'full page',
@@ -168,10 +151,8 @@ const knownToolCases: KnownToolCase[] = [
   },
   {
     toolName: 'web_fetch_raw',
-    displayName: 'Web Fetch Raw',
     toolArguments: JSON.stringify({url: 'https://example.com/raw'}),
     expected: {
-      action: 'Fetch raw',
       target: 'https://example.com/raw',
       targetKind: 'code',
       detail: null,
@@ -179,10 +160,8 @@ const knownToolCases: KnownToolCase[] = [
   },
   {
     toolName: 'load_skill',
-    displayName: 'Load Skill',
     toolArguments: JSON.stringify({name: 'systematic-debugging'}),
     expected: {
-      action: 'Skill',
       target: 'systematic-debugging',
       targetKind: 'text',
       detail: null,
@@ -190,10 +169,8 @@ const knownToolCases: KnownToolCase[] = [
   },
   {
     toolName: 'get_current_time',
-    displayName: 'Get Current Time',
     toolArguments: JSON.stringify({}),
     expected: {
-      action: 'Time',
       target: 'current time',
       targetKind: 'text',
       detail: null,
@@ -204,10 +181,8 @@ const knownToolCases: KnownToolCase[] = [
 describe('getToolPillContent', () => {
   it.each(knownToolCases)(
     'returns pill content for $toolName',
-    ({toolName, displayName, toolArguments, expected}) => {
-      expect(
-        getToolPillContent({toolName, displayName, toolArguments}),
-      ).toEqual(expected);
+    ({toolName, toolArguments, expected}) => {
+      expect(getToolPillContent({toolName, toolArguments})).toEqual(expected);
     },
   );
 
@@ -215,11 +190,9 @@ describe('getToolPillContent', () => {
     expect(
       getToolPillContent({
         toolName: 'run_command',
-        displayName: 'Run Command',
         toolArguments: '{',
       }),
     ).toEqual({
-      action: 'Run Command',
       target: 'run_command',
       targetKind: 'code',
       detail: null,
@@ -230,11 +203,9 @@ describe('getToolPillContent', () => {
     expect(
       getToolPillContent({
         toolName: 'read_file',
-        displayName: 'Read File',
         toolArguments: JSON.stringify({startLine: 1}),
       }),
     ).toEqual({
-      action: 'Read File',
       target: 'read_file',
       targetKind: 'code',
       detail: null,
@@ -259,7 +230,6 @@ Create `apps/frontend/src/modules/chat-session/components/StreamingMessageDispla
 
 ```typescript
 export interface ToolExecutionPillContent {
-  action: string;
   target: string;
   targetKind: 'code' | 'text';
   detail: string | null;
@@ -275,15 +245,12 @@ import type {ToolExecutionPillContent} from './types.js';
 
 interface FallbackToolPillContentInput {
   toolName: ToolName;
-  displayName: string;
 }
 
 export function fallbackToolPillContent({
   toolName,
-  displayName,
 }: FallbackToolPillContentInput): ToolExecutionPillContent {
   return {
-    action: displayName,
     target: toolName,
     targetKind: 'code',
     detail: null,
@@ -305,7 +272,6 @@ export function getReadFilePillContent(
 ): ToolExecutionPillContent {
   const args = readFileParametersSchema.parse(parsed);
   return {
-    action: 'Read',
     target: args.filePath,
     targetKind: 'code',
     detail: formatLineDetail(args.startLine, args.lineCount),
@@ -335,7 +301,6 @@ export function getWriteFilePillContent(
 ): ToolExecutionPillContent {
   const args = writeFileParametersSchema.parse(parsed);
   return {
-    action: 'Write',
     target: args.filePath,
     targetKind: 'code',
     detail: null,
@@ -355,7 +320,6 @@ export function getEditFilePillContent(
 ): ToolExecutionPillContent {
   const args = editFileParametersSchema.parse(parsed);
   return {
-    action: 'Edit',
     target: args.filePath,
     targetKind: 'code',
     detail: args.replaceAll ? 'replace all' : null,
@@ -375,7 +339,6 @@ export function getFindFilesPillContent(
 ): ToolExecutionPillContent {
   const args = findFilesParametersSchema.parse(parsed);
   return {
-    action: 'Find',
     target: args.pattern,
     targetKind: 'code',
     detail: args.path ?? null,
@@ -395,7 +358,6 @@ export function getSearchFilesPillContent(
 ): ToolExecutionPillContent {
   const args = searchFilesParametersSchema.parse(parsed);
   return {
-    action: 'Search',
     target: args.pattern,
     targetKind: 'code',
     detail: args.filePattern ?? args.path ?? null,
@@ -415,7 +377,6 @@ export function getRunCommandPillContent(
 ): ToolExecutionPillContent {
   const args = runCommandParametersSchema.parse(parsed);
   return {
-    action: 'Command',
     target: args.command,
     targetKind: 'code',
     detail:
@@ -436,7 +397,6 @@ export function getWebSearchPillContent(
 ): ToolExecutionPillContent {
   const args = webSearchParametersSchema.parse(parsed);
   return {
-    action: 'Search',
     target: args.query,
     targetKind: 'text',
     detail: args.maxResults === undefined ? null : `max ${args.maxResults}`,
@@ -456,7 +416,6 @@ export function getWebFetchPillContent(
 ): ToolExecutionPillContent {
   const args = webFetchParametersSchema.parse(parsed);
   return {
-    action: 'Fetch',
     target: args.url,
     targetKind: 'code',
     detail: args.includeFullPage ? 'full page' : null,
@@ -476,7 +435,6 @@ export function getWebFetchRawPillContent(
 ): ToolExecutionPillContent {
   const args = webFetchRawParametersSchema.parse(parsed);
   return {
-    action: 'Fetch raw',
     target: args.url,
     targetKind: 'code',
     detail: null,
@@ -496,7 +454,6 @@ export function getLoadSkillPillContent(
 ): ToolExecutionPillContent {
   const args = loadSkillParametersSchema.parse(parsed);
   return {
-    action: 'Skill',
     target: args.name,
     targetKind: 'text',
     detail: null,
@@ -511,7 +468,6 @@ import type {ToolExecutionPillContent} from '../types.js';
 
 export function getCurrentTimePillContent(): ToolExecutionPillContent {
   return {
-    action: 'Time',
     target: 'current time',
     targetKind: 'text',
     detail: null,
@@ -542,7 +498,6 @@ import type {ToolExecutionPillContent} from './types.js';
 
 interface GetToolPillContentInput {
   toolName: ToolName;
-  displayName: string;
   toolArguments: string;
 }
 
@@ -628,7 +583,7 @@ import {describe, expect, it} from 'vitest';
 import {ToolExecutionCardView} from './ToolExecutionCardView.js';
 
 describe('ToolExecutionCardView', () => {
-  it('renders adapter-owned pill content with success meta', () => {
+  it('renders display name, adapter-owned target, and success meta', () => {
     render(
       <ToolExecutionCardView
         toolName='run_command'
@@ -647,7 +602,7 @@ describe('ToolExecutionCardView', () => {
       />,
     );
 
-    expect(screen.getByText('Command')).toBeInTheDocument();
+    expect(screen.getByText('Run Command')).toBeInTheDocument();
     expect(screen.getByText('bun test')).toBeInTheDocument();
     expect(screen.getByText('done')).toBeInTheDocument();
   });
@@ -663,7 +618,7 @@ describe('ToolExecutionCardView', () => {
       />,
     );
 
-    expect(screen.getByText('Command')).toBeInTheDocument();
+    expect(screen.getByText('Run Command')).toBeInTheDocument();
     expect(screen.getByText('live output')).toBeInTheDocument();
   });
 
@@ -705,7 +660,7 @@ Run:
 cd apps/frontend && bun test src/modules/chat-session/components/StreamingMessageDisplay/components/MessageList/components/ToolExecutionCard/ToolExecutionCardView.test.tsx
 ```
 
-Expected: FAIL because the current trigger renders `displayName` only and does not render compact pill action, target, or status meta.
+Expected: FAIL because the current trigger renders `displayName` only and does not render compact pill target or status meta.
 
 - [ ] **Step 3: Update `ToolExecutionCardView.tsx`**
 
@@ -745,7 +700,6 @@ export function ToolExecutionCardView({
 }: ToolExecutionCardViewProps) {
   const pillContent = getToolPillContent({
     toolName,
-    displayName,
     toolArguments,
   });
   const executionMeta = getExecutionMeta(status, output);
@@ -787,7 +741,7 @@ export function ToolExecutionCardView({
                 size={STATUS_ICON_SIZE}
               />
             )}
-            <span className={styles.action}>{pillContent.action}</span>
+            <span className={styles.displayName}>{displayName}</span>
             <span
               className={clsx(styles.target, {
                 [styles.targetCode]: pillContent.targetKind === 'code',
@@ -925,7 +879,7 @@ Replace `apps/frontend/src/modules/chat-session/components/StreamingMessageDispl
   flex-shrink: 0;
 }
 
-.action {
+.displayName {
   color: var(--foreground);
   font-size: 0.8125rem;
   font-weight: 650;
