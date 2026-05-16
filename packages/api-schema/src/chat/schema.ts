@@ -30,7 +30,7 @@ export type CreateCodingSessionRequest = z.infer<
 
 /** Schema for the POST /chat/session response body. */
 export const createSessionResponseSchema = z.object({
-  sessionId: z.string(),
+  sessionId: z.uuid(),
 });
 
 export type CreateSessionResponse = z.infer<typeof createSessionResponseSchema>;
@@ -62,7 +62,7 @@ export type SubmitToolResponseRequest = z.infer<
 
 /** Schema for a single session entry in the list response. */
 export const sessionMetadataSchema = z.object({
-  id: z.string(),
+  id: z.uuid(),
   title: z.string(),
   workingDirectory: z.string().optional(),
 });
