@@ -5,32 +5,113 @@ import {logger} from '@/logger.js';
 import type {LlmConfig} from '../llm-api/types.js';
 
 const DEFAULT_MAX_OUTPUT_TOKENS = 16_384;
-const DEFAULT_MAX_INPUT_TOKENS = 200_000;
+const DEFAULT_MAX_PROMPT_TOKENS = 168_000;
+const DEFAULT_MAX_CONTEXT_WINDOW_TOKENS = 200_000;
 
 /**
  * Known Claude model capacities. Checked before the SDK call so that
  * proxies that don't implement `/v1/models/{id}` still get correct limits.
+ *
+ * Field names mirror the Copilot `/v1/models` capability shape:
+ * - maxContextWindowTokens: total budget (prompt + output)
+ * - maxPromptTokens: max accepted input
+ * - maxOutputTokens: max generation
  */
-const KNOWN_MODELS = new Map([
-  ['claude-opus-4.6-1m', {maxOutputTokens: 64_000, maxInputTokens: 1_000_000}],
-  ['claude-opus-4.6', {maxOutputTokens: 32_000, maxInputTokens: 200_000}],
+const KNOWN_MODELS = new Map<string, CachedCapacity>([
+  [
+    'claude-opus-4.6-1m',
+    {
+      maxContextWindowTokens: 1_000_000,
+      maxPromptTokens: 936_000,
+      maxOutputTokens: 64_000,
+    },
+  ],
+  [
+    'claude-opus-4.6',
+    {
+      maxContextWindowTokens: 200_000,
+      maxPromptTokens: 168_000,
+      maxOutputTokens: 32_000,
+    },
+  ],
   [
     'claude-opus-4.7-1m-internal',
-    {maxOutputTokens: 64_000, maxInputTokens: 1_000_000},
+    {
+      maxContextWindowTokens: 1_000_000,
+      maxPromptTokens: 936_000,
+      maxOutputTokens: 64_000,
+    },
   ],
-  ['claude-opus-4.7', {maxOutputTokens: 32_000, maxInputTokens: 200_000}],
-  ['claude-opus-4.7-high', {maxOutputTokens: 32_000, maxInputTokens: 200_000}],
-  ['claude-opus-4.7-xhigh', {maxOutputTokens: 32_000, maxInputTokens: 200_000}],
-  ['claude-sonnet-4.6', {maxOutputTokens: 32_000, maxInputTokens: 200_000}],
-  ['claude-sonnet-4', {maxOutputTokens: 16_000, maxInputTokens: 216_000}],
-  ['claude-sonnet-4.5', {maxOutputTokens: 32_000, maxInputTokens: 200_000}],
-  ['claude-opus-4.5', {maxOutputTokens: 32_000, maxInputTokens: 200_000}],
-  ['claude-haiku-4.5', {maxOutputTokens: 64_000, maxInputTokens: 200_000}],
+  [
+    'claude-opus-4.7',
+    {
+      maxContextWindowTokens: 200_000,
+      maxPromptTokens: 168_000,
+      maxOutputTokens: 32_000,
+    },
+  ],
+  [
+    'claude-opus-4.7-high',
+    {
+      maxContextWindowTokens: 200_000,
+      maxPromptTokens: 168_000,
+      maxOutputTokens: 32_000,
+    },
+  ],
+  [
+    'claude-opus-4.7-xhigh',
+    {
+      maxContextWindowTokens: 200_000,
+      maxPromptTokens: 168_000,
+      maxOutputTokens: 32_000,
+    },
+  ],
+  [
+    'claude-sonnet-4.6',
+    {
+      maxContextWindowTokens: 200_000,
+      maxPromptTokens: 168_000,
+      maxOutputTokens: 32_000,
+    },
+  ],
+  [
+    'claude-sonnet-4',
+    {
+      maxContextWindowTokens: 216_000,
+      maxPromptTokens: 200_000,
+      maxOutputTokens: 16_000,
+    },
+  ],
+  [
+    'claude-sonnet-4.5',
+    {
+      maxContextWindowTokens: 200_000,
+      maxPromptTokens: 168_000,
+      maxOutputTokens: 32_000,
+    },
+  ],
+  [
+    'claude-opus-4.5',
+    {
+      maxContextWindowTokens: 200_000,
+      maxPromptTokens: 168_000,
+      maxOutputTokens: 32_000,
+    },
+  ],
+  [
+    'claude-haiku-4.5',
+    {
+      maxContextWindowTokens: 200_000,
+      maxPromptTokens: 136_000,
+      maxOutputTokens: 64_000,
+    },
+  ],
 ]);
 
 interface CachedCapacity {
+  maxContextWindowTokens: number;
+  maxPromptTokens: number;
   maxOutputTokens: number;
-  maxInputTokens: number;
 }
 
 /** Module-level cache keyed by `${baseUrl}::${model}`. */
@@ -60,9 +141,14 @@ async function resolve(config: Readonly<LlmConfig>): Promise<CachedCapacity> {
       baseURL: config.baseUrl,
     });
     const model = await client.models.retrieve(config.model);
+    // The Anthropic SDK exposes `max_tokens` (output) and `max_input_tokens`
+    // (prompt budget). Context window is derived: prompt + output.
+    const maxOutputTokens = model.max_tokens ?? DEFAULT_MAX_OUTPUT_TOKENS;
+    const maxPromptTokens = model.max_input_tokens ?? DEFAULT_MAX_PROMPT_TOKENS;
     const capacity: CachedCapacity = {
-      maxOutputTokens: model.max_tokens ?? DEFAULT_MAX_OUTPUT_TOKENS,
-      maxInputTokens: model.max_input_tokens ?? DEFAULT_MAX_INPUT_TOKENS,
+      maxContextWindowTokens: maxPromptTokens + maxOutputTokens,
+      maxPromptTokens,
+      maxOutputTokens,
     };
     cache.set(key, capacity);
     return capacity;
@@ -74,8 +160,9 @@ async function resolve(config: Readonly<LlmConfig>): Promise<CachedCapacity> {
       'Failed to retrieve model capacity, using defaults',
     );
     return {
+      maxContextWindowTokens: DEFAULT_MAX_CONTEXT_WINDOW_TOKENS,
+      maxPromptTokens: DEFAULT_MAX_PROMPT_TOKENS,
       maxOutputTokens: DEFAULT_MAX_OUTPUT_TOKENS,
-      maxInputTokens: DEFAULT_MAX_INPUT_TOKENS,
     };
   }
 }
@@ -88,10 +175,18 @@ export async function getClaudeMaxOutputTokens(
   return capacity.maxOutputTokens;
 }
 
-/** Returns the max input tokens (context window) for a Claude model. */
-export async function getClaudeMaxInputTokens(
+/** Returns the max prompt tokens (input budget, excluding output) for a Claude model. */
+export async function getClaudeMaxPromptTokens(
   config: Readonly<LlmConfig>,
 ): Promise<number> {
   const capacity = await resolve(config);
-  return capacity.maxInputTokens;
+  return capacity.maxPromptTokens;
+}
+
+/** Returns the max context window tokens (prompt + output) for a Claude model. */
+export async function getClaudeMaxContextWindowTokens(
+  config: Readonly<LlmConfig>,
+): Promise<number> {
+  const capacity = await resolve(config);
+  return capacity.maxContextWindowTokens;
 }

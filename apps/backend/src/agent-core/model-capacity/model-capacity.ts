@@ -1,11 +1,13 @@
 import type {LlmConfig} from '../llm-api/types.js';
 import {
-  getClaudeMaxInputTokens,
+  getClaudeMaxContextWindowTokens,
   getClaudeMaxOutputTokens,
+  getClaudeMaxPromptTokens,
 } from './claude-capacity.js';
 import {
-  getOpenAIMaxInputTokens,
+  getOpenAIMaxContextWindowTokens,
   getOpenAIMaxOutputTokens,
+  getOpenAIMaxPromptTokens,
 } from './openai-capacity.js';
 
 /** Queries model token limits, dispatching by provider. */
@@ -20,13 +22,25 @@ export const modelCapacity = {
     }
   },
 
-  /** Returns the maximum input tokens (context window) for the configured model. */
-  async getMaxInputTokens(config: Readonly<LlmConfig>): Promise<number> {
+  /** Returns the maximum prompt tokens (input budget, excludes output) for the configured model. */
+  async getMaxPromptTokens(config: Readonly<LlmConfig>): Promise<number> {
     switch (config.apiFormat) {
       case 'claude':
-        return getClaudeMaxInputTokens(config);
+        return getClaudeMaxPromptTokens(config);
       case 'openai-responses':
-        return getOpenAIMaxInputTokens(config);
+        return getOpenAIMaxPromptTokens(config);
+    }
+  },
+
+  /** Returns the maximum context window tokens (prompt + output) for the configured model. */
+  async getMaxContextWindowTokens(
+    config: Readonly<LlmConfig>,
+  ): Promise<number> {
+    switch (config.apiFormat) {
+      case 'claude':
+        return getClaudeMaxContextWindowTokens(config);
+      case 'openai-responses':
+        return getOpenAIMaxContextWindowTokens(config);
     }
   },
 };

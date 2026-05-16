@@ -1,5 +1,5 @@
-/** Compact when the current prompt reaches this fraction of model input capacity. */
-export const COMPACTION_TRIGGER_INPUT_TOKEN_RATIO = 0.8;
+/** Compact when the current prompt reaches this fraction of the model's prompt-token budget. */
+export const COMPACTION_TRIGGER_PROMPT_TOKEN_RATIO = 0.9;
 
 /** Number of latest messages included in the deterministic recent context. */
 export const RECENT_CONTEXT_SOURCE_MESSAGE_COUNT = 20;
