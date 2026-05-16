@@ -1,3 +1,8 @@
+import crypto from 'node:crypto';
+import {realpathSync, statSync} from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+
 import type {SseEvent} from '@omnicraft/sse-events';
 import {afterEach, describe, expect, it, vi} from 'vitest';
 
@@ -480,7 +485,7 @@ describe('Agent compaction lifecycle', () => {
       () => Promise.resolve(MAIN_CONFIG),
       testAgentOptions(),
       {
-        id: 'agent-1',
+        id: crypto.randomUUID(),
         title: 'Existing Title',
         sseEventCount: 0,
         llmSession: {
@@ -690,7 +695,7 @@ describe('Agent abort flow', () => {
       () => Promise.resolve(MAIN_CONFIG),
       testAgentOptions(),
       {
-        id: 'agent-compaction-abort',
+        id: crypto.randomUUID(),
         title: 'Existing Title',
         sseEventCount: 0,
         llmSession: {
@@ -814,5 +819,87 @@ describe('Agent snapshot restore', () => {
           snapshot,
         ),
     ).toThrow('Snapshot is missing thinkingLevel');
+  });
+});
+
+describe('Agent default working directory', () => {
+  it('creates a per-id tmp directory for a fresh agent', () => {
+    const agent = new TestAgent(
+      () => Promise.resolve(MAIN_CONFIG),
+      testAgentOptions(),
+    );
+
+    const expected = path.join(realpathSync(os.tmpdir()), agent.id);
+    const {workingDirectory} = agent.toSnapshot().options;
+    expect(workingDirectory).toBe(expected);
+    expect(statSync(expected).isDirectory()).toBe(true);
+    // Owner-only access. On macOS the parent tmp dir is already 0o700, but
+    // we still assert the per-agent dir landed on the mode we asked for.
+    expect(statSync(expected).mode & 0o777).toBe(0o700);
+  });
+
+  it('creates a per-id tmp directory when restoring a snapshot without workingDirectory', () => {
+    const id = crypto.randomUUID();
+    const snapshot: AgentSnapshot = {
+      id,
+      title: 'Restored Session',
+      sseEventCount: 0,
+      llmSession: {
+        id: 'llm-session-id',
+        messages: [],
+        compactions: [],
+        latestUsageInputMessageCount: null,
+        usage: emptyUsage(),
+      },
+      options: {
+        thinkingLevel: 'high',
+      },
+    };
+
+    const agent = new TestAgent(
+      () => Promise.resolve(MAIN_CONFIG),
+      testAgentOptions(),
+      snapshot,
+    );
+
+    const expected = path.join(realpathSync(os.tmpdir()), id);
+    expect(agent.toSnapshot().options.workingDirectory).toBe(expected);
+    expect(statSync(expected).isDirectory()).toBe(true);
+  });
+
+  it('rejects snapshots whose id is not a UUID', () => {
+    const snapshot = {
+      id: '../escape',
+      title: 'Restored Session',
+      sseEventCount: 0,
+      llmSession: {
+        id: 'llm-session-id',
+        messages: [],
+        compactions: [],
+        latestUsageInputMessageCount: null,
+        usage: emptyUsage(),
+      },
+      options: {
+        thinkingLevel: 'high',
+      },
+    } as unknown as AgentSnapshot;
+
+    expect(
+      () =>
+        new TestAgent(
+          () => Promise.resolve(MAIN_CONFIG),
+          testAgentOptions(),
+          snapshot,
+        ),
+    ).toThrow();
+  });
+
+  it('respects an explicit workingDirectory and skips tmp dir creation', () => {
+    const explicit = realpathSync(os.tmpdir());
+    const agent = new TestAgent(() => Promise.resolve(MAIN_CONFIG), {
+      ...testAgentOptions(),
+      workingDirectory: explicit,
+    });
+    expect(agent.toSnapshot().options.workingDirectory).toBe(explicit);
   });
 });

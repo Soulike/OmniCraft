@@ -1,6 +1,6 @@
 import assert from 'node:assert';
 import crypto from 'node:crypto';
-import {mkdirSync, realpathSync} from 'node:fs';
+import {chmodSync, mkdirSync, realpathSync} from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -54,11 +54,22 @@ import {FileContentCache} from './state/file-content-cache.js';
 import {FileStatTracker} from './state/file-stat-tracker.js';
 import {TodoStore} from './state/todo-store.js';
 import {generateTitle} from './title/agent-title.js';
-import type {AgentEventStream, AgentOptions, AgentSnapshot} from './types.js';
+import {
+  type AgentEventStream,
+  type AgentOptions,
+  type AgentSnapshot,
+  agentSnapshotSchema,
+} from './types.js';
 
 function createAgentTmpDir(agentId: string): string {
+  // Defense in depth: agentId reaches here from snapshots on disk. Reject
+  // anything that isn't a UUID so path.join can't escape os.tmpdir().
+  agentSnapshotSchema.shape.id.parse(agentId);
   const dir = path.join(os.tmpdir(), agentId);
   mkdirSync(dir, {recursive: true, mode: 0o700});
+  // mkdir's `mode` is only applied on creation (and is masked by umask), so
+  // re-assert 0o700 to cover the "directory already exists" case.
+  chmodSync(dir, 0o700);
   return realpathSync(dir);
 }
 
