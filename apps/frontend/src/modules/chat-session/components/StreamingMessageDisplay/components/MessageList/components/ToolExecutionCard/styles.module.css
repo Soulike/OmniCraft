@@ -1,33 +1,104 @@
 .card {
-  border-radius: 12px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  overflow: hidden;
-  width: 600px;
+  border-radius: 6px;
+  width: 480px;
   max-width: 100%;
 }
 
+.card:has(.trigger[aria-expanded='true']) {
+  background: color-mix(in srgb, var(--surface) 52%, transparent);
+}
+
 .trigger {
-  display: flex;
+  display: grid;
+  grid-template-columns: 14px auto minmax(0, 1fr) 14px;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   width: 100%;
-  padding: 8px 12px;
+  min-height: 26px;
+  box-sizing: border-box;
+  padding: 2px 6px;
   cursor: pointer;
   background: none;
   border: none;
+  border-radius: 6px;
   color: inherit;
   font: inherit;
   text-align: left;
 }
 
+.trigger:hover {
+  background: color-mix(in srgb, var(--foreground) 4%, transparent);
+}
+
+.trigger:focus-visible {
+  outline: 1px solid color-mix(in srgb, var(--accent) 55%, transparent);
+  outline-offset: 2px;
+}
+
+.spinner,
+.statusDone,
+.statusFailure,
+.statusError {
+  grid-column: 1;
+  justify-self: center;
+}
+
+.spinner {
+  color: var(--muted);
+  height: 14px;
+  width: 14px;
+}
+
 .toolName {
-  font-weight: 600;
-  font-size: 0.875rem;
+  grid-column: 2;
+  font-weight: 500;
+  font-size: 0.8125rem;
+  line-height: 1.3;
+  white-space: nowrap;
+}
+
+.target,
+.targetCode {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.8125rem;
+  line-height: 1.25;
+}
+
+.target,
+.targetCode {
+  grid-column: 3;
+  color: var(--muted);
+}
+
+.targetCode {
+  font-family: monospace;
+}
+
+.indicator {
+  grid-column: 4;
+  justify-self: center;
+  color: var(--muted);
+  flex-shrink: 0;
+  opacity: 0.75;
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 .statusDone {
-  color: var(--success);
+  color: var(--muted);
   flex-shrink: 0;
 }
 
@@ -42,21 +113,21 @@
 }
 
 .body {
-  padding: 0 12px 12px;
+  padding: 4px 10px 8px;
 }
 
 .section {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 3px;
 }
 
 .section + .section {
-  margin-top: 8px;
+  margin-top: 6px;
 }
 
 .label {
-  font-size: 0.75rem;
+  font-size: 0.6875rem;
   font-weight: 600;
   color: var(--muted);
   text-transform: uppercase;
@@ -71,11 +142,11 @@
 
 .pre {
   margin: 0;
-  padding: 8px;
+  padding: 6px;
   background: var(--background);
-  border-radius: 6px;
+  border-radius: 5px;
   font-size: 0.8125rem;
-  line-height: 1.5;
+  line-height: 1.45;
   max-height: 200px;
   overflow: auto;
   white-space: pre-wrap;

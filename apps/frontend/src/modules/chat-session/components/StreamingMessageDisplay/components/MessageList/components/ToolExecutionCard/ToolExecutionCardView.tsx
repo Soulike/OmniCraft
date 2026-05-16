@@ -4,6 +4,7 @@ import {CircleAlert, CircleCheck, CircleX} from 'lucide-react';
 
 import {ParametersSection} from './components/ParametersSection/index.js';
 import {ResultSection} from './components/ResultSection/index.js';
+import {getToolPillContent} from './helpers/pill-content/get-tool-pill-content.js';
 import styles from './styles.module.css';
 
 interface ToolExecutionCardViewProps {
@@ -16,7 +17,7 @@ interface ToolExecutionCardViewProps {
   data?: AnyToolResultData;
 }
 
-const STATUS_ICON_SIZE = 16;
+const STATUS_ICON_SIZE = 14;
 
 export function ToolExecutionCardView({
   toolName,
@@ -27,12 +28,18 @@ export function ToolExecutionCardView({
   output,
   data,
 }: ToolExecutionCardViewProps) {
+  const pillContent = getToolPillContent({toolArguments, toolName});
+  const executionMeta = getExecutionMeta({output, status});
+
   return (
     <div className={styles.card}>
       <Disclosure>
         <Disclosure.Heading>
           <Disclosure.Trigger className={styles.trigger}>
-            {status === 'running' && <Spinner size='sm' />}
+            <span className={styles.srOnly}>Status: {executionMeta}</span>
+            {status === 'running' && (
+              <Spinner className={styles.spinner} size='sm' />
+            )}
             {status === 'done' && (
               <CircleCheck
                 className={styles.statusDone}
@@ -49,7 +56,13 @@ export function ToolExecutionCardView({
               <CircleX className={styles.statusError} size={STATUS_ICON_SIZE} />
             )}
             <span className={styles.toolName}>{displayName}</span>
-            <Disclosure.Indicator />
+            {pillContent.target !== null &&
+              (pillContent.targetKind === 'code' ? (
+                <code className={styles.targetCode}>{pillContent.target}</code>
+              ) : (
+                <span className={styles.target}>{pillContent.target}</span>
+              ))}
+            <Disclosure.Indicator className={styles.indicator} />
           </Disclosure.Trigger>
         </Disclosure.Heading>
         <Disclosure.Content>
@@ -85,4 +98,20 @@ export function ToolExecutionCardView({
       </Disclosure>
     </div>
   );
+}
+
+function getExecutionMeta({
+  output,
+  status,
+}: Pick<ToolExecutionCardViewProps, 'output' | 'status'>): string {
+  switch (status) {
+    case 'running':
+      return output ? 'live output' : 'running';
+    case 'done':
+      return 'done';
+    case 'failure':
+      return 'failed';
+    case 'error':
+      return 'error';
+  }
 }
