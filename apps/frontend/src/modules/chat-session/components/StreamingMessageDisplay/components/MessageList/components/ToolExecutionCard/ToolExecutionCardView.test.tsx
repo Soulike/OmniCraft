@@ -1,52 +1,36 @@
-import {describe, expect, it, vi} from 'vitest';
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  within,
+} from '@testing-library/react';
+import type {ReactNode} from 'react';
+import {afterEach, describe, expect, it, vi} from 'vitest';
 
-type JSDOMConstructor = new (
-  html: string,
-  options?: {url?: string},
-) => {window: Window & typeof globalThis};
+import {ToolExecutionCardView} from './ToolExecutionCardView.js';
 
-// @ts-expect-error jsdom is available in the workspace but has no bundled types.
-const {JSDOM} = (await import('jsdom')) as {JSDOM: JSDOMConstructor};
-const dom = new JSDOM('<!doctype html><html><body></body></html>', {
-  url: 'http://localhost',
+vi.mock('@heroui/react', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@heroui/react')>();
+  return {
+    ...actual,
+    ScrollShadow: ({
+      children,
+      className,
+    }: {
+      children?: ReactNode;
+      className?: string;
+    }) => <div className={className}>{children}</div>,
+  };
 });
-globalThis.window = dom.window as unknown as Window & typeof globalThis;
-globalThis.document = dom.window.document;
-globalThis.navigator = dom.window.navigator;
-for (const property of Object.getOwnPropertyNames(dom.window)) {
-  if (property in globalThis) continue;
-
-  const descriptor = Object.getOwnPropertyDescriptor(dom.window, property);
-  if (descriptor === undefined) continue;
-
-  Object.defineProperty(globalThis, property, descriptor);
-}
-globalThis.requestAnimationFrame = (callback: FrameRequestCallback) =>
-  window.setTimeout(() => {
-    callback(performance.now());
-  }, 0);
-globalThis.cancelAnimationFrame = (id: number) => {
-  window.clearTimeout(id);
-};
-globalThis.ResizeObserver = class ResizeObserver {
-  observe() {
-    return undefined;
-  }
-  unobserve() {
-    return undefined;
-  }
-  disconnect() {
-    return undefined;
-  }
-};
 
 vi.mock('./components/ResultSection/index.js', () => ({
   ResultSection: () => null,
 }));
 
-await import('@testing-library/jest-dom/vitest');
-const {render, screen} = await import('@testing-library/react');
-const {ToolExecutionCardView} = await import('./ToolExecutionCardView.js');
+afterEach(() => {
+  cleanup();
+});
 
 describe('ToolExecutionCardView', () => {
   it('renders display name, adapter target, adapter detail, and done meta for run_command', () => {
@@ -77,6 +61,53 @@ describe('ToolExecutionCardView', () => {
     );
 
     expect(screen.getByText('live output')).toBeInTheDocument();
+  });
+
+  it('renders running meta for a running tool with empty output', () => {
+    render(
+      <ToolExecutionCardView
+        arguments={JSON.stringify({command: 'bun test'})}
+        displayName='Run command'
+        output=''
+        status='running'
+        toolName='run_command'
+      />,
+    );
+
+    expect(screen.getByText('running')).toBeInTheDocument();
+    expect(screen.queryByText('live output')).not.toBeInTheDocument();
+  });
+
+  it('keeps details collapsed by default and shows them after expanding', () => {
+    render(
+      <ToolExecutionCardView
+        arguments={JSON.stringify({command: 'bun test', timeout: 30000})}
+        displayName='Run command'
+        output='watching files...'
+        status='running'
+        toolName='run_command'
+      />,
+    );
+
+    const trigger = screen.getByRole('button', {name: /Run command/});
+    expect(trigger).toHaveAttribute('aria-expanded', 'false');
+    const content = screen.getByRole('group', {hidden: true});
+    expect(content).toHaveAttribute('aria-hidden', 'true');
+
+    fireEvent.click(trigger);
+
+    expect(trigger).toHaveAttribute('aria-expanded', 'true');
+    expect(content).not.toHaveAttribute('aria-hidden', 'true');
+    expect(within(content).getByText('Tool')).toBeInTheDocument();
+    expect(within(content).getByText('run_command')).toBeInTheDocument();
+    expect(within(content).getByText('Parameters')).toBeInTheDocument();
+    expect(
+      within(content).getByText(
+        (_, element) => element?.textContent === '$ bun test',
+      ),
+    ).toBeInTheDocument();
+    expect(within(content).getByText('Output')).toBeInTheDocument();
+    expect(within(content).getByText('watching files...')).toBeInTheDocument();
   });
 
   it('renders failed and error meta for failure and error rows', () => {

@@ -114,7 +114,7 @@ function getExecutionMeta({
 }: Pick<ToolExecutionCardViewProps, 'output' | 'status'>): string {
   switch (status) {
     case 'running':
-      return output === undefined ? 'running' : 'live output';
+      return output ? 'live output' : 'running';
     case 'done':
       return 'done';
     case 'failure':

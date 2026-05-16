@@ -28,7 +28,10 @@
 
 .trigger {
   display: grid;
-  grid-template-columns: auto auto minmax(0, 1fr) minmax(0, auto) auto auto;
+  grid-template-columns: auto auto minmax(0, 1fr) minmax(
+      0,
+      min(12rem, 28%)
+    ) auto auto;
   align-items: center;
   gap: 8px;
   width: 100%;
@@ -72,6 +75,7 @@
 
 .detail {
   color: var(--muted);
+  max-width: min(12rem, 28vw);
 }
 
 .meta {
