@@ -1,82 +1,32 @@
 import assert from 'node:assert';
 import crypto from 'node:crypto';
-import {chmodSync, lstatSync, mkdirSync, realpathSync} from 'node:fs';
-import os from 'node:os';
-import path from 'node:path';
 
 import type {ThinkingLevel} from '@omnicraft/api-schema';
 import type {
-  SseContextCompactionEvent,
-  SseDoneEvent,
   SseEvent,
   SseEventCursorEntry,
-  SseMessageStartEvent,
   SseSessionTitleEvent,
-  SseSubAgentEvent,
-  SseTextDeltaEvent,
-  SseThinkingDeltaEvent,
-  SseThinkingEndEvent,
-  SseThinkingStartEvent,
-  SseTodoUpdateEvent,
-  SseToolExecuteDeltaEvent,
-  SseToolExecuteEndEvent,
-  SseToolExecuteStartEvent,
-  SseUsage,
-  SseUsageUpdateEvent,
 } from '@omnicraft/sse-events';
-import type {AnyToolResultData, ToolName} from '@omnicraft/tool-schemas';
 
-import {AsyncChannel} from '@/helpers/async-channel.js';
 import {Mutex} from '@/helpers/mutex.js';
 import {logger} from '@/logger.js';
 
 import {agentEventBus} from '../events/index.js';
-import type {LlmConfig, LlmToolCall} from '../llm-api/index.js';
-import type {LlmSessionEventStream, ToolResult} from '../llm-session/index.js';
+import type {LlmConfig} from '../llm-api/index.js';
 import {LlmSession} from '../llm-session/index.js';
-import {modelCapacity} from '../model-capacity/index.js';
-import type {
-  ShellState,
-  TodoState,
-  ToolDefinition,
-  ToolExecutionContext,
-} from '../tool/index.js';
-import {UserInteractionBridge} from '../user-interaction/index.js';
-import {
-  buildAvailableSkills,
-  buildAvailableTools,
-  buildSystemPrompt,
-} from './catalog/agent-catalog.js';
+import type {ToolDefinition} from '../tool/index.js';
+import {AgentRuntimeState} from './agent-runtime-state.js';
+import {agentTurnRunner} from './agent-turn-runner.js';
+import {agentWorkingDirectoryService} from './agent-working-directory-service.js';
 import type {AgentSseLogReaderOptions} from './events/agent-sse-log.js';
 import {AgentSseLog} from './events/agent-sse-log.js';
 import {agentPersistence} from './persistence/agent-persistence.js';
-import {FileContentCache} from './state/file-content-cache.js';
-import {FileStatTracker} from './state/file-stat-tracker.js';
-import {TodoStore} from './state/todo-store.js';
 import {generateTitle} from './title/agent-title.js';
 import {
   type AgentEventStream,
   type AgentOptions,
   type AgentSnapshot,
-  agentSnapshotSchema,
 } from './types.js';
-
-function createAgentTmpDir(agentId: string): string {
-  // Defense in depth: agentId reaches here from snapshots on disk. Reject
-  // anything that isn't a UUID so path.join can't escape os.tmpdir().
-  agentSnapshotSchema.shape.id.parse(agentId);
-  const dir = path.join(os.tmpdir(), agentId);
-  mkdirSync(dir, {recursive: true, mode: 0o700});
-  // lstat (not stat) so a pre-planted symlink at `dir` is rejected before
-  // chmod/realpath would follow it to a target we don't own.
-  if (!lstatSync(dir).isDirectory()) {
-    throw new Error(`Agent tmp path is not a real directory: ${dir}`);
-  }
-  // mkdir's `mode` is only applied on creation (and is masked by umask), so
-  // re-assert 0o700 to cover the "directory already exists" case.
-  chmodSync(dir, 0o700);
-  return realpathSync(dir);
-}
 
 /**
  * Base class for all agents.
@@ -112,23 +62,7 @@ export abstract class Agent {
 
   private sseEventCount = 0;
 
-  /** LRU file content cache, shared by all file-related tools. */
-  private readonly fileCache = new FileContentCache();
-
-  /** Tracks file stats for modification safety checks. */
-  private readonly fileStatTracker = new FileStatTracker();
-
-  /** Mutable shell state, shared by shell-related tools. */
-  private readonly shellState: ShellState;
-
-  /** Bridge for client-side tools that await user interaction. */
-  private readonly userInteractionBridge = new UserInteractionBridge();
-
-  /** In-memory todo list, shared by todo tools. */
-  private readonly todoStore = new TodoStore();
-
-  /** Mutable todo observation state, shared by todo tools. */
-  private readonly todoState: TodoState = {lastObservedVersion: undefined};
+  private readonly runtimeState: AgentRuntimeState;
 
   /** Append-only event log. All turns write to the same log. */
   readonly sseLog: AgentSseLog;
@@ -166,13 +100,15 @@ export abstract class Agent {
       this.title = snapshot.title;
       this.sseEventCount = snapshot.sseEventCount;
       this.workingDirectory =
-        snapshot.options.workingDirectory ?? createAgentTmpDir(this.id);
+        snapshot.options.workingDirectory ??
+        agentWorkingDirectoryService.createDefaultWorkingDirectory(this.id);
       this.llmSession = new LlmSession(getConfig, snapshot.llmSession);
     } else {
       this.thinkingLevel = options.thinkingLevel;
       this.id = crypto.randomUUID();
       this.workingDirectory =
-        options.workingDirectory ?? createAgentTmpDir(this.id);
+        options.workingDirectory ??
+        agentWorkingDirectoryService.createDefaultWorkingDirectory(this.id);
       this.llmSession = new LlmSession(getConfig);
     }
 
@@ -180,7 +116,7 @@ export abstract class Agent {
       ? new AgentSseLog(agentPersistence.eventsPath(this.sessionsDir, this.id))
       : new AgentSseLog();
 
-    this.shellState = {cwd: this.workingDirectory};
+    this.runtimeState = new AgentRuntimeState(this.workingDirectory);
 
     if (!snapshot && this.sessionsDir) {
       agentPersistence.persistSnapshot(
@@ -201,7 +137,7 @@ export abstract class Agent {
    * @returns `true` if a pending interaction was found and resolved.
    */
   submitUserResponse(id: string, result: unknown): boolean {
-    return this.userInteractionBridge.submitResponse(id, result);
+    return this.runtimeState.submitUserResponse(id, result);
   }
 
   /** Returns a serializable snapshot of this agent. */
@@ -317,40 +253,6 @@ export abstract class Agent {
     }
   }
 
-  private async *emitAbortCompletion(
-    inFlightToolCalls: Set<string>,
-    tools: readonly ToolDefinition[],
-    systemPrompt: string,
-    thinkingLevel: ThinkingLevel,
-  ): AgentEventStream {
-    for (const callId of inFlightToolCalls) {
-      yield {
-        type: 'tool-execute-end',
-        callId,
-        result: 'Aborted',
-        status: 'error',
-        data: {message: 'Aborted'},
-      } satisfies SseToolExecuteEndEvent;
-    }
-    yield* this.emitDoneAfterTurn(
-      'aborted',
-      tools,
-      systemPrompt,
-      thinkingLevel,
-    );
-  }
-
-  private async *emitDoneAfterTurn(
-    reason: SseDoneEvent['reason'],
-    tools: readonly ToolDefinition[],
-    systemPrompt: string,
-    thinkingLevel: ThinkingLevel,
-  ): AgentEventStream {
-    await this.compactAfterTurn(tools, systemPrompt, thinkingLevel);
-    yield await this.buildUsageUpdateEvent();
-    yield {type: 'done', reason} satisfies SseDoneEvent;
-  }
-
   private async compactAfterTurn(
     tools: readonly ToolDefinition[],
     systemPrompt: string,
@@ -372,247 +274,29 @@ export abstract class Agent {
     }
   }
 
-  protected async *runAgentLoop(
+  protected runAgentLoop(
     userMessage: string,
     thinkingLevel: ThinkingLevel,
     signal: AbortSignal,
   ): AgentEventStream {
-    const inFlightToolCalls = new Set<string>();
-    const maxRounds = await this.getMaxToolRounds();
-
-    const availableTools = buildAvailableTools(
-      this.toolRegistries,
-      this.skillRegistries,
-    );
-    const toolDefs = [...availableTools.values()];
-    const systemPrompt = buildSystemPrompt(
-      this.baseSystemPrompt,
-      this.toolRegistries,
-      this.skillRegistries,
-      this.workingDirectory,
-    );
-
-    const {
-      stream: userStream,
-      messageId,
-      createdAt,
-    } = this.llmSession.sendUserMessage(
+    return agentTurnRunner.run({
       userMessage,
-      toolDefs,
-      systemPrompt,
+      agentId: this.id,
+      sessionsDir: this.sessionsDir,
+      workingDirectory: this.workingDirectory,
       thinkingLevel,
       signal,
-    );
-
-    yield {
-      type: 'message-start',
-      role: 'user',
-      messageId,
-      createdAt,
-      content: userMessage,
-    } satisfies SseMessageStartEvent;
-
-    let toolCalls: LlmToolCall[];
-    try {
-      toolCalls = yield* this.consumeStream(userStream);
-    } catch (error: unknown) {
-      if (signal.aborted) {
-        yield* this.emitAbortCompletion(
-          inFlightToolCalls,
-          toolDefs,
-          systemPrompt,
-          thinkingLevel,
-        );
-        return;
-      }
-      throw error;
-    }
-    yield await this.buildUsageUpdateEvent();
-
-    let round = 0;
-    while (toolCalls.length > 0) {
-      if (signal.aborted) {
-        yield* this.emitAbortCompletion(
-          inFlightToolCalls,
-          toolDefs,
-          systemPrompt,
-          thinkingLevel,
-        );
-        return;
-      }
-
-      round++;
-      if (round > maxRounds) {
-        yield* this.emitDoneAfterTurn(
-          'max_rounds_reached',
-          toolDefs,
-          systemPrompt,
-          thinkingLevel,
-        );
-        return;
-      }
-
-      for (const toolCall of toolCalls) {
-        const tool = availableTools.get(toolCall.toolName);
-        if (!tool || tool.suppressToolEvents) continue;
-        inFlightToolCalls.add(toolCall.callId);
-        yield {
-          type: 'tool-execute-start',
-          callId: toolCall.callId,
-          toolName: tool.name as ToolName,
-          displayName: tool.displayName,
-          arguments: toolCall.arguments,
-        } satisfies SseToolExecuteStartEvent;
-      }
-
-      const toolSseEventChannel = new AsyncChannel<
-        | SseToolExecuteEndEvent
-        | SseToolExecuteDeltaEvent
-        | SseSubAgentEvent
-        | SseTodoUpdateEvent
-      >();
-      const toolResults = new Map<string, ToolResult>();
-
-      for (const toolCall of toolCalls) {
-        if (availableTools.has(toolCall.toolName)) continue;
-        toolResults.set(toolCall.callId, {
-          callId: toolCall.callId,
-          content: `Error: Unknown tool: ${toolCall.toolName}`,
-          status: 'failure',
-        });
-      }
-
-      const executions = toolCalls
-        .filter((tc) => availableTools.has(tc.toolName))
-        .map(async (toolCall) => {
-          const todoVersionBefore = this.todoStore.version;
-
-          const result = await this.executeTool(
-            toolCall,
-            availableTools,
-            toolSseEventChannel,
-            signal,
-          );
-
-          const tool = availableTools.get(toolCall.toolName);
-          if (!tool?.suppressToolEvents) {
-            toolSseEventChannel.push({
-              type: 'tool-execute-end' as const,
-              callId: toolCall.callId,
-              result: result.content,
-              status: result.status,
-              data: result.data,
-            } satisfies SseToolExecuteEndEvent);
-          }
-
-          // Emit todo snapshot whenever a tool mutated the store.
-          if (this.todoStore.version !== todoVersionBefore) {
-            toolSseEventChannel.push({
-              type: 'todo-update',
-              items: this.todoStore.list(),
-            } satisfies SseTodoUpdateEvent);
-          }
-
-          toolResults.set(toolCall.callId, {
-            callId: toolCall.callId,
-            content: result.content,
-            status: result.status === 'success' ? 'success' : 'failure',
-          });
-        });
-
-      void Promise.all(executions)
-        .catch(() => {
-          // Individual tool errors are already handled by executeTool.
-          // This catch prevents an unhandled rejection from hanging the channel.
-        })
-        .finally(() => {
-          toolSseEventChannel.close();
-        });
-
-      for await (const event of toolSseEventChannel) {
-        if (event.type === 'tool-execute-end') {
-          inFlightToolCalls.delete(event.callId);
-        }
-        yield event;
-        // signal.aborted may have changed during async tool execution
-        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-        if (signal.aborted) break;
-      }
-
-      // signal.aborted may have changed during async tool execution
-      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-      if (signal.aborted) {
-        yield* this.emitAbortCompletion(
-          inFlightToolCalls,
-          toolDefs,
-          systemPrompt,
-          thinkingLevel,
-        );
-        return;
-      }
-
-      const orderedResults = toolCalls.flatMap((tc) => {
-        const result = toolResults.get(tc.callId);
-        return result ? [result] : [];
-      });
-
-      try {
-        toolCalls = yield* this.consumeStream(
-          this.llmSession.submitToolResults(
-            orderedResults,
-            toolDefs,
-            systemPrompt,
-            thinkingLevel,
-            signal,
-          ),
-        );
-      } catch (error: unknown) {
-        // signal.aborted may have changed during async stream consumption
-        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-        if (signal.aborted) {
-          yield* this.emitAbortCompletion(
-            inFlightToolCalls,
-            toolDefs,
-            systemPrompt,
-            thinkingLevel,
-          );
-          return;
-        }
-        throw error;
-      }
-      yield await this.buildUsageUpdateEvent();
-    }
-
-    yield* this.emitDoneAfterTurn(
-      'complete',
-      toolDefs,
-      systemPrompt,
-      thinkingLevel,
-    );
-  }
-
-  /**
-   * Builds the full SseUsage object by combining LLM session token counts
-   * with model metadata from the config.
-   */
-  private async buildSseUsage(): Promise<SseUsage> {
-    const config = await this.getConfig();
-    const contextWindowTokens = await modelCapacity.getMaxPromptTokens(config);
-    const usage = this.llmSession.getUsage();
-    return {
-      model: config.model,
-      contextWindowTokens,
-      ...usage,
-      thinkingLevel: this.thinkingLevel,
-    };
-  }
-
-  /** Builds a real-time `usage-update` SSE event with the latest token totals. */
-  private async buildUsageUpdateEvent(): Promise<SseUsageUpdateEvent> {
-    return {
-      type: 'usage-update',
-      usage: await this.buildSseUsage(),
-    };
+      llmSession: this.llmSession,
+      runtimeState: this.runtimeState,
+      toolRegistries: this.toolRegistries,
+      skillRegistries: this.skillRegistries,
+      baseSystemPrompt: this.baseSystemPrompt,
+      getConfig: this.getConfig,
+      getLightConfig: this.getLightConfig ?? this.getConfig,
+      getMaxToolRounds: this.getMaxToolRounds,
+      compactAfterTurn: (tools, systemPrompt, compactThinkingLevel) =>
+        this.compactAfterTurn(tools, systemPrompt, compactThinkingLevel),
+    });
   }
 
   /**
@@ -631,119 +315,5 @@ export abstract class Agent {
     await this.persistSnapshot().catch((err: unknown) => {
       logger.error({err}, 'Failed to persist snapshot after title generation');
     });
-  }
-
-  /**
-   * Consumes an LLM event stream, yielding text, thinking, message-start,
-   * and compaction SSE events to the caller and collecting tool-call events.
-   * Returns the collected tool calls.
-   */
-  private async *consumeStream(
-    stream: LlmSessionEventStream,
-  ): AsyncGenerator<
-    | SseTextDeltaEvent
-    | SseThinkingStartEvent
-    | SseThinkingDeltaEvent
-    | SseThinkingEndEvent
-    | SseMessageStartEvent
-    | SseContextCompactionEvent,
-    LlmToolCall[],
-    undefined
-  > {
-    const toolCalls: LlmToolCall[] = [];
-    for await (const event of stream) {
-      switch (event.type) {
-        case 'text-delta':
-        case 'thinking-start':
-        case 'thinking-delta':
-        case 'thinking-end':
-          yield event;
-          break;
-        case 'message-start':
-          yield {
-            type: 'message-start',
-            role: 'assistant',
-            messageId: event.messageId,
-            createdAt: event.createdAt,
-            content: '',
-          } satisfies SseMessageStartEvent;
-          break;
-        case 'tool-call':
-          toolCalls.push(event.toolCall);
-          break;
-        case 'compaction-sse':
-          yield event.event;
-          break;
-      }
-    }
-    return toolCalls;
-  }
-
-  /**
-   * Executes a single tool call. Returns the result content and execution status.
-   * Assembles onOutput and onSubAgentEvent callbacks from the channel.
-   */
-  private async executeTool(
-    toolCall: LlmToolCall,
-    availableTools: ReadonlyMap<string, ToolDefinition>,
-    toolSseEventChannel: AsyncChannel<
-      | SseToolExecuteEndEvent
-      | SseToolExecuteDeltaEvent
-      | SseSubAgentEvent
-      | SseTodoUpdateEvent
-    >,
-    signal: AbortSignal,
-  ): Promise<{
-    content: string;
-    status: 'success' | 'failure' | 'error';
-    data: AnyToolResultData;
-  }> {
-    const tool = availableTools.get(toolCall.toolName);
-    assert(tool, `executeTool called with unknown tool: ${toolCall.toolName}`);
-
-    const onOutput = tool.suppressToolEvents
-      ? undefined
-      : (chunk: string) => {
-          toolSseEventChannel.push({
-            type: 'tool-execute-delta',
-            callId: toolCall.callId,
-            content: chunk,
-          } satisfies SseToolExecuteDeltaEvent);
-        };
-
-    const context: ToolExecutionContext = {
-      callId: toolCall.callId,
-      agentId: this.id,
-      sessionsDir: this.sessionsDir,
-      availableSkills: buildAvailableSkills(this.skillRegistries),
-      workingDirectory: this.workingDirectory,
-      fileCache: this.fileCache,
-      fileStatTracker: this.fileStatTracker,
-      shellState: this.shellState,
-      signal,
-      onSubAgentEvent: (event) => {
-        toolSseEventChannel.push(event);
-      },
-      userInteractionBridge: this.userInteractionBridge,
-      todoStore: this.todoStore,
-      todoState: this.todoState,
-      getConfig: this.getConfig,
-      getLightConfig: this.getLightConfig ?? this.getConfig,
-    };
-
-    try {
-      const parsedArgs: unknown = tool.parameters.parse(
-        JSON.parse(toolCall.arguments),
-      );
-      const result = await tool.execute(parsedArgs, context, onOutput);
-      return {
-        content: result.content,
-        status: result.status,
-        data: result.data as AnyToolResultData,
-      };
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : String(error);
-      return {content: `Error: ${message}`, status: 'error', data: {message}};
-    }
   }
 }
