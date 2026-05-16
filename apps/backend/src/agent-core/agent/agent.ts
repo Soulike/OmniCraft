@@ -11,7 +11,6 @@ import type {
   SseTodoUpdateEvent,
   SseToolExecuteEndEvent,
   SseToolExecuteStartEvent,
-  SseUsage,
   SseUsageUpdateEvent,
 } from '@omnicraft/sse-events';
 import type {ToolName} from '@omnicraft/tool-schemas';
@@ -24,7 +23,6 @@ import {agentEventBus} from '../events/index.js';
 import type {LlmConfig, LlmToolCall} from '../llm-api/index.js';
 import type {ToolResult} from '../llm-session/index.js';
 import {LlmSession} from '../llm-session/index.js';
-import {modelCapacity} from '../model-capacity/index.js';
 import type {ToolDefinition} from '../tool/index.js';
 import {AgentRuntimeState} from './agent-runtime-state.js';
 import {agentStreamConsumer} from './agent-stream-consumer.js';
@@ -32,6 +30,7 @@ import {
   agentToolExecutor,
   type AgentToolSseEvent,
 } from './agent-tool-executor.js';
+import {agentUsageReporter} from './agent-usage-reporter.js';
 import {agentWorkingDirectoryService} from './agent-working-directory-service.js';
 import {
   buildAvailableSkills,
@@ -550,28 +549,13 @@ export abstract class Agent {
     );
   }
 
-  /**
-   * Builds the full SseUsage object by combining LLM session token counts
-   * with model metadata from the config.
-   */
-  private async buildSseUsage(): Promise<SseUsage> {
-    const config = await this.getConfig();
-    const contextWindowTokens = await modelCapacity.getMaxPromptTokens(config);
-    const usage = this.llmSession.getUsage();
-    return {
-      model: config.model,
-      contextWindowTokens,
-      ...usage,
-      thinkingLevel: this.thinkingLevel,
-    };
-  }
-
   /** Builds a real-time `usage-update` SSE event with the latest token totals. */
   private async buildUsageUpdateEvent(): Promise<SseUsageUpdateEvent> {
-    return {
-      type: 'usage-update',
-      usage: await this.buildSseUsage(),
-    };
+    return agentUsageReporter.buildUsageUpdateEvent({
+      getConfig: this.getConfig,
+      llmSession: this.llmSession,
+      thinkingLevel: this.thinkingLevel,
+    });
   }
 
   /**
