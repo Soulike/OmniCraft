@@ -55,6 +55,7 @@ Create `apps/frontend/src/modules/chat-session/components/StreamingMessageDispla
 
 ```typescript
 import type {ToolName} from '@omnicraft/tool-schemas';
+import {ZodError} from 'zod';
 import {describe, expect, it} from 'vitest';
 
 import {getToolPillContent} from './getToolPillContent.js';
@@ -504,11 +505,21 @@ interface GetToolPillContentInput {
 export function getToolPillContent(
   input: GetToolPillContentInput,
 ): ToolExecutionPillContent {
+  if (input.toolName === 'ask_user') {
+    throw new Error(
+      'ask_user is a client-side tool and should not reach getToolPillContent',
+    );
+  }
+
   try {
     const parsed: unknown = JSON.parse(input.toolArguments);
     return getKnownToolPillContent(input.toolName, parsed);
-  } catch {
-    return fallbackToolPillContent(input);
+  } catch (error) {
+    if (error instanceof SyntaxError || error instanceof ZodError) {
+      return fallbackToolPillContent(input);
+    }
+
+    throw error;
   }
 }
 
@@ -539,8 +550,6 @@ function getKnownToolPillContent(
       return getLoadSkillPillContent(parsed);
     case 'get_current_time':
       return getCurrentTimePillContent();
-    case 'ask_user':
-      throw new Error('ask_user does not render through ToolExecutionCard');
   }
 }
 ```

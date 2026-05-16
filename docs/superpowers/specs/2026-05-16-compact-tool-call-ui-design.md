@@ -142,9 +142,9 @@ Recommended adapter ownership:
 | `load_skill`       | Skill-name target.                              |
 | `get_current_time` | Current-time target.                            |
 
-`ask_user` does not need a summary because it does not render through `ToolExecutionCard`.
+`ask_user` does not need a summary because it does not render through `ToolExecutionCard`. If `ask_user` reaches `getToolPillContent.ts`, treat that as a component-boundary bug and throw an assertion-style error instead of falling back.
 
-Fallback behavior: if parsing or schema validation fails, use `toolName` as the target, `code` as `targetKind`, and `null` as the tool-owned detail. The shell still renders `displayName` and the status-derived execution meta.
+Fallback behavior: if parsing or schema validation fails for a tool that does render through `ToolExecutionCard`, use `toolName` as the target, `code` as `targetKind`, and `null` as the tool-owned detail. The shell still renders `displayName` and the status-derived execution meta.
 
 ### Component Boundaries
 
