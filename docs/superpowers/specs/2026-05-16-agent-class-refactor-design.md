@@ -146,7 +146,7 @@ apps/backend/src/agent-core/agent/
   types.ts
 
   agent-runtime-state.ts
-  agent-stream-consumer.ts
+  agent-llm-stream-translator.ts
   agent-tool-executor.ts
   agent-turn-runner.ts
   agent-usage-reporter.ts
@@ -181,7 +181,7 @@ Responsibilities:
 - working-directory creation to `agentWorkingDirectoryService`;
 - loop execution to `agentTurnRunner`;
 - usage payload creation to `agentUsageReporter`;
-- stream translation to `agentStreamConsumer` through the turn runner;
+- stream translation to `agentLlmStreamTranslator` through the turn runner;
 - tool execution to `agentToolExecutor` through the turn runner.
 
 ### `AgentRuntimeState`
@@ -238,9 +238,9 @@ Responsibilities:
 
 This is a direct extraction of `createAgentTmpDir()`.
 
-### `AgentStreamConsumer`
+### `AgentLlmStreamTranslator`
 
-`AgentStreamConsumer` is stateless and exported as `agentStreamConsumer`.
+`AgentLlmStreamTranslator` is stateless and exported as `agentLlmStreamTranslator`.
 
 Responsibilities:
 
@@ -296,7 +296,7 @@ Responsibilities:
 - build the system prompt;
 - send the user message to `LlmSession`;
 - emit the user `message-start` event;
-- consume model streams through `agentStreamConsumer`;
+- consume model streams through `agentLlmStreamTranslator`;
 - execute tools through `agentToolExecutor`;
 - emit tool-start, tool-delta, tool-end, subagent, and todo-update events;
 - preserve tool-result ordering when submitting results back to `LlmSession`;
@@ -397,7 +397,7 @@ Coverage should include:
 
 - `AgentWorkingDirectoryService` rejects invalid snapshot IDs and returns a real
   isolated directory.
-- `AgentStreamConsumer` preserves stream-to-SSE mapping and collected tool calls.
+- `AgentLlmStreamTranslator` preserves stream-to-SSE mapping and collected tool calls.
 - `AgentToolExecutor` returns success, failure, and error results with the same
   content/status/data semantics as today.
 - `AgentToolExecutor` sends output chunks, subagent events, and user interaction
@@ -411,7 +411,7 @@ Coverage should include:
 
 - Land the refactor in small behavior-preserving steps. Extract the simple
   modules first (`AgentWorkingDirectoryService`, `AgentRuntimeState`,
-  `AgentStreamConsumer`) before moving the larger turn runner.
+  `AgentLlmStreamTranslator`) before moving the larger turn runner.
 - Keep imports object-named and close to the primary export, matching the
   compaction package style.
 - Prefer input-object types for singleton services so method signatures remain

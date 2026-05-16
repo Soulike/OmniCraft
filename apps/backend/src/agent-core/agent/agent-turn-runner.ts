@@ -14,8 +14,8 @@ import type {LlmConfig, LlmToolCall} from '../llm-api/index.js';
 import type {LlmSession, ToolResult} from '../llm-session/index.js';
 import type {SkillRegistry} from '../skill/index.js';
 import type {ToolDefinition, ToolRegistry} from '../tool/index.js';
+import {agentLlmStreamTranslator} from './agent-llm-stream-translator.js';
 import type {AgentRuntimeState} from './agent-runtime-state.js';
-import {agentStreamConsumer} from './agent-stream-consumer.js';
 import {
   agentToolExecutor,
   type AgentToolSseEvent,
@@ -90,7 +90,7 @@ export class AgentTurnRunner {
 
     let toolCalls: LlmToolCall[];
     try {
-      toolCalls = yield* agentStreamConsumer.consume(userStream);
+      toolCalls = yield* agentLlmStreamTranslator.consume(userStream);
     } catch (error: unknown) {
       if (input.signal.aborted) {
         yield* this.emitAbortCompletion({
@@ -231,7 +231,7 @@ export class AgentTurnRunner {
       });
 
       try {
-        toolCalls = yield* agentStreamConsumer.consume(
+        toolCalls = yield* agentLlmStreamTranslator.consume(
           input.llmSession.submitToolResults(
             orderedResults,
             toolDefs,

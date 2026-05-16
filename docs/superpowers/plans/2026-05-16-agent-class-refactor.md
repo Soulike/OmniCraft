@@ -16,8 +16,8 @@
 - Create: `apps/backend/src/agent-core/agent/agent-working-directory-service.test.ts` - focused coverage for default working-directory creation and invalid IDs.
 - Create: `apps/backend/src/agent-core/agent/agent-runtime-state.ts` - per-agent state holder for caches, shell cwd, todo state, and user interaction bridge.
 - Create: `apps/backend/src/agent-core/agent/agent-runtime-state.test.ts` - focused coverage that runtime state is isolated per instance and builds tool contexts correctly.
-- Create: `apps/backend/src/agent-core/agent/agent-stream-consumer.ts` - stateless singleton that converts `LlmSessionEventStream` events into SSE events while collecting tool calls.
-- Create: `apps/backend/src/agent-core/agent/agent-stream-consumer.test.ts` - focused stream mapping tests.
+- Create: `apps/backend/src/agent-core/agent/agent-llm-stream-translator.ts` - stateless singleton that converts `LlmSessionEventStream` events into SSE events while collecting tool calls.
+- Create: `apps/backend/src/agent-core/agent/agent-llm-stream-translator.test.ts` - focused stream mapping tests.
 - Create: `apps/backend/src/agent-core/agent/agent-tool-executor.ts` - stateless singleton that executes one tool call using passed-in per-agent state.
 - Create: `apps/backend/src/agent-core/agent/agent-tool-executor.test.ts` - focused tool execution tests for success, output events, subagent events, and errors.
 - Create: `apps/backend/src/agent-core/agent/agent-usage-reporter.ts` - stateless singleton that builds `SseUsage` and `usage-update` events.
@@ -534,14 +534,14 @@ git commit -m "refactor: isolate agent runtime state" -m "Co-authored-by: Copilo
 
 **Files:**
 
-- Create: `apps/backend/src/agent-core/agent/agent-stream-consumer.ts`
-- Create: `apps/backend/src/agent-core/agent/agent-stream-consumer.test.ts`
+- Create: `apps/backend/src/agent-core/agent/agent-llm-stream-translator.ts`
+- Create: `apps/backend/src/agent-core/agent/agent-llm-stream-translator.test.ts`
 - Modify: `apps/backend/src/agent-core/agent/agent.ts`
 - Test: `apps/backend/src/agent-core/agent/agent.test.ts`
 
 - [ ] **Step 1: Write the failing stream-consumer test**
 
-Create `apps/backend/src/agent-core/agent/agent-stream-consumer.test.ts`:
+Create `apps/backend/src/agent-core/agent/agent-llm-stream-translator.test.ts`:
 
 ```typescript
 import {describe, expect, it} from 'vitest';
@@ -549,14 +549,14 @@ import {describe, expect, it} from 'vitest';
 import type {LlmToolCall} from '../llm-api/index.js';
 import type {LlmSessionEventStream} from '../llm-session/index.js';
 import {
-  type AgentStreamConsumerEvent,
-  agentStreamConsumer,
-} from './agent-stream-consumer.js';
+  type AgentLlmStreamTranslatorEvent,
+  agentLlmStreamTranslator,
+} from './agent-llm-stream-translator.js';
 
 async function collectWithReturn<TReturn>(
-  stream: AsyncGenerator<AgentStreamConsumerEvent, TReturn, undefined>,
-): Promise<{events: AgentStreamConsumerEvent[]; result: TReturn}> {
-  const events: AgentStreamConsumerEvent[] = [];
+  stream: AsyncGenerator<AgentLlmStreamTranslatorEvent, TReturn, undefined>,
+): Promise<{events: AgentLlmStreamTranslatorEvent[]; result: TReturn}> {
+  const events: AgentLlmStreamTranslatorEvent[] = [];
   for (;;) {
     const next = await stream.next();
     if (next.done) {
@@ -566,7 +566,7 @@ async function collectWithReturn<TReturn>(
   }
 }
 
-describe('AgentStreamConsumer', () => {
+describe('AgentLlmStreamTranslator', () => {
   it('yields SSE events and returns collected tool calls', async () => {
     const toolCall: LlmToolCall = {
       callId: 'call-1',
@@ -598,7 +598,7 @@ describe('AgentStreamConsumer', () => {
     }
 
     const {events, result} = await collectWithReturn(
-      agentStreamConsumer.consume(llmStream()),
+      agentLlmStreamTranslator.consume(llmStream()),
     );
 
     expect(events).toEqual([
@@ -631,14 +631,14 @@ describe('AgentStreamConsumer', () => {
 Run:
 
 ```bash
-bun --filter '@omnicraft/backend' test src/agent-core/agent/agent-stream-consumer.test.ts
+bun --filter '@omnicraft/backend' test src/agent-core/agent/agent-llm-stream-translator.test.ts
 ```
 
-Expected: fail because `agent-stream-consumer.js` does not exist.
+Expected: fail because `agent-llm-stream-translator.js` does not exist.
 
 - [ ] **Step 3: Create the stream consumer**
 
-Create `apps/backend/src/agent-core/agent/agent-stream-consumer.ts`:
+Create `apps/backend/src/agent-core/agent/agent-llm-stream-translator.ts`:
 
 ```typescript
 import type {
@@ -653,7 +653,7 @@ import type {
 import type {LlmToolCall} from '../llm-api/index.js';
 import type {LlmSessionEventStream} from '../llm-session/index.js';
 
-export type AgentStreamConsumerEvent =
+export type AgentLlmStreamTranslatorEvent =
   | SseTextDeltaEvent
   | SseThinkingStartEvent
   | SseThinkingDeltaEvent
@@ -661,10 +661,10 @@ export type AgentStreamConsumerEvent =
   | SseMessageStartEvent
   | SseContextCompactionEvent;
 
-export class AgentStreamConsumer {
+export class AgentLlmStreamTranslator {
   async *consume(
     stream: LlmSessionEventStream,
-  ): AsyncGenerator<AgentStreamConsumerEvent, LlmToolCall[], undefined> {
+  ): AsyncGenerator<AgentLlmStreamTranslatorEvent, LlmToolCall[], undefined> {
     const toolCalls: LlmToolCall[] = [];
     for await (const event of stream) {
       switch (event.type) {
@@ -695,7 +695,7 @@ export class AgentStreamConsumer {
   }
 }
 
-export const agentStreamConsumer = new AgentStreamConsumer();
+export const agentLlmStreamTranslator = new AgentLlmStreamTranslator();
 ```
 
 - [ ] **Step 4: Wire `Agent` to the stream consumer**
@@ -703,7 +703,7 @@ export const agentStreamConsumer = new AgentStreamConsumer();
 In `apps/backend/src/agent-core/agent/agent.ts`, add:
 
 ```typescript
-import {agentStreamConsumer} from './agent-stream-consumer.js';
+import {agentLlmStreamTranslator} from './agent-llm-stream-translator.js';
 ```
 
 Replace:
@@ -715,7 +715,7 @@ toolCalls = yield * this.consumeStream(userStream);
 with:
 
 ```typescript
-toolCalls = yield * agentStreamConsumer.consume(userStream);
+toolCalls = yield * agentLlmStreamTranslator.consume(userStream);
 ```
 
 Replace:
@@ -739,7 +739,7 @@ with:
 ```typescript
 toolCalls =
   yield *
-  agentStreamConsumer.consume(
+  agentLlmStreamTranslator.consume(
     this.llmSession.submitToolResults(
       orderedResults,
       toolDefs,
@@ -768,7 +768,7 @@ LlmSessionEventStream,
 Run:
 
 ```bash
-bun --filter '@omnicraft/backend' test src/agent-core/agent/agent-stream-consumer.test.ts src/agent-core/agent/agent.test.ts
+bun --filter '@omnicraft/backend' test src/agent-core/agent/agent-llm-stream-translator.test.ts src/agent-core/agent/agent.test.ts
 ```
 
 Expected: pass, with existing stream, usage, compaction, and abort tests unchanged.
@@ -776,7 +776,7 @@ Expected: pass, with existing stream, usage, compaction, and abort tests unchang
 - [ ] **Step 6: Commit**
 
 ```bash
-git add apps/backend/src/agent-core/agent/agent-stream-consumer.ts apps/backend/src/agent-core/agent/agent-stream-consumer.test.ts apps/backend/src/agent-core/agent/agent.ts
+git add apps/backend/src/agent-core/agent/agent-llm-stream-translator.ts apps/backend/src/agent-core/agent/agent-llm-stream-translator.test.ts apps/backend/src/agent-core/agent/agent.ts
 git commit -m "refactor: extract agent stream consumer" -m "Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>"
 ```
 
@@ -1367,7 +1367,7 @@ import {
   buildSystemPrompt,
 } from './catalog/agent-catalog.js';
 import type {AgentRuntimeState} from './agent-runtime-state.js';
-import {agentStreamConsumer} from './agent-stream-consumer.js';
+import {agentLlmStreamTranslator} from './agent-llm-stream-translator.js';
 import {
   type AgentToolSseEvent,
   agentToolExecutor,
@@ -1453,7 +1453,7 @@ export class AgentTurnRunner {
 
     let toolCalls: LlmToolCall[];
     try {
-      toolCalls = yield* agentStreamConsumer.consume(userStream);
+      toolCalls = yield* agentLlmStreamTranslator.consume(userStream);
     } catch (error: unknown) {
       if (input.signal.aborted) {
         yield* this.emitAbortCompletion({
@@ -1594,7 +1594,7 @@ export class AgentTurnRunner {
       });
 
       try {
-        toolCalls = yield* agentStreamConsumer.consume(
+        toolCalls = yield* agentLlmStreamTranslator.consume(
           input.llmSession.submitToolResults(
             orderedResults,
             toolDefs,
@@ -1749,7 +1749,7 @@ import {
   buildAvailableTools,
   buildSystemPrompt,
 } from './catalog/agent-catalog.js';
-import {agentStreamConsumer} from './agent-stream-consumer.js';
+import {agentLlmStreamTranslator} from './agent-llm-stream-translator.js';
 import {
   type AgentToolSseEvent,
   agentToolExecutor,
@@ -1827,7 +1827,7 @@ bun --filter '@omnicraft/backend' lint
 Expected: pass with no ESLint errors. If lint reports formatting or line-length changes in the new files, run Prettier on the touched files:
 
 ```bash
-bun prettier --write --ignore-unknown apps/backend/src/agent-core/agent/agent.ts apps/backend/src/agent-core/agent/agent-working-directory-service.ts apps/backend/src/agent-core/agent/agent-working-directory-service.test.ts apps/backend/src/agent-core/agent/agent-runtime-state.ts apps/backend/src/agent-core/agent/agent-runtime-state.test.ts apps/backend/src/agent-core/agent/agent-stream-consumer.ts apps/backend/src/agent-core/agent/agent-stream-consumer.test.ts apps/backend/src/agent-core/agent/agent-tool-executor.ts apps/backend/src/agent-core/agent/agent-tool-executor.test.ts apps/backend/src/agent-core/agent/agent-usage-reporter.ts apps/backend/src/agent-core/agent/agent-usage-reporter.test.ts apps/backend/src/agent-core/agent/agent-turn-runner.ts
+bun prettier --write --ignore-unknown apps/backend/src/agent-core/agent/agent.ts apps/backend/src/agent-core/agent/agent-working-directory-service.ts apps/backend/src/agent-core/agent/agent-working-directory-service.test.ts apps/backend/src/agent-core/agent/agent-runtime-state.ts apps/backend/src/agent-core/agent/agent-runtime-state.test.ts apps/backend/src/agent-core/agent/agent-llm-stream-translator.ts apps/backend/src/agent-core/agent/agent-llm-stream-translator.test.ts apps/backend/src/agent-core/agent/agent-tool-executor.ts apps/backend/src/agent-core/agent/agent-tool-executor.test.ts apps/backend/src/agent-core/agent/agent-usage-reporter.ts apps/backend/src/agent-core/agent/agent-usage-reporter.test.ts apps/backend/src/agent-core/agent/agent-turn-runner.ts
 ```
 
 Then re-run:

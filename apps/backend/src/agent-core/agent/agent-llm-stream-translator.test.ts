@@ -3,14 +3,14 @@ import {describe, expect, it} from 'vitest';
 import type {LlmToolCall} from '../llm-api/index.js';
 import type {LlmSessionEventStream} from '../llm-session/index.js';
 import {
-  agentStreamConsumer,
-  type AgentStreamConsumerEvent,
-} from './agent-stream-consumer.js';
+  agentLlmStreamTranslator,
+  type AgentLlmStreamTranslatorEvent,
+} from './agent-llm-stream-translator.js';
 
 async function collectWithReturn<TReturn>(
-  stream: AsyncGenerator<AgentStreamConsumerEvent, TReturn, undefined>,
-): Promise<{events: AgentStreamConsumerEvent[]; result: TReturn}> {
-  const events: AgentStreamConsumerEvent[] = [];
+  stream: AsyncGenerator<AgentLlmStreamTranslatorEvent, TReturn, undefined>,
+): Promise<{events: AgentLlmStreamTranslatorEvent[]; result: TReturn}> {
+  const events: AgentLlmStreamTranslatorEvent[] = [];
   for (;;) {
     const next = await stream.next();
     if (next.done) {
@@ -20,7 +20,7 @@ async function collectWithReturn<TReturn>(
   }
 }
 
-describe('AgentStreamConsumer', () => {
+describe('AgentLlmStreamTranslator', () => {
   it('yields SSE events and returns collected tool calls', async () => {
     const toolCall: LlmToolCall = {
       callId: 'call-1',
@@ -53,7 +53,7 @@ describe('AgentStreamConsumer', () => {
     }
 
     const {events, result} = await collectWithReturn(
-      agentStreamConsumer.consume(llmStream()),
+      agentLlmStreamTranslator.consume(llmStream()),
     );
 
     expect(events).toEqual([

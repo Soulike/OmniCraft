@@ -10,7 +10,7 @@ import type {
 import type {LlmToolCall} from '../llm-api/index.js';
 import type {LlmSessionEventStream} from '../llm-session/index.js';
 
-export type AgentStreamConsumerEvent =
+export type AgentLlmStreamTranslatorEvent =
   | SseTextDeltaEvent
   | SseThinkingStartEvent
   | SseThinkingDeltaEvent
@@ -18,10 +18,10 @@ export type AgentStreamConsumerEvent =
   | SseMessageStartEvent
   | SseContextCompactionEvent;
 
-export class AgentStreamConsumer {
+export class AgentLlmStreamTranslator {
   async *consume(
     stream: LlmSessionEventStream,
-  ): AsyncGenerator<AgentStreamConsumerEvent, LlmToolCall[], undefined> {
+  ): AsyncGenerator<AgentLlmStreamTranslatorEvent, LlmToolCall[], undefined> {
     const toolCalls: LlmToolCall[] = [];
     for await (const event of stream) {
       switch (event.type) {
@@ -52,4 +52,4 @@ export class AgentStreamConsumer {
   }
 }
 
-export const agentStreamConsumer = new AgentStreamConsumer();
+export const agentLlmStreamTranslator = new AgentLlmStreamTranslator();
