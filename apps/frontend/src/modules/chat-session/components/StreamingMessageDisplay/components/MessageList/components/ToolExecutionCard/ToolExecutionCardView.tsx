@@ -44,6 +44,7 @@ export function ToolExecutionCardView({
       <Disclosure>
         <Disclosure.Heading>
           <Disclosure.Trigger className={styles.trigger}>
+            <span className={styles.srOnly}>Status: {executionMeta}</span>
             {status === 'running' && (
               <Spinner className={styles.spinner} size='sm' />
             )}
@@ -71,7 +72,6 @@ export function ToolExecutionCardView({
             {pillContent.detail !== null && (
               <span className={styles.detail}>{pillContent.detail}</span>
             )}
-            <span className={styles.meta}>{executionMeta}</span>
             <Disclosure.Indicator className={styles.indicator} />
           </Disclosure.Trigger>
         </Disclosure.Heading>
