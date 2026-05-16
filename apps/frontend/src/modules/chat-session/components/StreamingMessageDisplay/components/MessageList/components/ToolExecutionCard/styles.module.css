@@ -29,8 +29,8 @@
 .trigger {
   display: grid;
   grid-template-columns:
-    auto auto minmax(0, 1fr) minmax(0, min(12rem, 28%))
-    auto auto;
+    16px auto minmax(0, 1fr) minmax(0, min(12rem, 28%))
+    auto 16px;
   align-items: center;
   gap: 8px;
   width: 100%;
@@ -44,7 +44,16 @@
   text-align: left;
 }
 
+.spinner,
+.statusDone,
+.statusFailure,
+.statusError {
+  grid-column: 1;
+  justify-self: center;
+}
+
 .toolName {
+  grid-column: 2;
   font-weight: 600;
   font-size: 0.875rem;
   line-height: 1.3;
@@ -65,6 +74,7 @@
 
 .target,
 .targetCode {
+  grid-column: 3;
   color: var(--foreground);
 }
 
@@ -73,16 +83,20 @@
 }
 
 .detail {
+  grid-column: 4;
   color: var(--muted);
   max-width: min(12rem, 28vw);
 }
 
 .meta {
+  grid-column: 5;
   justify-self: end;
   color: var(--muted);
 }
 
 .indicator {
+  grid-column: 6;
+  justify-self: center;
   color: var(--muted);
   flex-shrink: 0;
 }
