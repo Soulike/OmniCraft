@@ -29,7 +29,7 @@ export function SessionItemView({
         <span className={styles.title}>{title}</span>
         {workingDirectory !== undefined && (
           <Tooltip delay={0}>
-            <Tooltip.Trigger>
+            <Tooltip.Trigger className={styles.workingDirectoryTrigger}>
               <span className={styles.workingDirectory}>
                 {workingDirectory.split('/').pop()}
               </span>
