@@ -325,7 +325,7 @@ describe('Agent usage reporting', () => {
       if (isSummaryRequest) return summaryCompletionStream();
 
       return usageCompletionStream({
-        inputTokens: 110_000,
+        inputTokens: 120_000,
         outputTokens: 7,
         cacheReadInputTokens: 3,
       });
@@ -347,9 +347,9 @@ describe('Agent usage reporting', () => {
     }
     expect(lastUsageUpdate.usage.currentContextInputTokens).toBeGreaterThan(0);
     expect(lastUsageUpdate.usage.currentContextInputTokens).toBeLessThan(
-      110_000,
+      120_000,
     );
-    expect(lastUsageUpdate.usage.sessionInputTokens).toBe(110_000);
+    expect(lastUsageUpdate.usage.sessionInputTokens).toBe(120_000);
     expect(lastUsageUpdate.usage.sessionOutputTokens).toBe(7);
     expect(lastUsageUpdate.usage.sessionCacheReadInputTokens).toBe(3);
   });

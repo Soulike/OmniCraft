@@ -43,7 +43,10 @@ describe('modelCapacity', () => {
         model: 'gpt-5.5',
       });
       expect(await modelCapacity.getMaxOutputTokens(config)).toBe(128_000);
-      expect(await modelCapacity.getMaxInputTokens(config)).toBe(400_000);
+      expect(await modelCapacity.getMaxPromptTokens(config)).toBe(272_000);
+      expect(await modelCapacity.getMaxContextWindowTokens(config)).toBe(
+        400_000,
+      );
     });
 
     it('returns known output limit via openai-responses format', async () => {
@@ -60,7 +63,10 @@ describe('modelCapacity', () => {
         model: 'unknown-model-xyz',
       });
       expect(await modelCapacity.getMaxOutputTokens(config)).toBe(16_384);
-      expect(await modelCapacity.getMaxInputTokens(config)).toBe(128_000);
+      expect(await modelCapacity.getMaxPromptTokens(config)).toBe(128_000);
+      expect(await modelCapacity.getMaxContextWindowTokens(config)).toBe(
+        128_000,
+      );
     });
 
     it('returns known limits for a Gemini model', async () => {
@@ -69,7 +75,10 @@ describe('modelCapacity', () => {
         model: 'gemini-2.5-pro',
       });
       expect(await modelCapacity.getMaxOutputTokens(config)).toBe(64_000);
-      expect(await modelCapacity.getMaxInputTokens(config)).toBe(128_000);
+      expect(await modelCapacity.getMaxPromptTokens(config)).toBe(128_000);
+      expect(await modelCapacity.getMaxContextWindowTokens(config)).toBe(
+        128_000,
+      );
     });
   });
 
@@ -80,7 +89,10 @@ describe('modelCapacity', () => {
         model: 'claude-opus-4.7',
       });
       expect(await modelCapacity.getMaxOutputTokens(config)).toBe(32_000);
-      expect(await modelCapacity.getMaxInputTokens(config)).toBe(200_000);
+      expect(await modelCapacity.getMaxPromptTokens(config)).toBe(168_000);
+      expect(await modelCapacity.getMaxContextWindowTokens(config)).toBe(
+        200_000,
+      );
       expect(mockRetrieve).not.toHaveBeenCalled();
     });
 
@@ -95,7 +107,11 @@ describe('modelCapacity', () => {
       });
 
       expect(await modelCapacity.getMaxOutputTokens(config)).toBe(128_000);
-      expect(await modelCapacity.getMaxInputTokens(config)).toBe(1_000_000);
+      expect(await modelCapacity.getMaxPromptTokens(config)).toBe(1_000_000);
+      // Context window is derived as prompt + output for SDK-returned models.
+      expect(await modelCapacity.getMaxContextWindowTokens(config)).toBe(
+        1_128_000,
+      );
       expect(mockRetrieve).toHaveBeenCalledWith('claude-opus-4-6');
     });
 
@@ -110,7 +126,7 @@ describe('modelCapacity', () => {
       });
 
       await modelCapacity.getMaxOutputTokens(config);
-      await modelCapacity.getMaxInputTokens(config);
+      await modelCapacity.getMaxPromptTokens(config);
 
       // Only one API call despite two queries.
       expect(mockRetrieve).toHaveBeenCalledTimes(1);
@@ -124,7 +140,10 @@ describe('modelCapacity', () => {
       });
 
       expect(await modelCapacity.getMaxOutputTokens(config)).toBe(16_384);
-      expect(await modelCapacity.getMaxInputTokens(config)).toBe(200_000);
+      expect(await modelCapacity.getMaxPromptTokens(config)).toBe(168_000);
+      expect(await modelCapacity.getMaxContextWindowTokens(config)).toBe(
+        200_000,
+      );
     });
 
     it('retries the API call after a transient failure', async () => {

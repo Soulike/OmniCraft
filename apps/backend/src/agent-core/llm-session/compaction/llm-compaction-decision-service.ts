@@ -1,7 +1,7 @@
 import crypto from 'node:crypto';
 
 import {modelCapacity} from '../../model-capacity/index.js';
-import {COMPACTION_TRIGGER_INPUT_TOKEN_RATIO} from './compaction-constants.js';
+import {COMPACTION_TRIGGER_PROMPT_TOKEN_RATIO} from './compaction-constants.js';
 import {
   LlmCompactionTokenEstimator,
   llmCompactionTokenEstimator,
@@ -19,10 +19,15 @@ export class LlmCompactionDecisionService {
   async decide(
     input: LlmCompactionDecisionInput,
   ): Promise<LlmCompactionDecision> {
-    const maxInputTokens = await modelCapacity.getMaxInputTokens(input.config);
+    const maxPromptTokens = await modelCapacity.getMaxPromptTokens(
+      input.config,
+    );
     const currentTokens = this.tokenEstimator.estimateCurrentTokens(input);
 
-    if (currentTokens < maxInputTokens * COMPACTION_TRIGGER_INPUT_TOKEN_RATIO) {
+    if (
+      currentTokens <
+      maxPromptTokens * COMPACTION_TRIGGER_PROMPT_TOKEN_RATIO
+    ) {
       return {type: 'skip'};
     }
 
