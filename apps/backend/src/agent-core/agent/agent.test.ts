@@ -1,5 +1,5 @@
 import crypto from 'node:crypto';
-import {realpathSync, statSync} from 'node:fs';
+import {mkdtempSync, realpathSync, rmSync, statSync} from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -55,6 +55,11 @@ class TestToolRegistry extends ToolRegistry {
 }
 
 function testAgentOptions() {
+  // Provide a per-call tmp workingDirectory so the Agent constructor's
+  // default path (which would mkdir under os.tmpdir() and leak a directory)
+  // doesn't run. The dir is registered for cleanup by the afterEach below.
+  const workingDirectory = mkdtempSync(path.join(os.tmpdir(), 'agent-test-'));
+  tmpDirsToCleanup.add(workingDirectory);
   return {
     toolRegistries: [],
     skillRegistries: [],
@@ -62,8 +67,22 @@ function testAgentOptions() {
     getMaxToolRounds: () => 1,
     getLightConfig: () => Promise.resolve(LIGHT_CONFIG),
     thinkingLevel: 'high' as const,
+    workingDirectory,
   };
 }
+
+const tmpDirsToCleanup = new Set<string>();
+
+afterEach(() => {
+  for (const dir of tmpDirsToCleanup) {
+    try {
+      rmSync(dir, {recursive: true, force: true});
+    } catch {
+      // ignore — best-effort cleanup
+    }
+  }
+  tmpDirsToCleanup.clear();
+});
 
 async function delay(ms: number): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, ms));
@@ -823,13 +842,27 @@ describe('Agent snapshot restore', () => {
 });
 
 describe('Agent default working directory', () => {
+  // Helpers: these tests intentionally exercise the constructor's default
+  // path (no workingDirectory passed), which creates `<tmpdir>/<agent-id>`.
+  // We register that path for cleanup ourselves since testAgentOptions()'s
+  // default workingDirectory is what we're trying to bypass here.
+  function defaultedOptions() {
+    const {workingDirectory: _omit, ...rest} = testAgentOptions();
+    return rest;
+  }
+  function registerAgentTmpDir(id: string): string {
+    const dir = path.join(realpathSync(os.tmpdir()), id);
+    tmpDirsToCleanup.add(dir);
+    return dir;
+  }
+
   it('creates a per-id tmp directory for a fresh agent', () => {
     const agent = new TestAgent(
       () => Promise.resolve(MAIN_CONFIG),
-      testAgentOptions(),
+      defaultedOptions(),
     );
 
-    const expected = path.join(realpathSync(os.tmpdir()), agent.id);
+    const expected = registerAgentTmpDir(agent.id);
     const {workingDirectory} = agent.toSnapshot().options;
     expect(workingDirectory).toBe(expected);
     expect(statSync(expected).isDirectory()).toBe(true);
@@ -858,11 +891,11 @@ describe('Agent default working directory', () => {
 
     const agent = new TestAgent(
       () => Promise.resolve(MAIN_CONFIG),
-      testAgentOptions(),
+      defaultedOptions(),
       snapshot,
     );
 
-    const expected = path.join(realpathSync(os.tmpdir()), id);
+    const expected = registerAgentTmpDir(id);
     expect(agent.toSnapshot().options.workingDirectory).toBe(expected);
     expect(statSync(expected).isDirectory()).toBe(true);
   });
@@ -888,7 +921,7 @@ describe('Agent default working directory', () => {
       () =>
         new TestAgent(
           () => Promise.resolve(MAIN_CONFIG),
-          testAgentOptions(),
+          defaultedOptions(),
           snapshot,
         ),
     ).toThrow();
@@ -897,7 +930,7 @@ describe('Agent default working directory', () => {
   it('respects an explicit workingDirectory and skips tmp dir creation', () => {
     const explicit = realpathSync(os.tmpdir());
     const agent = new TestAgent(() => Promise.resolve(MAIN_CONFIG), {
-      ...testAgentOptions(),
+      ...defaultedOptions(),
       workingDirectory: explicit,
     });
     expect(agent.toSnapshot().options.workingDirectory).toBe(explicit);
