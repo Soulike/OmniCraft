@@ -1,6 +1,5 @@
 import {Disclosure, ScrollShadow, Spinner} from '@heroui/react';
 import type {AnyToolResultData, ToolName} from '@omnicraft/tool-schemas';
-import clsx from 'clsx';
 import {CircleAlert, CircleCheck, CircleX} from 'lucide-react';
 
 import {ParametersSection} from './components/ParametersSection/index.js';
@@ -18,7 +17,7 @@ interface ToolExecutionCardViewProps {
   data?: AnyToolResultData;
 }
 
-const STATUS_ICON_SIZE = 16;
+const STATUS_ICON_SIZE = 14;
 
 export function ToolExecutionCardView({
   toolName,
@@ -33,14 +32,7 @@ export function ToolExecutionCardView({
   const executionMeta = getExecutionMeta({output, status});
 
   return (
-    <div
-      className={clsx(styles.card, {
-        [styles.cardRunning]: status === 'running',
-        [styles.cardDone]: status === 'done',
-        [styles.cardFailure]: status === 'failure',
-        [styles.cardError]: status === 'error',
-      })}
-    >
+    <div className={styles.card}>
       <Disclosure>
         <Disclosure.Heading>
           <Disclosure.Trigger className={styles.trigger}>

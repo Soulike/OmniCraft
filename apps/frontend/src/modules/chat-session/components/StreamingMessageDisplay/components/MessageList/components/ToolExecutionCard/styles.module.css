@@ -1,45 +1,38 @@
 .card {
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--surface) 92%, var(--background));
-  border: 1px solid var(--border);
-  overflow: hidden;
-  width: 520px;
+  border-radius: 6px;
+  width: 480px;
   max-width: 100%;
 }
 
-.cardRunning {
-  border-color: color-mix(in srgb, var(--accent) 32%, var(--border));
-  background: color-mix(in srgb, var(--accent) 8%, var(--surface));
-}
-
-.cardDone {
-  border-color: color-mix(in srgb, var(--border) 82%, transparent);
-}
-
-.cardFailure {
-  border-color: color-mix(in srgb, var(--warning) 42%, var(--border));
-  background: color-mix(in srgb, var(--warning) 9%, var(--surface));
-}
-
-.cardError {
-  border-color: color-mix(in srgb, var(--danger) 44%, var(--border));
-  background: color-mix(in srgb, var(--danger) 9%, var(--surface));
+.card:has(.trigger[aria-expanded='true']) {
+  background: color-mix(in srgb, var(--surface) 52%, transparent);
 }
 
 .trigger {
   display: grid;
-  grid-template-columns: 16px auto minmax(0, 1fr) 16px;
+  grid-template-columns: 14px auto minmax(0, 1fr) 14px;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   width: 100%;
-  min-height: 32px;
-  padding: 5px 8px;
+  min-height: 26px;
+  box-sizing: border-box;
+  padding: 2px 6px;
   cursor: pointer;
   background: none;
   border: none;
+  border-radius: 6px;
   color: inherit;
   font: inherit;
   text-align: left;
+}
+
+.trigger:hover {
+  background: color-mix(in srgb, var(--foreground) 4%, transparent);
+}
+
+.trigger:focus-visible {
+  outline: 1px solid color-mix(in srgb, var(--accent) 55%, transparent);
+  outline-offset: 2px;
 }
 
 .spinner,
@@ -50,10 +43,16 @@
   justify-self: center;
 }
 
+.spinner {
+  color: var(--muted);
+  height: 14px;
+  width: 14px;
+}
+
 .toolName {
   grid-column: 2;
-  font-weight: 600;
-  font-size: 0.875rem;
+  font-weight: 500;
+  font-size: 0.8125rem;
   line-height: 1.3;
   white-space: nowrap;
 }
@@ -65,13 +64,13 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   font-size: 0.8125rem;
-  line-height: 1.3;
+  line-height: 1.25;
 }
 
 .target,
 .targetCode {
   grid-column: 3;
-  color: var(--foreground);
+  color: var(--muted);
 }
 
 .targetCode {
@@ -83,6 +82,7 @@
   justify-self: center;
   color: var(--muted);
   flex-shrink: 0;
+  opacity: 0.75;
 }
 
 .srOnly {
@@ -113,22 +113,21 @@
 }
 
 .body {
-  padding: 2px 8px 8px;
-  border-top: 1px solid color-mix(in srgb, var(--border) 78%, transparent);
+  padding: 4px 10px 8px;
 }
 
 .section {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 3px;
 }
 
 .section + .section {
-  margin-top: 8px;
+  margin-top: 6px;
 }
 
 .label {
-  font-size: 0.75rem;
+  font-size: 0.6875rem;
   font-weight: 600;
   color: var(--muted);
   text-transform: uppercase;
@@ -143,11 +142,11 @@
 
 .pre {
   margin: 0;
-  padding: 8px;
+  padding: 6px;
   background: var(--background);
-  border-radius: 6px;
+  border-radius: 5px;
   font-size: 0.8125rem;
-  line-height: 1.5;
+  line-height: 1.45;
   max-height: 200px;
   overflow: auto;
   white-space: pre-wrap;
