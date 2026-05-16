@@ -1,53 +1,33 @@
 import type {SseContextCompactionEvent} from '@omnicraft/sse-events';
 
-import {llmCompactionDecisionService} from './llm-compaction-decision-service.js';
-import {llmCompactionEventFactory} from './llm-compaction-event-factory.js';
-import {llmCompactionTokenEstimator} from './llm-compaction-token-estimator.js';
+import {
+  LlmCompactionDecisionService,
+  llmCompactionDecisionService,
+} from './llm-compaction-decision-service.js';
+import {
+  LlmCompactionEventFactory,
+  llmCompactionEventFactory,
+} from './llm-compaction-event-factory.js';
+import {
+  LlmCompactionTokenEstimator,
+  llmCompactionTokenEstimator,
+} from './llm-compaction-token-estimator.js';
 import type {
   CompactLlmSessionIfNeededInput,
-  EstimateTokensFromMessagesInput,
   LlmCompactDecision,
-  LlmCompactionDecision,
-  LlmCompactionDecisionInput,
-  LlmHistoryCompactionInput,
   LlmHistoryCompactionResult,
   LlmSessionCompactionPatch,
 } from './llm-compaction-types.js';
-import {llmHistoryCompactor} from './llm-history-compactor.js';
-
-interface LlmCompactionDecisionServiceLike {
-  decide(input: LlmCompactionDecisionInput): Promise<LlmCompactionDecision>;
-}
-
-interface LlmHistoryCompactorLike {
-  compact(
-    input: LlmHistoryCompactionInput,
-  ): Promise<LlmHistoryCompactionResult>;
-}
-
-interface LlmCompactionEventFactoryLike {
-  createStartEvent(decision: LlmCompactDecision): SseContextCompactionEvent;
-  createEndEvent(
-    decision: LlmCompactDecision,
-    historyResult: LlmHistoryCompactionResult,
-    afterTokens: number,
-  ): SseContextCompactionEvent;
-  createErrorEvent(
-    decision: LlmCompactDecision,
-    error: unknown,
-    signal?: AbortSignal,
-  ): SseContextCompactionEvent;
-}
-
-interface LlmCompactionTokenEstimatorLike {
-  estimateTokensFromMessages(input: EstimateTokensFromMessagesInput): number;
-}
+import {
+  LlmHistoryCompactor,
+  llmHistoryCompactor,
+} from './llm-history-compactor.js';
 
 export interface LlmSessionCompactorDependencies {
-  readonly decisionService?: LlmCompactionDecisionServiceLike;
-  readonly historyCompactor?: LlmHistoryCompactorLike;
-  readonly eventFactory?: LlmCompactionEventFactoryLike;
-  readonly tokenEstimator?: LlmCompactionTokenEstimatorLike;
+  readonly decisionService?: LlmCompactionDecisionService;
+  readonly historyCompactor?: LlmHistoryCompactor;
+  readonly eventFactory?: LlmCompactionEventFactory;
+  readonly tokenEstimator?: LlmCompactionTokenEstimator;
 }
 
 function normalizeErrorMessage(error: unknown): string {
@@ -63,10 +43,10 @@ function normalizeError(error: unknown): Error {
 }
 
 export class LlmSessionCompactor {
-  private readonly decisionService: LlmCompactionDecisionServiceLike;
-  private readonly historyCompactor: LlmHistoryCompactorLike;
-  private readonly eventFactory: LlmCompactionEventFactoryLike;
-  private readonly tokenEstimator: LlmCompactionTokenEstimatorLike;
+  private readonly decisionService: LlmCompactionDecisionService;
+  private readonly historyCompactor: LlmHistoryCompactor;
+  private readonly eventFactory: LlmCompactionEventFactory;
+  private readonly tokenEstimator: LlmCompactionTokenEstimator;
 
   constructor(dependencies: LlmSessionCompactorDependencies = {}) {
     this.decisionService =

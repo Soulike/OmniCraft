@@ -6,6 +6,7 @@ import type {LlmConfig, LlmMessage} from '../../llm-api/index.js';
 import {modelCapacity} from '../../model-capacity/index.js';
 import type {LlmSessionUsage} from '../types.js';
 import {LlmCompactionDecisionService} from './llm-compaction-decision-service.js';
+import {LlmCompactionTokenEstimator} from './llm-compaction-token-estimator.js';
 
 const config: LlmConfig = {
   apiFormat: 'openai-responses',
@@ -42,9 +43,12 @@ const options = {
 };
 
 function createService(currentTokens: number): LlmCompactionDecisionService {
-  return new LlmCompactionDecisionService({
-    estimateCurrentTokens: vi.fn(() => currentTokens),
-  });
+  const tokenEstimator = new LlmCompactionTokenEstimator();
+  vi.spyOn(tokenEstimator, 'estimateCurrentTokens').mockReturnValue(
+    currentTokens,
+  );
+
+  return new LlmCompactionDecisionService(tokenEstimator);
 }
 
 describe('LlmCompactionDecisionService', () => {

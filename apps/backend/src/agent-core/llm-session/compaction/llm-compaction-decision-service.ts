@@ -2,20 +2,18 @@ import crypto from 'node:crypto';
 
 import {modelCapacity} from '../../model-capacity/index.js';
 import {COMPACTION_TRIGGER_INPUT_TOKEN_RATIO} from './compaction-constants.js';
-import {llmCompactionTokenEstimator} from './llm-compaction-token-estimator.js';
+import {
+  LlmCompactionTokenEstimator,
+  llmCompactionTokenEstimator,
+} from './llm-compaction-token-estimator.js';
 import type {
-  EstimateCurrentTokensInput,
   LlmCompactionDecision,
   LlmCompactionDecisionInput,
 } from './llm-compaction-types.js';
 
-export interface LlmCompactionTokenEstimatorLike {
-  estimateCurrentTokens(input: EstimateCurrentTokensInput): number;
-}
-
 export class LlmCompactionDecisionService {
   constructor(
-    private readonly tokenEstimator: LlmCompactionTokenEstimatorLike = llmCompactionTokenEstimator,
+    private readonly tokenEstimator: LlmCompactionTokenEstimator = llmCompactionTokenEstimator,
   ) {}
 
   async decide(

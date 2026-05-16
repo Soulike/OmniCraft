@@ -3,11 +3,15 @@ import {afterEach, describe, expect, it, vi} from 'vitest';
 
 import type {LlmConfig, LlmMessage} from '../../llm-api/index.js';
 import type {LlmSessionUsage} from '../types.js';
+import {LlmCompactionDecisionService} from './llm-compaction-decision-service.js';
+import {LlmCompactionEventFactory} from './llm-compaction-event-factory.js';
+import {LlmCompactionTokenEstimator} from './llm-compaction-token-estimator.js';
 import type {
   LlmCompactionDecision,
   LlmHistoryCompactionResult,
   LlmSessionCompactionPatch,
 } from './llm-compaction-types.js';
+import {LlmHistoryCompactor} from './llm-history-compactor.js';
 import {LlmSessionCompactor} from './llm-session-compactor.js';
 
 const config: LlmConfig = {
@@ -113,6 +117,15 @@ function createInput(commit = vi.fn()) {
   };
 }
 
+function createDecisionService(
+  decision: LlmCompactionDecision,
+): LlmCompactionDecisionService {
+  const decisionService = new LlmCompactionDecisionService();
+  vi.spyOn(decisionService, 'decide').mockResolvedValue(decision);
+
+  return decisionService;
+}
+
 describe('LlmSessionCompactor', () => {
   afterEach(() => {
     vi.restoreAllMocks();
@@ -120,16 +133,13 @@ describe('LlmSessionCompactor', () => {
 
   it('yields no events and does not commit when the decision is skip', async () => {
     const commit = vi.fn();
-    const historyCompactor = {compact: vi.fn()};
+    const historyCompactor = new LlmHistoryCompactor();
+    const historyCompactSpy = vi.spyOn(historyCompactor, 'compact');
     const compactor = new LlmSessionCompactor({
-      decisionService: {decide: vi.fn().mockResolvedValue({type: 'skip'})},
+      decisionService: createDecisionService({type: 'skip'}),
       historyCompactor,
-      eventFactory: {
-        createStartEvent: vi.fn(),
-        createEndEvent: vi.fn(),
-        createErrorEvent: vi.fn(),
-      },
-      tokenEstimator: {estimateTokensFromMessages: vi.fn()},
+      eventFactory: new LlmCompactionEventFactory(),
+      tokenEstimator: new LlmCompactionTokenEstimator(),
     });
 
     await expect(
@@ -137,28 +147,31 @@ describe('LlmSessionCompactor', () => {
     ).resolves.toEqual([]);
 
     expect(commit).not.toHaveBeenCalled();
-    expect(historyCompactor.compact).not.toHaveBeenCalled();
+    expect(historyCompactSpy).not.toHaveBeenCalled();
   });
 
   it('yields start, compacts history, estimates after tokens, commits, then yields end', async () => {
     const controller = new AbortController();
     const commit = vi.fn().mockResolvedValue(undefined);
-    const eventFactory = {
-      createStartEvent: vi.fn(() => startEvent),
-      createEndEvent: vi.fn(() => {
+    const eventFactory = new LlmCompactionEventFactory();
+    vi.spyOn(eventFactory, 'createStartEvent').mockReturnValue(startEvent);
+    const createEndEventSpy = vi
+      .spyOn(eventFactory, 'createEndEvent')
+      .mockImplementation(() => {
         expect(commit).toHaveBeenCalledTimes(1);
         return endEvent;
-      }),
-      createErrorEvent: vi.fn(),
-    };
-    const historyCompactor = {
-      compact: vi.fn().mockResolvedValue(historyResult),
-    };
-    const tokenEstimator = {
-      estimateTokensFromMessages: vi.fn(() => 42),
-    };
+      });
+    vi.spyOn(eventFactory, 'createErrorEvent');
+    const historyCompactor = new LlmHistoryCompactor();
+    const historyCompactSpy = vi
+      .spyOn(historyCompactor, 'compact')
+      .mockResolvedValue(historyResult);
+    const tokenEstimator = new LlmCompactionTokenEstimator();
+    const estimateTokensSpy = vi
+      .spyOn(tokenEstimator, 'estimateTokensFromMessages')
+      .mockReturnValue(42);
     const compactor = new LlmSessionCompactor({
-      decisionService: {decide: vi.fn().mockResolvedValue(compactDecision)},
+      decisionService: createDecisionService(compactDecision),
       historyCompactor,
       eventFactory,
       tokenEstimator,
@@ -172,17 +185,17 @@ describe('LlmSessionCompactor', () => {
     );
 
     expect(events).toEqual([startEvent, endEvent]);
-    expect(historyCompactor.compact).toHaveBeenCalledWith({
+    expect(historyCompactSpy).toHaveBeenCalledWith({
       config,
       messages,
       tools: options.tools,
       signal: controller.signal,
     });
-    expect(tokenEstimator.estimateTokensFromMessages).toHaveBeenCalledWith({
+    expect(estimateTokensSpy).toHaveBeenCalledWith({
       messages: replacementMessages,
       options: {...options, signal: controller.signal},
     });
-    expect(eventFactory.createEndEvent).toHaveBeenCalledWith(
+    expect(createEndEventSpy).toHaveBeenCalledWith(
       compactDecision,
       historyResult,
       42,
@@ -192,15 +205,17 @@ describe('LlmSessionCompactor', () => {
   it('yields error and rethrows when history compaction fails', async () => {
     const error = new Error('history exploded');
     const commit = vi.fn();
+    const historyCompactor = new LlmHistoryCompactor();
+    vi.spyOn(historyCompactor, 'compact').mockRejectedValue(error);
+    const eventFactory = new LlmCompactionEventFactory();
+    vi.spyOn(eventFactory, 'createStartEvent').mockReturnValue(startEvent);
+    vi.spyOn(eventFactory, 'createEndEvent');
+    vi.spyOn(eventFactory, 'createErrorEvent').mockReturnValue(errorEvent);
     const compactor = new LlmSessionCompactor({
-      decisionService: {decide: vi.fn().mockResolvedValue(compactDecision)},
-      historyCompactor: {compact: vi.fn().mockRejectedValue(error)},
-      eventFactory: {
-        createStartEvent: vi.fn(() => startEvent),
-        createEndEvent: vi.fn(),
-        createErrorEvent: vi.fn(() => errorEvent),
-      },
-      tokenEstimator: {estimateTokensFromMessages: vi.fn()},
+      decisionService: createDecisionService(compactDecision),
+      historyCompactor,
+      eventFactory,
+      tokenEstimator: new LlmCompactionTokenEstimator(),
     });
     const iterator = compactor.compactIfNeeded(createInput(commit));
 
@@ -217,17 +232,19 @@ describe('LlmSessionCompactor', () => {
 
   it('does not commit when history compaction fails', async () => {
     const commit = vi.fn();
+    const historyCompactor = new LlmHistoryCompactor();
+    vi.spyOn(historyCompactor, 'compact').mockRejectedValue(
+      new Error('history exploded'),
+    );
+    const eventFactory = new LlmCompactionEventFactory();
+    vi.spyOn(eventFactory, 'createStartEvent').mockReturnValue(startEvent);
+    vi.spyOn(eventFactory, 'createEndEvent');
+    vi.spyOn(eventFactory, 'createErrorEvent').mockReturnValue(errorEvent);
     const compactor = new LlmSessionCompactor({
-      decisionService: {decide: vi.fn().mockResolvedValue(compactDecision)},
-      historyCompactor: {
-        compact: vi.fn().mockRejectedValue(new Error('history exploded')),
-      },
-      eventFactory: {
-        createStartEvent: vi.fn(() => startEvent),
-        createEndEvent: vi.fn(),
-        createErrorEvent: vi.fn(() => errorEvent),
-      },
-      tokenEstimator: {estimateTokensFromMessages: vi.fn()},
+      decisionService: createDecisionService(compactDecision),
+      historyCompactor,
+      eventFactory,
+      tokenEstimator: new LlmCompactionTokenEstimator(),
     });
     const iterator = compactor.compactIfNeeded(createInput(commit));
 
@@ -244,15 +261,19 @@ describe('LlmSessionCompactor', () => {
     const commit = vi.fn((patch: LlmSessionCompactionPatch) => {
       committedPatch = patch;
     });
+    const historyCompactor = new LlmHistoryCompactor();
+    vi.spyOn(historyCompactor, 'compact').mockResolvedValue(historyResult);
+    const eventFactory = new LlmCompactionEventFactory();
+    vi.spyOn(eventFactory, 'createStartEvent').mockReturnValue(startEvent);
+    vi.spyOn(eventFactory, 'createEndEvent').mockReturnValue(endEvent);
+    vi.spyOn(eventFactory, 'createErrorEvent');
+    const tokenEstimator = new LlmCompactionTokenEstimator();
+    vi.spyOn(tokenEstimator, 'estimateTokensFromMessages').mockReturnValue(42);
     const compactor = new LlmSessionCompactor({
-      decisionService: {decide: vi.fn().mockResolvedValue(compactDecision)},
-      historyCompactor: {compact: vi.fn().mockResolvedValue(historyResult)},
-      eventFactory: {
-        createStartEvent: vi.fn(() => startEvent),
-        createEndEvent: vi.fn(() => endEvent),
-        createErrorEvent: vi.fn(),
-      },
-      tokenEstimator: {estimateTokensFromMessages: vi.fn(() => 42)},
+      decisionService: createDecisionService(compactDecision),
+      historyCompactor,
+      eventFactory,
+      tokenEstimator,
     });
 
     await collectEvents(compactor.compactIfNeeded(createInput(commit)));

@@ -1,6 +1,8 @@
 import {describe, expect, it, vi} from 'vitest';
 
 import type {LlmConfig, LlmMessage} from '../../llm-api/index.js';
+import {CompactionMessageSlimmer} from './compaction-message-slimmer.js';
+import {CompactionSummaryGenerator} from './compaction-summary-generator.js';
 import {LlmHistoryCompactor} from './llm-history-compactor.js';
 
 const config: LlmConfig = {
@@ -23,16 +25,17 @@ const messages: LlmMessage[] = [
 ];
 
 function createCompactor(summary: string): LlmHistoryCompactor {
+  const summaryGenerator = new CompactionSummaryGenerator();
+  vi.spyOn(summaryGenerator, 'generate').mockResolvedValue(summary);
+  const messageSlimmer = new CompactionMessageSlimmer();
+  vi.spyOn(messageSlimmer, 'buildRecentContext').mockReturnValue({
+    content: 'recent context text',
+    sourceMessageCount: 2,
+  });
+
   return new LlmHistoryCompactor({
-    summaryGenerator: {
-      generate: vi.fn(() => Promise.resolve(summary)),
-    },
-    messageSlimmer: {
-      buildRecentContext: vi.fn(() => ({
-        content: 'recent context text',
-        sourceMessageCount: 2,
-      })),
-    },
+    summaryGenerator,
+    messageSlimmer,
   });
 }
 
