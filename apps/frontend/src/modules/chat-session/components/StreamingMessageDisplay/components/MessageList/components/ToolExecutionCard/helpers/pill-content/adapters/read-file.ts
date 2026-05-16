@@ -1,5 +1,7 @@
 import {readFileParametersSchema} from '@omnicraft/tool-schemas';
 
+import {getDisplayFileName} from '@/helpers/get-display-file-name.js';
+
 import type {ToolExecutionPillContent} from '../types.js';
 
 export function readFileToolPillContent(
@@ -8,7 +10,7 @@ export function readFileToolPillContent(
   const d = readFileParametersSchema.parse(parsed);
 
   return {
-    target: d.filePath,
+    target: getDisplayFileName(d.filePath),
     targetKind: 'code',
   };
 }

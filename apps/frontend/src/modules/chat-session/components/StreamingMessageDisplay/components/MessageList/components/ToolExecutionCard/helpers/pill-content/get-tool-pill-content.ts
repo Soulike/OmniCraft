@@ -12,7 +12,7 @@ import {webFetchToolPillContent} from './adapters/web-fetch.js';
 import {webFetchRawToolPillContent} from './adapters/web-fetch-raw.js';
 import {webSearchToolPillContent} from './adapters/web-search.js';
 import {writeFileToolPillContent} from './adapters/write-file.js';
-import {fallbackToolPillContent} from './fallbackToolPillContent.js';
+import {fallbackToolPillContent} from './fallback-tool-pill-content.js';
 import type {ToolExecutionPillContent} from './types.js';
 
 interface GetToolPillContentInput {

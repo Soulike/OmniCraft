@@ -107,8 +107,8 @@ Use a small helper structure inside `ToolExecutionCard`, mirroring the existing 
 ToolExecutionCard/
   helpers/
     pill-content/
-      getToolPillContent.ts
-      fallbackToolPillContent.ts
+      get-tool-pill-content.ts
+      fallback-tool-pill-content.ts
       types.ts
       adapters/
         read-file.ts
@@ -124,7 +124,7 @@ ToolExecutionCard/
         get-current-time.ts
 ```
 
-`getToolPillContent.ts` is the only public helper entry point. It parses the JSON arguments, switches on `toolName`, and calls the matching adapter. It should stay thin: routing, fallback, and shared error handling only. The adapters contain the per-tool string-formatting rules.
+`get-tool-pill-content.ts` is the only public helper entry point. It parses the JSON arguments, switches on `toolName`, and calls the matching adapter. It should stay thin: routing, fallback, and shared error handling only. The adapters contain the per-tool string-formatting rules.
 
 Recommended adapter ownership:
 
@@ -142,7 +142,7 @@ Recommended adapter ownership:
 | `load_skill`       | Skill-name target.                              |
 | `get_current_time` | Current-time target.                            |
 
-`ask_user` does not need a summary because it does not render through `ToolExecutionCard`. If `ask_user` reaches `getToolPillContent.ts`, treat that as a component-boundary bug and throw an assertion-style error instead of falling back.
+`ask_user` does not need a summary because it does not render through `ToolExecutionCard`. If `ask_user` reaches `get-tool-pill-content.ts`, treat that as a component-boundary bug and throw an assertion-style error instead of falling back.
 
 Fallback behavior: if parsing or schema validation fails for a tool that does render through `ToolExecutionCard`, use `toolName` as the target, `code` as `targetKind`, and `null` as the tool-owned detail. The shell still renders `displayName` and the status-derived execution meta.
 
@@ -169,7 +169,7 @@ No parent layout rules such as margins or alignment should move into `ToolExecut
 Add focused coverage for compact pill content:
 
 - Per-tool pill adapters extract their own file paths, commands, queries, URLs, patterns, and skill names.
-- `getToolPillContent.ts` falls back safely on malformed JSON or adapter parse failures.
+- `get-tool-pill-content.ts` falls back safely on malformed JSON or adapter parse failures.
 - The shell returns status-derived execution meta for `running`, `done`, `failure`, and `error`.
 
 Existing rendering tests should continue to cover message transformation. Add a component test only if the row behavior or disclosure rendering becomes conditional enough that helper tests are insufficient.
@@ -178,4 +178,4 @@ Existing rendering tests should continue to cover message transformation. Add a 
 
 - `apps/frontend/src/modules/chat-session/components/StreamingMessageDisplay/components/MessageList/components/ToolExecutionCard/ToolExecutionCardView.tsx`
 - `apps/frontend/src/modules/chat-session/components/StreamingMessageDisplay/components/MessageList/components/ToolExecutionCard/styles.module.css`
-- New files under `ToolExecutionCard/helpers/pill-content/` for `getToolPillContent.ts`, fallback content, types, per-tool adapters, and focused tests.
+- New files under `ToolExecutionCard/helpers/pill-content/` for `get-tool-pill-content.ts`, fallback content, types, per-tool adapters, and focused tests.

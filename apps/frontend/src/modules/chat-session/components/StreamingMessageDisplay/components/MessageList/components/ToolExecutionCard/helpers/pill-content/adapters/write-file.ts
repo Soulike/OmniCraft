@@ -1,5 +1,7 @@
 import {writeFileParametersSchema} from '@omnicraft/tool-schemas';
 
+import {getDisplayFileName} from '@/helpers/get-display-file-name.js';
+
 import type {ToolExecutionPillContent} from '../types.js';
 
 export function writeFileToolPillContent(
@@ -7,5 +9,5 @@ export function writeFileToolPillContent(
 ): ToolExecutionPillContent {
   const d = writeFileParametersSchema.parse(parsed);
 
-  return {target: d.filePath, targetKind: 'code'};
+  return {target: getDisplayFileName(d.filePath), targetKind: 'code'};
 }

@@ -4,7 +4,7 @@
 
 **Goal:** Restyle frontend tool execution cards into compact collapsed rows while preserving the existing expanded parameters/output/result details.
 
-**Architecture:** Keep `ToolExecutionCard` as the only UI shell. Add a small `helpers/pill-content/` helper subtree where `getToolPillContent.ts` switches on `toolName` and delegates per-tool string formatting to focused adapters, matching the current `ResultSection/helpers/renderToolResult.tsx` style.
+**Architecture:** Keep `ToolExecutionCard` as the only UI shell. Add a small `helpers/pill-content/` helper subtree where `get-tool-pill-content.ts` switches on `toolName` and delegates per-tool string formatting to focused adapters, matching the current `ResultSection/helpers/renderToolResult.tsx` style.
 
 **Tech Stack:** Bun workspace, React 19, TypeScript, Vite, Vitest, CSS Modules, HeroUI `Disclosure` and `Spinner`, lucide-react status icons.
 
@@ -14,11 +14,11 @@
 
 - Create `apps/frontend/src/modules/chat-session/components/StreamingMessageDisplay/components/MessageList/components/ToolExecutionCard/helpers/pill-content/types.ts`
   - Owns the `ToolExecutionPillContent` interface.
-- Create `apps/frontend/src/modules/chat-session/components/StreamingMessageDisplay/components/MessageList/components/ToolExecutionCard/helpers/pill-content/fallbackToolPillContent.ts`
+- Create `apps/frontend/src/modules/chat-session/components/StreamingMessageDisplay/components/MessageList/components/ToolExecutionCard/helpers/pill-content/fallback-tool-pill-content.ts`
   - Provides safe fallback pill content when arguments cannot be parsed or an adapter throws.
-- Create `apps/frontend/src/modules/chat-session/components/StreamingMessageDisplay/components/MessageList/components/ToolExecutionCard/helpers/pill-content/getToolPillContent.ts`
+- Create `apps/frontend/src/modules/chat-session/components/StreamingMessageDisplay/components/MessageList/components/ToolExecutionCard/helpers/pill-content/get-tool-pill-content.ts`
   - Public helper entry point. Parses JSON, switches by `toolName`, delegates to adapters, and falls back.
-- Create `apps/frontend/src/modules/chat-session/components/StreamingMessageDisplay/components/MessageList/components/ToolExecutionCard/helpers/pill-content/getToolPillContent.test.ts`
+- Create `apps/frontend/src/modules/chat-session/components/StreamingMessageDisplay/components/MessageList/components/ToolExecutionCard/helpers/pill-content/get-tool-pill-content.test.ts`
   - Focused tests for adapter output and fallback behavior.
 - Create `apps/frontend/src/modules/chat-session/components/StreamingMessageDisplay/components/MessageList/components/ToolExecutionCard/helpers/pill-content/adapters/*.ts`
   - One adapter per tool rendered through `ToolExecutionCard`.
@@ -34,9 +34,9 @@
 **Files:**
 
 - Create: `apps/frontend/src/modules/chat-session/components/StreamingMessageDisplay/components/MessageList/components/ToolExecutionCard/helpers/pill-content/types.ts`
-- Create: `apps/frontend/src/modules/chat-session/components/StreamingMessageDisplay/components/MessageList/components/ToolExecutionCard/helpers/pill-content/fallbackToolPillContent.ts`
-- Create: `apps/frontend/src/modules/chat-session/components/StreamingMessageDisplay/components/MessageList/components/ToolExecutionCard/helpers/pill-content/getToolPillContent.ts`
-- Create: `apps/frontend/src/modules/chat-session/components/StreamingMessageDisplay/components/MessageList/components/ToolExecutionCard/helpers/pill-content/getToolPillContent.test.ts`
+- Create: `apps/frontend/src/modules/chat-session/components/StreamingMessageDisplay/components/MessageList/components/ToolExecutionCard/helpers/pill-content/fallback-tool-pill-content.ts`
+- Create: `apps/frontend/src/modules/chat-session/components/StreamingMessageDisplay/components/MessageList/components/ToolExecutionCard/helpers/pill-content/get-tool-pill-content.ts`
+- Create: `apps/frontend/src/modules/chat-session/components/StreamingMessageDisplay/components/MessageList/components/ToolExecutionCard/helpers/pill-content/get-tool-pill-content.test.ts`
 - Create: `apps/frontend/src/modules/chat-session/components/StreamingMessageDisplay/components/MessageList/components/ToolExecutionCard/helpers/pill-content/adapters/read-file.ts`
 - Create: `apps/frontend/src/modules/chat-session/components/StreamingMessageDisplay/components/MessageList/components/ToolExecutionCard/helpers/pill-content/adapters/write-file.ts`
 - Create: `apps/frontend/src/modules/chat-session/components/StreamingMessageDisplay/components/MessageList/components/ToolExecutionCard/helpers/pill-content/adapters/edit-file.ts`
@@ -51,14 +51,14 @@
 
 - [ ] **Step 1: Write the failing helper test**
 
-Create `apps/frontend/src/modules/chat-session/components/StreamingMessageDisplay/components/MessageList/components/ToolExecutionCard/helpers/pill-content/getToolPillContent.test.ts`:
+Create `apps/frontend/src/modules/chat-session/components/StreamingMessageDisplay/components/MessageList/components/ToolExecutionCard/helpers/pill-content/get-tool-pill-content.test.ts`:
 
 ```typescript
 import type {ToolName} from '@omnicraft/tool-schemas';
 import {ZodError} from 'zod';
 import {describe, expect, it} from 'vitest';
 
-import {getToolPillContent} from './getToolPillContent.js';
+import {getToolPillContent} from './get-tool-pill-content.js';
 import type {ToolExecutionPillContent} from './types.js';
 
 interface KnownToolCase {
@@ -220,10 +220,10 @@ describe('getToolPillContent', () => {
 Run:
 
 ```bash
-cd apps/frontend && bun test src/modules/chat-session/components/StreamingMessageDisplay/components/MessageList/components/ToolExecutionCard/helpers/pill-content/getToolPillContent.test.ts
+cd apps/frontend && bun test src/modules/chat-session/components/StreamingMessageDisplay/components/MessageList/components/ToolExecutionCard/helpers/pill-content/get-tool-pill-content.test.ts
 ```
 
-Expected: FAIL with an import error for `./getToolPillContent.js` or `./types.js` because the helper files do not exist yet.
+Expected: FAIL with an import error for `./get-tool-pill-content.js` or `./types.js` because the helper files do not exist yet.
 
 - [ ] **Step 3: Create the pill content types and fallback**
 
@@ -237,7 +237,7 @@ export interface ToolExecutionPillContent {
 }
 ```
 
-Create `apps/frontend/src/modules/chat-session/components/StreamingMessageDisplay/components/MessageList/components/ToolExecutionCard/helpers/pill-content/fallbackToolPillContent.ts`:
+Create `apps/frontend/src/modules/chat-session/components/StreamingMessageDisplay/components/MessageList/components/ToolExecutionCard/helpers/pill-content/fallback-tool-pill-content.ts`:
 
 ```typescript
 import type {ToolName} from '@omnicraft/tool-schemas';
@@ -478,7 +478,7 @@ export function getCurrentTimePillContent(): ToolExecutionPillContent {
 
 - [ ] **Step 5: Create the thin dispatcher**
 
-Create `apps/frontend/src/modules/chat-session/components/StreamingMessageDisplay/components/MessageList/components/ToolExecutionCard/helpers/pill-content/getToolPillContent.ts`:
+Create `apps/frontend/src/modules/chat-session/components/StreamingMessageDisplay/components/MessageList/components/ToolExecutionCard/helpers/pill-content/get-tool-pill-content.ts`:
 
 ```typescript
 import type {ToolName} from '@omnicraft/tool-schemas';
@@ -494,7 +494,7 @@ import {getWebFetchRawPillContent} from './adapters/web-fetch-raw.js';
 import {getWebFetchPillContent} from './adapters/web-fetch.js';
 import {getWebSearchPillContent} from './adapters/web-search.js';
 import {getWriteFilePillContent} from './adapters/write-file.js';
-import {fallbackToolPillContent} from './fallbackToolPillContent.js';
+import {fallbackToolPillContent} from './fallback-tool-pill-content.js';
 import type {ToolExecutionPillContent} from './types.js';
 
 interface GetToolPillContentInput {
@@ -559,7 +559,7 @@ function getKnownToolPillContent(
 Run:
 
 ```bash
-cd apps/frontend && bun test src/modules/chat-session/components/StreamingMessageDisplay/components/MessageList/components/ToolExecutionCard/helpers/pill-content/getToolPillContent.test.ts
+cd apps/frontend && bun test src/modules/chat-session/components/StreamingMessageDisplay/components/MessageList/components/ToolExecutionCard/helpers/pill-content/get-tool-pill-content.test.ts
 ```
 
 Expected: PASS for all `getToolPillContent` tests.
@@ -683,7 +683,7 @@ import {CircleAlert, CircleCheck, CircleX} from 'lucide-react';
 
 import {ParametersSection} from './components/ParametersSection/index.js';
 import {ResultSection} from './components/ResultSection/index.js';
-import {getToolPillContent} from './helpers/pill-content/getToolPillContent.js';
+import {getToolPillContent} from './helpers/pill-content/get-tool-pill-content.js';
 import styles from './styles.module.css';
 
 interface ToolExecutionCardViewProps {
@@ -990,7 +990,7 @@ Expected: PASS for all `ToolExecutionCardView` tests.
 Run:
 
 ```bash
-cd apps/frontend && bun test src/modules/chat-session/components/StreamingMessageDisplay/components/MessageList/components/ToolExecutionCard/helpers/pill-content/getToolPillContent.test.ts src/modules/chat-session/components/StreamingMessageDisplay/components/MessageList/components/ToolExecutionCard/ToolExecutionCardView.test.tsx
+cd apps/frontend && bun test src/modules/chat-session/components/StreamingMessageDisplay/components/MessageList/components/ToolExecutionCard/helpers/pill-content/get-tool-pill-content.test.ts src/modules/chat-session/components/StreamingMessageDisplay/components/MessageList/components/ToolExecutionCard/ToolExecutionCardView.test.tsx
 ```
 
 Expected: PASS for both focused test files.
@@ -1015,7 +1015,7 @@ git commit -m "feat(frontend): compact tool execution rows"
 Run:
 
 ```bash
-cd apps/frontend && bun test src/modules/chat-session/components/StreamingMessageDisplay/components/MessageList/components/ToolExecutionCard/helpers/pill-content/getToolPillContent.test.ts src/modules/chat-session/components/StreamingMessageDisplay/components/MessageList/components/ToolExecutionCard/ToolExecutionCardView.test.tsx
+cd apps/frontend && bun test src/modules/chat-session/components/StreamingMessageDisplay/components/MessageList/components/ToolExecutionCard/helpers/pill-content/get-tool-pill-content.test.ts src/modules/chat-session/components/StreamingMessageDisplay/components/MessageList/components/ToolExecutionCard/ToolExecutionCardView.test.tsx
 ```
 
 Expected: PASS for the pill helper and view tests.

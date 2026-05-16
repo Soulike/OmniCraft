@@ -1,7 +1,7 @@
 import type {ToolName} from '@omnicraft/tool-schemas';
 import {describe, expect, it} from 'vitest';
 
-import {getToolPillContent} from './getToolPillContent.js';
+import {getToolPillContent} from './get-tool-pill-content.js';
 import type {ToolExecutionPillContent} from './types.js';
 
 interface TestCase {
@@ -20,7 +20,7 @@ describe('getToolPillContent', () => {
         lineCount: 5,
       }),
       expected: {
-        target: 'src/index.ts',
+        target: 'index.ts',
         targetKind: 'code',
       },
     },
@@ -30,7 +30,7 @@ describe('getToolPillContent', () => {
         filePath: 'src/new.ts',
         content: 'export {};',
       }),
-      expected: {target: 'src/new.ts', targetKind: 'code'},
+      expected: {target: 'new.ts', targetKind: 'code'},
     },
     {
       toolName: 'edit_file',
@@ -41,7 +41,17 @@ describe('getToolPillContent', () => {
         replaceAll: true,
       }),
       expected: {
-        target: 'src/edit.ts',
+        target: 'edit.ts',
+        targetKind: 'code',
+      },
+    },
+    {
+      toolName: 'read_file',
+      toolArguments: JSON.stringify({
+        filePath: String.raw`C:\project\src\App.tsx`,
+      }),
+      expected: {
+        target: 'App.tsx',
         targetKind: 'code',
       },
     },

@@ -5,7 +5,7 @@ import {CircleAlert, CircleCheck, CircleX} from 'lucide-react';
 
 import {ParametersSection} from './components/ParametersSection/index.js';
 import {ResultSection} from './components/ResultSection/index.js';
-import {getToolPillContent} from './helpers/pill-content/getToolPillContent.js';
+import {getToolPillContent} from './helpers/pill-content/get-tool-pill-content.js';
 import styles from './styles.module.css';
 
 interface ToolExecutionCardViewProps {
