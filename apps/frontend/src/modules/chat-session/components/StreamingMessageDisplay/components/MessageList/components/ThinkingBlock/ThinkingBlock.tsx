@@ -11,7 +11,7 @@ interface ThinkingBlockProps {
 }
 
 export function ThinkingBlock({content, done}: ThinkingBlockProps) {
-  const {isExpanded, onExpandedChange} = useThinkingBlock({done});
+  const {isExpanded, onExpandedChange} = useThinkingBlock();
   const {displayedContent} = useStreamingText(content);
   const deferredContent = useDeferredValue(displayedContent);
 

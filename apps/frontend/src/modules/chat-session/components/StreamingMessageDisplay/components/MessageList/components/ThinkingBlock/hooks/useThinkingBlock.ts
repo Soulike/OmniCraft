@@ -1,15 +1,7 @@
-import {useEffect, useState} from 'react';
+import {useState} from 'react';
 
-interface UseThinkingBlockOptions {
-  done: boolean;
-}
-
-export function useThinkingBlock({done}: UseThinkingBlockOptions) {
-  const [isExpanded, setIsExpanded] = useState(!done);
-
-  useEffect(() => {
-    if (done) setIsExpanded(false);
-  }, [done]);
+export function useThinkingBlock() {
+  const [isExpanded, setIsExpanded] = useState(true);
 
   return {isExpanded, onExpandedChange: setIsExpanded};
 }
