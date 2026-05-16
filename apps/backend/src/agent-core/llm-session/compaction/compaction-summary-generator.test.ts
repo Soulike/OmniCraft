@@ -27,7 +27,7 @@ async function* summaryStream(): LlmEventStream {
   };
 }
 
-describe('generateCompactionSummary', () => {
+describe('compactionSummaryGenerator', () => {
   afterEach(() => {
     vi.restoreAllMocks();
   });
