@@ -482,6 +482,7 @@ Create `apps/frontend/src/modules/chat-session/components/StreamingMessageDispla
 
 ```typescript
 import type {ToolName} from '@omnicraft/tool-schemas';
+import {ZodError} from 'zod';
 
 import {getCurrentTimePillContent} from './adapters/get-current-time.js';
 import {getEditFilePillContent} from './adapters/edit-file.js';

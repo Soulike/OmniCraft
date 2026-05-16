@@ -33,30 +33,29 @@ The detail body is useful and should remain available. It already delegates stru
 
 ### Closed Row
 
-The closed state becomes a compact row, approximately 32px tall:
+The closed state becomes a compact row, approximately 26px tall:
 
 ```text
-[status icon] [display name] [target summary] [meta] [disclosure indicator]
+[status icon] [display name] [target summary] [disclosure indicator]
 ```
 
 - **Status icon** shows running, done, failure, or error.
 - **Display name** is the existing `displayName` carried by the tool execution event, such as `Read File`, `Run Command`, or `Web Search`.
 - **Target summary** is the most useful parsed argument for the tool: file path, command, search pattern, URL, query, skill name, or `toolName` fallback.
-- **Meta** is short status/result context: `live output` for running tools with streamed output, `running` for running tools without output, `done` for success, `failed` for tool failures, and `error` for execution errors.
 - **Disclosure indicator** remains the affordance for opening the detail body.
 
-The row should use the assistant-message width behavior, not a large fixed visual card. Long targets are single-line, ellipsized, and rendered in monospace where they represent paths, commands, patterns, or URLs.
+Rows use a compact fixed width with `max-width: 100%` so repeated tool calls align without returning to the large visual card treatment. Long targets are single-line, ellipsized, and rendered in monospace where they represent paths, commands, patterns, or URLs.
 
 ### Status Styling
 
 All statuses remain collapsed by default.
 
-| Status    | Closed-row treatment                                                                   |
-| --------- | -------------------------------------------------------------------------------------- |
-| `running` | Slight accent tint, spinner, optional `live output` meta when streaming output exists. |
-| `done`    | Muted, low-contrast row so completed tools read as metadata.                           |
-| `failure` | Warm warning tint and warning icon, still collapsed.                                   |
-| `error`   | Danger tint and error icon, still collapsed.                                           |
+| Status    | Closed-row treatment                                    |
+| --------- | ------------------------------------------------------- |
+| `running` | Muted spinner, still collapsed.                         |
+| `done`    | Muted success icon so completed tools read as metadata. |
+| `failure` | Warning icon, still collapsed.                          |
+| `error`   | Danger icon, still collapsed.                           |
 
 Failure and error rows should be easier to notice than successful rows, but they should not dominate the transcript or expand automatically.
 
