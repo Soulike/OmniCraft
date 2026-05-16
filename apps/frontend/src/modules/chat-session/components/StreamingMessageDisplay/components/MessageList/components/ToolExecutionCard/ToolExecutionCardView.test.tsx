@@ -48,6 +48,20 @@ describe('ToolExecutionCardView', () => {
     expect(screen.queryByText('30s timeout')).not.toBeInTheDocument();
   });
 
+  it('omits target text when a tool has no useful target', () => {
+    render(
+      <ToolExecutionCardView
+        arguments={JSON.stringify({})}
+        displayName='Get Current Time'
+        status='done'
+        toolName='get_current_time'
+      />,
+    );
+
+    expect(screen.getByText('Get Current Time')).toBeInTheDocument();
+    expect(screen.queryByText('current time')).not.toBeInTheDocument();
+  });
+
   it('keeps details collapsed by default and shows them after expanding', () => {
     render(
       <ToolExecutionCardView

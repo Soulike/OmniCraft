@@ -114,7 +114,7 @@ describe('getToolPillContent', () => {
     {
       toolName: 'get_current_time',
       toolArguments: JSON.stringify({}),
-      expected: {target: 'current time', targetKind: 'text'},
+      expected: {target: null, targetKind: 'text'},
     },
   ])(
     'returns pill content for $toolName',

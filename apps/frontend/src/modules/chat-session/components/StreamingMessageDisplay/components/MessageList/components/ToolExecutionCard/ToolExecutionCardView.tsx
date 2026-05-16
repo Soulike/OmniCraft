@@ -64,11 +64,12 @@ export function ToolExecutionCardView({
               <CircleX className={styles.statusError} size={STATUS_ICON_SIZE} />
             )}
             <span className={styles.toolName}>{displayName}</span>
-            {pillContent.targetKind === 'code' ? (
-              <code className={styles.targetCode}>{pillContent.target}</code>
-            ) : (
-              <span className={styles.target}>{pillContent.target}</span>
-            )}
+            {pillContent.target !== null &&
+              (pillContent.targetKind === 'code' ? (
+                <code className={styles.targetCode}>{pillContent.target}</code>
+              ) : (
+                <span className={styles.target}>{pillContent.target}</span>
+              ))}
             <Disclosure.Indicator className={styles.indicator} />
           </Disclosure.Trigger>
         </Disclosure.Heading>
