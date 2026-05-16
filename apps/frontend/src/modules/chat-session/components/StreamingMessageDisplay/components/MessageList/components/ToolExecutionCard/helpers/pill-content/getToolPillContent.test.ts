@@ -183,13 +183,13 @@ describe('getToolPillContent', () => {
     },
   );
 
-  it('returns fallback pill content for ask_user', () => {
-    expect(
+  it('throws when ask_user reaches tool pill content', () => {
+    expect(() =>
       getToolPillContent({
         toolName: 'ask_user',
         toolArguments: JSON.stringify({questions: []}),
       }),
-    ).toEqual({target: 'ask_user', targetKind: 'code', detail: null});
+    ).toThrow('ask_user is a client-side tool');
   });
 
   it('rethrows unrelated errors', () => {

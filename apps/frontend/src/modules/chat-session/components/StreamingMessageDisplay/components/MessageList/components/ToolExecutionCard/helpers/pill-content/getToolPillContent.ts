@@ -24,7 +24,9 @@ export function getToolPillContent(
   input: GetToolPillContentInput,
 ): ToolExecutionPillContent {
   if (input.toolName === 'ask_user') {
-    return fallbackToolPillContent(input);
+    throw new Error(
+      'ask_user is a client-side tool and should not reach getToolPillContent',
+    );
   }
 
   try {
@@ -53,8 +55,6 @@ export function getToolPillContent(
         return loadSkillToolPillContent(parsed);
       case 'get_current_time':
         return getCurrentTimeToolPillContent();
-      case 'ask_user':
-        return fallbackToolPillContent(input);
     }
   } catch (error) {
     if (error instanceof SyntaxError || error instanceof ZodError) {
