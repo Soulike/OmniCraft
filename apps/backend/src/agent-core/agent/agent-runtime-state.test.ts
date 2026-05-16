@@ -1,0 +1,123 @@
+import type {SseSubAgentEvent} from '@omnicraft/sse-events';
+import {describe, expect, it} from 'vitest';
+
+import type {LlmConfig} from '../llm-api/index.js';
+import {AgentRuntimeState} from './agent-runtime-state.js';
+
+const MAIN_CONFIG: LlmConfig = {
+  apiFormat: 'openai-responses',
+  apiKey: 'test-key',
+  baseUrl: 'https://example.test',
+  model: 'main-model',
+};
+
+const LIGHT_CONFIG: LlmConfig = {
+  ...MAIN_CONFIG,
+  model: 'light-model',
+};
+
+describe('AgentRuntimeState', () => {
+  it('keeps shell and todo state isolated per agent instance', () => {
+    const first = new AgentRuntimeState('/workspace/one');
+    const second = new AgentRuntimeState('/workspace/two');
+
+    const firstContext = first.buildToolExecutionContext({
+      callId: 'call-1',
+      agentId: 'agent-1',
+      sessionsDir: null,
+      availableSkills: new Map(),
+      workingDirectory: '/workspace/one',
+      signal: new AbortController().signal,
+      onSubAgentEvent: () => undefined,
+      getConfig: () => Promise.resolve(MAIN_CONFIG),
+      getLightConfig: () => Promise.resolve(LIGHT_CONFIG),
+    });
+    const secondContext = second.buildToolExecutionContext({
+      callId: 'call-2',
+      agentId: 'agent-2',
+      sessionsDir: null,
+      availableSkills: new Map(),
+      workingDirectory: '/workspace/two',
+      signal: new AbortController().signal,
+      onSubAgentEvent: () => undefined,
+      getConfig: () => Promise.resolve(MAIN_CONFIG),
+      getLightConfig: () => Promise.resolve(LIGHT_CONFIG),
+    });
+
+    firstContext.shellState.cwd = '/workspace/one/subdir';
+    firstContext.todoStore.append([
+      {subject: 'first task', description: 'belongs to first agent'},
+    ]);
+
+    expect(firstContext.shellState.cwd).toBe('/workspace/one/subdir');
+    expect(secondContext.shellState.cwd).toBe('/workspace/two');
+    expect(first.todoVersion).toBe(1);
+    expect(second.todoVersion).toBe(0);
+    expect(first.listTodos()).toEqual([
+      {
+        index: 0,
+        subject: 'first task',
+        description: 'belongs to first agent',
+        status: 'pending',
+      },
+    ]);
+    expect(second.listTodos()).toEqual([]);
+  });
+
+  it('builds a tool context with the supplied per-call fields', () => {
+    const state = new AgentRuntimeState('/workspace/project');
+    const signal = new AbortController().signal;
+    const subAgentEvents: SseSubAgentEvent[] = [];
+
+    const context = state.buildToolExecutionContext({
+      callId: 'call-123',
+      agentId: 'agent-123',
+      sessionsDir: '/sessions',
+      availableSkills: new Map(),
+      workingDirectory: '/workspace/project',
+      signal,
+      onSubAgentEvent: (event) => {
+        subAgentEvents.push(event);
+      },
+      getConfig: () => Promise.resolve(MAIN_CONFIG),
+      getLightConfig: () => Promise.resolve(LIGHT_CONFIG),
+    });
+
+    context.onSubAgentEvent({
+      type: 'subagent-complete',
+      agentId: 'child-agent',
+      status: 'success',
+    });
+
+    expect(context.callId).toBe('call-123');
+    expect(context.agentId).toBe('agent-123');
+    expect(context.sessionsDir).toBe('/sessions');
+    expect(context.workingDirectory).toBe('/workspace/project');
+    expect(context.signal).toBe(signal);
+    expect(subAgentEvents).toEqual([
+      {type: 'subagent-complete', agentId: 'child-agent', status: 'success'},
+    ]);
+  });
+
+  it('submits responses through the per-agent interaction bridge', async () => {
+    const state = new AgentRuntimeState('/workspace/project');
+    const context = state.buildToolExecutionContext({
+      callId: 'call-1',
+      agentId: 'agent-1',
+      sessionsDir: null,
+      availableSkills: new Map(),
+      workingDirectory: '/workspace/project',
+      signal: new AbortController().signal,
+      onSubAgentEvent: () => undefined,
+      getConfig: () => Promise.resolve(MAIN_CONFIG),
+      getLightConfig: () => Promise.resolve(LIGHT_CONFIG),
+    });
+
+    const responsePromise =
+      context.userInteractionBridge.waitForResponse('interaction-1');
+
+    expect(state.submitUserResponse('missing', {ok: false})).toBe(false);
+    expect(state.submitUserResponse('interaction-1', {ok: true})).toBe(true);
+    await expect(responsePromise).resolves.toEqual({ok: true});
+  });
+});

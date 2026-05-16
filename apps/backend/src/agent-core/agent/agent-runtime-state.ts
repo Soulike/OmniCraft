@@ -1,0 +1,72 @@
+import type {SseSubAgentEvent} from '@omnicraft/sse-events';
+
+import type {LlmConfig} from '../llm-api/index.js';
+import type {SkillDefinition} from '../skill/index.js';
+import type {
+  ShellState,
+  TodoState,
+  ToolExecutionContext,
+} from '../tool/index.js';
+import {UserInteractionBridge} from '../user-interaction/index.js';
+import {FileContentCache} from './state/file-content-cache.js';
+import {FileStatTracker} from './state/file-stat-tracker.js';
+import {type TodoItem, TodoStore} from './state/todo-store.js';
+
+export interface BuildToolExecutionContextInput {
+  readonly callId: string;
+  readonly agentId: string;
+  readonly sessionsDir: string | null;
+  readonly availableSkills: ReadonlyMap<string, SkillDefinition>;
+  readonly workingDirectory: string;
+  readonly signal: AbortSignal;
+  readonly onSubAgentEvent: (event: SseSubAgentEvent) => void;
+  readonly getConfig: () => Promise<LlmConfig>;
+  readonly getLightConfig: () => Promise<LlmConfig>;
+}
+
+export class AgentRuntimeState {
+  private readonly fileCache = new FileContentCache();
+  private readonly fileStatTracker = new FileStatTracker();
+  private readonly shellState: ShellState;
+  private readonly userInteractionBridge = new UserInteractionBridge();
+  private readonly todoStore = new TodoStore();
+  private readonly todoState: TodoState = {lastObservedVersion: undefined};
+
+  constructor(workingDirectory: string) {
+    this.shellState = {cwd: workingDirectory};
+  }
+
+  get todoVersion(): number {
+    return this.todoStore.version;
+  }
+
+  listTodos(): TodoItem[] {
+    return this.todoStore.list();
+  }
+
+  submitUserResponse(id: string, result: unknown): boolean {
+    return this.userInteractionBridge.submitResponse(id, result);
+  }
+
+  buildToolExecutionContext(
+    input: BuildToolExecutionContextInput,
+  ): ToolExecutionContext {
+    return {
+      callId: input.callId,
+      agentId: input.agentId,
+      sessionsDir: input.sessionsDir,
+      availableSkills: input.availableSkills,
+      workingDirectory: input.workingDirectory,
+      fileCache: this.fileCache,
+      fileStatTracker: this.fileStatTracker,
+      shellState: this.shellState,
+      signal: input.signal,
+      onSubAgentEvent: input.onSubAgentEvent,
+      userInteractionBridge: this.userInteractionBridge,
+      todoStore: this.todoStore,
+      todoState: this.todoState,
+      getConfig: input.getConfig,
+      getLightConfig: input.getLightConfig,
+    };
+  }
+}

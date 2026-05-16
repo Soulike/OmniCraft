@@ -32,13 +32,8 @@ import type {LlmConfig, LlmToolCall} from '../llm-api/index.js';
 import type {LlmSessionEventStream, ToolResult} from '../llm-session/index.js';
 import {LlmSession} from '../llm-session/index.js';
 import {modelCapacity} from '../model-capacity/index.js';
-import type {
-  ShellState,
-  TodoState,
-  ToolDefinition,
-  ToolExecutionContext,
-} from '../tool/index.js';
-import {UserInteractionBridge} from '../user-interaction/index.js';
+import type {ToolDefinition} from '../tool/index.js';
+import {AgentRuntimeState} from './agent-runtime-state.js';
 import {agentWorkingDirectoryService} from './agent-working-directory-service.js';
 import {
   buildAvailableSkills,
@@ -48,9 +43,6 @@ import {
 import type {AgentSseLogReaderOptions} from './events/agent-sse-log.js';
 import {AgentSseLog} from './events/agent-sse-log.js';
 import {agentPersistence} from './persistence/agent-persistence.js';
-import {FileContentCache} from './state/file-content-cache.js';
-import {FileStatTracker} from './state/file-stat-tracker.js';
-import {TodoStore} from './state/todo-store.js';
 import {generateTitle} from './title/agent-title.js';
 import {
   type AgentEventStream,
@@ -92,23 +84,7 @@ export abstract class Agent {
 
   private sseEventCount = 0;
 
-  /** LRU file content cache, shared by all file-related tools. */
-  private readonly fileCache = new FileContentCache();
-
-  /** Tracks file stats for modification safety checks. */
-  private readonly fileStatTracker = new FileStatTracker();
-
-  /** Mutable shell state, shared by shell-related tools. */
-  private readonly shellState: ShellState;
-
-  /** Bridge for client-side tools that await user interaction. */
-  private readonly userInteractionBridge = new UserInteractionBridge();
-
-  /** In-memory todo list, shared by todo tools. */
-  private readonly todoStore = new TodoStore();
-
-  /** Mutable todo observation state, shared by todo tools. */
-  private readonly todoState: TodoState = {lastObservedVersion: undefined};
+  private readonly runtimeState: AgentRuntimeState;
 
   /** Append-only event log. All turns write to the same log. */
   readonly sseLog: AgentSseLog;
@@ -162,7 +138,7 @@ export abstract class Agent {
       ? new AgentSseLog(agentPersistence.eventsPath(this.sessionsDir, this.id))
       : new AgentSseLog();
 
-    this.shellState = {cwd: this.workingDirectory};
+    this.runtimeState = new AgentRuntimeState(this.workingDirectory);
 
     if (!snapshot && this.sessionsDir) {
       agentPersistence.persistSnapshot(
@@ -183,7 +159,7 @@ export abstract class Agent {
    * @returns `true` if a pending interaction was found and resolved.
    */
   submitUserResponse(id: string, result: unknown): boolean {
-    return this.userInteractionBridge.submitResponse(id, result);
+    return this.runtimeState.submitUserResponse(id, result);
   }
 
   /** Returns a serializable snapshot of this agent. */
@@ -467,7 +443,7 @@ export abstract class Agent {
       const executions = toolCalls
         .filter((tc) => availableTools.has(tc.toolName))
         .map(async (toolCall) => {
-          const todoVersionBefore = this.todoStore.version;
+          const todoVersionBefore = this.runtimeState.todoVersion;
 
           const result = await this.executeTool(
             toolCall,
@@ -488,10 +464,10 @@ export abstract class Agent {
           }
 
           // Emit todo snapshot whenever a tool mutated the store.
-          if (this.todoStore.version !== todoVersionBefore) {
+          if (this.runtimeState.todoVersion !== todoVersionBefore) {
             toolSseEventChannel.push({
               type: 'todo-update',
-              items: this.todoStore.list(),
+              items: this.runtimeState.listTodos(),
             } satisfies SseTodoUpdateEvent);
           }
 
@@ -693,25 +669,19 @@ export abstract class Agent {
           } satisfies SseToolExecuteDeltaEvent);
         };
 
-    const context: ToolExecutionContext = {
+    const context = this.runtimeState.buildToolExecutionContext({
       callId: toolCall.callId,
       agentId: this.id,
       sessionsDir: this.sessionsDir,
       availableSkills: buildAvailableSkills(this.skillRegistries),
       workingDirectory: this.workingDirectory,
-      fileCache: this.fileCache,
-      fileStatTracker: this.fileStatTracker,
-      shellState: this.shellState,
       signal,
       onSubAgentEvent: (event) => {
         toolSseEventChannel.push(event);
       },
-      userInteractionBridge: this.userInteractionBridge,
-      todoStore: this.todoStore,
-      todoState: this.todoState,
       getConfig: this.getConfig,
       getLightConfig: this.getLightConfig ?? this.getConfig,
-    };
+    });
 
     try {
       const parsedArgs: unknown = tool.parameters.parse(
