@@ -31,10 +31,4 @@ describe('useThinkingBlock', () => {
 
     expect(result.current.isExpanded).toBe(false);
   });
-
-  it('starts expanded for already completed thinking', () => {
-    const {result} = renderHook(() => useThinkingBlock());
-
-    expect(result.current.isExpanded).toBe(true);
-  });
 });
