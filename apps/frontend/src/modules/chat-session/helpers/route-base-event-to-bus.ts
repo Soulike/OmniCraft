@@ -48,5 +48,14 @@ export function routeBaseEventToBus(
     case 'usage-update':
       bus.emit(event.type, event);
       break;
+    case 'session-title':
+      bus.emit(event.type, event);
+      break;
+    case 'todo-update':
+      bus.emit(event.type, event);
+      break;
+    case 'error':
+      bus.emit('stream-error', {message: event.message});
+      break;
   }
 }
