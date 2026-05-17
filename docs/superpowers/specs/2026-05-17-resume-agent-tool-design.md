@@ -76,7 +76,7 @@ interface RunSubagentTurnInput {
   agentType: SubAgentType;
   task: string;
   startEvent: SseSubagentDispatchEvent | SseSubagentResumeEvent;
-  afterStart?: () => void;
+  onTurnStarted?: () => void;
 }
 ```
 
@@ -86,14 +86,15 @@ The helper should:
 - emit the provided start event;
 - subscribe to the subagent before calling `handleUserMessage(task)`;
 - call `handleUserMessage(task)`;
-- call `afterStart`, when provided, immediately after `handleUserMessage(task)`;
+- call `onTurnStarted`, when provided, immediately after
+  `handleUserMessage(task)`;
 - forward each subagent base event as `subagent-output`;
 - collect the latest assistant text delta sequence;
 - emit `subagent-complete` with `success` or `failure`;
 - return a success or failure tool result.
 
 `dispatch_agent` remains responsible for creating a new subagent. It should
-pass an `afterStart` callback that registers the subagent after
+pass an `onTurnStarted` callback that registers the subagent after
 `handleUserMessage(task)`, preserving the existing registration ordering.
 `resume_agent` does not register anything; it remains responsible for lookup,
 claiming, and busy/missing validation before calling the helper.
