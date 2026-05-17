@@ -258,15 +258,30 @@ describe('dispatchAgentTool', () => {
     }
   });
 
-  it('registers the dispatched subagent in the parent context registry', () => {
+  it('registers the dispatched live subagent in the parent context registry', () => {
     const subagent = {
       id: '11111111-1111-4111-8111-111111111111',
+      title: 'Live Subagent',
+      sseLog: {activeReaderCount: 0},
     } as Agent;
+
+    Object.defineProperty(subagent, 'isRunning', {
+      get: () => false,
+    });
 
     registerSubAgent(context, subagent, SubAgentType.EXPLORE);
 
+    expect(context.subagentRegistry.get(subagent.id)).toEqual({
+      agent: subagent,
+      agentType: SubAgentType.EXPLORE,
+    });
     expect(context.subagentRegistry.list()).toEqual([
-      {id: subagent.id, agentType: SubAgentType.EXPLORE},
+      {
+        id: subagent.id,
+        agentType: SubAgentType.EXPLORE,
+        title: 'Live Subagent',
+        isRunning: false,
+      },
     ]);
   });
 

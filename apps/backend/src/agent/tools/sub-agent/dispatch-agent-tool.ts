@@ -99,7 +99,7 @@ export function registerSubAgent(
   subagent: Agent,
   agentType: SubAgentType,
 ): void {
-  context.subagentRegistry.register({id: subagent.id, agentType});
+  context.subagentRegistry.register(subagent, agentType);
 }
 
 export function buildSubagentOutputEvent(
