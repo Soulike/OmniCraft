@@ -6,7 +6,6 @@ import type {LlmConfig} from '../llm-api/index.js';
 import {llmSessionSnapshotSchema} from '../llm-session/index.js';
 import type {SkillRegistry} from '../skill/index.js';
 import type {ToolRegistry} from '../tool/index.js';
-import {subagentRecordSchema} from './state/subagent-registry.js';
 
 // ---------------------------------------------------------------------------
 // Agent Event Types
@@ -33,7 +32,6 @@ export const agentSnapshotSchema = z.object({
   sseEventCount: z.number(),
   llmSession: llmSessionSnapshotSchema,
   options: agentSnapshotOptionsSchema,
-  subagents: z.array(subagentRecordSchema).default([]),
 });
 
 /** Serializable agent configuration persisted in snapshots. */

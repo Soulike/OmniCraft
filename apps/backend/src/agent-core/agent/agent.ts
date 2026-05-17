@@ -106,7 +106,7 @@ export abstract class Agent {
         snapshot.options.workingDirectory ??
         agentWorkingDirectoryService.createDefaultWorkingDirectory(this.id);
       this.llmSession = new LlmSession(getConfig, snapshot.llmSession);
-      this.subagentRegistry = new SubagentRegistry(snapshot.subagents);
+      this.subagentRegistry = new SubagentRegistry();
     } else {
       this.thinkingLevel = options.thinkingLevel;
       this.id = crypto.randomUUID();
@@ -156,7 +156,6 @@ export abstract class Agent {
         workingDirectory: this.workingDirectory,
         thinkingLevel: this.thinkingLevel,
       },
-      subagents: this.subagentRegistry.list(),
     };
   }
 
