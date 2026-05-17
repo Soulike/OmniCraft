@@ -75,6 +75,41 @@ describe('routeBaseEventToBus', () => {
     expect(handler).toHaveBeenCalledWith(event);
   });
 
+  it('routes session-title to bus', () => {
+    const bus = createBus();
+    const handler = vi.fn();
+    bus.on('session-title', handler);
+
+    const event: SseBaseEvent = {
+      type: 'session-title',
+      title: 'Multiplication',
+    };
+    routeBaseEventToBus(event, bus);
+
+    expect(handler).toHaveBeenCalledWith(event);
+  });
+
+  it('routes todo-update to bus', () => {
+    const bus = createBus();
+    const handler = vi.fn();
+    bus.on('todo-update', handler);
+
+    const event: SseBaseEvent = {type: 'todo-update', items: []};
+    routeBaseEventToBus(event, bus);
+
+    expect(handler).toHaveBeenCalledWith(event);
+  });
+
+  it('routes error to stream-error', () => {
+    const bus = createBus();
+    const handler = vi.fn();
+    bus.on('stream-error', handler);
+
+    routeBaseEventToBus({type: 'error', message: 'failed'}, bus);
+
+    expect(handler).toHaveBeenCalledWith({message: 'failed'});
+  });
+
   it('routes all thinking events', () => {
     const bus = createBus();
     const startHandler = vi.fn();

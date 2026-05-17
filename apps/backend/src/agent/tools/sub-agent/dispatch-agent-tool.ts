@@ -6,7 +6,11 @@ import {
   type ThinkingLevel,
   thinkingLevelSchema,
 } from '@omnicraft/api-schema';
-import type {SseBaseEvent} from '@omnicraft/sse-events';
+import {
+  sseBaseEventSchema,
+  type SseEvent,
+  type SseSubagentOutputEvent,
+} from '@omnicraft/sse-events';
 import {z} from 'zod';
 
 import {ExploreSubAgent, GeneralSubAgent} from '@/agent/agents/index.js';
@@ -96,6 +100,18 @@ export function registerSubAgent(
   agentType: SubAgentType,
 ): void {
   context.subagentRegistry.register({id: subagent.id, agentType});
+}
+
+export function buildSubagentOutputEvent(
+  agentId: string,
+  event: SseEvent,
+): SseSubagentOutputEvent {
+  const baseEvent = sseBaseEventSchema.parse(event);
+  return {
+    type: 'subagent-output',
+    agentId,
+    event: baseEvent,
+  };
 }
 
 const parameters = z.object({
@@ -212,27 +228,24 @@ export const dispatchAgentTool: ToolDefinition<
     try {
       let lastReplyText = '';
       let completed = false;
+      let failureMessage: string | null = null;
       const eventIter = subagent.subscribe({signal: context.signal});
 
       subagent.handleUserMessage(task);
 
       for await (const entry of eventIter) {
         const {event} = entry;
-        // Subagents cannot emit subagent events (no SubAgentToolRegistry),
-        // so all events are base events. Cast is safe by construction. The
-        // subagent cursor is only for resuming that internal log, so it is not
-        // forwarded through the parent session's SSE protocol.
-        context.onSubAgentEvent({
-          type: 'subagent-output',
-          agentId: subagent.id,
-          event: event as SseBaseEvent,
-        });
+        context.onSubAgentEvent(buildSubagentOutputEvent(subagent.id, event));
 
         if (event.type === 'message-start' && event.role === 'assistant') {
           lastReplyText = '';
         }
         if (event.type === 'text-delta') {
           lastReplyText += event.content;
+        }
+        if (event.type === 'error') {
+          failureMessage = event.message;
+          break;
         }
         // Subagent's sseLog is never sealed — break on done to end iteration.
         // If the parent aborts, the reader ends silently (no done seen).
@@ -256,6 +269,14 @@ export const dispatchAgentTool: ToolDefinition<
           data: {summary},
           content: summary,
           status: 'success',
+        };
+      }
+
+      if (failureMessage) {
+        return {
+          data: {message: `Subagent error: ${failureMessage}`},
+          content: `Subagent error: ${failureMessage}`,
+          status: 'failure',
         };
       }
 

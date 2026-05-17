@@ -195,12 +195,11 @@ export type SseContextCompactionEvent =
   | SseContextCompactionErrorEvent;
 
 // ---------------------------------------------------------------------------
-// Base event union (all events except error and subagent events).
+// Base event union (all non-recursive events).
 // Used as the inner event type for subagent-output to prevent recursion.
 // ---------------------------------------------------------------------------
 
-/** Union of base SSE events that can appear inside a subagent-output wrapper. */
-export const sseBaseEventSchema = z.discriminatedUnion('type', [
+const sseBaseEventSchemas = [
   sseMessageStartEventSchema,
   sseTextDeltaEventSchema,
   sseThinkingStartEventSchema,
@@ -210,11 +209,20 @@ export const sseBaseEventSchema = z.discriminatedUnion('type', [
   sseToolExecuteDeltaEventSchema,
   sseToolExecuteEndEventSchema,
   sseDoneEventSchema,
+  sseUsageUpdateEventSchema,
+  sseErrorEventSchema,
+  sseSessionTitleEventSchema,
+  sseTodoUpdateEventSchema,
   sseContextCompactionStartEventSchema,
   sseContextCompactionEndEventSchema,
   sseContextCompactionErrorEventSchema,
-  sseUsageUpdateEventSchema,
-]);
+] as const;
+
+/** Union of base SSE events that can appear inside a subagent-output wrapper. */
+export const sseBaseEventSchema = z.discriminatedUnion(
+  'type',
+  sseBaseEventSchemas,
+);
 export type SseBaseEvent = z.infer<typeof sseBaseEventSchema>;
 
 // ---------------------------------------------------------------------------
@@ -266,25 +274,10 @@ export type SseSubAgentEvent =
 
 /** Validates known SSE event types. Unknown types fail validation. */
 export const sseEventSchema = z.discriminatedUnion('type', [
-  sseMessageStartEventSchema,
-  sseTextDeltaEventSchema,
-  sseThinkingStartEventSchema,
-  sseThinkingDeltaEventSchema,
-  sseThinkingEndEventSchema,
-  sseToolExecuteStartEventSchema,
-  sseToolExecuteDeltaEventSchema,
-  sseToolExecuteEndEventSchema,
-  sseDoneEventSchema,
-  sseUsageUpdateEventSchema,
-  sseErrorEventSchema,
-  sseSessionTitleEventSchema,
+  ...sseBaseEventSchemas,
   sseSubagentDispatchEventSchema,
   sseSubagentOutputEventSchema,
   sseSubagentCompleteEventSchema,
-  sseTodoUpdateEventSchema,
-  sseContextCompactionStartEventSchema,
-  sseContextCompactionEndEventSchema,
-  sseContextCompactionErrorEventSchema,
 ]);
 
 /** Union of all known SSE events. */
