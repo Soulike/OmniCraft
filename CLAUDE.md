@@ -19,6 +19,10 @@ Before starting any task, you must first confirm:
 
 - When adding a new npm package, always install it via the package manager (e.g., `bun add <package>`). Never manually write a version number in package.json.
 
+## Verification
+
+- After a pre-commit hook runs, do not repeat compilation or test verification solely because the hook formatted files or ran lint. Formatting and lint do not affect compilation or test results.
+
 ## Runtime APIs
 
 - Bun is used only as the package manager and runtime. In code, always use Node.js APIs (e.g., `node:fs/promises`, `node:path`). Do not use Bun-specific APIs (e.g., `Bun.file()`, `Bun.write()`).
