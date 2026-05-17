@@ -117,7 +117,7 @@ export const listAgentsTool: ToolDefinition<
         }
 
         const title = await readSubagentTitle(subagentSessionsDir, record.id);
-        if (!title) {
+        if (title === null) {
           logger.warn(
             {agentId: record.id},
             'Skipping subagent with unreadable persisted title',

@@ -197,6 +197,34 @@ describe('listAgentsTool', () => {
     });
   });
 
+  it('lists an empty persisted title without falling back or omitting the record', async () => {
+    context.subagentRegistry.register({
+      id: child1Id,
+      agentType: SubAgentType.GENERAL,
+    });
+    await writeSubagentMetadata(subagentSessionsDir, child1Id, '');
+    await writeSubagentSnapshot(
+      subagentSessionsDir,
+      child1Id,
+      'Snapshot Title',
+    );
+
+    const result = await listAgentsTool.execute({}, context);
+
+    expect(result).toMatchObject({
+      status: 'success',
+      data: {
+        agents: [
+          {
+            id: child1Id,
+            agentType: SubAgentType.GENERAL,
+            title: '',
+          },
+        ],
+      },
+    });
+  });
+
   it('omits records whose persisted title cannot be read', async () => {
     const warn = vi.spyOn(logger, 'warn').mockImplementation(() => undefined);
     context.subagentRegistry.register({
