@@ -63,6 +63,8 @@ export class SubagentRegistry {
   }
 
   list(): LiveSubagentRecord[] {
+    this.evictIfNeeded();
+
     return [...this.records.values()].map((entry) => ({
       id: entry.agent.id,
       agentType: entry.agentType,

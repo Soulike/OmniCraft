@@ -175,6 +175,57 @@ describe('SubagentRegistry', () => {
     expect(registry.get(second.id)?.agent).toBe(second);
   });
 
+  it('runs eviction before listing live records', () => {
+    const registry = new SubagentRegistry({maxEntries: 1});
+    const firstOverrides = {title: 'First', isRunning: true};
+    const first = createMockAgent(firstOverrides);
+    const second = createMockAgent({title: 'Second', activeReaderCount: 1});
+
+    registry.register(first, SubAgentType.GENERAL);
+    registry.register(second, SubAgentType.EXPLORE);
+    firstOverrides.isRunning = false;
+
+    expect(registry.list()).toEqual([
+      {
+        id: second.id,
+        agentType: SubAgentType.EXPLORE,
+        title: 'Second',
+        isRunning: false,
+      },
+    ]);
+  });
+
+  it('evicts multiple least recently accessed entries before listing', () => {
+    const registry = new SubagentRegistry({maxEntries: 2});
+    const first = createMockAgent({title: 'First', activeReaderCount: 1});
+    const second = createMockAgent({title: 'Second', activeReaderCount: 1});
+    const third = createMockAgent({title: 'Third', activeReaderCount: 1});
+    const fourth = createMockAgent({title: 'Fourth', activeReaderCount: 1});
+
+    registry.register(first, SubAgentType.GENERAL);
+    registry.register(second, SubAgentType.EXPLORE);
+    registry.register(third, SubAgentType.GENERAL);
+    registry.register(fourth, SubAgentType.EXPLORE);
+    first.sseLog.activeReaderCount = 0;
+    second.sseLog.activeReaderCount = 0;
+    third.sseLog.activeReaderCount = 0;
+
+    expect(registry.list()).toEqual([
+      {
+        id: third.id,
+        agentType: SubAgentType.GENERAL,
+        title: 'Third',
+        isRunning: false,
+      },
+      {
+        id: fourth.id,
+        agentType: SubAgentType.EXPLORE,
+        title: 'Fourth',
+        isRunning: false,
+      },
+    ]);
+  });
+
   it('clears live entries', () => {
     const registry = new SubagentRegistry();
     const agent = createMockAgent();
