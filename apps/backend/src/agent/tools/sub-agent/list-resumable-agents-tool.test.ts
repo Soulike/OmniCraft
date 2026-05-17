@@ -11,7 +11,7 @@ import {agentPersistence} from '@/agent-core/agent/index.js';
 import {createMockContext} from '@/agent-core/tool/testing.js';
 import type {ToolExecutionContext} from '@/agent-core/tool/types.js';
 
-import {listLiveAgentsTool} from './list-live-agents-tool.js';
+import {listResumableAgentsTool} from './list-resumable-agents-tool.js';
 import {SubAgentToolRegistry} from './sub-agent-tool-registry.js';
 
 function createMockAgent(
@@ -37,12 +37,14 @@ function createMockAgent(
   return agent;
 }
 
-describe('listLiveAgentsTool', () => {
+describe('listResumableAgentsTool', () => {
   let tmpDir: string;
   let context: ToolExecutionContext;
 
   beforeEach(async () => {
-    tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'list-live-agents-test-'));
+    tmpDir = await fs.mkdtemp(
+      path.join(os.tmpdir(), 'list-resumable-agents-test-'),
+    );
     context = createMockContext({
       sessionsDir: tmpDir,
       workingDirectory: '/workspace/project',
@@ -54,8 +56,8 @@ describe('listLiveAgentsTool', () => {
     await fs.rm(tmpDir, {recursive: true, force: true});
   });
 
-  it('has the correct live-only name', () => {
-    expect(listLiveAgentsTool.name).toBe('list_live_agents');
+  it('has the correct resumable name', () => {
+    expect(listResumableAgentsTool.name).toBe('list_resumable_agents');
   });
 
   it('is registered by the subagent tool registry', () => {
@@ -64,24 +66,27 @@ describe('listLiveAgentsTool', () => {
       const registry = SubAgentToolRegistry.create();
       const oldToolName = ['list', 'agents'].join('_');
 
-      expect(registry.get('list_live_agents')).toBe(listLiveAgentsTool);
+      expect(registry.get('list_resumable_agents')).toBe(
+        listResumableAgentsTool,
+      );
+      expect(registry.get('list_live_agents')).toBeUndefined();
       expect(registry.get(oldToolName)).toBeUndefined();
     } finally {
       SubAgentToolRegistry.resetInstance();
     }
   });
 
-  it('returns an empty list when no live subagents are registered', async () => {
-    const result = await listLiveAgentsTool.execute({}, context);
+  it('returns an empty list when no resumable subagents are registered', async () => {
+    const result = await listResumableAgentsTool.execute({}, context);
 
     expect(result).toMatchObject({
       status: 'success',
       data: {agents: []},
     });
-    expect(result.content).toContain('No live subagents');
+    expect(result.content).toContain('No subagents are available to resume');
   });
 
-  it('lists live subagents from the registry', async () => {
+  it('lists resumable subagents from the registry', async () => {
     const general = createMockAgent({title: 'Build Summary'});
     const explore = createMockAgent({
       title: 'Explore Report',
@@ -90,7 +95,7 @@ describe('listLiveAgentsTool', () => {
     context.subagentRegistry.register(general, SubAgentType.GENERAL);
     context.subagentRegistry.register(explore, SubAgentType.EXPLORE);
 
-    const result = await listLiveAgentsTool.execute({}, context);
+    const result = await listResumableAgentsTool.execute({}, context);
 
     expect(result).toMatchObject({
       status: 'success',
@@ -125,7 +130,7 @@ describe('listLiveAgentsTool', () => {
     const agent = createMockAgent({title: 'Live Title'});
     context.subagentRegistry.register(agent, SubAgentType.GENERAL);
 
-    const result = await listLiveAgentsTool.execute({}, context);
+    const result = await listResumableAgentsTool.execute({}, context);
 
     expect(result).toMatchObject({
       status: 'success',

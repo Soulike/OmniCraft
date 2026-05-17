@@ -7,24 +7,24 @@ import type {
   ToolExecutionContext,
 } from '@/agent-core/tool/index.js';
 
-interface ListedLiveAgent {
+interface ListedResumableAgent {
   id: string;
   agentType: SubAgentType;
   title: string;
   isRunning: boolean;
 }
 
-interface ListLiveAgentsResult {
-  agents: ListedLiveAgent[];
+interface ListResumableAgentsResult {
+  agents: ListedResumableAgent[];
 }
 
 const parameters = z.object({});
 
-function formatListLiveAgentsContent(
-  agents: readonly ListedLiveAgent[],
+function formatListResumableAgentsContent(
+  agents: readonly ListedResumableAgent[],
 ): string {
   if (agents.length === 0) {
-    return 'No live subagents are available to continue.';
+    return 'No subagents are available to resume.';
   }
 
   return agents
@@ -35,15 +35,15 @@ function formatListLiveAgentsContent(
     .join('\n');
 }
 
-export const listLiveAgentsTool: ToolDefinition<
+export const listResumableAgentsTool: ToolDefinition<
   typeof parameters,
-  ListLiveAgentsResult
+  ListResumableAgentsResult
 > = {
-  name: 'list_live_agents',
-  displayName: 'List Live Agents',
+  name: 'list_resumable_agents',
+  displayName: 'List Resumable Agents',
   description:
-    'Lists live subagents still available in the current runtime. ' +
-    'Use this when you need to identify a subagent that can be continued.',
+    'Lists subagents that can be resumed. ' +
+    'Use this when you need to identify a subagent to resume.',
   parameters,
   suppressToolEvents: true,
   compactResult({content}) {
@@ -52,12 +52,12 @@ export const listLiveAgentsTool: ToolDefinition<
   execute(
     _args: z.infer<typeof parameters>,
     context: ToolExecutionContext,
-  ): ToolExecuteResult<ListLiveAgentsResult> {
+  ): ToolExecuteResult<ListResumableAgentsResult> {
     const agents = context.subagentRegistry.list();
 
     return {
       data: {agents},
-      content: formatListLiveAgentsContent(agents),
+      content: formatListResumableAgentsContent(agents),
       status: 'success',
     };
   },

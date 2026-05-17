@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Replace persisted subagent records with a parent-owned live registry and rename listing to `list_live_agents`.
+**Goal:** Replace persisted subagent records with a parent-owned live registry and rename listing to `list_resumable_agents`.
 
-**Architecture:** `SubagentRegistry` becomes an in-memory LRU registry that stores live `Agent` instances, type, title, and running state. Parent `AgentSnapshot` no longer contains `subagents`; persisted subagent files remain as dispatch artifacts only. `list_live_agents` reads only the live registry and never touches subagent metadata or snapshots.
+**Architecture:** `SubagentRegistry` becomes an in-memory LRU registry that stores live `Agent` instances, type, title, and running state. Parent `AgentSnapshot` no longer contains `subagents`; persisted subagent files remain as dispatch artifacts only. `list_resumable_agents` reads only the live registry and never touches subagent metadata or snapshots.
 
 **Tech Stack:** TypeScript, Vitest, Zod, Bun workspace scripts, existing `Agent`/tool registry abstractions.
 
@@ -28,12 +28,12 @@
   - Removes `subagents` from test snapshots and deletes the missing-subagents default test.
 - Delete: `apps/backend/src/agent/tools/sub-agent/list-agents-tool.ts`
 - Delete: `apps/backend/src/agent/tools/sub-agent/list-agents-tool.test.ts`
-- Create: `apps/backend/src/agent/tools/sub-agent/list-live-agents-tool.ts`
-  - Implements `list_live_agents` from `context.subagentRegistry.list()`.
-- Create: `apps/backend/src/agent/tools/sub-agent/list-live-agents-tool.test.ts`
+- Create: `apps/backend/src/agent/tools/sub-agent/list-resumable-agents-tool.ts`
+  - Implements `list_resumable_agents` from `context.subagentRegistry.list()`.
+- Create: `apps/backend/src/agent/tools/sub-agent/list-resumable-agents-tool.test.ts`
   - Verifies name, registration, empty output, live output, running state, and no persistence reads.
 - Modify: `apps/backend/src/agent/tools/sub-agent/sub-agent-tool-registry.ts`
-  - Registers `listLiveAgentsTool` instead of `listAgentsTool`.
+  - Registers `listResumableAgentsTool` instead of `listAgentsTool`.
 - Modify: `apps/backend/src/agent/tools/sub-agent/dispatch-agent-tool.ts`
   - Calls `context.subagentRegistry.register(subagent, agentType)`.
 - Modify: `apps/backend/src/agent/tools/sub-agent/dispatch-agent-tool.test.ts`
@@ -524,14 +524,14 @@ Expected: commit succeeds. The pre-commit hook formats and lints staged files; n
 
 ---
 
-### Task 3: Replace `list_agents` With `list_live_agents`
+### Task 3: Replace `list_agents` With `list_resumable_agents`
 
 **Files:**
 
 - Delete: `apps/backend/src/agent/tools/sub-agent/list-agents-tool.ts`
 - Delete: `apps/backend/src/agent/tools/sub-agent/list-agents-tool.test.ts`
-- Create: `apps/backend/src/agent/tools/sub-agent/list-live-agents-tool.ts`
-- Create: `apps/backend/src/agent/tools/sub-agent/list-live-agents-tool.test.ts`
+- Create: `apps/backend/src/agent/tools/sub-agent/list-resumable-agents-tool.ts`
+- Create: `apps/backend/src/agent/tools/sub-agent/list-resumable-agents-tool.test.ts`
 - Modify: `apps/backend/src/agent/tools/sub-agent/sub-agent-tool-registry.ts`
 
 - [ ] **Step 1: Delete old list tool files and create the new failing test**
@@ -543,7 +543,7 @@ rm apps/backend/src/agent/tools/sub-agent/list-agents-tool.ts
 rm apps/backend/src/agent/tools/sub-agent/list-agents-tool.test.ts
 ```
 
-Create `apps/backend/src/agent/tools/sub-agent/list-live-agents-tool.test.ts` with:
+Create `apps/backend/src/agent/tools/sub-agent/list-resumable-agents-tool.test.ts` with:
 
 ```typescript
 import crypto from 'node:crypto';
@@ -559,7 +559,7 @@ import {agentPersistence} from '@/agent-core/agent/index.js';
 import {createMockContext} from '@/agent-core/tool/testing.js';
 import type {ToolExecutionContext} from '@/agent-core/tool/types.js';
 
-import {listLiveAgentsTool} from './list-live-agents-tool.js';
+import {listResumableAgentsTool} from './list-resumable-agents-tool.js';
 import {SubAgentToolRegistry} from './sub-agent-tool-registry.js';
 
 function createMockAgent(
@@ -585,12 +585,14 @@ function createMockAgent(
   return agent;
 }
 
-describe('listLiveAgentsTool', () => {
+describe('listResumableAgentsTool', () => {
   let tmpDir: string;
   let context: ToolExecutionContext;
 
   beforeEach(async () => {
-    tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'list-live-agents-test-'));
+    tmpDir = await fs.mkdtemp(
+      path.join(os.tmpdir(), 'list-resumable-agents-test-'),
+    );
     context = createMockContext({
       sessionsDir: tmpDir,
       workingDirectory: '/workspace/project',
@@ -603,7 +605,7 @@ describe('listLiveAgentsTool', () => {
   });
 
   it('has the correct live-only name', () => {
-    expect(listLiveAgentsTool.name).toBe('list_live_agents');
+    expect(listResumableAgentsTool.name).toBe('list_resumable_agents');
   });
 
   it('is registered by the subagent tool registry', () => {
@@ -611,7 +613,9 @@ describe('listLiveAgentsTool', () => {
     try {
       const registry = SubAgentToolRegistry.create();
 
-      expect(registry.get('list_live_agents')).toBe(listLiveAgentsTool);
+      expect(registry.get('list_resumable_agents')).toBe(
+        listResumableAgentsTool,
+      );
       expect(registry.get('list_agents')).toBeUndefined();
     } finally {
       SubAgentToolRegistry.resetInstance();
@@ -619,13 +623,13 @@ describe('listLiveAgentsTool', () => {
   });
 
   it('returns an empty list when no live subagents are registered', async () => {
-    const result = await listLiveAgentsTool.execute({}, context);
+    const result = await listResumableAgentsTool.execute({}, context);
 
     expect(result).toMatchObject({
       status: 'success',
       data: {agents: []},
     });
-    expect(result.content).toContain('No live subagents');
+    expect(result.content).toContain('No subagents are available to resume');
   });
 
   it('lists live subagents from the registry', async () => {
@@ -637,7 +641,7 @@ describe('listLiveAgentsTool', () => {
     context.subagentRegistry.register(general, SubAgentType.GENERAL);
     context.subagentRegistry.register(explore, SubAgentType.EXPLORE);
 
-    const result = await listLiveAgentsTool.execute({}, context);
+    const result = await listResumableAgentsTool.execute({}, context);
 
     expect(result).toMatchObject({
       status: 'success',
@@ -672,7 +676,7 @@ describe('listLiveAgentsTool', () => {
     const agent = createMockAgent({title: 'Live Title'});
     context.subagentRegistry.register(agent, SubAgentType.GENERAL);
 
-    const result = await listLiveAgentsTool.execute({}, context);
+    const result = await listResumableAgentsTool.execute({}, context);
 
     expect(result).toMatchObject({
       status: 'success',
@@ -698,14 +702,14 @@ describe('listLiveAgentsTool', () => {
 Run:
 
 ```bash
-bun --filter @omnicraft/backend test -- src/agent/tools/sub-agent/list-live-agents-tool.test.ts
+bun --filter @omnicraft/backend test -- src/agent/tools/sub-agent/list-resumable-agents-tool.test.ts
 ```
 
-Expected: FAIL because `list-live-agents-tool.ts` does not exist and the registry still imports `listAgentsTool`.
+Expected: FAIL because `list-resumable-agents-tool.ts` does not exist and the registry still imports `listAgentsTool`.
 
 - [ ] **Step 3: Create the new list-live tool**
 
-Create `apps/backend/src/agent/tools/sub-agent/list-live-agents-tool.ts` with:
+Create `apps/backend/src/agent/tools/sub-agent/list-resumable-agents-tool.ts` with:
 
 ```typescript
 import type {SubAgentType} from '@omnicraft/api-schema';
@@ -717,24 +721,24 @@ import type {
   ToolExecutionContext,
 } from '@/agent-core/tool/index.js';
 
-interface ListedLiveAgent {
+interface ListedResumableAgent {
   id: string;
   agentType: SubAgentType;
   title: string;
   isRunning: boolean;
 }
 
-interface ListLiveAgentsResult {
-  agents: ListedLiveAgent[];
+interface ListResumableAgentsResult {
+  agents: ListedResumableAgent[];
 }
 
 const parameters = z.object({});
 
-function formatListLiveAgentsContent(
-  agents: readonly ListedLiveAgent[],
+function formatListResumableAgentsContent(
+  agents: readonly ListedResumableAgent[],
 ): string {
   if (agents.length === 0) {
-    return 'No live subagents are available to continue.';
+    return 'No subagents are available to resume.';
   }
 
   return agents
@@ -745,15 +749,15 @@ function formatListLiveAgentsContent(
     .join('\n');
 }
 
-export const listLiveAgentsTool: ToolDefinition<
+export const listResumableAgentsTool: ToolDefinition<
   typeof parameters,
-  ListLiveAgentsResult
+  ListResumableAgentsResult
 > = {
-  name: 'list_live_agents',
-  displayName: 'List Live Agents',
+  name: 'list_resumable_agents',
+  displayName: 'List Resumable Agents',
   description:
-    'Lists live subagents still available in the current runtime. ' +
-    'Use this when you need to identify a subagent that can be continued.',
+    'Lists subagents that can be resumed. ' +
+    'Use this when you need to identify a subagent to resume.',
   parameters,
   suppressToolEvents: true,
   compactResult({content}) {
@@ -762,12 +766,12 @@ export const listLiveAgentsTool: ToolDefinition<
   execute(
     _args: z.infer<typeof parameters>,
     context: ToolExecutionContext,
-  ): ToolExecuteResult<ListLiveAgentsResult> {
+  ): ToolExecuteResult<ListResumableAgentsResult> {
     const agents = context.subagentRegistry.list();
 
     return {
       data: {agents},
-      content: formatListLiveAgentsContent(agents),
+      content: formatListResumableAgentsContent(agents),
       status: 'success',
     };
   },
@@ -776,20 +780,20 @@ export const listLiveAgentsTool: ToolDefinition<
 
 - [ ] **Step 4: Register the new tool**
 
-Update `apps/backend/src/agent/tools/sub-agent/sub-agent-tool-registry.ts` to import and register `listLiveAgentsTool`:
+Update `apps/backend/src/agent/tools/sub-agent/sub-agent-tool-registry.ts` to import and register `listResumableAgentsTool`:
 
 ```typescript
 import {ToolRegistry} from '@/agent-core/tool/index.js';
 
 import {dispatchAgentTool} from './dispatch-agent-tool.js';
-import {listLiveAgentsTool} from './list-live-agents-tool.js';
+import {listResumableAgentsTool} from './list-resumable-agents-tool.js';
 
 /** Registry for subagent-related tools. */
 export class SubAgentToolRegistry extends ToolRegistry {
   /** Creates the singleton and registers all subagent tools. */
   static override create(): SubAgentToolRegistry {
     const instance = super.create() as SubAgentToolRegistry;
-    instance.register(listLiveAgentsTool);
+    instance.register(listResumableAgentsTool);
     instance.register(dispatchAgentTool);
     return instance;
   }
@@ -801,7 +805,7 @@ export class SubAgentToolRegistry extends ToolRegistry {
 Run:
 
 ```bash
-bun --filter @omnicraft/backend test -- src/agent/tools/sub-agent/list-live-agents-tool.test.ts
+bun --filter @omnicraft/backend test -- src/agent/tools/sub-agent/list-resumable-agents-tool.test.ts
 ```
 
 Expected: PASS.
@@ -811,7 +815,7 @@ Expected: PASS.
 Run:
 
 ```bash
-git add apps/backend/src/agent/tools/sub-agent/list-live-agents-tool.ts apps/backend/src/agent/tools/sub-agent/list-live-agents-tool.test.ts apps/backend/src/agent/tools/sub-agent/sub-agent-tool-registry.ts
+git add apps/backend/src/agent/tools/sub-agent/list-resumable-agents-tool.ts apps/backend/src/agent/tools/sub-agent/list-resumable-agents-tool.test.ts apps/backend/src/agent/tools/sub-agent/sub-agent-tool-registry.ts
 git add -u apps/backend/src/agent/tools/sub-agent/list-agents-tool.ts apps/backend/src/agent/tools/sub-agent/list-agents-tool.test.ts
 git commit -m "feat: add live subagent listing tool"
 ```
@@ -935,7 +939,7 @@ Expected: no production references to old symbols. Remaining matches in comments
 Run:
 
 ```bash
-bun --filter @omnicraft/backend test -- src/agent-core/agent/state/subagent-registry.test.ts src/agent-core/agent/agent.test.ts src/agent-core/agent/persistence/agent-persistence.test.ts src/agent/tools/sub-agent/list-live-agents-tool.test.ts src/agent/tools/sub-agent/dispatch-agent-tool.test.ts
+bun --filter @omnicraft/backend test -- src/agent-core/agent/state/subagent-registry.test.ts src/agent-core/agent/agent.test.ts src/agent-core/agent/persistence/agent-persistence.test.ts src/agent/tools/sub-agent/list-resumable-agents-tool.test.ts src/agent/tools/sub-agent/dispatch-agent-tool.test.ts
 ```
 
 Expected: PASS.
@@ -980,10 +984,10 @@ Spec coverage:
 - Live `SubagentRegistry` with `Agent` instances: Task 1.
 - No registry persistence in `AgentSnapshot`: Task 2.
 - Bounded per-parent LRU with max 10: Task 1.
-- List only continue-capable live subagents: Task 3.
+- List only resume-capable subagents: Task 3.
 - Running state visible to future continuation: Task 1 and Task 3.
 - Existing subagent persistence remains dispatch side effect only: Task 4 leaves subagent `sessionsDir` behavior unchanged.
-- Tool rename from `list_agents` to `list_live_agents`: Task 3.
+- Tool rename from `list_agents` to `list_resumable_agents`: Task 3.
 - No disk restore path: Task 3 removes metadata/snapshot reads; Task 5 searches old durable-listing symbols.
 
 Placeholder scan: this plan contains concrete file paths, replacement snippets, commands, and expected results. It contains no unresolved implementation markers.

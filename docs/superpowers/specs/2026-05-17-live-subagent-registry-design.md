@@ -8,11 +8,11 @@ subagent metadata to list old subagents.
 
 That model only makes sense if subagents can be restored from disk. For the
 first continuation feature, we are choosing a narrower model: a subagent can be
-continued only while its `Agent` instance is still alive in the current backend
+resumed only while its `Agent` instance is still alive in the current backend
 process. If the instance is gone, the caller should create a new subagent.
 
 Under this model, listing persisted-but-unavailable subagents is misleading.
-The registry should represent live subagents that can actually be continued,
+The registry should represent live subagents that can actually be resumed,
 not historical ownership records.
 
 ## Goals
@@ -21,7 +21,7 @@ not historical ownership records.
   subagent `Agent` instances.
 - Stop persisting subagent registry records in parent `AgentSnapshot` objects.
 - Keep only a bounded number of recently used live subagents per parent agent.
-- Let tools list only subagents that are still available to continue.
+- Let tools list only subagents that are still available to resume.
 - Let future continuation logic reject a live subagent that is already running.
 - Keep persisted subagent snapshots and SSE logs as a side effect of dispatch,
   but do not use them for listing or continuation in this phase.
@@ -89,7 +89,7 @@ export class SubagentRegistry {
 inserts or replaces the live entry and updates access time.
 
 `get()` returns the live `Agent` instance and type when the entry is still in
-memory. It updates access time so continued subagents stay recent. If no entry
+memory. It updates access time so resumed subagents stay recent. If no entry
 exists, it returns `undefined`. It does not read disk.
 
 `list()` returns only currently registered live entries. The title comes from
@@ -124,7 +124,7 @@ to satisfy capacity.
 
 `Agent.toSnapshot()` should no longer include the registry. Restoring a parent
 agent creates an empty `SubagentRegistry`, so old subagents from previous
-process lifetimes are not listed and cannot be continued.
+process lifetimes are not listed and cannot be resumed.
 
 This intentionally narrows the feature: persisted subagent files may still exist
 under `<parent session>/<parent id>/subagents/<subagent id>/`, but they are not
@@ -134,18 +134,19 @@ part of the live tool contract.
 
 The current durable names should be replaced with live-only names:
 
-- `list_agents` becomes `list_live_agents`.
-- `resume_agent` should be designed as `continue_live_agent`.
+- `list_agents` becomes `list_resumable_agents`.
+- The future resume tool should be named `resume_agent`.
 
-`live` communicates that the returned agents are still alive in the current
-runtime. `continue` avoids implying disk/session restore.
+The tool surface should use `resume`/`resumable` language. The live-only cache
+is an implementation detail; callers only need to know which subagents can be
+resumed.
 
-## `list_live_agents`
+## `list_resumable_agents`
 
-`list_live_agents` reads only `context.subagentRegistry.list()`.
+`list_resumable_agents` reads only `context.subagentRegistry.list()`.
 
 The tool output should include enough information for the caller to pick a
-subagent to continue:
+subagent to resume:
 
 - `id`
 - `agentType`
@@ -155,7 +156,7 @@ subagent to continue:
 It should not read subagent metadata or snapshots. If the registry is empty, it
 returns a normal empty-list message.
 
-## Future `continue_live_agent`
+## Future `resume_agent`
 
 The future continuation tool should use `context.subagentRegistry.get(id)`.
 
@@ -208,12 +209,12 @@ Update agent snapshot tests:
 Update dispatch/list tool tests:
 
 - `dispatch_agent` registers the created live subagent.
-- `list_live_agents` lists only the registry contents.
-- `list_live_agents` does not read metadata or snapshots.
+- `list_resumable_agents` lists only the registry contents.
+- `list_resumable_agents` does not read metadata or snapshots.
 - The old `list_agents` tool name is removed from the subagent tool registry.
 
 ## Open Decisions
 
-No product decisions remain for the live registry. `continue_live_agent` still
+No product decisions remain for the live registry. `resume_agent` still
 needs its own spec for parameters, streaming behavior, and frontend event
 handling.
