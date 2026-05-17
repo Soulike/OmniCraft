@@ -1,4 +1,8 @@
-import {type ThinkingLevel, thinkingLevelSchema} from '@omnicraft/api-schema';
+import {
+  agentIdSchema,
+  type ThinkingLevel,
+  thinkingLevelSchema,
+} from '@omnicraft/api-schema';
 import type {SseErrorEvent, SseEvent} from '@omnicraft/sse-events';
 import {z} from 'zod';
 
@@ -27,7 +31,7 @@ const agentSnapshotOptionsSchema = z.object({
 });
 
 export const agentSnapshotSchema = z.object({
-  id: z.uuid(),
+  id: agentIdSchema,
   title: z.string(),
   sseEventCount: z.number(),
   llmSession: llmSessionSnapshotSchema,

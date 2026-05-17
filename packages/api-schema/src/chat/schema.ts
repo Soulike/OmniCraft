@@ -1,5 +1,7 @@
 import {z} from 'zod';
 
+import {sessionIdSchema} from '../agent-id/schema.js';
+
 /** Thinking/reasoning level for models that support extended thinking. */
 export const thinkingLevelSchema = z.enum([
   'none',
@@ -30,7 +32,7 @@ export type CreateCodingSessionRequest = z.infer<
 
 /** Schema for the POST /chat/session response body. */
 export const createSessionResponseSchema = z.object({
-  sessionId: z.uuid(),
+  sessionId: sessionIdSchema,
 });
 
 export type CreateSessionResponse = z.infer<typeof createSessionResponseSchema>;
@@ -62,7 +64,7 @@ export type SubmitToolResponseRequest = z.infer<
 
 /** Schema for a single session entry in the list response. */
 export const sessionMetadataSchema = z.object({
-  id: z.uuid(),
+  id: sessionIdSchema,
   title: z.string(),
   workingDirectory: z.string().optional(),
 });

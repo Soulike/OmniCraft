@@ -1,3 +1,9 @@
+export {
+  type AgentId,
+  agentIdSchema,
+  type SessionId,
+  sessionIdSchema,
+} from './agent-id/schema.js';
 export {AgentType, agentTypeSchema} from './agent-type/schema.js';
 export {
   type ChatCompletionsRequest,

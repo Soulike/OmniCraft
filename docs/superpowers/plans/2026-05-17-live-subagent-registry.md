@@ -230,14 +230,17 @@ Expected: FAIL because `register()` still accepts persisted records, `DEFAULT_MA
 Replace `apps/backend/src/agent-core/agent/state/subagent-registry.ts` with:
 
 ```typescript
-import {subAgentTypeSchema, type SubAgentType} from '@omnicraft/api-schema';
-import {z} from 'zod';
+import {
+  agentIdSchema,
+  subAgentTypeSchema,
+  type SubAgentType,
+} from '@omnicraft/api-schema';
 
 import type {Agent} from '../agent.js';
 
 export const DEFAULT_MAX_LIVE_SUBAGENTS = 10;
 
-const subagentIdSchema = z.uuid();
+const subagentIdSchema = agentIdSchema;
 
 interface LiveSubagentRegistryEntry {
   readonly agent: Agent;
@@ -442,7 +445,11 @@ Expected: FAIL with TypeScript or runtime failures because production snapshot t
 In `apps/backend/src/agent-core/agent/types.ts`, remove the `subagentRecordSchema` import and remove `subagents` from `agentSnapshotSchema`:
 
 ```typescript
-import {type ThinkingLevel, thinkingLevelSchema} from '@omnicraft/api-schema';
+import {
+  agentIdSchema,
+  type ThinkingLevel,
+  thinkingLevelSchema,
+} from '@omnicraft/api-schema';
 import type {SseErrorEvent, SseEvent} from '@omnicraft/sse-events';
 import {z} from 'zod';
 
@@ -450,7 +457,7 @@ import {z} from 'zod';
 // import {subagentRecordSchema} from './state/subagent-registry.js';
 
 export const agentSnapshotSchema = z.object({
-  id: z.uuid(),
+  id: agentIdSchema,
   title: z.string(),
   sseEventCount: z.number(),
   llmSession: llmSessionSnapshotSchema,

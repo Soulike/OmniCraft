@@ -1,11 +1,14 @@
-import {type SubAgentType, subAgentTypeSchema} from '@omnicraft/api-schema';
+import {
+  agentIdSchema,
+  type SubAgentType,
+  subAgentTypeSchema,
+} from '@omnicraft/api-schema';
 
 import type {Agent} from '../agent.js';
-import {agentSnapshotSchema} from '../types.js';
 
 export const DEFAULT_MAX_LIVE_SUBAGENTS = 10;
 
-const subagentIdSchema = agentSnapshotSchema.shape.id;
+const subagentIdSchema = agentIdSchema;
 
 interface LiveSubagentRegistryEntry {
   readonly agent: Agent;
