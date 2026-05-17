@@ -62,8 +62,10 @@ describe('listLiveAgentsTool', () => {
     SubAgentToolRegistry.resetInstance();
     try {
       const registry = SubAgentToolRegistry.create();
+      const oldToolName = ['list', 'agents'].join('_');
 
       expect(registry.get('list_live_agents')).toBe(listLiveAgentsTool);
+      expect(registry.get(oldToolName)).toBeUndefined();
     } finally {
       SubAgentToolRegistry.resetInstance();
     }
