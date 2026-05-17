@@ -160,6 +160,17 @@ describe('SubagentRegistry', () => {
     expect(registry.get(reading.id)?.agent).toBe(reading);
   });
 
+  it('keeps a newly registered entry available when older entries are protected', () => {
+    const registry = new SubagentRegistry({maxEntries: 1});
+    const running = createMockAgent({isRunning: true});
+    const newest = createMockAgent({title: 'Newest'});
+
+    registry.register(running, SubAgentType.GENERAL);
+    registry.register(newest, SubAgentType.EXPLORE);
+
+    expect(registry.get(newest.id)?.agent).toBe(newest);
+  });
+
   it('runs eviction on a valid missing lookup', () => {
     const registry = new SubagentRegistry({maxEntries: 1});
     const firstOverrides = {title: 'First', isRunning: true};
