@@ -231,6 +231,8 @@ export const dispatchAgentTool: ToolDefinition<
       const eventIter = subagent.subscribe({signal: context.signal});
 
       subagent.handleUserMessage(task);
+      // Register after dispatching the task so the registry does not briefly
+      // treat a newly created subagent as idle on the normal dispatch path.
       registerSubAgent(context, subagent, agentType);
 
       for await (const entry of eventIter) {

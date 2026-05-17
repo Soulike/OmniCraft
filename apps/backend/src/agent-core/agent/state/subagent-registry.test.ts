@@ -102,10 +102,10 @@ describe('SubagentRegistry', () => {
     ]);
   });
 
-  it('rejects non-UUID ids during lookup', () => {
+  it('returns undefined for non-UUID ids during lookup', () => {
     const registry = new SubagentRegistry();
 
-    expect(() => registry.get('not-a-uuid')).toThrow();
+    expect(registry.get('not-a-uuid')).toBeUndefined();
   });
 
   it('evicts the least recently used idle entry when capacity is exceeded', () => {
@@ -179,7 +179,7 @@ describe('SubagentRegistry', () => {
     ]);
   });
 
-  it('runs eviction on a valid missing lookup', () => {
+  it('does not evict during missing lookups', () => {
     const registry = new SubagentRegistry({maxEntries: 1});
     const firstOverrides = {title: 'First', isRunning: true};
     const first = createMockAgent(firstOverrides);
@@ -191,59 +191,33 @@ describe('SubagentRegistry', () => {
 
     expect(registry.get(crypto.randomUUID())).toBeUndefined();
 
-    expect(registry.get(first.id)).toBeUndefined();
+    expect(registry.get(first.id)?.agent).toBe(first);
     expect(registry.get(second.id)?.agent).toBe(second);
   });
 
-  it('runs eviction before listing live records', () => {
+  it('does not evict before listing live records', () => {
     const registry = new SubagentRegistry({maxEntries: 1});
     const firstOverrides = {title: 'First', isRunning: true};
     const first = createMockAgent(firstOverrides);
-    const second = createMockAgent({title: 'Second', activeReaderCount: 1});
+    const secondOverrides = {title: 'Second', activeReaderCount: 1};
+    const second = createMockAgent(secondOverrides);
 
     registry.register(first, SubAgentType.GENERAL);
     registry.register(second, SubAgentType.EXPLORE);
     firstOverrides.isRunning = false;
+    secondOverrides.activeReaderCount = 0;
 
     expect(registry.list()).toEqual([
+      {
+        id: first.id,
+        agentType: SubAgentType.GENERAL,
+        title: 'First',
+        isRunning: false,
+      },
       {
         id: second.id,
         agentType: SubAgentType.EXPLORE,
         title: 'Second',
-        isRunning: false,
-      },
-    ]);
-  });
-
-  it('evicts multiple least recently accessed entries before listing', () => {
-    const registry = new SubagentRegistry({maxEntries: 2});
-    const firstOverrides = {title: 'First', activeReaderCount: 1};
-    const secondOverrides = {title: 'Second', activeReaderCount: 1};
-    const thirdOverrides = {title: 'Third', activeReaderCount: 1};
-    const first = createMockAgent(firstOverrides);
-    const second = createMockAgent(secondOverrides);
-    const third = createMockAgent(thirdOverrides);
-    const fourth = createMockAgent({title: 'Fourth', activeReaderCount: 1});
-
-    registry.register(first, SubAgentType.GENERAL);
-    registry.register(second, SubAgentType.EXPLORE);
-    registry.register(third, SubAgentType.GENERAL);
-    registry.register(fourth, SubAgentType.EXPLORE);
-    firstOverrides.activeReaderCount = 0;
-    secondOverrides.activeReaderCount = 0;
-    thirdOverrides.activeReaderCount = 0;
-
-    expect(registry.list()).toEqual([
-      {
-        id: third.id,
-        agentType: SubAgentType.GENERAL,
-        title: 'Third',
-        isRunning: false,
-      },
-      {
-        id: fourth.id,
-        agentType: SubAgentType.EXPLORE,
-        title: 'Fourth',
         isRunning: false,
       },
     ]);

@@ -53,21 +53,19 @@ export class SubagentRegistry {
   }
 
   get(id: string): LiveSubagentHandle | undefined {
-    const parsedId = subagentIdSchema.parse(id);
-    const entry = this.records.get(parsedId);
+    const parsedId = subagentIdSchema.safeParse(id);
+    if (!parsedId.success) return undefined;
+
+    const entry = this.records.get(parsedId.data);
     if (!entry) {
-      this.evictIfNeeded();
       return undefined;
     }
 
     entry.lastAccessOrder = this.nextAccessOrder();
-    this.evictIfNeeded();
     return {agent: entry.agent, agentType: entry.agentType};
   }
 
   list(): LiveSubagentRecord[] {
-    this.evictIfNeeded();
-
     return [...this.records.values()].map((entry) => ({
       id: entry.agent.id,
       agentType: entry.agentType,

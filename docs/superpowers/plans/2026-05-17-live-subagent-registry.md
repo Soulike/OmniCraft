@@ -156,10 +156,10 @@ describe('SubagentRegistry', () => {
     ]);
   });
 
-  it('rejects non-UUID ids during lookup', () => {
+  it('returns undefined for non-UUID ids during lookup', () => {
     const registry = new SubagentRegistry();
 
-    expect(() => registry.get('not-a-uuid')).toThrow();
+    expect(registry.get('not-a-uuid')).toBeUndefined();
   });
 
   it('evicts the least recently used idle entry when capacity is exceeded', () => {
@@ -285,12 +285,13 @@ export class SubagentRegistry {
   }
 
   get(id: string): LiveSubagentHandle | undefined {
-    const parsedId = subagentIdSchema.parse(id);
-    const entry = this.records.get(parsedId);
+    const parsedId = subagentIdSchema.safeParse(id);
+    if (!parsedId.success) return undefined;
+
+    const entry = this.records.get(parsedId.data);
     if (!entry) return undefined;
 
     entry.lastAccessedAt = this.nextAccessOrder();
-    this.evictIfNeeded();
     return {agent: entry.agent, agentType: entry.agentType};
   }
 

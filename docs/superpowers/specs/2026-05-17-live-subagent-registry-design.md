@@ -89,8 +89,8 @@ export class SubagentRegistry {
 inserts or replaces the live entry and updates access time.
 
 `get()` returns the live `Agent` instance and type when the entry is still in
-memory. It updates access time so resumed subagents stay recent. If no entry
-exists, it returns `undefined`. It does not read disk.
+memory. It updates access time so resumed subagents stay recent. If the id is
+malformed or no entry exists, it returns `undefined`. It does not read disk.
 
 `list()` returns only currently registered live entries. The title comes from
 `agent.title`, not from `metadata.json` or `snapshot.json`. `isRunning` comes
@@ -107,7 +107,8 @@ limit, for example:
 const DEFAULT_MAX_LIVE_SUBAGENTS = 10;
 ```
 
-Eviction runs after `register()` and after `get()` updates access time.
+Eviction runs after `register()`. `get()` updates access time for successful
+lookups, and `list()` is a read-only query.
 
 An entry is evictable only when both are true:
 
