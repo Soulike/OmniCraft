@@ -521,6 +521,7 @@ describe('transformMessages', () => {
         role: 'assistant',
         content: {
           type: 'subagent',
+          mode: 'dispatch',
           agentId: 'agent-1',
           task: 'Search config files',
           agentType: 'general',
@@ -535,6 +536,7 @@ describe('transformMessages', () => {
     expect(result).toEqual([
       {
         type: 'subagent',
+        mode: 'dispatch',
         agentId: 'agent-1',
         task: 'Search config files',
         agentType: 'general',
@@ -555,6 +557,7 @@ describe('transformMessages', () => {
         role: 'assistant',
         content: {
           type: 'subagent',
+          mode: 'dispatch',
           agentId: 'agent-1',
           task: 'Search config files',
           agentType: 'general',
@@ -569,12 +572,49 @@ describe('transformMessages', () => {
     expect(result).toEqual([
       {
         type: 'subagent',
+        mode: 'dispatch',
         agentId: 'agent-1',
         task: 'Search config files',
         agentType: 'general',
         thinkingLevel: 'none',
         workingDirectory: '/tmp',
         status: 'complete',
+        eventBus: mockBus,
+      },
+    ]);
+  });
+
+  it('converts a resumed subagent message to SubagentRenderItem', () => {
+    const mockBus = {} as ChatEventBus;
+    const messages: ChatMessage[] = [
+      {
+        id: null,
+        createdAt: null,
+        role: 'assistant',
+        content: {
+          type: 'subagent',
+          mode: 'resume',
+          agentId: 'agent-1',
+          task: 'Continue config search',
+          agentType: 'general',
+          thinkingLevel: 'none',
+          workingDirectory: '/tmp',
+          status: 'running',
+          eventBus: mockBus,
+        },
+      },
+    ];
+    const result = transformMessages(messages);
+    expect(result).toEqual([
+      {
+        type: 'subagent',
+        mode: 'resume',
+        agentId: 'agent-1',
+        task: 'Continue config search',
+        agentType: 'general',
+        thinkingLevel: 'none',
+        workingDirectory: '/tmp',
+        status: 'running',
         eventBus: mockBus,
       },
     ]);

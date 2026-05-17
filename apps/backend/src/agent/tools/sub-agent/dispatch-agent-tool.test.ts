@@ -18,12 +18,15 @@ import {createMockContext} from '@/agent-core/tool/testing.js';
 import type {ToolExecutionContext} from '@/agent-core/tool/types.js';
 
 import {
-  buildSubagentOutputEvent,
   createSubAgent,
   dispatchAgentTool,
   getSubagentSessionsDir,
   registerSubAgent,
 } from './dispatch-agent-tool.js';
+import {
+  buildSubagentOutputEvent,
+  runSubagentTurn,
+} from './subagent-turn-runner.js';
 
 function resetAgentRegistries(): void {
   CoreToolRegistry.resetInstance();
@@ -49,6 +52,119 @@ function emptyUsage() {
     sessionOutputTokens: 0,
     sessionCacheReadInputTokens: 0,
   };
+}
+
+function createForwardingMockSubagent(
+  workingDirectory: string,
+  onHandleUserMessage?: () => void,
+): Agent & {
+  readonly handledMessages: string[];
+} {
+  const handledMessages: string[] = [];
+  const subagent = {
+    id: '11111111-1111-4111-8111-111111111111',
+    title: 'Forwarding Subagent',
+    sseLog: {activeReaderCount: 0},
+    handledMessages,
+    handleUserMessage(message: string) {
+      onHandleUserMessage?.();
+      handledMessages.push(message);
+    },
+    abort() {
+      return undefined;
+    },
+    async *subscribe() {
+      await Promise.resolve();
+      yield {
+        nextIndex: 1,
+        event: {
+          type: 'message-start',
+          role: 'assistant',
+          messageId: 'assistant-1',
+          createdAt: 1,
+          content: '',
+        },
+      };
+      yield {nextIndex: 2, event: {type: 'text-delta', content: 'done'}};
+      yield {nextIndex: 3, event: {type: 'done', reason: 'complete'}};
+    },
+    getWorkingDirectory() {
+      return workingDirectory;
+    },
+    getThinkingLevel() {
+      return 'none' as const;
+    },
+    toSnapshot() {
+      return {sseEventCount: 0};
+    },
+  } as unknown as Agent & {readonly handledMessages: string[]};
+
+  Object.defineProperty(subagent, 'isRunning', {get: () => false});
+  return subagent;
+}
+
+function createResumedTurnMockSubagent(workingDirectory: string): Agent & {
+  readonly handledMessages: string[];
+  readonly subscribedStartIndexes: (number | undefined)[];
+} {
+  const handledMessages: string[] = [];
+  const subscribedStartIndexes: (number | undefined)[] = [];
+  const events = [
+    {
+      type: 'message-start',
+      role: 'assistant',
+      messageId: 'old-assistant',
+      createdAt: 1,
+      content: '',
+    },
+    {type: 'text-delta', content: 'old summary'},
+    {type: 'done', reason: 'complete'},
+    {
+      type: 'message-start',
+      role: 'assistant',
+      messageId: 'new-assistant',
+      createdAt: 2,
+      content: '',
+    },
+    {type: 'text-delta', content: 'new summary'},
+    {type: 'done', reason: 'complete'},
+  ] as const;
+  const subagent = {
+    id: '11111111-1111-4111-8111-111111111111',
+    title: 'Resumed Subagent',
+    sseLog: {activeReaderCount: 0},
+    handledMessages,
+    subscribedStartIndexes,
+    handleUserMessage(message: string) {
+      handledMessages.push(message);
+    },
+    abort() {
+      return undefined;
+    },
+    async *subscribe(options?: {startIndex?: number; signal?: AbortSignal}) {
+      subscribedStartIndexes.push(options?.startIndex);
+      await Promise.resolve();
+      for (const [index, event] of events.entries()) {
+        if (index < (options?.startIndex ?? 0)) continue;
+        yield {nextIndex: index + 1, event};
+      }
+    },
+    getWorkingDirectory() {
+      return workingDirectory;
+    },
+    getThinkingLevel() {
+      return 'none' as const;
+    },
+    toSnapshot() {
+      return {sseEventCount: 3};
+    },
+  } as unknown as Agent & {
+    readonly handledMessages: string[];
+    readonly subscribedStartIndexes: (number | undefined)[];
+  };
+
+  Object.defineProperty(subagent, 'isRunning', {get: () => false});
+  return subagent;
 }
 
 describe('dispatchAgentTool', () => {
@@ -282,6 +398,112 @@ describe('dispatchAgentTool', () => {
         title: 'Live Subagent',
         isRunning: false,
       },
+    ]);
+  });
+
+  it('forwards dispatched subagent events and registers after the turn starts', async () => {
+    const events: unknown[] = [];
+    const order: string[] = [];
+    const dispatchContext = createMockContext({
+      workingDirectory: tmpDir,
+      onSubAgentEvent: (event) => {
+        events.push(event);
+      },
+    });
+    const subagent = createForwardingMockSubagent(tmpDir, () => {
+      order.push('handleUserMessage');
+      expect(dispatchContext.subagentRegistry.get(subagent.id)).toBeUndefined();
+    });
+
+    const result = await runSubagentTurn({
+      context: dispatchContext,
+      subagent,
+      task: 'Inspect the code',
+      startEvent: {
+        type: 'subagent-dispatch',
+        agentId: subagent.id,
+        task: 'Inspect the code',
+        agentType: SubAgentType.GENERAL,
+        thinkingLevel: 'none',
+        workingDirectory: tmpDir,
+      },
+      onTurnStarted: () => {
+        order.push('onTurnStarted');
+        registerSubAgent(dispatchContext, subagent, SubAgentType.GENERAL);
+      },
+    });
+
+    expect(result).toMatchObject({
+      status: 'success',
+      data: {summary: 'done'},
+      content: 'done',
+    });
+    expect(subagent.handledMessages).toEqual(['Inspect the code']);
+    expect(order).toEqual(['handleUserMessage', 'onTurnStarted']);
+    expect(dispatchContext.subagentRegistry.get(subagent.id)?.agent).toBe(
+      subagent,
+    );
+    expect(events).toEqual([
+      expect.objectContaining({type: 'subagent-dispatch'}),
+      expect.objectContaining({type: 'subagent-output'}),
+      expect.objectContaining({type: 'subagent-output'}),
+      expect.objectContaining({type: 'subagent-output'}),
+      {type: 'subagent-complete', agentId: subagent.id, status: 'success'},
+    ]);
+  });
+
+  it('streams a resumed turn from the current subagent log end', async () => {
+    const events: unknown[] = [];
+    const dispatchContext = createMockContext({
+      workingDirectory: tmpDir,
+      onSubAgentEvent: (event) => {
+        events.push(event);
+      },
+    });
+    const subagent = createResumedTurnMockSubagent(tmpDir);
+
+    const result = await runSubagentTurn({
+      context: dispatchContext,
+      subagent,
+      task: 'Continue the work',
+      startEvent: {
+        type: 'subagent-dispatch',
+        agentId: subagent.id,
+        task: 'Continue the work',
+        agentType: SubAgentType.GENERAL,
+        thinkingLevel: 'none',
+        workingDirectory: tmpDir,
+      },
+    });
+
+    expect(result).toMatchObject({
+      status: 'success',
+      data: {summary: 'new summary'},
+      content: 'new summary',
+    });
+    expect(subagent.handledMessages).toEqual(['Continue the work']);
+    expect(subagent.subscribedStartIndexes).toEqual([3]);
+    expect(events).toEqual([
+      expect.objectContaining({type: 'subagent-dispatch'}),
+      expect.objectContaining({
+        type: 'subagent-output',
+        event: {
+          type: 'message-start',
+          role: 'assistant',
+          messageId: 'new-assistant',
+          createdAt: 2,
+          content: '',
+        },
+      }),
+      expect.objectContaining({
+        type: 'subagent-output',
+        event: {type: 'text-delta', content: 'new summary'},
+      }),
+      expect.objectContaining({
+        type: 'subagent-output',
+        event: {type: 'done', reason: 'complete'},
+      }),
+      {type: 'subagent-complete', agentId: subagent.id, status: 'success'},
     ]);
   });
 
