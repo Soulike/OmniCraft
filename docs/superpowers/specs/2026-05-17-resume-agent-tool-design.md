@@ -42,15 +42,17 @@ subagent tool registry. It accepts a live subagent id and a task string:
 
 ```typescript
 const parameters = z.object({
-  agentId: agentIdSchema.describe('The id of the live subagent to resume.'),
+  agentId: z.string().min(1).describe('The id of the live subagent to resume.'),
   task: z.string().min(1).describe('The follow-up task for the subagent.'),
 });
 ```
 
-The tool looks up the handle with `context.subagentRegistry.get(agentId)`.
-`SubagentRegistry.get()` already returns `undefined` for malformed ids and for
-ids that are not currently registered, so the tool can handle both as the same
-normal failure case.
+The tool validates `agentId` with `agentIdSchema.safeParse()` at the start of
+`execute()`. A malformed UUID should return a normal tool failure that tells the
+agent the id format is invalid. A valid UUID then looks up the handle with
+`context.subagentRegistry.get(parsedAgentId.data)`; if no handle exists, the tool
+returns a separate normal failure saying the subagent is not available to
+resume.
 
 If the handle exists but `handle.agent.isRunning` is true, the tool returns a
 busy failure. Otherwise it starts a new turn on the same live subagent instance,
@@ -167,18 +169,19 @@ The disclosure body should include the subagent id with mode-specific wording:
 - Dispatch: `Subagent ID: <agentId>`
 - Resume: `Resumed subagent ID: <agentId>`
 
-The body should continue to show the task and working directory. The footer can
-continue to show type and thinking level.
+The body should still show the task and working directory. The footer can still
+show type and thinking level.
 
-This gives users enough context to distinguish a new subagent from a continued
+This gives users enough context to distinguish a new subagent from a resumed
 one without changing the nested transcript layout.
 
 ## Error Handling
 
 `resume_agent` should return normal tool failures for expected resume problems:
 
-- Missing or malformed id: the subagent is not available to resume; dispatch a
-  new subagent if needed.
+- Malformed id: the provided subagent id is invalid and must be a UUID.
+- Missing valid id: the subagent is not available to resume; dispatch a new
+  subagent if needed.
 - Running subagent: the subagent is already working; wait for it to finish
   before resuming it.
 - Aborted parent turn: return an aborted failure and emit `subagent-complete`
@@ -192,7 +195,8 @@ they become tool execution errors handled by `AgentToolExecutor`.
 
 Backend tests should cover:
 
-- `resume_agent` returns failure for unknown or malformed ids.
+- `resume_agent` returns an invalid-id failure for malformed ids.
+- `resume_agent` returns a not-available failure for unknown valid ids.
 - `resume_agent` returns failure for a running subagent.
 - `resume_agent` returns failure when a same-id resume claim is already held.
 - `resume_agent` calls `handleUserMessage(task)` on the registered live
