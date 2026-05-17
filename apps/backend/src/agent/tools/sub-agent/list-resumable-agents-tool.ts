@@ -43,7 +43,7 @@ export const listResumableAgentsTool: ToolDefinition<
   displayName: 'List Resumable Agents',
   description:
     'Lists subagents that can be resumed. ' +
-    'Use this when you need to identify a subagent to resume.',
+    'Use this as a fallback to look up a previously dispatched subagent before calling resume_agent.',
   parameters,
   suppressToolEvents: true,
   compactResult({content}) {

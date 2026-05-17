@@ -145,6 +145,9 @@ resumed.
 
 `list_resumable_agents` reads only `context.subagentRegistry.list()`.
 
+This tool is a fallback lookup for callers that do not already know which
+previously dispatched subagent to pass to `resume_agent`.
+
 The tool output should include enough information for the caller to pick a
 subagent to resume:
 
