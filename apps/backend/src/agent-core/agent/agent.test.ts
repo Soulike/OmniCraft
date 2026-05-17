@@ -5,6 +5,7 @@ import path from 'node:path';
 
 import type {SseEvent} from '@omnicraft/sse-events';
 import {afterEach, describe, expect, it, vi} from 'vitest';
+import {z} from 'zod';
 
 import {llmApi, type LlmConfig, type LlmEventStream} from '../llm-api/index.js';
 import {LlmSession} from '../llm-session/index.js';
@@ -124,6 +125,24 @@ async function* toolCallCompletionStream(
   yield {type: 'tool-call-delta', callId: 'call-1', argumentsDelta: '{}'};
   yield {type: 'tool-call-end', callId: 'call-1'};
   yield {type: 'message-end', stopReason: 'tool_use', usage};
+}
+
+function createSubagentRegisteringTool(childId: string): ToolDefinition {
+  return {
+    name: 'register_subagent',
+    displayName: 'Register Subagent',
+    description: 'Registers a subagent record for Agent snapshot tests',
+    parameters: z.object({}),
+    suppressToolEvents: false,
+    execute: (_args, context) => {
+      context.subagentRegistry.register({id: childId, agentType: 'general'});
+      return {
+        status: 'success',
+        content: 'registered',
+        data: {message: 'registered'},
+      };
+    },
+  };
 }
 
 async function* titleCompletionStream(): LlmEventStream {
@@ -815,13 +834,37 @@ describe('Agent abort flow', () => {
 });
 
 describe('Agent snapshot restore', () => {
-  it('includes subagent records in snapshots', () => {
-    const agent = new TestAgent(() => Promise.resolve(MAIN_CONFIG), {
-      ...testAgentOptions(),
-    });
-    const childId = crypto.randomUUID();
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 
-    agent.subagentRegistry.register({id: childId, agentType: 'general'});
+  it('includes subagent records in snapshots', async () => {
+    vi.spyOn(llmApi, 'countToken').mockResolvedValue(1);
+    vi.spyOn(llmApi, 'streamCompletion')
+      .mockReturnValueOnce(
+        toolCallCompletionStream('register_subagent', {
+          inputTokens: 10,
+          outputTokens: 1,
+          cacheReadInputTokens: 0,
+        }),
+      )
+      .mockReturnValueOnce(
+        usageCompletionStream({
+          inputTokens: 10,
+          outputTokens: 1,
+          cacheReadInputTokens: 0,
+        }),
+      );
+    const childId = crypto.randomUUID();
+    const registry = TestToolRegistry.createForTest();
+    registry.register(createSubagentRegisteringTool(childId));
+    const agent = new UsageTestAgent(() => Promise.resolve(MAIN_CONFIG), {
+      ...testAgentOptions(),
+      toolRegistries: [registry],
+      getMaxToolRounds: () => 5,
+    });
+
+    await collectAll(agent.streamForTest('register a child'));
 
     expect(agent.toSnapshot().subagents).toEqual([
       {id: childId, agentType: 'general'},
@@ -853,7 +896,7 @@ describe('Agent snapshot restore', () => {
       snapshot,
     );
 
-    expect(agent.subagentRegistry.list()).toEqual([
+    expect(agent.toSnapshot().subagents).toEqual([
       {id: childId, agentType: 'explore'},
     ]);
   });

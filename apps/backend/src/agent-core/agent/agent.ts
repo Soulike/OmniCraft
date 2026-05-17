@@ -57,7 +57,7 @@ export abstract class Agent {
   private readonly getLightConfig: (() => Promise<LlmConfig>) | null;
   private readonly thinkingLevel: ThinkingLevel;
 
-  readonly subagentRegistry: SubagentRegistry;
+  private readonly subagentRegistry: SubagentRegistry;
 
   private readonly workingDirectory: string;
 
