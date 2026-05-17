@@ -3,11 +3,11 @@ import os from 'node:os';
 import path from 'node:path';
 
 import {SubAgentType} from '@omnicraft/api-schema';
-import {afterEach, beforeEach, describe, expect, it} from 'vitest';
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 
-import {Agent} from '@/agent-core/agent/index.js';
 import {createMockContext} from '@/agent-core/tool/testing.js';
 import type {ToolExecutionContext} from '@/agent-core/tool/types.js';
+import {logger} from '@/logger.js';
 
 import {listAgentsTool} from './list-agents-tool.js';
 import {SubAgentToolRegistry} from './sub-agent-tool-registry.js';
@@ -85,6 +85,7 @@ describe('listAgentsTool', () => {
   });
 
   afterEach(async () => {
+    vi.restoreAllMocks();
     await fs.rm(tmpDir, {recursive: true, force: true});
   });
 
@@ -185,7 +186,8 @@ describe('listAgentsTool', () => {
     });
   });
 
-  it('uses the default title when persisted title cannot be read', async () => {
+  it('omits records whose persisted title cannot be read', async () => {
+    const warn = vi.spyOn(logger, 'warn').mockImplementation(() => undefined);
     context.subagentRegistry.register({
       id: child1Id,
       agentType: SubAgentType.GENERAL,
@@ -195,19 +197,16 @@ describe('listAgentsTool', () => {
 
     expect(result).toMatchObject({
       status: 'success',
-      data: {
-        agents: [
-          {
-            id: child1Id,
-            agentType: SubAgentType.GENERAL,
-            title: Agent.DEFAULT_TITLE,
-          },
-        ],
-      },
+      data: {agents: []},
     });
+    expect(warn).toHaveBeenCalledWith(
+      expect.objectContaining({agentId: child1Id}),
+      'Skipping subagent with unreadable persisted title',
+    );
   });
 
-  it('uses the default title for in-memory parent sessions', async () => {
+  it('omits records for in-memory parent sessions', async () => {
+    const warn = vi.spyOn(logger, 'warn').mockImplementation(() => undefined);
     const memoryContext = createMockContext({sessionsDir: null});
     memoryContext.subagentRegistry.register({
       id: child1Id,
@@ -218,15 +217,11 @@ describe('listAgentsTool', () => {
 
     expect(result).toMatchObject({
       status: 'success',
-      data: {
-        agents: [
-          {
-            id: child1Id,
-            agentType: SubAgentType.GENERAL,
-            title: Agent.DEFAULT_TITLE,
-          },
-        ],
-      },
+      data: {agents: []},
     });
+    expect(warn).toHaveBeenCalledWith(
+      {agentId: child1Id},
+      'Skipping subagent without persistence directory',
+    );
   });
 });

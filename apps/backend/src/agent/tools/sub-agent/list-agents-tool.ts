@@ -3,12 +3,13 @@ import {readFile} from 'node:fs/promises';
 import {sessionMetadataSchema, type SubAgentType} from '@omnicraft/api-schema';
 import {z} from 'zod';
 
-import {Agent, agentPersistence} from '@/agent-core/agent/index.js';
+import {agentPersistence} from '@/agent-core/agent/index.js';
 import type {
   ToolDefinition,
   ToolExecuteResult,
   ToolExecutionContext,
 } from '@/agent-core/tool/index.js';
+import {logger} from '@/logger.js';
 
 import {getSubagentSessionsDir} from './dispatch-agent-tool.js';
 
@@ -54,15 +55,28 @@ async function readTitleFromSnapshot(
 async function readSubagentTitle(
   context: ToolExecutionContext,
   id: string,
-): Promise<string> {
+): Promise<string | null> {
   const subagentSessionsDir = getSubagentSessionsDir(context);
-  if (!subagentSessionsDir) return Agent.DEFAULT_TITLE;
+  if (!subagentSessionsDir) {
+    logger.warn(
+      {agentId: id},
+      'Skipping subagent without persistence directory',
+    );
+    return null;
+  }
 
-  return (
+  const title =
     (await readTitleFromMetadata(subagentSessionsDir, id)) ??
-    (await readTitleFromSnapshot(subagentSessionsDir, id)) ??
-    Agent.DEFAULT_TITLE
-  );
+    (await readTitleFromSnapshot(subagentSessionsDir, id));
+
+  if (!title) {
+    logger.warn(
+      {agentId: id},
+      'Skipping subagent with unreadable persisted title',
+    );
+  }
+
+  return title;
 }
 
 function formatListAgentsContent(agents: readonly ListedAgent[]): string {
@@ -92,14 +106,15 @@ export const listAgentsTool: ToolDefinition<
     context: ToolExecutionContext,
   ): Promise<ToolExecuteResult<ListAgentsResult>> {
     const records = context.subagentRegistry.list();
-    const agents = await Promise.all(
-      records.map(
-        async (record): Promise<ListedAgent> => ({
-          id: record.id,
-          agentType: record.agentType,
-          title: await readSubagentTitle(context, record.id),
-        }),
-      ),
+    const agentsOrNull = await Promise.all(
+      records.map(async (record): Promise<ListedAgent | null> => {
+        const title = await readSubagentTitle(context, record.id);
+        if (!title) return null;
+        return {id: record.id, agentType: record.agentType, title};
+      }),
+    );
+    const agents = agentsOrNull.filter(
+      (agent): agent is ListedAgent => agent !== null,
     );
 
     return {
