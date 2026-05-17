@@ -69,6 +69,17 @@ async function writeSubagentSnapshot(
   );
 }
 
+async function writeRawSubagentFile(
+  rootDir: string,
+  id: string,
+  fileName: string,
+  content: string,
+): Promise<void> {
+  const dir = path.join(rootDir, id);
+  await fs.mkdir(dir, {recursive: true});
+  await fs.writeFile(path.join(dir, fileName), content);
+}
+
 describe('listAgentsTool', () => {
   let tmpDir: string;
   let context: ToolExecutionContext;
@@ -199,6 +210,79 @@ describe('listAgentsTool', () => {
       status: 'success',
       data: {agents: []},
     });
+    expect(result.content).toContain('could not be listed');
+    expect(result.content).not.toContain('No subagents');
+    expect(warn).toHaveBeenCalledWith(
+      expect.objectContaining({agentId: child1Id}),
+      'Skipping subagent with unreadable persisted title',
+    );
+  });
+
+  it('logs unreadable metadata and falls back to the snapshot title', async () => {
+    const warn = vi.spyOn(logger, 'warn').mockImplementation(() => undefined);
+    context.subagentRegistry.register({
+      id: child1Id,
+      agentType: SubAgentType.GENERAL,
+    });
+    await writeRawSubagentFile(
+      subagentSessionsDir,
+      child1Id,
+      'metadata.json',
+      'not valid json{{{',
+    );
+    await writeSubagentSnapshot(
+      subagentSessionsDir,
+      child1Id,
+      'Snapshot Title',
+    );
+
+    const result = await listAgentsTool.execute({}, context);
+
+    expect(result).toMatchObject({
+      status: 'success',
+      data: {
+        agents: [
+          {
+            id: child1Id,
+            agentType: SubAgentType.GENERAL,
+            title: 'Snapshot Title',
+          },
+        ],
+      },
+    });
+    expect(warn).toHaveBeenCalledWith(
+      expect.objectContaining({agentId: child1Id}),
+      'Failed to read subagent metadata title',
+    );
+    expect(warn).not.toHaveBeenCalledWith(
+      expect.anything(),
+      'Skipping subagent with unreadable persisted title',
+    );
+  });
+
+  it('logs unreadable snapshot before omitting the record', async () => {
+    const warn = vi.spyOn(logger, 'warn').mockImplementation(() => undefined);
+    context.subagentRegistry.register({
+      id: child1Id,
+      agentType: SubAgentType.GENERAL,
+    });
+    await writeRawSubagentFile(
+      subagentSessionsDir,
+      child1Id,
+      'snapshot.json',
+      'not valid json{{{',
+    );
+
+    const result = await listAgentsTool.execute({}, context);
+
+    expect(result).toMatchObject({
+      status: 'success',
+      data: {agents: []},
+    });
+    expect(warn).toHaveBeenCalledWith(
+      expect.objectContaining({agentId: child1Id}),
+      'Failed to read subagent snapshot title',
+    );
     expect(warn).toHaveBeenCalledWith(
       expect.objectContaining({agentId: child1Id}),
       'Skipping subagent with unreadable persisted title',

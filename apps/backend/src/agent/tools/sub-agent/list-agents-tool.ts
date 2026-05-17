@@ -9,6 +9,7 @@ import type {
   ToolExecuteResult,
   ToolExecutionContext,
 } from '@/agent-core/tool/index.js';
+import {isFileNotFoundError} from '@/helpers/fs.js';
 import {logger} from '@/logger.js';
 
 import {getSubagentSessionsDir} from './dispatch-agent-tool.js';
@@ -36,7 +37,10 @@ async function readTitleFromMetadata(
     );
     const parsed: unknown = JSON.parse(content);
     return sessionMetadataSchema.parse(parsed).title;
-  } catch {
+  } catch (err) {
+    if (!isFileNotFoundError(err)) {
+      logger.warn({agentId: id, err}, 'Failed to read subagent metadata title');
+    }
     return null;
   }
 }
@@ -47,7 +51,10 @@ async function readTitleFromSnapshot(
 ): Promise<string | null> {
   try {
     return (await agentPersistence.loadSnapshot(subagentSessionsDir, id)).title;
-  } catch {
+  } catch (err) {
+    if (!isFileNotFoundError(err)) {
+      logger.warn({agentId: id, err}, 'Failed to read subagent snapshot title');
+    }
     return null;
   }
 }
@@ -62,8 +69,17 @@ async function readSubagentTitle(
   );
 }
 
-function formatListAgentsContent(agents: readonly ListedAgent[]): string {
-  if (agents.length === 0) return 'No subagents have been dispatched.';
+function formatListAgentsContent(
+  agents: readonly ListedAgent[],
+  registeredCount: number,
+): string {
+  if (agents.length === 0) {
+    if (registeredCount > 0) {
+      return 'Subagents are registered, but they could not be listed because their persisted state is unavailable or unreadable.';
+    }
+
+    return 'No subagents have been dispatched.';
+  }
 
   return agents
     .map((agent) => `- ${agent.title} (${agent.agentType})\n  id: ${agent.id}`)
@@ -118,7 +134,7 @@ export const listAgentsTool: ToolDefinition<
 
     return {
       data: {agents},
-      content: formatListAgentsContent(agents),
+      content: formatListAgentsContent(agents, records.length),
       status: 'success',
     };
   },
