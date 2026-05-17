@@ -45,6 +45,7 @@ export {
   type SettingValue,
   settingValueSchema,
 } from './settings/schema.js';
+export * from './sub-agent/schema.js';
 export {
   type GetVscodeStatusResponse,
   getVscodeStatusResponseSchema,

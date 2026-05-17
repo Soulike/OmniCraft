@@ -35,6 +35,7 @@ function createTestSnapshot(id: string): AgentSnapshot {
       workingDirectory: '/tmp/test-working-dir',
       thinkingLevel: 'medium',
     },
+    subagents: [],
   };
 }
 
@@ -91,6 +92,16 @@ describe('agentPersistence', () => {
       expect(loaded).toEqual(snapshot);
     });
 
+    it('defaults missing subagents to an empty list', async () => {
+      const {subagents: _subagents, ...snapshot} = createTestSnapshot(agentId);
+      const filePath = path.join(tmpDir, agentId, 'snapshot.json');
+      await writeFile(filePath, JSON.stringify(snapshot, null, 2) + '\n');
+
+      const loaded = await agentPersistence.loadSnapshot(tmpDir, agentId);
+
+      expect(loaded.subagents).toEqual([]);
+    });
+
     it('throws when snapshot.json does not exist', async () => {
       await expect(
         agentPersistence.loadSnapshot(tmpDir, 'nonexistent-id'),
@@ -131,6 +142,7 @@ describe('agentPersistence', () => {
             usage: emptyUsage(),
           },
           options: {workingDirectory: '/tmp/test-working-dir'},
+          subagents: [],
         }),
       );
 

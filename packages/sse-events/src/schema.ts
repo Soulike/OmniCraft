@@ -1,4 +1,4 @@
-import {thinkingLevelSchema} from '@omnicraft/api-schema';
+import {subAgentTypeSchema, thinkingLevelSchema} from '@omnicraft/api-schema';
 import {toolNameSchema, toolResultDataSchema} from '@omnicraft/tool-schemas';
 import {z} from 'zod';
 
@@ -224,9 +224,9 @@ export type SseBaseEvent = z.infer<typeof sseBaseEventSchema>;
 /** A subagent has been dispatched to handle a subtask. */
 export const sseSubagentDispatchEventSchema = z.object({
   type: z.literal('subagent-dispatch'),
-  agentId: z.string(),
+  agentId: z.uuid(),
   task: z.string(),
-  agentType: z.string(),
+  agentType: subAgentTypeSchema,
   thinkingLevel: thinkingLevelSchema,
   workingDirectory: z.string(),
 });
@@ -237,7 +237,7 @@ export type SseSubagentDispatchEvent = z.infer<
 /** A forwarded event from a running subagent. */
 export const sseSubagentOutputEventSchema = z.object({
   type: z.literal('subagent-output'),
-  agentId: z.string(),
+  agentId: z.uuid(),
   event: sseBaseEventSchema,
 });
 export type SseSubagentOutputEvent = z.infer<
@@ -247,7 +247,7 @@ export type SseSubagentOutputEvent = z.infer<
 /** A subagent has finished its work. */
 export const sseSubagentCompleteEventSchema = z.object({
   type: z.literal('subagent-complete'),
-  agentId: z.string(),
+  agentId: z.uuid(),
   status: z.enum(['success', 'failure']),
 });
 export type SseSubagentCompleteEvent = z.infer<

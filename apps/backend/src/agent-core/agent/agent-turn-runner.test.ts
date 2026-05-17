@@ -8,6 +8,7 @@ import type {ToolDefinition} from '../tool/index.js';
 import {ToolRegistry} from '../tool/tool-registry.js';
 import {AgentRuntimeState} from './agent-runtime-state.js';
 import {agentTurnRunner, type RunAgentTurnInput} from './agent-turn-runner.js';
+import {SubagentRegistry} from './state/subagent-registry.js';
 
 const MAIN_CONFIG: LlmConfig = {
   apiFormat: 'openai-responses',
@@ -127,10 +128,12 @@ function createInput(
   const llmSession =
     overrides.llmSession ?? new LlmSession(() => Promise.resolve(MAIN_CONFIG));
   const workingDirectory = overrides.workingDirectory ?? '/workspace/project';
-  return {
+  const subagentRegistry = overrides.subagentRegistry ?? new SubagentRegistry();
+  const defaults: RunAgentTurnInput = {
     userMessage: 'user request',
     agentId: 'agent-1',
     sessionsDir: null,
+    subagentRegistry,
     workingDirectory,
     thinkingLevel: 'high',
     signal: new AbortController().signal,
@@ -143,7 +146,14 @@ function createInput(
     getLightConfig: () => Promise.resolve(MAIN_CONFIG),
     getMaxToolRounds: () => 5,
     compactAfterTurn: () => Promise.resolve(),
+  };
+
+  return {
+    ...defaults,
     ...overrides,
+    llmSession,
+    workingDirectory,
+    subagentRegistry,
   };
 }
 

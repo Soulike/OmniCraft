@@ -1,6 +1,11 @@
 import path from 'node:path';
 
-import {thinkingLevelSchema} from '@omnicraft/api-schema';
+import {
+  SubAgentType,
+  subAgentTypeSchema,
+  type ThinkingLevel,
+  thinkingLevelSchema,
+} from '@omnicraft/api-schema';
 import type {SseBaseEvent} from '@omnicraft/sse-events';
 import {z} from 'zod';
 
@@ -19,21 +24,14 @@ interface SubAgentInfo {
   description: string;
 }
 
-export const SUB_AGENT_TYPE = {
-  GENERAL: 'general',
-  EXPLORE: 'explore',
-} as const;
-
-export type SubAgentType = (typeof SUB_AGENT_TYPE)[keyof typeof SUB_AGENT_TYPE];
-
 const subAgentInfos = {
-  [SUB_AGENT_TYPE.GENERAL]: {
+  [SubAgentType.GENERAL]: {
     name: 'General',
     description:
       'General-purpose agent for autonomous multi-step tasks. ' +
       'Use for delegated work that no specialized subagent type covers.',
   },
-  [SUB_AGENT_TYPE.EXPLORE]: {
+  [SubAgentType.EXPLORE]: {
     name: 'Explore',
     description:
       'Research-focused agent for repository research, architecture, module design, ' +
@@ -42,11 +40,6 @@ const subAgentInfos = {
       'Do not specify a report format unless the user asked for one.',
   },
 } as const satisfies Record<SubAgentType, SubAgentInfo>;
-
-const agentTypeSchema = z.enum([
-  SUB_AGENT_TYPE.GENERAL,
-  SUB_AGENT_TYPE.EXPLORE,
-]);
 
 function buildToolDescription(): string {
   const header =
@@ -69,18 +62,18 @@ export function createSubAgent(
   agentType: SubAgentType,
   getConfig: () => Promise<LlmConfig>,
   workingDirectory: string,
-  thinkingLevel: z.infer<typeof thinkingLevelSchema>,
+  thinkingLevel: ThinkingLevel,
   sessionsDir?: string,
 ): Agent {
   switch (agentType) {
-    case SUB_AGENT_TYPE.GENERAL:
+    case SubAgentType.GENERAL:
       return new GeneralSubAgent(
         getConfig,
         workingDirectory,
         thinkingLevel,
         sessionsDir,
       );
-    case SUB_AGENT_TYPE.EXPLORE:
+    case SubAgentType.EXPLORE:
       return new ExploreSubAgent(
         getConfig,
         workingDirectory,
@@ -97,12 +90,20 @@ export function getSubagentSessionsDir(
   return path.join(context.sessionsDir, context.agentId, 'subagents');
 }
 
+export function registerSubAgent(
+  context: ToolExecutionContext,
+  subagent: Agent,
+  agentType: SubAgentType,
+): void {
+  context.subagentRegistry.register({id: subagent.id, agentType});
+}
+
 const parameters = z.object({
   task: z.string().min(1).describe('The task description for the subagent'),
-  agentType: agentTypeSchema
+  agentType: subAgentTypeSchema
     .optional()
     .describe(
-      `Type of subagent to dispatch. Defaults to '${SUB_AGENT_TYPE.GENERAL}'.`,
+      `Type of subagent to dispatch. Defaults to '${SubAgentType.GENERAL}'.`,
     ),
   model: z
     .enum(['default', 'light'])
@@ -154,7 +155,7 @@ export const dispatchAgentTool: ToolDefinition<
   ): Promise<ToolExecuteResult<DispatchAgentResult>> {
     const {
       task,
-      agentType = SUB_AGENT_TYPE.GENERAL,
+      agentType = SubAgentType.GENERAL,
       model = 'default',
       thinkingLevel = 'none',
     } = args;
@@ -191,6 +192,7 @@ export const dispatchAgentTool: ToolDefinition<
       thinkingLevel,
       subagentSessionsDir,
     );
+    registerSubAgent(context, subagent, agentType);
 
     // Link parent abort signal to subagent
     const onAbort = () => {

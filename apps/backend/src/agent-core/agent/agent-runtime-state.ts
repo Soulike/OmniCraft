@@ -10,12 +10,14 @@ import type {
 import {UserInteractionBridge} from '../user-interaction/index.js';
 import {FileContentCache} from './state/file-content-cache.js';
 import {FileStatTracker} from './state/file-stat-tracker.js';
+import type {SubagentRegistry} from './state/subagent-registry.js';
 import {type TodoItem, TodoStore} from './state/todo-store.js';
 
 export interface BuildToolExecutionContextInput {
   readonly callId: string;
   readonly agentId: string;
   readonly sessionsDir: string | null;
+  readonly subagentRegistry: SubagentRegistry;
   readonly availableSkills: ReadonlyMap<string, SkillDefinition>;
   readonly workingDirectory: string;
   readonly signal: AbortSignal;
@@ -55,6 +57,7 @@ export class AgentRuntimeState {
       callId: input.callId,
       agentId: input.agentId,
       sessionsDir: input.sessionsDir,
+      subagentRegistry: input.subagentRegistry,
       availableSkills: input.availableSkills,
       workingDirectory: input.workingDirectory,
       fileCache: this.fileCache,
