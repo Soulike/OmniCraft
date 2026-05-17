@@ -46,4 +46,10 @@ describe('SubagentRegistry', () => {
 
     expect(registry.list()).toEqual([{id: agent1, agentType: 'general'}]);
   });
+
+  it('rejects non-UUID ids during lookup', () => {
+    const registry = new SubagentRegistry();
+
+    expect(() => registry.get('not-a-uuid')).toThrow();
+  });
 });

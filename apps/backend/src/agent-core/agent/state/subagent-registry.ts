@@ -6,6 +6,8 @@ export const subagentRecordSchema = z.object({
   agentType: subAgentTypeSchema,
 });
 
+const subagentIdSchema = subagentRecordSchema.shape.id;
+
 export type SubagentRecord = z.infer<typeof subagentRecordSchema>;
 
 export class SubagentRegistry {
@@ -23,7 +25,8 @@ export class SubagentRegistry {
   }
 
   get(id: string): SubagentRecord | undefined {
-    const record = this.records.get(id);
+    const parsedId = subagentIdSchema.parse(id);
+    const record = this.records.get(parsedId);
     return record ? {...record} : undefined;
   }
 

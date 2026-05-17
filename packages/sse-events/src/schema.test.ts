@@ -6,7 +6,9 @@ import {
   sseContextCompactionErrorEventSchema,
   sseContextCompactionStartEventSchema,
   sseEventSchema,
+  sseSubagentCompleteEventSchema,
   sseSubagentDispatchEventSchema,
+  sseSubagentOutputEventSchema,
 } from './schema.js';
 
 describe('context-compaction-start schema', () => {
@@ -81,6 +83,19 @@ describe('context-compaction-error schema', () => {
 });
 
 describe('subagent-dispatch schema', () => {
+  it('rejects a non-UUID agent id', () => {
+    expect(() =>
+      sseSubagentDispatchEventSchema.parse({
+        type: 'subagent-dispatch',
+        agentId: 'not-a-uuid',
+        task: 'Inspect the project',
+        agentType: 'general',
+        thinkingLevel: 'none',
+        workingDirectory: '/workspace/project',
+      }),
+    ).toThrow();
+  });
+
   it('rejects an unknown subagent type', () => {
     expect(() =>
       sseSubagentDispatchEventSchema.parse({
@@ -90,6 +105,30 @@ describe('subagent-dispatch schema', () => {
         agentType: 'unknown',
         thinkingLevel: 'none',
         workingDirectory: '/workspace/project',
+      }),
+    ).toThrow();
+  });
+});
+
+describe('subagent-output schema', () => {
+  it('rejects a non-UUID agent id', () => {
+    expect(() =>
+      sseSubagentOutputEventSchema.parse({
+        type: 'subagent-output',
+        agentId: 'not-a-uuid',
+        event: {type: 'text-delta', content: 'Hello'},
+      }),
+    ).toThrow();
+  });
+});
+
+describe('subagent-complete schema', () => {
+  it('rejects a non-UUID agent id', () => {
+    expect(() =>
+      sseSubagentCompleteEventSchema.parse({
+        type: 'subagent-complete',
+        agentId: 'not-a-uuid',
+        status: 'success',
       }),
     ).toThrow();
   });

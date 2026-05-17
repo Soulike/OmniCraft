@@ -33,7 +33,7 @@ export const agentSnapshotSchema = z.object({
   sseEventCount: z.number(),
   llmSession: llmSessionSnapshotSchema,
   options: agentSnapshotOptionsSchema,
-  subagents: z.array(subagentRecordSchema),
+  subagents: z.array(subagentRecordSchema).default([]),
 });
 
 /** Serializable agent configuration persisted in snapshots. */
