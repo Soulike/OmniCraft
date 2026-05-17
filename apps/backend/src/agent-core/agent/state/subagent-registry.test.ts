@@ -123,7 +123,7 @@ describe('SubagentRegistry', () => {
     expect(registry.get(third.id)?.agent).toBe(third);
   });
 
-  it('does not evict running entries', () => {
+  it('evicts idle entries before running entries', () => {
     const registry = new SubagentRegistry({maxEntries: 1});
     const running = createMockAgent({isRunning: true});
     const idle = createMockAgent();
@@ -132,10 +132,10 @@ describe('SubagentRegistry', () => {
     registry.register(idle, SubAgentType.EXPLORE);
 
     expect(registry.get(running.id)?.agent).toBe(running);
-    expect(registry.get(idle.id)?.agent).toBe(idle);
+    expect(registry.get(idle.id)).toBeUndefined();
   });
 
-  it('does not evict entries with active SSE readers', () => {
+  it('evicts idle entries before entries with active SSE readers', () => {
     const registry = new SubagentRegistry({maxEntries: 1});
     const reading = createMockAgent({activeReaderCount: 1});
     const idle = createMockAgent();
@@ -144,7 +144,19 @@ describe('SubagentRegistry', () => {
     registry.register(idle, SubAgentType.EXPLORE);
 
     expect(registry.get(reading.id)?.agent).toBe(reading);
-    expect(registry.get(idle.id)?.agent).toBe(idle);
+    expect(registry.get(idle.id)).toBeUndefined();
+  });
+
+  it('keeps protected entries when there are no evictable entries', () => {
+    const registry = new SubagentRegistry({maxEntries: 1});
+    const running = createMockAgent({isRunning: true});
+    const reading = createMockAgent({activeReaderCount: 1});
+
+    registry.register(running, SubAgentType.GENERAL);
+    registry.register(reading, SubAgentType.EXPLORE);
+
+    expect(registry.get(running.id)?.agent).toBe(running);
+    expect(registry.get(reading.id)?.agent).toBe(reading);
   });
 
   it('clears live entries', () => {

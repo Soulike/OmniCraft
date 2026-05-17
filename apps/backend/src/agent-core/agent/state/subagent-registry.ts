@@ -78,17 +78,15 @@ export class SubagentRegistry {
   }
 
   private evictIfNeeded(): void {
+    if (this.records.size <= this.maxEntries) return;
+
     const entries = [...this.records.entries()]
       .filter(([, entry]) => this.isEvictable(entry))
       .sort((a, b) => a[1].lastAccessedAt - b[1].lastAccessedAt);
 
-    let evictableCount = entries.length;
-    if (evictableCount <= this.maxEntries) return;
-
     for (const [id] of entries) {
-      if (evictableCount <= this.maxEntries) break;
+      if (this.records.size <= this.maxEntries) break;
       this.records.delete(id);
-      evictableCount -= 1;
     }
   }
 
