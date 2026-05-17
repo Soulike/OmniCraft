@@ -929,7 +929,7 @@ Expected: commit succeeds. The pre-commit hook formats and lints staged files; n
 Run:
 
 ```bash
-rg "list_agents|listAgentsTool|list-agents-tool|\bSubagentRecord\b|subagentRecordSchema|snapshot\.subagents|toSnapshot\(\)\.subagents|subagents:" apps/backend/src -n
+rg "listAgentsTool|list-agents-tool|\bSubagentRecord\b|subagentRecordSchema|snapshot\.subagents|toSnapshot\(\)\.subagents|subagents:" apps/backend/src -n
 ```
 
 Expected: no production references to old symbols. Remaining matches in comments or deleted-file paths should be removed before continuing.

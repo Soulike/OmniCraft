@@ -64,13 +64,11 @@ describe('listResumableAgentsTool', () => {
     SubAgentToolRegistry.resetInstance();
     try {
       const registry = SubAgentToolRegistry.create();
-      const oldToolName = ['list', 'agents'].join('_');
 
       expect(registry.get('list_resumable_agents')).toBe(
         listResumableAgentsTool,
       );
-      expect(registry.get('list_live_agents')).toBeUndefined();
-      expect(registry.get(oldToolName)).toBeUndefined();
+      expect(registry.get('list_agents')).toBeUndefined();
     } finally {
       SubAgentToolRegistry.resetInstance();
     }
