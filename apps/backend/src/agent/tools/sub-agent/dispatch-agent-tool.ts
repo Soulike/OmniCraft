@@ -99,7 +99,7 @@ export function registerSubAgent(
   subagent: Agent,
   agentType: SubAgentType,
 ): void {
-  context.subagentRegistry.register({id: subagent.id, agentType});
+  context.subagentRegistry.register(subagent, agentType);
 }
 
 export function buildSubagentOutputEvent(
@@ -208,7 +208,6 @@ export const dispatchAgentTool: ToolDefinition<
       thinkingLevel,
       subagentSessionsDir,
     );
-    registerSubAgent(context, subagent, agentType);
 
     // Link parent abort signal to subagent
     const onAbort = () => {
@@ -232,6 +231,9 @@ export const dispatchAgentTool: ToolDefinition<
       const eventIter = subagent.subscribe({signal: context.signal});
 
       subagent.handleUserMessage(task);
+      // Register after dispatching the task so the registry does not briefly
+      // treat a newly created subagent as idle on the normal dispatch path.
+      registerSubAgent(context, subagent, agentType);
 
       for await (const entry of eventIter) {
         const {event} = entry;

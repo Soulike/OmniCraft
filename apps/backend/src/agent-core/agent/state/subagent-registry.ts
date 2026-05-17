@@ -1,36 +1,102 @@
-import {subAgentTypeSchema} from '@omnicraft/api-schema';
-import {z} from 'zod';
+import {
+  agentIdSchema,
+  type SubAgentType,
+  subAgentTypeSchema,
+} from '@omnicraft/api-schema';
 
-export const subagentRecordSchema = z.object({
-  id: z.uuid(),
-  agentType: subAgentTypeSchema,
-});
+import type {Agent} from '../agent.js';
 
-const subagentIdSchema = subagentRecordSchema.shape.id;
+export const DEFAULT_MAX_LIVE_SUBAGENTS = 10;
 
-export type SubagentRecord = z.infer<typeof subagentRecordSchema>;
+const subagentIdSchema = agentIdSchema;
+
+interface LiveSubagentRegistryEntry {
+  readonly agent: Agent;
+  readonly agentType: SubAgentType;
+  lastAccessOrder: number;
+}
+
+export interface LiveSubagentRecord {
+  readonly id: string;
+  readonly agentType: SubAgentType;
+  readonly title: string;
+  readonly isRunning: boolean;
+}
+
+export interface LiveSubagentHandle {
+  readonly agent: Agent;
+  readonly agentType: SubAgentType;
+}
+
+interface SubagentRegistryOptions {
+  readonly maxEntries?: number;
+}
 
 export class SubagentRegistry {
-  private readonly records = new Map<string, SubagentRecord>();
+  private readonly records = new Map<string, LiveSubagentRegistryEntry>();
+  private readonly maxEntries: number;
+  private accessOrder = 0;
 
-  constructor(records: readonly SubagentRecord[] = []) {
-    for (const record of records) {
-      this.register(record);
+  constructor(options: SubagentRegistryOptions = {}) {
+    this.maxEntries = options.maxEntries ?? DEFAULT_MAX_LIVE_SUBAGENTS;
+  }
+
+  register(agent: Agent, agentType: SubAgentType): void {
+    const id = subagentIdSchema.parse(agent.id);
+    const parsedAgentType = subAgentTypeSchema.parse(agentType);
+    this.records.set(id, {
+      agent,
+      agentType: parsedAgentType,
+      lastAccessOrder: this.nextAccessOrder(),
+    });
+    this.evictIfNeeded();
+  }
+
+  get(id: string): LiveSubagentHandle | undefined {
+    const parsedId = subagentIdSchema.safeParse(id);
+    if (!parsedId.success) return undefined;
+
+    const entry = this.records.get(parsedId.data);
+    if (!entry) {
+      return undefined;
+    }
+
+    entry.lastAccessOrder = this.nextAccessOrder();
+    return {agent: entry.agent, agentType: entry.agentType};
+  }
+
+  list(): LiveSubagentRecord[] {
+    return [...this.records.values()].map((entry) => ({
+      id: entry.agent.id,
+      agentType: entry.agentType,
+      title: entry.agent.title,
+      isRunning: entry.agent.isRunning,
+    }));
+  }
+
+  clear(): void {
+    this.records.clear();
+  }
+
+  private nextAccessOrder(): number {
+    this.accessOrder += 1;
+    return this.accessOrder;
+  }
+
+  private evictIfNeeded(): void {
+    if (this.records.size <= this.maxEntries) return;
+
+    const entries = [...this.records.entries()]
+      .filter(([, entry]) => this.isEvictable(entry))
+      .sort((a, b) => a[1].lastAccessOrder - b[1].lastAccessOrder);
+
+    for (const [id] of entries) {
+      if (this.records.size <= this.maxEntries) break;
+      this.records.delete(id);
     }
   }
 
-  register(record: SubagentRecord): void {
-    const parsed = subagentRecordSchema.parse(record);
-    this.records.set(parsed.id, parsed);
-  }
-
-  get(id: string): SubagentRecord | undefined {
-    const parsedId = subagentIdSchema.parse(id);
-    const record = this.records.get(parsedId);
-    return record ? {...record} : undefined;
-  }
-
-  list(): SubagentRecord[] {
-    return [...this.records.values()].map((record) => ({...record}));
+  private isEvictable(entry: LiveSubagentRegistryEntry): boolean {
+    return !entry.agent.isRunning && entry.agent.sseLog.activeReaderCount === 0;
   }
 }

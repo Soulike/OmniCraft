@@ -1,4 +1,8 @@
-import {type ThinkingLevel, thinkingLevelSchema} from '@omnicraft/api-schema';
+import {
+  agentIdSchema,
+  type ThinkingLevel,
+  thinkingLevelSchema,
+} from '@omnicraft/api-schema';
 import type {SseErrorEvent, SseEvent} from '@omnicraft/sse-events';
 import {z} from 'zod';
 
@@ -6,7 +10,6 @@ import type {LlmConfig} from '../llm-api/index.js';
 import {llmSessionSnapshotSchema} from '../llm-session/index.js';
 import type {SkillRegistry} from '../skill/index.js';
 import type {ToolRegistry} from '../tool/index.js';
-import {subagentRecordSchema} from './state/subagent-registry.js';
 
 // ---------------------------------------------------------------------------
 // Agent Event Types
@@ -28,12 +31,11 @@ const agentSnapshotOptionsSchema = z.object({
 });
 
 export const agentSnapshotSchema = z.object({
-  id: z.uuid(),
+  id: agentIdSchema,
   title: z.string(),
   sseEventCount: z.number(),
   llmSession: llmSessionSnapshotSchema,
   options: agentSnapshotOptionsSchema,
-  subagents: z.array(subagentRecordSchema).default([]),
 });
 
 /** Serializable agent configuration persisted in snapshots. */

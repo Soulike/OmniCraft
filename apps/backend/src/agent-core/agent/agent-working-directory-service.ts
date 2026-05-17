@@ -2,13 +2,13 @@ import {chmodSync, lstatSync, mkdirSync, realpathSync} from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
-import {agentSnapshotSchema} from './types.js';
+import {agentIdSchema} from '@omnicraft/api-schema';
 
 export class AgentWorkingDirectoryService {
   createDefaultWorkingDirectory(agentId: string): string {
     // Defense in depth: agentId reaches here from snapshots on disk. Reject
     // anything that isn't a UUID so path.join can't escape os.tmpdir().
-    agentSnapshotSchema.shape.id.parse(agentId);
+    agentIdSchema.parse(agentId);
     const dir = path.join(os.tmpdir(), agentId);
     mkdirSync(dir, {recursive: true, mode: 0o700});
     // lstat (not stat) so a pre-planted symlink at `dir` is rejected before
