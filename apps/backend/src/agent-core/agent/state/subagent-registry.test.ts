@@ -160,7 +160,7 @@ describe('SubagentRegistry', () => {
     expect(registry.get(reading.id)?.agent).toBe(reading);
   });
 
-  it('keeps a newly registered entry available when older entries are protected', () => {
+  it('evicts a newly registered idle entry when older entries are protected', () => {
     const registry = new SubagentRegistry({maxEntries: 1});
     const running = createMockAgent({isRunning: true});
     const newest = createMockAgent({title: 'Newest'});
@@ -168,7 +168,15 @@ describe('SubagentRegistry', () => {
     registry.register(running, SubAgentType.GENERAL);
     registry.register(newest, SubAgentType.EXPLORE);
 
-    expect(registry.get(newest.id)?.agent).toBe(newest);
+    expect(registry.get(newest.id)).toBeUndefined();
+    expect(registry.list()).toEqual([
+      {
+        id: running.id,
+        agentType: SubAgentType.GENERAL,
+        title: 'New Session',
+        isRunning: true,
+      },
+    ]);
   });
 
   it('runs eviction on a valid missing lookup', () => {

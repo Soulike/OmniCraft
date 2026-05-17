@@ -41,13 +41,12 @@ export class SubagentRegistry {
   register(agent: Agent, agentType: SubAgentType): void {
     const id = subagentIdSchema.parse(agent.id);
     const parsedAgentType = subAgentTypeSchema.parse(agentType);
-    this.records.delete(id);
-    this.evictIfNeeded();
     this.records.set(id, {
       agent,
       agentType: parsedAgentType,
       lastAccessOrder: this.nextAccessOrder(),
     });
+    this.evictIfNeeded();
   }
 
   get(id: string): LiveSubagentHandle | undefined {
