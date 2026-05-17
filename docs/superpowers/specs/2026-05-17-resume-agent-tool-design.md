@@ -42,7 +42,7 @@ subagent tool registry. It accepts a live subagent id and a task string:
 
 ```typescript
 const parameters = z.object({
-  agentId: z.string().min(1).describe('The id of the live subagent to resume.'),
+  agentId: z.string().min(1).describe('The subagent id to resume.'),
   task: z.string().min(1).describe('The follow-up task for the subagent.'),
 });
 ```

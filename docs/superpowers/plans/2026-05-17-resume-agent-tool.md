@@ -848,18 +848,8 @@ import {
 const resumeClaims = new Set<string>();
 
 const parameters = z.object({
-  agentId: z
-    .string()
-    .min(1)
-    .describe(
-      'UUID of the live subagent to resume. Provide this when you already know which previously dispatched subagent should receive the follow-up task.',
-    ),
-  task: z
-    .string()
-    .min(1)
-    .describe(
-      'Follow-up task for the subagent. Use this to tell the existing subagent exactly what additional work to perform.',
-    ),
+  agentId: z.string().min(1).describe('Subagent id to resume.'),
+  task: z.string().min(1).describe('Follow-up task for the subagent.'),
 });
 
 function failure(message: string): ToolExecuteFailureResult {
@@ -880,9 +870,7 @@ export const resumeAgentTool: ToolDefinition<
 > = {
   name: 'resume_agent',
   displayName: 'Resume Agent',
-  description:
-    'Resumes a live subagent by sending it a follow-up task. ' +
-    'Use this when you already know the id of a previously dispatched subagent that is still available and you want that same subagent to resume work with its existing context.',
+  description: 'Resumes a subagent by sending it a follow-up task.',
   parameters,
   suppressToolEvents: true,
   compactResult({content}) {
