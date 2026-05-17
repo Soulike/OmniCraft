@@ -259,28 +259,29 @@ function pushSubagentStart(
   ];
 }
 
-function updateSubagentStatus(
+export function updateSubagentStatus(
   prev: ChatMessage[],
   data: {agentId: string; status: 'success' | 'failure'},
 ): ChatMessage[] {
-  return prev.map((msg) => {
+  for (let i = prev.length - 1; i >= 0; i--) {
+    const msg = prev[i];
     if (
       msg.content.type === 'subagent' &&
-      msg.content.agentId === data.agentId
+      msg.content.agentId === data.agentId &&
+      msg.content.status === 'running'
     ) {
-      return {
+      const updated = [...prev];
+      updated[i] = {
         ...msg,
         content: {
           ...msg.content,
-          status:
-            data.status === 'success'
-              ? ('complete' as const)
-              : ('error' as const),
+          status: data.status === 'success' ? 'complete' : 'error',
         },
       };
+      return updated;
     }
-    return msg;
-  });
+  }
+  return prev;
 }
 
 export function pushCompactionEvent(

@@ -1,6 +1,7 @@
 import {describe, expect, it} from 'vitest';
 
-import {pushCompactionEvent} from './useMessages.js';
+import type {ChatEventBus, ChatMessage} from '../types.js';
+import {pushCompactionEvent, updateSubagentStatus} from './useMessages.js';
 
 const startEvent = {
   type: 'context-compaction-start' as const,
@@ -60,5 +61,61 @@ describe('pushCompactionEvent', () => {
     );
     expect(result).toHaveLength(1);
     expect(result[0].content).toBe(startEvent);
+  });
+});
+
+describe('updateSubagentStatus', () => {
+  it('updates only the latest running subagent item with the matching agent id', () => {
+    const eventBus = {} as ChatEventBus;
+    const messages: ChatMessage[] = [
+      {
+        id: null,
+        createdAt: null,
+        role: 'assistant',
+        content: {
+          type: 'subagent',
+          mode: 'dispatch',
+          agentId: 'agent-1',
+          task: 'Initial task',
+          agentType: 'general',
+          thinkingLevel: 'none',
+          workingDirectory: '/tmp',
+          status: 'complete',
+          eventBus,
+        },
+      },
+      {
+        id: null,
+        createdAt: null,
+        role: 'assistant',
+        content: {
+          type: 'subagent',
+          mode: 'resume',
+          agentId: 'agent-1',
+          task: 'Follow-up task',
+          agentType: 'general',
+          thinkingLevel: 'none',
+          workingDirectory: '/tmp',
+          status: 'running',
+          eventBus,
+        },
+      },
+    ];
+
+    const result = updateSubagentStatus(messages, {
+      agentId: 'agent-1',
+      status: 'failure',
+    });
+
+    expect(result[0].content).toMatchObject({
+      type: 'subagent',
+      mode: 'dispatch',
+      status: 'complete',
+    });
+    expect(result[1].content).toMatchObject({
+      type: 'subagent',
+      mode: 'resume',
+      status: 'error',
+    });
   });
 });
