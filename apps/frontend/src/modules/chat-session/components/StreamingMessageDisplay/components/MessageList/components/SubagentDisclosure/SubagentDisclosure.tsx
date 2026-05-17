@@ -2,10 +2,12 @@ import type {ThinkingLevel} from '@omnicraft/api-schema';
 
 import {useAutoScroll} from '@/hooks/useAutoScroll.js';
 
-import type {ChatEventBus} from '../../../../types.js';
+import type {ChatEventBus, SubagentMode} from '../../../../types.js';
 import {SubagentDisclosureView} from './SubagentDisclosureView.js';
 
 interface SubagentDisclosureProps {
+  mode: SubagentMode;
+  agentId: string;
   task: string;
   agentType: string;
   thinkingLevel: ThinkingLevel;
@@ -15,6 +17,8 @@ interface SubagentDisclosureProps {
 }
 
 export function SubagentDisclosure({
+  mode,
+  agentId,
   task,
   agentType,
   thinkingLevel,
@@ -26,6 +30,8 @@ export function SubagentDisclosure({
 
   return (
     <SubagentDisclosureView
+      mode={mode}
+      agentId={agentId}
       task={task}
       agentType={agentType}
       thinkingLevel={thinkingLevel}

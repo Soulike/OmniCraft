@@ -6,10 +6,12 @@ import type {RefObject} from 'react';
 
 import {UsageInfo} from '../../../../../UsageInfo/index.js';
 import {StreamingMessageDisplay} from '../../../../StreamingMessageDisplay.js';
-import type {ChatEventBus} from '../../../../types.js';
+import type {ChatEventBus, SubagentMode} from '../../../../types.js';
 import styles from './styles.module.css';
 
 interface SubagentDisclosureViewProps {
+  mode: SubagentMode;
+  agentId: string;
   task: string;
   agentType: string;
   thinkingLevel: ThinkingLevel;
@@ -21,7 +23,19 @@ interface SubagentDisclosureViewProps {
 
 const STATUS_ICON_SIZE = 16;
 
+const MODE_LABELS = {
+  dispatch: 'Dispatch',
+  resume: 'Resume',
+} satisfies Record<SubagentMode, string>;
+
+const AGENT_ID_LABELS = {
+  dispatch: 'Subagent ID',
+  resume: 'Resumed subagent ID',
+} satisfies Record<SubagentMode, string>;
+
 export function SubagentDisclosureView({
+  mode,
+  agentId,
   task,
   agentType,
   thinkingLevel,
@@ -54,6 +68,7 @@ export function SubagentDisclosureView({
                 />
               )}
               <Bot className={styles.botIcon} size={STATUS_ICON_SIZE} />
+              <span className={styles.modeLabel}>{MODE_LABELS[mode]}</span>
               <span className={styles.task}>{task}</span>
               <Disclosure.Indicator />
             </Disclosure.Trigger>
@@ -64,6 +79,10 @@ export function SubagentDisclosureView({
                 <span className={styles.label}>Task</span>
                 <ScrollShadow className={styles.taskText}>{task}</ScrollShadow>
                 <span className={styles.workingDir}>{workingDirectory}</span>
+                <div className={styles.agentIdRow}>
+                  <span className={styles.label}>{AGENT_ID_LABELS[mode]}</span>
+                  <span className={styles.agentId}>{agentId}</span>
+                </div>
               </div>
               <ScrollShadow className={styles.content} ref={scrollRef}>
                 <StreamingMessageDisplay eventBus={eventBus} sessionId={null} />
