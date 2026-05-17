@@ -208,7 +208,6 @@ export const dispatchAgentTool: ToolDefinition<
       thinkingLevel,
       subagentSessionsDir,
     );
-    registerSubAgent(context, subagent, agentType);
 
     // Link parent abort signal to subagent
     const onAbort = () => {
@@ -232,6 +231,7 @@ export const dispatchAgentTool: ToolDefinition<
       const eventIter = subagent.subscribe({signal: context.signal});
 
       subagent.handleUserMessage(task);
+      registerSubAgent(context, subagent, agentType);
 
       for await (const entry of eventIter) {
         const {event} = entry;
