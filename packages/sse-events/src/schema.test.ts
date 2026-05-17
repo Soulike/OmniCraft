@@ -82,6 +82,60 @@ describe('context-compaction-error schema', () => {
   });
 });
 
+describe('base event schema', () => {
+  const agentId = '11111111-1111-4111-8111-111111111111';
+
+  it('accepts non-recursive agent events as subagent output payloads', () => {
+    const events = [
+      {type: 'session-title', title: 'Multiplication'},
+      {type: 'todo-update', items: []},
+      {type: 'error', message: 'Subagent failed'},
+    ];
+
+    for (const event of events) {
+      expect(sseBaseEventSchema.parse(event)).toEqual(event);
+      expect(sseEventSchema.parse(event)).toEqual(event);
+      expect(
+        sseSubagentOutputEventSchema.parse({
+          type: 'subagent-output',
+          agentId,
+          event,
+        }),
+      ).toEqual({type: 'subagent-output', agentId, event});
+    }
+  });
+
+  it('rejects recursive subagent events as subagent output payloads', () => {
+    const recursiveEvents = [
+      {
+        type: 'subagent-dispatch',
+        agentId,
+        task: 'Inspect the project',
+        agentType: 'general',
+        thinkingLevel: 'none',
+        workingDirectory: '/workspace/project',
+      },
+      {
+        type: 'subagent-output',
+        agentId,
+        event: {type: 'text-delta', content: 'nested'},
+      },
+      {type: 'subagent-complete', agentId, status: 'success'},
+    ];
+
+    for (const event of recursiveEvents) {
+      expect(() => sseBaseEventSchema.parse(event)).toThrow();
+      expect(() =>
+        sseSubagentOutputEventSchema.parse({
+          type: 'subagent-output',
+          agentId,
+          event,
+        }),
+      ).toThrow();
+    }
+  });
+});
+
 describe('subagent-dispatch schema', () => {
   it('rejects a non-UUID agent id', () => {
     expect(() =>

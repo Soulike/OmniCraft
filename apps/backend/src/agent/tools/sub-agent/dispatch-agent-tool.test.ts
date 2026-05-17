@@ -18,6 +18,7 @@ import {createMockContext} from '@/agent-core/tool/testing.js';
 import type {ToolExecutionContext} from '@/agent-core/tool/types.js';
 
 import {
+  buildSubagentOutputEvent,
   createSubAgent,
   dispatchAgentTool,
   getSubagentSessionsDir,
@@ -267,6 +268,30 @@ describe('dispatchAgentTool', () => {
     expect(context.subagentRegistry.list()).toEqual([
       {id: subagent.id, agentType: SubAgentType.EXPLORE},
     ]);
+  });
+
+  describe('subagent output event wrapping', () => {
+    const agentId = '11111111-1111-4111-8111-111111111111';
+
+    it('wraps non-recursive agent events', () => {
+      const event = {type: 'session-title', title: 'Multiplication'} as const;
+
+      expect(buildSubagentOutputEvent(agentId, event)).toEqual({
+        type: 'subagent-output',
+        agentId,
+        event,
+      });
+    });
+
+    it('throws at the dispatch boundary for recursive subagent events', () => {
+      expect(() =>
+        buildSubagentOutputEvent(agentId, {
+          type: 'subagent-complete',
+          agentId,
+          status: 'success',
+        }),
+      ).toThrow();
+    });
   });
 
   describe('workingDirectory boundary check', () => {
