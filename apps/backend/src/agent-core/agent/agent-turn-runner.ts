@@ -33,7 +33,7 @@ export interface RunAgentTurnInput {
   readonly userMessage: string;
   readonly agentId: string;
   readonly sessionsDir: string | null;
-  readonly subagents: SubagentRegistry;
+  readonly subagentRegistry: SubagentRegistry;
   readonly workingDirectory: string;
   readonly thinkingLevel: ThinkingLevel;
   readonly signal: AbortSignal;
@@ -167,7 +167,7 @@ export class AgentTurnRunner {
             runtimeState: input.runtimeState,
             agentId: input.agentId,
             sessionsDir: input.sessionsDir,
-            subagents: input.subagents,
+            subagentRegistry: input.subagentRegistry,
             availableSkills,
             workingDirectory: input.workingDirectory,
             signal: input.signal,

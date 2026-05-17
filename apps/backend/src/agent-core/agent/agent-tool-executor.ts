@@ -29,7 +29,7 @@ export interface ExecuteAgentToolInput {
   readonly runtimeState: AgentRuntimeState;
   readonly agentId: string;
   readonly sessionsDir: string | null;
-  readonly subagents: SubagentRegistry;
+  readonly subagentRegistry: SubagentRegistry;
   readonly availableSkills: ReadonlyMap<string, SkillDefinition>;
   readonly workingDirectory: string;
   readonly signal: AbortSignal;
@@ -65,7 +65,7 @@ export class AgentToolExecutor {
       callId: input.toolCall.callId,
       agentId: input.agentId,
       sessionsDir: input.sessionsDir,
-      subagents: input.subagents,
+      subagentRegistry: input.subagentRegistry,
       availableSkills: input.availableSkills,
       workingDirectory: input.workingDirectory,
       signal: input.signal,

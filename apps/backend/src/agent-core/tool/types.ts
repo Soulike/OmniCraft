@@ -38,7 +38,7 @@ export interface ToolExecutionContext {
   readonly sessionsDir: string | null;
 
   /** Registry of subagents owned by the current Agent session. */
-  readonly subagents: SubagentRegistry;
+  readonly subagentRegistry: SubagentRegistry;
 
   /** All skills available to the current Agent, merged and deduplicated. */
   readonly availableSkills: ReadonlyMap<string, SkillDefinition>;

@@ -61,7 +61,7 @@ function executeInput(overrides: {
     runtimeState: new AgentRuntimeState('/workspace/project'),
     agentId: 'agent-1',
     sessionsDir: '/sessions',
-    subagents: new SubagentRegistry(),
+    subagentRegistry: new SubagentRegistry(),
     availableSkills: new Map<string, SkillDefinition>(),
     workingDirectory: '/workspace/project',
     signal: new AbortController().signal,
@@ -113,7 +113,7 @@ describe('AgentToolExecutor', () => {
       throw new Error('Tool did not receive execution context');
     }
     const context = receivedContext.current;
-    expect(context.subagents).toBe(input.subagents);
+    expect(context.subagentRegistry).toBe(input.subagentRegistry);
     expect(context).toMatchObject({
       callId: 'call-1',
       agentId: 'agent-1',

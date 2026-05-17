@@ -57,7 +57,7 @@ export abstract class Agent {
   private readonly getLightConfig: (() => Promise<LlmConfig>) | null;
   private readonly thinkingLevel: ThinkingLevel;
 
-  readonly subagents: SubagentRegistry;
+  readonly subagentRegistry: SubagentRegistry;
 
   private readonly workingDirectory: string;
 
@@ -106,7 +106,7 @@ export abstract class Agent {
         snapshot.options.workingDirectory ??
         agentWorkingDirectoryService.createDefaultWorkingDirectory(this.id);
       this.llmSession = new LlmSession(getConfig, snapshot.llmSession);
-      this.subagents = new SubagentRegistry(snapshot.subagents);
+      this.subagentRegistry = new SubagentRegistry(snapshot.subagents);
     } else {
       this.thinkingLevel = options.thinkingLevel;
       this.id = crypto.randomUUID();
@@ -114,7 +114,7 @@ export abstract class Agent {
         options.workingDirectory ??
         agentWorkingDirectoryService.createDefaultWorkingDirectory(this.id);
       this.llmSession = new LlmSession(getConfig);
-      this.subagents = new SubagentRegistry();
+      this.subagentRegistry = new SubagentRegistry();
     }
 
     this.sseLog = this.sessionsDir
@@ -156,7 +156,7 @@ export abstract class Agent {
         workingDirectory: this.workingDirectory,
         thinkingLevel: this.thinkingLevel,
       },
-      subagents: this.subagents.list(),
+      subagents: this.subagentRegistry.list(),
     };
   }
 
@@ -289,7 +289,7 @@ export abstract class Agent {
       userMessage,
       agentId: this.id,
       sessionsDir: this.sessionsDir,
-      subagents: this.subagents,
+      subagentRegistry: this.subagentRegistry,
       workingDirectory: this.workingDirectory,
       thinkingLevel,
       signal,

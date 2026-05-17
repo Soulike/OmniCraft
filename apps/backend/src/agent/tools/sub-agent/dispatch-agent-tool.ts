@@ -95,7 +95,7 @@ export function registerSubAgent(
   subagent: Agent,
   agentType: SubAgentType,
 ): void {
-  context.subagents.register({id: subagent.id, agentType});
+  context.subagentRegistry.register({id: subagent.id, agentType});
 }
 
 const parameters = z.object({

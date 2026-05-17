@@ -264,7 +264,7 @@ describe('dispatchAgentTool', () => {
 
     registerSubAgent(context, subagent, SubAgentType.EXPLORE);
 
-    expect(context.subagents.list()).toEqual([
+    expect(context.subagentRegistry.list()).toEqual([
       {id: subagent.id, agentType: SubAgentType.EXPLORE},
     ]);
   });

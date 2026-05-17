@@ -39,7 +39,7 @@ export function createMockContext(
     callId: 'mock-call-id',
     agentId: 'mock-agent-id',
     sessionsDir: null,
-    subagents: new SubagentRegistry(),
+    subagentRegistry: new SubagentRegistry(),
     availableSkills: new Map(),
     workingDirectory,
     fileCache: new FileContentCache(),

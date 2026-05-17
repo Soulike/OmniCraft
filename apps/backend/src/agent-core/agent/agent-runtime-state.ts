@@ -17,7 +17,7 @@ export interface BuildToolExecutionContextInput {
   readonly callId: string;
   readonly agentId: string;
   readonly sessionsDir: string | null;
-  readonly subagents: SubagentRegistry;
+  readonly subagentRegistry: SubagentRegistry;
   readonly availableSkills: ReadonlyMap<string, SkillDefinition>;
   readonly workingDirectory: string;
   readonly signal: AbortSignal;
@@ -57,7 +57,7 @@ export class AgentRuntimeState {
       callId: input.callId,
       agentId: input.agentId,
       sessionsDir: input.sessionsDir,
-      subagents: input.subagents,
+      subagentRegistry: input.subagentRegistry,
       availableSkills: input.availableSkills,
       workingDirectory: input.workingDirectory,
       fileCache: this.fileCache,

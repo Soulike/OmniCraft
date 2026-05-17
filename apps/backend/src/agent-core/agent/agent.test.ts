@@ -821,7 +821,7 @@ describe('Agent snapshot restore', () => {
     });
     const childId = crypto.randomUUID();
 
-    agent.subagents.register({id: childId, agentType: 'general'});
+    agent.subagentRegistry.register({id: childId, agentType: 'general'});
 
     expect(agent.toSnapshot().subagents).toEqual([
       {id: childId, agentType: 'general'},
@@ -853,7 +853,7 @@ describe('Agent snapshot restore', () => {
       snapshot,
     );
 
-    expect(agent.subagents.list()).toEqual([
+    expect(agent.subagentRegistry.list()).toEqual([
       {id: childId, agentType: 'explore'},
     ]);
   });

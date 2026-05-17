@@ -128,12 +128,12 @@ function createInput(
   const llmSession =
     overrides.llmSession ?? new LlmSession(() => Promise.resolve(MAIN_CONFIG));
   const workingDirectory = overrides.workingDirectory ?? '/workspace/project';
-  const subagents = overrides.subagents ?? new SubagentRegistry();
+  const subagentRegistry = overrides.subagentRegistry ?? new SubagentRegistry();
   const defaults: RunAgentTurnInput = {
     userMessage: 'user request',
     agentId: 'agent-1',
     sessionsDir: null,
-    subagents,
+    subagentRegistry,
     workingDirectory,
     thinkingLevel: 'high',
     signal: new AbortController().signal,
@@ -153,7 +153,7 @@ function createInput(
     ...overrides,
     llmSession,
     workingDirectory,
-    subagents,
+    subagentRegistry,
   };
 }
 
