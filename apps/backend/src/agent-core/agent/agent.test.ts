@@ -817,6 +817,14 @@ describe('Agent snapshot restore', () => {
     vi.restoreAllMocks();
   });
 
+  it('exposes working directory and thinking level for live subagent events', () => {
+    const options = testAgentOptions();
+    const agent = new TestAgent(() => Promise.resolve(MAIN_CONFIG), options);
+
+    expect(agent.getWorkingDirectory()).toBe(options.workingDirectory);
+    expect(agent.getThinkingLevel()).toBe('high');
+  });
+
   it('throws when a snapshot reaches the constructor without thinkingLevel', () => {
     const snapshot = {
       id: 'agent-with-missing-thinking-level',

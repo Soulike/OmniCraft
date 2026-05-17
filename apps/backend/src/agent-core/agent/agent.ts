@@ -145,6 +145,16 @@ export abstract class Agent {
     return this.runtimeState.submitUserResponse(id, result);
   }
 
+  /** Returns the Agent's current working directory. */
+  getWorkingDirectory(): string {
+    return this.workingDirectory;
+  }
+
+  /** Returns the Agent's configured thinking level. */
+  getThinkingLevel(): ThinkingLevel {
+    return this.thinkingLevel;
+  }
+
   /** Returns a serializable snapshot of this agent. */
   toSnapshot(): AgentSnapshot {
     return {
