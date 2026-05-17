@@ -9,6 +9,7 @@ import {
   sseSubagentCompleteEventSchema,
   sseSubagentDispatchEventSchema,
   sseSubagentOutputEventSchema,
+  sseSubagentResumeEventSchema,
 } from './schema.js';
 
 describe('context-compaction-start schema', () => {
@@ -116,6 +117,14 @@ describe('base event schema', () => {
         workingDirectory: '/workspace/project',
       },
       {
+        type: 'subagent-resume',
+        agentId,
+        task: 'Inspect the next question',
+        agentType: 'general',
+        thinkingLevel: 'none',
+        workingDirectory: '/workspace/project',
+      },
+      {
         type: 'subagent-output',
         agentId,
         event: {type: 'text-delta', content: 'nested'},
@@ -156,6 +165,49 @@ describe('subagent-dispatch schema', () => {
         type: 'subagent-dispatch',
         agentId: '11111111-1111-4111-8111-111111111111',
         task: 'Inspect the project',
+        agentType: 'unknown',
+        thinkingLevel: 'none',
+        workingDirectory: '/workspace/project',
+      }),
+    ).toThrow();
+  });
+});
+
+describe('subagent-resume schema', () => {
+  it('parses a valid resume event', () => {
+    const event = {
+      type: 'subagent-resume',
+      agentId: '11111111-1111-4111-8111-111111111111',
+      task: 'Continue with the next file',
+      agentType: 'general',
+      thinkingLevel: 'none',
+      workingDirectory: '/workspace/project',
+    };
+
+    expect(sseSubagentResumeEventSchema.parse(event)).toEqual(event);
+    expect(sseEventSchema.parse(event)).toEqual(event);
+    expect(() => sseBaseEventSchema.parse(event)).toThrow();
+  });
+
+  it('rejects a non-UUID agent id', () => {
+    expect(() =>
+      sseSubagentResumeEventSchema.parse({
+        type: 'subagent-resume',
+        agentId: 'not-a-uuid',
+        task: 'Continue with the next file',
+        agentType: 'general',
+        thinkingLevel: 'none',
+        workingDirectory: '/workspace/project',
+      }),
+    ).toThrow();
+  });
+
+  it('rejects an unknown subagent type', () => {
+    expect(() =>
+      sseSubagentResumeEventSchema.parse({
+        type: 'subagent-resume',
+        agentId: '11111111-1111-4111-8111-111111111111',
+        task: 'Continue with the next file',
         agentType: 'unknown',
         thinkingLevel: 'none',
         workingDirectory: '/workspace/project',
