@@ -6,11 +6,6 @@ import {
   type ThinkingLevel,
   thinkingLevelSchema,
 } from '@omnicraft/api-schema';
-import {
-  sseBaseEventSchema,
-  type SseEvent,
-  type SseSubagentOutputEvent,
-} from '@omnicraft/sse-events';
 import {z} from 'zod';
 
 import {ExploreSubAgent, GeneralSubAgent} from '@/agent/agents/index.js';
@@ -22,6 +17,11 @@ import type {
   ToolExecutionContext,
 } from '@/agent-core/tool/index.js';
 import {isSubPathOrSelf} from '@/helpers/path-helpers.js';
+
+import {
+  runSubagentTurn,
+  type SubagentTurnResult,
+} from './subagent-turn-runner.js';
 
 interface SubAgentInfo {
   name: string;
@@ -102,18 +102,6 @@ export function registerSubAgent(
   context.subagentRegistry.register(subagent, agentType);
 }
 
-export function buildSubagentOutputEvent(
-  agentId: string,
-  event: SseEvent,
-): SseSubagentOutputEvent {
-  const baseEvent = sseBaseEventSchema.parse(event);
-  return {
-    type: 'subagent-output',
-    agentId,
-    event: baseEvent,
-  };
-}
-
 const parameters = z.object({
   task: z.string().min(1).describe('The task description for the subagent'),
   agentType: subAgentTypeSchema
@@ -148,14 +136,10 @@ const parameters = z.object({
     ),
 });
 
-interface DispatchAgentResult {
-  summary: string;
-}
-
 /** Tool that dispatches a subagent to handle a subtask autonomously. */
 export const dispatchAgentTool: ToolDefinition<
   typeof parameters,
-  DispatchAgentResult
+  SubagentTurnResult
 > = {
   name: 'dispatch_agent',
   displayName: 'Dispatch Agent',
@@ -209,99 +193,23 @@ export const dispatchAgentTool: ToolDefinition<
       subagentSessionsDir,
     );
 
-    // Link parent abort signal to subagent
-    const onAbort = () => {
-      subagent.abort();
-    };
-    context.signal.addEventListener('abort', onAbort, {once: true});
-
-    context.onSubAgentEvent({
-      type: 'subagent-dispatch',
-      agentId: subagent.id,
+    return runSubagentTurn({
+      context,
+      subagent,
       task,
-      agentType,
-      thinkingLevel,
-      workingDirectory,
-    });
-
-    try {
-      let lastReplyText = '';
-      let completed = false;
-      let failureMessage: string | null = null;
-      const eventIter = subagent.subscribe({signal: context.signal});
-
-      subagent.handleUserMessage(task);
+      startEvent: {
+        type: 'subagent-dispatch',
+        agentId: subagent.id,
+        task,
+        agentType,
+        thinkingLevel,
+        workingDirectory,
+      },
       // Register after dispatching the task so the registry does not briefly
       // treat a newly created subagent as idle on the normal dispatch path.
-      registerSubAgent(context, subagent, agentType);
-
-      for await (const entry of eventIter) {
-        const {event} = entry;
-        context.onSubAgentEvent(buildSubagentOutputEvent(subagent.id, event));
-
-        if (event.type === 'message-start' && event.role === 'assistant') {
-          lastReplyText = '';
-        }
-        if (event.type === 'text-delta') {
-          lastReplyText += event.content;
-        }
-        if (event.type === 'error') {
-          failureMessage = event.message;
-          break;
-        }
-        // Subagent's sseLog is never sealed — break on done to end iteration.
-        // If the parent aborts, the reader ends silently (no done seen).
-        if (event.type === 'done') {
-          completed = true;
-          break;
-        }
-      }
-
-      context.onSubAgentEvent({
-        type: 'subagent-complete',
-        agentId: subagent.id,
-        status: completed ? 'success' : 'failure',
-      });
-
-      if (completed) {
-        const summary =
-          lastReplyText ||
-          'Subagent completed the task but produced no text summary.';
-        return {
-          data: {summary},
-          content: summary,
-          status: 'success',
-        };
-      }
-
-      if (failureMessage) {
-        return {
-          data: {message: `Subagent error: ${failureMessage}`},
-          content: `Subagent error: ${failureMessage}`,
-          status: 'failure',
-        };
-      }
-
-      return {
-        data: {message: 'Subagent was aborted'},
-        content: 'Subagent was aborted.',
-        status: 'failure',
-      };
-    } catch (error: unknown) {
-      context.onSubAgentEvent({
-        type: 'subagent-complete',
-        agentId: subagent.id,
-        status: 'failure',
-      });
-
-      const message = error instanceof Error ? error.message : String(error);
-      return {
-        data: {message: `Subagent error: ${message}`},
-        content: `Subagent error: ${message}`,
-        status: 'failure',
-      };
-    } finally {
-      context.signal.removeEventListener('abort', onAbort);
-    }
+      onTurnStarted: () => {
+        registerSubAgent(context, subagent, agentType);
+      },
+    });
   },
 };
