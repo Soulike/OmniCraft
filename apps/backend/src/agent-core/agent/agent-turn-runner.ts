@@ -26,12 +26,14 @@ import {
   buildAvailableTools,
   buildSystemPrompt,
 } from './catalog/agent-catalog.js';
+import type {SubagentRegistry} from './state/subagent-registry.js';
 import type {AgentEventStream} from './types.js';
 
 export interface RunAgentTurnInput {
   readonly userMessage: string;
   readonly agentId: string;
   readonly sessionsDir: string | null;
+  readonly subagents: SubagentRegistry;
   readonly workingDirectory: string;
   readonly thinkingLevel: ThinkingLevel;
   readonly signal: AbortSignal;
@@ -165,6 +167,7 @@ export class AgentTurnRunner {
             runtimeState: input.runtimeState,
             agentId: input.agentId,
             sessionsDir: input.sessionsDir,
+            subagents: input.subagents,
             availableSkills,
             workingDirectory: input.workingDirectory,
             signal: input.signal,

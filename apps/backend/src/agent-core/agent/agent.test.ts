@@ -520,6 +520,7 @@ describe('Agent compaction lifecycle', () => {
           usage: emptyUsage(),
         },
         options: {thinkingLevel: 'high'},
+        subagents: [],
       },
     );
 
@@ -730,6 +731,7 @@ describe('Agent abort flow', () => {
           usage: emptyUsage(),
         },
         options: {thinkingLevel: 'high'},
+        subagents: [],
       },
     );
 
@@ -813,6 +815,49 @@ describe('Agent abort flow', () => {
 });
 
 describe('Agent snapshot restore', () => {
+  it('includes subagent records in snapshots', () => {
+    const agent = new TestAgent(() => Promise.resolve(MAIN_CONFIG), {
+      ...testAgentOptions(),
+    });
+    const childId = crypto.randomUUID();
+
+    agent.subagents.register({id: childId, agentType: 'general'});
+
+    expect(agent.toSnapshot().subagents).toEqual([
+      {id: childId, agentType: 'general'},
+    ]);
+  });
+
+  it('restores subagent records from snapshots', () => {
+    const childId = crypto.randomUUID();
+    const snapshot: AgentSnapshot = {
+      id: crypto.randomUUID(),
+      title: 'Restored Session',
+      sseEventCount: 0,
+      llmSession: {
+        id: 'llm-session-id',
+        messages: [],
+        compactions: [],
+        latestUsageInputMessageCount: null,
+        usage: emptyUsage(),
+      },
+      options: {
+        thinkingLevel: 'high',
+      },
+      subagents: [{id: childId, agentType: 'explore'}],
+    };
+
+    const agent = new TestAgent(
+      () => Promise.resolve(MAIN_CONFIG),
+      testAgentOptions(),
+      snapshot,
+    );
+
+    expect(agent.subagents.list()).toEqual([
+      {id: childId, agentType: 'explore'},
+    ]);
+  });
+
   it('throws when a snapshot reaches the constructor without thinkingLevel', () => {
     const snapshot = {
       id: 'agent-with-missing-thinking-level',
@@ -887,6 +932,7 @@ describe('Agent default working directory', () => {
       options: {
         thinkingLevel: 'high',
       },
+      subagents: [],
     };
 
     const agent = new TestAgent(

@@ -35,6 +35,7 @@ function createTestSnapshot(id: string): AgentSnapshot {
       workingDirectory: '/tmp/test-working-dir',
       thinkingLevel: 'medium',
     },
+    subagents: [],
   };
 }
 
@@ -131,6 +132,7 @@ describe('agentPersistence', () => {
             usage: emptyUsage(),
           },
           options: {workingDirectory: '/tmp/test-working-dir'},
+          subagents: [],
         }),
       );
 

@@ -3,6 +3,7 @@ import {describe, expect, it} from 'vitest';
 
 import type {LlmConfig} from '../llm-api/index.js';
 import {AgentRuntimeState} from './agent-runtime-state.js';
+import {SubagentRegistry} from './state/subagent-registry.js';
 
 const MAIN_CONFIG: LlmConfig = {
   apiFormat: 'openai-responses',
@@ -20,11 +21,14 @@ describe('AgentRuntimeState', () => {
   it('keeps shell and todo state isolated per agent instance', () => {
     const first = new AgentRuntimeState('/workspace/one');
     const second = new AgentRuntimeState('/workspace/two');
+    const firstSubagents = new SubagentRegistry();
+    const secondSubagents = new SubagentRegistry();
 
     const firstContext = first.buildToolExecutionContext({
       callId: 'call-1',
       agentId: 'agent-1',
       sessionsDir: null,
+      subagents: firstSubagents,
       availableSkills: new Map(),
       workingDirectory: '/workspace/one',
       signal: new AbortController().signal,
@@ -36,6 +40,7 @@ describe('AgentRuntimeState', () => {
       callId: 'call-2',
       agentId: 'agent-2',
       sessionsDir: null,
+      subagents: secondSubagents,
       availableSkills: new Map(),
       workingDirectory: '/workspace/two',
       signal: new AbortController().signal,
@@ -68,11 +73,13 @@ describe('AgentRuntimeState', () => {
     const state = new AgentRuntimeState('/workspace/project');
     const signal = new AbortController().signal;
     const subAgentEvents: SseSubAgentEvent[] = [];
+    const subagents = new SubagentRegistry();
 
     const context = state.buildToolExecutionContext({
       callId: 'call-123',
       agentId: 'agent-123',
       sessionsDir: '/sessions',
+      subagents,
       availableSkills: new Map(),
       workingDirectory: '/workspace/project',
       signal,
@@ -92,6 +99,7 @@ describe('AgentRuntimeState', () => {
     expect(context.callId).toBe('call-123');
     expect(context.agentId).toBe('agent-123');
     expect(context.sessionsDir).toBe('/sessions');
+    expect(context.subagents).toBe(subagents);
     expect(context.workingDirectory).toBe('/workspace/project');
     expect(context.signal).toBe(signal);
     expect(subAgentEvents).toEqual([
@@ -105,6 +113,7 @@ describe('AgentRuntimeState', () => {
       callId: 'call-1',
       agentId: 'agent-1',
       sessionsDir: null,
+      subagents: new SubagentRegistry(),
       availableSkills: new Map(),
       workingDirectory: '/workspace/project',
       signal: new AbortController().signal,

@@ -8,6 +8,7 @@ import {z} from 'zod';
 
 import {FileContentCache} from '../agent/state/file-content-cache.js';
 import {FileStatTracker} from '../agent/state/file-stat-tracker.js';
+import {SubagentRegistry} from '../agent/state/subagent-registry.js';
 import {TodoStore} from '../agent/state/todo-store.js';
 import {UserInteractionBridge} from '../user-interaction/index.js';
 import type {ToolDefinition, ToolExecutionContext} from './types.js';
@@ -38,6 +39,7 @@ export function createMockContext(
     callId: 'mock-call-id',
     agentId: 'mock-agent-id',
     sessionsDir: null,
+    subagents: new SubagentRegistry(),
     availableSkills: new Map(),
     workingDirectory,
     fileCache: new FileContentCache(),

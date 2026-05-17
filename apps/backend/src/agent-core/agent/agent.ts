@@ -21,6 +21,7 @@ import {agentWorkingDirectoryService} from './agent-working-directory-service.js
 import type {AgentSseLogReaderOptions} from './events/agent-sse-log.js';
 import {AgentSseLog} from './events/agent-sse-log.js';
 import {agentPersistence} from './persistence/agent-persistence.js';
+import {SubagentRegistry} from './state/subagent-registry.js';
 import {generateTitle} from './title/agent-title.js';
 import {
   type AgentEventStream,
@@ -55,6 +56,8 @@ export abstract class Agent {
   private readonly getConfig: () => Promise<LlmConfig>;
   private readonly getLightConfig: (() => Promise<LlmConfig>) | null;
   private readonly thinkingLevel: ThinkingLevel;
+
+  readonly subagents: SubagentRegistry;
 
   private readonly workingDirectory: string;
 
@@ -103,6 +106,7 @@ export abstract class Agent {
         snapshot.options.workingDirectory ??
         agentWorkingDirectoryService.createDefaultWorkingDirectory(this.id);
       this.llmSession = new LlmSession(getConfig, snapshot.llmSession);
+      this.subagents = new SubagentRegistry(snapshot.subagents);
     } else {
       this.thinkingLevel = options.thinkingLevel;
       this.id = crypto.randomUUID();
@@ -110,6 +114,7 @@ export abstract class Agent {
         options.workingDirectory ??
         agentWorkingDirectoryService.createDefaultWorkingDirectory(this.id);
       this.llmSession = new LlmSession(getConfig);
+      this.subagents = new SubagentRegistry();
     }
 
     this.sseLog = this.sessionsDir
@@ -151,6 +156,7 @@ export abstract class Agent {
         workingDirectory: this.workingDirectory,
         thinkingLevel: this.thinkingLevel,
       },
+      subagents: this.subagents.list(),
     };
   }
 
@@ -283,6 +289,7 @@ export abstract class Agent {
       userMessage,
       agentId: this.id,
       sessionsDir: this.sessionsDir,
+      subagents: this.subagents,
       workingDirectory: this.workingDirectory,
       thinkingLevel,
       signal,

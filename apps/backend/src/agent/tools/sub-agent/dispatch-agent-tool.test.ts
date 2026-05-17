@@ -2,6 +2,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
+import {SubAgentType} from '@omnicraft/api-schema';
 import {afterEach, beforeEach, describe, expect, it} from 'vitest';
 
 import {ExploreSubAgent, GeneralSubAgent} from '@/agent/agents/index.js';
@@ -12,6 +13,7 @@ import {
   FileToolRegistry,
   WebToolRegistry,
 } from '@/agent/tools/index.js';
+import type {Agent} from '@/agent-core/agent/index.js';
 import {createMockContext} from '@/agent-core/tool/testing.js';
 import type {ToolExecutionContext} from '@/agent-core/tool/types.js';
 
@@ -19,7 +21,7 @@ import {
   createSubAgent,
   dispatchAgentTool,
   getSubagentSessionsDir,
-  SUB_AGENT_TYPE,
+  registerSubAgent,
 } from './dispatch-agent-tool.js';
 
 function resetAgentRegistries(): void {
@@ -68,7 +70,7 @@ describe('dispatchAgentTool', () => {
   it('accepts the explore agent type', () => {
     const result = dispatchAgentTool.parameters.safeParse({
       task: 'Map the backend agent architecture',
-      agentType: SUB_AGENT_TYPE.EXPLORE,
+      agentType: SubAgentType.EXPLORE,
     });
 
     expect(result.success).toBe(true);
@@ -76,10 +78,10 @@ describe('dispatchAgentTool', () => {
 
   it('documents general and explore agent types', () => {
     expect(dispatchAgentTool.description).toContain(
-      `- ${SUB_AGENT_TYPE.GENERAL} (General):`,
+      `- ${SubAgentType.GENERAL} (General):`,
     );
     expect(dispatchAgentTool.description).toContain(
-      `- ${SUB_AGENT_TYPE.EXPLORE} (Explore):`,
+      `- ${SubAgentType.EXPLORE} (Explore):`,
     );
   });
 
@@ -97,7 +99,7 @@ describe('dispatchAgentTool', () => {
 
   it('documents explore-specific research use cases', () => {
     expect(dispatchAgentTool.description).toContain(
-      `- ${SUB_AGENT_TYPE.EXPLORE} (Explore):`,
+      `- ${SubAgentType.EXPLORE} (Explore):`,
     );
     expect(dispatchAgentTool.description).toContain('architecture');
     expect(dispatchAgentTool.description).toContain('data flow');
@@ -112,7 +114,7 @@ describe('dispatchAgentTool', () => {
     initAgentRegistries();
     try {
       const subagent = createSubAgent(
-        SUB_AGENT_TYPE.GENERAL,
+        SubAgentType.GENERAL,
         context.getConfig,
         tmpDir,
         'none',
@@ -129,7 +131,7 @@ describe('dispatchAgentTool', () => {
     initAgentRegistries();
     try {
       const subagent = createSubAgent(
-        SUB_AGENT_TYPE.EXPLORE,
+        SubAgentType.EXPLORE,
         context.getConfig,
         tmpDir,
         'none',
@@ -169,7 +171,7 @@ describe('dispatchAgentTool', () => {
     try {
       const sessionsDir = path.join(tmpDir, 'subagents');
       const subagent = createSubAgent(
-        SUB_AGENT_TYPE.GENERAL,
+        SubAgentType.GENERAL,
         context.getConfig,
         tmpDir,
         'none',
@@ -215,7 +217,7 @@ describe('dispatchAgentTool', () => {
     try {
       const sessionsDir = path.join(tmpDir, 'subagents');
       const subagent = createSubAgent(
-        SUB_AGENT_TYPE.EXPLORE,
+        SubAgentType.EXPLORE,
         context.getConfig,
         tmpDir,
         'none',
@@ -253,6 +255,18 @@ describe('dispatchAgentTool', () => {
     } finally {
       resetAgentRegistries();
     }
+  });
+
+  it('registers the dispatched subagent in the parent context registry', () => {
+    const subagent = {
+      id: '11111111-1111-4111-8111-111111111111',
+    } as Agent;
+
+    registerSubAgent(context, subagent, SubAgentType.EXPLORE);
+
+    expect(context.subagents.list()).toEqual([
+      {id: subagent.id, agentType: SubAgentType.EXPLORE},
+    ]);
   });
 
   describe('workingDirectory boundary check', () => {

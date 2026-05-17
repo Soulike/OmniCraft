@@ -12,6 +12,7 @@ import {
   agentToolExecutor,
   type AgentToolSseEvent,
 } from './agent-tool-executor.js';
+import {SubagentRegistry} from './state/subagent-registry.js';
 
 const MAIN_CONFIG: LlmConfig = {
   apiFormat: 'openai-responses',
@@ -60,6 +61,7 @@ function executeInput(overrides: {
     runtimeState: new AgentRuntimeState('/workspace/project'),
     agentId: 'agent-1',
     sessionsDir: '/sessions',
+    subagents: new SubagentRegistry(),
     availableSkills: new Map<string, SkillDefinition>(),
     workingDirectory: '/workspace/project',
     signal: new AbortController().signal,
@@ -71,7 +73,7 @@ function executeInput(overrides: {
 
 describe('AgentToolExecutor', () => {
   it('executes a visible tool and forwards output and subagent events', async () => {
-    let receivedContext: ToolExecutionContext | null = null;
+    const receivedContext: {current?: ToolExecutionContext} = {};
     const subAgentEvent: SseSubAgentEvent = {
       type: 'subagent-complete',
       agentId: 'child-agent',
@@ -85,7 +87,7 @@ describe('AgentToolExecutor', () => {
       parameters,
       suppressToolEvents: false,
       execute: (args, context, onOutput) => {
-        receivedContext = context;
+        receivedContext.current = context;
         onOutput?.(`value:${args.value}`);
         context.onSubAgentEvent(subAgentEvent);
         return {
@@ -107,7 +109,12 @@ describe('AgentToolExecutor', () => {
       content: 'result:ok',
       data: {message: 'ok'},
     });
-    expect(receivedContext).toMatchObject({
+    if (!receivedContext.current) {
+      throw new Error('Tool did not receive execution context');
+    }
+    const context = receivedContext.current;
+    expect(context.subagents).toBe(input.subagents);
+    expect(context).toMatchObject({
       callId: 'call-1',
       agentId: 'agent-1',
       sessionsDir: '/sessions',

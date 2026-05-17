@@ -14,6 +14,7 @@ import type {LlmConfig, LlmToolCall} from '../llm-api/index.js';
 import type {SkillDefinition} from '../skill/index.js';
 import type {ToolDefinition} from '../tool/index.js';
 import type {AgentRuntimeState} from './agent-runtime-state.js';
+import type {SubagentRegistry} from './state/subagent-registry.js';
 
 export type AgentToolSseEvent =
   | SseToolExecuteEndEvent
@@ -28,6 +29,7 @@ export interface ExecuteAgentToolInput {
   readonly runtimeState: AgentRuntimeState;
   readonly agentId: string;
   readonly sessionsDir: string | null;
+  readonly subagents: SubagentRegistry;
   readonly availableSkills: ReadonlyMap<string, SkillDefinition>;
   readonly workingDirectory: string;
   readonly signal: AbortSignal;
@@ -63,6 +65,7 @@ export class AgentToolExecutor {
       callId: input.toolCall.callId,
       agentId: input.agentId,
       sessionsDir: input.sessionsDir,
+      subagents: input.subagents,
       availableSkills: input.availableSkills,
       workingDirectory: input.workingDirectory,
       signal: input.signal,

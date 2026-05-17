@@ -4,6 +4,7 @@ import type {z} from 'zod';
 
 import type {FileContentCache} from '../agent/state/file-content-cache.js';
 import type {FileStatTracker} from '../agent/state/file-stat-tracker.js';
+import type {SubagentRegistry} from '../agent/state/subagent-registry.js';
 import type {TodoStore} from '../agent/state/todo-store.js';
 import type {
   LlmConfig,
@@ -35,6 +36,9 @@ export interface ToolExecutionContext {
 
   /** Directory where the parent Agent persists sessions, or null for in-memory agents. */
   readonly sessionsDir: string | null;
+
+  /** Registry of subagents owned by the current Agent session. */
+  readonly subagents: SubagentRegistry;
 
   /** All skills available to the current Agent, merged and deduplicated. */
   readonly availableSkills: ReadonlyMap<string, SkillDefinition>;
