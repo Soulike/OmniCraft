@@ -10,7 +10,7 @@ const subagentIdSchema = agentSnapshotSchema.shape.id;
 interface LiveSubagentRegistryEntry {
   readonly agent: Agent;
   readonly agentType: SubAgentType;
-  lastAccessedAt: number;
+  lastAccessOrder: number;
 }
 
 export interface LiveSubagentRecord {
@@ -46,7 +46,7 @@ export class SubagentRegistry {
     this.records.set(id, {
       agent,
       agentType: parsedAgentType,
-      lastAccessedAt: this.nextAccessOrder(),
+      lastAccessOrder: this.nextAccessOrder(),
     });
   }
 
@@ -58,7 +58,7 @@ export class SubagentRegistry {
       return undefined;
     }
 
-    entry.lastAccessedAt = this.nextAccessOrder();
+    entry.lastAccessOrder = this.nextAccessOrder();
     this.evictIfNeeded();
     return {agent: entry.agent, agentType: entry.agentType};
   }
@@ -88,7 +88,7 @@ export class SubagentRegistry {
 
     const entries = [...this.records.entries()]
       .filter(([, entry]) => this.isEvictable(entry))
-      .sort((a, b) => a[1].lastAccessedAt - b[1].lastAccessedAt);
+      .sort((a, b) => a[1].lastAccessOrder - b[1].lastAccessOrder);
 
     for (const [id] of entries) {
       if (this.records.size <= this.maxEntries) break;
