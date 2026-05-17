@@ -53,30 +53,13 @@ async function readTitleFromSnapshot(
 }
 
 async function readSubagentTitle(
-  context: ToolExecutionContext,
+  subagentSessionsDir: string,
   id: string,
 ): Promise<string | null> {
-  const subagentSessionsDir = getSubagentSessionsDir(context);
-  if (!subagentSessionsDir) {
-    logger.warn(
-      {agentId: id},
-      'Skipping subagent without persistence directory',
-    );
-    return null;
-  }
-
-  const title =
+  return (
     (await readTitleFromMetadata(subagentSessionsDir, id)) ??
-    (await readTitleFromSnapshot(subagentSessionsDir, id));
-
-  if (!title) {
-    logger.warn(
-      {agentId: id},
-      'Skipping subagent with unreadable persisted title',
-    );
-  }
-
-  return title;
+    (await readTitleFromSnapshot(subagentSessionsDir, id))
+  );
 }
 
 function formatListAgentsContent(agents: readonly ListedAgent[]): string {
@@ -106,10 +89,26 @@ export const listAgentsTool: ToolDefinition<
     context: ToolExecutionContext,
   ): Promise<ToolExecuteResult<ListAgentsResult>> {
     const records = context.subagentRegistry.list();
+    const subagentSessionsDir = getSubagentSessionsDir(context);
     const agentsOrNull = await Promise.all(
       records.map(async (record): Promise<ListedAgent | null> => {
-        const title = await readSubagentTitle(context, record.id);
-        if (!title) return null;
+        if (!subagentSessionsDir) {
+          logger.warn(
+            {agentId: record.id},
+            'Skipping subagent without persistence directory',
+          );
+          return null;
+        }
+
+        const title = await readSubagentTitle(subagentSessionsDir, record.id);
+        if (!title) {
+          logger.warn(
+            {agentId: record.id},
+            'Skipping subagent with unreadable persisted title',
+          );
+          return null;
+        }
+
         return {id: record.id, agentType: record.agentType, title};
       }),
     );
