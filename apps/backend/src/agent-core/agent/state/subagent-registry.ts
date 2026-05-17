@@ -13,7 +13,7 @@ interface LiveSubagentRegistryEntry {
   lastAccessedAt: number;
 }
 
-export interface LiveSubagentRecord {
+export interface LiveSubagentSummary {
   readonly id: string;
   readonly agentType: SubAgentType;
   readonly title: string;
@@ -62,7 +62,7 @@ export class SubagentRegistry {
     return {agent: entry.agent, agentType: entry.agentType};
   }
 
-  list(): LiveSubagentRecord[] {
+  list(): LiveSubagentSummary[] {
     this.evictIfNeeded();
 
     return [...this.records.values()].map((entry) => ({

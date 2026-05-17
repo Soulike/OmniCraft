@@ -20,13 +20,14 @@ function createMockAgent(
   const agent = {
     id: overrides.id ?? crypto.randomUUID(),
     title: overrides.title ?? 'New Session',
-    sseLog: {
-      activeReaderCount: overrides.activeReaderCount ?? 0,
-    },
+    sseLog: {},
   } as Agent;
 
   Object.defineProperty(agent, 'isRunning', {
     get: () => overrides.isRunning ?? false,
+  });
+  Object.defineProperty(agent.sseLog, 'activeReaderCount', {
+    get: () => overrides.activeReaderCount ?? 0,
   });
 
   return agent;
@@ -197,18 +198,21 @@ describe('SubagentRegistry', () => {
 
   it('evicts multiple least recently accessed entries before listing', () => {
     const registry = new SubagentRegistry({maxEntries: 2});
-    const first = createMockAgent({title: 'First', activeReaderCount: 1});
-    const second = createMockAgent({title: 'Second', activeReaderCount: 1});
-    const third = createMockAgent({title: 'Third', activeReaderCount: 1});
+    const firstOverrides = {title: 'First', activeReaderCount: 1};
+    const secondOverrides = {title: 'Second', activeReaderCount: 1};
+    const thirdOverrides = {title: 'Third', activeReaderCount: 1};
+    const first = createMockAgent(firstOverrides);
+    const second = createMockAgent(secondOverrides);
+    const third = createMockAgent(thirdOverrides);
     const fourth = createMockAgent({title: 'Fourth', activeReaderCount: 1});
 
     registry.register(first, SubAgentType.GENERAL);
     registry.register(second, SubAgentType.EXPLORE);
     registry.register(third, SubAgentType.GENERAL);
     registry.register(fourth, SubAgentType.EXPLORE);
-    first.sseLog.activeReaderCount = 0;
-    second.sseLog.activeReaderCount = 0;
-    third.sseLog.activeReaderCount = 0;
+    firstOverrides.activeReaderCount = 0;
+    secondOverrides.activeReaderCount = 0;
+    thirdOverrides.activeReaderCount = 0;
 
     expect(registry.list()).toEqual([
       {
