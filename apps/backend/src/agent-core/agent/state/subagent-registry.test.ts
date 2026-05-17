@@ -159,6 +159,22 @@ describe('SubagentRegistry', () => {
     expect(registry.get(reading.id)?.agent).toBe(reading);
   });
 
+  it('runs eviction on a valid missing lookup', () => {
+    const registry = new SubagentRegistry({maxEntries: 1});
+    const firstOverrides = {title: 'First', isRunning: true};
+    const first = createMockAgent(firstOverrides);
+    const second = createMockAgent({title: 'Second', activeReaderCount: 1});
+
+    registry.register(first, SubAgentType.GENERAL);
+    registry.register(second, SubAgentType.EXPLORE);
+    firstOverrides.isRunning = false;
+
+    expect(registry.get(crypto.randomUUID())).toBeUndefined();
+
+    expect(registry.get(first.id)).toBeUndefined();
+    expect(registry.get(second.id)?.agent).toBe(second);
+  });
+
   it('clears live entries', () => {
     const registry = new SubagentRegistry();
     const agent = createMockAgent();

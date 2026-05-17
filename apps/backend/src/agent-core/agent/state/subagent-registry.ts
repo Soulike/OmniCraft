@@ -52,7 +52,10 @@ export class SubagentRegistry {
   get(id: string): LiveSubagentHandle | undefined {
     const parsedId = subagentIdSchema.parse(id);
     const entry = this.records.get(parsedId);
-    if (!entry) return undefined;
+    if (!entry) {
+      this.evictIfNeeded();
+      return undefined;
+    }
 
     entry.lastAccessedAt = this.nextAccessOrder();
     this.evictIfNeeded();
