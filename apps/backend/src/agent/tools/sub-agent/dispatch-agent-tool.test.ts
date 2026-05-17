@@ -94,7 +94,7 @@ function createForwardingMockSubagent(
     getThinkingLevel() {
       return 'none' as const;
     },
-  } as Agent & {readonly handledMessages: string[]};
+  } as unknown as Agent & {readonly handledMessages: string[]};
 
   Object.defineProperty(subagent, 'isRunning', {get: () => false});
   return subagent;

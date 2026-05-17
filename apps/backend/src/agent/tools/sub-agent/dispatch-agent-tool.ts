@@ -152,7 +152,7 @@ export const dispatchAgentTool: ToolDefinition<
   async execute(
     args: z.infer<typeof parameters>,
     context: ToolExecutionContext,
-  ): Promise<ToolExecuteResult<DispatchAgentResult>> {
+  ): Promise<ToolExecuteResult<SubagentTurnResult>> {
     const {
       task,
       agentType = SubAgentType.GENERAL,
