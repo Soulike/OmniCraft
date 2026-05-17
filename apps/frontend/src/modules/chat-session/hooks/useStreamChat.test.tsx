@@ -459,4 +459,90 @@ describe('useStreamChat', () => {
 
     expect(screen.getByText('Subagent replay content')).toBeInTheDocument();
   });
+
+  it('preserves replayed resumed subagent output until the subagent display mounts', async () => {
+    const events: SseEvent[] = [
+      {
+        type: 'message-start',
+        role: 'user',
+        messageId: 'user-1',
+        createdAt: 1,
+        content: 'resume subagent',
+      },
+      {
+        type: 'message-start',
+        role: 'assistant',
+        messageId: 'assistant-1',
+        createdAt: 2,
+        content: '',
+      },
+      {
+        type: 'subagent-resume',
+        agentId: 'subagent-1',
+        task: 'Continue the replay path',
+        agentType: 'general',
+        thinkingLevel: 'none',
+        workingDirectory: '/tmp/project',
+      },
+      {
+        type: 'subagent-output',
+        agentId: 'subagent-1',
+        event: {
+          type: 'message-start',
+          role: 'user',
+          messageId: 'subagent-user-1',
+          createdAt: 3,
+          content: 'Continue the replay path',
+        },
+      },
+      {
+        type: 'subagent-output',
+        agentId: 'subagent-1',
+        event: {
+          type: 'message-start',
+          role: 'assistant',
+          messageId: 'subagent-assistant-1',
+          createdAt: 4,
+          content: '',
+        },
+      },
+      {
+        type: 'subagent-output',
+        agentId: 'subagent-1',
+        event: {type: 'text-delta', content: 'Resumed replay content'},
+      },
+      {
+        type: 'subagent-output',
+        agentId: 'subagent-1',
+        event: {type: 'done', reason: 'complete'},
+      },
+      {type: 'subagent-complete', agentId: 'subagent-1', status: 'success'},
+      {type: 'done', reason: 'complete'},
+    ];
+
+    render(
+      <ChatSessionApiContext value={createApi(events)}>
+        <ChatEventBusProvider>
+          <HarnessContent />
+        </ChatEventBusProvider>
+      </ChatSessionApiContext>,
+    );
+
+    await flushAsyncWork();
+    act(flushRaf);
+
+    const trigger = await screen.findByRole('button', {
+      name: /Continue the replay path/,
+    });
+    if (trigger.getAttribute('aria-expanded') === 'false') {
+      fireEvent.click(trigger);
+    }
+
+    await flushAsyncWork();
+    act(flushRaf);
+    await flushAsyncWork();
+    act(flushRaf);
+
+    expect(screen.getByText('Resumed replay content')).toBeInTheDocument();
+  });
 });

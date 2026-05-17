@@ -12,7 +12,7 @@ import type {
 } from '@omnicraft/tool-schemas';
 import {useMemo} from 'react';
 
-import type {ChatEventBus, ChatMessage} from '../../../types.js';
+import type {ChatEventBus, ChatMessage, SubagentMode} from '../../../types.js';
 
 export interface UserTextRenderItem {
   type: 'user-text';
@@ -74,6 +74,7 @@ export interface ThinkingRenderItem {
 
 export interface SubagentRenderItem {
   type: 'subagent';
+  mode: SubagentMode;
   agentId: string;
   task: string;
   agentType: string;
@@ -223,6 +224,7 @@ export function transformMessages(
       case 'subagent': {
         items.push({
           type: 'subagent',
+          mode: content.mode,
           agentId: content.agentId,
           task: content.task,
           agentType: content.agentType,

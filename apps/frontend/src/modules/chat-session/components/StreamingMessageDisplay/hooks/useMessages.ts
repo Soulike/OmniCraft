@@ -14,7 +14,7 @@ import {useEffect} from 'react';
 
 import {useFrameBatchedState} from '@/hooks/useFrameBatchedState.js';
 
-import type {ChatEventBus, ChatMessage} from '../types.js';
+import type {ChatEventBus, ChatMessage, SubagentMode} from '../types.js';
 import {useChatEventBus} from './useChatEventBus.js';
 
 /**
@@ -222,6 +222,7 @@ function applyAssistantMessageStart(
 function pushSubagentStart(
   prev: ChatMessage[],
   data: {
+    mode: SubagentMode;
     agentId: string;
     task: string;
     agentType: string;
@@ -239,6 +240,7 @@ function pushSubagentStart(
       role: 'assistant' as const,
       content: {
         type: 'subagent' as const,
+        mode: data.mode,
         agentId: data.agentId,
         task: data.task,
         agentType: data.agentType,
@@ -334,6 +336,7 @@ export function useMessages() {
       setMessages([]);
     };
     const onSubagentDispatched = (data: {
+      mode: SubagentMode;
       agentId: string;
       task: string;
       agentType: string;
