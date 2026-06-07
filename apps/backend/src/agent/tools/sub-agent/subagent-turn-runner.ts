@@ -47,9 +47,24 @@ export async function runSubagentTurn({
     subagent.abort();
   };
   context.signal.addEventListener('abort', onAbort, {once: true});
-  context.onSubAgentEvent(startEvent);
 
   try {
+    context.onSubAgentEvent(startEvent);
+
+    if (context.signal.aborted) {
+      context.onSubAgentEvent({
+        type: 'subagent-complete',
+        agentId: subagent.id,
+        status: 'failure',
+      });
+
+      return {
+        data: {message: 'Subagent was aborted'},
+        content: 'Subagent was aborted.',
+        status: 'failure',
+      };
+    }
+
     let lastReplyText = '';
     let completed = false;
     let failureMessage: string | null = null;

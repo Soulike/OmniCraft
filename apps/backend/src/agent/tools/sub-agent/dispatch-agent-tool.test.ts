@@ -513,6 +513,46 @@ describe('dispatchAgentTool', () => {
     ]);
   });
 
+  it('does not start the subagent when the parent signal is already aborted', async () => {
+    const controller = new AbortController();
+    controller.abort();
+    const events: unknown[] = [];
+    const dispatchContext = createMockContext({
+      signal: controller.signal,
+      workingDirectory: tmpDir,
+      onSubAgentEvent: (event) => {
+        events.push(event);
+      },
+    });
+    const subagent = createResumedTurnMockSubagent(tmpDir);
+
+    const result = await runSubagentTurn({
+      context: dispatchContext,
+      subagent,
+      task: 'Continue the work',
+      startEvent: {
+        type: 'subagent-dispatch',
+        agentId: subagent.id,
+        task: 'Continue the work',
+        agentType: SubAgentType.GENERAL,
+        thinkingLevel: 'none',
+        workingDirectory: tmpDir,
+      },
+    });
+
+    expect(result).toMatchObject({
+      status: 'failure',
+      data: {message: 'Subagent was aborted'},
+      content: 'Subagent was aborted.',
+    });
+    expect(subagent.handledMessages).toEqual([]);
+    expect(subagent.subscribedStartIndexes).toEqual([]);
+    expect(events).toEqual([
+      expect.objectContaining({type: 'subagent-dispatch'}),
+      {type: 'subagent-complete', agentId: subagent.id, status: 'failure'},
+    ]);
+  });
+
   describe('subagent output event wrapping', () => {
     const agentId = '11111111-1111-4111-8111-111111111111';
 
