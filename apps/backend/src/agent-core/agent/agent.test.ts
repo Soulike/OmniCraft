@@ -260,7 +260,7 @@ describe('Agent title generation', () => {
     });
 
     const eventsPromise = collectUntilDone(agent);
-    agent.handleUserMessage('Please help me rename a component');
+    agent.enqueueUserTurn('Please help me rename a component');
     const events = await eventsPromise;
 
     const userStartIndex = events.findIndex(
@@ -524,7 +524,7 @@ describe('Agent compaction lifecycle', () => {
     );
 
     const eventsPromise = collectUntilError(agent);
-    agent.handleUserMessage('Trigger compaction');
+    agent.enqueueUserTurn('Trigger compaction');
     const events = await eventsPromise;
 
     const lastEvent = events.at(-1);
@@ -577,7 +577,7 @@ describe('Agent compaction lifecycle', () => {
       testAgentOptions(),
     );
     const eventsPromise = collectUntilDone(agent);
-    agent.handleUserMessage('hi');
+    agent.enqueueUserTurn('hi');
     const events = await eventsPromise;
 
     const types = events.map((e) => e.type);
@@ -622,7 +622,7 @@ describe('Agent compaction lifecycle', () => {
       testAgentOptions(),
     );
     const eventsPromise = collectUntilDone(agent);
-    agent.handleUserMessage('hi');
+    agent.enqueueUserTurn('hi');
     const events = await eventsPromise;
 
     const types = events.map((e) => e.type);
@@ -656,7 +656,7 @@ describe('Agent abort flow', () => {
     );
 
     const eventsPromise = collectUntilTerminal(agent);
-    agent.handleUserMessage('Stop me mid-stream');
+    agent.enqueueUserTurn('Stop me mid-stream');
     // Wait until the user message-start has been emitted before aborting,
     // so the abort lands while the stream is being consumed.
     await delay(10);
@@ -680,7 +680,7 @@ describe('Agent abort flow', () => {
     );
 
     const eventsPromise = collectUntilTerminal(agent);
-    agent.handleUserMessage('Trigger a real provider error');
+    agent.enqueueUserTurn('Trigger a real provider error');
     const {events} = await eventsPromise;
 
     const lastEvent = events.at(-1);
@@ -734,7 +734,7 @@ describe('Agent abort flow', () => {
     );
 
     const firstTurn = collectUntilTerminal(agent);
-    agent.handleUserMessage('Trigger compaction then abort');
+    agent.enqueueUserTurn('Trigger compaction then abort');
     await delay(10);
     agent.abort();
     const {events, nextIndex} = await firstTurn;
@@ -765,7 +765,7 @@ describe('Agent abort flow', () => {
       }),
     );
     const followUpPromise = collectUntilTerminal(agent, nextIndex);
-    agent.handleUserMessage('Follow-up turn');
+    agent.enqueueUserTurn('Follow-up turn');
     const {events: followUpEvents} = await followUpPromise;
     expect(followUpEvents.at(-1)).toMatchObject({
       type: 'done',
@@ -799,7 +799,7 @@ describe('Agent abort flow', () => {
     });
 
     const eventsPromise = collectUntilTerminal(agent);
-    agent.handleUserMessage('Use the tool then abort');
+    agent.enqueueUserTurn('Use the tool then abort');
     // Wait long enough for the tool round to complete and the next stream
     // to start before aborting.
     await delay(30);
