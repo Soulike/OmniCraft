@@ -220,6 +220,10 @@ describe('dispatchAgentTool', () => {
     );
   });
 
+  it('documents that the result includes the subagent id', () => {
+    expect(dispatchAgentTool.description).toContain('includes the subagent id');
+  });
+
   it('documents explore-specific research use cases', () => {
     expect(dispatchAgentTool.description).toContain(
       `- ${SubAgentType.EXPLORE} (Explore):`,
@@ -441,8 +445,8 @@ describe('dispatchAgentTool', () => {
 
     expect(result).toMatchObject({
       status: 'success',
-      data: {summary: 'done'},
-      content: 'done',
+      data: {summary: 'done', agentId: subagent.id},
+      content: `<subagent_id>${subagent.id}</subagent_id>\n\ndone`,
     });
     expect(subagent.handledMessages).toEqual(['Inspect the code']);
     expect(order).toEqual(['handleUserMessage', 'onTurnStarted']);
@@ -484,8 +488,8 @@ describe('dispatchAgentTool', () => {
 
     expect(result).toMatchObject({
       status: 'success',
-      data: {summary: 'new summary'},
-      content: 'new summary',
+      data: {summary: 'new summary', agentId: subagent.id},
+      content: `<subagent_id>${subagent.id}</subagent_id>\n\nnew summary`,
     });
     expect(subagent.handledMessages).toEqual(['Continue the work']);
     expect(subagent.subscribedStartIndexes).toEqual([3]);

@@ -82,6 +82,10 @@ describe('resumeAgentTool', () => {
     expect(resumeAgentTool.name).toBe('resume_agent');
   });
 
+  it('documents that the result includes the subagent id', () => {
+    expect(resumeAgentTool.description).toContain('includes the subagent id');
+  });
+
   it('is registered by the subagent tool registry', () => {
     SubAgentToolRegistry.resetInstance();
     try {
@@ -144,8 +148,8 @@ describe('resumeAgentTool', () => {
 
     expect(result).toMatchObject({
       status: 'success',
-      data: {summary: 'follow-up result'},
-      content: 'follow-up result',
+      data: {summary: 'follow-up result', agentId: subagent.id},
+      content: `<subagent_id>${subagent.id}</subagent_id>\n\nfollow-up result`,
     });
     expect(subagent.handledMessages).toEqual(['Continue analysis']);
     expect(context.events).toEqual([
