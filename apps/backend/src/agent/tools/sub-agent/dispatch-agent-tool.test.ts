@@ -56,7 +56,7 @@ function emptyUsage() {
 
 function createForwardingMockSubagent(
   workingDirectory: string,
-  onHandleUserMessage?: () => void,
+  onEnqueueUserTurn?: () => void,
 ): Agent & {
   readonly handledMessages: string[];
 } {
@@ -67,7 +67,7 @@ function createForwardingMockSubagent(
     sseLog: {activeReaderCount: 0},
     handledMessages,
     enqueueUserTurn(message: string) {
-      onHandleUserMessage?.();
+      onEnqueueUserTurn?.();
       handledMessages.push(message);
     },
     abort() {

@@ -1037,4 +1037,45 @@ describe('Agent turn scheduling', () => {
     expect(agent.isRunning).toBe(false);
     expect(agent.tryStartUserTurn('second')).toBe(true);
   });
+
+  it('tryStartUserTurn returns false while title generation is in flight', async () => {
+    let releaseTitle!: () => void;
+    const titleBlocker = new Promise<void>((resolve) => {
+      releaseTitle = resolve;
+    });
+    async function* blockingTitleStream(): LlmEventStream {
+      yield {type: 'message-start', messageId: 'title-message'};
+      await titleBlocker;
+      yield {type: 'text-delta', content: 'Short Title'};
+      yield {
+        type: 'message-end',
+        stopReason: 'end_turn',
+        usage: {inputTokens: 1, outputTokens: 1, cacheReadInputTokens: 0},
+      };
+    }
+
+    vi.spyOn(llmApi, 'countToken').mockResolvedValue(1);
+    vi.spyOn(llmApi, 'streamCompletion').mockImplementation((options) => {
+      if (options.config.model === LIGHT_CONFIG.model) {
+        return blockingTitleStream();
+      }
+      return mainCompletionStream();
+    });
+    const agent = new TestAgent(
+      () => Promise.resolve(MAIN_CONFIG),
+      testAgentOptions(),
+    );
+
+    agent.enqueueUserTurn('first');
+    await collectUntilDone(agent);
+    await delay(0);
+
+    // The main turn has fully settled (pendingTurnCount === 0), but the
+    // title stream is still blocked, so isRunning stays true and a new
+    // claim must be rejected.
+    expect(agent.isRunning).toBe(true);
+    expect(agent.tryStartUserTurn('second')).toBe(false);
+
+    releaseTitle();
+  });
 });
