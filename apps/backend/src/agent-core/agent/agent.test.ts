@@ -1076,6 +1076,12 @@ describe('Agent turn scheduling', () => {
     expect(agent.isRunning).toBe(true);
     expect(agent.tryStartUserTurn('second')).toBe(false);
 
+    // Unblock title generation and wait for it to settle before the test
+    // ends, so the fire-and-forget title work cannot race with the
+    // afterEach vi.restoreAllMocks().
     releaseTitle();
+    while (agent.isRunning) {
+      await delay(0);
+    }
   });
 });
