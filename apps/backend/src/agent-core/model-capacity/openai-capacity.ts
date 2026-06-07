@@ -22,51 +22,11 @@ interface KnownCapacity {
  */
 const KNOWN_MODELS = new Map<string, KnownCapacity>([
   [
-    'gpt-4o',
-    {
-      maxContextWindowTokens: 128_000,
-      maxPromptTokens: 64_000,
-      maxOutputTokens: 4_096,
-    },
-  ],
-  [
-    'gpt-4.1',
-    {
-      maxContextWindowTokens: 128_000,
-      maxPromptTokens: 128_000,
-      maxOutputTokens: 16_384,
-    },
-  ],
-  [
     'gpt-5-mini',
     {
       maxContextWindowTokens: 264_000,
       maxPromptTokens: 128_000,
       maxOutputTokens: 64_000,
-    },
-  ],
-  [
-    'gpt-5.1',
-    {
-      maxContextWindowTokens: 264_000,
-      maxPromptTokens: 128_000,
-      maxOutputTokens: 64_000,
-    },
-  ],
-  [
-    'gpt-5.2',
-    {
-      maxContextWindowTokens: 400_000,
-      maxPromptTokens: 272_000,
-      maxOutputTokens: 128_000,
-    },
-  ],
-  [
-    'gpt-5.2-codex',
-    {
-      maxContextWindowTokens: 400_000,
-      maxPromptTokens: 272_000,
-      maxOutputTokens: 128_000,
     },
   ],
   [
@@ -88,16 +48,24 @@ const KNOWN_MODELS = new Map<string, KnownCapacity>([
   [
     'gpt-5.4',
     {
-      maxContextWindowTokens: 400_000,
-      maxPromptTokens: 272_000,
+      maxContextWindowTokens: 1_050_000,
+      maxPromptTokens: 922_000,
       maxOutputTokens: 128_000,
     },
   ],
   [
     'gpt-5.5',
     {
-      maxContextWindowTokens: 400_000,
-      maxPromptTokens: 272_000,
+      maxContextWindowTokens: 1_050_000,
+      maxPromptTokens: 922_000,
+      maxOutputTokens: 128_000,
+    },
+  ],
+  [
+    'mai-code-1-flash-internal',
+    {
+      maxContextWindowTokens: 256_000,
+      maxPromptTokens: 128_000,
       maxOutputTokens: 128_000,
     },
   ],
@@ -118,10 +86,18 @@ const KNOWN_MODELS = new Map<string, KnownCapacity>([
     },
   ],
   [
+    'gemini-3.5-flash',
+    {
+      maxContextWindowTokens: 1_000_000,
+      maxPromptTokens: 936_000,
+      maxOutputTokens: 64_000,
+    },
+  ],
+  [
     'gemini-3.1-pro-preview',
     {
-      maxContextWindowTokens: 200_000,
-      maxPromptTokens: 136_000,
+      maxContextWindowTokens: 1_000_000,
+      maxPromptTokens: 936_000,
       maxOutputTokens: 64_000,
     },
   ],
