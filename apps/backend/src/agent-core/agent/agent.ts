@@ -215,11 +215,6 @@ export abstract class Agent {
     return true;
   }
 
-  /** Temporary wrapper — removed once all call sites migrate. */
-  handleUserMessage(userMessage: string): void {
-    this.enqueueUserTurn(userMessage);
-  }
-
   private runTrackedTurn(userMessage: string): void {
     this.pendingTurnCount++;
     void this.runTurn(userMessage).finally(() => {

@@ -91,7 +91,6 @@ export const resumeAgentTool: ToolDefinition<
       return await runSubagentTurn({
         context,
         subagent: handle.agent,
-        task: args.task,
         startEvent: {
           type: 'subagent-resume',
           agentId: handle.agent.id,
@@ -100,6 +99,7 @@ export const resumeAgentTool: ToolDefinition<
           thinkingLevel: handle.agent.getThinkingLevel(),
           workingDirectory: handle.agent.getWorkingDirectory(),
         },
+        startTurn: () => handle.agent.tryStartUserTurn(args.task),
       });
     } finally {
       releaseClaim();

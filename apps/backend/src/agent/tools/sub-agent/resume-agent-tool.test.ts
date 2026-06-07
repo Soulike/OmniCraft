@@ -25,8 +25,10 @@ function createMockSubagent(
     title: 'Reusable Subagent',
     sseLog: {activeReaderCount: 0},
     handledMessages,
-    handleUserMessage(message: string) {
+    tryStartUserTurn(message: string) {
+      if (overrides.isRunning ?? false) return false;
       handledMessages.push(message);
+      return true;
     },
     abort: vi.fn(),
     async *subscribe() {
