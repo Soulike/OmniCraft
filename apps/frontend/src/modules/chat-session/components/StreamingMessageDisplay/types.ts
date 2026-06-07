@@ -111,7 +111,7 @@ export interface ChatEventMap {
   'reset-session': undefined;
   /** A new session was created (ID assigned, not yet titled). */
   'session-created': {sessionId: string};
-  /** A subagent was dispatched. */
+  /** A subagent turn started. */
   'subagent-dispatched': {
     mode: SubagentMode;
     agentId: string;

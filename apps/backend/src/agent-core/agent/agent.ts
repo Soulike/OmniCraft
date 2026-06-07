@@ -155,6 +155,11 @@ export abstract class Agent {
     return this.thinkingLevel;
   }
 
+  /** Returns the number of SSE events emitted by this Agent. */
+  getSseEventCount(): number {
+    return this.sseEventCount;
+  }
+
   /** Returns a serializable snapshot of this agent. */
   toSnapshot(): AgentSnapshot {
     return {

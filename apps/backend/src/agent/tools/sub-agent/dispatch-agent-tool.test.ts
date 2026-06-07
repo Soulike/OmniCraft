@@ -94,8 +94,11 @@ function createForwardingMockSubagent(
     getThinkingLevel() {
       return 'none' as const;
     },
+    getSseEventCount() {
+      return 0;
+    },
     toSnapshot() {
-      return {sseEventCount: 0};
+      throw new Error('runSubagentTurn should not snapshot subagents');
     },
   } as unknown as Agent & {readonly handledMessages: string[]};
 
@@ -155,8 +158,11 @@ function createResumedTurnMockSubagent(workingDirectory: string): Agent & {
     getThinkingLevel() {
       return 'none' as const;
     },
+    getSseEventCount() {
+      return 3;
+    },
     toSnapshot() {
-      return {sseEventCount: 3};
+      throw new Error('runSubagentTurn should not snapshot subagents');
     },
   } as unknown as Agent & {
     readonly handledMessages: string[];

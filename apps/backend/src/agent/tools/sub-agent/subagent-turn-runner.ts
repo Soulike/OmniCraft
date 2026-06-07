@@ -53,7 +53,7 @@ export async function runSubagentTurn({
     let lastReplyText = '';
     let completed = false;
     let failureMessage: string | null = null;
-    const startIndex = subagent.toSnapshot().sseEventCount;
+    const startIndex = subagent.getSseEventCount();
     const eventIter = subagent.subscribe({
       startIndex,
       signal: context.signal,

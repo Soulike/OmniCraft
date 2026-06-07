@@ -53,8 +53,11 @@ function createMockSubagent(
     getThinkingLevel() {
       return 'none' as const;
     },
+    getSseEventCount() {
+      return 0;
+    },
     toSnapshot() {
-      return {sseEventCount: 0};
+      throw new Error('runSubagentTurn should not snapshot subagents');
     },
   } as unknown as Agent & {handledMessages: string[]};
 

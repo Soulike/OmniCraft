@@ -823,6 +823,7 @@ describe('Agent snapshot restore', () => {
 
     expect(agent.getWorkingDirectory()).toBe(options.workingDirectory);
     expect(agent.getThinkingLevel()).toBe('high');
+    expect(agent.getSseEventCount()).toBe(0);
   });
 
   it('throws when a snapshot reaches the constructor without thinkingLevel', () => {
