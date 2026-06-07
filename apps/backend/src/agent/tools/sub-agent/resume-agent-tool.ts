@@ -29,7 +29,10 @@ export const resumeAgentTool: ToolDefinition<
 > = {
   name: 'resume_agent',
   displayName: 'Resume Agent',
-  description: 'Resumes a subagent by sending it a follow-up task.',
+  description:
+    'Resumes a subagent by sending it a follow-up task. ' +
+    'The result includes the subagent id so it can be sent further work ' +
+    'later without a separate lookup.',
   parameters,
   suppressToolEvents: true,
   compactResult({content}) {
