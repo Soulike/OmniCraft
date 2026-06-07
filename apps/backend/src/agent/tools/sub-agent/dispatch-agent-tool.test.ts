@@ -220,6 +220,10 @@ describe('dispatchAgentTool', () => {
     );
   });
 
+  it('documents that the result includes the subagent id', () => {
+    expect(dispatchAgentTool.description).toContain('includes the subagent id');
+  });
+
   it('documents explore-specific research use cases', () => {
     expect(dispatchAgentTool.description).toContain(
       `- ${SubAgentType.EXPLORE} (Explore):`,

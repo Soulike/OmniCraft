@@ -53,7 +53,9 @@ function buildToolDescription(): string {
     'without blocking your immediate next local action. ' +
     'Keep very small local lookups local when dispatch overhead is not worth it. ' +
     'After the subagent returns, synthesize the subagent result for the user ' +
-    'or use it to guide implementation.';
+    'or use it to guide implementation. ' +
+    'The result includes the subagent id so it can be sent follow-up work ' +
+    'later without a separate lookup.';
 
   const typeDescriptions = Object.entries(subAgentInfos)
     .map(([key, info]) => `- ${key} (${info.name}): ${info.description}`)

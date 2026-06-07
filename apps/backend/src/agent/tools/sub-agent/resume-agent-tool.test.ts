@@ -82,6 +82,10 @@ describe('resumeAgentTool', () => {
     expect(resumeAgentTool.name).toBe('resume_agent');
   });
 
+  it('documents that the result includes the subagent id', () => {
+    expect(resumeAgentTool.description).toContain('includes the subagent id');
+  });
+
   it('is registered by the subagent tool registry', () => {
     SubAgentToolRegistry.resetInstance();
     try {
