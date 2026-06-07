@@ -144,8 +144,8 @@ describe('resumeAgentTool', () => {
 
     expect(result).toMatchObject({
       status: 'success',
-      data: {summary: 'follow-up result'},
-      content: 'follow-up result',
+      data: {summary: 'follow-up result', agentId: subagent.id},
+      content: `<subagent_id>${subagent.id}</subagent_id>\n\nfollow-up result`,
     });
     expect(subagent.handledMessages).toEqual(['Continue analysis']);
     expect(context.events).toEqual([

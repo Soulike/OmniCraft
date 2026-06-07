@@ -14,6 +14,7 @@ import type {
 
 export interface SubagentTurnResult {
   summary: string;
+  agentId: string;
 }
 
 export interface RunSubagentTurnInput {
@@ -109,7 +110,12 @@ export async function runSubagentTurn({
       const summary =
         lastReplyText ||
         'Subagent completed the task but produced no text summary.';
-      return {data: {summary}, content: summary, status: 'success'};
+      const content = `<subagent_id>${subagent.id}</subagent_id>\n\n${summary}`;
+      return {
+        data: {summary, agentId: subagent.id},
+        content,
+        status: 'success',
+      };
     }
 
     if (failureMessage) {
