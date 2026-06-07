@@ -233,17 +233,30 @@ export type SseBaseEvent = z.infer<typeof sseBaseEventSchema>;
 // Subagent events
 // ---------------------------------------------------------------------------
 
-/** A subagent has been dispatched to handle a subtask. */
-export const sseSubagentDispatchEventSchema = z.object({
-  type: z.literal('subagent-dispatch'),
+const sseSubagentStartPayloadSchema = z.object({
   agentId: agentIdSchema,
   task: z.string(),
   agentType: subAgentTypeSchema,
   thinkingLevel: thinkingLevelSchema,
   workingDirectory: z.string(),
 });
+
+/** A subagent has been dispatched to handle a subtask. */
+export const sseSubagentDispatchEventSchema = z.object({
+  type: z.literal('subagent-dispatch'),
+  ...sseSubagentStartPayloadSchema.shape,
+});
 export type SseSubagentDispatchEvent = z.infer<
   typeof sseSubagentDispatchEventSchema
+>;
+
+/** A live subagent has been resumed for a follow-up task. */
+export const sseSubagentResumeEventSchema = z.object({
+  type: z.literal('subagent-resume'),
+  ...sseSubagentStartPayloadSchema.shape,
+});
+export type SseSubagentResumeEvent = z.infer<
+  typeof sseSubagentResumeEventSchema
 >;
 
 /** A forwarded event from a running subagent. */
@@ -269,6 +282,7 @@ export type SseSubagentCompleteEvent = z.infer<
 /** Union of all subagent-related events. */
 export type SseSubAgentEvent =
   | SseSubagentDispatchEvent
+  | SseSubagentResumeEvent
   | SseSubagentOutputEvent
   | SseSubagentCompleteEvent;
 
@@ -280,6 +294,7 @@ export type SseSubAgentEvent =
 export const sseEventSchema = z.discriminatedUnion('type', [
   ...sseBaseEventSchemas,
   sseSubagentDispatchEventSchema,
+  sseSubagentResumeEventSchema,
   sseSubagentOutputEventSchema,
   sseSubagentCompleteEventSchema,
 ]);

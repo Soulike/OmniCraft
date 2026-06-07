@@ -32,9 +32,13 @@ export interface ThinkingContent {
   done: boolean;
 }
 
+/** Whether a subagent timeline item started from a dispatch or resume turn. */
+export type SubagentMode = 'dispatch' | 'resume';
+
 /** Subagent execution content. */
 export interface SubagentContent {
   type: 'subagent';
+  mode: SubagentMode;
   agentId: string;
   task: string;
   agentType: string;
@@ -107,8 +111,9 @@ export interface ChatEventMap {
   'reset-session': undefined;
   /** A new session was created (ID assigned, not yet titled). */
   'session-created': {sessionId: string};
-  /** A subagent was dispatched. */
+  /** A subagent turn started. */
   'subagent-dispatched': {
+    mode: SubagentMode;
     agentId: string;
     task: string;
     agentType: string;

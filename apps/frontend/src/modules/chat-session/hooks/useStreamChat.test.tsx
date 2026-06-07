@@ -375,6 +375,7 @@ describe('useStreamChat', () => {
   });
 
   it('preserves replayed subagent output until the subagent display mounts', async () => {
+    const agentId = '11111111-1111-4111-8111-111111111111';
     const events: SseEvent[] = [
       {
         type: 'message-start',
@@ -392,7 +393,7 @@ describe('useStreamChat', () => {
       },
       {
         type: 'subagent-dispatch',
-        agentId: 'subagent-1',
+        agentId,
         task: 'Inspect the replay path',
         agentType: 'general',
         thinkingLevel: 'none',
@@ -400,7 +401,7 @@ describe('useStreamChat', () => {
       },
       {
         type: 'subagent-output',
-        agentId: 'subagent-1',
+        agentId,
         event: {
           type: 'message-start',
           role: 'user',
@@ -411,7 +412,7 @@ describe('useStreamChat', () => {
       },
       {
         type: 'subagent-output',
-        agentId: 'subagent-1',
+        agentId,
         event: {
           type: 'message-start',
           role: 'assistant',
@@ -422,15 +423,15 @@ describe('useStreamChat', () => {
       },
       {
         type: 'subagent-output',
-        agentId: 'subagent-1',
+        agentId,
         event: {type: 'text-delta', content: 'Subagent replay content'},
       },
       {
         type: 'subagent-output',
-        agentId: 'subagent-1',
+        agentId,
         event: {type: 'done', reason: 'complete'},
       },
-      {type: 'subagent-complete', agentId: 'subagent-1', status: 'success'},
+      {type: 'subagent-complete', agentId, status: 'success'},
       {type: 'done', reason: 'complete'},
     ];
 
@@ -458,5 +459,92 @@ describe('useStreamChat', () => {
     act(flushRaf);
 
     expect(screen.getByText('Subagent replay content')).toBeInTheDocument();
+  });
+
+  it('preserves replayed resumed subagent output until the subagent display mounts', async () => {
+    const agentId = '22222222-2222-4222-8222-222222222222';
+    const events: SseEvent[] = [
+      {
+        type: 'message-start',
+        role: 'user',
+        messageId: 'user-1',
+        createdAt: 1,
+        content: 'resume subagent',
+      },
+      {
+        type: 'message-start',
+        role: 'assistant',
+        messageId: 'assistant-1',
+        createdAt: 2,
+        content: '',
+      },
+      {
+        type: 'subagent-resume',
+        agentId,
+        task: 'Continue the replay path',
+        agentType: 'general',
+        thinkingLevel: 'none',
+        workingDirectory: '/tmp/project',
+      },
+      {
+        type: 'subagent-output',
+        agentId,
+        event: {
+          type: 'message-start',
+          role: 'user',
+          messageId: 'subagent-user-1',
+          createdAt: 3,
+          content: 'Continue the replay path',
+        },
+      },
+      {
+        type: 'subagent-output',
+        agentId,
+        event: {
+          type: 'message-start',
+          role: 'assistant',
+          messageId: 'subagent-assistant-1',
+          createdAt: 4,
+          content: '',
+        },
+      },
+      {
+        type: 'subagent-output',
+        agentId,
+        event: {type: 'text-delta', content: 'Resumed replay content'},
+      },
+      {
+        type: 'subagent-output',
+        agentId,
+        event: {type: 'done', reason: 'complete'},
+      },
+      {type: 'subagent-complete', agentId, status: 'success'},
+      {type: 'done', reason: 'complete'},
+    ];
+
+    render(
+      <ChatSessionApiContext value={createApi(events)}>
+        <ChatEventBusProvider>
+          <HarnessContent />
+        </ChatEventBusProvider>
+      </ChatSessionApiContext>,
+    );
+
+    await flushAsyncWork();
+    act(flushRaf);
+
+    const trigger = await screen.findByRole('button', {
+      name: /Continue the replay path/,
+    });
+    if (trigger.getAttribute('aria-expanded') === 'false') {
+      fireEvent.click(trigger);
+    }
+
+    await flushAsyncWork();
+    act(flushRaf);
+    await flushAsyncWork();
+    act(flushRaf);
+
+    expect(screen.getByText('Resumed replay content')).toBeInTheDocument();
   });
 });

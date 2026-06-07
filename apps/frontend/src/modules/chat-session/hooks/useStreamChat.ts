@@ -126,10 +126,13 @@ export function useStreamChat({
                 setStreamError(event.message);
                 setIsStreaming(false);
                 break;
-              case 'subagent-dispatch': {
+              case 'subagent-dispatch':
+              case 'subagent-resume': {
                 const bus = new SubagentEventBus();
                 subagentBusMap.set(event.agentId, bus);
                 eventBus.emit('subagent-dispatched', {
+                  mode:
+                    event.type === 'subagent-dispatch' ? 'dispatch' : 'resume',
                   agentId: event.agentId,
                   task: event.task,
                   agentType: event.agentType,

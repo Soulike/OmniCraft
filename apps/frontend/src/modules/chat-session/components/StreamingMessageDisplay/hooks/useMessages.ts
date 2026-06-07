@@ -14,7 +14,7 @@ import {useEffect} from 'react';
 
 import {useFrameBatchedState} from '@/hooks/useFrameBatchedState.js';
 
-import type {ChatEventBus, ChatMessage} from '../types.js';
+import type {ChatEventBus, ChatMessage, SubagentMode} from '../types.js';
 import {useChatEventBus} from './useChatEventBus.js';
 
 /**
@@ -222,6 +222,7 @@ function applyAssistantMessageStart(
 function pushSubagentStart(
   prev: ChatMessage[],
   data: {
+    mode: SubagentMode;
     agentId: string;
     task: string;
     agentType: string;
@@ -239,6 +240,7 @@ function pushSubagentStart(
       role: 'assistant' as const,
       content: {
         type: 'subagent' as const,
+        mode: data.mode,
         agentId: data.agentId,
         task: data.task,
         agentType: data.agentType,
@@ -257,28 +259,29 @@ function pushSubagentStart(
   ];
 }
 
-function updateSubagentStatus(
+export function updateSubagentStatus(
   prev: ChatMessage[],
   data: {agentId: string; status: 'success' | 'failure'},
 ): ChatMessage[] {
-  return prev.map((msg) => {
+  for (let i = prev.length - 1; i >= 0; i--) {
+    const msg = prev[i];
     if (
       msg.content.type === 'subagent' &&
-      msg.content.agentId === data.agentId
+      msg.content.agentId === data.agentId &&
+      msg.content.status === 'running'
     ) {
-      return {
+      const updated = [...prev];
+      updated[i] = {
         ...msg,
         content: {
           ...msg.content,
-          status:
-            data.status === 'success'
-              ? ('complete' as const)
-              : ('error' as const),
+          status: data.status === 'success' ? 'complete' : 'error',
         },
       };
+      return updated;
     }
-    return msg;
-  });
+  }
+  return prev;
 }
 
 export function pushCompactionEvent(
@@ -334,6 +337,7 @@ export function useMessages() {
       setMessages([]);
     };
     const onSubagentDispatched = (data: {
+      mode: SubagentMode;
       agentId: string;
       task: string;
       agentType: string;
