@@ -19,19 +19,11 @@ const DEFAULT_MAX_CONTEXT_WINDOW_TOKENS = 200_000;
  */
 const KNOWN_MODELS = new Map<string, CachedCapacity>([
   [
-    'claude-opus-4.6-1m',
+    'claude-opus-4.8',
     {
       maxContextWindowTokens: 1_000_000,
       maxPromptTokens: 936_000,
       maxOutputTokens: 64_000,
-    },
-  ],
-  [
-    'claude-opus-4.6',
-    {
-      maxContextWindowTokens: 200_000,
-      maxPromptTokens: 168_000,
-      maxOutputTokens: 32_000,
     },
   ],
   [
@@ -45,9 +37,9 @@ const KNOWN_MODELS = new Map<string, CachedCapacity>([
   [
     'claude-opus-4.7',
     {
-      maxContextWindowTokens: 200_000,
-      maxPromptTokens: 168_000,
-      maxOutputTokens: 32_000,
+      maxContextWindowTokens: 1_000_000,
+      maxPromptTokens: 936_000,
+      maxOutputTokens: 64_000,
     },
   ],
   [
@@ -55,11 +47,35 @@ const KNOWN_MODELS = new Map<string, CachedCapacity>([
     {
       maxContextWindowTokens: 200_000,
       maxPromptTokens: 168_000,
-      maxOutputTokens: 32_000,
+      maxOutputTokens: 64_000,
     },
   ],
   [
     'claude-opus-4.7-xhigh',
+    {
+      maxContextWindowTokens: 200_000,
+      maxPromptTokens: 168_000,
+      maxOutputTokens: 64_000,
+    },
+  ],
+  [
+    'claude-opus-4.6-1m',
+    {
+      maxContextWindowTokens: 1_000_000,
+      maxPromptTokens: 936_000,
+      maxOutputTokens: 64_000,
+    },
+  ],
+  [
+    'claude-opus-4.6',
+    {
+      maxContextWindowTokens: 1_000_000,
+      maxPromptTokens: 936_000,
+      maxOutputTokens: 64_000,
+    },
+  ],
+  [
+    'claude-opus-4.5',
     {
       maxContextWindowTokens: 200_000,
       maxPromptTokens: 168_000,
@@ -69,29 +85,13 @@ const KNOWN_MODELS = new Map<string, CachedCapacity>([
   [
     'claude-sonnet-4.6',
     {
-      maxContextWindowTokens: 200_000,
-      maxPromptTokens: 168_000,
-      maxOutputTokens: 32_000,
-    },
-  ],
-  [
-    'claude-sonnet-4',
-    {
-      maxContextWindowTokens: 216_000,
-      maxPromptTokens: 200_000,
-      maxOutputTokens: 16_000,
+      maxContextWindowTokens: 1_000_000,
+      maxPromptTokens: 936_000,
+      maxOutputTokens: 64_000,
     },
   ],
   [
     'claude-sonnet-4.5',
-    {
-      maxContextWindowTokens: 200_000,
-      maxPromptTokens: 168_000,
-      maxOutputTokens: 32_000,
-    },
-  ],
-  [
-    'claude-opus-4.5',
     {
       maxContextWindowTokens: 200_000,
       maxPromptTokens: 168_000,
