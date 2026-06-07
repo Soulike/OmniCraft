@@ -15,7 +15,6 @@ function createMockSubagent(
     id?: string;
     isRunning?: boolean;
     output?: string;
-    blockUntil?: Promise<void>;
   } = {},
 ): Agent & {handledMessages: string[]} {
   const handledMessages: string[] = [];
@@ -32,7 +31,7 @@ function createMockSubagent(
     },
     abort: vi.fn(),
     async *subscribe() {
-      if (overrides.blockUntil) await overrides.blockUntil;
+      await Promise.resolve();
       yield {
         nextIndex: 1,
         event: {
