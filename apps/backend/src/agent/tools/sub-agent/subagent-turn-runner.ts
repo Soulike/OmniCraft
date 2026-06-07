@@ -20,8 +20,13 @@ export interface SubagentTurnResult {
 export interface RunSubagentTurnInput {
   readonly context: ToolExecutionContext;
   readonly subagent: Agent;
-  readonly task: string;
   readonly startEvent: SseSubagentDispatchEvent | SseSubagentResumeEvent;
+  /**
+   * Starts the subagent turn. Returns false when the subagent is busy and the
+   * turn must be rejected. Dispatch always returns true; resume delegates to
+   * the subagent's start-only-if-idle claim.
+   */
+  readonly startTurn: () => boolean;
   readonly onTurnStarted?: () => void;
 }
 
@@ -40,8 +45,8 @@ export function buildSubagentOutputEvent(
 export async function runSubagentTurn({
   context,
   subagent,
-  task,
   startEvent,
+  startTurn,
   onTurnStarted,
 }: RunSubagentTurnInput): Promise<ToolExecuteResult<SubagentTurnResult>> {
   const onAbort = () => {
@@ -50,9 +55,10 @@ export async function runSubagentTurn({
   context.signal.addEventListener('abort', onAbort, {once: true});
 
   try {
-    context.onSubAgentEvent(startEvent);
+    const startIndex = subagent.getSseEventCount();
 
     if (context.signal.aborted) {
+      context.onSubAgentEvent(startEvent);
       context.onSubAgentEvent({
         type: 'subagent-complete',
         agentId: subagent.id,
@@ -66,16 +72,23 @@ export async function runSubagentTurn({
       };
     }
 
+    if (!startTurn()) {
+      const message =
+        `Subagent ${subagent.id} is already running. ` +
+        'Wait for it to finish before resuming it.';
+      return {data: {message}, content: message, status: 'failure'};
+    }
+
+    context.onSubAgentEvent(startEvent);
+
     let lastReplyText = '';
     let completed = false;
     let failureMessage: string | null = null;
-    const startIndex = subagent.getSseEventCount();
     const eventIter = subagent.subscribe({
       startIndex,
       signal: context.signal,
     });
 
-    subagent.handleUserMessage(task);
     onTurnStarted?.();
 
     for await (const entry of eventIter) {

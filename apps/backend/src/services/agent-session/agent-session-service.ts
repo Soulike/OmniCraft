@@ -103,7 +103,7 @@ export const agentSessionService = {
   ): Promise<boolean> {
     const agent = await getStore(agentType).get(agentId);
     if (!agent) return false;
-    agent.handleUserMessage(userMessage);
+    agent.enqueueUserTurn(userMessage);
     return true;
   },
 

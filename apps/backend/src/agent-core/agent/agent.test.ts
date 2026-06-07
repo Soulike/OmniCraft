@@ -260,7 +260,7 @@ describe('Agent title generation', () => {
     });
 
     const eventsPromise = collectUntilDone(agent);
-    agent.handleUserMessage('Please help me rename a component');
+    agent.enqueueUserTurn('Please help me rename a component');
     const events = await eventsPromise;
 
     const userStartIndex = events.findIndex(
@@ -524,7 +524,7 @@ describe('Agent compaction lifecycle', () => {
     );
 
     const eventsPromise = collectUntilError(agent);
-    agent.handleUserMessage('Trigger compaction');
+    agent.enqueueUserTurn('Trigger compaction');
     const events = await eventsPromise;
 
     const lastEvent = events.at(-1);
@@ -577,7 +577,7 @@ describe('Agent compaction lifecycle', () => {
       testAgentOptions(),
     );
     const eventsPromise = collectUntilDone(agent);
-    agent.handleUserMessage('hi');
+    agent.enqueueUserTurn('hi');
     const events = await eventsPromise;
 
     const types = events.map((e) => e.type);
@@ -622,7 +622,7 @@ describe('Agent compaction lifecycle', () => {
       testAgentOptions(),
     );
     const eventsPromise = collectUntilDone(agent);
-    agent.handleUserMessage('hi');
+    agent.enqueueUserTurn('hi');
     const events = await eventsPromise;
 
     const types = events.map((e) => e.type);
@@ -656,7 +656,7 @@ describe('Agent abort flow', () => {
     );
 
     const eventsPromise = collectUntilTerminal(agent);
-    agent.handleUserMessage('Stop me mid-stream');
+    agent.enqueueUserTurn('Stop me mid-stream');
     // Wait until the user message-start has been emitted before aborting,
     // so the abort lands while the stream is being consumed.
     await delay(10);
@@ -680,7 +680,7 @@ describe('Agent abort flow', () => {
     );
 
     const eventsPromise = collectUntilTerminal(agent);
-    agent.handleUserMessage('Trigger a real provider error');
+    agent.enqueueUserTurn('Trigger a real provider error');
     const {events} = await eventsPromise;
 
     const lastEvent = events.at(-1);
@@ -734,7 +734,7 @@ describe('Agent abort flow', () => {
     );
 
     const firstTurn = collectUntilTerminal(agent);
-    agent.handleUserMessage('Trigger compaction then abort');
+    agent.enqueueUserTurn('Trigger compaction then abort');
     await delay(10);
     agent.abort();
     const {events, nextIndex} = await firstTurn;
@@ -765,7 +765,7 @@ describe('Agent abort flow', () => {
       }),
     );
     const followUpPromise = collectUntilTerminal(agent, nextIndex);
-    agent.handleUserMessage('Follow-up turn');
+    agent.enqueueUserTurn('Follow-up turn');
     const {events: followUpEvents} = await followUpPromise;
     expect(followUpEvents.at(-1)).toMatchObject({
       type: 'done',
@@ -799,7 +799,7 @@ describe('Agent abort flow', () => {
     });
 
     const eventsPromise = collectUntilTerminal(agent);
-    agent.handleUserMessage('Use the tool then abort');
+    agent.enqueueUserTurn('Use the tool then abort');
     // Wait long enough for the tool round to complete and the next stream
     // to start before aborting.
     await delay(30);
@@ -947,5 +947,141 @@ describe('Agent default working directory', () => {
       workingDirectory: explicit,
     });
     expect(agent.toSnapshot().options.workingDirectory).toBe(explicit);
+  });
+});
+
+describe('Agent turn scheduling', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('reports isRunning synchronously once a turn is enqueued', () => {
+    vi.spyOn(llmApi, 'countToken').mockResolvedValue(1);
+    vi.spyOn(llmApi, 'streamCompletion').mockImplementation(() =>
+      mainCompletionStream(),
+    );
+    const agent = new TestAgent(
+      () => Promise.resolve(MAIN_CONFIG),
+      testAgentOptions(),
+    );
+
+    expect(agent.isRunning).toBe(false);
+    agent.enqueueUserTurn('first');
+    // No await between enqueue and this read — the turn is still queued
+    // (runTurn has not acquired the mutex), yet isRunning must already be true.
+    expect(agent.isRunning).toBe(true);
+  });
+
+  it('serializes multiple enqueued turns and stays busy until all drain', async () => {
+    vi.spyOn(llmApi, 'countToken').mockResolvedValue(1);
+    vi.spyOn(llmApi, 'streamCompletion').mockImplementation(() =>
+      mainCompletionStream(),
+    );
+    const agent = new TestAgent(
+      () => Promise.resolve(MAIN_CONFIG),
+      testAgentOptions(),
+    );
+
+    agent.enqueueUserTurn('first');
+    agent.enqueueUserTurn('second');
+    expect(agent.isRunning).toBe(true);
+
+    // Drain both turns; the agent's log carries two done events.
+    let doneCount = 0;
+    const controller = new AbortController();
+    for await (const entry of agent.subscribe({signal: controller.signal})) {
+      if (entry.event.type === 'done') {
+        doneCount++;
+        if (doneCount === 2) {
+          controller.abort();
+          break;
+        }
+      }
+    }
+
+    expect(doneCount).toBe(2);
+    // Allow the second turn's finally() to settle the counter.
+    await delay(0);
+    expect(agent.isRunning).toBe(false);
+  });
+
+  it('tryStartUserTurn returns false while a turn is queued or running', () => {
+    vi.spyOn(llmApi, 'countToken').mockResolvedValue(1);
+    vi.spyOn(llmApi, 'streamCompletion').mockImplementation(() =>
+      mainCompletionStream(),
+    );
+    const agent = new TestAgent(
+      () => Promise.resolve(MAIN_CONFIG),
+      testAgentOptions(),
+    );
+
+    expect(agent.tryStartUserTurn('first')).toBe(true);
+    // Second claim must be rejected: the first turn is queued/running.
+    expect(agent.tryStartUserTurn('second')).toBe(false);
+    expect(agent.isRunning).toBe(true);
+  });
+
+  it('tryStartUserTurn returns true again once the turn completes', async () => {
+    vi.spyOn(llmApi, 'countToken').mockResolvedValue(1);
+    vi.spyOn(llmApi, 'streamCompletion').mockImplementation(() =>
+      mainCompletionStream(),
+    );
+    const agent = new TestAgent(
+      () => Promise.resolve(MAIN_CONFIG),
+      testAgentOptions(),
+    );
+
+    expect(agent.tryStartUserTurn('first')).toBe(true);
+    await collectUntilDone(agent);
+    await delay(0);
+    expect(agent.isRunning).toBe(false);
+    expect(agent.tryStartUserTurn('second')).toBe(true);
+  });
+
+  it('tryStartUserTurn returns false while title generation is in flight', async () => {
+    let releaseTitle!: () => void;
+    const titleBlocker = new Promise<void>((resolve) => {
+      releaseTitle = resolve;
+    });
+    async function* blockingTitleStream(): LlmEventStream {
+      yield {type: 'message-start', messageId: 'title-message'};
+      await titleBlocker;
+      yield {type: 'text-delta', content: 'Short Title'};
+      yield {
+        type: 'message-end',
+        stopReason: 'end_turn',
+        usage: {inputTokens: 1, outputTokens: 1, cacheReadInputTokens: 0},
+      };
+    }
+
+    vi.spyOn(llmApi, 'countToken').mockResolvedValue(1);
+    vi.spyOn(llmApi, 'streamCompletion').mockImplementation((options) => {
+      if (options.config.model === LIGHT_CONFIG.model) {
+        return blockingTitleStream();
+      }
+      return mainCompletionStream();
+    });
+    const agent = new TestAgent(
+      () => Promise.resolve(MAIN_CONFIG),
+      testAgentOptions(),
+    );
+
+    agent.enqueueUserTurn('first');
+    await collectUntilDone(agent);
+    await delay(0);
+
+    // The main turn has fully settled (pendingTurnCount === 0), but the
+    // title stream is still blocked, so isRunning stays true and a new
+    // claim must be rejected.
+    expect(agent.isRunning).toBe(true);
+    expect(agent.tryStartUserTurn('second')).toBe(false);
+
+    // Unblock title generation and wait for it to settle before the test
+    // ends, so the fire-and-forget title work cannot race with the
+    // afterEach vi.restoreAllMocks().
+    releaseTitle();
+    while (agent.isRunning) {
+      await delay(0);
+    }
   });
 });

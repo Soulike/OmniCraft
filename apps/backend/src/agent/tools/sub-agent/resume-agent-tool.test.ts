@@ -15,7 +15,6 @@ function createMockSubagent(
     id?: string;
     isRunning?: boolean;
     output?: string;
-    blockUntil?: Promise<void>;
   } = {},
 ): Agent & {handledMessages: string[]} {
   const handledMessages: string[] = [];
@@ -25,12 +24,14 @@ function createMockSubagent(
     title: 'Reusable Subagent',
     sseLog: {activeReaderCount: 0},
     handledMessages,
-    handleUserMessage(message: string) {
+    tryStartUserTurn(message: string) {
+      if (overrides.isRunning ?? false) return false;
       handledMessages.push(message);
+      return true;
     },
     abort: vi.fn(),
     async *subscribe() {
-      if (overrides.blockUntil) await overrides.blockUntil;
+      await Promise.resolve();
       yield {
         nextIndex: 1,
         event: {
@@ -168,13 +169,48 @@ describe('resumeAgentTool', () => {
     ]);
   });
 
-  it('rejects a second same-id resume while the first resume is claimed', async () => {
+  it('rejects a second resume once the first has claimed the subagent', async () => {
     let releaseBlocker!: () => void;
     const blocker = new Promise<void>((resolve) => {
       releaseBlocker = resolve;
     });
     const context = createMockContext();
-    const subagent = createMockSubagent({blockUntil: blocker});
+
+    // Mock whose claim flips isRunning true on first start, so a concurrent
+    // second resume observes a busy subagent — no module-level claim set.
+    let running = false;
+    const handledMessages: string[] = [];
+    const agentId = crypto.randomUUID();
+    const subagent = {
+      id: agentId,
+      title: 'Reusable Subagent',
+      sseLog: {activeReaderCount: 0},
+      handledMessages,
+      tryStartUserTurn(message: string) {
+        if (running) return false;
+        running = true;
+        handledMessages.push(message);
+        return true;
+      },
+      abort: vi.fn(),
+      async *subscribe() {
+        await blocker;
+        yield {nextIndex: 1, event: {type: 'done', reason: 'complete'}};
+      },
+      getWorkingDirectory() {
+        return '/workspace/project';
+      },
+      getThinkingLevel() {
+        return 'none' as const;
+      },
+      getSseEventCount() {
+        return 0;
+      },
+      toSnapshot() {
+        throw new Error('runSubagentTurn should not snapshot subagents');
+      },
+    } as unknown as Agent & {handledMessages: string[]};
+    Object.defineProperty(subagent, 'isRunning', {get: () => running});
     context.subagentRegistry.register(subagent, SubAgentType.GENERAL);
 
     const first = resumeAgentTool.execute(
@@ -193,6 +229,6 @@ describe('resumeAgentTool', () => {
 
     expect(second.status).toBe('failure');
     expect(second.content).toContain('already running');
-    expect(subagent.handledMessages).toEqual(['First']);
+    expect(handledMessages).toEqual(['First']);
   });
 });

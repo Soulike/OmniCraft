@@ -56,7 +56,7 @@ function emptyUsage() {
 
 function createForwardingMockSubagent(
   workingDirectory: string,
-  onHandleUserMessage?: () => void,
+  onEnqueueUserTurn?: () => void,
 ): Agent & {
   readonly handledMessages: string[];
 } {
@@ -66,8 +66,8 @@ function createForwardingMockSubagent(
     title: 'Forwarding Subagent',
     sseLog: {activeReaderCount: 0},
     handledMessages,
-    handleUserMessage(message: string) {
-      onHandleUserMessage?.();
+    enqueueUserTurn(message: string) {
+      onEnqueueUserTurn?.();
       handledMessages.push(message);
     },
     abort() {
@@ -138,7 +138,7 @@ function createResumedTurnMockSubagent(workingDirectory: string): Agent & {
     sseLog: {activeReaderCount: 0},
     handledMessages,
     subscribedStartIndexes,
-    handleUserMessage(message: string) {
+    enqueueUserTurn(message: string) {
       handledMessages.push(message);
     },
     abort() {
@@ -421,14 +421,13 @@ describe('dispatchAgentTool', () => {
       },
     });
     const subagent = createForwardingMockSubagent(tmpDir, () => {
-      order.push('handleUserMessage');
+      order.push('enqueueUserTurn');
       expect(dispatchContext.subagentRegistry.get(subagent.id)).toBeUndefined();
     });
 
     const result = await runSubagentTurn({
       context: dispatchContext,
       subagent,
-      task: 'Inspect the code',
       startEvent: {
         type: 'subagent-dispatch',
         agentId: subagent.id,
@@ -436,6 +435,10 @@ describe('dispatchAgentTool', () => {
         agentType: SubAgentType.GENERAL,
         thinkingLevel: 'none',
         workingDirectory: tmpDir,
+      },
+      startTurn: () => {
+        subagent.enqueueUserTurn('Inspect the code');
+        return true;
       },
       onTurnStarted: () => {
         order.push('onTurnStarted');
@@ -449,7 +452,7 @@ describe('dispatchAgentTool', () => {
       content: `<subagent_id>${subagent.id}</subagent_id>\n\ndone`,
     });
     expect(subagent.handledMessages).toEqual(['Inspect the code']);
-    expect(order).toEqual(['handleUserMessage', 'onTurnStarted']);
+    expect(order).toEqual(['enqueueUserTurn', 'onTurnStarted']);
     expect(dispatchContext.subagentRegistry.get(subagent.id)?.agent).toBe(
       subagent,
     );
@@ -475,7 +478,6 @@ describe('dispatchAgentTool', () => {
     const result = await runSubagentTurn({
       context: dispatchContext,
       subagent,
-      task: 'Continue the work',
       startEvent: {
         type: 'subagent-dispatch',
         agentId: subagent.id,
@@ -483,6 +485,10 @@ describe('dispatchAgentTool', () => {
         agentType: SubAgentType.GENERAL,
         thinkingLevel: 'none',
         workingDirectory: tmpDir,
+      },
+      startTurn: () => {
+        subagent.enqueueUserTurn('Continue the work');
+        return true;
       },
     });
 
@@ -533,7 +539,6 @@ describe('dispatchAgentTool', () => {
     const result = await runSubagentTurn({
       context: dispatchContext,
       subagent,
-      task: 'Continue the work',
       startEvent: {
         type: 'subagent-dispatch',
         agentId: subagent.id,
@@ -541,6 +546,10 @@ describe('dispatchAgentTool', () => {
         agentType: SubAgentType.GENERAL,
         thinkingLevel: 'none',
         workingDirectory: tmpDir,
+      },
+      startTurn: () => {
+        subagent.enqueueUserTurn('Continue the work');
+        return true;
       },
     });
 
@@ -555,6 +564,36 @@ describe('dispatchAgentTool', () => {
       expect.objectContaining({type: 'subagent-dispatch'}),
       {type: 'subagent-complete', agentId: subagent.id, status: 'failure'},
     ]);
+  });
+
+  it('returns a busy failure and emits no events when startTurn rejects', async () => {
+    const events: unknown[] = [];
+    const dispatchContext = createMockContext({
+      workingDirectory: tmpDir,
+      onSubAgentEvent: (event) => {
+        events.push(event);
+      },
+    });
+    const subagent = createForwardingMockSubagent(tmpDir);
+
+    const result = await runSubagentTurn({
+      context: dispatchContext,
+      subagent,
+      startEvent: {
+        type: 'subagent-resume',
+        agentId: subagent.id,
+        task: 'Continue the work',
+        agentType: SubAgentType.GENERAL,
+        thinkingLevel: 'none',
+        workingDirectory: tmpDir,
+      },
+      startTurn: () => false,
+    });
+
+    expect(result.status).toBe('failure');
+    expect(result.content).toContain('already running');
+    expect(subagent.handledMessages).toEqual([]);
+    expect(events).toEqual([]);
   });
 
   describe('subagent output event wrapping', () => {

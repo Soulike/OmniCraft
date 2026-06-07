@@ -79,6 +79,12 @@ export abstract class Agent {
   /** True while an async title generation is in flight. */
   private isGeneratingTitle = false;
 
+  /**
+   * Number of turns from enqueue to full completion. Incremented synchronously
+   * before runTurn awaits the mutex; decremented after the turn promise settles.
+   */
+  private pendingTurnCount = 0;
+
   constructor(
     getConfig: () => Promise<LlmConfig>,
     options: AgentOptions,
@@ -188,11 +194,32 @@ export abstract class Agent {
   }
 
   /**
-   * Handles a user message by running the full Agent Loop in the background.
-   * Events are written to {@link sseLog}. Use {@link subscribe} to read them.
+   * Enqueues a user turn. Always accepted and serialized through the mutex
+   * queue. Events are written to {@link sseLog}; use {@link subscribe} to read.
    */
-  handleUserMessage(userMessage: string): void {
-    void this.runTurn(userMessage);
+  enqueueUserTurn(userMessage: string): void {
+    this.runTrackedTurn(userMessage);
+  }
+
+  /**
+   * Starts a user turn only if the Agent has no pending/running turn (and no
+   * in-flight title generation). Returns false when busy instead of queueing.
+   *
+   * The check-and-increment is atomic: there is no await between reading
+   * {@link isRunning} and the increment inside {@link runTrackedTurn}, so in a
+   * single-threaded runtime two concurrent claims cannot both succeed.
+   */
+  tryStartUserTurn(userMessage: string): boolean {
+    if (this.isRunning) return false;
+    this.runTrackedTurn(userMessage);
+    return true;
+  }
+
+  private runTrackedTurn(userMessage: string): void {
+    this.pendingTurnCount++;
+    void this.runTurn(userMessage).finally(() => {
+      this.pendingTurnCount--;
+    });
   }
 
   /** Returns an async iterable of events with raw resume cursors. */
@@ -207,9 +234,9 @@ export abstract class Agent {
     this.abortController?.abort();
   }
 
-  /** Whether a turn or title generation is currently in progress. */
+  /** Whether a turn is queued/running or a title generation is in flight. */
   get isRunning(): boolean {
-    return this.abortController !== null || this.isGeneratingTitle;
+    return this.pendingTurnCount > 0 || this.isGeneratingTitle;
   }
 
   // -------------------------------------------------------------------------

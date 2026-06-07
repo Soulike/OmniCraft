@@ -198,7 +198,6 @@ export const dispatchAgentTool: ToolDefinition<
     return runSubagentTurn({
       context,
       subagent,
-      task,
       startEvent: {
         type: 'subagent-dispatch',
         agentId: subagent.id,
@@ -207,8 +206,13 @@ export const dispatchAgentTool: ToolDefinition<
         thinkingLevel,
         workingDirectory,
       },
-      // Register after dispatching the task so the registry does not briefly
-      // treat a newly created subagent as idle on the normal dispatch path.
+      // A freshly created subagent is never busy, so this always returns true.
+      startTurn: () => {
+        subagent.enqueueUserTurn(task);
+        return true;
+      },
+      // Register after the turn starts so the registry does not briefly treat
+      // a newly created subagent as idle on the normal dispatch path.
       onTurnStarted: () => {
         registerSubAgent(context, subagent, agentType);
       },
