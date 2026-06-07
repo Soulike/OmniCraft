@@ -949,3 +949,92 @@ describe('Agent default working directory', () => {
     expect(agent.toSnapshot().options.workingDirectory).toBe(explicit);
   });
 });
+
+describe('Agent turn scheduling', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('reports isRunning synchronously once a turn is enqueued', () => {
+    vi.spyOn(llmApi, 'countToken').mockResolvedValue(1);
+    vi.spyOn(llmApi, 'streamCompletion').mockImplementation(() =>
+      mainCompletionStream(),
+    );
+    const agent = new TestAgent(
+      () => Promise.resolve(MAIN_CONFIG),
+      testAgentOptions(),
+    );
+
+    expect(agent.isRunning).toBe(false);
+    agent.enqueueUserTurn('first');
+    // No await between enqueue and this read — the turn is still queued
+    // (runTurn has not acquired the mutex), yet isRunning must already be true.
+    expect(agent.isRunning).toBe(true);
+  });
+
+  it('serializes multiple enqueued turns and stays busy until all drain', async () => {
+    vi.spyOn(llmApi, 'countToken').mockResolvedValue(1);
+    vi.spyOn(llmApi, 'streamCompletion').mockImplementation(() =>
+      mainCompletionStream(),
+    );
+    const agent = new TestAgent(
+      () => Promise.resolve(MAIN_CONFIG),
+      testAgentOptions(),
+    );
+
+    agent.enqueueUserTurn('first');
+    agent.enqueueUserTurn('second');
+    expect(agent.isRunning).toBe(true);
+
+    // Drain both turns; the agent's log carries two done events.
+    let doneCount = 0;
+    const controller = new AbortController();
+    for await (const entry of agent.subscribe({signal: controller.signal})) {
+      if (entry.event.type === 'done') {
+        doneCount++;
+        if (doneCount === 2) {
+          controller.abort();
+          break;
+        }
+      }
+    }
+
+    expect(doneCount).toBe(2);
+    // Allow the second turn's finally() to settle the counter.
+    await delay(0);
+    expect(agent.isRunning).toBe(false);
+  });
+
+  it('tryStartUserTurn returns false while a turn is queued or running', () => {
+    vi.spyOn(llmApi, 'countToken').mockResolvedValue(1);
+    vi.spyOn(llmApi, 'streamCompletion').mockImplementation(() =>
+      mainCompletionStream(),
+    );
+    const agent = new TestAgent(
+      () => Promise.resolve(MAIN_CONFIG),
+      testAgentOptions(),
+    );
+
+    expect(agent.tryStartUserTurn('first')).toBe(true);
+    // Second claim must be rejected: the first turn is queued/running.
+    expect(agent.tryStartUserTurn('second')).toBe(false);
+    expect(agent.isRunning).toBe(true);
+  });
+
+  it('tryStartUserTurn returns true again once the turn completes', async () => {
+    vi.spyOn(llmApi, 'countToken').mockResolvedValue(1);
+    vi.spyOn(llmApi, 'streamCompletion').mockImplementation(() =>
+      mainCompletionStream(),
+    );
+    const agent = new TestAgent(
+      () => Promise.resolve(MAIN_CONFIG),
+      testAgentOptions(),
+    );
+
+    expect(agent.tryStartUserTurn('first')).toBe(true);
+    await collectUntilDone(agent);
+    await delay(0);
+    expect(agent.isRunning).toBe(false);
+    expect(agent.tryStartUserTurn('second')).toBe(true);
+  });
+});
