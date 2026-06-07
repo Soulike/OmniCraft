@@ -13,8 +13,6 @@ import {
   type SubagentTurnResult,
 } from './subagent-turn-runner.js';
 
-const resumeClaims = new Set<string>();
-
 const parameters = z.object({
   agentId: z.string().min(1).describe('Subagent id to resume.'),
   task: z.string().min(1).describe('Follow-up task for the subagent.'),
@@ -22,24 +20,6 @@ const parameters = z.object({
 
 function failure(message: string): ToolExecuteFailureResult {
   return {data: {message}, content: message, status: 'failure'};
-}
-
-function busyFailure(agentId: string): ToolExecuteFailureResult {
-  return failure(
-    `Subagent ${agentId} is already running. Wait for it to finish before resuming it.`,
-  );
-}
-
-function isSubagentRunning(agent: {readonly isRunning: boolean}): boolean {
-  return agent.isRunning;
-}
-
-function tryClaimResume(agentId: string): (() => void) | null {
-  if (resumeClaims.has(agentId)) return null;
-  resumeClaims.add(agentId);
-  return () => {
-    resumeClaims.delete(agentId);
-  };
 }
 
 /** Tool that resumes an idle live subagent with a follow-up task. */
@@ -74,35 +54,18 @@ export const resumeAgentTool: ToolDefinition<
       );
     }
 
-    if (isSubagentRunning(handle.agent)) {
-      return busyFailure(agentId);
-    }
-
-    const releaseClaim = tryClaimResume(agentId);
-    if (!releaseClaim) {
-      return busyFailure(agentId);
-    }
-
-    try {
-      if (isSubagentRunning(handle.agent)) {
-        return busyFailure(agentId);
-      }
-
-      return await runSubagentTurn({
-        context,
-        subagent: handle.agent,
-        startEvent: {
-          type: 'subagent-resume',
-          agentId: handle.agent.id,
-          task: args.task,
-          agentType: handle.agentType,
-          thinkingLevel: handle.agent.getThinkingLevel(),
-          workingDirectory: handle.agent.getWorkingDirectory(),
-        },
-        startTurn: () => handle.agent.tryStartUserTurn(args.task),
-      });
-    } finally {
-      releaseClaim();
-    }
+    return runSubagentTurn({
+      context,
+      subagent: handle.agent,
+      startEvent: {
+        type: 'subagent-resume',
+        agentId: handle.agent.id,
+        task: args.task,
+        agentType: handle.agentType,
+        thinkingLevel: handle.agent.getThinkingLevel(),
+        workingDirectory: handle.agent.getWorkingDirectory(),
+      },
+      startTurn: () => handle.agent.tryStartUserTurn(args.task),
+    });
   },
 };
