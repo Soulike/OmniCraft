@@ -1,16 +1,32 @@
+import 'katex/dist/katex.min.css';
+
 import {memo} from 'react';
-import type {Components} from 'react-markdown';
+import type {Components, Options as ReactMarkdownOptions} from 'react-markdown';
 import ReactMarkdown from 'react-markdown';
 import rehypeHighlight from 'rehype-highlight';
+import rehypeKatex, {type Options as RehypeKatexOptions} from 'rehype-katex';
 import remarkBreaks from 'remark-breaks';
 import remarkGfm from 'remark-gfm';
+import remarkMath from 'remark-math';
 
 import {CodeBlock} from './components/CodeBlock/index.js';
 import {sanitizeImageUrl, sanitizeLinkUrl} from './helpers/sanitize-url.js';
 import styles from './styles.module.css';
 
-const REMARK_PLUGINS = [remarkGfm, remarkBreaks];
-const REHYPE_PLUGINS = [rehypeHighlight];
+const KATEX_OPTIONS = {
+  strict: 'ignore',
+  trust: false,
+} satisfies RehypeKatexOptions;
+
+const REMARK_PLUGINS = [
+  remarkGfm,
+  remarkMath,
+  remarkBreaks,
+] satisfies NonNullable<ReactMarkdownOptions['remarkPlugins']>;
+const REHYPE_PLUGINS = [
+  [rehypeKatex, KATEX_OPTIONS],
+  rehypeHighlight,
+] satisfies NonNullable<ReactMarkdownOptions['rehypePlugins']>;
 
 const CUSTOM_COMPONENTS: Components = {
   pre({children}) {
