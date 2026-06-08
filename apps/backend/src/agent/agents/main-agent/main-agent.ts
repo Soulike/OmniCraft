@@ -17,6 +17,8 @@ import {
 } from '@/agent-core/agent/index.js';
 import {settingsService} from '@/services/settings/index.js';
 
+import {mainAgentSystemPrompt} from './system-prompt.js';
+
 /**
  * Primary agent with all tools and skills.
  * Used as the main entry point for chat sessions.
@@ -46,7 +48,7 @@ export class MainAgent extends Agent {
           TodoToolRegistry.getInstance(),
         ],
         skillRegistries: [CoreSkillRegistry.getInstance()],
-        baseSystemPrompt: 'You are a helpful assistant.',
+        baseSystemPrompt: mainAgentSystemPrompt,
         getMaxToolRounds: async () => {
           const settings = await settingsService.getAll();
           return settings.agent.maxToolRounds;
