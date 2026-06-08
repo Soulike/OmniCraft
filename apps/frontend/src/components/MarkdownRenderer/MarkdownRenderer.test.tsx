@@ -35,6 +35,10 @@ $$`}
     );
 
     expect(container.querySelector('.katex-display')).toBeInTheDocument();
+    expect(container.querySelector('pre')).not.toBeInTheDocument();
+    expect(
+      container.querySelector('code.language-math'),
+    ).not.toBeInTheDocument();
   });
 
   it('renders unsupported LaTeX commands through KaTeX fallback markup', () => {
