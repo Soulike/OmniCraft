@@ -76,6 +76,14 @@
   font-family: monospace;
 }
 
+/* LaTeX math */
+.markdown :global(.katex-display) {
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 0.25em 0;
+}
+
 /* Blockquotes */
 .markdown :global(blockquote) {
   margin-top: 0.5em;
