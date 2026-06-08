@@ -43,16 +43,16 @@ describe('modelCapacity', () => {
         model: 'gpt-5.5',
       });
       expect(await modelCapacity.getMaxOutputTokens(config)).toBe(128_000);
-      expect(await modelCapacity.getMaxPromptTokens(config)).toBe(272_000);
+      expect(await modelCapacity.getMaxPromptTokens(config)).toBe(922_000);
       expect(await modelCapacity.getMaxContextWindowTokens(config)).toBe(
-        400_000,
+        1_050_000,
       );
     });
 
     it('returns known output limit via openai-responses format', async () => {
       const config = makeConfig({
         apiFormat: 'openai-responses',
-        model: 'gpt-5.2-codex',
+        model: 'gpt-5.3-codex',
       });
       expect(await modelCapacity.getMaxOutputTokens(config)).toBe(128_000);
     });
@@ -88,10 +88,10 @@ describe('modelCapacity', () => {
         apiFormat: 'claude',
         model: 'claude-opus-4.7',
       });
-      expect(await modelCapacity.getMaxOutputTokens(config)).toBe(32_000);
-      expect(await modelCapacity.getMaxPromptTokens(config)).toBe(168_000);
+      expect(await modelCapacity.getMaxOutputTokens(config)).toBe(64_000);
+      expect(await modelCapacity.getMaxPromptTokens(config)).toBe(936_000);
       expect(await modelCapacity.getMaxContextWindowTokens(config)).toBe(
-        200_000,
+        1_000_000,
       );
       expect(mockRetrieve).not.toHaveBeenCalled();
     });
