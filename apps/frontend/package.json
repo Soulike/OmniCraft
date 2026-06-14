@@ -11,6 +11,8 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@fontsource-variable/bricolage-grotesque": "^5.2.10",
+    "@fontsource-variable/sora": "^5.2.8",
     "@heroui/react": "^3.0.1",
     "@heroui/styles": "^3.0.1",
     "@omnicraft/api-schema": "workspace:^",

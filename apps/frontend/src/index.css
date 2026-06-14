@@ -6,6 +6,7 @@ body {
   min-height: 100dvh;
   background: var(--background);
   color: var(--foreground);
+  font-family: var(--font-ui);
 }
 
 #root {
