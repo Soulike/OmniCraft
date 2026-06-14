@@ -112,7 +112,7 @@
   bottom: 0;
   width: 45%;
   background: var(--aurora-sheen);
-  animation: sheen 0.6s ease-out;
+  animation: sheen 0.6s ease-out forwards;
 }
 
 @keyframes sheen {

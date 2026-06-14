@@ -38,7 +38,7 @@ export function SidebarView({
   const BrandIcon = BRAND_ICONS[theme];
 
   return (
-    <aside className={styles.sidebar} aria-label='Primary'>
+    <aside className={styles.sidebar}>
       <div className={styles.brandRow}>
         <Link className={styles.brand} to={brandPath}>
           <span className={styles.pedestal}>
