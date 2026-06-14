@@ -54,7 +54,7 @@ function buildToolDescription(): string {
     'Keep very small local lookups local when dispatch overhead is not worth it. ' +
     'After the subagent returns, synthesize the subagent result for the user ' +
     'or use it to guide implementation. ' +
-    'The result includes the subagent id so it can be sent follow-up work ' +
+    'The result includes the subagent name so it can be sent follow-up work ' +
     'later without a separate lookup.';
 
   const typeDescriptions = Object.entries(subAgentInfos)
@@ -100,8 +100,9 @@ export function registerSubAgent(
   context: ToolExecutionContext,
   subagent: Agent,
   agentType: SubAgentType,
+  nickname?: string,
 ): void {
-  context.subagentRegistry.register(subagent, agentType);
+  context.subagentRegistry.register(subagent, agentType, nickname);
 }
 
 const parameters = z.object({
@@ -195,12 +196,16 @@ export const dispatchAgentTool: ToolDefinition<
       subagentSessionsDir,
     );
 
+    const nickname = context.subagentRegistry.generateNickname();
+
     return runSubagentTurn({
       context,
       subagent,
+      nickname,
       startEvent: {
         type: 'subagent-dispatch',
         agentId: subagent.id,
+        nickname,
         task,
         agentType,
         thinkingLevel,
@@ -214,7 +219,7 @@ export const dispatchAgentTool: ToolDefinition<
       // Register after the turn starts so the registry does not briefly treat
       // a newly created subagent as idle on the normal dispatch path.
       onTurnStarted: () => {
-        registerSubAgent(context, subagent, agentType);
+        registerSubAgent(context, subagent, agentType, nickname);
       },
     });
   },

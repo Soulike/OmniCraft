@@ -197,8 +197,10 @@ describe('dispatchAgentTool', () => {
     );
   });
 
-  it('documents that the result includes the subagent id', () => {
-    expect(dispatchAgentTool.description).toContain('includes the subagent id');
+  it('documents that the result includes the subagent name', () => {
+    expect(dispatchAgentTool.description).toContain(
+      'includes the subagent name',
+    );
   });
 
   it('documents explore-specific research use cases', () => {
@@ -348,17 +350,19 @@ describe('dispatchAgentTool', () => {
       get: () => false,
     });
 
-    registerSubAgent(context, subagent, SubAgentType.EXPLORE);
+    registerSubAgent(context, subagent, SubAgentType.EXPLORE, 'crimson-otter');
 
     expect(context.subagentRegistry.get(subagent.id)).toEqual({
       agent: subagent,
       agentType: SubAgentType.EXPLORE,
+      nickname: 'crimson-otter',
     });
     expect(context.subagentRegistry.list()).toEqual([
       {
         id: subagent.id,
         agentType: SubAgentType.EXPLORE,
         title: 'Live Subagent',
+        nickname: 'crimson-otter',
         isRunning: false,
       },
     ]);
@@ -381,9 +385,11 @@ describe('dispatchAgentTool', () => {
     const result = await runSubagentTurn({
       context: dispatchContext,
       subagent,
+      nickname: 'crimson-otter',
       startEvent: {
         type: 'subagent-dispatch',
         agentId: subagent.id,
+        nickname: 'crimson-otter',
         task: 'Inspect the code',
         agentType: SubAgentType.GENERAL,
         thinkingLevel: 'none',
@@ -395,14 +401,19 @@ describe('dispatchAgentTool', () => {
       },
       onTurnStarted: () => {
         order.push('onTurnStarted');
-        registerSubAgent(dispatchContext, subagent, SubAgentType.GENERAL);
+        registerSubAgent(
+          dispatchContext,
+          subagent,
+          SubAgentType.GENERAL,
+          'crimson-otter',
+        );
       },
     });
 
     expect(result).toMatchObject({
       status: 'success',
       data: {summary: 'done', agentId: subagent.id},
-      content: `<subagent_id>${subagent.id}</subagent_id>\n\ndone`,
+      content: `<subagent_name>crimson-otter</subagent_name>\n\ndone`,
     });
     expect(subagent.handledMessages).toEqual(['Inspect the code']);
     expect(order).toEqual(['enqueueUserTurn', 'onTurnStarted']);
@@ -431,9 +442,11 @@ describe('dispatchAgentTool', () => {
     const result = await runSubagentTurn({
       context: dispatchContext,
       subagent,
+      nickname: 'crimson-otter',
       startEvent: {
         type: 'subagent-dispatch',
         agentId: subagent.id,
+        nickname: 'crimson-otter',
         task: 'Continue the work',
         agentType: SubAgentType.GENERAL,
         thinkingLevel: 'none',
@@ -448,7 +461,7 @@ describe('dispatchAgentTool', () => {
     expect(result).toMatchObject({
       status: 'success',
       data: {summary: 'new summary', agentId: subagent.id},
-      content: `<subagent_id>${subagent.id}</subagent_id>\n\nnew summary`,
+      content: `<subagent_name>crimson-otter</subagent_name>\n\nnew summary`,
     });
     expect(subagent.handledMessages).toEqual(['Continue the work']);
     expect(subagent.subscribedStartIndexes).toEqual([3]);
@@ -492,9 +505,11 @@ describe('dispatchAgentTool', () => {
     const result = await runSubagentTurn({
       context: dispatchContext,
       subagent,
+      nickname: 'crimson-otter',
       startEvent: {
         type: 'subagent-dispatch',
         agentId: subagent.id,
+        nickname: 'crimson-otter',
         task: 'Continue the work',
         agentType: SubAgentType.GENERAL,
         thinkingLevel: 'none',
@@ -532,9 +547,11 @@ describe('dispatchAgentTool', () => {
     const result = await runSubagentTurn({
       context: dispatchContext,
       subagent,
+      nickname: 'crimson-otter',
       startEvent: {
         type: 'subagent-resume',
         agentId: subagent.id,
+        nickname: 'crimson-otter',
         task: 'Continue the work',
         agentType: SubAgentType.GENERAL,
         thinkingLevel: 'none',
