@@ -1,13 +1,12 @@
 import {Button, Tooltip} from '@heroui/react';
-import {Monitor, Moon, Sun} from 'lucide-react';
-import type {ReactNode} from 'react';
+import {type LucideIcon, Monitor, Moon, Sun} from 'lucide-react';
 
 import type {ThemeMode} from '@/contexts/theme/index.js';
 
-const MODE_ICONS: Record<ThemeMode, (props: {size: number}) => ReactNode> = {
-  light: (props) => <Sun {...props} />,
-  dark: (props) => <Moon {...props} />,
-  system: (props) => <Monitor {...props} />,
+const MODE_ICONS: Record<ThemeMode, LucideIcon> = {
+  light: Sun,
+  dark: Moon,
+  system: Monitor,
 };
 
 const MODE_LABELS: Record<ThemeMode, string> = {
@@ -22,7 +21,7 @@ interface ThemeToggleViewProps {
 }
 
 export function ThemeToggleView({themeMode, onCycle}: ThemeToggleViewProps) {
-  const renderIcon = MODE_ICONS[themeMode];
+  const Icon = MODE_ICONS[themeMode];
   const label = `${MODE_LABELS[themeMode]} (click to switch)`;
 
   return (
@@ -35,7 +34,7 @@ export function ThemeToggleView({themeMode, onCycle}: ThemeToggleViewProps) {
           aria-label={label}
           onPress={onCycle}
         >
-          {renderIcon({size: 18})}
+          <Icon size={18} />
         </Button>
       </Tooltip.Trigger>
       <Tooltip.Content>
