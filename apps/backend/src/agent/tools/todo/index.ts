@@ -1,1 +1,1 @@
-export {TodoToolRegistry} from './todo-tool-registry.js';
+export {TodoToolRegistry, todoToolRegistry} from './todo-tool-registry.js';

@@ -7,14 +7,12 @@ import {todoUpdateTool} from './todo-update.js';
 
 /** Registry for todo tracking tools. */
 export class TodoToolRegistry extends ToolRegistry {
-  /** Creates the singleton and registers all todo tools. */
-  static override create(): TodoToolRegistry {
-    const instance = super.create() as TodoToolRegistry;
-    instance.register(todoAppendTool);
-    instance.register(todoUpdateTool);
-    instance.register(todoClearTool);
-    instance.register(todoListTool);
-    return instance;
+  constructor() {
+    super();
+    this.register(todoAppendTool);
+    this.register(todoUpdateTool);
+    this.register(todoClearTool);
+    this.register(todoListTool);
   }
 
   override getSystemPromptSection(): string {
@@ -38,3 +36,5 @@ export class TodoToolRegistry extends ToolRegistry {
     ].join('\n');
   }
 }
+
+export const todoToolRegistry = new TodoToolRegistry();

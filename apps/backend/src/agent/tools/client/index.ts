@@ -1,1 +1,4 @@
-export {ClientToolRegistry} from './client-tool-registry.js';
+export {
+  ClientToolRegistry,
+  clientToolRegistry,
+} from './client-tool-registry.js';

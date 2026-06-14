@@ -7,12 +7,6 @@ import {afterEach, beforeEach, describe, expect, it} from 'vitest';
 
 import {ExploreSubAgent, GeneralSubAgent} from '@/agent/agents/index.js';
 import {CoreSkillRegistry} from '@/agent/skills/index.js';
-import {
-  BashToolRegistry,
-  CoreToolRegistry,
-  FileToolRegistry,
-  WebToolRegistry,
-} from '@/agent/tools/index.js';
 import type {Agent} from '@/agent-core/agent/index.js';
 import {createMockContext} from '@/agent-core/tool/testing.js';
 import type {ToolExecutionContext} from '@/agent-core/tool/types.js';
@@ -28,19 +22,11 @@ import {
   runSubagentTurn,
 } from './subagent-turn-runner.js';
 
-function resetAgentRegistries(): void {
-  CoreToolRegistry.resetInstance();
-  FileToolRegistry.resetInstance();
-  WebToolRegistry.resetInstance();
-  BashToolRegistry.resetInstance();
+function resetSkillRegistry(): void {
   CoreSkillRegistry.resetInstance();
 }
 
-function initAgentRegistries(): void {
-  CoreToolRegistry.create();
-  FileToolRegistry.create();
-  WebToolRegistry.create();
-  BashToolRegistry.create();
+function initSkillRegistry(): void {
   CoreSkillRegistry.create();
 }
 
@@ -237,8 +223,8 @@ describe('dispatchAgentTool', () => {
   });
 
   it('creates a general subagent by default', () => {
-    resetAgentRegistries();
-    initAgentRegistries();
+    resetSkillRegistry();
+    initSkillRegistry();
     try {
       const subagent = createSubAgent(
         SubAgentType.GENERAL,
@@ -249,13 +235,13 @@ describe('dispatchAgentTool', () => {
 
       expect(subagent).toBeInstanceOf(GeneralSubAgent);
     } finally {
-      resetAgentRegistries();
+      resetSkillRegistry();
     }
   });
 
   it('creates an explore subagent for explore tasks', () => {
-    resetAgentRegistries();
-    initAgentRegistries();
+    resetSkillRegistry();
+    initSkillRegistry();
     try {
       const subagent = createSubAgent(
         SubAgentType.EXPLORE,
@@ -266,7 +252,7 @@ describe('dispatchAgentTool', () => {
 
       expect(subagent).toBeInstanceOf(ExploreSubAgent);
     } finally {
-      resetAgentRegistries();
+      resetSkillRegistry();
     }
   });
 
@@ -293,8 +279,8 @@ describe('dispatchAgentTool', () => {
   });
 
   it('persists a general subagent when sessionsDir is provided', async () => {
-    resetAgentRegistries();
-    initAgentRegistries();
+    resetSkillRegistry();
+    initSkillRegistry();
     try {
       const sessionsDir = path.join(tmpDir, 'subagents');
       const subagent = createSubAgent(
@@ -334,13 +320,13 @@ describe('dispatchAgentTool', () => {
         workingDirectory: tmpDir,
       });
     } finally {
-      resetAgentRegistries();
+      resetSkillRegistry();
     }
   });
 
   it('persists an explore subagent when sessionsDir is provided', async () => {
-    resetAgentRegistries();
-    initAgentRegistries();
+    resetSkillRegistry();
+    initSkillRegistry();
     try {
       const sessionsDir = path.join(tmpDir, 'subagents');
       const subagent = createSubAgent(
@@ -380,7 +366,7 @@ describe('dispatchAgentTool', () => {
         workingDirectory: tmpDir,
       });
     } finally {
-      resetAgentRegistries();
+      resetSkillRegistry();
     }
   });
 

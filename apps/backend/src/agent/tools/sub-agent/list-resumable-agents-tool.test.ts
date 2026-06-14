@@ -61,17 +61,10 @@ describe('listResumableAgentsTool', () => {
   });
 
   it('is registered by the subagent tool registry', () => {
-    SubAgentToolRegistry.resetInstance();
-    try {
-      const registry = SubAgentToolRegistry.create();
+    const registry = new SubAgentToolRegistry();
 
-      expect(registry.get('list_resumable_agents')).toBe(
-        listResumableAgentsTool,
-      );
-      expect(registry.get('list_agents')).toBeUndefined();
-    } finally {
-      SubAgentToolRegistry.resetInstance();
-    }
+    expect(registry.get('list_resumable_agents')).toBe(listResumableAgentsTool);
+    expect(registry.get('list_agents')).toBeUndefined();
   });
 
   it('returns an empty list when no resumable subagents are registered', async () => {

@@ -1,1 +1,4 @@
-export {SubAgentToolRegistry} from './sub-agent-tool-registry.js';
+export {
+  SubAgentToolRegistry,
+  subAgentToolRegistry,
+} from './sub-agent-tool-registry.js';

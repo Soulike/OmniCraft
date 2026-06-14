@@ -88,13 +88,9 @@ describe('resumeAgentTool', () => {
   });
 
   it('is registered by the subagent tool registry', () => {
-    SubAgentToolRegistry.resetInstance();
-    try {
-      const registry = SubAgentToolRegistry.create();
-      expect(registry.get('resume_agent')).toBe(resumeAgentTool);
-    } finally {
-      SubAgentToolRegistry.resetInstance();
-    }
+    const registry = new SubAgentToolRegistry();
+
+    expect(registry.get('resume_agent')).toBe(resumeAgentTool);
   });
 
   it('returns a normal failure for malformed ids', async () => {
