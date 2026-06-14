@@ -35,15 +35,12 @@ export function Sidebar() {
     [],
   );
 
-  const allItems = useMemo(
-    () => [...primaryItems, settingsItem],
-    [primaryItems, settingsItem],
-  );
   const selectedId = useMemo(
     () =>
-      allItems.find((item) => location.pathname.startsWith(item.path))?.id ??
-      allItems[0].id,
-    [allItems, location.pathname],
+      [...primaryItems, settingsItem].find((item) =>
+        location.pathname.startsWith(item.path),
+      )?.id ?? primaryItems[0].id,
+    [primaryItems, settingsItem, location.pathname],
   );
 
   return (

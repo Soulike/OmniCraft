@@ -57,13 +57,11 @@ export function SidebarView({
                 id={item.id}
                 className={styles.navTab}
                 href={item.path}
-                render={(domProps) =>
-                  'href' in domProps ? (
-                    <Link {...domProps} to={item.path} />
-                  ) : (
-                    <div {...domProps} />
-                  )
-                }
+                render={(domProps) => {
+                  if (!('href' in domProps)) return <div {...domProps} />;
+                  const {href: _href, ...linkProps} = domProps;
+                  return <Link {...linkProps} to={item.path} />;
+                }}
               >
                 <item.Icon className={styles.navIcon} size={17} />
                 {item.label}
@@ -74,13 +72,11 @@ export function SidebarView({
               id={settingsItem.id}
               className={`${styles.navTab} ${styles.settingsTab}`}
               href={settingsItem.path}
-              render={(domProps) =>
-                'href' in domProps ? (
-                  <Link {...domProps} to={settingsItem.path} />
-                ) : (
-                  <div {...domProps} />
-                )
-              }
+              render={(domProps) => {
+                if (!('href' in domProps)) return <div {...domProps} />;
+                const {href: _href, ...linkProps} = domProps;
+                return <Link {...linkProps} to={settingsItem.path} />;
+              }}
             >
               <settingsItem.Icon className={styles.navIcon} size={17} />
               {settingsItem.label}
