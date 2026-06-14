@@ -1,17 +1,29 @@
 .layout {
   height: 100dvh;
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
+  background: var(--background);
 }
 
-.navbarWrapper {
-  position: sticky;
-  top: 0;
-  z-index: 100;
-  flex: 0;
+.sidebarWrapper {
+  flex-shrink: 0;
+}
+
+.panel {
+  flex: 1;
+  min-width: 0;
+  margin: 12px 12px 12px 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  box-shadow: var(--surface-shadow);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 .content {
   flex: 1;
   min-height: 0;
+  overflow: auto;
 }
