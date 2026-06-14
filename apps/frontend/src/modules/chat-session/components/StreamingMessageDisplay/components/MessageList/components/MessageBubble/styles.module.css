@@ -16,6 +16,11 @@
   border-bottom-left-radius: 4px;
 }
 
+.bare {
+  background: none;
+  padding: 0;
+}
+
 .content {
   line-height: 1.5;
 }

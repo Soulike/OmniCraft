@@ -13,11 +13,14 @@ interface MessageBubbleViewProps {
 }
 
 export function MessageBubbleView({role, content}: MessageBubbleViewProps) {
+  const isWaiting = !content && role === 'assistant';
+
   return (
     <div
       className={clsx(styles.bubble, {
         [styles.user]: role === 'user',
         [styles.assistant]: role === 'assistant',
+        [styles.bare]: isWaiting,
       })}
     >
       <div className={styles.content}>{renderContent(role, content)}</div>
