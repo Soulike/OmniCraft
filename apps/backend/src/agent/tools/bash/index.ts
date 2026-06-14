@@ -1,1 +1,1 @@
-export {BashToolRegistry} from './bash-tool-registry.js';
+export {BashToolRegistry, bashToolRegistry} from './bash-tool-registry.js';

@@ -1,14 +1,14 @@
 import type {ThinkingLevel} from '@omnicraft/api-schema';
 
-import {CoreSkillRegistry} from '@/agent/skills/index.js';
+import {coreSkillRegistry} from '@/agent/skills/index.js';
 import {
-  BashToolRegistry,
-  ClientToolRegistry,
-  CoreToolRegistry,
-  FileToolRegistry,
-  SubAgentToolRegistry,
-  TodoToolRegistry,
-  WebToolRegistry,
+  bashToolRegistry,
+  clientToolRegistry,
+  coreToolRegistry,
+  fileToolRegistry,
+  subAgentToolRegistry,
+  todoToolRegistry,
+  webToolRegistry,
 } from '@/agent/tools/index.js';
 import {
   Agent,
@@ -39,15 +39,15 @@ export class CodingAgent extends Agent {
       },
       {
         toolRegistries: [
-          CoreToolRegistry.getInstance(),
-          FileToolRegistry.getInstance(),
-          WebToolRegistry.getInstance(),
-          BashToolRegistry.getInstance(),
-          SubAgentToolRegistry.getInstance(),
-          ClientToolRegistry.getInstance(),
-          TodoToolRegistry.getInstance(),
+          coreToolRegistry,
+          fileToolRegistry,
+          webToolRegistry,
+          bashToolRegistry,
+          subAgentToolRegistry,
+          clientToolRegistry,
+          todoToolRegistry,
         ],
-        skillRegistries: [CoreSkillRegistry.getInstance()],
+        skillRegistries: [coreSkillRegistry],
         baseSystemPrompt: codingAgentSystemPrompt,
         getMaxToolRounds: async () => {
           const settings = await settingsService.getAll();

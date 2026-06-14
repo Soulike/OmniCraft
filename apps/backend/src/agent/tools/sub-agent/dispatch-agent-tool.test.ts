@@ -6,13 +6,6 @@ import {SubAgentType} from '@omnicraft/api-schema';
 import {afterEach, beforeEach, describe, expect, it} from 'vitest';
 
 import {ExploreSubAgent, GeneralSubAgent} from '@/agent/agents/index.js';
-import {CoreSkillRegistry} from '@/agent/skills/index.js';
-import {
-  BashToolRegistry,
-  CoreToolRegistry,
-  FileToolRegistry,
-  WebToolRegistry,
-} from '@/agent/tools/index.js';
 import type {Agent} from '@/agent-core/agent/index.js';
 import {createMockContext} from '@/agent-core/tool/testing.js';
 import type {ToolExecutionContext} from '@/agent-core/tool/types.js';
@@ -27,22 +20,6 @@ import {
   buildSubagentOutputEvent,
   runSubagentTurn,
 } from './subagent-turn-runner.js';
-
-function resetAgentRegistries(): void {
-  CoreToolRegistry.resetInstance();
-  FileToolRegistry.resetInstance();
-  WebToolRegistry.resetInstance();
-  BashToolRegistry.resetInstance();
-  CoreSkillRegistry.resetInstance();
-}
-
-function initAgentRegistries(): void {
-  CoreToolRegistry.create();
-  FileToolRegistry.create();
-  WebToolRegistry.create();
-  BashToolRegistry.create();
-  CoreSkillRegistry.create();
-}
 
 function emptyUsage() {
   return {
@@ -237,37 +214,25 @@ describe('dispatchAgentTool', () => {
   });
 
   it('creates a general subagent by default', () => {
-    resetAgentRegistries();
-    initAgentRegistries();
-    try {
-      const subagent = createSubAgent(
-        SubAgentType.GENERAL,
-        context.getConfig,
-        tmpDir,
-        'none',
-      );
+    const subagent = createSubAgent(
+      SubAgentType.GENERAL,
+      context.getConfig,
+      tmpDir,
+      'none',
+    );
 
-      expect(subagent).toBeInstanceOf(GeneralSubAgent);
-    } finally {
-      resetAgentRegistries();
-    }
+    expect(subagent).toBeInstanceOf(GeneralSubAgent);
   });
 
   it('creates an explore subagent for explore tasks', () => {
-    resetAgentRegistries();
-    initAgentRegistries();
-    try {
-      const subagent = createSubAgent(
-        SubAgentType.EXPLORE,
-        context.getConfig,
-        tmpDir,
-        'none',
-      );
+    const subagent = createSubAgent(
+      SubAgentType.EXPLORE,
+      context.getConfig,
+      tmpDir,
+      'none',
+    );
 
-      expect(subagent).toBeInstanceOf(ExploreSubAgent);
-    } finally {
-      resetAgentRegistries();
-    }
+    expect(subagent).toBeInstanceOf(ExploreSubAgent);
   });
 
   it('computes a child sessions directory from parent persistence context', () => {
@@ -293,95 +258,83 @@ describe('dispatchAgentTool', () => {
   });
 
   it('persists a general subagent when sessionsDir is provided', async () => {
-    resetAgentRegistries();
-    initAgentRegistries();
-    try {
-      const sessionsDir = path.join(tmpDir, 'subagents');
-      const subagent = createSubAgent(
-        SubAgentType.GENERAL,
-        context.getConfig,
-        tmpDir,
-        'none',
-        sessionsDir,
-      );
+    const sessionsDir = path.join(tmpDir, 'subagents');
+    const subagent = createSubAgent(
+      SubAgentType.GENERAL,
+      context.getConfig,
+      tmpDir,
+      'none',
+      sessionsDir,
+    );
 
-      const snapshotContent = await fs.readFile(
-        path.join(sessionsDir, subagent.id, 'snapshot.json'),
-        'utf-8',
-      );
-      const metadataContent = await fs.readFile(
-        path.join(sessionsDir, subagent.id, 'metadata.json'),
-        'utf-8',
-      );
-      const snapshot: unknown = JSON.parse(snapshotContent);
-      const metadata: unknown = JSON.parse(metadataContent);
+    const snapshotContent = await fs.readFile(
+      path.join(sessionsDir, subagent.id, 'snapshot.json'),
+      'utf-8',
+    );
+    const metadataContent = await fs.readFile(
+      path.join(sessionsDir, subagent.id, 'metadata.json'),
+      'utf-8',
+    );
+    const snapshot: unknown = JSON.parse(snapshotContent);
+    const metadata: unknown = JSON.parse(metadataContent);
 
-      expect(snapshot).toMatchObject({
-        id: subagent.id,
-        title: 'New Session',
-        sseEventCount: 0,
-        llmSession: {
-          messages: [],
-          compactions: [],
-          latestUsageInputMessageCount: null,
-          usage: emptyUsage(),
-        },
-        options: {workingDirectory: tmpDir, thinkingLevel: 'none'},
-      });
-      expect(metadata).toEqual({
-        id: subagent.id,
-        title: 'New Session',
-        workingDirectory: tmpDir,
-      });
-    } finally {
-      resetAgentRegistries();
-    }
+    expect(snapshot).toMatchObject({
+      id: subagent.id,
+      title: 'New Session',
+      sseEventCount: 0,
+      llmSession: {
+        messages: [],
+        compactions: [],
+        latestUsageInputMessageCount: null,
+        usage: emptyUsage(),
+      },
+      options: {workingDirectory: tmpDir, thinkingLevel: 'none'},
+    });
+    expect(metadata).toEqual({
+      id: subagent.id,
+      title: 'New Session',
+      workingDirectory: tmpDir,
+    });
   });
 
   it('persists an explore subagent when sessionsDir is provided', async () => {
-    resetAgentRegistries();
-    initAgentRegistries();
-    try {
-      const sessionsDir = path.join(tmpDir, 'subagents');
-      const subagent = createSubAgent(
-        SubAgentType.EXPLORE,
-        context.getConfig,
-        tmpDir,
-        'none',
-        sessionsDir,
-      );
+    const sessionsDir = path.join(tmpDir, 'subagents');
+    const subagent = createSubAgent(
+      SubAgentType.EXPLORE,
+      context.getConfig,
+      tmpDir,
+      'none',
+      sessionsDir,
+    );
 
-      const snapshotContent = await fs.readFile(
-        path.join(sessionsDir, subagent.id, 'snapshot.json'),
-        'utf-8',
-      );
-      const metadataContent = await fs.readFile(
-        path.join(sessionsDir, subagent.id, 'metadata.json'),
-        'utf-8',
-      );
-      const snapshot: unknown = JSON.parse(snapshotContent);
-      const metadata: unknown = JSON.parse(metadataContent);
+    const snapshotContent = await fs.readFile(
+      path.join(sessionsDir, subagent.id, 'snapshot.json'),
+      'utf-8',
+    );
+    const metadataContent = await fs.readFile(
+      path.join(sessionsDir, subagent.id, 'metadata.json'),
+      'utf-8',
+    );
+    const snapshot: unknown = JSON.parse(snapshotContent);
+    const metadata: unknown = JSON.parse(metadataContent);
 
-      expect(snapshot).toMatchObject({
-        id: subagent.id,
-        title: 'New Session',
-        sseEventCount: 0,
-        llmSession: {
-          messages: [],
-          compactions: [],
-          latestUsageInputMessageCount: null,
-          usage: emptyUsage(),
-        },
-        options: {workingDirectory: tmpDir, thinkingLevel: 'none'},
-      });
-      expect(metadata).toEqual({
-        id: subagent.id,
-        title: 'New Session',
-        workingDirectory: tmpDir,
-      });
-    } finally {
-      resetAgentRegistries();
-    }
+    expect(snapshot).toMatchObject({
+      id: subagent.id,
+      title: 'New Session',
+      sseEventCount: 0,
+      llmSession: {
+        messages: [],
+        compactions: [],
+        latestUsageInputMessageCount: null,
+        usage: emptyUsage(),
+      },
+      options: {workingDirectory: tmpDir, thinkingLevel: 'none'},
+    });
+    expect(metadata).toEqual({
+      id: subagent.id,
+      title: 'New Session',
+      workingDirectory: tmpDir,
+    });
   });
 
   it('registers the dispatched live subagent in the parent context registry', () => {

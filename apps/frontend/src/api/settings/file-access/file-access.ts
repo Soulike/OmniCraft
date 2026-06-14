@@ -38,7 +38,8 @@ export async function putWorkspaces(workspaces: Workspace[]): Promise<void> {
     body: JSON.stringify({workspaces}),
   });
 
-  if (res.status === (StatusCodes.UNPROCESSABLE_ENTITY as number)) {
+  const status: StatusCodes = res.status;
+  if (status === StatusCodes.UNPROCESSABLE_ENTITY) {
     const json: unknown = await res.json();
     const {invalidPaths} = invalidPathsResponseSchema.parse(json);
     throw new InvalidPathsError(invalidPaths);

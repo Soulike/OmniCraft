@@ -13,14 +13,14 @@ export class EventBus<EventMap extends {[K in keyof EventMap]: unknown}> {
       set = new Set();
       this.listeners.set(event, set);
     }
-    set.add(listener as Listener<never>);
+    set.add(listener);
   }
 
   off<K extends keyof EventMap>(
     event: K,
     listener: Listener<EventMap[K]>,
   ): void {
-    this.listeners.get(event)?.delete(listener as Listener<never>);
+    this.listeners.get(event)?.delete(listener);
   }
 
   emit<K extends keyof EventMap>(
