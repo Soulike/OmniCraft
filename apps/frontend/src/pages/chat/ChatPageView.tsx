@@ -1,4 +1,5 @@
 import {ScrollShadow} from '@heroui/react';
+import {MessagesSquare} from 'lucide-react';
 import type {RefObject} from 'react';
 
 import {
@@ -88,8 +89,12 @@ export function ChatPageView({
           <ScrollShadow className={styles.messageListWrapper} ref={scrollRef}>
             {isEmpty && !sessionId && (
               <div className={styles.emptyState}>
-                <p className={styles.emptyStateText}>
-                  Start a conversation below.
+                <span className={styles.emptyGlyph} aria-hidden='true'>
+                  <MessagesSquare size={26} />
+                </span>
+                <p className={styles.emptyStateText}>Start a conversation</p>
+                <p className={styles.emptyStateHint}>
+                  Ask anything, or describe a task to begin.
                 </p>
               </div>
             )}
