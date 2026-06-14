@@ -74,9 +74,9 @@
     var(--background);
   /* Mica: the main panel is a translucent surface that blurs the canvas
      behind it, picking up a faint tint. HeroUI content inside stays opaque. */
-  --aurora-mica-fill: rgba(255, 255, 255, 0.72);
-  --aurora-mica-blur: blur(64px) saturate(1.5);
-  --aurora-mica-border: 1px solid rgba(255, 255, 255, 0.6);
+  --aurora-mica-fill: rgba(255, 255, 255, 0.6);
+  --aurora-mica-blur: blur(72px) saturate(1.7);
+  --aurora-mica-border: 1px solid rgba(255, 255, 255, 0.7);
   --aurora-glass-fill: linear-gradient(160deg, #ffffff, #eef1fb);
   --aurora-glass-border: rgba(20, 30, 80, 0.1);
   --aurora-glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.9);
@@ -139,9 +139,9 @@
       transparent 62%
     ),
     var(--background);
-  --aurora-mica-fill: rgba(15, 16, 24, 0.7);
-  --aurora-mica-blur: blur(64px) saturate(1.4);
-  --aurora-mica-border: 1px solid rgba(255, 255, 255, 0.05);
+  --aurora-mica-fill: rgba(18, 20, 30, 0.52);
+  --aurora-mica-blur: blur(72px) saturate(1.8);
+  --aurora-mica-border: 1px solid rgba(160, 180, 255, 0.16);
   --aurora-glass-fill: linear-gradient(
     160deg,
     rgba(255, 255, 255, 0.09),
