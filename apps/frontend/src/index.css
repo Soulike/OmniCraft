@@ -1,5 +1,6 @@
 @import 'tailwindcss';
 @import '@heroui/styles';
+@import './heroui-overrides.css';
 @import './aurora-glass.css';
 
 body {

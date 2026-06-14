@@ -132,8 +132,9 @@ component.
 ### 3.3 HeroUI token overrides (controlled)
 
 Rather than restyle HeroUI components one-by-one, we override a small,
-deliberate set of HeroUI's own semantic tokens in `aurora-glass.css` so the
-glass material becomes the **default**. This is the preferred way to apply a
+deliberate set of HeroUI's own semantic tokens in **`src/heroui-overrides.css`**
+(imported after `@heroui/styles`, before `aurora-glass.css`) so the glass
+material becomes the **default**. This is the preferred way to apply a
 global material decision — override the token once, every consuming component
 follows. Keep this set small and documented; do not let it sprawl.
 

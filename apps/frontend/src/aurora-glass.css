@@ -83,25 +83,6 @@
   --aurora-mica-blur: blur(72px) saturate(1.7);
   --aurora-mica-border: 1px solid rgba(255, 255, 255, 0.7);
 
-  /* --- HeroUI token overrides (Aurora Glass material) ---
-     Controlled overrides so HeroUI surfaces pick up our glass language by
-     default instead of being restyled component-by-component. See
-     docs/design-language.md §3.3. Overlays (--overlay) and form-field text
-     stay on HeroUI defaults; only these material tokens are reinterpreted. */
-  /* Cards/panels: translucent so the Mica tint bleeds through (no blur — the
-     panel behind is already frosted; pure alpha = zero perf cost). */
-  --surface: rgba(255, 255, 255, 0.75);
-  /* Nested raised surfaces: translucent too (HeroUI defines these as their own
-     opaque values, not derived from --surface), stepping alpha up so deeper
-     nesting reads slightly more solid. */
-  --surface-secondary: rgba(244, 246, 252, 0.82);
-  --surface-tertiary: rgba(238, 241, 250, 0.88);
-  /* Inputs: same material family as cards, but a touch more fill for text
-     contrast (independent of --surface via HeroUI's --field-* tokens). */
-  --field-background: rgba(255, 255, 255, 0.8);
-  /* Borders: align HeroUI's flat hairline to our light-catching glass edge. */
-  --border: rgba(20, 30, 80, 0.12);
-
   --aurora-glass-fill: linear-gradient(
     160deg,
     rgba(255, 255, 255, 0.75),
@@ -172,13 +153,6 @@
   --aurora-mica-blur: blur(72px) saturate(1.8);
   --aurora-mica-border: 1px solid rgba(160, 180, 255, 0.16);
 
-  /* --- HeroUI token overrides (Aurora Glass material) ---
-     Dark reinterpretation (P4): same material idea, different recipe. */
-  --surface: rgba(34, 37, 52, 0.75);
-  --surface-secondary: rgba(42, 45, 62, 0.82);
-  --surface-tertiary: rgba(48, 52, 70, 0.88);
-  --field-background: rgba(34, 37, 52, 0.8);
-  --border: rgba(160, 180, 255, 0.16);
   --aurora-glass-fill: linear-gradient(
     160deg,
     rgba(255, 255, 255, 0.09),
