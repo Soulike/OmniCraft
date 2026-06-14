@@ -1,0 +1,74 @@
+.sidebar {
+  width: 230px;
+  height: 100%;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 16px 12px;
+  color: var(--foreground);
+}
+
+.brandRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px 18px;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--foreground);
+  text-decoration: none;
+  font-size: 17px;
+  font-weight: 300;
+  user-select: none;
+  min-width: 0;
+}
+
+.brandIcon {
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+}
+
+.brandName {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.themeSlot {
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.nav {
+  flex: 1;
+  min-height: 0;
+}
+
+.navList {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  height: 100%;
+}
+
+.navTab {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  width: 100%;
+}
+
+.settingsTab {
+  margin-top: auto;
+  border-top: 1px solid var(--border);
+  padding-top: 14px;
+}
+
+.navIcon {
+  flex-shrink: 0;
+}
