@@ -26,28 +26,50 @@
 }
 
 :root.light {
-  /* Page canvas: soft colour blobs over the base background. Distinct blobs
-     (not a smooth gradient) give the panel's Mica blur something to sample. */
+  /* Page canvas: many small, varied, interleaved colour patches over the base
+     background. The hue variety + contrast is what gives the panel's Mica blur
+     a genuine hazy colour drift (not a flat gradient). Keep alphas low so it
+     stays delicate and never competes with content. */
   --aurora-canvas:
     radial-gradient(
-      48% 42% at 14% 6%,
-      rgba(90, 130, 255, 0.2),
-      transparent 60%
+      38% 34% at 10% 8%,
+      rgba(95, 135, 250, 0.16),
+      transparent 62%
     ),
     radial-gradient(
-      42% 46% at 86% 16%,
-      rgba(165, 110, 255, 0.16),
-      transparent 60%
+      34% 32% at 32% 24%,
+      rgba(150, 120, 250, 0.13),
+      transparent 62%
     ),
     radial-gradient(
-      52% 48% at 72% 96%,
-      rgba(70, 180, 225, 0.12),
-      transparent 60%
+      36% 36% at 60% 6%,
+      rgba(110, 200, 225, 0.12),
+      transparent 62%
     ),
     radial-gradient(
-      48% 48% at 28% 82%,
-      rgba(140, 110, 255, 0.12),
-      transparent 60%
+      40% 38% at 92% 18%,
+      rgba(180, 130, 235, 0.14),
+      transparent 62%
+    ),
+    radial-gradient(
+      36% 34% at 78% 44%,
+      rgba(120, 160, 250, 0.1),
+      transparent 62%
+    ),
+    radial-gradient(
+      40% 40% at 22% 70%,
+      rgba(130, 200, 210, 0.1),
+      transparent 62%
+    ),
+    radial-gradient(
+      38% 36% at 55% 92%,
+      rgba(165, 135, 240, 0.12),
+      transparent 62%
+    ),
+    radial-gradient(
+      40% 38% at 90% 88%,
+      rgba(110, 150, 245, 0.11),
+      transparent 62%
     ),
     var(--background);
   /* Mica: the main panel is a translucent surface that blurs the canvas
@@ -77,24 +99,44 @@
 :root.dark {
   --aurora-canvas:
     radial-gradient(
-      48% 42% at 14% 6%,
-      rgba(70, 110, 255, 0.22),
-      transparent 60%
+      38% 34% at 10% 8%,
+      rgba(70, 110, 255, 0.3),
+      transparent 62%
     ),
     radial-gradient(
-      42% 46% at 86% 16%,
-      rgba(150, 90, 255, 0.18),
-      transparent 60%
+      34% 32% at 32% 24%,
+      rgba(140, 80, 255, 0.24),
+      transparent 62%
     ),
     radial-gradient(
-      52% 48% at 72% 96%,
-      rgba(60, 170, 220, 0.12),
-      transparent 60%
+      36% 36% at 60% 6%,
+      rgba(50, 170, 220, 0.2),
+      transparent 62%
     ),
     radial-gradient(
-      48% 48% at 28% 82%,
-      rgba(120, 80, 255, 0.12),
-      transparent 60%
+      40% 38% at 92% 18%,
+      rgba(160, 90, 240, 0.24),
+      transparent 62%
+    ),
+    radial-gradient(
+      36% 34% at 78% 44%,
+      rgba(80, 130, 255, 0.18),
+      transparent 62%
+    ),
+    radial-gradient(
+      40% 40% at 22% 70%,
+      rgba(60, 180, 200, 0.16),
+      transparent 62%
+    ),
+    radial-gradient(
+      38% 36% at 55% 92%,
+      rgba(150, 95, 245, 0.2),
+      transparent 62%
+    ),
+    radial-gradient(
+      40% 38% at 90% 88%,
+      rgba(70, 120, 255, 0.18),
+      transparent 62%
     ),
     var(--background);
   --aurora-mica-fill: rgba(15, 16, 24, 0.7);

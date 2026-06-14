@@ -186,11 +186,14 @@ component.
 ## 5. Surfaces & Depth
 
 The whole app sits on one **shared page canvas**, painted on the layout root
-(`.layout`) via `--aurora-canvas`: the page `--background` with several soft
-colour blobs scattered across it (blue, violet, cyan). The blobs are distinct
-(not a smooth gradient) on purpose — they give the panel's Mica blur something
-to sample. Every chrome surface relates to this one canvas; that is what keeps
-the frame coherent and seamless.
+(`.layout`) via `--aurora-canvas`: the page `--background` with **many small,
+varied, interleaved colour patches** (blue, violet, cyan, teal, periwinkle…).
+The variety and hue contrast are the point — a few big soft blobs blur into a
+flat gradient and lose the Mica feel, whereas many contrasting patches give
+the panel's Mica blur a genuine **hazy colour drift**. Keep patch alphas low
+so the canvas stays delicate and never competes with content. Every chrome
+surface relates to this one canvas; that is what keeps the frame coherent and
+seamless.
 
 Surface roles:
 
