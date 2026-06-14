@@ -1,0 +1,50 @@
+/**
+ * Aurora Glass design tokens.
+ *
+ * The OmniCraft visual language layered on top of HeroUI's base theme.
+ * HeroUI owns the neutrals + accent (--background, --foreground, --surface,
+ * --border, --accent, --muted, ...); this file adds the glass/glow/depth
+ * recipe and is the SINGLE source of truth for those values.
+ *
+ * Usage: consume these via var(--aurora-*) in component styles. Never
+ * hard-code the raw rgba/gradient values into a component. Light and dark
+ * are reinterpreted (not ported) — keep both in sync when tuning.
+ *
+ * See docs/design-language.md for the principles behind these values.
+ */
+
+:root.light {
+  --aurora-glow-accent: rgba(90, 125, 255, 0.12); /* top aurora bleed */
+  --aurora-glow-violet: rgba(150, 100, 255, 0.06); /* secondary aurora */
+  --aurora-glass-fill: linear-gradient(160deg, #ffffff, #eef1fb);
+  --aurora-glass-border: rgba(20, 30, 80, 0.1);
+  --aurora-glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  --aurora-active-fill: linear-gradient(
+    100deg,
+    rgba(95, 125, 255, 0.16),
+    rgba(150, 110, 255, 0.07)
+  );
+  --aurora-active-bar: linear-gradient(var(--accent), oklch(0.55 0.2 262));
+  --aurora-active-bar-glow: none; /* glow reads dirty on white */
+  --aurora-inset-shadow: inset 10px 10px 22px -12px rgba(40, 55, 120, 0.28);
+}
+
+:root.dark {
+  --aurora-glow-accent: rgba(90, 120, 255, 0.18);
+  --aurora-glow-violet: rgba(150, 90, 255, 0.1);
+  --aurora-glass-fill: linear-gradient(
+    160deg,
+    rgba(255, 255, 255, 0.09),
+    rgba(255, 255, 255, 0.02)
+  );
+  --aurora-glass-border: rgba(140, 160, 255, 0.22);
+  --aurora-glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  --aurora-active-fill: linear-gradient(
+    100deg,
+    rgba(90, 120, 255, 0.3),
+    rgba(150, 110, 255, 0.15)
+  );
+  --aurora-active-bar: linear-gradient(#7ea2ff, #b07bff);
+  --aurora-active-bar-glow: 0 0 12px rgba(130, 150, 255, 0.95);
+  --aurora-inset-shadow: inset 10px 10px 22px -12px rgba(0, 0, 0, 0.85);
+}

@@ -86,69 +86,43 @@ is a deliberate exception, not the default.
 ### 3.1 Base tokens (owned by HeroUI — do not redefine)
 
 The base palette comes from HeroUI's theme and is the source of truth for
-neutrals and the accent. Consume these via `var(--…)`; never hard-code their
-values into components.
+neutrals and the accent. Consume them via `var(--…)`; never hard-code or copy
+their values into our code (HeroUI owns them and may change them).
 
-| Token          | Light                         | Dark                          | Use             |
-| -------------- | ----------------------------- | ----------------------------- | --------------- |
-| `--background` | `oklch(0.9702 0 0)`           | `oklch(0.12 0.005 285.82)`    | App backdrop    |
-| `--foreground` | `oklch(0.2103 0.0059 285.89)` | `oklch(0.9911 0 0)`           | Primary text    |
-| `--surface`    | `oklch(1 0 0)`                | `oklch(0.2103 0.0059 285.89)` | Raised surfaces |
-| `--border`     | `oklch(0.90 0.004 286.32)`    | `oklch(0.28 0.006 286.03)`    | Hairlines       |
-| `--accent`     | `oklch(0.62 0.195 253.83)`    | `oklch(0.62 0.195 253.83)`    | The one accent  |
-| `--muted`      | `oklch(0.55 0.014 285.94)`    | `oklch(0.705 0.015 286.07)`   | Secondary text  |
+| Token          | Use                                                                                          |
+| -------------- | -------------------------------------------------------------------------------------------- |
+| `--background` | App backdrop                                                                                 |
+| `--foreground` | Primary text                                                                                 |
+| `--surface`    | Raised surfaces                                                                              |
+| `--border`     | Hairlines                                                                                    |
+| `--accent`     | The one accent — shared by both themes; the through-line that keeps theme switching coherent |
+| `--muted`      | Secondary text                                                                               |
 
-The accent `oklch(0.62 0.195 253.83)` is **shared by both themes** — it is
-the through-line that keeps theme switching coherent.
+To see the live values, inspect `:root` in the browser, or read HeroUI's
+theme output (do not duplicate them here — that copy would rot).
 
 ### 3.2 Aurora Glass tokens (this design language adds these)
 
-Layer these on top of the HeroUI base. Define them once (theme-scoped) and
-reference everywhere — do not scatter raw rgba values across components.
+The glass / glow / depth recipe lives in **`src/aurora-glass.css`** (imported
+from `src/index.css`), scoped to `:root.light` / `:root.dark`. That file is
+the single source of truth for these values — **always consume them via
+`var(--aurora-*)`; never paste the raw rgba/gradient values into a component.**
 
-```css
-/* dark theme */
-.dark {
-  --glow-accent: rgba(90, 120, 255, 0.18); /* top aurora bleed */
-  --glow-violet: rgba(150, 90, 255, 0.1); /* secondary aurora */
-  --glass-fill: linear-gradient(
-    160deg,
-    rgba(255, 255, 255, 0.09),
-    rgba(255, 255, 255, 0.02)
-  );
-  --glass-border: rgba(140, 160, 255, 0.22);
-  --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.18);
-  --active-fill: linear-gradient(
-    100deg,
-    rgba(90, 120, 255, 0.3),
-    rgba(150, 110, 255, 0.15)
-  );
-  --active-bar: linear-gradient(#7ea2ff, #b07bff);
-  --active-bar-glow: 0 0 12px rgba(130, 150, 255, 0.95);
-  --inset-shadow: inset 10px 10px 22px -12px rgba(0, 0, 0, 0.85);
-}
+Available tokens (see the file for the actual recipe and both-theme values):
 
-/* light theme — reinterpreted (P4) */
-.light {
-  --glow-accent: rgba(90, 125, 255, 0.12);
-  --glow-violet: rgba(150, 100, 255, 0.06);
-  --glass-fill: linear-gradient(160deg, #ffffff, #eef1fb);
-  --glass-border: rgba(20, 30, 80, 0.1);
-  --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.9);
-  --active-fill: linear-gradient(
-    100deg,
-    rgba(95, 125, 255, 0.16),
-    rgba(150, 110, 255, 0.07)
-  );
-  --active-bar: linear-gradient(var(--accent), oklch(0.55 0.2 262));
-  --active-bar-glow: none; /* no glow on white */
-  --inset-shadow: inset 10px 10px 22px -12px rgba(40, 55, 120, 0.28);
-}
-```
+| Token                                             | Purpose                                                   |
+| ------------------------------------------------- | --------------------------------------------------------- |
+| `--aurora-glow-accent`, `--aurora-glow-violet`    | Top aurora bleed for rail backgrounds                     |
+| `--aurora-glass-fill`                             | Translucent glass surface fill                            |
+| `--aurora-glass-border`                           | Light-catching glass hairline                             |
+| `--aurora-glass-highlight`                        | Inset top highlight on glass                              |
+| `--aurora-active-fill`                            | Active nav item glass fill                                |
+| `--aurora-active-bar`, `--aurora-active-bar-glow` | Active left-bar gradient + glow (glow is `none` in light) |
+| `--aurora-inset-shadow`                           | Inner shadow for the recessed panel                       |
 
-> These values are the _agreed recipe_ from design. Treat them as defaults to
-> reuse; tune cohesively (and in both themes together) if a new surface needs
-> a variant — never one theme in isolation.
+If a new surface needs a value that isn't here, **add it to
+`aurora-glass.css` for both themes** (P4) rather than inlining it in a
+component.
 
 ---
 
@@ -177,8 +151,8 @@ Three depth tiers — pick the one that matches the surface's role:
    slightly darker than surroundings, inner shadow on top+left, the rail
    edge casts onto it. Reads as a screen set into a bezel.
 2. **Flush glass** — the rail itself, glass pedestals, the active nav pill.
-   Translucent fill (`--glass-fill`) + light-catching hairline
-   (`--glass-border`) + top highlight (`--glass-highlight`).
+   Translucent fill (`--aurora-glass-fill`) + light-catching hairline
+   (`--aurora-glass-border`) + top highlight (`--aurora-glass-highlight`).
 3. **Raised** — transient overlays (popovers, tooltips, modals via HeroUI).
    Outer shadow, sits above everything. Use HeroUI's defaults, lightly
    tuned to match.
@@ -199,17 +173,18 @@ read as one continuous object. Free edges keep their rounded corners.
 - **Hover:** text lifts toward `--foreground`, faint translucent fill. No
   movement of the box (P3 forbids ambient bob; a color/`background`
   transition on hover is fine — it's event-driven and settles).
-- **Active:** `--active-fill` + `--glass-highlight` + a left bar using
-  `--active-bar` (with `--active-bar-glow` in dark). Icon picks up accent.
+- **Active:** `--aurora-active-fill` + `--aurora-glass-highlight` + a left bar
+  using `--aurora-active-bar` (with `--aurora-active-bar-glow` in dark). Icon
+  picks up accent.
 - **Active travels (P3):** the active pill+bar slides to the newly selected
   item on navigation, then rests. One-shot.
 - **Click feedback (P3):** a single sheen sweep + small icon spring, once.
 
 ### 6.2 Glass pedestal (icon container)
 
-- ~50px tile, radius ~13px, `--glass-fill` + `--glass-border` +
-  `--glass-highlight`. Houses an icon/logo. **Static.** Used for the brand
-  mark; reusable anywhere an icon deserves a material anchor.
+- ~50px tile, radius ~13px, `--aurora-glass-fill` + `--aurora-glass-border` +
+  `--aurora-glass-highlight`. Houses an icon/logo. **Static.** Used for the
+  brand mark; reusable anywhere an icon deserves a material anchor.
 
 ### 6.3 Icon-only control (e.g. theme toggle)
 
