@@ -88,7 +88,7 @@ export function RenderItem({item}: RenderItemProps) {
         );
       }
       return (
-        <div className={styles.assistantMessage}>
+        <div className={clsx(styles.assistantMessage, styles.fullWidthMessage)}>
           <ToolExecutionCard
             callId={item.callId}
             toolName={item.toolName}
