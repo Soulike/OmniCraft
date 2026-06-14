@@ -40,6 +40,7 @@ export interface SubagentContent {
   type: 'subagent';
   mode: SubagentMode;
   agentId: string;
+  nickname?: string;
   task: string;
   agentType: string;
   thinkingLevel: ThinkingLevel;
@@ -115,6 +116,7 @@ export interface ChatEventMap {
   'subagent-dispatched': {
     mode: SubagentMode;
     agentId: string;
+    nickname?: string;
     task: string;
     agentType: string;
     thinkingLevel: ThinkingLevel;

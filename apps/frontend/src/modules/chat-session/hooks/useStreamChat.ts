@@ -134,6 +134,7 @@ export function useStreamChat({
                   mode:
                     event.type === 'subagent-dispatch' ? 'dispatch' : 'resume',
                   agentId: event.agentId,
+                  nickname: event.nickname,
                   task: event.task,
                   agentType: event.agentType,
                   thinkingLevel: event.thinkingLevel,
