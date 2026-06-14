@@ -192,16 +192,16 @@ git commit -m "feat(frontend): make theme toggle a single cycling icon button"
 
 - [ ] **Step 1: Define nav item types**
 
-`types.ts`:
+`types.ts`. `Icon` holds a lucide-react icon component (rendered with a `size` prop), so it must be typed as lucide's own `LucideIcon` — `FC<SVGProps<SVGSVGElement>>` rejects the `size` prop and will not compile.
 
 ```typescript
-import type {FC, SVGProps} from 'react';
+import type {LucideIcon} from 'lucide-react';
 
 export interface NavItem {
   id: string;
   label: string;
   path: string;
-  Icon: FC<SVGProps<SVGSVGElement>>;
+  Icon: LucideIcon;
 }
 ```
 
