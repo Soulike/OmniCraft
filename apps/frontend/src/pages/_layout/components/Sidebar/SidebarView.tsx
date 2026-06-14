@@ -1,6 +1,5 @@
 import {Tabs} from '@heroui/react';
 import type {FC, SVGProps} from 'react';
-import React from 'react';
 import {Link} from 'react-router';
 
 import OmnicraftDarkIcon from '@/assets/icons/omnicraft-dark.svg?react';
@@ -34,7 +33,7 @@ export function SidebarView({
   const BrandIcon = BRAND_ICONS[theme];
 
   return (
-    <aside className={styles.sidebar}>
+    <aside className={styles.sidebar} aria-label='Primary'>
       <div className={styles.brandRow}>
         <Link className={styles.brand} to={brandPath}>
           <BrandIcon className={styles.brandIcon} aria-hidden='true' />
@@ -58,12 +57,13 @@ export function SidebarView({
                 id={item.id}
                 className={styles.navTab}
                 href={item.path}
-                render={(domProps) => (
-                  <Link
-                    {...(domProps as React.ComponentPropsWithRef<'a'>)}
-                    to={item.path}
-                  />
-                )}
+                render={(domProps) =>
+                  'href' in domProps ? (
+                    <Link {...domProps} to={item.path} />
+                  ) : (
+                    <div {...domProps} />
+                  )
+                }
               >
                 <item.Icon className={styles.navIcon} size={17} />
                 {item.label}
@@ -74,12 +74,13 @@ export function SidebarView({
               id={settingsItem.id}
               className={`${styles.navTab} ${styles.settingsTab}`}
               href={settingsItem.path}
-              render={(domProps) => (
-                <Link
-                  {...(domProps as React.ComponentPropsWithRef<'a'>)}
-                  to={settingsItem.path}
-                />
-              )}
+              render={(domProps) =>
+                'href' in domProps ? (
+                  <Link {...domProps} to={settingsItem.path} />
+                ) : (
+                  <div {...domProps} />
+                )
+              }
             >
               <settingsItem.Icon className={styles.navIcon} size={17} />
               {settingsItem.label}
