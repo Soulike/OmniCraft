@@ -5,14 +5,14 @@ import {
   preambleInstructions,
 } from '@/agent/system-prompts/index.js';
 
-import {mainAgentSystemPrompt} from './system-prompt.js';
+import {exploreSubAgentSystemPrompt} from './system-prompt.js';
 
-describe('mainAgentSystemPrompt', () => {
+describe('exploreSubAgentSystemPrompt', () => {
   it('includes the shared math rendering instructions', () => {
-    expect(mainAgentSystemPrompt).toContain(mathRenderingInstructions);
+    expect(exploreSubAgentSystemPrompt).toContain(mathRenderingInstructions);
   });
 
   it('includes the shared preamble instructions', () => {
-    expect(mainAgentSystemPrompt).toContain(preambleInstructions);
+    expect(exploreSubAgentSystemPrompt).toContain(preambleInstructions);
   });
 });

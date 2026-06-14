@@ -11,6 +11,7 @@ import {MessageBubble} from '../MessageBubble/index.js';
 import {SubagentDisclosure} from '../SubagentDisclosure/index.js';
 import {ThinkingBlock} from '../ThinkingBlock/index.js';
 import {ToolExecutionCard} from '../ToolExecutionCard/index.js';
+import {WorkingIndicator} from '../WorkingIndicator/index.js';
 import styles from './styles.module.css';
 
 interface RenderItemProps {
@@ -34,7 +35,7 @@ export function RenderItem({item}: RenderItemProps) {
       return (
         <div className={styles.assistantMessage}>
           <MessageBubble role='assistant' id={item.id} content={item.content} />
-          {item.createdAt !== null && (
+          {item.createdAt !== null && item.content !== '' && (
             <time className={clsx(styles.timestamp, styles.timestampRight)}>
               {formatTimestamp(item.createdAt)}
             </time>
@@ -102,7 +103,13 @@ export function RenderItem({item}: RenderItemProps) {
     }
     case 'thinking':
       if (item.content.trim() === '') {
-        return null;
+        // thinking-start arrived but no delta yet — keep the working
+        // indicator visible instead of rendering an empty block.
+        return (
+          <div className={styles.assistantMessage}>
+            <WorkingIndicator />
+          </div>
+        );
       }
       return (
         <div className={clsx(styles.assistantMessage, styles.fullWidthMessage)}>
