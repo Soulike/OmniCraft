@@ -36,10 +36,11 @@ not with heavy borders.
 
 ### P2 — One light source
 
-The top of the interface is the light source. The rail carries a soft accent
-**aurora glow** from the top (dark theme). Shadows fall downward; top edges
-catch a faint highlight. Keep this consistent everywhere — never light a
-component from a contradictory direction.
+The top of the interface is the light source. The shared page-background
+gradient carries a soft accent **aurora glow** from the top, bleeding across
+the whole window. Shadows fall downward; top edges catch a faint highlight.
+Keep this consistent everywhere — never light a component from a contradictory
+direction.
 
 ### P3 — Motion is event-driven, never ambient
 
@@ -112,14 +113,13 @@ Available tokens (see the file for the actual recipe and both-theme values):
 
 | Token                                             | Purpose                                                   |
 | ------------------------------------------------- | --------------------------------------------------------- |
-| `--aurora-glow-accent`, `--aurora-glow-violet`    | Top aurora bleed for rail backgrounds                     |
+| `--aurora-glow-accent`, `--aurora-glow-violet`    | Aurora bleed for the page (layout) background gradient    |
 | `--aurora-glass-fill`                             | Translucent glass surface fill                            |
 | `--aurora-glass-border`                           | Light-catching glass hairline                             |
 | `--aurora-glass-highlight`                        | Inset top highlight on glass                              |
 | `--aurora-active-fill`                            | Active nav item glass fill                                |
 | `--aurora-active-bar`, `--aurora-active-bar-glow` | Active left-bar gradient + glow (glow is `none` in light) |
-| `--aurora-inset-shadow`                           | Inner shadow for the recessed panel                       |
-| `--aurora-panel-bg`                               | Recessed (inset) main-panel surface                       |
+| `--aurora-panel-bg`                               | Opaque main-panel surface                                 |
 | `--aurora-sheen`                                  | One-shot sheen sweep gradient on active nav item          |
 | `--aurora-active-icon-glow`                       | Active nav icon glow filter (dark only; `none` in light)  |
 
@@ -183,28 +183,34 @@ component.
 
 ## 5. Surfaces & Depth
 
-Three depth tiers — pick the one that matches the surface's role:
+The whole app sits on one **shared background gradient**, painted on the
+layout root (`.layout`): the page `--background` with the aurora glow bleeding
+across the entire window (`--aurora-glow-accent` from the top,
+`--aurora-glow-violet` from the bottom-right). Every chrome surface relates to
+this one gradient — that is what keeps the frame coherent and avoids seams.
 
-1. **Recessed (inset)** — the main content panel. Inset on all sides by a
-   uniform gap of the page `--background` colour (so the gap reads as a frame
-   continuous with the rail), with symmetric rounded corners, **no border**,
-   and only a faint inner shadow (`--aurora-inset-shadow`) so it reads as
-   gently set into the surrounding frame. The panel surface
-   (`--aurora-panel-bg`) sits a touch off the gap colour. Keep the inner
-   shadow subtle — it should suggest depth, not draw a dark edge that
-   attracts attention.
-2. **Flush glass** — the rail itself, glass pedestals, the active nav pill.
-   Translucent fill (`--aurora-glass-fill`) + light-catching hairline
-   (`--aurora-glass-border`) + top highlight (`--aurora-glass-highlight`).
-3. **Raised** — transient overlays (popovers, tooltips, modals via HeroUI).
-   Outer shadow, sits above everything. Use HeroUI's defaults, lightly
-   tuned to match.
+Two surface roles:
 
-**Frame rule:** the main panel is wrapped in a uniform gap of the page
-`--background` colour, which is the same base the rail sits on, so the gap
-reads as a continuous frame around the content rather than a separate margin.
-The panel draws **no border line** — separation comes only from the gap and a
-faint inner shadow. Corners are symmetric (all four rounded equally).
+1. **Transparent over the gradient** — the navigation rail. The rail has **no
+   background of its own**; the layout gradient shows straight through it, so
+   the rail and the gap around the panel are visually one continuous field.
+2. **Opaque panel** — the main content panel. A solid `--aurora-panel-bg`
+   surface (NOT translucent — content must stay readable) sitting on top of
+   the gradient, inset by a uniform small gap so the gradient frames it. No
+   border, no inner shadow — the gap + the panel being opaque is enough
+   separation. Symmetric rounded corners on all four sides.
+3. **Flush glass accents** — glass pedestals, the active nav pill. Translucent
+   fill (`--aurora-glass-fill`) + light-catching hairline
+   (`--aurora-glass-border`) + top highlight (`--aurora-glass-highlight`),
+   letting the gradient tint through.
+4. **Raised** — transient overlays (popovers, tooltips, modals via HeroUI).
+   Outer shadow, sits above everything. Use HeroUI's defaults, lightly tuned.
+
+**Frame rule:** there is one background gradient (on the layout). The rail is
+transparent over it; the panel is opaque and inset by a uniform gap so the
+same gradient surrounds it. No border lines anywhere on the frame — separation
+comes from the gap and the panel's opacity, never from a drawn edge. Panel
+corners are symmetric (all four rounded equally).
 
 ---
 
