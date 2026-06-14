@@ -48,12 +48,12 @@ describe('SubagentRegistry', () => {
     const registry = new SubagentRegistry();
     const agent = createMockAgent({title: 'Build Summary'});
 
-    registry.register(agent, SubAgentType.GENERAL);
+    registry.register(agent, SubAgentType.GENERAL, 'crimson-otter');
 
     expect(registry.get(agent.id)).toEqual({
       agent,
       agentType: SubAgentType.GENERAL,
-      nickname: expect.any(String) as unknown,
+      nickname: 'crimson-otter',
     });
   });
 
@@ -62,22 +62,22 @@ describe('SubagentRegistry', () => {
     const idle = createMockAgent({title: 'Build Summary'});
     const running = createMockAgent({title: 'Explore Report', isRunning: true});
 
-    registry.register(idle, SubAgentType.GENERAL);
-    registry.register(running, SubAgentType.EXPLORE);
+    registry.register(idle, SubAgentType.GENERAL, 'crimson-otter');
+    registry.register(running, SubAgentType.EXPLORE, 'silver-wren');
 
     expect(registry.list()).toEqual([
       {
         id: idle.id,
         agentType: SubAgentType.GENERAL,
         title: 'Build Summary',
-        nickname: expect.any(String) as unknown,
+        nickname: 'crimson-otter',
         isRunning: false,
       },
       {
         id: running.id,
         agentType: SubAgentType.EXPLORE,
         title: 'Explore Report',
-        nickname: expect.any(String) as unknown,
+        nickname: 'silver-wren',
         isRunning: true,
       },
     ]);
@@ -88,20 +88,20 @@ describe('SubagentRegistry', () => {
     const first = createMockAgent();
     const replacement = createMockAgent({id: first.id, title: 'Replacement'});
 
-    registry.register(first, SubAgentType.GENERAL);
-    registry.register(replacement, SubAgentType.EXPLORE);
+    registry.register(first, SubAgentType.GENERAL, 'crimson-otter');
+    registry.register(replacement, SubAgentType.EXPLORE, 'silver-wren');
 
     expect(registry.get(first.id)).toEqual({
       agent: replacement,
       agentType: SubAgentType.EXPLORE,
-      nickname: expect.any(String) as unknown,
+      nickname: 'silver-wren',
     });
     expect(registry.list()).toEqual([
       {
         id: first.id,
         agentType: SubAgentType.EXPLORE,
         title: 'Replacement',
-        nickname: expect.any(String) as unknown,
+        nickname: 'silver-wren',
         isRunning: false,
       },
     ]);
@@ -119,10 +119,10 @@ describe('SubagentRegistry', () => {
     const second = createMockAgent({title: 'Second'});
     const third = createMockAgent({title: 'Third'});
 
-    registry.register(first, SubAgentType.GENERAL);
-    registry.register(second, SubAgentType.EXPLORE);
+    registry.register(first, SubAgentType.GENERAL, 'first-otter');
+    registry.register(second, SubAgentType.EXPLORE, 'second-wren');
     registry.get(first.id);
-    registry.register(third, SubAgentType.GENERAL);
+    registry.register(third, SubAgentType.GENERAL, 'third-falcon');
 
     expect(registry.get(first.id)?.agent).toBe(first);
     expect(registry.get(second.id)).toBeUndefined();
@@ -134,8 +134,8 @@ describe('SubagentRegistry', () => {
     const running = createMockAgent({isRunning: true});
     const idle = createMockAgent();
 
-    registry.register(running, SubAgentType.GENERAL);
-    registry.register(idle, SubAgentType.EXPLORE);
+    registry.register(running, SubAgentType.GENERAL, 'running-otter');
+    registry.register(idle, SubAgentType.EXPLORE, 'idle-wren');
 
     expect(registry.get(running.id)?.agent).toBe(running);
     expect(registry.get(idle.id)).toBeUndefined();
@@ -146,8 +146,8 @@ describe('SubagentRegistry', () => {
     const reading = createMockAgent({activeReaderCount: 1});
     const idle = createMockAgent();
 
-    registry.register(reading, SubAgentType.GENERAL);
-    registry.register(idle, SubAgentType.EXPLORE);
+    registry.register(reading, SubAgentType.GENERAL, 'reading-otter');
+    registry.register(idle, SubAgentType.EXPLORE, 'idle-wren');
 
     expect(registry.get(reading.id)?.agent).toBe(reading);
     expect(registry.get(idle.id)).toBeUndefined();
@@ -158,8 +158,8 @@ describe('SubagentRegistry', () => {
     const running = createMockAgent({isRunning: true});
     const reading = createMockAgent({activeReaderCount: 1});
 
-    registry.register(running, SubAgentType.GENERAL);
-    registry.register(reading, SubAgentType.EXPLORE);
+    registry.register(running, SubAgentType.GENERAL, 'running-otter');
+    registry.register(reading, SubAgentType.EXPLORE, 'reading-wren');
 
     expect(registry.get(running.id)?.agent).toBe(running);
     expect(registry.get(reading.id)?.agent).toBe(reading);
@@ -170,8 +170,8 @@ describe('SubagentRegistry', () => {
     const running = createMockAgent({isRunning: true});
     const newest = createMockAgent({title: 'Newest'});
 
-    registry.register(running, SubAgentType.GENERAL);
-    registry.register(newest, SubAgentType.EXPLORE);
+    registry.register(running, SubAgentType.GENERAL, 'running-otter');
+    registry.register(newest, SubAgentType.EXPLORE, 'newest-wren');
 
     expect(registry.get(newest.id)).toBeUndefined();
     expect(registry.list()).toEqual([
@@ -179,7 +179,7 @@ describe('SubagentRegistry', () => {
         id: running.id,
         agentType: SubAgentType.GENERAL,
         title: 'New Session',
-        nickname: expect.any(String) as unknown,
+        nickname: 'running-otter',
         isRunning: true,
       },
     ]);
@@ -191,8 +191,8 @@ describe('SubagentRegistry', () => {
     const first = createMockAgent(firstOverrides);
     const second = createMockAgent({title: 'Second', activeReaderCount: 1});
 
-    registry.register(first, SubAgentType.GENERAL);
-    registry.register(second, SubAgentType.EXPLORE);
+    registry.register(first, SubAgentType.GENERAL, 'first-otter');
+    registry.register(second, SubAgentType.EXPLORE, 'second-wren');
     firstOverrides.isRunning = false;
 
     expect(registry.get(crypto.randomUUID())).toBeUndefined();
@@ -208,8 +208,8 @@ describe('SubagentRegistry', () => {
     const secondOverrides = {title: 'Second', activeReaderCount: 1};
     const second = createMockAgent(secondOverrides);
 
-    registry.register(first, SubAgentType.GENERAL);
-    registry.register(second, SubAgentType.EXPLORE);
+    registry.register(first, SubAgentType.GENERAL, 'first-otter');
+    registry.register(second, SubAgentType.EXPLORE, 'second-wren');
     firstOverrides.isRunning = false;
     secondOverrides.activeReaderCount = 0;
 
@@ -218,14 +218,14 @@ describe('SubagentRegistry', () => {
         id: first.id,
         agentType: SubAgentType.GENERAL,
         title: 'First',
-        nickname: expect.any(String) as unknown,
+        nickname: 'first-otter',
         isRunning: false,
       },
       {
         id: second.id,
         agentType: SubAgentType.EXPLORE,
         title: 'Second',
-        nickname: expect.any(String) as unknown,
+        nickname: 'second-wren',
         isRunning: false,
       },
     ]);
@@ -235,21 +235,11 @@ describe('SubagentRegistry', () => {
     const registry = new SubagentRegistry();
     const agent = createMockAgent();
 
-    registry.register(agent, SubAgentType.GENERAL);
+    registry.register(agent, SubAgentType.GENERAL, 'crimson-otter');
     registry.clear();
 
     expect(registry.list()).toEqual([]);
     expect(registry.get(agent.id)).toBeUndefined();
-  });
-
-  it('assigns a generated nickname when none is provided', () => {
-    const registry = new SubagentRegistry();
-    const agent = createMockAgent();
-
-    registry.register(agent, SubAgentType.GENERAL);
-
-    const [record] = registry.list();
-    expect(record.nickname).toMatch(/^[a-z]+-[a-z]+$/);
   });
 
   it('stores an explicit nickname and resolves it', () => {

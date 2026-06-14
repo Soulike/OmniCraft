@@ -45,16 +45,15 @@ export class SubagentRegistry {
     this.maxEntries = options.maxEntries ?? DEFAULT_MAX_LIVE_SUBAGENTS;
   }
 
-  register(agent: Agent, agentType: SubAgentType, nickname?: string): void {
+  // The nickname is trusted to be unique among live entries; the registry
+  // enforces no uniqueness here. Obtain one from generateNickname() to guarantee it.
+  register(agent: Agent, agentType: SubAgentType, nickname: string): void {
     const id = subagentIdSchema.parse(agent.id);
     const parsedAgentType = subAgentTypeSchema.parse(agentType);
-    // A caller-supplied nickname is trusted to be unique among live entries; the
-    // registry enforces no uniqueness here. Use generateNickname() for a guaranteed-unique name.
-    const finalNickname = nickname ?? this.generateNickname();
     this.records.set(id, {
       agent,
       agentType: parsedAgentType,
-      nickname: finalNickname,
+      nickname,
       lastAccessOrder: this.nextAccessOrder(),
     });
     this.evictIfNeeded();

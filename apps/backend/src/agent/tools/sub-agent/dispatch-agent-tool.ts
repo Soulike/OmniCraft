@@ -100,7 +100,7 @@ export function registerSubAgent(
   context: ToolExecutionContext,
   subagent: Agent,
   agentType: SubAgentType,
-  nickname?: string,
+  nickname: string,
 ): void {
   context.subagentRegistry.register(subagent, agentType, nickname);
 }
