@@ -66,6 +66,11 @@ import {Component} from 'path/to/Component/index.js';
 - Do NOT use Tailwind utility classes in our own components. Tailwind is only present as a dependency for HeroUI.
 - HeroUI (`@heroui/react`) is the UI component library. Use its components directly (e.g., `<Spinner />`, `<Button />`).
 
+## Design Language
+
+- Before designing or restyling any UI, read [`docs/design-language.md`](docs/design-language.md). It is the single source of truth for OmniCraft's visual language ("Aurora Glass"): aesthetic principles, color/material tokens, typography, depth, component patterns, and motion rules. Keep new UI consistent with it.
+- Key rules enforced there: motion is event-driven only (never ambient/looping), light and dark themes are both first-class (reinterpreted, not ported), accent color is used sparingly, and HeroUI is reused unless its styling blocks the aesthetic.
+
 ## Directory Structure
 
 - `components/` - Generic, business-agnostic UI components (e.g., `CollapsibleSidebar`, `MarkdownRenderer`).

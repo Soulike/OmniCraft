@@ -1,6 +1,6 @@
 import {type ReactNode} from 'react';
 
-import {Navbar} from './components/Navbar/index.js';
+import {Sidebar} from './components/Sidebar/index.js';
 import styles from './styles.module.css';
 
 interface LayoutViewProps {
@@ -10,10 +10,12 @@ interface LayoutViewProps {
 export function LayoutView({children}: LayoutViewProps) {
   return (
     <div className={styles.layout}>
-      <div className={styles.navbarWrapper}>
-        <Navbar />
+      <div className={styles.sidebarWrapper}>
+        <Sidebar />
       </div>
-      <main className={styles.content}>{children}</main>
+      <div className={styles.panel}>
+        <main className={styles.content}>{children}</main>
+      </div>
     </div>
   );
 }

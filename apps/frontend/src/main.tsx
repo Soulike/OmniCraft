@@ -1,3 +1,5 @@
+import '@fontsource-variable/bricolage-grotesque/index.css';
+import '@fontsource-variable/sora/index.css';
 import './index.css';
 
 import {Toast} from '@heroui/react';
