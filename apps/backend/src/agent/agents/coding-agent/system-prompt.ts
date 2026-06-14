@@ -1,3 +1,5 @@
+import {mathRenderingInstructions} from '@/agent/system-prompts/index.js';
+
 export const codingAgentSystemPrompt = [
   '# Coding Agent',
   '',
@@ -34,4 +36,6 @@ export const codingAgentSystemPrompt = [
   '- Summarize the meaningful changes, not every edit.',
   '- Report verification commands and outcomes.',
   '- Note remaining risks, skipped checks, or user-visible follow-up only when they matter.',
+  '',
+  mathRenderingInstructions,
 ].join('\n');

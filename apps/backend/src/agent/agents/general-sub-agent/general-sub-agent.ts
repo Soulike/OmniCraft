@@ -1,6 +1,7 @@
 import type {ThinkingLevel} from '@omnicraft/api-schema';
 
 import {coreSkillRegistry} from '@/agent/skills/index.js';
+import {mathRenderingInstructions} from '@/agent/system-prompts/index.js';
 import {
   bashToolRegistry,
   coreToolRegistry,
@@ -30,9 +31,12 @@ export class GeneralSubAgent extends Agent {
         bashToolRegistry,
       ],
       skillRegistries: [coreSkillRegistry],
-      baseSystemPrompt:
+      baseSystemPrompt: [
         'You are a helpful assistant working on a delegated subtask. ' +
-        'After completing your task, provide a concise summary of what you did and the results.',
+          'After completing your task, provide a concise summary of what you did and the results.',
+        '',
+        mathRenderingInstructions,
+      ].join('\n'),
       getMaxToolRounds: async () => {
         const settings = await settingsService.getAll();
         return settings.agent.maxToolRounds;
