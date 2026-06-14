@@ -83,20 +83,27 @@ describe('resumeAgentTool', () => {
     expect(resumeAgentTool.name).toBe('resume_agent');
   });
 
-  it('rejects a whitespace-only name', () => {
-    expect(
-      resumeAgentTool.parameters.safeParse({name: '   ', task: 'Continue'})
-        .success,
-    ).toBe(false);
+  it('rejects a name with surrounding whitespace and tells the model to fix the format', async () => {
+    const context = createMockContext();
+    const result = await resumeAgentTool.execute(
+      {name: '  crimson-otter  ', task: 'Continue'},
+      context,
+    );
+
+    expect(result.status).toBe('failure');
+    expect(result.content).toContain('Invalid subagent name');
+    expect(result.content).toContain('no surrounding whitespace');
   });
 
-  it('trims surrounding whitespace from the name', () => {
-    const parsed = resumeAgentTool.parameters.parse({
-      name: '  crimson-otter  ',
-      task: 'Continue',
-    });
+  it('rejects a whitespace-only name', async () => {
+    const context = createMockContext();
+    const result = await resumeAgentTool.execute(
+      {name: '   ', task: 'Continue'},
+      context,
+    );
 
-    expect(parsed.name).toBe('crimson-otter');
+    expect(result.status).toBe('failure');
+    expect(result.content).toContain('Invalid subagent name');
   });
 
   it('documents that the result includes the subagent name', () => {

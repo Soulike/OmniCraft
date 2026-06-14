@@ -150,4 +150,25 @@ describe('SubagentDisclosureView', () => {
 
     expect(screen.getByText('agent-dispatch-blank')).toBeInTheDocument();
   });
+
+  it('renders the trimmed nickname when it has surrounding whitespace', () => {
+    render(
+      <SubagentDisclosureView
+        mode='dispatch'
+        agentId='agent-dispatch-padded'
+        nickname='  crimson-otter  '
+        task='Padded nickname'
+        agentType='general'
+        thinkingLevel='none'
+        workingDirectory='/tmp/project'
+        status='complete'
+        eventBus={eventBus}
+        scrollRef={scrollRef}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', {name: /Padded nickname/}));
+
+    expect(screen.getByText('crimson-otter')).toBeInTheDocument();
+  });
 });

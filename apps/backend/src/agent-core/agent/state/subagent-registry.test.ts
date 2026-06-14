@@ -258,13 +258,15 @@ describe('SubagentRegistry', () => {
   it.each([
     ['empty', ''],
     ['whitespace-only', '   '],
+    ['leading whitespace', ' crimson-otter'],
+    ['trailing whitespace', 'crimson-otter '],
   ])('rejects a %s nickname', (_label, nickname) => {
     const registry = new SubagentRegistry();
     const agent = createMockAgent();
 
     expect(() => {
       registry.register(agent, SubAgentType.GENERAL, nickname);
-    }).toThrow(/blank/);
+    }).toThrow(/whitespace/);
   });
 
   it('returns undefined for an unknown nickname', () => {

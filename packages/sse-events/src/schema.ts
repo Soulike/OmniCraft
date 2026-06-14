@@ -237,9 +237,15 @@ const sseSubagentStartPayloadSchema = z.object({
   agentId: agentIdSchema,
   // Readable LLM-facing handle for the live subagent. Optional only for
   // backward compatibility with events persisted before nicknames existed;
-  // when present it must contain a non-whitespace character (a blank value
+  // when present it must be trimmed and non-empty (a blank or untrimmed value
   // signals a producer bug).
-  nickname: z.string().regex(/\S/).optional(),
+  nickname: z
+    .string()
+    .regex(
+      /^\S(.*\S)?$/,
+      'must be non-empty and have no surrounding whitespace',
+    )
+    .optional(),
   task: z.string(),
   agentType: subAgentTypeSchema,
   thinkingLevel: thinkingLevelSchema,

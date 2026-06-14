@@ -86,7 +86,7 @@ export function SubagentDisclosureView({
                     {AGENT_NAME_LABELS[mode]}
                   </span>
                   <span className={styles.agentId}>
-                    {nickname?.trim() ? nickname : agentId}
+                    {nickname?.trim() ? nickname.trim() : agentId}
                   </span>
                 </div>
               </div>

@@ -50,7 +50,10 @@ export class SubagentRegistry {
   // The nickname is trusted to be unique among live entries; the registry
   // enforces no uniqueness here. Obtain one from generateNickname() to guarantee it.
   register(agent: Agent, agentType: SubAgentType, nickname: string): void {
-    assert(nickname.trim(), 'subagent nickname must not be blank');
+    assert(
+      nickname !== '' && nickname === nickname.trim(),
+      'subagent nickname must be non-empty and have no surrounding whitespace',
+    );
     const id = subagentIdSchema.parse(agent.id);
     const parsedAgentType = subAgentTypeSchema.parse(agentType);
     this.records.set(id, {

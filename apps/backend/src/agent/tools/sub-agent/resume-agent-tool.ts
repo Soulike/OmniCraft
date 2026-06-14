@@ -15,10 +15,9 @@ import {
 const parameters = z.object({
   name: z
     .string()
-    .trim()
-    .min(1)
     .describe(
-      'Name of the subagent to resume, as returned when it was dispatched. ' +
+      'Name of the subagent to resume, exactly as returned when it was ' +
+        'dispatched, with no surrounding whitespace. ' +
         'Use this to send a previously dispatched subagent more work.',
     ),
   task: z.string().min(1).describe('Follow-up task for the subagent.'),
@@ -48,6 +47,17 @@ export const resumeAgentTool: ToolDefinition<
     args: z.infer<typeof parameters>,
     context: ToolExecutionContext,
   ): Promise<ToolExecuteResult<SubagentTurnResult>> {
+    // Reject malformed names instead of silently normalizing them, so the
+    // model gets feedback that it passed the wrong format rather than a
+    // confusing "not available to resume".
+    if (args.name !== args.name.trim() || args.name === '') {
+      return failure(
+        `Invalid subagent name "${args.name}": it must be a non-empty name ` +
+          'with no surrounding whitespace, exactly as returned when the ' +
+          'subagent was dispatched. Check the name and try again.',
+      );
+    }
+
     const handle = context.subagentRegistry.getByNickname(args.name);
     if (!handle) {
       return failure(
