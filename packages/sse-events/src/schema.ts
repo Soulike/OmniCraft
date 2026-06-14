@@ -235,6 +235,9 @@ export type SseBaseEvent = z.infer<typeof sseBaseEventSchema>;
 
 const sseSubagentStartPayloadSchema = z.object({
   agentId: agentIdSchema,
+  // Readable LLM-facing handle for the live subagent. Optional only for
+  // backward compatibility with events persisted before nicknames existed.
+  nickname: z.string().optional(),
   task: z.string(),
   agentType: subAgentTypeSchema,
   thinkingLevel: thinkingLevelSchema,
