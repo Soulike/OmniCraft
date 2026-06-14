@@ -15,6 +15,7 @@ import {
 const parameters = z.object({
   name: z
     .string()
+    .trim()
     .min(1)
     .describe(
       'Name of the subagent to resume, as returned when it was dispatched. ' +

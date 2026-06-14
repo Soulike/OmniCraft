@@ -83,6 +83,22 @@ describe('resumeAgentTool', () => {
     expect(resumeAgentTool.name).toBe('resume_agent');
   });
 
+  it('rejects a whitespace-only name', () => {
+    expect(
+      resumeAgentTool.parameters.safeParse({name: '   ', task: 'Continue'})
+        .success,
+    ).toBe(false);
+  });
+
+  it('trims surrounding whitespace from the name', () => {
+    const parsed = resumeAgentTool.parameters.parse({
+      name: '  crimson-otter  ',
+      task: 'Continue',
+    });
+
+    expect(parsed.name).toBe('crimson-otter');
+  });
+
   it('documents that the result includes the subagent name', () => {
     expect(resumeAgentTool.description).toContain('includes the subagent name');
   });
