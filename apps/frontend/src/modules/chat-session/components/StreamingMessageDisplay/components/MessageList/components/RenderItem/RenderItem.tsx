@@ -122,6 +122,7 @@ export function RenderItem({item}: RenderItemProps) {
           <SubagentDisclosure
             mode={item.mode}
             agentId={item.agentId}
+            nickname={item.nickname}
             task={item.task}
             agentType={item.agentType}
             thinkingLevel={item.thinkingLevel}

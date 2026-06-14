@@ -11,6 +11,7 @@ interface ListedResumableAgent {
   id: string;
   agentType: SubAgentType;
   title: string;
+  nickname: string;
   isRunning: boolean;
 }
 
@@ -30,7 +31,7 @@ function formatListResumableAgentsContent(
   return agents
     .map((agent) => {
       const status = agent.isRunning ? 'running' : 'idle';
-      return `- ${agent.title} (${agent.agentType}, ${status})\n  id: ${agent.id}`;
+      return `- ${agent.title} (${agent.agentType}, ${status})\n  name: ${agent.nickname}`;
     })
     .join('\n');
 }

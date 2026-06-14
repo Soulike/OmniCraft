@@ -83,8 +83,16 @@ describe('listResumableAgentsTool', () => {
       title: 'Explore Report',
       isRunning: true,
     });
-    context.subagentRegistry.register(general, SubAgentType.GENERAL);
-    context.subagentRegistry.register(explore, SubAgentType.EXPLORE);
+    context.subagentRegistry.register(
+      general,
+      SubAgentType.GENERAL,
+      'crimson-otter',
+    );
+    context.subagentRegistry.register(
+      explore,
+      SubAgentType.EXPLORE,
+      'silver-wren',
+    );
 
     const result = await listResumableAgentsTool.execute({}, context);
 
@@ -96,21 +104,23 @@ describe('listResumableAgentsTool', () => {
             id: general.id,
             agentType: SubAgentType.GENERAL,
             title: 'Build Summary',
+            nickname: 'crimson-otter',
             isRunning: false,
           },
           {
             id: explore.id,
             agentType: SubAgentType.EXPLORE,
             title: 'Explore Report',
+            nickname: 'silver-wren',
             isRunning: true,
           },
         ],
       },
     });
-    expect(result.content).toContain(general.id);
+    expect(result.content).toContain('crimson-otter');
     expect(result.content).toContain('Build Summary');
     expect(result.content).toContain('idle');
-    expect(result.content).toContain(explore.id);
+    expect(result.content).toContain('silver-wren');
     expect(result.content).toContain('Explore Report');
     expect(result.content).toContain('running');
   });
@@ -119,7 +129,11 @@ describe('listResumableAgentsTool', () => {
     const metadataSpy = vi.spyOn(agentPersistence, 'metadataPath');
     const snapshotSpy = vi.spyOn(agentPersistence, 'loadSnapshot');
     const agent = createMockAgent({title: 'Live Title'});
-    context.subagentRegistry.register(agent, SubAgentType.GENERAL);
+    context.subagentRegistry.register(
+      agent,
+      SubAgentType.GENERAL,
+      'crimson-otter',
+    );
 
     const result = await listResumableAgentsTool.execute({}, context);
 
@@ -131,6 +145,7 @@ describe('listResumableAgentsTool', () => {
             id: agent.id,
             agentType: SubAgentType.GENERAL,
             title: 'Live Title',
+            nickname: 'crimson-otter',
             isRunning: false,
           },
         ],

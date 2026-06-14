@@ -224,6 +224,7 @@ function pushSubagentStart(
   data: {
     mode: SubagentMode;
     agentId: string;
+    nickname?: string;
     task: string;
     agentType: string;
     thinkingLevel: ThinkingLevel;
@@ -242,6 +243,7 @@ function pushSubagentStart(
         type: 'subagent' as const,
         mode: data.mode,
         agentId: data.agentId,
+        nickname: data.nickname,
         task: data.task,
         agentType: data.agentType,
         thinkingLevel: data.thinkingLevel,
@@ -339,6 +341,7 @@ export function useMessages() {
     const onSubagentDispatched = (data: {
       mode: SubagentMode;
       agentId: string;
+      nickname?: string;
       task: string;
       agentType: string;
       thinkingLevel: ThinkingLevel;

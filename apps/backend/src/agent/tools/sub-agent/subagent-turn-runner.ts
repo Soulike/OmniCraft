@@ -20,6 +20,8 @@ export interface SubagentTurnResult {
 export interface RunSubagentTurnInput {
   readonly context: ToolExecutionContext;
   readonly subagent: Agent;
+  /** Readable handle surfaced to the caller in the turn's output. */
+  readonly nickname: string;
   readonly startEvent: SseSubagentDispatchEvent | SseSubagentResumeEvent;
   /**
    * Starts the subagent turn. Returns false when the subagent is busy and the
@@ -45,6 +47,7 @@ export function buildSubagentOutputEvent(
 export async function runSubagentTurn({
   context,
   subagent,
+  nickname,
   startEvent,
   startTurn,
   onTurnStarted,
@@ -74,7 +77,7 @@ export async function runSubagentTurn({
 
     if (!startTurn()) {
       const message =
-        `Subagent ${subagent.id} is already running. ` +
+        `Subagent ${nickname} is already running. ` +
         'Wait for it to finish before resuming it.';
       return {data: {message}, content: message, status: 'failure'};
     }
@@ -123,7 +126,7 @@ export async function runSubagentTurn({
       const summary =
         lastReplyText ||
         'Subagent completed the task but produced no text summary.';
-      const content = `<subagent_id>${subagent.id}</subagent_id>\n\n${summary}`;
+      const content = `<subagent_name>${nickname}</subagent_name>\n\n${summary}`;
       return {
         data: {summary, agentId: subagent.id},
         content,
