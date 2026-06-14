@@ -24,4 +24,18 @@ describe('createNickname', () => {
     expect(adjectives.length).toBeGreaterThanOrEqual(50);
     expect(nouns.length).toBeGreaterThanOrEqual(50);
   });
+
+  it('falls back to a numeric suffix when all base combinations are taken', () => {
+    const taken = new Set<string>();
+    for (const adjective of adjectives) {
+      for (const noun of nouns) {
+        taken.add(`${adjective}-${noun}`);
+      }
+    }
+
+    const nickname = createNickname(taken);
+
+    expect(taken.has(nickname)).toBe(false);
+    expect(nickname).toMatch(/^[a-z]+-[a-z]+-\d+$/);
+  });
 });
