@@ -9,8 +9,8 @@
   background: var(--aurora-glass-fill);
   border: 1px solid var(--aurora-glass-border);
   box-shadow: var(--aurora-glass-highlight);
-  backdrop-filter: blur(14px) saturate(1.6);
-  -webkit-backdrop-filter: blur(14px) saturate(1.6);
+  backdrop-filter: var(--aurora-glass-blur);
+  -webkit-backdrop-filter: var(--aurora-glass-blur);
 }
 
 .streaming .label {

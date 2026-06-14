@@ -27,7 +27,7 @@ export function TodoPanelView({items}: TodoPanelViewProps) {
       </Disclosure.Heading>
       <Disclosure.Content>
         <Disclosure.Body>
-          <Surface className={styles.body} variant='secondary'>
+          <Surface className={styles.body} variant='transparent'>
             <ul className={styles.list}>
               {items.map((item) => (
                 <li className={styles.item} key={item.index}>

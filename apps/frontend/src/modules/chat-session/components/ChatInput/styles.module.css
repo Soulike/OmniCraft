@@ -35,7 +35,10 @@
 }
 
 /* Neutralize HeroUI TextArea's own chrome so it reads as part of the capsule
-   (no inner border/background/focus-ring competing with the capsule glow). */
+   (no inner border/background/focus-ring competing with the capsule glow).
+   Not redundant with the global field/border tokens: those set colors, but the
+   field's focus ring is an independent box-shadow the tokens can't reach.
+   Scoped to the capsule on purpose — standalone inputs keep their ring. */
 .textarea:global(.textarea) {
   background: transparent;
   border: none;

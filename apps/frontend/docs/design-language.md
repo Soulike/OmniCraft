@@ -129,6 +129,42 @@ If a new surface needs a value that isn't here, **add it to
 `aurora-glass.css` for both themes** (P4) rather than inlining it in a
 component.
 
+### 3.3 HeroUI token overrides (controlled)
+
+Rather than restyle HeroUI components one-by-one, we override a small,
+deliberate set of HeroUI's own semantic tokens in `aurora-glass.css` so the
+glass material becomes the **default**. This is the preferred way to apply a
+global material decision — override the token once, every consuming component
+follows. Keep this set small and documented; do not let it sprawl.
+
+Current overrides (both themes, reinterpreted per P4):
+
+| HeroUI token                                 | Override                        | Why                                                                                                                                                                                                     |
+| -------------------------------------------- | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--surface`                                  | translucent (alpha ~0.75)       | In-panel cards/panels pick up the Mica tint instead of reading as solid slabs. **No blur** — the panel behind is already frosted; pure alpha = zero perf cost. Tuned high enough to keep text readable. |
+| `--surface-secondary` / `--surface-tertiary` | translucent, stepping alpha up  | Nested raised surfaces stay translucent too (HeroUI defines these as their own opaque values, not derived from `--surface`); deeper nesting reads slightly more solid.                                  |
+| `--field-background`                         | translucent (alpha ~0.8)        | Inputs share the card material, but a touch more fill for text contrast. Independent of `--surface` via HeroUI's `--field-*` tokens.                                                                    |
+| `--border`                                   | glass hairline (light-catching) | Aligns HeroUI's flat grey hairline to our blue-tinted glass edge globally.                                                                                                                              |
+
+**Deliberately NOT overridden:**
+
+- **`--overlay`** (menus, popovers, modals, tooltips) — stays opaque. A
+  translucent overlay would let text behind bleed through, and the only fix
+  (a backdrop blur on the overlay) requires targeting HeroUI's internal slot
+  classes, which is fragile across upgrades. Floating layers stay solid.
+- **`--field-foreground` / `--field-placeholder`** — text tokens stay on
+  HeroUI defaults for contrast.
+
+**Rules for this set:**
+
+- Material decisions that should apply app-wide go here as a token override,
+  **not** as a per-component `background`/`border` rule.
+- Never override a token in a way that needs `backdrop-filter` on many
+  elements or on overlays (perf + fragility). Translucency via alpha is free;
+  blur is reserved for the frame Mica and a few transient expanded glass cards
+  (`--aurora-glass-blur`).
+- Keep light and dark in sync (P4).
+
 ---
 
 ## 4. Typography
@@ -207,24 +243,29 @@ Surface roles:
    it), symmetric rounded corners, a faint light-catching border
    (`--aurora-mica-border`). **Mica is a frame-only material:** it applies to
    the panel container, NOT to the HeroUI content inside it.
-3. **Opaque content** — everything rendered _inside_ the panel (HeroUI cards,
-   inputs, tables, etc.) keeps its own opaque `--surface` background. This is
-   deliberate: it guarantees readability and avoids running `backdrop-filter`
-   on dozens of elements. Do **not** make HeroUI components translucent or
-   override their tokens to achieve "glass everywhere."
+3. **Translucent content surfaces** — everything rendered _inside_ the panel
+   (HeroUI cards, inputs, etc.) sits on a **translucent `--surface` /
+   `--field-background`** (set globally via the token overrides in §3.3), so
+   in-panel content shares the glass material and picks up the panel tint
+   **without** its own `backdrop-filter`. The translucency comes from alpha
+   alone (free); we do **not** run blur on these surfaces. Text-bearing blocks
+   that need maximum contrast (code/terminal/diff inside tool cards) stay on
+   the opaque `--background`. Overlays stay opaque (§3.3).
 4. **Flush glass accents** — glass pedestals, the active nav pill. Translucent
    fill (`--aurora-glass-fill`) + light-catching hairline
    (`--aurora-glass-border`) + top highlight (`--aurora-glass-highlight`),
    letting the canvas tint through.
 5. **Raised** — transient overlays (popovers, tooltips, modals via HeroUI).
-   Outer shadow, sits above everything. Use HeroUI's defaults, lightly tuned.
+   Outer shadow, sits above everything. **Opaque** (`--overlay`), so text
+   behind never bleeds through. Use HeroUI's defaults, lightly tuned.
 
 **Frame rule:** one canvas (on the layout) with sampleable colour blobs. The
 rail is transparent over it; the panel is a Mica material (translucent +
 backdrop-blur) inset by a uniform gap so the same canvas surrounds and tints
 it. No border lines define the frame — separation comes from the gap, the
 blur, and a hairline highlight, never from a drawn edge. Panel corners are
-symmetric. Mica stops at the frame: content surfaces stay opaque.
+symmetric. **Backdrop-blur stops at the frame:** in-panel surfaces gain glass
+via translucency (alpha), not blur; overlays stay opaque.
 
 ---
 
