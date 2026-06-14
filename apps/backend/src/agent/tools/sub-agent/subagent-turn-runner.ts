@@ -20,7 +20,7 @@ export interface SubagentTurnResult {
 export interface RunSubagentTurnInput {
   readonly context: ToolExecutionContext;
   readonly subagent: Agent;
-  /** Readable handle echoed back so the caller can resume by name. */
+  /** Readable handle surfaced to the caller in the turn's output. */
   readonly nickname: string;
   readonly startEvent: SseSubagentDispatchEvent | SseSubagentResumeEvent;
   /**
@@ -77,7 +77,7 @@ export async function runSubagentTurn({
 
     if (!startTurn()) {
       const message =
-        `Subagent ${subagent.id} is already running. ` +
+        `Subagent ${nickname} is already running. ` +
         'Wait for it to finish before resuming it.';
       return {data: {message}, content: message, status: 'failure'};
     }
