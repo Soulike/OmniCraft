@@ -3,8 +3,18 @@
   width: 180px;
 }
 
+.select :global(.select-trigger) {
+  border-radius: 9999px;
+  background: var(--aurora-glass-fill);
+  border: 1px solid var(--aurora-glass-border);
+  box-shadow: var(--aurora-glass-highlight);
+  min-height: 32px;
+  padding: 4px 12px;
+}
+
 .value {
   display: flex;
   align-items: center;
   gap: 4px;
+  color: var(--accent);
 }
