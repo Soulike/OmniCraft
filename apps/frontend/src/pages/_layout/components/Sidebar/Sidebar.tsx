@@ -5,6 +5,7 @@ import {useLocation} from 'react-router';
 import {useTheme} from '@/hooks/useTheme.js';
 import {ROUTES} from '@/routes.js';
 
+import {useActiveIndicator} from './hooks/useActiveIndicator.js';
 import {SidebarView} from './SidebarView.js';
 import type {NavItem} from './types.js';
 
@@ -43,6 +44,8 @@ export function Sidebar() {
     [primaryItems, settingsItem, location.pathname],
   );
 
+  const {listRef, indicator} = useActiveIndicator(selectedId);
+
   return (
     <SidebarView
       primaryItems={primaryItems}
@@ -50,6 +53,8 @@ export function Sidebar() {
       selectedId={selectedId}
       brandPath={ROUTES.dashboard()}
       theme={resolvedTheme}
+      listRef={listRef}
+      indicator={indicator}
     />
   );
 }

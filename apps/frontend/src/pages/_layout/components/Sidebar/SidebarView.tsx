@@ -1,5 +1,4 @@
-import {Tabs} from '@heroui/react';
-import type {FC, SVGProps} from 'react';
+import type {FC, RefObject, SVGProps} from 'react';
 import {Link} from 'react-router';
 
 import OmnicraftDarkIcon from '@/assets/icons/omnicraft-dark.svg?react';
@@ -7,6 +6,8 @@ import OmnicraftLightIcon from '@/assets/icons/omnicraft-light.svg?react';
 import type {ResolvedTheme} from '@/contexts/theme/index.js';
 
 import {ThemeToggle} from '../ThemeToggle/index.js';
+import {NavItemLink} from './components/NavItemLink/index.js';
+import type {IndicatorStyle} from './hooks/useActiveIndicator.js';
 import styles from './styles.module.css';
 import type {NavItem} from './types.js';
 
@@ -21,6 +22,8 @@ interface SidebarViewProps {
   selectedId: string;
   brandPath: string;
   theme: ResolvedTheme;
+  listRef: RefObject<HTMLElement | null>;
+  indicator: IndicatorStyle | null;
 }
 
 export function SidebarView({
@@ -29,6 +32,8 @@ export function SidebarView({
   selectedId,
   brandPath,
   theme,
+  listRef,
+  indicator,
 }: SidebarViewProps) {
   const BrandIcon = BRAND_ICONS[theme];
 
@@ -36,7 +41,9 @@ export function SidebarView({
     <aside className={styles.sidebar} aria-label='Primary'>
       <div className={styles.brandRow}>
         <Link className={styles.brand} to={brandPath}>
-          <BrandIcon className={styles.brandIcon} aria-hidden='true' />
+          <span className={styles.pedestal}>
+            <BrandIcon className={styles.brandIcon} aria-hidden='true' />
+          </span>
           <span className={styles.brandName}>OmniCraft</span>
         </Link>
         <div className={styles.themeSlot}>
@@ -44,47 +51,31 @@ export function SidebarView({
         </div>
       </div>
 
-      <Tabs
-        className={styles.nav}
-        orientation='vertical'
-        selectedKey={selectedId}
-      >
-        <Tabs.ListContainer>
-          <Tabs.List className={styles.navList} aria-label='Navigation'>
-            {primaryItems.map((item) => (
-              <Tabs.Tab
-                key={item.id}
-                id={item.id}
-                className={styles.navTab}
-                href={item.path}
-                render={(domProps) => {
-                  if (!('href' in domProps)) return <div {...domProps} />;
-                  const {href: _href, ...linkProps} = domProps;
-                  return <Link {...linkProps} to={item.path} />;
-                }}
-              >
-                <item.Icon className={styles.navIcon} size={17} />
-                {item.label}
-                <Tabs.Indicator />
-              </Tabs.Tab>
-            ))}
-            <Tabs.Tab
-              id={settingsItem.id}
-              className={`${styles.navTab} ${styles.settingsTab}`}
-              href={settingsItem.path}
-              render={(domProps) => {
-                if (!('href' in domProps)) return <div {...domProps} />;
-                const {href: _href, ...linkProps} = domProps;
-                return <Link {...linkProps} to={settingsItem.path} />;
-              }}
-            >
-              <settingsItem.Icon className={styles.navIcon} size={17} />
-              {settingsItem.label}
-              <Tabs.Indicator />
-            </Tabs.Tab>
-          </Tabs.List>
-        </Tabs.ListContainer>
-      </Tabs>
+      <nav className={styles.nav} ref={listRef} aria-label='Primary navigation'>
+        <span
+          className={styles.indicator}
+          style={indicator ?? undefined}
+          aria-hidden='true'
+        >
+          <span key={selectedId} className={styles.sheen} />
+        </span>
+        {primaryItems.map((item) => (
+          <NavItemLink
+            key={item.id}
+            to={item.path}
+            label={item.label}
+            Icon={item.Icon}
+            active={item.id === selectedId}
+          />
+        ))}
+        <NavItemLink
+          to={settingsItem.path}
+          label={settingsItem.label}
+          Icon={settingsItem.Icon}
+          active={settingsItem.id === selectedId}
+          className={styles.settingsItem}
+        />
+      </nav>
     </aside>
   );
 }
