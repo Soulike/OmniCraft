@@ -61,6 +61,14 @@ line**, with the composer centered beneath. Calm and on-brand; deliberately
 does **not** introduce a starter-prompt library (that would be a separate
 product decision).
 
+### D5 — Tool cards: quiet pills, B-tier glass on expand
+
+Collapsed tool calls are **quiet pills** (nearly text, no card border) so
+tool-heavy turns stay scannable. On expand, the **card shell becomes
+translucent glass** while **inner code/terminal/diff blocks stay opaque** for
+readability ("B-tier"). This is a deliberate narrow amendment to
+design-language §5 — see §3a and the Tokens amendment note.
+
 ## Component-Level Design
 
 ### 1. Tokens (foundation)
@@ -76,6 +84,21 @@ existing `--aurora-*` glass tokens instead of raw values.
   theme, never port a dark effect onto light unchanged). Never inline raw
   rgba/gradients into a component.
 - No new token unless a component genuinely needs it; prefer reuse.
+
+**Stronger Mica panel (frame tuning).** Verified against the real canvas, the
+current Mica recipe reads slightly flat. Tune `--aurora-mica-fill` /
+`--aurora-mica-blur` / `--aurora-mica-border` to a more translucent, more
+blurred, more saturated recipe so the canvas colour-drift shows through and
+the panel feels genuinely glassy. This lives in `aurora-glass.css` and so
+lifts the **whole frame** (all pages), not just Chat — apply to both themes.
+
+**Design-language amendment (tool-card shells).** Design-language §5 currently
+says Mica is frame-only and all in-panel content stays opaque. This redesign
+narrows that: **the tool-card shell may be translucent glass, but any
+text-bearing block inside it (code, terminal, diff, JSON) stays opaque.** The
+"never glass the readable text" intent is preserved; only the card chrome
+becomes glass. `docs/design-language.md` §5/§6.x must be updated to record
+this when the work lands.
 
 ### 2. SessionSidebar — left glass column
 
@@ -105,10 +128,47 @@ existing `--aurora-*` glass tokens instead of raw values.
 - **`MessageList`:** widen the reading measure now that assistant text is
   unboxed; tune vertical rhythm for the label+text pattern and the gap between
   turns.
-- **Tool / thinking surfaces** (`ToolExecutionCard`, `ThinkingBlock`,
-  result/parameter cards): keep their existing structure and interactions —
-  only align their surface fills, borders, and code-block backgrounds to the
-  Aurora glass tokens so they sit naturally in the unboxed assistant flow.
+
+### 3a. Tool cards (the in-stream tool-execution subsystem)
+
+Tool calls are a large share of the conversation surface, so they get their
+own treatment rather than a hand-wave. All 11 tool renderers share one shell
+(`ToolExecutionCard`) with two states:
+
+**Collapsed pill (the dominant element).** What fills most of a tool-heavy
+turn: a status icon + tool display-name + a muted target (e.g. file path,
+command, `"pattern" · N matches`). The pill is **quiet by default** — nearly
+text, no card border, blending into the unboxed assistant prose; a faint
+glass hover wash + the expand chevron are the only chrome. Status icons:
+running `Spinner`, done `CircleCheck`, failure `CircleAlert` (warning), error
+`CircleX` (danger). This keeps long tool sequences scannable and honors
+"accent is precious."
+
+**Expanded glass card.** On expand, the shell becomes a **B-tier glass card**
+(decided via mockup): the card _shell_ is translucent glass + `backdrop-filter`
+(`--aurora-glass-fill` / `--aurora-glass-border`, blends into the Mica), but
+the **inner code/terminal/diff blocks keep a solid opaque background** for
+contrast and to avoid running `backdrop-filter` on every line. This is a
+deliberate, narrow amendment to design-language §5 (see "Design-language
+amendment" below) — glass on the card shell, never on the text-bearing blocks.
+
+**Body archetypes.** The 11 renderers collapse into four visual patterns;
+restyle each to Aurora tokens, structure unchanged:
+
+1. **Diff** (`edit_file`) — diff2html add/remove/context lines in an opaque
+   code frame; add = success tint, remove = danger tint.
+2. **Terminal** (`run_command`) — `$ command` + stdout/stderr in opaque mono
+   blocks, with an exit-code badge (`exit 0` success / `exit N` danger /
+   `timed out` warning).
+3. **File list** (`find_files`, `search_files`) — file/line rows, mono, with
+   the matched substring accent-highlighted.
+4. **Web results** (`web_search`, `web_fetch`) — title (accent) / url
+   (success-tinted mono) / snippet (muted) rows.
+   `read_file`, `write_file`, `load_skill`, `get_current_time`, and the
+   `HighlightedJson` fallback reuse these same patterns.
+
+**`ThinkingBlock`** follows the same quiet-pill → glass-card pattern as the
+tool cards, for consistency.
 
 ### 4. Composer & bars
 
@@ -154,6 +214,12 @@ Manual browser review in **both themes**, across **Chat and Coding**:
   collapse toggle still works.
 - Assistant messages render as bare full-width text; user turns as glass accent
   bubbles; tool/thinking cards sit naturally in-flow.
+- Tool calls: collapsed pills read as quiet near-text with correct status
+  icons; on expand the card shell is glass while code/terminal/diff blocks stay
+  opaque and legible; all four body archetypes (diff, terminal, file list, web)
+  render correctly over the canvas.
+- Stronger Mica: the panel shows canvas colour-drift (not flat grey) in both
+  themes, and content inside stays readable.
 - Composer capsule: focus glow fires once and settles; thinking pill + Send
   read correctly; Stop state during streaming.
 - Welcome state (Chat) and restyled TaskDispatchCard (Coding) on a new session.
