@@ -83,8 +83,8 @@ describe('resumeAgentTool', () => {
     expect(resumeAgentTool.name).toBe('resume_agent');
   });
 
-  it('documents that the result includes the subagent id', () => {
-    expect(resumeAgentTool.description).toContain('includes the subagent id');
+  it('documents that the result includes the subagent name', () => {
+    expect(resumeAgentTool.description).toContain('includes the subagent name');
   });
 
   it('is registered by the subagent tool registry', () => {
@@ -93,25 +93,10 @@ describe('resumeAgentTool', () => {
     expect(registry.get('resume_agent')).toBe(resumeAgentTool);
   });
 
-  it('returns a normal failure for malformed ids', async () => {
+  it('returns a normal failure for unknown names', async () => {
     const context = createMockContext();
     const result = await resumeAgentTool.execute(
-      {agentId: 'not-a-uuid', task: 'Continue'},
-      context,
-    );
-
-    expect(result.status).toBe('failure');
-    expect(result.content).toContain('Invalid subagent id');
-    expect(result.content).toContain('must be a UUID');
-    expect(result.content).not.toContain(
-      'expected a UUID from list_resumable_agents',
-    );
-  });
-
-  it('returns a normal failure for unknown ids', async () => {
-    const context = createMockContext();
-    const result = await resumeAgentTool.execute(
-      {agentId: crypto.randomUUID(), task: 'Continue'},
+      {name: 'no-such-name', task: 'Continue'},
       context,
     );
 
@@ -122,10 +107,14 @@ describe('resumeAgentTool', () => {
   it('returns a busy failure for running subagents', async () => {
     const context = createMockContext();
     const subagent = createMockSubagent({isRunning: true});
-    context.subagentRegistry.register(subagent, SubAgentType.GENERAL);
+    context.subagentRegistry.register(
+      subagent,
+      SubAgentType.GENERAL,
+      'crimson-otter',
+    );
 
     const result = await resumeAgentTool.execute(
-      {agentId: subagent.id, task: 'Continue'},
+      {name: 'crimson-otter', task: 'Continue'},
       context,
     );
 
@@ -136,23 +125,28 @@ describe('resumeAgentTool', () => {
   it('runs a follow-up turn on a registered idle subagent', async () => {
     const context = createContextWithEvents();
     const subagent = createMockSubagent({output: 'follow-up result'});
-    context.subagentRegistry.register(subagent, SubAgentType.EXPLORE);
+    context.subagentRegistry.register(
+      subagent,
+      SubAgentType.EXPLORE,
+      'crimson-otter',
+    );
 
     const result = await resumeAgentTool.execute(
-      {agentId: subagent.id, task: 'Continue analysis'},
+      {name: 'crimson-otter', task: 'Continue analysis'},
       context,
     );
 
     expect(result).toMatchObject({
       status: 'success',
       data: {summary: 'follow-up result', agentId: subagent.id},
-      content: `<subagent_id>${subagent.id}</subagent_id>\n\nfollow-up result`,
+      content: `<subagent_name>crimson-otter</subagent_name>\n\nfollow-up result`,
     });
     expect(subagent.handledMessages).toEqual(['Continue analysis']);
     expect(context.events).toEqual([
       {
         type: 'subagent-resume',
         agentId: subagent.id,
+        nickname: 'crimson-otter',
         task: 'Continue analysis',
         agentType: SubAgentType.EXPLORE,
         thinkingLevel: 'none',
@@ -207,16 +201,20 @@ describe('resumeAgentTool', () => {
       },
     } as unknown as Agent & {handledMessages: string[]};
     Object.defineProperty(subagent, 'isRunning', {get: () => running});
-    context.subagentRegistry.register(subagent, SubAgentType.GENERAL);
+    context.subagentRegistry.register(
+      subagent,
+      SubAgentType.GENERAL,
+      'crimson-otter',
+    );
 
     const first = resumeAgentTool.execute(
-      {agentId: subagent.id, task: 'First'},
+      {name: 'crimson-otter', task: 'First'},
       context,
     );
     await Promise.resolve();
 
     const second = await resumeAgentTool.execute(
-      {agentId: subagent.id, task: 'Second'},
+      {name: 'crimson-otter', task: 'Second'},
       context,
     );
 
