@@ -128,18 +128,53 @@ component.
 
 ## 4. Typography
 
-| Role                       | Font                          | Notes                                           |
-| -------------------------- | ----------------------------- | ----------------------------------------------- |
-| Display / brand / headings | **Bricolage Grotesque** (600) | Distinctive, characterful. The product's voice. |
-| UI / body / labels         | **Sora** (400–600)            | Clean, geometric, pairs with Bricolage.         |
-| Code / mono (where needed) | existing mono stack           | Tool output, IDs, etc.                          |
+| Role                       | Font                          | Notes                                                       |
+| -------------------------- | ----------------------------- | ----------------------------------------------------------- |
+| Display / brand / headings | **Bricolage Grotesque** (600) | Distinctive, characterful. The product's voice. Latin only. |
+| UI / body / labels         | **Sora** (400–600)            | Clean, geometric, pairs with Bricolage. Latin only.         |
+| Code / mono (where needed) | existing mono stack           | Tool output, IDs, etc.                                      |
+| CJK / Chinese (all roles)  | **system fallback**           | See sourcing rule below — we do not self-host a CJK font.   |
+
+### Sourcing & loading
+
+- **Self-host the Latin fonts via Fontsource — never a CDN `<link>`.** This is
+  a localized/desktop tool; Google Fonts CDN is unreliable in some regions and
+  adds a third-party request. Install with the package manager (do not write
+  versions by hand):
+  - `@fontsource-variable/bricolage-grotesque`
+  - `@fontsource-variable/sora`
+  - Both are variable fonts (one file covers the weight range) and ship
+    **Latin glyphs only**, which is exactly what we want.
+- **Chinese falls back to the OS Chinese font.** Bricolage/Sora carry no CJK
+  glyphs, and the UI is heavily Chinese. Rather than self-host a large CJK
+  webfont, let Chinese characters fall back to the system stack. Put the Latin
+  design font first and a CJK system stack after it, e.g.:
+
+  ```css
+  --font-display:
+    'Bricolage Grotesque Variable', 'PingFang SC', 'Microsoft YaHei',
+    'Noto Sans CJK SC', sans-serif;
+  --font-ui:
+    'Sora Variable', 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC',
+    sans-serif;
+  ```
+
+  Result: Latin runs render in the design font; Chinese runs render in the
+  user's native system font. Accept that mixed Latin+Chinese lines use two
+  typefaces — this is the deliberate trade to keep the bundle small and avoid
+  CDN dependence. (If a fully unified CJK design font is ever wanted, that's a
+  separate decision — the only viable Fontsource option is the large
+  `Noto Sans SC`, and it must be weight-subset, not shipped whole.)
+
+- Define the two font stacks as tokens (alongside the Aurora tokens) so
+  components reference `var(--font-display)` / `var(--font-ui)`, not raw names.
+
+### Usage
 
 - Never ship the generic `system-ui`/Inter/Arial look for primary chrome —
   it reads as "unstyled."
 - Tighten display tracking slightly (`letter-spacing: -0.01em`) for polish.
 - Keep body legible: don't tighten UI text below default.
-- Load fonts app-wide (self-host or Google Fonts) — confirm the loading path
-  with the existing setup before adding new requests.
 
 ---
 
