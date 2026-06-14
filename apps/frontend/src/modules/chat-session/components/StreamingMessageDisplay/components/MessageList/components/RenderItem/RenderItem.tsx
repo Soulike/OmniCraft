@@ -101,6 +101,9 @@ export function RenderItem({item}: RenderItemProps) {
       );
     }
     case 'thinking':
+      if (item.content.trim() === '') {
+        return null;
+      }
       return (
         <div className={clsx(styles.assistantMessage, styles.fullWidthMessage)}>
           <ThinkingBlock content={item.content} done={item.done} />
