@@ -9,4 +9,8 @@ describe('mainAgentSystemPrompt', () => {
     expect(mainAgentSystemPrompt).toContain('\\(...\\)');
     expect(mainAgentSystemPrompt).toContain('\\[...\\]');
   });
+
+  it('instructs the model to escape literal dollar signs', () => {
+    expect(mainAgentSystemPrompt).toContain('\\$');
+  });
 });
