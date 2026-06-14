@@ -114,8 +114,9 @@ function pick(words: readonly string[]): string {
 
 /**
  * Returns an `adjective-noun` handle not present in `taken`. Falls back to a
- * numeric suffix if the combination space is ever exhausted so the function
- * always terminates with a unique value.
+ * numeric suffix if the combination space is ever exhausted: the base is fixed
+ * once and only the suffix increments, so termination is obvious — `taken` is
+ * finite and the monotonically increasing suffix must reach an unused value.
  */
 export function createNickname(taken: ReadonlySet<string>): string {
   for (let attempt = 0; attempt < 100; attempt++) {
@@ -123,11 +124,10 @@ export function createNickname(taken: ReadonlySet<string>): string {
     if (!taken.has(candidate)) return candidate;
   }
 
+  const base = `${pick(adjectives)}-${pick(nouns)}`;
   let suffix = 2;
-  let candidate = `${pick(adjectives)}-${pick(nouns)}-${suffix}`;
-  while (taken.has(candidate)) {
+  while (taken.has(`${base}-${suffix}`)) {
     suffix += 1;
-    candidate = `${pick(adjectives)}-${pick(nouns)}-${suffix}`;
   }
-  return candidate;
+  return `${base}-${suffix}`;
 }
