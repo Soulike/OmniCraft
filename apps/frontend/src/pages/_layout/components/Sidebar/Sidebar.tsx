@@ -6,6 +6,7 @@ import {useTheme} from '@/hooks/useTheme.js';
 import {ROUTES} from '@/routes.js';
 
 import {useActiveIndicator} from './hooks/useActiveIndicator.js';
+import {useNavigationSheen} from './hooks/useNavigationSheen.js';
 import {SidebarView} from './SidebarView.js';
 import type {NavItem} from './types.js';
 
@@ -45,6 +46,7 @@ export function Sidebar() {
   );
 
   const {listRef, indicator} = useActiveIndicator(selectedId);
+  const sheenKey = useNavigationSheen(selectedId);
 
   return (
     <SidebarView
@@ -55,6 +57,7 @@ export function Sidebar() {
       theme={resolvedTheme}
       listRef={listRef}
       indicator={indicator}
+      sheenKey={sheenKey}
     />
   );
 }

@@ -24,6 +24,7 @@ interface SidebarViewProps {
   theme: ResolvedTheme;
   listRef: RefObject<HTMLElement | null>;
   indicator: IndicatorStyle | null;
+  sheenKey: string | null;
 }
 
 export function SidebarView({
@@ -34,6 +35,7 @@ export function SidebarView({
   theme,
   listRef,
   indicator,
+  sheenKey,
 }: SidebarViewProps) {
   const BrandIcon = BRAND_ICONS[theme];
 
@@ -57,7 +59,9 @@ export function SidebarView({
           style={indicator ?? undefined}
           aria-hidden='true'
         >
-          <span key={selectedId} className={styles.sheen} />
+          {sheenKey !== null && (
+            <span key={sheenKey} className={styles.sheen} />
+          )}
         </span>
         {primaryItems.map((item) => (
           <NavItemLink
