@@ -28,3 +28,35 @@ describe('RenderItem thinking', () => {
     expect(screen.getByText('reasoning…')).toBeInTheDocument();
   });
 });
+
+describe('RenderItem assistant-text', () => {
+  it('does not show a timestamp for an empty waiting bubble', () => {
+    render(
+      <RenderItem
+        item={{
+          type: 'assistant-text',
+          id: 'msg-1',
+          content: '',
+          createdAt: 1_700_000_000_000,
+        }}
+      />,
+    );
+
+    expect(document.querySelector('time')).toBeNull();
+  });
+
+  it('shows a timestamp once content has arrived', () => {
+    render(
+      <RenderItem
+        item={{
+          type: 'assistant-text',
+          id: 'msg-1',
+          content: 'done',
+          createdAt: 1_700_000_000_000,
+        }}
+      />,
+    );
+
+    expect(document.querySelector('time')).not.toBeNull();
+  });
+});

@@ -35,7 +35,7 @@ export function RenderItem({item}: RenderItemProps) {
       return (
         <div className={styles.assistantMessage}>
           <MessageBubble role='assistant' id={item.id} content={item.content} />
-          {item.createdAt !== null && (
+          {item.createdAt !== null && item.content !== '' && (
             <time className={clsx(styles.timestamp, styles.timestampRight)}>
               {formatTimestamp(item.createdAt)}
             </time>

@@ -35,7 +35,7 @@
 
 .word {
   font-size: 0.9375rem;
-  line-height: 1;
+  line-height: 1.2;
   font-weight: 600;
   background: linear-gradient(
     90deg,
