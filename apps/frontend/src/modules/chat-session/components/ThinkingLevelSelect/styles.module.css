@@ -3,7 +3,7 @@
   width: 180px;
 }
 
-.select :global(.select-trigger) {
+.select :global(.select__trigger) {
   border-radius: 9999px;
   background: var(--aurora-glass-fill);
   border: 1px solid var(--aurora-glass-border);
