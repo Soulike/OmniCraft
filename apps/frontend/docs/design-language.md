@@ -185,9 +185,14 @@ component.
 
 Three depth tiers — pick the one that matches the surface's role:
 
-1. **Recessed (inset)** — the main content panel. Sits _into_ the frame:
-   slightly darker than surroundings, inner shadow on top+left, the rail
-   edge casts onto it. Reads as a screen set into a bezel.
+1. **Recessed (inset)** — the main content panel. Inset on all sides by a
+   uniform gap of the page `--background` colour (so the gap reads as a frame
+   continuous with the rail), with symmetric rounded corners, **no border**,
+   and only a faint inner shadow (`--aurora-inset-shadow`) so it reads as
+   gently set into the surrounding frame. The panel surface
+   (`--aurora-panel-bg`) sits a touch off the gap colour. Keep the inner
+   shadow subtle — it should suggest depth, not draw a dark edge that
+   attracts attention.
 2. **Flush glass** — the rail itself, glass pedestals, the active nav pill.
    Translucent fill (`--aurora-glass-fill`) + light-catching hairline
    (`--aurora-glass-border`) + top highlight (`--aurora-glass-highlight`).
@@ -195,10 +200,11 @@ Three depth tiers — pick the one that matches the surface's role:
    Outer shadow, sits above everything. Use HeroUI's defaults, lightly
    tuned to match.
 
-**Seam rule:** when two chrome surfaces meet (rail ↔ panel), dissolve the
-boundary rather than drawing a hard line. The panel has **no border on the
-shared edge**; a short gradient sliver in the rail's tone blends them so they
-read as one continuous object. Free edges keep their rounded corners.
+**Frame rule:** the main panel is wrapped in a uniform gap of the page
+`--background` colour, which is the same base the rail sits on, so the gap
+reads as a continuous frame around the content rather than a separate margin.
+The panel draws **no border line** — separation comes only from the gap and a
+faint inner shadow. Corners are symmetric (all four rounded equally).
 
 ---
 

@@ -13,18 +13,16 @@
   position: relative;
   flex: 1;
   min-width: 0;
-  margin: 14px 14px 14px 0;
+  margin: 14px;
   background: var(--aurora-panel-bg);
-  border: 1px solid var(--border);
-  border-left: none;
-  border-radius: 0 16px 16px 0;
+  border-radius: 16px;
   overflow: hidden;
   display: flex;
   flex-direction: column;
 }
 
-/* Recessed bezel: an overlay that paints the inner shadow above page
-   content so the panel reads as set INTO the rail's plane. */
+/* Faint inner shadow so the panel reads as gently recessed into the
+   surrounding frame, painted above page content. */
 .panel::after {
   content: '';
   position: absolute;

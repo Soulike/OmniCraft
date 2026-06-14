@@ -38,8 +38,8 @@
   );
   --aurora-active-bar: linear-gradient(var(--accent), oklch(0.55 0.2 262));
   --aurora-active-bar-glow: none; /* glow reads dirty on white */
-  --aurora-inset-shadow: inset 10px 10px 22px -12px rgba(40, 55, 120, 0.28);
-  --aurora-panel-bg: oklch(0.95 0.002 286);
+  --aurora-inset-shadow: inset 0 0 12px 0 rgba(40, 55, 120, 0.12);
+  --aurora-panel-bg: oklch(0.99 0.001 286);
   --aurora-sheen: linear-gradient(
     100deg,
     transparent,
@@ -66,8 +66,8 @@
   );
   --aurora-active-bar: linear-gradient(#7ea2ff, #b07bff);
   --aurora-active-bar-glow: 0 0 12px rgba(130, 150, 255, 0.95);
-  --aurora-inset-shadow: inset 10px 10px 22px -12px rgba(0, 0, 0, 0.85);
-  --aurora-panel-bg: oklch(0.1 0.005 285.82);
+  --aurora-inset-shadow: inset 0 0 12px 0 rgba(0, 0, 0, 0.4);
+  --aurora-panel-bg: oklch(0.165 0.006 285.82);
   --aurora-sheen: linear-gradient(
     100deg,
     transparent,
