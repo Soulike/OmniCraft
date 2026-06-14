@@ -1,6 +1,6 @@
 import type {ThinkingLevel} from '@omnicraft/api-schema';
 
-import {CoreSkillRegistry} from '@/agent/skills/index.js';
+import {coreSkillRegistry} from '@/agent/skills/index.js';
 import {
   bashToolRegistry,
   coreToolRegistry,
@@ -29,7 +29,7 @@ export class GeneralSubAgent extends Agent {
         webToolRegistry,
         bashToolRegistry,
       ],
-      skillRegistries: [CoreSkillRegistry.getInstance()],
+      skillRegistries: [coreSkillRegistry],
       baseSystemPrompt:
         'You are a helpful assistant working on a delegated subtask. ' +
         'After completing your task, provide a concise summary of what you did and the results.',

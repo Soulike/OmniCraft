@@ -1,1 +1,4 @@
-export {CoreSkillRegistry} from './core/core-skill-registry.js';
+export {
+  CoreSkillRegistry,
+  coreSkillRegistry,
+} from './core/core-skill-registry.js';

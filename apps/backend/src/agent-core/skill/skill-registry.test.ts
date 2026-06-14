@@ -8,10 +8,6 @@ import {afterEach, beforeEach, describe, expect, it} from 'vitest';
 import {SkillRegistry} from './skill-registry.js';
 
 class TestSkillRegistry extends SkillRegistry {
-  static createForTest(): TestSkillRegistry {
-    return new TestSkillRegistry();
-  }
-
   /** Exposes protected loadFromFile for testing. */
   public override async loadFromFile(filePath: string): Promise<void> {
     return super.loadFromFile(filePath);
@@ -37,7 +33,7 @@ describe('SkillRegistry', () => {
       '---\nname: test-skill\ndescription: A test skill\n---\n\n# Test\n\nBody content.',
     );
 
-    const registry = TestSkillRegistry.createForTest();
+    const registry = new TestSkillRegistry();
     await registry.loadFromFile(filePath);
 
     const skill = registry.get('test-skill');
@@ -47,7 +43,7 @@ describe('SkillRegistry', () => {
   });
 
   it('returns undefined for unknown skill name', () => {
-    const registry = TestSkillRegistry.createForTest();
+    const registry = new TestSkillRegistry();
     expect(registry.get('nonexistent')).toBeUndefined();
   });
 
@@ -63,7 +59,7 @@ describe('SkillRegistry', () => {
       '---\nname: skill-b\ndescription: Skill B\n---\nBody B',
     );
 
-    const registry = TestSkillRegistry.createForTest();
+    const registry = new TestSkillRegistry();
     await registry.loadFromFile(file1);
     await registry.loadFromFile(file2);
 
@@ -77,7 +73,7 @@ describe('SkillRegistry', () => {
       '---\nname: my-skill\ndescription: Does something useful\n---\nContent.',
     );
 
-    const registry = TestSkillRegistry.createForTest();
+    const registry = new TestSkillRegistry();
     await registry.loadFromFile(filePath);
 
     expect(registry.getSummaryList()).toEqual([
@@ -89,7 +85,7 @@ describe('SkillRegistry', () => {
     const filePath = path.join(tempDir, 'bad-skill.md');
     await writeFile(filePath, '---\nname: only-name\n---\nContent.');
 
-    const registry = TestSkillRegistry.createForTest();
+    const registry = new TestSkillRegistry();
     await expect(registry.loadFromFile(filePath)).rejects.toThrow(
       'missing required frontmatter fields',
     );
@@ -101,7 +97,7 @@ describe('SkillRegistry', () => {
     await writeFile(file1, '---\nname: dupe\ndescription: First\n---\nBody');
     await writeFile(file2, '---\nname: dupe\ndescription: Second\n---\nBody');
 
-    const registry = TestSkillRegistry.createForTest();
+    const registry = new TestSkillRegistry();
     await registry.loadFromFile(file1);
     await expect(registry.loadFromFile(file2)).rejects.toThrow(
       'Skill "dupe" is already registered',

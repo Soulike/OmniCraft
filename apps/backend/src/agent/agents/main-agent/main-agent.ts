@@ -1,6 +1,6 @@
 import type {ThinkingLevel} from '@omnicraft/api-schema';
 
-import {CoreSkillRegistry} from '@/agent/skills/index.js';
+import {coreSkillRegistry} from '@/agent/skills/index.js';
 import {
   bashToolRegistry,
   clientToolRegistry,
@@ -47,7 +47,7 @@ export class MainAgent extends Agent {
           clientToolRegistry,
           todoToolRegistry,
         ],
-        skillRegistries: [CoreSkillRegistry.getInstance()],
+        skillRegistries: [coreSkillRegistry],
         baseSystemPrompt: mainAgentSystemPrompt,
         getMaxToolRounds: async () => {
           const settings = await settingsService.getAll();
