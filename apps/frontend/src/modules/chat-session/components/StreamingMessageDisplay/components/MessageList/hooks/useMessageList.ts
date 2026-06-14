@@ -76,6 +76,7 @@ export interface SubagentRenderItem {
   type: 'subagent';
   mode: SubagentMode;
   agentId: string;
+  nickname?: string;
   task: string;
   agentType: string;
   thinkingLevel: ThinkingLevel;
@@ -226,6 +227,7 @@ export function transformMessages(
           type: 'subagent',
           mode: content.mode,
           agentId: content.agentId,
+          nickname: content.nickname,
           task: content.task,
           agentType: content.agentType,
           thinkingLevel: content.thinkingLevel,

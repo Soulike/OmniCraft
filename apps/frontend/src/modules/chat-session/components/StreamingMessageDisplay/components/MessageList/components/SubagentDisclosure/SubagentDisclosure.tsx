@@ -8,6 +8,7 @@ import {SubagentDisclosureView} from './SubagentDisclosureView.js';
 interface SubagentDisclosureProps {
   mode: SubagentMode;
   agentId: string;
+  nickname?: string;
   task: string;
   agentType: string;
   thinkingLevel: ThinkingLevel;
@@ -19,6 +20,7 @@ interface SubagentDisclosureProps {
 export function SubagentDisclosure({
   mode,
   agentId,
+  nickname,
   task,
   agentType,
   thinkingLevel,
@@ -32,6 +34,7 @@ export function SubagentDisclosure({
     <SubagentDisclosureView
       mode={mode}
       agentId={agentId}
+      nickname={nickname}
       task={task}
       agentType={agentType}
       thinkingLevel={thinkingLevel}

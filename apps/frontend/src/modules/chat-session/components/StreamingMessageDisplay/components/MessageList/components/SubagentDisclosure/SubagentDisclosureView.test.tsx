@@ -58,11 +58,12 @@ afterEach(() => {
 });
 
 describe('SubagentDisclosureView', () => {
-  it('renders dispatch mode and subagent id copy', () => {
+  it('renders dispatch mode and the subagent name', () => {
     render(
       <SubagentDisclosureView
         mode='dispatch'
         agentId='agent-dispatch-1'
+        nickname='crimson-otter'
         task='Search config files'
         agentType='general'
         thinkingLevel='none'
@@ -78,15 +79,16 @@ describe('SubagentDisclosureView', () => {
 
     fireEvent.click(trigger);
 
-    expect(screen.getByText('Subagent ID')).toBeInTheDocument();
-    expect(screen.getByText('agent-dispatch-1')).toBeInTheDocument();
+    expect(screen.getByText('Subagent')).toBeInTheDocument();
+    expect(screen.getByText('crimson-otter')).toBeInTheDocument();
   });
 
-  it('renders resume mode and resumed subagent id copy', () => {
+  it('renders resume mode and the resumed subagent name', () => {
     render(
       <SubagentDisclosureView
         mode='resume'
         agentId='agent-resume-1'
+        nickname='silver-wren'
         task='Continue config search'
         agentType='general'
         thinkingLevel='none'
@@ -104,7 +106,27 @@ describe('SubagentDisclosureView', () => {
 
     fireEvent.click(trigger);
 
-    expect(screen.getByText('Resumed subagent ID')).toBeInTheDocument();
-    expect(screen.getByText('agent-resume-1')).toBeInTheDocument();
+    expect(screen.getByText('Resumed subagent')).toBeInTheDocument();
+    expect(screen.getByText('silver-wren')).toBeInTheDocument();
+  });
+
+  it('falls back to the agent id when no nickname is present', () => {
+    render(
+      <SubagentDisclosureView
+        mode='dispatch'
+        agentId='agent-dispatch-legacy'
+        task='Legacy replay'
+        agentType='general'
+        thinkingLevel='none'
+        workingDirectory='/tmp/project'
+        status='complete'
+        eventBus={eventBus}
+        scrollRef={scrollRef}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', {name: /Legacy replay/}));
+
+    expect(screen.getByText('agent-dispatch-legacy')).toBeInTheDocument();
   });
 });

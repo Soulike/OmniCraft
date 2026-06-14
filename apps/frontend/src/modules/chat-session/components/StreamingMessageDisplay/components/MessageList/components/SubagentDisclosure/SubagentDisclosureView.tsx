@@ -12,6 +12,7 @@ import styles from './styles.module.css';
 interface SubagentDisclosureViewProps {
   mode: SubagentMode;
   agentId: string;
+  nickname?: string;
   task: string;
   agentType: string;
   thinkingLevel: ThinkingLevel;
@@ -28,14 +29,15 @@ const MODE_LABELS = {
   resume: 'Resume',
 } satisfies Record<SubagentMode, string>;
 
-const AGENT_ID_LABELS = {
-  dispatch: 'Subagent ID',
-  resume: 'Resumed subagent ID',
+const AGENT_NAME_LABELS = {
+  dispatch: 'Subagent',
+  resume: 'Resumed subagent',
 } satisfies Record<SubagentMode, string>;
 
 export function SubagentDisclosureView({
   mode,
   agentId,
+  nickname,
   task,
   agentType,
   thinkingLevel,
@@ -80,8 +82,10 @@ export function SubagentDisclosureView({
                 <ScrollShadow className={styles.taskText}>{task}</ScrollShadow>
                 <span className={styles.workingDir}>{workingDirectory}</span>
                 <div className={styles.agentIdRow}>
-                  <span className={styles.label}>{AGENT_ID_LABELS[mode]}</span>
-                  <span className={styles.agentId}>{agentId}</span>
+                  <span className={styles.label}>
+                    {AGENT_NAME_LABELS[mode]}
+                  </span>
+                  <span className={styles.agentId}>{nickname ?? agentId}</span>
                 </div>
               </div>
               <ScrollShadow className={styles.content} ref={scrollRef}>
