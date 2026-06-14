@@ -39,6 +39,14 @@
   --aurora-active-bar: linear-gradient(var(--accent), oklch(0.55 0.2 262));
   --aurora-active-bar-glow: none; /* glow reads dirty on white */
   --aurora-inset-shadow: inset 10px 10px 22px -12px rgba(40, 55, 120, 0.28);
+  --aurora-panel-bg: oklch(0.95 0.002 286);
+  --aurora-sheen: linear-gradient(
+    100deg,
+    transparent,
+    rgba(120, 140, 220, 0.18),
+    transparent
+  );
+  --aurora-active-icon-glow: none;
 }
 
 :root.dark {
@@ -59,4 +67,12 @@
   --aurora-active-bar: linear-gradient(#7ea2ff, #b07bff);
   --aurora-active-bar-glow: 0 0 12px rgba(130, 150, 255, 0.95);
   --aurora-inset-shadow: inset 10px 10px 22px -12px rgba(0, 0, 0, 0.85);
+  --aurora-panel-bg: oklch(0.1 0.005 285.82);
+  --aurora-sheen: linear-gradient(
+    100deg,
+    transparent,
+    rgba(255, 255, 255, 0.22),
+    transparent
+  );
+  --aurora-active-icon-glow: drop-shadow(0 0 6px rgba(150, 170, 255, 0.8));
 }

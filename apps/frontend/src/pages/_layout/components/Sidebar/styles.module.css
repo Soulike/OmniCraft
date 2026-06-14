@@ -5,6 +5,18 @@
   flex-direction: column;
   padding: 16px 12px;
   color: var(--foreground);
+  background:
+    radial-gradient(
+      140% 48% at 50% -12%,
+      var(--aurora-glow-accent),
+      transparent 60%
+    ),
+    radial-gradient(
+      90% 38% at 100% 104%,
+      var(--aurora-glow-violet),
+      transparent 58%
+    ),
+    var(--background);
 }
 
 .brandRow {

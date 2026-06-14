@@ -10,16 +10,29 @@
 }
 
 .panel {
+  position: relative;
   flex: 1;
   min-width: 0;
-  margin: 12px 12px 12px 0;
-  background: var(--surface);
+  margin: 14px 14px 14px 0;
+  background: var(--aurora-panel-bg);
   border: 1px solid var(--border);
-  border-radius: 16px;
-  box-shadow: var(--surface-shadow);
+  border-left: none;
+  border-radius: 0 16px 16px 0;
   overflow: hidden;
   display: flex;
   flex-direction: column;
+}
+
+/* Recessed bezel: an overlay that paints the inner shadow above page
+   content so the panel reads as set INTO the rail's plane. */
+.panel::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: var(--aurora-inset-shadow);
+  pointer-events: none;
+  z-index: 2;
 }
 
 .content {

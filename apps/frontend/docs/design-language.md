@@ -119,6 +119,9 @@ Available tokens (see the file for the actual recipe and both-theme values):
 | `--aurora-active-fill`                            | Active nav item glass fill                                |
 | `--aurora-active-bar`, `--aurora-active-bar-glow` | Active left-bar gradient + glow (glow is `none` in light) |
 | `--aurora-inset-shadow`                           | Inner shadow for the recessed panel                       |
+| `--aurora-panel-bg`                               | Recessed (inset) main-panel surface                       |
+| `--aurora-sheen`                                  | One-shot sheen sweep gradient on active nav item          |
+| `--aurora-active-icon-glow`                       | Active nav icon glow filter (dark only; `none` in light)  |
 
 If a new surface needs a value that isn't here, **add it to
 `aurora-glass.css` for both themes** (P4) rather than inlining it in a
