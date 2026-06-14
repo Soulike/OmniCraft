@@ -1,16 +1,11 @@
 import {describe, expect, it} from 'vitest';
 
+import {mathRenderingInstructions} from '@/agent/system-prompts/index.js';
+
 import {mainAgentSystemPrompt} from './system-prompt.js';
 
 describe('mainAgentSystemPrompt', () => {
-  it('instructs the model to use markdown math delimiters rendered by chat', () => {
-    expect(mainAgentSystemPrompt).toContain('$...$');
-    expect(mainAgentSystemPrompt).toContain('$$...$$');
-    expect(mainAgentSystemPrompt).toContain('\\(...\\)');
-    expect(mainAgentSystemPrompt).toContain('\\[...\\]');
-  });
-
-  it('instructs the model to escape literal dollar signs', () => {
-    expect(mainAgentSystemPrompt).toContain('\\$');
+  it('includes the shared math rendering instructions', () => {
+    expect(mainAgentSystemPrompt).toContain(mathRenderingInstructions);
   });
 });
