@@ -96,7 +96,7 @@ With `bun dev` running, hard-refresh the Chat page.
 - [ ] **Step 4: Confirm tests + lint still pass**
 
 ```bash
-cd apps/frontend && bun test && bun run lint
+cd apps/frontend && bun run test && bun run lint
 ```
 
 Expected: PASS (no logic changed; this guards against accidental edits).
@@ -171,7 +171,7 @@ Hard-refresh Chat.
 - [ ] **Step 4: Confirm tests + lint**
 
 ```bash
-cd apps/frontend && bun test && bun run lint
+cd apps/frontend && bun run test && bun run lint
 ```
 
 Expected: PASS.
@@ -291,7 +291,7 @@ Hard-refresh. The selected session's leading icon should be accent-colored and m
 - [ ] **Step 7: Confirm tests + lint**
 
 ```bash
-cd apps/frontend && bun test && bun run lint
+cd apps/frontend && bun run test && bun run lint
 ```
 
 Expected: PASS.
@@ -325,7 +325,7 @@ For **Chat** and **Coding**, in **light** and **dark** (4 combinations):
 - [ ] **Step 3: Final tests + lint + build**
 
 ```bash
-cd apps/frontend && bun test && bun run lint && bun run build
+cd apps/frontend && bun run test && bun run lint && bun run build
 ```
 
 Expected: all PASS / build succeeds.
