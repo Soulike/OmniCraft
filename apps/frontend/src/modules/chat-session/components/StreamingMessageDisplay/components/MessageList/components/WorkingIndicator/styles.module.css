@@ -64,7 +64,7 @@
     animation: none;
   }
   .word {
-    -webkit-text-fill-color: var(--muted);
-    color: var(--muted);
+    -webkit-text-fill-color: var(--foreground);
+    color: var(--foreground);
   }
 }
