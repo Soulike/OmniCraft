@@ -6,12 +6,12 @@ import {resumeAgentTool} from './resume-agent-tool.js';
 
 /** Registry for subagent-related tools. */
 export class SubAgentToolRegistry extends ToolRegistry {
-  /** Creates the singleton and registers all subagent tools. */
-  static override create(): SubAgentToolRegistry {
-    const instance = super.create() as SubAgentToolRegistry;
-    instance.register(listResumableAgentsTool);
-    instance.register(resumeAgentTool);
-    instance.register(dispatchAgentTool);
-    return instance;
+  constructor() {
+    super();
+    this.register(listResumableAgentsTool);
+    this.register(resumeAgentTool);
+    this.register(dispatchAgentTool);
   }
 }
+
+export const subAgentToolRegistry = new SubAgentToolRegistry();

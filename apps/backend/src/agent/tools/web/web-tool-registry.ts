@@ -6,12 +6,12 @@ import {webSearchTool} from './web-search.js';
 
 /** Registry for web-related tools: fetching URLs, searching, etc. */
 export class WebToolRegistry extends ToolRegistry {
-  /** Creates the singleton and registers all web tools. */
-  static override create(): WebToolRegistry {
-    const instance = super.create() as WebToolRegistry;
-    instance.register(webFetchTool);
-    instance.register(webFetchRawTool);
-    instance.register(webSearchTool);
-    return instance;
+  constructor() {
+    super();
+    this.register(webFetchTool);
+    this.register(webFetchRawTool);
+    this.register(webSearchTool);
   }
 }
+
+export const webToolRegistry = new WebToolRegistry();

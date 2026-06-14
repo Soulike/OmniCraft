@@ -3,7 +3,6 @@ import {
   type SetStateAction,
   useCallback,
   useEffect,
-  useRef,
   useState,
 } from 'react';
 
@@ -92,9 +91,7 @@ export function useFrameBatchedState<T>(
 ): [T, Dispatch<SetStateAction<T>>] {
   const [state, setState] = useState(initialState);
 
-  const schedulerRef = useRef<FrameBatchScheduler<T> | null>(null);
-  schedulerRef.current ??= createFrameBatchScheduler<T>(setState);
-  const scheduler = schedulerRef.current;
+  const [scheduler] = useState(() => createFrameBatchScheduler<T>(setState));
 
   const batchedSetState: Dispatch<SetStateAction<T>> = useCallback(
     (action: SetStateAction<T>) => {

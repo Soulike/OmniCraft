@@ -8,15 +8,13 @@ import {writeFileTool} from './write-file.js';
 
 /** Registry for file-operation tools. */
 export class FileToolRegistry extends ToolRegistry {
-  /** Creates the singleton and registers all file tools. */
-  static override create(): FileToolRegistry {
-    const instance = super.create() as FileToolRegistry;
-    instance.register(readFileTool);
-    instance.register(findFilesTool);
-    instance.register(searchFilesTool);
-    instance.register(writeFileTool);
-    instance.register(editFileTool);
-    return instance;
+  constructor() {
+    super();
+    this.register(readFileTool);
+    this.register(findFilesTool);
+    this.register(searchFilesTool);
+    this.register(writeFileTool);
+    this.register(editFileTool);
   }
 
   override getSystemPromptSection(): string {
@@ -27,3 +25,5 @@ export class FileToolRegistry extends ToolRegistry {
     ].join('\n');
   }
 }
+
+export const fileToolRegistry = new FileToolRegistry();

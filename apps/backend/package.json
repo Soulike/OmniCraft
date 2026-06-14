@@ -12,7 +12,7 @@
   "devDependencies": {
     "@config/eslint": "workspace:^",
     "@config/typescript": "workspace:^",
-    "@types/koa": "^3.0.1",
+    "@types/koa": "^3.0.3",
     "@types/koa-compose": "^3.2.9",
     "@types/koa-pino-logger": "^3.0.5",
     "@types/koa-send": "^4.1.6",
@@ -22,7 +22,7 @@
     "vitest": "catalog:"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.80.0",
+    "@anthropic-ai/sdk": "^0.104.1",
     "@koa/bodyparser": "^6.1.0",
     "@koa/router": "^15.1.0",
     "@mozilla/readability": "^0.6.0",
@@ -32,7 +32,7 @@
     "@omnicraft/sse-events": "workspace:^",
     "@omnicraft/tool-schemas": "workspace:^",
     "@tavily/core": "^0.7.2",
-    "diff": "^8.0.4",
+    "diff": "^9.0.0",
     "fast-glob": "^3.3.3",
     "http-status-codes": "^2.3.0",
     "koa": "^3.1.1",
