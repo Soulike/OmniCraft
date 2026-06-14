@@ -15,13 +15,13 @@
     "configs/*"
   ],
   "devDependencies": {
-    "@commitlint/cli": "^20.2.0",
-    "@commitlint/config-conventional": "^20.2.0",
-    "@types/bun": "^1.2.14",
+    "@commitlint/cli": "^21.0.2",
+    "@commitlint/config-conventional": "^21.0.2",
+    "@types/bun": "^1.3.14",
     "eslint": "catalog:",
     "husky": "^9.1.7",
-    "lint-staged": "^16.2.7",
-    "prettier": "^3.7.4",
+    "lint-staged": "^17.0.7",
+    "prettier": "^3.8.4",
     "typescript": "catalog:"
   },
   "prettier": {
@@ -36,9 +36,9 @@
     ]
   },
   "catalog": {
-    "eslint": "^10.0.2",
-    "typescript": "^6.0.2",
-    "vitest": "^4.1.0",
+    "eslint": "^10.5.0",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.8",
     "zod": "^4.3.6"
   }
 }

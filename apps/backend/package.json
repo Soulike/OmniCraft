@@ -12,7 +12,7 @@
   "devDependencies": {
     "@config/eslint": "workspace:^",
     "@config/typescript": "workspace:^",
-    "@types/koa": "^3.0.1",
+    "@types/koa": "^3.0.3",
     "@types/koa-compose": "^3.2.9",
     "@types/koa-pino-logger": "^3.0.5",
     "@types/koa-send": "^4.1.6",
