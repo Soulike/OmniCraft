@@ -1,7 +1,10 @@
 import type {ThinkingLevel} from '@omnicraft/api-schema';
 
 import {coreSkillRegistry} from '@/agent/skills/index.js';
-import {mathRenderingInstructions} from '@/agent/system-prompts/index.js';
+import {
+  mathRenderingInstructions,
+  preambleInstructions,
+} from '@/agent/system-prompts/index.js';
 import {
   bashToolRegistry,
   coreToolRegistry,
@@ -34,6 +37,8 @@ export class GeneralSubAgent extends Agent {
       baseSystemPrompt: [
         'You are a helpful assistant working on a delegated subtask. ' +
           'After completing your task, provide a concise summary of what you did and the results.',
+        '',
+        preambleInstructions,
         '',
         mathRenderingInstructions,
       ].join('\n'),
