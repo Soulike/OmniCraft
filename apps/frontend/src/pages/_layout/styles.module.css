@@ -2,18 +2,7 @@
   height: 100dvh;
   display: flex;
   flex-direction: row;
-  background:
-    radial-gradient(
-      80% 50% at 50% -8%,
-      var(--aurora-glow-accent),
-      transparent 60%
-    ),
-    radial-gradient(
-      45% 40% at 100% 104%,
-      var(--aurora-glow-violet),
-      transparent 58%
-    ),
-    var(--background);
+  background: var(--aurora-canvas);
 }
 
 .sidebarWrapper {
@@ -24,7 +13,10 @@
   flex: 1;
   min-width: 0;
   margin: 7px;
-  background: var(--aurora-panel-bg);
+  background: var(--aurora-mica-fill);
+  backdrop-filter: var(--aurora-mica-blur);
+  -webkit-backdrop-filter: var(--aurora-mica-blur);
+  border: var(--aurora-mica-border);
   border-radius: 12px;
   overflow: hidden;
   display: flex;

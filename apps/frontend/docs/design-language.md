@@ -36,11 +36,11 @@ not with heavy borders.
 
 ### P2 — One light source
 
-The top of the interface is the light source. The shared page-background
-gradient carries a soft accent **aurora glow** from the top, bleeding across
-the whole window. Shadows fall downward; top edges catch a faint highlight.
-Keep this consistent everywhere — never light a component from a contradictory
-direction.
+The top of the interface is the light source. The shared page canvas
+(`--aurora-canvas`) carries soft aurora colour blobs, leaning brighter toward
+the top; the Mica panel blurs and tints from it. Shadows fall downward; top
+edges catch a faint highlight. Keep this consistent everywhere — never light a
+component from a contradictory direction.
 
 ### P3 — Motion is event-driven, never ambient
 
@@ -111,17 +111,19 @@ the single source of truth for these values — **always consume them via
 
 Available tokens (see the file for the actual recipe and both-theme values):
 
-| Token                                             | Purpose                                                   |
-| ------------------------------------------------- | --------------------------------------------------------- |
-| `--aurora-glow-accent`, `--aurora-glow-violet`    | Aurora bleed for the page (layout) background gradient    |
-| `--aurora-glass-fill`                             | Translucent glass surface fill                            |
-| `--aurora-glass-border`                           | Light-catching glass hairline                             |
-| `--aurora-glass-highlight`                        | Inset top highlight on glass                              |
-| `--aurora-active-fill`                            | Active nav item glass fill                                |
-| `--aurora-active-bar`, `--aurora-active-bar-glow` | Active left-bar gradient + glow (glow is `none` in light) |
-| `--aurora-panel-bg`                               | Opaque main-panel surface                                 |
-| `--aurora-sheen`                                  | One-shot sheen sweep gradient on active nav item          |
-| `--aurora-active-icon-glow`                       | Active nav icon glow filter (dark only; `none` in light)  |
+| Token                                             | Purpose                                                                                              |
+| ------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `--aurora-canvas`                                 | Page (layout) background: soft colour blobs over `--background`, sampleable by the panel's Mica blur |
+| `--aurora-mica-fill`                              | Translucent panel surface (Mica base)                                                                |
+| `--aurora-mica-blur`                              | Panel `backdrop-filter` value (blur + saturate)                                                      |
+| `--aurora-mica-border`                            | Panel hairline highlight border                                                                      |
+| `--aurora-glass-fill`                             | Translucent glass surface fill                                                                       |
+| `--aurora-glass-border`                           | Light-catching glass hairline                                                                        |
+| `--aurora-glass-highlight`                        | Inset top highlight on glass                                                                         |
+| `--aurora-active-fill`                            | Active nav item glass fill                                                                           |
+| `--aurora-active-bar`, `--aurora-active-bar-glow` | Active left-bar gradient + glow (glow is `none` in light)                                            |
+| `--aurora-sheen`                                  | One-shot sheen sweep gradient on active nav item                                                     |
+| `--aurora-active-icon-glow`                       | Active nav icon glow filter (dark only; `none` in light)                                             |
 
 If a new surface needs a value that isn't here, **add it to
 `aurora-glass.css` for both themes** (P4) rather than inlining it in a
@@ -183,34 +185,43 @@ component.
 
 ## 5. Surfaces & Depth
 
-The whole app sits on one **shared background gradient**, painted on the
-layout root (`.layout`): the page `--background` with the aurora glow bleeding
-across the entire window (`--aurora-glow-accent` from the top,
-`--aurora-glow-violet` from the bottom-right). Every chrome surface relates to
-this one gradient — that is what keeps the frame coherent and avoids seams.
+The whole app sits on one **shared page canvas**, painted on the layout root
+(`.layout`) via `--aurora-canvas`: the page `--background` with several soft
+colour blobs scattered across it (blue, violet, cyan). The blobs are distinct
+(not a smooth gradient) on purpose — they give the panel's Mica blur something
+to sample. Every chrome surface relates to this one canvas; that is what keeps
+the frame coherent and seamless.
 
-Two surface roles:
+Surface roles:
 
-1. **Transparent over the gradient** — the navigation rail. The rail has **no
-   background of its own**; the layout gradient shows straight through it, so
-   the rail and the gap around the panel are visually one continuous field.
-2. **Opaque panel** — the main content panel. A solid `--aurora-panel-bg`
-   surface (NOT translucent — content must stay readable) sitting on top of
-   the gradient, inset by a uniform small gap so the gradient frames it. No
-   border, no inner shadow — the gap + the panel being opaque is enough
-   separation. Symmetric rounded corners on all four sides.
-3. **Flush glass accents** — glass pedestals, the active nav pill. Translucent
+1. **Transparent over the canvas** — the navigation rail. The rail has **no
+   background of its own**; the canvas shows straight through it, so the rail
+   and the gap around the panel are visually one continuous field.
+2. **Mica panel** — the main content panel. A **translucent** surface
+   (`--aurora-mica-fill`) with a heavy `backdrop-filter` (`--aurora-mica-blur`)
+   that blurs the canvas behind it, picking up a faint tint — the Windows
+   "Mica" material idea. Inset by a uniform small gap (so the canvas frames
+   it), symmetric rounded corners, a faint light-catching border
+   (`--aurora-mica-border`). **Mica is a frame-only material:** it applies to
+   the panel container, NOT to the HeroUI content inside it.
+3. **Opaque content** — everything rendered _inside_ the panel (HeroUI cards,
+   inputs, tables, etc.) keeps its own opaque `--surface` background. This is
+   deliberate: it guarantees readability and avoids running `backdrop-filter`
+   on dozens of elements. Do **not** make HeroUI components translucent or
+   override their tokens to achieve "glass everywhere."
+4. **Flush glass accents** — glass pedestals, the active nav pill. Translucent
    fill (`--aurora-glass-fill`) + light-catching hairline
    (`--aurora-glass-border`) + top highlight (`--aurora-glass-highlight`),
-   letting the gradient tint through.
-4. **Raised** — transient overlays (popovers, tooltips, modals via HeroUI).
+   letting the canvas tint through.
+5. **Raised** — transient overlays (popovers, tooltips, modals via HeroUI).
    Outer shadow, sits above everything. Use HeroUI's defaults, lightly tuned.
 
-**Frame rule:** there is one background gradient (on the layout). The rail is
-transparent over it; the panel is opaque and inset by a uniform gap so the
-same gradient surrounds it. No border lines anywhere on the frame — separation
-comes from the gap and the panel's opacity, never from a drawn edge. Panel
-corners are symmetric (all four rounded equally).
+**Frame rule:** one canvas (on the layout) with sampleable colour blobs. The
+rail is transparent over it; the panel is a Mica material (translucent +
+backdrop-blur) inset by a uniform gap so the same canvas surrounds and tints
+it. No border lines define the frame — separation comes from the gap, the
+blur, and a hairline highlight, never from a drawn edge. Panel corners are
+symmetric. Mica stops at the frame: content surfaces stay opaque.
 
 ---
 

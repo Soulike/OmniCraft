@@ -26,8 +26,35 @@
 }
 
 :root.light {
-  --aurora-glow-accent: rgba(90, 125, 255, 0.12); /* top aurora bleed */
-  --aurora-glow-violet: rgba(150, 100, 255, 0.06); /* secondary aurora */
+  /* Page canvas: soft colour blobs over the base background. Distinct blobs
+     (not a smooth gradient) give the panel's Mica blur something to sample. */
+  --aurora-canvas:
+    radial-gradient(
+      48% 42% at 14% 6%,
+      rgba(90, 130, 255, 0.2),
+      transparent 60%
+    ),
+    radial-gradient(
+      42% 46% at 86% 16%,
+      rgba(165, 110, 255, 0.16),
+      transparent 60%
+    ),
+    radial-gradient(
+      52% 48% at 72% 96%,
+      rgba(70, 180, 225, 0.12),
+      transparent 60%
+    ),
+    radial-gradient(
+      48% 48% at 28% 82%,
+      rgba(140, 110, 255, 0.12),
+      transparent 60%
+    ),
+    var(--background);
+  /* Mica: the main panel is a translucent surface that blurs the canvas
+     behind it, picking up a faint tint. HeroUI content inside stays opaque. */
+  --aurora-mica-fill: rgba(255, 255, 255, 0.72);
+  --aurora-mica-blur: blur(64px) saturate(1.5);
+  --aurora-mica-border: 1px solid rgba(255, 255, 255, 0.6);
   --aurora-glass-fill: linear-gradient(160deg, #ffffff, #eef1fb);
   --aurora-glass-border: rgba(20, 30, 80, 0.1);
   --aurora-glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.9);
@@ -38,7 +65,6 @@
   );
   --aurora-active-bar: linear-gradient(var(--accent), oklch(0.55 0.2 262));
   --aurora-active-bar-glow: none; /* glow reads dirty on white */
-  --aurora-panel-bg: oklch(0.99 0.001 286);
   --aurora-sheen: linear-gradient(
     100deg,
     transparent,
@@ -49,8 +75,31 @@
 }
 
 :root.dark {
-  --aurora-glow-accent: rgba(90, 120, 255, 0.18);
-  --aurora-glow-violet: rgba(150, 90, 255, 0.1);
+  --aurora-canvas:
+    radial-gradient(
+      48% 42% at 14% 6%,
+      rgba(70, 110, 255, 0.22),
+      transparent 60%
+    ),
+    radial-gradient(
+      42% 46% at 86% 16%,
+      rgba(150, 90, 255, 0.18),
+      transparent 60%
+    ),
+    radial-gradient(
+      52% 48% at 72% 96%,
+      rgba(60, 170, 220, 0.12),
+      transparent 60%
+    ),
+    radial-gradient(
+      48% 48% at 28% 82%,
+      rgba(120, 80, 255, 0.12),
+      transparent 60%
+    ),
+    var(--background);
+  --aurora-mica-fill: rgba(15, 16, 24, 0.7);
+  --aurora-mica-blur: blur(64px) saturate(1.4);
+  --aurora-mica-border: 1px solid rgba(255, 255, 255, 0.05);
   --aurora-glass-fill: linear-gradient(
     160deg,
     rgba(255, 255, 255, 0.09),
@@ -65,7 +114,6 @@
   );
   --aurora-active-bar: linear-gradient(#7ea2ff, #b07bff);
   --aurora-active-bar-glow: 0 0 12px rgba(130, 150, 255, 0.95);
-  --aurora-panel-bg: oklch(0.165 0.006 285.82);
   --aurora-sheen: linear-gradient(
     100deg,
     transparent,
