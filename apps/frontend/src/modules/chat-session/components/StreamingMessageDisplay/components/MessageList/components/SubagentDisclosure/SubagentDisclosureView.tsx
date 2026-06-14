@@ -85,7 +85,9 @@ export function SubagentDisclosureView({
                   <span className={styles.label}>
                     {AGENT_NAME_LABELS[mode]}
                   </span>
-                  <span className={styles.agentId}>{nickname ?? agentId}</span>
+                  <span className={styles.agentId}>
+                    {nickname?.trim() ? nickname : agentId}
+                  </span>
                 </div>
               </div>
               <ScrollShadow className={styles.content} ref={scrollRef}>

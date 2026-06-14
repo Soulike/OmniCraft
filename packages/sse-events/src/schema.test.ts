@@ -171,6 +171,33 @@ describe('subagent-dispatch schema', () => {
       }),
     ).toThrow();
   });
+
+  it('rejects an empty nickname', () => {
+    expect(() =>
+      sseSubagentDispatchEventSchema.parse({
+        type: 'subagent-dispatch',
+        agentId: '11111111-1111-4111-8111-111111111111',
+        nickname: '',
+        task: 'Inspect the project',
+        agentType: 'general',
+        thinkingLevel: 'none',
+        workingDirectory: '/workspace/project',
+      }),
+    ).toThrow();
+  });
+
+  it('accepts an omitted nickname for backward compatibility', () => {
+    const event = {
+      type: 'subagent-dispatch',
+      agentId: '11111111-1111-4111-8111-111111111111',
+      task: 'Inspect the project',
+      agentType: 'general',
+      thinkingLevel: 'none',
+      workingDirectory: '/workspace/project',
+    } as const;
+
+    expect(sseSubagentDispatchEventSchema.parse(event)).toEqual(event);
+  });
 });
 
 describe('subagent-resume schema', () => {

@@ -129,4 +129,25 @@ describe('SubagentDisclosureView', () => {
 
     expect(screen.getByText('agent-dispatch-legacy')).toBeInTheDocument();
   });
+
+  it('falls back to the agent id when the nickname is blank', () => {
+    render(
+      <SubagentDisclosureView
+        mode='dispatch'
+        agentId='agent-dispatch-blank'
+        nickname='   '
+        task='Blank nickname'
+        agentType='general'
+        thinkingLevel='none'
+        workingDirectory='/tmp/project'
+        status='complete'
+        eventBus={eventBus}
+        scrollRef={scrollRef}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', {name: /Blank nickname/}));
+
+    expect(screen.getByText('agent-dispatch-blank')).toBeInTheDocument();
+  });
 });
