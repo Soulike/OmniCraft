@@ -1,3 +1,8 @@
+import {
+  mathRenderingInstructions,
+  preambleInstructions,
+} from '@/agent/system-prompts/index.js';
+
 export const exploreSubAgentSystemPrompt = [
   '# Explore Subagent',
   '',
@@ -31,4 +36,8 @@ export const exploreSubAgentSystemPrompt = [
   '3. Architecture or flow',
   '4. Gaps and uncertainty',
   '5. Suggested next steps',
+  '',
+  preambleInstructions,
+  '',
+  mathRenderingInstructions,
 ].join('\n');
