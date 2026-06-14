@@ -70,6 +70,7 @@ export function SidebarView({
             label={item.label}
             Icon={item.Icon}
             active={item.id === selectedId}
+            animate={item.id === sheenKey}
           />
         ))}
         <NavItemLink
@@ -77,6 +78,7 @@ export function SidebarView({
           label={settingsItem.label}
           Icon={settingsItem.Icon}
           active={settingsItem.id === selectedId}
+          animate={settingsItem.id === sheenKey}
           className={styles.settingsItem}
         />
       </nav>

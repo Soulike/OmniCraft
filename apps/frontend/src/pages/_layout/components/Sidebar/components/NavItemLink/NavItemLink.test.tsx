@@ -5,7 +5,7 @@ import {afterEach, describe, expect, it} from 'vitest';
 
 import {NavItemLink} from './NavItemLink.js';
 
-function renderLink(active: boolean) {
+function renderLink(active: boolean, animate?: boolean) {
   return render(
     <MemoryRouter>
       <NavItemLink
@@ -13,6 +13,7 @@ function renderLink(active: boolean) {
         label='Chat'
         Icon={MessageSquare}
         active={active}
+        animate={animate}
       />
     </MemoryRouter>,
   );
@@ -36,5 +37,21 @@ describe('NavItemLink', () => {
     const link = screen.getByRole('link', {name: 'Chat'});
     expect(link).toHaveAttribute('data-active', 'true');
     expect(link).toHaveAttribute('aria-current', 'page');
+  });
+
+  it('does not animate by default (no motion on initial render)', () => {
+    renderLink(true);
+    expect(screen.getByRole('link', {name: 'Chat'})).toHaveAttribute(
+      'data-animate',
+      'false',
+    );
+  });
+
+  it('animates only when explicitly told to (navigation-driven)', () => {
+    renderLink(true, true);
+    expect(screen.getByRole('link', {name: 'Chat'})).toHaveAttribute(
+      'data-animate',
+      'true',
+    );
   });
 });

@@ -34,6 +34,11 @@
 .item[data-active='true'] .icon {
   color: var(--accent);
   filter: var(--aurora-active-icon-glow);
+}
+
+/* One-shot spring only when the item became active via navigation, not on
+   initial load or other non-user-driven renders (motion is event-driven). */
+.item[data-animate='true'] .icon {
   animation: pop 0.4s ease-out;
 }
 
@@ -53,7 +58,7 @@
   .item {
     transition: none;
   }
-  .item[data-active='true'] .icon {
+  .item[data-animate='true'] .icon {
     animation: none;
   }
 }
