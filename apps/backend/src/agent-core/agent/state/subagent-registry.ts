@@ -48,6 +48,8 @@ export class SubagentRegistry {
   register(agent: Agent, agentType: SubAgentType, nickname?: string): void {
     const id = subagentIdSchema.parse(agent.id);
     const parsedAgentType = subAgentTypeSchema.parse(agentType);
+    // A caller-supplied nickname is trusted to be unique among live entries; the
+    // registry enforces no uniqueness here. Use generateNickname() for a guaranteed-unique name.
     const finalNickname = nickname ?? this.generateNickname();
     this.records.set(id, {
       agent,
@@ -86,6 +88,8 @@ export class SubagentRegistry {
   getByNickname(nickname: string): LiveSubagentHandle | undefined {
     for (const entry of this.records.values()) {
       if (entry.nickname !== nickname) continue;
+      // Resolving an entry counts as an access, bumping lastAccessOrder so the
+      // looked-up entry is protected from eviction, mirroring get().
       entry.lastAccessOrder = this.nextAccessOrder();
       return {
         agent: entry.agent,
