@@ -1,5 +1,6 @@
 import {useTheme} from '@/hooks/useTheme.js';
 
+import {getNextThemeMode} from './getNextThemeMode.js';
 import {ThemeToggleView} from './ThemeToggleView.js';
 
 export function ThemeToggle() {
@@ -8,7 +9,9 @@ export function ThemeToggle() {
   return (
     <ThemeToggleView
       themeMode={themeMode}
-      onThemeModeChange={changeThemeMode}
+      onCycle={() => {
+        changeThemeMode(getNextThemeMode(themeMode));
+      }}
     />
   );
 }
