@@ -1,3 +1,5 @@
+import assert from 'node:assert';
+
 import {
   agentIdSchema,
   type SubAgentType,
@@ -48,6 +50,7 @@ export class SubagentRegistry {
   // The nickname is trusted to be unique among live entries; the registry
   // enforces no uniqueness here. Obtain one from generateNickname() to guarantee it.
   register(agent: Agent, agentType: SubAgentType, nickname: string): void {
+    assert(nickname, 'subagent nickname must be a non-empty string');
     const id = subagentIdSchema.parse(agent.id);
     const parsedAgentType = subAgentTypeSchema.parse(agentType);
     this.records.set(id, {

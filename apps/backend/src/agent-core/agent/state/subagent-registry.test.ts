@@ -255,6 +255,15 @@ describe('SubagentRegistry', () => {
     });
   });
 
+  it('rejects an empty nickname', () => {
+    const registry = new SubagentRegistry();
+    const agent = createMockAgent();
+
+    expect(() => {
+      registry.register(agent, SubAgentType.GENERAL, '');
+    }).toThrow(/non-empty/);
+  });
+
   it('returns undefined for an unknown nickname', () => {
     const registry = new SubagentRegistry();
 
