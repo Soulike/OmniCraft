@@ -53,6 +53,7 @@ describe('SubagentRegistry', () => {
     expect(registry.get(agent.id)).toEqual({
       agent,
       agentType: SubAgentType.GENERAL,
+      nickname: expect.any(String) as unknown,
     });
   });
 
@@ -69,12 +70,14 @@ describe('SubagentRegistry', () => {
         id: idle.id,
         agentType: SubAgentType.GENERAL,
         title: 'Build Summary',
+        nickname: expect.any(String) as unknown,
         isRunning: false,
       },
       {
         id: running.id,
         agentType: SubAgentType.EXPLORE,
         title: 'Explore Report',
+        nickname: expect.any(String) as unknown,
         isRunning: true,
       },
     ]);
@@ -91,12 +94,14 @@ describe('SubagentRegistry', () => {
     expect(registry.get(first.id)).toEqual({
       agent: replacement,
       agentType: SubAgentType.EXPLORE,
+      nickname: expect.any(String) as unknown,
     });
     expect(registry.list()).toEqual([
       {
         id: first.id,
         agentType: SubAgentType.EXPLORE,
         title: 'Replacement',
+        nickname: expect.any(String) as unknown,
         isRunning: false,
       },
     ]);
@@ -174,6 +179,7 @@ describe('SubagentRegistry', () => {
         id: running.id,
         agentType: SubAgentType.GENERAL,
         title: 'New Session',
+        nickname: expect.any(String) as unknown,
         isRunning: true,
       },
     ]);
@@ -212,12 +218,14 @@ describe('SubagentRegistry', () => {
         id: first.id,
         agentType: SubAgentType.GENERAL,
         title: 'First',
+        nickname: expect.any(String) as unknown,
         isRunning: false,
       },
       {
         id: second.id,
         agentType: SubAgentType.EXPLORE,
         title: 'Second',
+        nickname: expect.any(String) as unknown,
         isRunning: false,
       },
     ]);
@@ -232,5 +240,44 @@ describe('SubagentRegistry', () => {
 
     expect(registry.list()).toEqual([]);
     expect(registry.get(agent.id)).toBeUndefined();
+  });
+
+  it('assigns a generated nickname when none is provided', () => {
+    const registry = new SubagentRegistry();
+    const agent = createMockAgent();
+
+    registry.register(agent, SubAgentType.GENERAL);
+
+    const [record] = registry.list();
+    expect(record.nickname).toMatch(/^[a-z]+-[a-z]+$/);
+  });
+
+  it('stores an explicit nickname and resolves it', () => {
+    const registry = new SubagentRegistry();
+    const agent = createMockAgent();
+
+    registry.register(agent, SubAgentType.EXPLORE, 'crimson-otter');
+
+    expect(registry.getByNickname('crimson-otter')).toEqual({
+      agent,
+      agentType: SubAgentType.EXPLORE,
+      nickname: 'crimson-otter',
+    });
+  });
+
+  it('returns undefined for an unknown nickname', () => {
+    const registry = new SubagentRegistry();
+
+    expect(registry.getByNickname('no-such-name')).toBeUndefined();
+  });
+
+  it('generates nicknames that avoid currently live ones', () => {
+    const registry = new SubagentRegistry();
+    registry.register(createMockAgent(), SubAgentType.GENERAL, 'crimson-otter');
+
+    const fresh = registry.generateNickname();
+
+    expect(fresh).not.toBe('crimson-otter');
+    expect(fresh).toMatch(/^[a-z]+-[a-z]+$/);
   });
 });
