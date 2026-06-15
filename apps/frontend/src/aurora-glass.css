@@ -4,13 +4,14 @@
  * The OmniCraft visual language layered on top of HeroUI's base theme.
  * HeroUI owns the neutrals + accent (--background, --foreground, --surface,
  * --border, --accent, --muted, ...); this file adds the glass/glow/depth
- * recipe and is the SINGLE source of truth for those values.
+ * recipe and is the SINGLE source of truth for those tokens — both their
+ * values AND their purpose (documented per-token below). docs/design-language.md
+ * holds the principles/rationale and points here for the live list; do not
+ * maintain a parallel token table there.
  *
  * Usage: consume these via var(--aurora-*) in component styles. Never
  * hard-code the raw rgba/gradient values into a component. Light and dark
  * are reinterpreted (not ported) — keep both in sync when tuning.
- *
- * See docs/design-language.md for the principles behind these values.
  */
 
 :root {
