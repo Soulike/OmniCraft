@@ -164,23 +164,6 @@ in code comments):
   (`--aurora-glass-blur`).
 - Keep light and dark in sync (P4).
 
-- **`--overlay`** (menus, popovers, modals, tooltips) — stays opaque. A
-  translucent overlay would let text behind bleed through, and the only fix
-  (a backdrop blur on the overlay) requires targeting HeroUI's internal slot
-  classes, which is fragile across upgrades. Floating layers stay solid.
-- **`--field-foreground` / `--field-placeholder`** — text tokens stay on
-  HeroUI defaults for contrast.
-
-**Rules for this set:**
-
-- Material decisions that should apply app-wide go here as a token override,
-  **not** as a per-component `background`/`border` rule.
-- Never override a token in a way that needs `backdrop-filter` on many
-  elements or on overlays (perf + fragility). Translucency via alpha is free;
-  blur is reserved for the frame Mica and a few transient expanded glass cards
-  (`--aurora-glass-blur`).
-- Keep light and dark in sync (P4).
-
 ---
 
 ## 4. Typography
