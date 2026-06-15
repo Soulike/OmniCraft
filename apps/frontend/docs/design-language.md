@@ -105,51 +105,64 @@ theme output (do not duplicate them here — that copy would rot).
 ### 3.2 Aurora Glass tokens (this design language adds these)
 
 The glass / glow / depth recipe lives in **`src/aurora-glass.css`** (imported
-from `src/index.css`), scoped to `:root.light` / `:root.dark`. That file is
-the single source of truth for these values — **always consume them via
-`var(--aurora-*)`; never paste the raw rgba/gradient values into a component.**
+from `src/index.css`), scoped to `:root.light` / `:root.dark`. That file is the
+**single source of truth** for both the values _and_ each token's purpose —
+every `--aurora-*` token is documented by a comment next to its definition, so
+the list never drifts from the code. Read the file for the full inventory; this
+doc deliberately does not duplicate it.
 
-Available tokens (see the file for the actual recipe and both-theme values):
+Principles for these tokens:
 
-| Token                                                   | Purpose                                                                                              |
-| ------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| `--aurora-canvas`                                       | Page (layout) background: soft colour blobs over `--background`, sampleable by the panel's Mica blur |
-| `--aurora-mica-fill`                                    | Translucent panel surface (Mica base)                                                                |
-| `--aurora-mica-blur`                                    | Panel `backdrop-filter` value (blur + saturate)                                                      |
-| `--aurora-mica-border`                                  | Panel hairline highlight border                                                                      |
-| `--aurora-glass-fill`                                   | Translucent glass surface fill                                                                       |
-| `--aurora-glass-border`                                 | Light-catching glass hairline                                                                        |
-| `--aurora-glass-highlight`                              | Inset top highlight on glass                                                                         |
-| `--aurora-glass-shadow`, `--aurora-glass-shadow-raised` | Outer drop shadow for raised glass (capsule); `-raised` is the stronger lift on focus. Per-theme.    |
-| `--aurora-glass-blur`                                   | Backdrop blur for expandable glass cards (tool/thinking/subagent disclosures). Theme-independent.    |
-| `--aurora-active-fill`                                  | Active nav item glass fill                                                                           |
-| `--aurora-active-bar`, `--aurora-active-bar-glow`       | Active left-bar gradient + glow (glow is `none` in light)                                            |
-| `--aurora-sheen`                                        | One-shot sheen sweep gradient on active nav item                                                     |
-| `--aurora-active-icon-glow`                             | Active nav icon glow filter (dark only; `none` in light)                                             |
-
-If a new surface needs a value that isn't here, **add it to
-`aurora-glass.css` for both themes** (P4) rather than inlining it in a
-component.
+- **Always consume via `var(--aurora-*)`** in component CSS; never paste the raw
+  rgba/gradient values into a component (that copy would rot, and breaks
+  per-theme tuning).
+- **Naming follows the material:** `--aurora-mica-*` (the frame panel),
+  `--aurora-glass-*` (small flush glass surfaces), `--aurora-active-*` (active
+  nav/session state), plus `--aurora-canvas` (page backdrop).
+- If a new surface needs a value that isn't there, **add the token (with a
+  purpose comment) to `aurora-glass.css` for both themes** (P4) rather than
+  inlining it in a component.
 
 ### 3.3 HeroUI token overrides (controlled)
 
 Rather than restyle HeroUI components one-by-one, we override a small,
 deliberate set of HeroUI's own semantic tokens in **`src/heroui-overrides.css`**
 (imported after `@heroui/styles`, before `aurora-glass.css`) so the glass
-material becomes the **default**. This is the preferred way to apply a
-global material decision — override the token once, every consuming component
-follows. Keep this set small and documented; do not let it sprawl.
+material becomes the **default**. This is the preferred way to apply a global
+material decision — override the token once, every consuming component follows.
+That file documents each override (value + reason) next to its definition;
+read it for the current set. Keep the set small and documented; do not let it
+sprawl.
 
-Current overrides (both themes, reinterpreted per P4):
+The design decisions behind the set (the "why", which belongs here rather than
+in code comments):
 
-| HeroUI token                                 | Override                        | Why                                                                                                                                                                                                     |
-| -------------------------------------------- | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--surface`                                  | translucent (alpha ~0.75)       | In-panel cards/panels pick up the Mica tint instead of reading as solid slabs. **No blur** — the panel behind is already frosted; pure alpha = zero perf cost. Tuned high enough to keep text readable. |
-| `--surface-secondary` / `--surface-tertiary` | translucent, stepping alpha up  | Nested raised surfaces stay translucent too (HeroUI defines these as their own opaque values, not derived from `--surface`); deeper nesting reads slightly more solid.                                  |
-| `--field-background`                         | translucent (alpha ~0.8)        | Inputs share the card material, but a touch more fill for text contrast. Independent of `--surface` via HeroUI's `--field-*` tokens.                                                                    |
-| `--border`                                   | glass hairline (light-catching) | Aligns HeroUI's flat grey hairline to our blue-tinted glass edge globally.                                                                                                                              |
+- We override the **material** tokens (surface fills, field background,
+  border) with **translucent** values so in-panel content picks up the Mica
+  tint by default. Translucency is via **alpha only** — no `backdrop-filter` on
+  these surfaces (the panel behind is already frosted; pure alpha = zero perf
+  cost), tuned opaque enough to keep text readable.
+- Nested surfaces (`--surface-secondary` / `-tertiary`) step alpha **up** so
+  deeper nesting reads slightly more solid.
 
 **Deliberately NOT overridden:**
+
+- **`--overlay`** (menus, popovers, modals, tooltips) — stays opaque. A
+  translucent overlay would let text behind bleed through, and the only fix
+  (a backdrop blur on the overlay) requires targeting HeroUI's internal slot
+  classes, which is fragile across upgrades. Floating layers stay solid.
+- **`--field-foreground` / `--field-placeholder`** — text tokens stay on
+  HeroUI defaults for contrast.
+
+**Rules for this set:**
+
+- Material decisions that should apply app-wide go here as a token override,
+  **not** as a per-component `background`/`border` rule.
+- Never override a token in a way that needs `backdrop-filter` on many
+  elements or on overlays (perf + fragility). Translucency via alpha is free;
+  blur is reserved for the frame Mica and a few transient expanded glass cards
+  (`--aurora-glass-blur`).
+- Keep light and dark in sync (P4).
 
 - **`--overlay`** (menus, popovers, modals, tooltips) — stays opaque. A
   translucent overlay would let text behind bleed through, and the only fix
