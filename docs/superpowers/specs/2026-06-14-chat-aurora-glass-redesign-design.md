@@ -56,9 +56,10 @@ settles; no ambient motion.
 
 ### D4 — Welcome state: minimal glass mark
 
-The empty new-session state is a **glass pedestal glyph + a single headline
-line**, with the composer centered beneath. Calm and on-brand; deliberately
-does **not** introduce a starter-prompt library (that would be a separate
+The empty new-session state is a **glass pedestal glyph + a short headline
+and one line of hint text**, with the composer centered beneath. Calm and
+on-brand; deliberately does **not** introduce a starter-prompt library (that
+would be a separate
 product decision).
 
 ### D5 — Tool cards: quiet pills, B-tier glass on expand
@@ -184,7 +185,8 @@ tool cards, for consistency.
 ### 5. Welcome / empty state
 
 - **`ChatPageView`** empty branch: replace the plain centered `<p>` with a
-  glass pedestal glyph + single headline line; composer centered beneath.
+  glass pedestal glyph + a short headline and one hint line; composer centered
+  beneath.
 - **`CodingPageView`** keeps its `TaskDispatchCard`, restyled to match the
   glass language (it is the Coding equivalent of the welcome state).
 
