@@ -7,9 +7,7 @@
   border-radius: 18px;
   background: var(--aurora-glass-fill);
   border: 1px solid var(--aurora-glass-border);
-  box-shadow:
-    var(--aurora-glass-highlight),
-    0 10px 30px rgba(0, 0, 0, 0.18);
+  box-shadow: var(--aurora-glass-highlight), var(--aurora-glass-shadow);
   transition:
     border-color 150ms ease,
     box-shadow 150ms ease;
@@ -26,7 +24,7 @@
   box-shadow:
     var(--aurora-glass-highlight),
     0 0 0 1px color-mix(in oklch, var(--accent) 35%, transparent),
-    0 12px 34px rgba(0, 0, 0, 0.22);
+    var(--aurora-glass-shadow-raised);
 }
 
 .textarea {

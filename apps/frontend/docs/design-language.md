@@ -111,19 +111,20 @@ the single source of truth for these values — **always consume them via
 
 Available tokens (see the file for the actual recipe and both-theme values):
 
-| Token                                             | Purpose                                                                                              |
-| ------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| `--aurora-canvas`                                 | Page (layout) background: soft colour blobs over `--background`, sampleable by the panel's Mica blur |
-| `--aurora-mica-fill`                              | Translucent panel surface (Mica base)                                                                |
-| `--aurora-mica-blur`                              | Panel `backdrop-filter` value (blur + saturate)                                                      |
-| `--aurora-mica-border`                            | Panel hairline highlight border                                                                      |
-| `--aurora-glass-fill`                             | Translucent glass surface fill                                                                       |
-| `--aurora-glass-border`                           | Light-catching glass hairline                                                                        |
-| `--aurora-glass-highlight`                        | Inset top highlight on glass                                                                         |
-| `--aurora-active-fill`                            | Active nav item glass fill                                                                           |
-| `--aurora-active-bar`, `--aurora-active-bar-glow` | Active left-bar gradient + glow (glow is `none` in light)                                            |
-| `--aurora-sheen`                                  | One-shot sheen sweep gradient on active nav item                                                     |
-| `--aurora-active-icon-glow`                       | Active nav icon glow filter (dark only; `none` in light)                                             |
+| Token                                                   | Purpose                                                                                              |
+| ------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `--aurora-canvas`                                       | Page (layout) background: soft colour blobs over `--background`, sampleable by the panel's Mica blur |
+| `--aurora-mica-fill`                                    | Translucent panel surface (Mica base)                                                                |
+| `--aurora-mica-blur`                                    | Panel `backdrop-filter` value (blur + saturate)                                                      |
+| `--aurora-mica-border`                                  | Panel hairline highlight border                                                                      |
+| `--aurora-glass-fill`                                   | Translucent glass surface fill                                                                       |
+| `--aurora-glass-border`                                 | Light-catching glass hairline                                                                        |
+| `--aurora-glass-highlight`                              | Inset top highlight on glass                                                                         |
+| `--aurora-glass-shadow`, `--aurora-glass-shadow-raised` | Outer drop shadow for raised glass (capsule); `-raised` is the stronger lift on focus. Per-theme.    |
+| `--aurora-active-fill`                                  | Active nav item glass fill                                                                           |
+| `--aurora-active-bar`, `--aurora-active-bar-glow`       | Active left-bar gradient + glow (glow is `none` in light)                                            |
+| `--aurora-sheen`                                        | One-shot sheen sweep gradient on active nav item                                                     |
+| `--aurora-active-icon-glow`                             | Active nav icon glow filter (dark only; `none` in light)                                             |
 
 If a new surface needs a value that isn't here, **add it to
 `aurora-glass.css` for both themes** (P4) rather than inlining it in a
