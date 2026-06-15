@@ -28,7 +28,7 @@ export function ChatInputView({
   onThinkingLevelChange,
 }: ChatInputViewProps) {
   return (
-    <div className={styles.container}>
+    <div className={styles.capsule}>
       <TextArea
         aria-label='Chat message'
         className={styles.textarea}
@@ -41,26 +41,34 @@ export function ChatInputView({
         }}
         onKeyDown={onKeyDown}
       />
-      {showThinkingLevelSelect && (
-        <ThinkingLevelSelect
-          value={thinkingLevel}
-          isDisabled={isStreaming}
-          onChange={onThinkingLevelChange}
-        />
-      )}
-      {isStreaming ? (
-        <Button aria-label='Stop generation' variant='danger' onPress={onStop}>
-          Stop
-        </Button>
-      ) : (
-        <Button
-          aria-label='Send message'
-          isDisabled={!input.trim()}
-          onPress={onSend}
-        >
-          Send
-        </Button>
-      )}
+      <div className={styles.toolbar}>
+        {showThinkingLevelSelect ? (
+          <ThinkingLevelSelect
+            value={thinkingLevel}
+            isDisabled={isStreaming}
+            onChange={onThinkingLevelChange}
+          />
+        ) : (
+          <span />
+        )}
+        {isStreaming ? (
+          <Button
+            aria-label='Stop generation'
+            variant='danger'
+            onPress={onStop}
+          >
+            Stop
+          </Button>
+        ) : (
+          <Button
+            aria-label='Send message'
+            isDisabled={!input.trim()}
+            onPress={onSend}
+          >
+            Send
+          </Button>
+        )}
+      </div>
     </div>
   );
 }

@@ -13,28 +13,35 @@
   padding: 6px 10px;
   min-height: unset;
   font-size: 0.85rem;
-  color: var(--color-foreground);
+  color: var(--muted);
   gap: 0;
   transition:
-    background-color 150ms ease,
-    box-shadow 150ms ease;
+    color 150ms ease,
+    background 150ms ease;
+}
+
+.listBox :global(.list-box-item):hover {
+  color: var(--foreground);
+  background: var(--aurora-glass-fill);
 }
 
 .listBox :global(.list-box-item[data-selected='true']) {
-  background-color: var(--color-segment);
-  box-shadow: var(--shadow-surface);
+  color: var(--foreground);
+  background: var(--aurora-active-fill);
+  box-shadow: var(--aurora-glass-highlight);
   font-weight: 500;
 }
 
 .listBox :global(.list-box-item[data-selected='true'])::before {
   content: '';
   position: absolute;
-  left: 4px;
+  left: 0;
   top: 25%;
   height: 50%;
   width: 3px;
-  border-radius: 2px;
-  background-color: var(--color-accent);
+  border-radius: 0 3px 3px 0;
+  background: var(--aurora-active-bar);
+  box-shadow: var(--aurora-active-bar-glow);
 }
 
 .centered {
@@ -46,10 +53,16 @@
 
 .errorText {
   font-size: 0.8rem;
-  color: var(--color-danger);
+  color: var(--danger);
 }
 
 .emptyText {
   font-size: 0.8rem;
-  color: var(--color-muted);
+  color: var(--muted);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .listBox :global(.list-box-item) {
+    transition: none;
+  }
 }

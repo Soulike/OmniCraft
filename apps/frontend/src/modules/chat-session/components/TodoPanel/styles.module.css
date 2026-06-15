@@ -7,6 +7,9 @@
 .body {
   padding: 8px 12px;
   border-radius: 12px;
+  background: var(--aurora-glass-fill);
+  border: 1px solid var(--aurora-glass-border);
+  box-shadow: var(--aurora-glass-highlight);
 }
 
 .list {
@@ -37,22 +40,22 @@
 }
 
 .iconPending {
-  color: var(--color-default-400);
+  color: var(--muted);
 }
 
 .iconInProgress {
-  color: var(--color-primary);
+  color: var(--accent);
 }
 
 .iconCompleted {
-  color: var(--color-success);
+  color: var(--success);
 }
 
 .subject {
-  color: var(--color-foreground);
+  color: var(--foreground);
 }
 
 .subjectCompleted {
-  color: var(--color-default-400);
+  color: var(--muted);
   text-decoration: line-through;
 }

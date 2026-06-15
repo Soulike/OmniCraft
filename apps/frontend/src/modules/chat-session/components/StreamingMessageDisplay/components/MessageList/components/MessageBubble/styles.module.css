@@ -1,24 +1,40 @@
-.bubble {
-  padding: 10px 16px;
-  border-radius: 16px;
-  word-wrap: break-word;
-}
-
-.user {
-  background: var(--accent);
-  color: var(--accent-foreground);
-  border-bottom-right-radius: 4px;
-}
-
+/* Assistant: bare, full-width text marked by a subtle label + glass dot. */
 .assistant {
-  background: var(--surface);
+  width: 100%;
   color: var(--foreground);
-  border-bottom-left-radius: 4px;
 }
 
-.bare {
-  background: none;
-  padding: 0;
+.assistantLabel {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 6px;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+
+.assistantDot {
+  width: 13px;
+  height: 13px;
+  border-radius: 4px;
+  background: var(--aurora-active-fill);
+  border: 1px solid var(--aurora-glass-border);
+  box-shadow: var(--aurora-glass-highlight);
+}
+
+/* User: right-aligned glass accent capsule. */
+.userBubble {
+  padding: 10px 14px;
+  border-radius: 16px;
+  border-bottom-right-radius: 4px;
+  background: var(--aurora-active-fill);
+  border: 1px solid var(--aurora-glass-border);
+  box-shadow: var(--aurora-glass-highlight);
+  color: var(--foreground);
+  word-wrap: break-word;
 }
 
 .content {

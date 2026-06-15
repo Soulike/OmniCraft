@@ -1,16 +1,20 @@
 .card {
-  border-radius: 12px;
+  border-radius: 10px;
   overflow: hidden;
   width: 100%;
   max-width: 100%;
 }
 
-.streaming {
-  border: 1px dashed color-mix(in oklch, var(--accent) 40%, transparent);
+.card:has(.trigger[aria-expanded='true']) {
+  background: var(--aurora-glass-fill);
+  border: 1px solid var(--aurora-glass-border);
+  box-shadow: var(--aurora-glass-highlight);
+  backdrop-filter: var(--aurora-glass-blur);
+  -webkit-backdrop-filter: var(--aurora-glass-blur);
 }
 
-.done {
-  border: 1px dashed var(--border);
+.streaming .label {
+  color: var(--accent);
 }
 
 .trigger {
@@ -18,13 +22,19 @@
   align-items: center;
   gap: 8px;
   width: 100%;
-  padding: 8px 12px;
+  padding: 6px 10px;
   cursor: pointer;
   background: none;
   border: none;
+  border-radius: 10px;
   color: inherit;
   font: inherit;
   text-align: left;
+  transition: background 150ms ease;
+}
+
+.trigger:hover {
+  background: var(--aurora-glass-fill);
 }
 
 .label {
@@ -41,4 +51,10 @@
   font-size: 0.8125rem;
   line-height: 1.6;
   color: var(--muted);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .trigger {
+    transition: none;
+  }
 }

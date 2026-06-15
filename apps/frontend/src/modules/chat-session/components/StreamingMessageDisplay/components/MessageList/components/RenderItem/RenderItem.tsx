@@ -33,10 +33,10 @@ export function RenderItem({item}: RenderItemProps) {
       );
     case 'assistant-text':
       return (
-        <div className={styles.assistantMessage}>
+        <div className={clsx(styles.assistantMessage, styles.fullWidthMessage)}>
           <MessageBubble role='assistant' id={item.id} content={item.content} />
           {item.createdAt !== null && item.content !== '' && (
-            <time className={clsx(styles.timestamp, styles.timestampRight)}>
+            <time className={styles.timestamp}>
               {formatTimestamp(item.createdAt)}
             </time>
           )}
@@ -88,7 +88,7 @@ export function RenderItem({item}: RenderItemProps) {
         );
       }
       return (
-        <div className={styles.assistantMessage}>
+        <div className={clsx(styles.assistantMessage, styles.fullWidthMessage)}>
           <ToolExecutionCard
             callId={item.callId}
             toolName={item.toolName}

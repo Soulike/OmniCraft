@@ -4,13 +4,14 @@
  * The OmniCraft visual language layered on top of HeroUI's base theme.
  * HeroUI owns the neutrals + accent (--background, --foreground, --surface,
  * --border, --accent, --muted, ...); this file adds the glass/glow/depth
- * recipe and is the SINGLE source of truth for those values.
+ * recipe and is the SINGLE source of truth for those tokens — both their
+ * values AND their purpose (documented per-token below). docs/design-language.md
+ * holds the principles/rationale and points here for the live list; do not
+ * maintain a parallel token table there.
  *
  * Usage: consume these via var(--aurora-*) in component styles. Never
  * hard-code the raw rgba/gradient values into a component. Light and dark
  * are reinterpreted (not ported) — keep both in sync when tuning.
- *
- * See docs/design-language.md for the principles behind these values.
  */
 
 :root {
@@ -23,6 +24,11 @@
   --font-ui:
     'Sora Variable', 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC',
     sans-serif;
+
+  /* Backdrop blur for expandable glass cards (tool/thinking disclosures).
+     Theme-independent. Kept small and only applied to a few transient
+     expanded cards, not to every surface. */
+  --aurora-glass-blur: blur(14px) saturate(1.6);
 }
 
 :root.light {
@@ -72,27 +78,55 @@
       transparent 62%
     ),
     var(--background);
-  /* Mica: the main panel is a translucent surface that blurs the canvas
-     behind it, picking up a faint tint. HeroUI content inside stays opaque. */
-  --aurora-mica-fill: rgba(255, 255, 255, 0.72);
-  --aurora-mica-blur: blur(64px) saturate(1.5);
-  --aurora-mica-border: 1px solid rgba(255, 255, 255, 0.6);
-  --aurora-glass-fill: linear-gradient(160deg, #ffffff, #eef1fb);
-  --aurora-glass-border: rgba(20, 30, 80, 0.1);
-  --aurora-glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  /* --aurora-mica-*: the main content panel is a translucent "Mica" surface
+     that blurs the canvas behind it, picking up a faint tint. Frame-only —
+     HeroUI content inside the panel does not get this blur. */
+  --aurora-mica-fill: rgba(255, 255, 255, 0.6); /* Mica panel base fill */
+  --aurora-mica-blur: blur(72px) saturate(1.7); /* panel backdrop-filter */
+  --aurora-mica-border: 1px solid rgba(255, 255, 255, 0.7); /* panel hairline */
+
+  /* --aurora-glass-*: the glass-accent material for small flush surfaces
+     (glass pedestals, active pills, the composer capsule, expanded
+     tool/thinking/subagent cards). */
+  /* translucent glass surface fill */
+  --aurora-glass-fill: linear-gradient(
+    160deg,
+    rgba(255, 255, 255, 0.75),
+    rgba(238, 241, 251, 0.6)
+  );
+  --aurora-glass-border: rgba(
+    20,
+    30,
+    80,
+    0.1
+  ); /* light-catching glass hairline */
+  --aurora-glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.9); /* inset top highlight on glass */
+  /* --aurora-glass-shadow / -raised: outer drop shadow for raised glass (e.g.
+     the composer capsule); -raised is the stronger lift on focus. Per-theme
+     (P4): soft grey on light, deeper black on dark. */
+  --aurora-glass-shadow: 0 10px 30px rgba(20, 30, 80, 0.12);
+  --aurora-glass-shadow-raised: 0 12px 34px rgba(20, 30, 80, 0.16);
+
+  /* --aurora-active-*: the active-state material shared by the nav rail item
+     and the selected session row. */
+  /* active nav/session item glass fill */
   --aurora-active-fill: linear-gradient(
     100deg,
     rgba(95, 125, 255, 0.16),
     rgba(150, 110, 255, 0.07)
   );
+  /* active left-bar gradient + its glow (glow is `none` on light — reads dirty
+     on white; P4). */
   --aurora-active-bar: linear-gradient(var(--accent), oklch(0.55 0.2 262));
-  --aurora-active-bar-glow: none; /* glow reads dirty on white */
+  --aurora-active-bar-glow: none;
+  /* one-shot sheen sweep gradient on a nav item (click feedback). */
   --aurora-sheen: linear-gradient(
     100deg,
     transparent,
     rgba(120, 140, 220, 0.18),
     transparent
   );
+  /* active nav icon glow filter (dark only; `none` on light). */
   --aurora-active-icon-glow: none;
 }
 
@@ -139,9 +173,10 @@
       transparent 62%
     ),
     var(--background);
-  --aurora-mica-fill: rgba(15, 16, 24, 0.7);
-  --aurora-mica-blur: blur(64px) saturate(1.4);
-  --aurora-mica-border: 1px solid rgba(255, 255, 255, 0.05);
+  --aurora-mica-fill: rgba(18, 20, 30, 0.52);
+  --aurora-mica-blur: blur(72px) saturate(1.8);
+  --aurora-mica-border: 1px solid rgba(160, 180, 255, 0.16);
+
   --aurora-glass-fill: linear-gradient(
     160deg,
     rgba(255, 255, 255, 0.09),
@@ -149,6 +184,9 @@
   );
   --aurora-glass-border: rgba(140, 160, 255, 0.22);
   --aurora-glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  /* Deeper shadow on dark so the lift still reads against the dark canvas. */
+  --aurora-glass-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+  --aurora-glass-shadow-raised: 0 12px 34px rgba(0, 0, 0, 0.5);
   --aurora-active-fill: linear-gradient(
     100deg,
     rgba(90, 120, 255, 0.3),

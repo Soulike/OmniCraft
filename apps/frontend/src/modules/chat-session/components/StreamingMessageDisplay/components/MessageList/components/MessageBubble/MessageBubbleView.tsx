@@ -1,5 +1,4 @@
 import {Skeleton} from '@heroui/react';
-import clsx from 'clsx';
 
 import {MarkdownRenderer} from '@/components/MarkdownRenderer/index.js';
 
@@ -13,27 +12,33 @@ interface MessageBubbleViewProps {
 }
 
 export function MessageBubbleView({role, content}: MessageBubbleViewProps) {
-  const isWaiting = !content && role === 'assistant';
+  if (role === 'user') {
+    return (
+      <div className={styles.userBubble}>
+        <div className={styles.content}>
+          {content ? (
+            <MarkdownRenderer content={content} />
+          ) : (
+            <Skeleton className={styles.skeleton} />
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div
-      className={clsx(styles.bubble, {
-        [styles.user]: role === 'user',
-        [styles.assistant]: role === 'assistant',
-        [styles.bare]: isWaiting,
-      })}
-    >
-      <div className={styles.content}>{renderContent(role, content)}</div>
+    <div className={styles.assistant}>
+      <div className={styles.assistantLabel}>
+        <span className={styles.assistantDot} aria-hidden='true' />
+        Assistant
+      </div>
+      <div className={styles.content}>
+        {content ? (
+          <MarkdownRenderer content={content} />
+        ) : (
+          <WorkingIndicator />
+        )}
+      </div>
     </div>
   );
-}
-
-function renderContent(role: ChatMessage['role'], content: string) {
-  if (content) {
-    return <MarkdownRenderer content={content} />;
-  }
-  if (role === 'assistant') {
-    return <WorkingIndicator />;
-  }
-  return <Skeleton className={styles.skeleton} />;
 }

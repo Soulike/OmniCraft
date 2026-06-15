@@ -1,11 +1,63 @@
-.container {
+.capsule {
   display: flex;
-  align-items: flex-end;
+  flex-direction: column;
   gap: 8px;
-  padding: 16px;
+  margin: 12px 16px 16px;
+  padding: 10px 12px;
+  border-radius: 18px;
+  background: var(--aurora-glass-fill);
+  border: 1px solid var(--aurora-glass-border);
+  box-shadow: var(--aurora-glass-highlight), var(--aurora-glass-shadow);
+  transition:
+    border-color 150ms ease,
+    box-shadow 150ms ease;
+}
+
+/* One-shot focus glow: the capsule lifts when the textarea is focused,
+   then settles. Event-driven (P3), not ambient. */
+.capsule:focus-within {
+  border-color: color-mix(
+    in oklch,
+    var(--accent) 45%,
+    var(--aurora-glass-border)
+  );
+  box-shadow:
+    var(--aurora-glass-highlight),
+    0 0 0 1px color-mix(in oklch, var(--accent) 35%, transparent),
+    var(--aurora-glass-shadow-raised);
 }
 
 .textarea {
-  flex: 1;
+  width: 100%;
   resize: none;
+}
+
+/* Neutralize HeroUI TextArea's own chrome so it reads as part of the capsule
+   (no inner border/background/focus-ring competing with the capsule glow).
+   Not redundant with the global field/border tokens: those set colors, but the
+   field's focus ring is an independent box-shadow the tokens can't reach.
+   Scoped to the capsule on purpose — standalone inputs keep their ring. */
+.textarea:global(.textarea) {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+}
+
+.textarea:global(.textarea):focus,
+.textarea:global(.textarea):focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .capsule {
+    transition: none;
+  }
 }

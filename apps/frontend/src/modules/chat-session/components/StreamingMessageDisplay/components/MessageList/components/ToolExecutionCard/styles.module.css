@@ -1,11 +1,17 @@
 .card {
-  border-radius: 6px;
-  width: 480px;
+  border-radius: 10px;
+  width: 100%;
   max-width: 100%;
 }
 
+/* Expanded: B-tier glass shell (translucent + blur), blends into the Mica.
+   Inner code/terminal/diff blocks stay opaque (see ResultSection .pre). */
 .card:has(.trigger[aria-expanded='true']) {
-  background: color-mix(in srgb, var(--surface) 52%, transparent);
+  background: var(--aurora-glass-fill);
+  border: 1px solid var(--aurora-glass-border);
+  box-shadow: var(--aurora-glass-highlight);
+  backdrop-filter: var(--aurora-glass-blur);
+  -webkit-backdrop-filter: var(--aurora-glass-blur);
 }
 
 .trigger {
@@ -14,20 +20,21 @@
   align-items: center;
   gap: 6px;
   width: 100%;
-  min-height: 26px;
+  min-height: 28px;
   box-sizing: border-box;
-  padding: 2px 6px;
+  padding: 3px 8px;
   cursor: pointer;
   background: none;
   border: none;
-  border-radius: 6px;
+  border-radius: 10px;
   color: inherit;
   font: inherit;
   text-align: left;
+  transition: background 150ms ease;
 }
 
 .trigger:hover {
-  background: color-mix(in srgb, var(--foreground) 4%, transparent);
+  background: var(--aurora-glass-fill);
 }
 
 .trigger:focus-visible {
@@ -159,4 +166,10 @@
 
 .preError {
   color: var(--danger);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .trigger {
+    transition: none;
+  }
 }

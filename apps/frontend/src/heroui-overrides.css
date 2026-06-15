@@ -1,0 +1,48 @@
+/**
+ * HeroUI token overrides (Aurora Glass material).
+ *
+ * This file is SEPARATE from aurora-glass.css on purpose:
+ *   - aurora-glass.css ADDS our own tokens (--aurora-*): canvas, mica, glass,
+ *     active states — things HeroUI doesn't have.
+ *   - this file OVERRIDES HeroUI's OWN semantic tokens (--surface, --border,
+ *     --field-background, ...) so HeroUI components pick up our glass material
+ *     by default, instead of being restyled component-by-component.
+ *
+ * Must be imported AFTER `@heroui/styles` so these win over HeroUI's defaults.
+ *
+ * Rules (see docs/design-language.md §3.3):
+ *   - Keep this set small and deliberate; don't let it sprawl.
+ *   - Material decisions that should apply app-wide go here as a token
+ *     override, NOT as a per-component background/border rule.
+ *   - Never override a token in a way that needs backdrop-filter on many
+ *     elements or on overlays (perf + fragility). Translucency via alpha is
+ *     free; blur is reserved for the frame Mica and a few transient cards.
+ *   - Overlays (--overlay) and form-field text stay on HeroUI defaults.
+ *   - Keep light and dark in sync (P4).
+ */
+
+:root.light {
+  /* Cards/panels: translucent so the Mica tint bleeds through (no blur — the
+     panel behind is already frosted; pure alpha = zero perf cost). Tuned high
+     enough to keep text readable. */
+  --surface: rgba(255, 255, 255, 0.75);
+  /* Nested raised surfaces: translucent too (HeroUI defines these as their own
+     opaque values, not derived from --surface), stepping alpha up so deeper
+     nesting reads slightly more solid. */
+  --surface-secondary: rgba(244, 246, 252, 0.82);
+  --surface-tertiary: rgba(238, 241, 250, 0.88);
+  /* Inputs: same material family as cards, but a touch more fill for text
+     contrast (independent of --surface via HeroUI's --field-* tokens). */
+  --field-background: rgba(255, 255, 255, 0.8);
+  /* Borders: align HeroUI's flat hairline to our light-catching glass edge. */
+  --border: rgba(20, 30, 80, 0.12);
+}
+
+:root.dark {
+  /* Dark reinterpretation (P4): same material idea, different recipe. */
+  --surface: rgba(34, 37, 52, 0.75);
+  --surface-secondary: rgba(42, 45, 62, 0.82);
+  --surface-tertiary: rgba(48, 52, 70, 0.88);
+  --field-background: rgba(34, 37, 52, 0.8);
+  --border: rgba(160, 180, 255, 0.16);
+}

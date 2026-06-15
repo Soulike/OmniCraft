@@ -4,22 +4,17 @@
   flex-direction: column;
   flex-shrink: 0;
   height: 100%;
-  background-color: var(--color-background);
-  transition:
-    width 200ms ease,
-    border-color 200ms ease;
+  transition: width 200ms ease;
 }
 
 .sidebar[data-open='true'] {
   width: 260px;
   overflow: hidden;
-  border-right: 1px solid var(--color-border);
 }
 
 .sidebar[data-open='false'] {
   width: 0;
   overflow: visible;
-  border-right: none;
 }
 
 .expanded {
@@ -72,7 +67,7 @@
   font-size: 0.8rem;
   letter-spacing: 0.025em;
   text-transform: uppercase;
-  color: var(--color-muted);
+  color: var(--muted);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
