@@ -22,7 +22,7 @@ export function ThinkingBlockView({
   onExpandedChange,
 }: ThinkingBlockViewProps) {
   return (
-    <div className={clsx(styles.card, done ? styles.done : styles.streaming)}>
+    <div className={clsx(styles.card, !done && styles.streaming)}>
       <Disclosure isExpanded={isExpanded} onExpandedChange={onExpandedChange}>
         <Disclosure.Heading>
           <Disclosure.Trigger className={styles.trigger}>

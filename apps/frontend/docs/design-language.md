@@ -121,6 +121,7 @@ Available tokens (see the file for the actual recipe and both-theme values):
 | `--aurora-glass-border`                                 | Light-catching glass hairline                                                                        |
 | `--aurora-glass-highlight`                              | Inset top highlight on glass                                                                         |
 | `--aurora-glass-shadow`, `--aurora-glass-shadow-raised` | Outer drop shadow for raised glass (capsule); `-raised` is the stronger lift on focus. Per-theme.    |
+| `--aurora-glass-blur`                                   | Backdrop blur for expandable glass cards (tool/thinking/subagent disclosures). Theme-independent.    |
 | `--aurora-active-fill`                                  | Active nav item glass fill                                                                           |
 | `--aurora-active-bar`, `--aurora-active-bar-glow`       | Active left-bar gradient + glow (glow is `none` in light)                                            |
 | `--aurora-sheen`                                        | One-shot sheen sweep gradient on active nav item                                                     |
