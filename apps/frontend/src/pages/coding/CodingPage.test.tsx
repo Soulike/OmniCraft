@@ -3,6 +3,8 @@ import {fireEvent, render, screen, waitFor} from '@testing-library/react';
 import {MemoryRouter, Route, Routes} from 'react-router';
 import {beforeEach, describe, expect, it, vi} from 'vitest';
 
+import {ThemeProvider} from '@/contexts/theme/index.js';
+
 import {CodingPage} from './CodingPage.js';
 
 class ResizeObserverStub implements ResizeObserver {
@@ -79,6 +81,7 @@ function renderCodingPage() {
         <Route path='/coding/:sessionId' element={<CodingPage />} />
       </Routes>
     </MemoryRouter>,
+    {wrapper: ThemeProvider},
   );
 }
 

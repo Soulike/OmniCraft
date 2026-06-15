@@ -24,13 +24,13 @@ describe('WorkingIndicatorView', () => {
 
 describe('MessageBubbleView empty state', () => {
   it('shows a working word for an empty assistant bubble', () => {
-    render(<MessageBubbleView role='assistant' content='' />);
+    render(<MessageBubbleView role='assistant' content='' theme='dark' />);
     const matched = WORKING_WORDS.some((w) => screen.queryByText(w) !== null);
     expect(matched).toBe(true);
   });
 
   it('does not show a working word for an empty user bubble', () => {
-    render(<MessageBubbleView role='user' content='' />);
+    render(<MessageBubbleView role='user' content='' theme='dark' />);
     const matched = WORKING_WORDS.some((w) => screen.queryByText(w) !== null);
     expect(matched).toBe(false);
   });
