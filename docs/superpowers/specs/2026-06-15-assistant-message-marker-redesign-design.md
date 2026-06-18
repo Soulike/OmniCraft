@@ -69,9 +69,9 @@ Replace the existing `.assistantDot` (13px glass square) + uppercase "ASSISTANT"
 
 - `.../MessageList/components/AssistantMessage/` (new MVVM component)
   - `AssistantMessageView.tsx`: render the circular sigil (theme-selected SVG)
-    - OmniCraft wordmark, then the body (`MarkdownRenderer`, or
-      `WorkingIndicator` when empty). Imports the two SVGs (`?react`) and selects
-      by `theme` — following the `BRAND_ICONS` pattern in `SidebarView.tsx`.
+    and the OmniCraft wordmark, then the body (`MarkdownRenderer`, or
+    `WorkingIndicator` when empty). Imports the two SVGs (`?react`) and selects
+    by `theme` — following the `BRAND_ICONS` pattern in `SidebarView.tsx`.
   - `AssistantMessage.tsx` (container): resolve theme via `useTheme()` and
     stream via `useStreamingText()`, pass down to the view.
   - `styles.module.css`: `.assistant`, `.label`, `.name`, `.sigil`,
