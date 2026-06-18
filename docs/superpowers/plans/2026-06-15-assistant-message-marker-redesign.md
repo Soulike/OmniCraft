@@ -2,6 +2,16 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+> **⚠️ Superseded structure (read first):** This plan was executed as written —
+> the marker first shipped inside a single `MessageBubble` / `MessageBubbleView`
+> with a `role` branch. As a follow-up in the same PR, that component was **split**
+> into two single-responsibility MVVM components, `AssistantMessage` and
+> `UserMessage` (selected in `RenderItem`), and `MessageBubble` was deleted. So
+> every `MessageBubble*` path and the `theme`-prop-on-the-shared-view detail below
+> are **historical**: the steps describe how the work was done, not the final file
+> layout. For the current structure see §6 of the spec
+> (`docs/superpowers/specs/2026-06-15-assistant-message-marker-redesign-design.md`).
+
 **Goal:** Replace the assistant turn's bare 13px glass dot + uppercase "ASSISTANT" label with a 32px circular glass sigil housing the real OmniCraft topology logo (theme-aware SVG) plus an "OmniCraft" wordmark.
 
 **Architecture:** The marker lives in the assistant branch of `MessageBubbleView` (a stateless MVVM view). The view gains a `theme` prop; the `MessageBubble` container resolves the theme via the existing `useTheme()` hook and passes it down — mirroring how `SidebarView`/`Sidebar` already house the brand logo. New CSS for the circular sigil replaces the old dot/label styles. Full-width body, `WorkingIndicator` empty state, timestamp, and `fadeInUp` entry are all untouched.
