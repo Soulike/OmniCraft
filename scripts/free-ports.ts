@@ -32,10 +32,25 @@ function close(server: net.Server): Promise<void> {
  * simultaneously so the OS is forced to assign different ports, then released.
  */
 export async function getFreePorts(count: number): Promise<number[]> {
-  const held = await Promise.all(
+  const results = await Promise.allSettled(
     Array.from({length: count}, () => listenOnFreePort()),
   );
-  const ports = held.map(({port}) => port);
+
+  const held = results
+    .filter(
+      (result): result is PromiseFulfilledResult<HeldPort> =>
+        result.status === 'fulfilled',
+    )
+    .map((result) => result.value);
+
   await Promise.all(held.map(({server}) => close(server)));
-  return ports;
+
+  const failure = results.find(
+    (result): result is PromiseRejectedResult => result.status === 'rejected',
+  );
+  if (failure) {
+    throw failure.reason;
+  }
+
+  return held.map(({port}) => port);
 }

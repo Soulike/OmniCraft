@@ -36,4 +36,9 @@ describe('getFreePorts', () => {
     const [port] = await getFreePorts(1);
     await expect(canBind(port)).resolves.toBeUndefined();
   });
+
+  it('returns an empty array for a count of zero', async () => {
+    const ports = await getFreePorts(0);
+    expect(ports).toEqual([]);
+  });
 });
