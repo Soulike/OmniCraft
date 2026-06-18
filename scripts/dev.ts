@@ -31,6 +31,7 @@ process.on('SIGTERM', () => forward('SIGTERM'));
 
 child.on('exit', (code, signal) => {
   if (signal !== null) {
+    process.removeAllListeners(signal);
     process.kill(process.pid, signal);
     return;
   }
