@@ -59,12 +59,34 @@ Replace the existing `.assistantDot` (13px glass square) + uppercase "ASSISTANT"
 
 ## 6. Affected Files
 
-- `apps/frontend/src/modules/chat-session/components/StreamingMessageDisplay/components/MessageList/components/MessageBubble/MessageBubbleView.tsx`
-  - Assistant branch: render the circular sigil (theme-selected SVG) + OmniCraft wordmark, replacing `.assistantDot` + `.assistantLabel`.
-  - Import the two SVGs (`?react`) and select by current theme — following the `BRAND_ICONS` pattern in `SidebarView.tsx`. Requires reading the theme (reuse the same theme source as the sidebar).
-- `.../MessageBubble/styles.module.css`
-  - Add the `.sigil` circular glass styles; remove `.assistantDot`; adjust/repurpose `.assistantLabel` into the marker row (icon + wordmark laid out horizontally).
-- Tests: the existing `WorkingIndicatorView` / `RenderItem` tests do not depend on marker DOM details and are expected to be unaffected; confirm with `bun run test` after implementation.
+> Note: the marker first shipped inside a single `MessageBubble` component
+> with a `role` branch. As a follow-up in the same PR, that component was
+> split into two single-responsibility MVVM components — `UserMessage` and
+> `AssistantMessage` — because the two turns had diverged to the point of
+> sharing almost nothing (the assistant turn resolves theme + streaming and
+> renders the sigil; the user turn is a plain glass bubble). The file list
+> below reflects the final structure.
+
+- `.../MessageList/components/AssistantMessage/` (new MVVM component)
+  - `AssistantMessageView.tsx`: render the circular sigil (theme-selected SVG)
+    - OmniCraft wordmark, then the body (`MarkdownRenderer`, or
+      `WorkingIndicator` when empty). Imports the two SVGs (`?react`) and selects
+      by `theme` — following the `BRAND_ICONS` pattern in `SidebarView.tsx`.
+  - `AssistantMessage.tsx` (container): resolve theme via `useTheme()` and
+    stream via `useStreamingText()`, pass down to the view.
+  - `styles.module.css`: `.assistant`, `.label`, `.name`, `.sigil`,
+    `.sigilIcon`, `.content`.
+- `.../MessageList/components/UserMessage/` (new MVVM component)
+  - `UserMessageView.tsx`: the right-aligned glass bubble (`MarkdownRenderer`,
+    or `Skeleton` when empty). No theme, no streaming.
+  - `UserMessage.tsx` (container): defer the content value.
+  - `styles.module.css`: `.userBubble`, `.content`, `.skeleton`.
+- `.../MessageList/components/RenderItem/RenderItem.tsx`: the `user-text`
+  branch renders `UserMessage`; the `assistant-text` branch renders
+  `AssistantMessage`.
+- Tests: the empty-state checks in `WorkingIndicatorView.test.tsx` render
+  `AssistantMessageView` / `UserMessageView` directly; confirm with
+  `bun run test`.
 
 ## 7. Acceptance
 
