@@ -1,6 +1,8 @@
 import {cleanup, render, screen} from '@testing-library/react';
 import {afterEach, describe, expect, it} from 'vitest';
 
+import {ThemeProvider} from '@/contexts/theme/index.js';
+
 import {WORKING_WORDS} from '../WorkingIndicator/words.js';
 import {RenderItem} from './RenderItem.js';
 
@@ -10,7 +12,9 @@ afterEach(() => {
 
 describe('RenderItem thinking', () => {
   it('shows the working indicator while thinking has no content yet', () => {
-    render(<RenderItem item={{type: 'thinking', content: '', done: false}} />);
+    render(<RenderItem item={{type: 'thinking', content: '', done: false}} />, {
+      wrapper: ThemeProvider,
+    });
 
     const matched = WORKING_WORDS.some((w) => screen.queryByText(w) !== null);
     expect(matched).toBe(true);
@@ -21,6 +25,7 @@ describe('RenderItem thinking', () => {
       <RenderItem
         item={{type: 'thinking', content: 'reasoning…', done: false}}
       />,
+      {wrapper: ThemeProvider},
     );
 
     const matched = WORKING_WORDS.some((w) => screen.queryByText(w) !== null);
@@ -40,6 +45,7 @@ describe('RenderItem assistant-text', () => {
           createdAt: 1_700_000_000_000,
         }}
       />,
+      {wrapper: ThemeProvider},
     );
 
     expect(document.querySelector('time')).toBeNull();
@@ -55,6 +61,7 @@ describe('RenderItem assistant-text', () => {
           createdAt: 1_700_000_000_000,
         }}
       />,
+      {wrapper: ThemeProvider},
     );
 
     expect(document.querySelector('time')).not.toBeNull();

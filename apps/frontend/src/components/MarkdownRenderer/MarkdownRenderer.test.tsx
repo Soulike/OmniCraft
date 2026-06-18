@@ -62,4 +62,44 @@ $$`}
 
     expect(table.parentElement).toHaveClass(styles.tableScroll);
   });
+
+  describe('does not render raw HTML (XSS)', () => {
+    it('escapes a raw <script> tag instead of executing it', () => {
+      const {container} = render(
+        <MarkdownRenderer
+          content={'Hello <script>window.__xss = true;</script> world'}
+        />,
+      );
+
+      expect(container.querySelector('script')).not.toBeInTheDocument();
+      expect(container.textContent).toContain('<script>');
+    });
+
+    it('does not create an element from a raw <img onerror> payload', () => {
+      const {container} = render(
+        <MarkdownRenderer content={'<img src=x onerror="window.__xss=1">'} />,
+      );
+
+      // Raw HTML is escaped, so no real <img> element is produced.
+      expect(container.querySelector('img')).not.toBeInTheDocument();
+    });
+
+    it('drops a javascript: link URL', () => {
+      const {container} = render(
+        <MarkdownRenderer content={'[click me](javascript:alert(1))'} />,
+      );
+
+      const anchor = container.querySelector('a');
+      expect(anchor).not.toBeInTheDocument();
+      expect(container.textContent).toContain('click me');
+    });
+
+    it('drops a javascript: image URL', () => {
+      const {container} = render(
+        <MarkdownRenderer content={'![alt](javascript:alert(1))'} />,
+      );
+
+      expect(container.querySelector('img')).not.toBeInTheDocument();
+    });
+  });
 });
