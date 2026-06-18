@@ -6,7 +6,7 @@
     "format": "prettier --write --ignore-unknown .",
     "format:check": "prettier --check --ignore-unknown .",
     "test": "vitest run",
-    "dev": "bun run --filter './apps/*' dev",
+    "dev": "bun scripts/dev.ts",
     "build:frontend": "bun run --filter '@omnicraft/frontend' build",
     "start": "bun run build:frontend && bun run --filter '@omnicraft/backend' start"
   },
