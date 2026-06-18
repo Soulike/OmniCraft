@@ -1,4 +1,5 @@
 import '@testing-library/jest-dom/vitest';
+import {afterEach} from 'vitest';
 
 Object.defineProperty(window, 'matchMedia', {
   writable: true,
@@ -43,4 +44,12 @@ class LocalStorageMock implements Storage {
 Object.defineProperty(window, 'localStorage', {
   writable: true,
   value: new LocalStorageMock(),
+});
+
+// ThemeProvider persists to localStorage and writes a theme class onto
+// <html> on mount. Reset both after each test so the shared setup stays
+// order-independent.
+afterEach(() => {
+  window.localStorage.clear();
+  document.documentElement.classList.remove('light', 'dark');
 });
