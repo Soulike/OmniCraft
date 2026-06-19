@@ -20,6 +20,7 @@ import {
   llmSessionCompactor,
 } from './compaction/index.js';
 import {createEmptyLlmSessionUsage} from './helpers.js';
+import {sanitizeReminderContent} from './sanitize-reminder.js';
 import type {
   LlmCompactionMetadata,
   LlmCompactionOptions,
@@ -140,20 +141,11 @@ export class LlmSession {
     thinkingLevel: ThinkingLevel,
     signal?: AbortSignal,
   ): SendUserMessageResult {
-    const delimiterPattern = /<\s*\/?\s*system-reminder\s*>/gi;
-    let safeContent = content;
-    // Loop until stable: a single pass could re-form a delimiter from
-    // overlapping fragments (e.g. `<<system-reminder>/system-reminder>`).
-    let previous: string;
-    do {
-      previous = safeContent;
-      safeContent = safeContent.replace(delimiterPattern, '');
-    } while (safeContent !== previous);
     const reminderMessage = {
       id: crypto.randomUUID(),
       createdAt: Date.now(),
       role: 'user' as const,
-      content: `<system-reminder>\n${safeContent}\n</system-reminder>`,
+      content: `<system-reminder>\n${sanitizeReminderContent(content)}\n</system-reminder>`,
     };
     return {
       stream: this.sendMessages(

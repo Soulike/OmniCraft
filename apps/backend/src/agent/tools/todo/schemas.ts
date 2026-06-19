@@ -16,7 +16,11 @@ export const todoAppendParametersSchema = z.object({
   items: z
     .array(
       z.object({
-        subject: z.string().min(1).describe('Brief title for the todo item'),
+        subject: z
+          .string()
+          .min(1)
+          .max(200)
+          .describe('Brief title for the todo item'),
         description: z.string().describe('What needs to be done'),
       }),
     )
@@ -35,6 +39,7 @@ export const todoUpdateParametersSchema = z.object({
   subject: z
     .string()
     .min(1)
+    .max(200)
     .optional()
     .describe(
       'New title for the item. ' +
