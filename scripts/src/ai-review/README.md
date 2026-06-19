@@ -92,8 +92,9 @@ base ref and head SHA) are validated by `validate.ts` and option-terminated with
 - [ ] **No-new-commits short-circuit:** re-run with the head unchanged; confirm
       the gate carries the prior verdict without re-reviewing.
 - [ ] **Dedup:** leave a prior bot finding unresolved, push a trivial change;
-      confirm reviewers do not re-report the already-open finding, but a newly
-      introduced issue is still reported.
+      confirm reviewers (which now read existing PR comments themselves) avoid
+      re-reporting the already-open finding, while a newly introduced issue is
+      still reported.
 - [ ] **Red gate:** introduce a deliberate Medium+ issue; confirm the gate fails,
       inline comments are posted, and the `AI Need Change` label is applied.
 - [ ] **Green gate:** with no Medium+ issues, confirm the gate passes and the
