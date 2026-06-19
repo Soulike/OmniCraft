@@ -1,43 +1,8 @@
 import {execFileSync} from 'node:child_process';
 
-// `gh api` JSON responses (PR reviews, payloads) can exceed execFileSync's
-// default 1 MB stdout buffer on large PRs; allow up to 64 MB so the helpers do
-// not throw a spurious buffer error and fail the gate.
-const MAX_BUFFER = 64 * 1024 * 1024;
-
 /** Runs a command, returning trimmed stdout. Throws on a non-zero exit. */
 export function run(command: string, args: readonly string[]): string {
-  return execFileSync(command, args, {
-    encoding: 'utf8',
-    maxBuffer: MAX_BUFFER,
-  }).trim();
-}
-
-/**
- * Runs a `gh` command, returning trimmed stdout on success. If the command
- * fails with one of the given HTTP statuses (parsed from `gh`'s stderr, e.g.
- * `HTTP 404`), returns `null` instead of throwing. Any other failure rethrows,
- * so genuine errors (auth, rate limit, network) are not silently swallowed.
- */
-export function runAllowingHttpStatus(
-  args: readonly string[],
-  allowedStatuses: readonly number[],
-): string | null {
-  try {
-    return execFileSync('gh', args, {
-      encoding: 'utf8',
-      maxBuffer: MAX_BUFFER,
-    }).trim();
-  } catch (error) {
-    const stderr = (error as {stderr?: string | Buffer}).stderr;
-    const text =
-      typeof stderr === 'string' ? stderr : (stderr?.toString() ?? '');
-    const match = /HTTP (\d{3})/.exec(text);
-    if (match && allowedStatuses.includes(Number(match[1]))) {
-      return null;
-    }
-    throw error;
-  }
+  return execFileSync(command, args, {encoding: 'utf8'}).trim();
 }
 
 /**

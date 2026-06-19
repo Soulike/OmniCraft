@@ -2,13 +2,9 @@ import {parseLatestMarker, resolveReviewRange} from '@omnicraft/ai-review-core';
 
 import {requireEnv, setOutput} from './gha.js';
 import {isAncestor, run} from './git.js';
+import {createGitHubClient} from './octokit.js';
 import {readBotReviewBodies} from './reviews.js';
-import {
-  requireGitRef,
-  requirePrNumber,
-  requireRepo,
-  requireSha,
-} from './validate.js';
+import {requireGitRef, requirePrNumber, requireSha} from './validate.js';
 
 interface PullContext {
   readonly prNumber: number;
@@ -26,12 +22,8 @@ function resolveContext(): PullContext {
   return {prNumber, headSha, baseSha, baseRef};
 }
 
-function readReviewBodies(repo: string, prNumber: number): string[] {
-  return readBotReviewBodies(repo, String(prNumber));
-}
-
-function main(): void {
-  const repo = requireRepo(requireEnv('GH_REPO'));
+async function main(): Promise<void> {
+  const client = createGitHubClient();
   const context = resolveContext();
 
   // Fetch the PR head and base into the checkout for git ancestry ops.
@@ -41,7 +33,7 @@ function main(): void {
   run('git', ['fetch', 'origin', '--', `pull/${context.prNumber}/head`]);
 
   const previousMarker = parseLatestMarker(
-    readReviewBodies(repo, context.prNumber),
+    await readBotReviewBodies(client, context.prNumber),
   );
 
   const startIsAncestorOfHead =
@@ -70,4 +62,4 @@ function main(): void {
   );
 }
 
-main();
+await main();

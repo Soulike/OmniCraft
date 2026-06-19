@@ -1,18 +1,19 @@
 import {parseLatestMarker} from '@omnicraft/ai-review-core';
 
 import {requireEnv, setOutput} from './gha.js';
+import {createGitHubClient} from './octokit.js';
 import {readBotReviewBodies} from './reviews.js';
-import {requirePrNumber, requireRepo} from './validate.js';
+import {requirePrNumber} from './validate.js';
 
-function main(): void {
-  const repo = requireRepo(requireEnv('GH_REPO'));
-  const prNumber = requirePrNumber(requireEnv('PR_NUMBER'));
+async function main(): Promise<void> {
+  const prNumber = Number(requirePrNumber(requireEnv('PR_NUMBER')));
+  const client = createGitHubClient();
 
-  const marker = parseLatestMarker(readBotReviewBodies(repo, prNumber));
+  const marker = parseLatestMarker(await readBotReviewBodies(client, prNumber));
 
   // Empty output is read by gate.ts as "unreadable" → fail safe.
   setOutput('verdict', marker?.verdict ?? '');
   console.log(`Read verdict: ${marker?.verdict ?? '(none)'}`);
 }
 
-main();
+await main();

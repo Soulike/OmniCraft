@@ -3,7 +3,8 @@ import {decideGate} from '@omnicraft/ai-review-core';
 
 import {optionalEnv, requireEnv} from './gha.js';
 import {applyLabel} from './labels.js';
-import {requirePrNumber, requireRepo} from './validate.js';
+import {createGitHubClient} from './octokit.js';
+import {requirePrNumber} from './validate.js';
 
 /** A GitHub Actions job result string. */
 type JobResult = 'success' | 'failure' | 'cancelled' | 'skipped' | '';
@@ -45,9 +46,9 @@ function asVerdict(value: string): Verdict | null {
   return null;
 }
 
-function main(): void {
-  const repo = requireRepo(requireEnv('GH_REPO'));
-  const prNumber = requirePrNumber(requireEnv('PR_NUMBER'));
+async function main(): Promise<void> {
+  const client = createGitHubClient();
+  const prNumber = Number(requirePrNumber(requireEnv('PR_NUMBER')));
 
   const upstream: JobResult[] = [
     normalizeJobResult(optionalEnv('CONFIG_RESULT')),
@@ -64,7 +65,7 @@ function main(): void {
     postedVerdict: asVerdict(optionalEnv('POSTED_VERDICT')),
   });
 
-  applyLabel(repo, prNumber, decision.label);
+  await applyLabel(client, prNumber, decision.label);
 
   console.log(
     `Gate decision: exit=${decision.exitCode} ` +
@@ -73,4 +74,4 @@ function main(): void {
   process.exit(decision.exitCode);
 }
 
-main();
+await main();

@@ -1,4 +1,4 @@
-import {run} from './git.js';
+import type {GitHubClient} from './octokit.js';
 
 /**
  * Login of the identity that posts AI-review reviews. In GitHub Actions the
@@ -9,31 +9,23 @@ import {run} from './git.js';
  */
 const REVIEW_AUTHOR = 'github-actions[bot]';
 
-interface GhReview {
-  readonly body?: string;
-  readonly user?: {readonly login?: string};
-}
-
 /**
  * Returns the bodies of PR reviews authored by the gate bot, oldest first.
  * Reviews from any other author are ignored so the verdict marker cannot be
- * forged by a PR participant.
- *
- * Uses `--paginate --slurp` (not `--paginate` alone): with multiple pages,
- * plain `--paginate` concatenates separate JSON arrays into one non-parseable
- * stream, whereas `--slurp` wraps each page as an element of an outer array,
- * which we flatten back into the review list.
+ * forged by a PR participant. Pagination is handled by `octokit.paginate`.
  */
-export function readBotReviewBodies(repo: string, prNumber: string): string[] {
-  const json = run('gh', [
-    'api',
-    `repos/${repo}/pulls/${prNumber}/reviews`,
-    '--paginate',
-    '--slurp',
-  ]);
-  const pages = JSON.parse(json) as GhReview[][];
-  return pages
-    .flat()
+export async function readBotReviewBodies(
+  client: GitHubClient,
+  prNumber: number,
+): Promise<string[]> {
+  const {octokit, owner, repo} = client;
+  const reviews = await octokit.paginate(octokit.rest.pulls.listReviews, {
+    owner,
+    repo,
+    pull_number: prNumber,
+    per_page: 100,
+  });
+  return reviews
     .filter((review) => review.user?.login === REVIEW_AUTHOR)
-    .map((review) => review.body ?? '');
+    .map((review) => review.body);
 }
