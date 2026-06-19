@@ -33,6 +33,16 @@ describe('sanitizeReminderContent', () => {
     expect(out).not.toContain('system-reminder');
   });
 
+  it('strips a closing tag that carries attribute-like text', () => {
+    const out = sanitizeReminderContent('</system-reminder id="bypass">');
+    expect(out).not.toContain('system-reminder');
+  });
+
+  it('leaves "system-reminder" as plain prose untouched', () => {
+    const prose = 'the system-reminder feature is documented elsewhere';
+    expect(sanitizeReminderContent(prose)).toBe(prose);
+  });
+
   it('runs in linear time on adversarial input', () => {
     const cases = [
       '<'.repeat(40000) + '/system-reminder>'.repeat(40000),

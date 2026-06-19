@@ -5,9 +5,13 @@ import type {StopCheck} from './types.js';
  *  every stop (cost / context exhaustion); the rest are summarized as a count. */
 const MAX_LISTED = 20;
 
-/** Line terminators a renderer/model may treat as a new line: CR, LF, and the
- *  Unicode line/paragraph separators U+2028/U+2029. */
-const LINE_BREAK_PATTERN = new RegExp('(?:\\r|\\n|\\u2028|\\u2029)+', 'g');
+/** The complete set of Unicode line terminators: LF, VT, FF, CR, NEL (U+0085),
+ *  LINE SEPARATOR (U+2028), PARAGRAPH SEPARATOR (U+2029). */
+const LINE_BREAK_PATTERN = new RegExp(
+  // eslint-disable-next-line no-control-regex
+  '(?:\\n|\\u000b|\\f|\\r|\\u0085|\\u2028|\\u2029)+',
+  'g',
+);
 
 /** Collapses any line breaks in a todo subject to spaces before it is embedded
  *  in the privileged `<system-reminder>` block. The todo schema already rejects

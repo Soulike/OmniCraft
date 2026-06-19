@@ -12,9 +12,14 @@ export type TodoResult = z.infer<typeof todoResultSchema>;
 
 // --- Parameter schemas ---
 
-/** Line terminators a renderer/model may treat as a new line: CR, LF, and the
- *  Unicode line/paragraph separators U+2028/U+2029. */
-const LINE_BREAK_PATTERN = new RegExp('\\r|\\n|\\u2028|\\u2029');
+/** The complete set of Unicode line terminators: LF, VT, FF, CR, NEL (U+0085),
+ *  LINE SEPARATOR (U+2028), PARAGRAPH SEPARATOR (U+2029). Any of these could
+ *  render a subject as multiple lines. Control terminators are matched
+ *  deliberately. */
+const LINE_BREAK_PATTERN = new RegExp(
+  // eslint-disable-next-line no-control-regex
+  '\\n|\\u000b|\\f|\\r|\\u0085|\\u2028|\\u2029',
+);
 
 /** A todo title: short, single-line. The single-line constraint keeps an
  *  attacker-influenced subject from injecting a line break that surfaces as

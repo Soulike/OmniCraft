@@ -22,11 +22,12 @@ describe('todo tools', () => {
       expect(parsed.success).toBe(false);
     });
 
-    it('rejects a subject with a Unicode line separator (U+2028/U+2029)', () => {
-      for (const sep of [
-        String.fromCodePoint(0x2028),
-        String.fromCodePoint(0x2029),
-      ]) {
+    it('rejects a subject with any Unicode line terminator', () => {
+      // LF, VT, FF, CR, NEL, LINE SEPARATOR, PARAGRAPH SEPARATOR.
+      const terminators = [0x0a, 0x0b, 0x0c, 0x0d, 0x85, 0x2028, 0x2029].map(
+        (cp) => String.fromCodePoint(cp),
+      );
+      for (const sep of terminators) {
         const parsed = todoAppendTool.parameters.safeParse({
           items: [{subject: `line one${sep}line two`, description: 'd'}],
         });
