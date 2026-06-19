@@ -29,6 +29,10 @@ suspected vulnerability, and include the command + output as evidence.
 
 ## Output
 
-Same format as the general pass: one section per finding with Title, Location
-(`path:line`), Severity (Critical / High / Medium / Low / nit), Explanation, and
-Evidence.
+Use your `write` tool to write your final Markdown report to the **report file
+path** given in the prompt (the `Report file:` line), and put **only** the report
+there: one section per finding with Title, Location (`path:line`), Severity
+(Critical / High / Medium / Low / nit), Explanation, and Evidence.
+
+Your reasoning, tool output, and progress notes belong in your normal stdout,
+**not** in the report file. If you found no issues, say so explicitly in the file.

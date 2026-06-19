@@ -33,10 +33,16 @@ create are discarded with the runner.
 
 ## Output
 
-Write a Markdown report to stdout with one section per finding:
+You are given a **report file path** in the prompt (the `Report file:` line).
+Use your `write` tool to write your final Markdown report to that file, and put
+**only** the report there — one section per finding:
 
 - **Title** — a one-line summary.
 - **Location** — `path:line` (the exact changed line where possible).
 - **Severity** — your estimate: Critical / High / Medium / Low / nit.
 - **Explanation** — why it is a problem.
 - **Evidence** — repro command + output, if you validated it.
+
+Anything else (your reasoning, tool output, progress notes) belongs in your
+normal stdout, **not** in the report file. If you found no issues, write a report
+file that says so explicitly.

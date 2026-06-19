@@ -93,21 +93,23 @@ jobs:
 
           Repository: $GH_REPO
           PR number: $PR_NUMBER
-          Review range: $REVIEW_RANGE"
+          Review range: $REVIEW_RANGE
+          Report file: $REPORT_FILE"
           copilot --model "$MODEL" --effort "$REASONING_EFFORT" \
             --context long_context \
             --allow-tool 'shell(git:*),shell(gh:*),shell(bun:*),read,write' \
             --allow-all-urls \
             --secret-env-vars COPILOT_GITHUB_TOKEN \
+            --add-dir "$GITHUB_WORKSPACE" \
             -C pr-head \
-            -p "$PROMPT" \
-            > "report-$MODEL-general.md"
+            -p "$PROMPT"
         env:
           MODEL: ${{ matrix.model }}
           COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_CLI_TOKEN }}
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           PR_NUMBER: ${{ needs.prepare.outputs.pr_number }}
+          REPORT_FILE: ${{ github.workspace }}/report-${{ matrix.model }}-general.md
           REVIEW_RANGE: ${{ needs.prepare.outputs.start_sha && format('{0}..{1}', needs.prepare.outputs.start_sha, needs.prepare.outputs.head_sha) || format('{0}...{1}', needs.prepare.outputs.base_sha, needs.prepare.outputs.head_sha) }}
       - name: Security review pass
         run: |
@@ -115,21 +117,23 @@ jobs:
 
           Repository: $GH_REPO
           PR number: $PR_NUMBER
-          Review range: $REVIEW_RANGE"
+          Review range: $REVIEW_RANGE
+          Report file: $REPORT_FILE"
           copilot --model "$MODEL" --effort "$REASONING_EFFORT" \
             --context long_context \
             --allow-tool 'shell(git:*),shell(gh:*),shell(bun:*),read,write' \
             --allow-all-urls \
             --secret-env-vars COPILOT_GITHUB_TOKEN \
+            --add-dir "$GITHUB_WORKSPACE" \
             -C pr-head \
-            -p "$PROMPT" \
-            > "report-$MODEL-security.md"
+            -p "$PROMPT"
         env:
           MODEL: ${{ matrix.model }}
           COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_CLI_TOKEN }}
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           PR_NUMBER: ${{ needs.prepare.outputs.pr_number }}
+          REPORT_FILE: ${{ github.workspace }}/report-${{ matrix.model }}-security.md
           REVIEW_RANGE: ${{ needs.prepare.outputs.start_sha && format('{0}..{1}', needs.prepare.outputs.start_sha, needs.prepare.outputs.head_sha) || format('{0}...{1}', needs.prepare.outputs.base_sha, needs.prepare.outputs.head_sha) }}
       - name: Upload reports
         uses: actions/upload-artifact@v4
@@ -180,6 +184,7 @@ jobs:
             --allow-tool 'shell(git:*),shell(gh:*),shell(bun:*),read,write' \
             --allow-all-urls \
             --secret-env-vars COPILOT_GITHUB_TOKEN \
+            --add-dir "$GITHUB_WORKSPACE" \
             -C pr-head \
             -p "$PROMPT"
         env:
@@ -197,7 +202,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      pull-requests: read
+      pull-requests: write
       issues: write
     steps:
       - uses: actions/checkout@v6
