@@ -51,7 +51,14 @@ The reminder must be:
 - No dev-mode rendering of the reminder event. The event is persisted; a debug UI
   can be added later if needed.
 - No change to compaction, abort, usage reporting, or persistence beyond adding
-  the new event to the existing SSE log.
+  the new event to the existing SSE log. Note: the reminder is a normal `user`
+  message, so it does feed the context-compaction summary input and can thus
+  influence a user-visible compaction summary. This is acceptable for the
+  shipped `todoStopCheck`, whose content is non-sensitive todo state already
+  surfaced via `todo-update` events — "hidden" here means live-transcript
+  cleanliness, not confidentiality. A future check carrying sensitive or
+  debug-only text would need reminder messages tagged so compaction can retain
+  model state without emitting them in summaries.
 
 ## Background: how history reload works
 
@@ -344,13 +351,21 @@ while (true) {
 yield* this.emitDoneAfterTurn({reason: 'complete', tools: toolDefs, systemPrompt, input});
 ```
 
-`evaluateStopChecks` helper:
+`evaluateStopChecks` helper. Note it does **not** record tokens itself — it
+returns the firing checks' tokens, and the turn runner records them only after a
+delivered reminder that the agent answered by _stopping_ (see below). Recording
+eagerly here would wrongly suppress a future reminder when the agent tried to act
+but was budget-cut:
 
 ```ts
 private async evaluateStopChecks(
   stopChecks: readonly StopCheck[],
   runtimeState: AgentRuntimeState,
-): Promise<{checkNames: string[]; content: string} | null> {
+): Promise<{
+  checkNames: string[];
+  content: string;
+  tokens: {name: string; stateToken: string}[];
+} | null> {
   const settled = await Promise.allSettled(
     stopChecks.map(async (check) => ({
       name: check.name,
@@ -359,6 +374,7 @@ private async evaluateStopChecks(
   );
 
   const fired: {name: string; content: string}[] = [];
+  const tokens: {name: string; stateToken: string}[] = [];
   for (const [i, settledResult] of settled.entries()) {
     if (settledResult.status === 'rejected') {
       logger.error(
@@ -378,7 +394,7 @@ private async evaluateStopChecks(
       continue;
     }
     if (result.stateToken !== undefined) {
-      runtimeState.recordStopCheckToken(name, result.stateToken);
+      tokens.push({name, stateToken: result.stateToken});
     }
     fired.push({name, content: result.content});
   }
@@ -387,7 +403,23 @@ private async evaluateStopChecks(
   return {
     checkNames: fired.map((f) => f.name),
     content: fired.map((f) => f.content).join('\n\n'),
+    tokens,
   };
+}
+```
+
+In the loop, after a reminder is delivered and consumed via `advanceTurn`, the
+runner records the returned `tokens` **only if the agent's response carried no
+tool calls** — i.e. it genuinely chose to stop. A tool-bearing response means the
+agent is trying to act, so the token is left unrecorded and the reminder re-fires
+on a later boundary (this also covers the case where a `maxRounds` cutoff then
+prevents those tools from running):
+
+```ts
+if (reminded.toolCalls.length === 0) {
+  for (const {name, stateToken} of reminder.tokens) {
+    input.runtimeState.recordStopCheckToken(name, stateToken);
+  }
 }
 ```
 
@@ -401,8 +433,9 @@ nor leaks a partial result to the LLM.
 The per-check last-reminded token lives on `AgentRuntimeState` (per-session,
 same lifetime as the agent), exposed as `getLastStopCheckToken(name)` and
 `recordStopCheckToken(name, token)` backed by a private `Map<string, string>`.
-A token is recorded only when its reminder is actually included, so the next
-boundary suppresses an identical state and re-fires a changed one.
+A token is recorded only after a delivered reminder the agent answered by
+stopping, so the next boundary suppresses an identical state and re-fires a
+changed one.
 
 Design points:
 
