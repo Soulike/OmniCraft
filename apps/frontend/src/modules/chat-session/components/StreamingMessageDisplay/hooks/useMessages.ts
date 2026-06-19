@@ -7,6 +7,7 @@ import type {
   SseMessageStartEvent,
   SseTextDeltaEvent,
   SseThinkingDeltaEvent,
+  SseTodoItem,
   SseToolExecuteEndEvent,
   SseToolExecuteStartEvent,
 } from '@omnicraft/sse-events';
@@ -293,6 +294,25 @@ export function pushCompactionEvent(
   return [
     ...removeTrailingAssistantMessageIfEmpty(prev),
     {id: null, createdAt: null, role: 'assistant' as const, content: event},
+  ];
+}
+
+export function applyTodoUpdate(
+  prev: ChatMessage[],
+  items: readonly SseTodoItem[],
+): ChatMessage[] {
+  const last = prev[prev.length - 1];
+  if (prev.length > 0 && last.content.type === 'todo') {
+    return [...prev.slice(0, -1), {...last, content: {type: 'todo', items}}];
+  }
+  return [
+    ...removeTrailingAssistantMessageIfEmpty(prev),
+    {
+      id: null,
+      createdAt: null,
+      role: 'assistant' as const,
+      content: {type: 'todo', items},
+    },
   ];
 }
 

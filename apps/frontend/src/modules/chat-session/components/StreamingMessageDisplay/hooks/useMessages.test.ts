@@ -1,7 +1,12 @@
+import type {SseTodoItem} from '@omnicraft/sse-events';
 import {describe, expect, it} from 'vitest';
 
 import type {ChatEventBus, ChatMessage} from '../types.js';
-import {pushCompactionEvent, updateSubagentStatus} from './useMessages.js';
+import {
+  applyTodoUpdate,
+  pushCompactionEvent,
+  updateSubagentStatus,
+} from './useMessages.js';
 
 const startEvent = {
   type: 'context-compaction-start' as const,
@@ -117,5 +122,63 @@ describe('updateSubagentStatus', () => {
       mode: 'resume',
       status: 'error',
     });
+  });
+});
+
+const todoItems = (statuses: SseTodoItem['status'][]): SseTodoItem[] =>
+  statuses.map((status, index) => ({
+    index,
+    subject: `Task ${index}`,
+    description: `Desc ${index}`,
+    status,
+  }));
+
+describe('applyTodoUpdate', () => {
+  it('appends a new todo card when the list is empty', () => {
+    const items = todoItems(['in_progress', 'pending']);
+    const result = applyTodoUpdate([], items);
+    expect(result).toHaveLength(1);
+    expect(result[0].content).toEqual({type: 'todo', items});
+  });
+
+  it('replaces in place when the last message is a todo card', () => {
+    const first = todoItems(['in_progress', 'pending']);
+    const afterFirst = applyTodoUpdate([], first);
+    const second = todoItems(['completed', 'in_progress']);
+    const result = applyTodoUpdate(afterFirst, second);
+    expect(result).toHaveLength(1);
+    expect(result[0].content).toEqual({type: 'todo', items: second});
+  });
+
+  it('appends a new todo card when a non-todo message is last', () => {
+    const prev = applyTodoUpdate([], todoItems(['completed']));
+    const withWork: typeof prev = [
+      ...prev,
+      {
+        id: null,
+        createdAt: null,
+        role: 'assistant',
+        content: {type: 'text', content: 'Did some work'},
+      },
+    ];
+    const next = todoItems(['completed', 'in_progress']);
+    const result = applyTodoUpdate(withWork, next);
+    expect(result).toHaveLength(3);
+    expect(result[2].content).toEqual({type: 'todo', items: next});
+  });
+
+  it('strips a trailing empty assistant placeholder before appending', () => {
+    const withPlaceholder = [
+      {
+        id: null,
+        createdAt: null,
+        role: 'assistant' as const,
+        content: {type: 'text' as const, content: ''},
+      },
+    ];
+    const items = todoItems(['pending']);
+    const result = applyTodoUpdate(withPlaceholder, items);
+    expect(result).toHaveLength(1);
+    expect(result[0].content).toEqual({type: 'todo', items});
   });
 });
