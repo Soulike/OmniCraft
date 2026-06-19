@@ -8,6 +8,7 @@ import type {
   SseTextDeltaEvent,
   SseThinkingDeltaEvent,
   SseTodoItem,
+  SseTodoUpdateEvent,
   SseToolExecuteEndEvent,
   SseToolExecuteStartEvent,
 } from '@omnicraft/sse-events';
@@ -385,6 +386,9 @@ export function useMessages() {
     const onCompactionError = (data: SseContextCompactionErrorEvent) => {
       setMessages((prev) => pushCompactionEvent(prev, data));
     };
+    const onTodoUpdate = (data: SseTodoUpdateEvent) => {
+      setMessages((prev) => applyTodoUpdate(prev, data.items));
+    };
 
     eventBus.on('user-message-sent', onUserMessageSent);
     eventBus.on('text-delta', onTextDelta);
@@ -401,6 +405,7 @@ export function useMessages() {
     eventBus.on('context-compaction-start', onCompactionStart);
     eventBus.on('context-compaction-end', onCompactionEnd);
     eventBus.on('context-compaction-error', onCompactionError);
+    eventBus.on('todo-update', onTodoUpdate);
 
     return () => {
       eventBus.off('user-message-sent', onUserMessageSent);
@@ -418,6 +423,7 @@ export function useMessages() {
       eventBus.off('context-compaction-start', onCompactionStart);
       eventBus.off('context-compaction-end', onCompactionEnd);
       eventBus.off('context-compaction-error', onCompactionError);
+      eventBus.off('todo-update', onTodoUpdate);
     };
   }, [eventBus, setMessages]);
 
