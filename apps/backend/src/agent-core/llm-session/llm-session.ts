@@ -126,6 +126,12 @@ export class LlmSession {
    * when a stop-check blocks the turn from ending. The reminder is visible to
    * the LLM but is surfaced to clients via a `stop-check-reminder` SSE event
    * (not `message-start`), so it never renders in the UI.
+   *
+   * `content` may include untrusted, tool-supplied text (e.g. todo subjects
+   * derived from repository content), so the wrapper delimiters are stripped
+   * from it first — otherwise a `</system-reminder>` embedded in the content
+   * could close the privileged wrapper early and smuggle text outside it
+   * (second-order prompt injection).
    */
   sendReminder(
     content: string,
@@ -134,11 +140,20 @@ export class LlmSession {
     thinkingLevel: ThinkingLevel,
     signal?: AbortSignal,
   ): SendUserMessageResult {
+    const delimiterPattern = /<\s*\/?\s*system-reminder\s*>/gi;
+    let safeContent = content;
+    // Loop until stable: a single pass could re-form a delimiter from
+    // overlapping fragments (e.g. `<<system-reminder>/system-reminder>`).
+    let previous: string;
+    do {
+      previous = safeContent;
+      safeContent = safeContent.replace(delimiterPattern, '');
+    } while (safeContent !== previous);
     const reminderMessage = {
       id: crypto.randomUUID(),
       createdAt: Date.now(),
       role: 'user' as const,
-      content: `<system-reminder>\n${content}\n</system-reminder>`,
+      content: `<system-reminder>\n${safeContent}\n</system-reminder>`,
     };
     return {
       stream: this.sendMessages(

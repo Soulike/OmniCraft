@@ -166,6 +166,12 @@ export class AgentTurnRunner {
           });
           return;
         }
+        // Record de-dup tokens only after the reminder was actually delivered,
+        // so a round-budget cutoff or aborted/failed reminder round does not
+        // permanently suppress a reminder the model never saw.
+        for (const {name, stateToken} of reminder.tokens) {
+          input.runtimeState.recordStopCheckToken(name, stateToken);
+        }
         toolCalls = reminded.toolCalls;
         continue;
       }
@@ -335,7 +341,11 @@ export class AgentTurnRunner {
   private async evaluateStopChecks(
     stopChecks: readonly StopCheck[],
     runtimeState: AgentRuntimeState,
-  ): Promise<{checkNames: string[]; content: string} | null> {
+  ): Promise<{
+    checkNames: string[];
+    content: string;
+    tokens: {name: string; stateToken: string}[];
+  } | null> {
     const settled = await Promise.allSettled(
       stopChecks.map(async (check) => ({
         name: check.name,
@@ -344,6 +354,7 @@ export class AgentTurnRunner {
     );
 
     const fired: {name: string; content: string}[] = [];
+    const tokens: {name: string; stateToken: string}[] = [];
     for (const [index, settledResult] of settled.entries()) {
       if (settledResult.status === 'rejected') {
         logger.error(
@@ -363,7 +374,7 @@ export class AgentTurnRunner {
         continue;
       }
       if (result.stateToken !== undefined) {
-        runtimeState.recordStopCheckToken(name, result.stateToken);
+        tokens.push({name, stateToken: result.stateToken});
       }
       fired.push({name, content: result.content});
     }
@@ -372,6 +383,7 @@ export class AgentTurnRunner {
     return {
       checkNames: fired.map((entry) => entry.name),
       content: fired.map((entry) => entry.content).join('\n\n'),
+      tokens,
     };
   }
 

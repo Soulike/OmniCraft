@@ -499,6 +499,53 @@ describe('AgentTurnRunner', () => {
     expect(reminders).toHaveLength(2);
   });
 
+  it('does not record the de-dup token when max rounds cuts off the reminder', async () => {
+    vi.spyOn(llmApi, 'countToken').mockResolvedValue(1);
+    vi.spyOn(llmApi, 'streamCompletion').mockImplementation(() =>
+      textCompletionStream('no tools'),
+    );
+
+    // Same token across both turns: if turn 1 wrongly records it despite never
+    // delivering the reminder, turn 2 would suppress it and emit nothing.
+    const stuck = {
+      name: 'stuck',
+      evaluate: () => ({content: 'pending work', stateToken: 'v1'}),
+    };
+    const runtimeState = new AgentRuntimeState('/workspace/project');
+
+    // Turn 1: budget 0 → the no-tool boundary hits max rounds before sending.
+    const firstTurn = await collectAll(
+      agentTurnRunner.run(
+        createInput({
+          stopChecks: [stuck],
+          runtimeState,
+          getMaxToolRounds: () => 0,
+        }),
+      ),
+    );
+    expect(firstTurn.some((e) => e.type === 'stop-check-reminder')).toBe(false);
+    expect(firstTurn.at(-1)).toMatchObject({
+      type: 'done',
+      reason: 'max_rounds_reached',
+    });
+
+    // Turn 2: same runtimeState, real budget → the reminder must still fire,
+    // because turn 1 never delivered it and so must not have recorded the token.
+    const secondTurn = await collectAll(
+      agentTurnRunner.run(
+        createInput({
+          stopChecks: [stuck],
+          runtimeState,
+          getMaxToolRounds: () => 5,
+        }),
+      ),
+    );
+    const reminders = secondTurn.filter(
+      (e) => e.type === 'stop-check-reminder',
+    );
+    expect(reminders).toHaveLength(1);
+  });
+
   it('does not emit a reminder when no check fires', async () => {
     vi.spyOn(llmApi, 'countToken').mockResolvedValue(1);
     vi.spyOn(llmApi, 'streamCompletion').mockReturnValue(
