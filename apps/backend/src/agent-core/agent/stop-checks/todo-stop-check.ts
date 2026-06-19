@@ -5,13 +5,17 @@ import type {StopCheck} from './types.js';
  *  every stop (cost / context exhaustion); the rest are summarized as a count. */
 const MAX_LISTED = 20;
 
+/** Line terminators a renderer/model may treat as a new line: CR, LF, and the
+ *  Unicode line/paragraph separators U+2028/U+2029. */
+const LINE_BREAK_PATTERN = new RegExp('(?:\\r|\\n|\\u2028|\\u2029)+', 'g');
+
 /** Collapses any line breaks in a todo subject to spaces before it is embedded
  *  in the privileged `<system-reminder>` block. The todo schema already rejects
  *  multi-line subjects, but stripping here keeps the rendered list one bullet
  *  per item regardless of how the subject reached the store (defense in depth
- *  against a newline being read as standalone system guidance). */
+ *  against a line break being read as standalone system guidance). */
 function toSingleLine(subject: string): string {
-  return subject.replace(/[\r\n]+/g, ' ');
+  return subject.replace(LINE_BREAK_PATTERN, ' ');
 }
 
 export const todoStopCheck: StopCheck = {

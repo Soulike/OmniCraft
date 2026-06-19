@@ -22,6 +22,18 @@ describe('todo tools', () => {
       expect(parsed.success).toBe(false);
     });
 
+    it('rejects a subject with a Unicode line separator (U+2028/U+2029)', () => {
+      for (const sep of [
+        String.fromCodePoint(0x2028),
+        String.fromCodePoint(0x2029),
+      ]) {
+        const parsed = todoAppendTool.parameters.safeParse({
+          items: [{subject: `line one${sep}line two`, description: 'd'}],
+        });
+        expect(parsed.success).toBe(false);
+      }
+    });
+
     it('accepts a single-line subject', () => {
       const parsed = todoAppendTool.parameters.safeParse({
         items: [{subject: 'line one', description: 'd'}],
