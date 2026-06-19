@@ -605,6 +605,20 @@ describe('AgentTurnRunner', () => {
     ).toHaveLength(1);
   });
 
+  it('rejects a turn with duplicate stop-check names', async () => {
+    vi.spyOn(llmApi, 'countToken').mockResolvedValue(1);
+    vi.spyOn(llmApi, 'streamCompletion').mockReturnValue(
+      textCompletionStream(),
+    );
+
+    const a = {name: 'dup', evaluate: () => null};
+    const b = {name: 'dup', evaluate: () => null};
+
+    await expect(
+      collectAll(agentTurnRunner.run(createInput({stopChecks: [a, b]}))),
+    ).rejects.toThrow(/Duplicate stop-check name: dup/);
+  });
+
   it('does not emit a reminder when no check fires', async () => {
     vi.spyOn(llmApi, 'countToken').mockResolvedValue(1);
     vi.spyOn(llmApi, 'streamCompletion').mockReturnValue(

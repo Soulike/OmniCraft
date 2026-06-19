@@ -1,8 +1,18 @@
-import type {AgentRuntimeState} from '../agent-runtime-state.js';
+import type {TodoItem} from '../state/todo-store.js';
+
+/**
+ * The narrow, read-only slice of agent runtime state a stop-check may read.
+ * Deliberately excludes mutators (e.g. the de-dup token map) so a check cannot
+ * corrupt turn-runner state. `AgentRuntimeState` satisfies this structurally.
+ */
+export interface StopCheckRuntimeView {
+  listTodos(): TodoItem[];
+  readonly todoVersion: number;
+}
 
 /** Read-only context handed to a stop-check at the turn-end boundary. */
 export interface StopCheckContext {
-  readonly runtimeState: AgentRuntimeState;
+  readonly runtimeState: StopCheckRuntimeView;
 }
 
 /** What a firing stop-check returns: the reminder text plus an optional token

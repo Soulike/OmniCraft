@@ -1,3 +1,5 @@
+import assert from 'node:assert';
+
 import type {ThinkingLevel} from '@omnicraft/api-schema';
 import type {
   SseDoneEvent,
@@ -65,6 +67,8 @@ export class AgentTurnRunner {
   async *run(input: RunAgentTurnInput): AgentEventStream {
     const inFlightToolCalls = new Set<string>();
     const maxRounds = await input.getMaxToolRounds();
+
+    assertUniqueStopCheckNames(input.stopChecks);
 
     const availableTools = buildAvailableTools(
       input.toolRegistries,
@@ -443,3 +447,16 @@ export class AgentTurnRunner {
 }
 
 export const agentTurnRunner = new AgentTurnRunner();
+
+/**
+ * Stop-check names key the per-session de-dup token map, so duplicates would
+ * share a slot — one check could never be suppressed while another is
+ * suppressed forever. Enforce uniqueness explicitly as the check surface grows.
+ */
+function assertUniqueStopCheckNames(stopChecks: readonly StopCheck[]): void {
+  const names = new Set<string>();
+  for (const check of stopChecks) {
+    assert(!names.has(check.name), `Duplicate stop-check name: ${check.name}`);
+    names.add(check.name);
+  }
+}
