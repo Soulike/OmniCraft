@@ -1,0 +1,109 @@
+import {parseLatestMarker, resolveReviewRange} from '@omnicraft/ai-review-core';
+
+import {fail, requireEnv, setOutput} from './gha.js';
+import {isAncestor, run} from './git.js';
+
+interface PullContext {
+  readonly prNumber: number;
+  readonly headSha: string;
+  readonly baseSha: string;
+  readonly baseRef: string;
+}
+
+interface GhReview {
+  readonly body?: string;
+  readonly submitted_at?: string;
+}
+
+/** Resolves PR number + head SHA from the workflow_run event payload. */
+function resolvePull(repo: string, headSha: string): {prNumber: number} {
+  const pullsJson = requireEnv('WORKFLOW_RUN_PULLS');
+  const pulls = JSON.parse(pullsJson) as {number?: number}[];
+  const first = pulls.at(0);
+  if (first?.number !== undefined) {
+    return {prNumber: first.number};
+  }
+  // workflow_run sometimes carries no PRs; fall back to the commit's PRs.
+  const fallback = run('gh', [
+    'api',
+    `repos/${repo}/commits/${headSha}/pulls`,
+    '--jq',
+    '.[0].number',
+  ]);
+  if (fallback === '' || fallback === 'null') {
+    fail(`Could not resolve a PR for head ${headSha}.`);
+  }
+  return {prNumber: Number(fallback)};
+}
+
+function resolveContext(): PullContext {
+  const repo = requireEnv('GH_REPO');
+  const headSha = requireEnv('WORKFLOW_RUN_HEAD_SHA');
+  const {prNumber} = resolvePull(repo, headSha);
+
+  // Read base ref/sha straight from the PR.
+  const baseRef = run('gh', [
+    'api',
+    `repos/${repo}/pulls/${prNumber}`,
+    '--jq',
+    '.base.ref',
+  ]);
+  const baseSha = run('gh', [
+    'api',
+    `repos/${repo}/pulls/${prNumber}`,
+    '--jq',
+    '.base.sha',
+  ]);
+  return {prNumber, headSha, baseSha, baseRef};
+}
+
+function readReviewBodies(repo: string, prNumber: number): string[] {
+  const json = run('gh', [
+    'api',
+    `repos/${repo}/pulls/${prNumber}/reviews`,
+    '--paginate',
+  ]);
+  const reviews = JSON.parse(json) as GhReview[];
+  return reviews.map((review) => review.body ?? '');
+}
+
+function main(): void {
+  const repo = requireEnv('GH_REPO');
+  const context = resolveContext();
+
+  // Fetch the PR head and base into the trusted checkout for git ancestry ops.
+  run('git', ['fetch', 'origin', context.baseRef]);
+  run('git', ['fetch', 'origin', `pull/${context.prNumber}/head`]);
+
+  const previousMarker = parseLatestMarker(
+    readReviewBodies(repo, context.prNumber),
+  );
+
+  const startIsAncestorOfHead =
+    previousMarker !== null &&
+    isAncestor(previousMarker.reviewedHead, context.headSha);
+
+  const range = resolveReviewRange({
+    headSha: context.headSha,
+    baseSha: context.baseSha,
+    previousMarker,
+    startIsAncestorOfHead,
+  });
+
+  setOutput('pr_number', String(context.prNumber));
+  setOutput('head_sha', context.headSha);
+  setOutput('base_sha', context.baseSha);
+  setOutput('base_ref', context.baseRef);
+  setOutput('start_sha', range.startSha ?? '');
+  setOutput('is_full', String(range.isFull));
+  setOutput('has_changes', String(range.hasChanges));
+  setOutput('carried_verdict', range.carriedVerdict ?? '');
+
+  console.log(
+    `PR #${context.prNumber}: head=${context.headSha} ` +
+      `start=${range.startSha ?? '(full)'} isFull=${range.isFull} ` +
+      `hasChanges=${range.hasChanges} carried=${range.carriedVerdict ?? '-'}`,
+  );
+}
+
+main();
