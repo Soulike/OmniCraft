@@ -14,6 +14,6 @@
     "typescript": "catalog:"
   },
   "dependencies": {
-    "@omnicraft/ai-review-core": "workspace:*"
+    "@omnicraft/ai-review-core": "workspace:^"
   }
 }
