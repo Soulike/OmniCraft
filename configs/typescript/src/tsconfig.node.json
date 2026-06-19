@@ -8,6 +8,7 @@
     "module": "nodenext",
     /* Specify how TypeScript looks up a file from a given module specifier. */
     "moduleResolution": "nodenext",
-    "declaration": false
+    "declaration": false,
+    "types": ["node"]
   }
 }

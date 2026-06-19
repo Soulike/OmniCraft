@@ -1,14 +1,17 @@
 {
   "name": "@config/typescript",
-  "description": "TypeScript configuration for OmniCraft",
-  "private": true,
-  "type": "module",
   "exports": {
     "./bundler": "./src/tsconfig.bundler.json",
     "./node": "./src/tsconfig.node.json",
     "./package": "./src/tsconfig.package.json"
   },
+  "description": "TypeScript configuration for OmniCraft",
+  "private": true,
   "scripts": {
     "build": "echo \"ts-config is not required to build.\""
+  },
+  "type": "module",
+  "devDependencies": {
+    "@types/node": "catalog:"
   }
 }
