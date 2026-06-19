@@ -1,6 +1,6 @@
 import type {GateLabel} from '@omnicraft/ai-review-core';
 
-import type {GitHubClient} from './octokit.js';
+import type {GitHubClient} from './shared/octokit.js';
 
 const LABELS: readonly GateLabel[] = ['AI Approved', 'AI Need Change'];
 

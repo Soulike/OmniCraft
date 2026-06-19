@@ -1,4 +1,4 @@
-import type {GitHubClient} from './octokit.js';
+import type {GitHubClient} from './shared/octokit.js';
 
 /**
  * Login of the identity that posts AI-review reviews. In GitHub Actions the

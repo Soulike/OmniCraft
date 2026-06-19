@@ -1,10 +1,10 @@
 import {parseLatestMarker, resolveReviewRange} from '@omnicraft/ai-review-core';
 
-import {requireEnv, setOutput} from './gha.js';
-import {isAncestor, run} from './git.js';
-import {createGitHubClient} from './octokit.js';
 import {readBotReviewBodies} from './reviews.js';
-import {requireGitRef, requirePrNumber, requireSha} from './validate.js';
+import {requireEnv, setOutput} from './shared/gha.js';
+import {isAncestor, run} from './shared/git.js';
+import {createGitHubClient} from './shared/octokit.js';
+import {requireGitRef, requirePrNumber, requireSha} from './shared/validate.js';
 
 interface PullContext {
   readonly prNumber: number;

@@ -1,9 +1,9 @@
 import {parseLatestMarker} from '@omnicraft/ai-review-core';
 
-import {requireEnv, setOutput} from './gha.js';
-import {createGitHubClient} from './octokit.js';
 import {readBotReviewBodies} from './reviews.js';
-import {requirePrNumber} from './validate.js';
+import {requireEnv, setOutput} from './shared/gha.js';
+import {createGitHubClient} from './shared/octokit.js';
+import {requirePrNumber} from './shared/validate.js';
 
 async function main(): Promise<void> {
   const prNumber = Number(requirePrNumber(requireEnv('PR_NUMBER')));
