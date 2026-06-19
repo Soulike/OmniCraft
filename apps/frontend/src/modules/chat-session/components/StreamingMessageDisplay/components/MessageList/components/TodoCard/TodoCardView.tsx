@@ -30,38 +30,36 @@ export function TodoCardView({
   isExpanded,
   onExpandedChange,
 }: TodoCardViewProps) {
-  const total = items.length;
-  const completed = items.filter((i) => i.status === 'completed').length;
-  const current = items.find((i) => i.status === 'in_progress');
-
-  const timelineItems = useMemo<StatusTimelineItem[]>(
-    () =>
-      items.map((item) => {
-        const subject = (
-          <span
-            className={
-              item.status === 'completed' ? styles.completed : undefined
-            }
-            data-completed={item.status === 'completed' ? 'true' : undefined}
-          >
-            {item.subject}
-          </span>
-        );
-        return {
-          id: item.index,
-          status: STATUS_MAP[item.status],
-          content: item.description.trim() ? (
-            <Tooltip delay={300}>
-              <Tooltip.Trigger>{subject}</Tooltip.Trigger>
-              <Tooltip.Content>{item.description}</Tooltip.Content>
-            </Tooltip>
-          ) : (
-            subject
-          ),
-        };
-      }),
-    [items],
-  );
+  const {total, completed, current, timelineItems} = useMemo(() => {
+    const timeline: StatusTimelineItem[] = items.map((item) => {
+      const subject = (
+        <span
+          className={item.status === 'completed' ? styles.completed : undefined}
+          data-completed={item.status === 'completed' ? 'true' : undefined}
+        >
+          {item.subject}
+        </span>
+      );
+      return {
+        id: item.index,
+        status: STATUS_MAP[item.status],
+        content: item.description.trim() ? (
+          <Tooltip delay={300}>
+            <Tooltip.Trigger>{subject}</Tooltip.Trigger>
+            <Tooltip.Content>{item.description}</Tooltip.Content>
+          </Tooltip>
+        ) : (
+          subject
+        ),
+      };
+    });
+    return {
+      total: items.length,
+      completed: items.filter((i) => i.status === 'completed').length,
+      current: items.find((i) => i.status === 'in_progress'),
+      timelineItems: timeline,
+    };
+  }, [items]);
 
   return (
     <div className={styles.card}>
