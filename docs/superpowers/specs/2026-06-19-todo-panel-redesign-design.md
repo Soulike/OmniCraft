@@ -141,9 +141,48 @@ subagent, since each `StreamingMessageDisplay` instantiates its own
 Add `case 'todo':` returning the new card wrapped in the standard
 `styles.assistantMessage` container used by the other inline cards.
 
-### 5.5 New component — `components/TodoCard/`
+### 5.5 New generic component — `components/StatusTimeline/`
 
-Replaces the deleted `TodoPanel`. MVVM layout per frontend CLAUDE.md:
+The expanded body's vertical-spine timeline is **not todo-specific** — it maps a
+list of `{status, content}` to connected status nodes, and is reusable anywhere
+a sequence of stepped/checklist states needs to be shown. Extract it as a
+generic, business-agnostic component under `apps/frontend/src/components/`
+(alongside `CollapsibleSidebar`, `MarkdownRenderer`), **not** inside
+`chat-session`.
+
+```
+StatusTimeline/
+  index.ts
+  StatusTimeline.tsx        // stateless; renders nodes + connecting spine
+  styles.module.css
+  StatusTimeline.test.tsx
+```
+
+Proposed interface (kept domain-agnostic — no `SseTodoItem` dependency):
+
+```ts
+type StatusTimelineStatus = 'pending' | 'in-progress' | 'done';
+
+interface StatusTimelineItem {
+  status: StatusTimelineStatus;
+  content: ReactNode; // caller supplies the row content (text, tooltip wrapper…)
+}
+
+interface StatusTimelineProps {
+  items: readonly StatusTimelineItem[];
+}
+```
+
+The component owns only the node rendering (done = filled `--success` + check,
+`in-progress` = `--accent` ring + reused glow, `pending` = hollow `--border`
+disc) and the connecting spine. It does **not** know about todos, strikethrough,
+or tooltips — the caller passes those in via `content` so the timeline stays
+reusable.
+
+### 5.6 New component — `components/TodoCard/`
+
+Replaces the deleted `TodoPanel`. Lives in `chat-session` (it is
+todo/chat-specific). MVVM layout per frontend CLAUDE.md:
 
 ```
 TodoCard/
@@ -156,9 +195,12 @@ TodoCard/
 
 The card takes `items: readonly SseTodoItem[]`. It is self-contained: collapsed
 vs. expanded is local view state (a HeroUI `Disclosure`, matching
-`SubagentDisclosure`).
+`SubagentDisclosure`). The expanded body **composes `StatusTimeline`**, mapping
+each `SseTodoItem` to a `StatusTimelineItem` whose `content` is the subject
+(with completed-row strikethrough/`--muted` styling and the description
+`Tooltip` applied here, in the todo layer — not in the generic timeline).
 
-### 5.6 Deletions
+### 5.7 Deletions
 
 - Delete `components/TodoPanel/` entirely.
 - Delete `hooks/useTodoItems.ts` and its export from `modules/chat-session/index.ts`.
@@ -200,15 +242,22 @@ motif):
 - **Node per task:**
   - `completed` — filled `--success` disc with a check mark.
   - `in_progress` — `--accent` ring with a soft accent center; carries the
-    accent glow in **dark only** (`--node-ring-glow`; `none` in light, per P4 —
-    glow reads dirty on white).
-  - `pending` — hollow disc with a faint `--muted`/track-colored border.
-- **Connecting spine** — a 1.5px vertical line between consecutive nodes, colored
-  by a per-theme `--spine` value.
+    accent glow in **dark only**, achieved by reusing the existing
+    `--aurora-active-bar-glow` token (already `none` in light, accent glow in
+    dark — exactly the P4 behavior, no new token needed).
+  - `pending` — hollow disc with a faint border using the existing `--border`
+    token.
+- **Connecting spine** — a 1.5px vertical line between consecutive nodes, using
+  the existing `--border` token.
 - **Task text** — `--foreground`; `completed` rows are `--muted` + strikethrough
-  (kept from the current design).
+  (kept from the current design). Applied in the `TodoCard` layer, not the
+  generic timeline.
 - **Description** — shown on a HeroUI `Tooltip` per row (kept from the current
-  design).
+  design). Applied in the `TodoCard` layer.
+
+These node/spine styles live in `StatusTimeline`'s own `styles.module.css`
+(consuming the tokens above); the todo-specific text styling lives in
+`TodoCard`.
 
 ### 6.3 Card chrome
 
@@ -218,19 +267,20 @@ Glass material consistent with the other expanded inline cards:
 `--aurora-glass-border` divider separates the collapsed header from the expanded
 body.
 
-### 6.4 New Aurora Glass tokens
+### 6.4 No new global tokens
 
-Add to `src/aurora-glass.css` (both themes, with purpose comments, per §3.2 of
-the design language — never inline raw values in the component):
+The timeline needs no additions to `src/aurora-glass.css`. Every value is an
+**existing** theme-aware token, consumed directly in the component CSS:
 
-- `--aurora-todo-spine` — the timeline connector line color.
-- `--aurora-todo-node-glow` — the in_progress node glow (`none` in light, accent
-  glow in dark).
+- spine line + pending-node border → `--border`
+- done node → `--success`; current-node ring → `--accent`
+- current-node glow (the only light/dark-divergent value) →
+  `--aurora-active-bar-glow` (already `none` in light, accent glow in dark)
+- collapsed track empty/fill → HeroUI `ProgressBar`'s own tokens
 
-(The track-empty color, `--success`, and `--accent` already exist as
-HeroUI/Aurora tokens and are reused directly.) Exact token names finalized
-during implementation; the principle is that any value not already tokenized is
-added to `aurora-glass.css` for both themes rather than hard-coded.
+Because these are already per-theme, the component needs **no** `:global(.dark)`
+overrides and **no** hard-coded raw values — it stays correct in both themes for
+free.
 
 ## 7. Motion (P3 — event-driven only)
 
@@ -261,6 +311,9 @@ The resting card is fully static. The only motion:
   `todo-update`s collapse into one card; (b) a `todo-update` after an
   intervening message appends a second card; (c) empty `items` produces no card;
   (d) replay order (history) yields the same card sequence as live.
+- **`StatusTimeline`** — render the three node states from a plain
+  `StatusTimelineItem[]`; verify the spine connects consecutive nodes and the
+  component carries no todo-specific knowledge (content is passed in).
 - **`TodoCardView`** — render states: collapsed shows correct `N/M` and current
   subject; expanded shows correct node states; completed rows struck through;
   no-in-progress hides the current-subject text.
