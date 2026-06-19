@@ -1,0 +1,19 @@
+{
+  "name": "@omnicraft/free-ports",
+  "description": "Obtain distinct, currently-free TCP ports for local tooling",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@config/eslint": "workspace:^",
+    "@config/typescript": "workspace:^",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

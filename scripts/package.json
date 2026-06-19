@@ -1,0 +1,16 @@
+{
+  "name": "@omnicraft/scripts",
+  "description": "Repository tooling scripts for OmniCraft",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@config/eslint": "workspace:^",
+    "@config/typescript": "workspace:^",
+    "@omnicraft/free-ports": "workspace:^",
+    "@types/node": "catalog:",
+    "typescript": "catalog:"
+  }
+}

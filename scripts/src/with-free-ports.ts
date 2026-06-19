@@ -1,0 +1,50 @@
+import {spawn} from 'node:child_process';
+
+import {getFreePorts} from '@omnicraft/free-ports';
+
+const [command, ...args] = process.argv.slice(2);
+
+if (process.argv.length < 3) {
+  console.error(
+    'Usage: with-free-ports <command> [args...]\n' +
+      'Runs <command> with PORT and VSCODE_PORT set to free TCP ports.',
+  );
+  process.exit(1);
+}
+
+const [httpPort, vscodePort] = await getFreePorts(2);
+
+console.log(`Dev ports: PORT=${httpPort}, VSCODE_PORT=${vscodePort}`);
+
+const child = spawn(command, args, {
+  stdio: 'inherit',
+  env: {
+    ...process.env,
+    PORT: String(httpPort),
+    VSCODE_PORT: String(vscodePort),
+  },
+});
+
+child.on('error', (error) => {
+  console.error('Failed to start command:', error);
+  process.exit(1);
+});
+
+const forward = (signal: NodeJS.Signals) => {
+  if (!child.killed) {
+    child.kill(signal);
+  }
+};
+
+process.on('SIGINT', forward);
+process.on('SIGTERM', forward);
+
+child.on('exit', (code, signal) => {
+  if (signal !== null) {
+    process.off('SIGINT', forward);
+    process.off('SIGTERM', forward);
+    process.kill(process.pid, signal);
+    return;
+  }
+  process.exit(code ?? 0);
+});

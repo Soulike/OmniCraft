@@ -5,14 +5,15 @@
     "prepare": "test -d node_modules/husky && husky",
     "format": "prettier --write --ignore-unknown .",
     "format:check": "prettier --check --ignore-unknown .",
-    "dev": "bun run --filter './apps/*' dev",
+    "dev": "bun scripts/src/with-free-ports.ts bun run --filter './apps/*' dev",
     "build:frontend": "bun run --filter '@omnicraft/frontend' build",
     "start": "bun run build:frontend && bun run --filter '@omnicraft/backend' start"
   },
   "workspaces": [
     "apps/*",
     "packages/*",
-    "configs/*"
+    "configs/*",
+    "scripts"
   ],
   "devDependencies": {
     "@commitlint/cli": "^21.0.2",
@@ -36,6 +37,7 @@
     ]
   },
   "catalog": {
+    "@types/node": "^24.12.0",
     "eslint": "^10.5.0",
     "typescript": "^6.0.3",
     "vitest": "^4.1.8",
