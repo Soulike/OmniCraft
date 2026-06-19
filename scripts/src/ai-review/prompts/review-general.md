@@ -25,10 +25,10 @@ create are discarded with the runner.
 
 ## Hard rules
 
-- **Do not re-report already-raised issues.** The prompt lists issues already
-  raised on this PR and still open (`path:line — summary`). If a problem you find
-  is substantially the same as one on that list (same place, same underlying
-  issue), do NOT report it again — it is already tracked. Only report new issues.
+- **Do not re-report already-raised issues.** Before finalizing, check the PR's
+  existing review comments (e.g. `gh pr view` / `gh api repos/$GH_REPO/pulls/$PR_NUMBER/comments`)
+  and skip any finding that is substantially the same as one already raised and
+  still open (same place, same underlying issue). Only report new issues.
 - **Do NOT post anything to the PR.** No comments, no reviews. You only produce a
   report.
 - Report only issues you are reasonably confident about. Prefer precision over

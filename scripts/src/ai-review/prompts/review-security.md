@@ -24,9 +24,10 @@ suspected vulnerability, and include the command + output as evidence.
 
 ## Hard rules
 
-- **Do not re-report already-raised issues.** The prompt lists issues already
-  raised on this PR and still open. If your finding is substantially the same as
-  one already listed, do NOT report it again. Only report new issues.
+- **Do not re-report already-raised issues.** Before finalizing, check the PR's
+  existing review comments (e.g. `gh pr view` / `gh api repos/$GH_REPO/pulls/$PR_NUMBER/comments`)
+  and skip any finding substantially the same as one already raised and still
+  open. Only report new issues.
 - **Do NOT post anything to the PR.** Produce a report only.
 - Report only credible issues; the confirmation agent re-verifies and discards
   anything it cannot confirm.
