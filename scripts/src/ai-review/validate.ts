@@ -17,14 +17,16 @@ export function requireRepo(value: string): string {
 }
 
 /**
- * Validates a PR number is a plain positive integer, returning its canonical
- * decimal form. Guards against a tainted `PR_NUMBER` reaching a command argv.
+ * Validates a PR number is a positive integer and returns its canonical decimal
+ * form. Rejects `0`, leading zeros, and non-digits. Guards against a tainted
+ * `PR_NUMBER` reaching a command argv.
  */
 export function requirePrNumber(value: string): string {
-  if (!/^[0-9]+$/.test(value)) {
+  const parsed = Number(value);
+  if (!/^[0-9]+$/.test(value) || !Number.isSafeInteger(parsed) || parsed <= 0) {
     fail(`PR_NUMBER is not a positive integer: ${JSON.stringify(value)}`);
   }
-  return value;
+  return String(parsed);
 }
 
 /**

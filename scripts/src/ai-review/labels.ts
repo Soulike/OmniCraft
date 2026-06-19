@@ -4,6 +4,12 @@ import {run} from './git.js';
 
 const LABELS: readonly GateLabel[] = ['AI Approved', 'AI Need Change'];
 
+/** Hex colors (no `#`) for each gate label: green for approved, red for blocked. */
+const LABEL_COLORS: Record<GateLabel, string> = {
+  'AI Approved': '0e8a16',
+  'AI Need Change': 'd73a4a',
+};
+
 /** Ensures both gate labels exist in the repo, creating any that are missing. */
 function ensureLabelsExist(repo: string): void {
   for (const label of LABELS) {
@@ -17,6 +23,8 @@ function ensureLabelsExist(repo: string): void {
         `repos/${repo}/labels`,
         '-f',
         `name=${label}`,
+        '-f',
+        `color=${LABEL_COLORS[label]}`,
       ]);
     }
   }
