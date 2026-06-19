@@ -1,0 +1,19 @@
+{
+  "name": "@omnicraft/ai-review-core",
+  "description": "Pure logic for the AI PR review gate: marker parsing, range resolution, config validation, and gating",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@config/eslint": "workspace:^",
+    "@config/typescript": "workspace:^",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

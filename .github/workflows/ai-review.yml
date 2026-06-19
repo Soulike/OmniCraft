@@ -1,0 +1,231 @@
+name: AI Review
+
+on:
+  workflow_run:
+    workflows: ['CI']
+    types: [completed]
+
+concurrency:
+  group: ai-review-${{ github.event.workflow_run.head_branch }}
+  cancel-in-progress: true
+
+env:
+  REVIEWER_MODELS: ${{ vars.AI_REVIEW_REVIEWER_MODELS || 'gpt-5.5,claude-opus-4.8' }}
+  CONFIRM_MODEL: ${{ vars.AI_REVIEW_CONFIRM_MODEL || 'claude-opus-4.8' }}
+  REASONING_EFFORT: ${{ vars.AI_REVIEW_EFFORT || 'xhigh' }}
+
+jobs:
+  config:
+    name: Validate config
+    runs-on: ubuntu-latest
+    if: >-
+      github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.conclusion == 'success'
+    permissions:
+      contents: read
+    outputs:
+      reviewer_models_json: ${{ steps.check.outputs.reviewer_models_json }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ./.github/actions/setup
+      - name: Check config
+        id: check
+        run: bun scripts/src/ai-review/check-config.ts
+        env:
+          COPILOT_CLI_TOKEN: ${{ secrets.COPILOT_CLI_TOKEN }}
+
+  prepare:
+    name: Resolve review range
+    needs: config
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      pr_number: ${{ steps.range.outputs.pr_number }}
+      head_sha: ${{ steps.range.outputs.head_sha }}
+      base_sha: ${{ steps.range.outputs.base_sha }}
+      base_ref: ${{ steps.range.outputs.base_ref }}
+      start_sha: ${{ steps.range.outputs.start_sha }}
+      is_full: ${{ steps.range.outputs.is_full }}
+      has_changes: ${{ steps.range.outputs.has_changes }}
+      carried_verdict: ${{ steps.range.outputs.carried_verdict }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: ./.github/actions/setup
+      - name: Resolve range
+        id: range
+        run: bun scripts/src/ai-review/resolve-range.ts
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          WORKFLOW_RUN_HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          WORKFLOW_RUN_PULLS: ${{ toJSON(github.event.workflow_run.pull_requests) }}
+
+  review:
+    name: Review (${{ matrix.model }})
+    needs: [config, prepare]
+    if: needs.prepare.outputs.has_changes == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    strategy:
+      fail-fast: false
+      matrix:
+        model: ${{ fromJSON(needs.config.outputs.reviewer_models_json) }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ./.github/actions/setup
+      - name: Checkout PR head
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.prepare.outputs.head_sha }}
+          path: pr-head
+          fetch-depth: 0
+      - name: Install deps in pr-head
+        run: bun install --frozen-lockfile
+        working-directory: pr-head
+      - name: Install Copilot CLI
+        run: npm install -g @github/copilot
+      - name: General review pass
+        run: |
+          PROMPT="$(cat "$GITHUB_WORKSPACE/scripts/src/ai-review/prompts/review-general.md")
+
+          Repository: $GH_REPO
+          PR number: $PR_NUMBER
+          Review range: $REVIEW_RANGE"
+          copilot --model "$MODEL" --effort "$REASONING_EFFORT" \
+            --context long_context \
+            --allow-tool 'shell(git:*),shell(gh:*),shell(bun:*),read,write' \
+            --allow-all-urls \
+            --secret-env-vars COPILOT_GITHUB_TOKEN \
+            -C pr-head \
+            -p "$PROMPT" \
+            > "report-$MODEL-general.md"
+        env:
+          MODEL: ${{ matrix.model }}
+          COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_CLI_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ needs.prepare.outputs.pr_number }}
+          REVIEW_RANGE: ${{ needs.prepare.outputs.start_sha && format('{0}..{1}', needs.prepare.outputs.start_sha, needs.prepare.outputs.head_sha) || format('{0}...{1}', needs.prepare.outputs.base_sha, needs.prepare.outputs.head_sha) }}
+      - name: Security review pass
+        run: |
+          PROMPT="$(cat "$GITHUB_WORKSPACE/scripts/src/ai-review/prompts/review-security.md")
+
+          Repository: $GH_REPO
+          PR number: $PR_NUMBER
+          Review range: $REVIEW_RANGE"
+          copilot --model "$MODEL" --effort "$REASONING_EFFORT" \
+            --context long_context \
+            --allow-tool 'shell(git:*),shell(gh:*),shell(bun:*),read,write' \
+            --allow-all-urls \
+            --secret-env-vars COPILOT_GITHUB_TOKEN \
+            -C pr-head \
+            -p "$PROMPT" \
+            > "report-$MODEL-security.md"
+        env:
+          MODEL: ${{ matrix.model }}
+          COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_CLI_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ needs.prepare.outputs.pr_number }}
+          REVIEW_RANGE: ${{ needs.prepare.outputs.start_sha && format('{0}..{1}', needs.prepare.outputs.start_sha, needs.prepare.outputs.head_sha) || format('{0}...{1}', needs.prepare.outputs.base_sha, needs.prepare.outputs.head_sha) }}
+      - name: Upload reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: reports-${{ matrix.model }}
+          path: |
+            report-${{ matrix.model }}-general.md
+            report-${{ matrix.model }}-security.md
+
+  confirm:
+    name: Confirm & post review
+    needs: [config, prepare, review]
+    if: needs.prepare.outputs.has_changes == 'true' && needs.review.result == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ./.github/actions/setup
+      - name: Checkout PR head
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.prepare.outputs.head_sha }}
+          path: pr-head
+          fetch-depth: 0
+      - name: Install deps in pr-head
+        run: bun install --frozen-lockfile
+        working-directory: pr-head
+      - name: Install Copilot CLI
+        run: npm install -g @github/copilot
+      - name: Download reports
+        uses: actions/download-artifact@v4
+        with:
+          path: reports
+          merge-multiple: true
+      - name: Confirm and post
+        run: |
+          PROMPT="$(cat "$GITHUB_WORKSPACE/scripts/src/ai-review/prompts/confirm.md")
+
+          Repository: $GH_REPO
+          PR number: $PR_NUMBER
+          Head SHA: $HEAD_SHA
+          Reviewed range: $REVIEW_RANGE
+          Reviewer reports are in the reports/ directory."
+          copilot --model "$CONFIRM_MODEL" --effort "$REASONING_EFFORT" \
+            --context long_context \
+            --allow-tool 'shell(git:*),shell(gh:*),shell(bun:*),read,write' \
+            --allow-all-urls \
+            --secret-env-vars COPILOT_GITHUB_TOKEN \
+            -C pr-head \
+            -p "$PROMPT"
+        env:
+          COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_CLI_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ needs.prepare.outputs.pr_number }}
+          HEAD_SHA: ${{ needs.prepare.outputs.head_sha }}
+          REVIEW_RANGE: ${{ needs.prepare.outputs.start_sha && format('{0}..{1}', needs.prepare.outputs.start_sha, needs.prepare.outputs.head_sha) || format('{0}...{1}', needs.prepare.outputs.base_sha, needs.prepare.outputs.head_sha) }}
+
+  gate:
+    name: AI Review Gate
+    needs: [config, prepare, review, confirm]
+    if: >-
+      always() &&
+      github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ./.github/actions/setup
+      - name: Read posted verdict
+        id: verdict
+        if: needs.prepare.outputs.has_changes == 'true' && needs.confirm.result == 'success'
+        run: bun scripts/src/ai-review/read-verdict.ts
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ needs.prepare.outputs.pr_number }}
+      - name: Decide gate
+        run: bun scripts/src/ai-review/gate.ts
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ needs.prepare.outputs.pr_number }}
+          CONFIG_RESULT: ${{ needs.config.result }}
+          PREPARE_RESULT: ${{ needs.prepare.result }}
+          REVIEW_RESULT: ${{ needs.review.result }}
+          CONFIRM_RESULT: ${{ needs.confirm.result }}
+          HAS_CHANGES: ${{ needs.prepare.outputs.has_changes }}
+          CARRIED_VERDICT: ${{ needs.prepare.outputs.carried_verdict }}
+          POSTED_VERDICT: ${{ steps.verdict.outputs.verdict }}

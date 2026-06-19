@@ -1,0 +1,7 @@
+{
+  "extends": "@config/typescript/package",
+  "compilerOptions": {
+    "rootDir": "./src",
+    "outDir": "./dist"
+  }
+}
