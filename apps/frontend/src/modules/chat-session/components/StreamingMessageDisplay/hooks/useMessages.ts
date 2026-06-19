@@ -303,6 +303,10 @@ export function applyTodoUpdate(
   items: readonly SseTodoItem[],
 ): ChatMessage[] {
   const last = prev[prev.length - 1];
+  // Adjacency rule: a todo update that immediately follows a todo card replaces
+  // it in place; otherwise it starts a fresh card after the intervening work.
+  // An empty snapshot (e.g. todoClear) is also replaced in place here; the
+  // render transform then drops the empty card, so it disappears from the view.
   if (prev.length > 0 && last.content.type === 'todo') {
     return [...prev.slice(0, -1), {...last, content: {type: 'todo', items}}];
   }
