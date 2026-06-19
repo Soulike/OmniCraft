@@ -318,6 +318,9 @@ export function applyTodoUpdate(
   return [
     ...base,
     {
+      // A todo card has no backend message ID and intentionally keeps id: null
+      // for its whole lifetime (unlike text placeholders, it is never
+      // back-filled by message-start). No render path reads a todo card's id.
       id: null,
       createdAt: null,
       role: 'assistant' as const,
