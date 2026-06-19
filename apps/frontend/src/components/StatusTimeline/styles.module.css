@@ -1,0 +1,73 @@
+.timeline {
+  display: flex;
+  flex-direction: column;
+}
+
+.row {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 5px 0;
+}
+
+.nodeCol {
+  position: relative;
+  flex-shrink: 0;
+  width: 14px;
+  display: flex;
+  justify-content: center;
+}
+
+/* connecting spine between consecutive nodes */
+.row:not(:last-child) .nodeCol::after {
+  content: '';
+  position: absolute;
+  top: 16px;
+  bottom: -10px;
+  left: 50%;
+  width: 1.5px;
+  transform: translateX(-50%);
+  background: var(--border);
+}
+
+.node {
+  position: relative;
+  z-index: 1;
+  width: 12px;
+  height: 12px;
+  margin-top: 2px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.node[data-status='pending'] {
+  border: 1.5px solid var(--border);
+  background: transparent;
+}
+
+.node[data-status='in-progress'] {
+  border: 2px solid var(--accent);
+  background: color-mix(in oklab, var(--accent) 25%, transparent);
+  box-shadow: var(--aurora-active-bar-glow);
+}
+
+.node[data-status='done'] {
+  border: 1.5px solid var(--success);
+  background: var(--success);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.check {
+  color: var(--success-foreground);
+}
+
+.rowContent {
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--foreground);
+  padding-top: 1px;
+  min-width: 0;
+}
