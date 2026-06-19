@@ -2,6 +2,14 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+> **Post-implementation note:** the collapsed header shipped **without** the
+> HeroUI `ProgressBar` shown in Task 6 below. During review the progress track
+> was dropped as redundant with the `N/M` count, and the card was made
+> chromeless-when-collapsed / glass-on-expand to match `ToolExecutionCard`. The
+> `ProgressBar` code in Task 6 reflects an earlier iteration; the spec
+> (`docs/superpowers/specs/2026-06-19-todo-panel-redesign-design.md` §6.1/§6.3)
+> is the source of truth for the final header.
+
 **Goal:** Replace the floating composer-anchored `TodoPanel` with an inline "Plan" card that lives in the message stream, coalesced by adjacency, working identically in subagents and surviving reload.
 
 **Architecture:** `todo-update` SSE events (already persisted + per-bus) feed the existing `useMessages` reducer, which appends/replaces a `todo` stream item by adjacency. A new render-item type dispatches to a new `TodoCard` (chat-specific), which composes HeroUI `Disclosure` + `ProgressBar` and a new generic `StatusTimeline` (business-agnostic, in `components/`). No backend or SSE changes.

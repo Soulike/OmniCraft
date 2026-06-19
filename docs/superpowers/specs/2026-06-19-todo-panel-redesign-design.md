@@ -217,21 +217,23 @@ mockup is in `.superset/mockups/todo-card-mock.html` (built with the real
 
 ### 6.1 Collapsed (default)
 
-A single compact row:
+A single compact, chromeless row — matching the `ToolExecutionCard` header
+(no card border/shadow when collapsed; the glass shell appears only on expand):
 
 ```
-[›]  [▬▬▬▬░░░░]   Plan · 3/6   ·  <current in_progress subject>
+[icon]  Plan · 3/6   ·  <current in_progress subject>          [›]
 ```
 
-- **Caret** (lucide chevron) — rotates on expand.
-- **Progress track** — HeroUI `ProgressBar` (continuous rounded track + accent
-  fill), `value = completed / total`. Use HeroUI's `ProgressBar` component with
-  `color="accent"`, sized small; no visible label/output (the count text lives
-  in the header). This was chosen over a hand-rolled segmented bar — reuse
-  HeroUI per design-language P6.
+- **Checklist icon** (lucide `ListChecks`, `--muted`) — the at-a-glance marker
+  that this is a plan.
 - **`Plan · N/M`** — `Plan` in `--foreground`, the `· N/M` count in `--muted`.
+  The bare `N/M` count is the progress signal; a separate progress bar was
+  intentionally dropped as redundant (it duplicated the count and added visual
+  weight the sibling tool-call rows don't carry).
 - **Current task** — the `in_progress` item's subject, `--muted`, truncated with
   ellipsis. Omitted if no task is in progress.
+- **Disclosure indicator** (HeroUI `Disclosure.Indicator`) — the caret, on the
+  right; rotates on expand.
 
 ### 6.2 Expanded — topology-spine timeline
 
@@ -261,22 +263,23 @@ These node/spine styles live in `StatusTimeline`'s own `styles.module.css`
 
 ### 6.3 Card chrome
 
-Glass material consistent with the other expanded inline cards:
-`--aurora-glass-fill` + `1px solid --aurora-glass-border` +
-`--aurora-glass-highlight` + `--aurora-glass-shadow`; radius ~14px. A hairline
-`--aurora-glass-border` divider separates the collapsed header from the expanded
-body.
+Chromeless when collapsed (no background/border/shadow — just the tight
+borderless row), then a glass shell **on expand only**, gated by
+`:has(.trigger[aria-expanded='true'])` — exactly the `ToolExecutionCard`
+pattern. The expanded shell uses `--aurora-glass-fill` + `1px solid
+--aurora-glass-border` + `--aurora-glass-highlight` + `--aurora-glass-blur`;
+radius ~10px. The collapsed row gets a hover fill and a focus-visible outline.
 
 ### 6.4 No new global tokens
 
-The timeline needs no additions to `src/aurora-glass.css`. Every value is an
-**existing** theme-aware token, consumed directly in the component CSS:
+The card and timeline need no additions to `src/aurora-glass.css`. Every value
+is an **existing** theme-aware token, consumed directly in the component CSS:
 
 - spine line + pending-node border → `--border`
 - done node → `--success`; current-node ring → `--accent`
 - current-node glow (the only light/dark-divergent value) →
   `--aurora-active-bar-glow` (already `none` in light, accent glow in dark)
-- collapsed track empty/fill → HeroUI `ProgressBar`'s own tokens
+- expanded card shell → `--aurora-glass-*` (same tokens as the sibling cards)
 
 Because these are already per-theme, the component needs **no** `:global(.dark)`
 overrides and **no** hard-coded raw values — it stays correct in both themes for
@@ -286,10 +289,9 @@ free.
 
 The resting card is fully static. The only motion:
 
-- **Caret rotation** on expand/collapse (~150ms), event-driven, settles.
-- **Progress fill** advances when `value` changes — a one-shot width transition
-  (~200ms) to the new ratio, then still. HeroUI's `ProgressBar` fill transition
-  covers this; do not add any looping/indeterminate animation.
+- **Caret rotation** on expand/collapse (HeroUI `Disclosure.Indicator`),
+  event-driven, settles.
+- **Collapsed-row hover fill** (~150ms background transition), settles.
 - **No ambient motion** on the in_progress node — it is a static accent ring at
   rest (no pulsing/breathing).
 - All transitions honor `prefers-reduced-motion: reduce` by snapping to the

@@ -1,4 +1,14 @@
 .timeline {
+  /* Row text metrics + node size — the single source the node/spine geometry
+     derives from, so changing the row font keeps the dot centered on the first
+     text line with no separate hand-tuning. */
+  --row-font-size: 12.5px;
+  --row-line-height: 1.55;
+  --node-size: 12px;
+  /* derived: first-line box height, and the node's top offset to center it */
+  --row-line-box: calc(var(--row-font-size) * var(--row-line-height));
+  --node-top: calc((var(--row-line-box) - var(--node-size)) / 2);
+
   display: flex;
   flex-direction: column;
 }
@@ -25,8 +35,8 @@
 .row:not(:last-child) .nodeCol::after {
   content: '';
   position: absolute;
-  /* start just below the node (node top = .node margin-top, node height 12) */
-  top: 16px;
+  /* start just below the node */
+  top: calc(var(--node-top) + var(--node-size));
   bottom: -10px;
   left: 50%;
   width: 1.5px;
@@ -38,11 +48,10 @@
   position: relative;
   z-index: 1;
   box-sizing: border-box;
-  width: 12px;
-  height: 12px;
-  /* vertically center the dot on the first text line:
-     (line box 12.5px * 1.55 − node 12px) / 2 */
-  margin-top: calc((12.5px * 1.55 - 12px) / 2);
+  width: var(--node-size);
+  height: var(--node-size);
+  /* vertically center the dot on the first text line */
+  margin-top: var(--node-top);
   border-radius: 50%;
   flex-shrink: 0;
 }
@@ -71,8 +80,8 @@
 }
 
 .rowContent {
-  font-size: 12.5px;
-  line-height: 1.55;
+  font-size: var(--row-font-size);
+  line-height: var(--row-line-height);
   color: var(--foreground);
   min-width: 0;
 }

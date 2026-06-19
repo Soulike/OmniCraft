@@ -47,7 +47,9 @@ describe('TodoCardView', () => {
     render(
       <TodoCardView items={items} isExpanded={false} onExpandedChange={noop} />,
     );
-    expect(screen.getByText('Wire the bus')).toBeInTheDocument();
+    expect(screen.getByTestId('todo-current')).toHaveTextContent(
+      'Wire the bus',
+    );
   });
 
   it('renders no current subject when nothing is in progress', () => {
@@ -83,5 +85,20 @@ describe('TodoCardView', () => {
     );
     expect(struck).toBeDefined();
     expect(struck).toHaveClass(styles.completed);
+  });
+
+  it('renders the subject without a tooltip when description is empty', () => {
+    const noDescription: SseTodoItem[] = [
+      {index: 0, subject: 'No detail', description: '', status: 'pending'},
+    ];
+    render(
+      <TodoCardView items={noDescription} isExpanded onExpandedChange={noop} />,
+    );
+
+    const subject = screen.getByText('No detail');
+    expect(subject).toBeInTheDocument();
+    // A HeroUI Tooltip.Trigger wraps its child in a button; a bare subject
+    // span has no such ancestor.
+    expect(subject.closest('button')).toBeNull();
   });
 });

@@ -181,4 +181,24 @@ describe('applyTodoUpdate', () => {
     expect(result).toHaveLength(1);
     expect(result[0].content).toEqual({type: 'todo', items});
   });
+
+  it('replaces in place across an empty placeholder from a silent round', () => {
+    // A tool-only round can append an empty assistant placeholder between the
+    // existing todo card and the next todo-update. The card must be replaced,
+    // not duplicated.
+    const first = todoItems(['in_progress', 'pending']);
+    const state = [
+      ...applyTodoUpdate([], first),
+      {
+        id: 'msg-1',
+        createdAt: 123,
+        role: 'assistant' as const,
+        content: {type: 'text' as const, content: ''},
+      },
+    ];
+    const second = todoItems(['completed', 'in_progress']);
+    const result = applyTodoUpdate(state, second);
+    expect(result).toHaveLength(1);
+    expect(result[0].content).toEqual({type: 'todo', items: second});
+  });
 });

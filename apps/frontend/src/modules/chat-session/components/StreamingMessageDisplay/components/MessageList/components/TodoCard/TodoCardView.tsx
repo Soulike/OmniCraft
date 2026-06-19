@@ -1,6 +1,7 @@
 import {Disclosure, Tooltip} from '@heroui/react';
 import type {SseTodoItem} from '@omnicraft/sse-events';
 import {ListChecks} from 'lucide-react';
+import {useMemo} from 'react';
 
 import {
   StatusTimeline,
@@ -33,11 +34,10 @@ export function TodoCardView({
   const completed = items.filter((i) => i.status === 'completed').length;
   const current = items.find((i) => i.status === 'in_progress');
 
-  const timelineItems: StatusTimelineItem[] = items.map((item) => ({
-    status: STATUS_MAP[item.status],
-    content: (
-      <Tooltip delay={300}>
-        <Tooltip.Trigger>
+  const timelineItems = useMemo<StatusTimelineItem[]>(
+    () =>
+      items.map((item) => {
+        const subject = (
           <span
             className={
               item.status === 'completed' ? styles.completed : undefined
@@ -46,11 +46,22 @@ export function TodoCardView({
           >
             {item.subject}
           </span>
-        </Tooltip.Trigger>
-        <Tooltip.Content>{item.description}</Tooltip.Content>
-      </Tooltip>
-    ),
-  }));
+        );
+        return {
+          id: item.index,
+          status: STATUS_MAP[item.status],
+          content: item.description.trim() ? (
+            <Tooltip delay={300}>
+              <Tooltip.Trigger>{subject}</Tooltip.Trigger>
+              <Tooltip.Content>{item.description}</Tooltip.Content>
+            </Tooltip>
+          ) : (
+            subject
+          ),
+        };
+      }),
+    [items],
+  );
 
   return (
     <div className={styles.card}>
@@ -78,7 +89,7 @@ export function TodoCardView({
         </Disclosure.Heading>
         <Disclosure.Content>
           <Disclosure.Body className={styles.body}>
-            {isExpanded && <StatusTimeline items={timelineItems} />}
+            <StatusTimeline items={timelineItems} />
           </Disclosure.Body>
         </Disclosure.Content>
       </Disclosure>

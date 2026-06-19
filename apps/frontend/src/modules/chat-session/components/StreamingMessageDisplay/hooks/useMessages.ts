@@ -302,16 +302,21 @@ export function applyTodoUpdate(
   prev: ChatMessage[],
   items: readonly SseTodoItem[],
 ): ChatMessage[] {
-  const last = prev[prev.length - 1];
+  // Strip a trailing empty assistant placeholder first: a silent tool-only
+  // round can leave one between the previous todo card and this update, and
+  // without stripping it the adjacency test below would miss the card and
+  // append a duplicate.
+  const base = removeTrailingAssistantMessageIfEmpty(prev);
+  const last = base[base.length - 1];
   // Adjacency rule: a todo update that immediately follows a todo card replaces
   // it in place; otherwise it starts a fresh card after the intervening work.
   // An empty snapshot (e.g. todoClear) is also replaced in place here; the
   // render transform then drops the empty card, so it disappears from the view.
-  if (prev.length > 0 && last.content.type === 'todo') {
-    return [...prev.slice(0, -1), {...last, content: {type: 'todo', items}}];
+  if (base.length > 0 && last.content.type === 'todo') {
+    return [...base.slice(0, -1), {...last, content: {type: 'todo', items}}];
   }
   return [
-    ...removeTrailingAssistantMessageIfEmpty(prev),
+    ...base,
     {
       id: null,
       createdAt: null,

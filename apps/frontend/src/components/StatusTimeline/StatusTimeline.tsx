@@ -8,6 +8,8 @@ export type StatusTimelineStatus = 'pending' | 'in-progress' | 'done';
 export interface StatusTimelineItem {
   status: StatusTimelineStatus;
   content: ReactNode;
+  /** Stable React key. Falls back to the array index when omitted. */
+  id?: string | number;
 }
 
 interface StatusTimelineProps {
@@ -20,7 +22,7 @@ export function StatusTimeline({items}: StatusTimelineProps) {
   return (
     <div className={styles.timeline}>
       {items.map((item, index) => (
-        <div className={styles.row} key={index}>
+        <div className={styles.row} key={item.id ?? index}>
           <span className={styles.nodeCol}>
             <span
               className={styles.node}
