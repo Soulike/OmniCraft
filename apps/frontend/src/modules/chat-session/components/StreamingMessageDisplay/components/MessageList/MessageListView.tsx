@@ -40,5 +40,7 @@ function itemKey(item: MessageRenderItem, index: number): string {
       return `subagent-${index.toString()}`;
     case 'context-compaction':
       return `context-compaction-${item.compactionId}`;
+    case 'todo':
+      return `todo-${index.toString()}`;
   }
 }
