@@ -207,6 +207,61 @@ sendReminder(
 
 ### 4. Turn-runner control flow (Approach A)
 
+#### `advanceTurn` helper (deduplication)
+
+The current runner repeats the same block at both LLM-consume sites (initial
+`sendUserMessage` at `agent-turn-runner.ts:94`, and `submitToolResults` at `:236`):
+consume the stream into `toolCalls`, treat an abort-time throw as a clean exit,
+and report usage. Approach A adds a third consume site (the reminder round), which
+would make it three copies. Extract the shared operation — "feed the LLM a stream,
+consume it into tool calls, handle abort, report usage" — into one private
+generator so all three sites are identical.
+
+Because a sub-generator cannot force the parent `run()` to `return`, the helper
+signals abort via its **return value**; the single caller pattern decides whether
+to finish. It cannot reuse `AgentEventStream` (whose return type is `void`), so it
+is typed explicitly:
+
+```ts
+private async *advanceTurn(
+  stream: LlmSessionEventStream,
+  input: RunAgentTurnInput,
+): AsyncGenerator<AgentEvent, {aborted: boolean; toolCalls: LlmToolCall[]}, undefined> {
+  try {
+    const toolCalls = yield* agentLlmStreamTranslator.consume(stream);
+    yield await agentUsageReporter.buildUsageUpdateEvent(input);
+    return {aborted: false, toolCalls};
+  } catch (error: unknown) {
+    if (input.signal.aborted) return {aborted: true, toolCalls: []};
+    throw error;
+  }
+}
+```
+
+Each consume site collapses to:
+
+```ts
+const r = yield * this.advanceTurn(stream, input);
+if (r.aborted) {
+  yield *
+    this.emitAbortCompletion({
+      inFlightToolCalls,
+      tools: toolDefs,
+      systemPrompt,
+      input,
+    });
+  return;
+}
+toolCalls = r.toolCalls;
+```
+
+The initial `sendUserMessage` consume (`:94`) and the tool-round
+`submitToolResults` consume (`:236`) are migrated to this helper as part of this
+change, not just the new reminder round — otherwise the change would leave three
+copies of the abort/usage boilerplate instead of one.
+
+#### Loop
+
 Rewrite the loop in `agent-turn-runner.ts:111` from `while (toolCalls.length > 0)`
 to `while (true)`, handling the no-tool-calls branch at the top:
 
@@ -240,32 +295,34 @@ while (true) {
       createdAt,
     } satisfies SseStopCheckReminderEvent;
 
-    try {
-      toolCalls = yield* agentLlmStreamTranslator.consume(stream);
-    } catch (error: unknown) {
-      if (input.signal.aborted) {
-        yield* this.emitAbortCompletion({inFlightToolCalls, tools: toolDefs, systemPrompt, input});
-        return;
-      }
-      throw error;
+    const r = yield* this.advanceTurn(stream, input);
+    if (r.aborted) {
+      yield* this.emitAbortCompletion({inFlightToolCalls, tools: toolDefs, systemPrompt, input});
+      return;
     }
-    yield await agentUsageReporter.buildUsageUpdateEvent(input);
+    toolCalls = r.toolCalls;
     continue;
   }
 
   // toolCalls.length > 0 → existing tool-execution body, unchanged
   round++;
   if (round > maxRounds) { /* emit max_rounds_reached, return */ }
-  // ...existing execution, SSE pumping, submitToolResults...
-  toolCalls = yield* agentLlmStreamTranslator.consume(
+  // ...existing execution, SSE pumping...
+  const r = yield* this.advanceTurn(
     input.llmSession.submitToolResults(orderedResults, toolDefs, systemPrompt, input.thinkingLevel, input.signal),
+    input,
   );
+  if (r.aborted) {
+    yield* this.emitAbortCompletion({inFlightToolCalls, tools: toolDefs, systemPrompt, input});
+    return;
+  }
+  toolCalls = r.toolCalls;
 }
 
 yield* this.emitDoneAfterTurn({reason: 'complete', tools: toolDefs, systemPrompt, input});
 ```
 
-Helper:
+`evaluateStopChecks` helper:
 
 ```ts
 private async evaluateStopChecks(
@@ -374,6 +431,10 @@ Backend (`agent-turn-runner` tests, `stop-checks` tests):
 - Reminder rounds and tool rounds share the `round` counter: a turn near the
   ceiling does not get extra reminder rounds.
 - The `stop-check-reminder` round does not emit a `message-start` event.
+- `advanceTurn` reports usage on success and, on an abort-time throw, returns
+  `{aborted: true}` rather than rethrowing; an abort at any of the three consume
+  sites (initial, tool round, reminder round) ends the turn via
+  `emitAbortCompletion` identically.
 - `evaluateStopChecks` returns `null` when all checks pass and a merged result
   when any fire.
 - `evaluateStopChecks` runs checks concurrently; a check that rejects is logged
