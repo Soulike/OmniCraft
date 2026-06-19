@@ -11,7 +11,11 @@ import type {ToolName} from '@omnicraft/tool-schemas';
 import {AsyncChannel} from '@/helpers/async-channel.js';
 
 import type {LlmConfig, LlmToolCall} from '../llm-api/index.js';
-import type {LlmSession, ToolResult} from '../llm-session/index.js';
+import type {
+  LlmSession,
+  LlmSessionEventStream,
+  ToolResult,
+} from '../llm-session/index.js';
 import type {SkillRegistry} from '../skill/index.js';
 import type {ToolDefinition, ToolRegistry} from '../tool/index.js';
 import {agentLlmStreamTranslator} from './agent-llm-stream-translator.js';
@@ -27,7 +31,7 @@ import {
   buildSystemPrompt,
 } from './catalog/agent-catalog.js';
 import type {SubagentRegistry} from './state/subagent-registry.js';
-import type {AgentEventStream} from './types.js';
+import type {AgentEvent, AgentEventStream} from './types.js';
 
 export interface RunAgentTurnInput {
   readonly userMessage: string;
@@ -90,22 +94,17 @@ export class AgentTurnRunner {
       content: input.userMessage,
     } satisfies SseMessageStartEvent;
 
-    let toolCalls: LlmToolCall[];
-    try {
-      toolCalls = yield* agentLlmStreamTranslator.consume(userStream);
-    } catch (error: unknown) {
-      if (input.signal.aborted) {
-        yield* this.emitAbortCompletion({
-          inFlightToolCalls,
-          tools: toolDefs,
-          systemPrompt,
-          input,
-        });
-        return;
-      }
-      throw error;
+    const initial = yield* this.advanceTurn(userStream, input);
+    if (initial.aborted) {
+      yield* this.emitAbortCompletion({
+        inFlightToolCalls,
+        tools: toolDefs,
+        systemPrompt,
+        input,
+      });
+      return;
     }
-    yield await agentUsageReporter.buildUsageUpdateEvent(input);
+    let toolCalls = initial.toolCalls;
 
     let round = 0;
     while (toolCalls.length > 0) {
@@ -233,30 +232,26 @@ export class AgentTurnRunner {
         return result ? [result] : [];
       });
 
-      try {
-        toolCalls = yield* agentLlmStreamTranslator.consume(
-          input.llmSession.submitToolResults(
-            orderedResults,
-            toolDefs,
-            systemPrompt,
-            input.thinkingLevel,
-            input.signal,
-          ),
-        );
-      } catch (error: unknown) {
-        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-        if (input.signal.aborted) {
-          yield* this.emitAbortCompletion({
-            inFlightToolCalls,
-            tools: toolDefs,
-            systemPrompt,
-            input,
-          });
-          return;
-        }
-        throw error;
+      const next = yield* this.advanceTurn(
+        input.llmSession.submitToolResults(
+          orderedResults,
+          toolDefs,
+          systemPrompt,
+          input.thinkingLevel,
+          input.signal,
+        ),
+        input,
+      );
+      if (next.aborted) {
+        yield* this.emitAbortCompletion({
+          inFlightToolCalls,
+          tools: toolDefs,
+          systemPrompt,
+          input,
+        });
+        return;
       }
-      yield await agentUsageReporter.buildUsageUpdateEvent(input);
+      toolCalls = next.toolCalls;
     }
 
     yield* this.emitDoneAfterTurn({
@@ -265,6 +260,24 @@ export class AgentTurnRunner {
       systemPrompt,
       input,
     });
+  }
+
+  private async *advanceTurn(
+    stream: LlmSessionEventStream,
+    input: RunAgentTurnInput,
+  ): AsyncGenerator<
+    AgentEvent,
+    {aborted: boolean; toolCalls: LlmToolCall[]},
+    undefined
+  > {
+    try {
+      const toolCalls = yield* agentLlmStreamTranslator.consume(stream);
+      yield await agentUsageReporter.buildUsageUpdateEvent(input);
+      return {aborted: false, toolCalls};
+    } catch (error: unknown) {
+      if (input.signal.aborted) return {aborted: true, toolCalls: []};
+      throw error;
+    }
   }
 
   private async *emitAbortCompletion({
