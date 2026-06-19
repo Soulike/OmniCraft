@@ -7,7 +7,6 @@
       "devDependencies": {
         "@commitlint/cli": "^21.0.2",
         "@commitlint/config-conventional": "^21.0.2",
-        "@omnicraft/free-ports": "workspace:^",
         "@types/bun": "^1.3.14",
         "eslint": "catalog:",
         "husky": "^9.1.7",
@@ -214,6 +213,16 @@
       "devDependencies": {
         "@config/eslint": "workspace:^",
         "@config/typescript": "workspace:^",
+        "typescript": "catalog:",
+      },
+    },
+    "scripts": {
+      "name": "@omnicraft/scripts",
+      "devDependencies": {
+        "@config/eslint": "workspace:^",
+        "@config/typescript": "workspace:^",
+        "@omnicraft/free-ports": "workspace:^",
+        "@types/node": "catalog:",
         "typescript": "catalog:",
       },
     },
@@ -499,6 +508,8 @@
     "@omnicraft/frontend": ["@omnicraft/frontend@workspace:apps/frontend"],
 
     "@omnicraft/markdown-frontmatter": ["@omnicraft/markdown-frontmatter@workspace:packages/markdown-frontmatter"],
+
+    "@omnicraft/scripts": ["@omnicraft/scripts@workspace:scripts"],
 
     "@omnicraft/settings-schema": ["@omnicraft/settings-schema@workspace:packages/settings-schema"],
 

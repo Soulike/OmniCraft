@@ -1,12 +1,16 @@
 import {spawn} from 'node:child_process';
+import path from 'node:path';
 
 import {getFreePorts} from '@omnicraft/free-ports';
+
+const repoRoot = path.resolve(import.meta.dirname, '../..');
 
 const [httpPort, vscodePort] = await getFreePorts(2);
 
 console.log(`Dev ports: PORT=${httpPort}, VSCODE_PORT=${vscodePort}`);
 
 const child = spawn('bun', ['run', '--filter', './apps/*', 'dev'], {
+  cwd: repoRoot,
   stdio: 'inherit',
   env: {
     ...process.env,
@@ -26,8 +30,12 @@ const forward = (signal: NodeJS.Signals) => {
   }
 };
 
-process.on('SIGINT', () => forward('SIGINT'));
-process.on('SIGTERM', () => forward('SIGTERM'));
+process.on('SIGINT', () => {
+  forward('SIGINT');
+});
+process.on('SIGTERM', () => {
+  forward('SIGTERM');
+});
 
 child.on('exit', (code, signal) => {
   if (signal !== null) {
