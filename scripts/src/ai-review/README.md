@@ -47,21 +47,22 @@ tamper-resistance.)
 
 Two further deliberate, bounded risks:
 
-- **The reviewer/confirmation agents run the PR's build and tests**
-  (`shell(bun:*)`, `shell(gh:*)`, `shell(git:*)`, `read`, `write`) and have
-  **unrestricted network access** (`--allow-all-urls`) so they can empirically
-  validate findings and look things up (CVE databases, library docs, etc.). This
-  executes collaborator code in CI with outbound network. Each job holds the
-  **minimum** GitHub scope it needs: the `review` jobs are read-only
-  (`contents: read`, `pull-requests: read`), while `confirm` adds
-  `pull-requests: write` (to post the review) and `gate` adds `issues: write` (to
-  apply labels) — both agents still run PR code, so the write scope on `confirm`
-  is part of the exposure surface, not exempt from it. Residual exposure: a
-  prompt-injection payload in the PR diff could combine shell + network to
-  exfiltrate data a job can read, or (on `confirm`) post on its behalf. Shell
-  tools stay scoped to `git`/`gh`/`bun` (not `--allow-all-tools`) to keep that
-  blast radius bounded; if it ever feels too broad, narrow the network with a
-  domain allowlist (`--allow-url=...`) instead of `--allow-all-urls`.
+- **The reviewer/confirmation agents run the PR's build and tests** (full
+  `shell`, `read`, `write`) and have **unrestricted network access**
+  (`--allow-all-urls`) so they can empirically validate findings and look things
+  up (CVE databases, library docs, etc.). This executes collaborator code in CI
+  with outbound network. Each job holds the **minimum** GitHub scope it needs:
+  the `review` jobs are read-only (`contents: read`, `pull-requests: read`),
+  while `confirm` adds `pull-requests: write` (to post the review) and `gate`
+  adds `issues: write` (to apply labels) — both agents still run PR code, so the
+  write scope on `confirm` is part of the exposure surface, not exempt from it.
+  Residual exposure: a prompt-injection payload in the PR diff could combine
+  shell + network to exfiltrate data a job can read, or (on `confirm`) post on
+  its behalf. Shell is **not** restricted to a command allowlist: under the
+  `pull_request` trigger the workflow itself comes from the PR branch, so a
+  hostile PR could already lift any such limit — scoping shell would add friction
+  without a real boundary. The boundaries that still hold are `--secret-env-vars`
+  (token stripping, below) and the read-only GitHub scopes on the review jobs.
 - **`--secret-env-vars COPILOT_GITHUB_TOKEN`** strips the Copilot model-access
   token (the low-privilege "Copilot Requests" PAT) from any shell the agent
   spawns, so executing PR code cannot read it. The built-in `GH_TOKEN` used for

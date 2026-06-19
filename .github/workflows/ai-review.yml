@@ -111,7 +111,7 @@ jobs:
           Report file: $REPORT_FILE"
           copilot --model "$MODEL" --effort "$REASONING_EFFORT" \
             --context long_context \
-            --allow-tool 'shell(git:*),shell(gh:*),shell(bun:*),read,write' \
+            --allow-tool 'shell,read,write' \
             --allow-all-urls \
             --secret-env-vars COPILOT_GITHUB_TOKEN \
             --add-dir "$GITHUB_WORKSPACE" \
@@ -176,7 +176,7 @@ jobs:
           Reviewer reports are in the reports/ directory."
           copilot --model "$CONFIRM_MODEL" --effort "$REASONING_EFFORT" \
             --context long_context \
-            --allow-tool 'shell(git:*),shell(gh:*),shell(bun:*),read,write' \
+            --allow-tool 'shell,read,write' \
             --allow-all-urls \
             --secret-env-vars COPILOT_GITHUB_TOKEN \
             --add-dir "$GITHUB_WORKSPACE" \
