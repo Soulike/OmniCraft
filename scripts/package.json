@@ -12,5 +12,8 @@
     "@omnicraft/free-ports": "workspace:^",
     "@types/node": "catalog:",
     "typescript": "catalog:"
+  },
+  "dependencies": {
+    "@omnicraft/ai-review-core": "workspace:*"
   }
 }

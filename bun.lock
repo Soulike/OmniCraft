@@ -227,6 +227,9 @@
     },
     "scripts": {
       "name": "@omnicraft/scripts",
+      "dependencies": {
+        "@omnicraft/ai-review-core": "workspace:^",
+      },
       "devDependencies": {
         "@config/eslint": "workspace:^",
         "@config/typescript": "workspace:^",
