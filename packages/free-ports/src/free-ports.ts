@@ -9,6 +9,9 @@ function listenOnFreePort(): Promise<HeldPort> {
   return new Promise((resolve, reject) => {
     const server = net.createServer();
     server.once('error', reject);
+    // Probe on all interfaces (the default) to match how servers like
+    // `app.listen(port)` bind, so a returned port is not free on loopback yet
+    // taken elsewhere. The socket is closed immediately and never serves traffic.
     server.listen(0, () => {
       const address = server.address();
       if (address === null || typeof address === 'string') {
