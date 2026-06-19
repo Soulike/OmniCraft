@@ -2,6 +2,7 @@ import type {ThinkingLevel} from '@omnicraft/api-schema';
 import type {
   SseDoneEvent,
   SseMessageStartEvent,
+  SseStopCheckReminderEvent,
   SseTodoUpdateEvent,
   SseToolExecuteEndEvent,
   SseToolExecuteStartEvent,
@@ -9,6 +10,7 @@ import type {
 import type {ToolName} from '@omnicraft/tool-schemas';
 
 import {AsyncChannel} from '@/helpers/async-channel.js';
+import {logger} from '@/logger.js';
 
 import type {LlmConfig, LlmToolCall} from '../llm-api/index.js';
 import type {
@@ -109,7 +111,8 @@ export class AgentTurnRunner {
     let toolCalls = initial.toolCalls;
 
     let round = 0;
-    while (toolCalls.length > 0) {
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+    while (true) {
       if (input.signal.aborted) {
         yield* this.emitAbortCompletion({
           inFlightToolCalls,
@@ -118,6 +121,53 @@ export class AgentTurnRunner {
           input,
         });
         return;
+      }
+
+      if (toolCalls.length === 0) {
+        const reminder = await this.evaluateStopChecks(
+          input.stopChecks,
+          input.runtimeState,
+        );
+        if (!reminder) break;
+
+        round++;
+        if (round > maxRounds) {
+          yield* this.emitDoneAfterTurn({
+            reason: 'max_rounds_reached',
+            tools: toolDefs,
+            systemPrompt,
+            input,
+          });
+          return;
+        }
+
+        const {stream, messageId, createdAt} = input.llmSession.sendReminder(
+          reminder.content,
+          toolDefs,
+          systemPrompt,
+          input.thinkingLevel,
+          input.signal,
+        );
+        yield {
+          type: 'stop-check-reminder',
+          checkNames: reminder.checkNames,
+          content: reminder.content,
+          messageId,
+          createdAt,
+        } satisfies SseStopCheckReminderEvent;
+
+        const reminded = yield* this.advanceTurn(stream, input);
+        if (reminded.aborted) {
+          yield* this.emitAbortCompletion({
+            inFlightToolCalls,
+            tools: toolDefs,
+            systemPrompt,
+            input,
+          });
+          return;
+        }
+        toolCalls = reminded.toolCalls;
+        continue;
       }
 
       round++;
@@ -280,6 +330,38 @@ export class AgentTurnRunner {
       if (input.signal.aborted) return {aborted: true, toolCalls: []};
       throw error;
     }
+  }
+
+  private async evaluateStopChecks(
+    stopChecks: readonly StopCheck[],
+    runtimeState: AgentRuntimeState,
+  ): Promise<{checkNames: string[]; content: string} | null> {
+    const settled = await Promise.allSettled(
+      stopChecks.map(async (check) => ({
+        name: check.name,
+        content: await check.evaluate({runtimeState}),
+      })),
+    );
+
+    const fired: {name: string; content: string}[] = [];
+    for (const [index, result] of settled.entries()) {
+      if (result.status === 'rejected') {
+        logger.error(
+          {err: result.reason, check: stopChecks[index].name},
+          'Stop-check evaluation failed; skipping',
+        );
+        continue;
+      }
+      if (result.value.content !== null) {
+        fired.push({name: result.value.name, content: result.value.content});
+      }
+    }
+
+    if (fired.length === 0) return null;
+    return {
+      checkNames: fired.map((entry) => entry.name),
+      content: fired.map((entry) => entry.content).join('\n\n'),
+    };
   }
 
   private async *emitAbortCompletion({
