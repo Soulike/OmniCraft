@@ -10,14 +10,15 @@ const ZERO_WIDTH_PATTERN = new RegExp(
 );
 
 /**
- * Matches a `<system-reminder>` / `</system-reminder>` delimiter once
- * zero-width characters are gone. `[\s/]*` (a single quantified class, no
- * adjacent `*` groups) tolerates whitespace and the optional closing slash, and
- * `(\s[^>]*)?` tolerates attribute-like text before `>` (e.g. a malformed
- * `</system-reminder id="x">`) — both written to avoid the ambiguous
- * backtracking an `\s*\/?\s*` form would invite.
+ * Matches a `<system-reminder>` delimiter in any form once zero-width
+ * characters are gone — opening or closing (`/` or `\` before the name),
+ * self-closing (`/` before `>`), and attribute-bearing. After the tag name,
+ * `[^>]*>` consumes any run of non-`>` characters then requires the closing
+ * `>`: a single greedy class followed by a required literal, which is linear
+ * (no ambiguous adjacent quantifiers, so no catastrophic backtracking even on
+ * unterminated tag-like input).
  */
-const DELIMITER_PATTERN = /<[\s/]*system-reminder(\s[^>]*)?\s*>/gi;
+const DELIMITER_PATTERN = /<[\s/\\]*system-reminder[^>]*>/gi;
 
 /** Replacement for a stripped delimiter, kept non-empty so neighbouring
  *  fragments cannot fuse into a fresh delimiter after removal. */
