@@ -1,6 +1,6 @@
 import type {GateLabel} from '@omnicraft/ai-review-core';
 
-import {run, runAllowingHttpStatus} from './git.js';
+import type {GitHubClient} from './shared/octokit.js';
 
 const LABELS: readonly GateLabel[] = ['AI Approved', 'AI Need Change'];
 
@@ -10,28 +10,34 @@ const LABEL_COLORS: Record<GateLabel, string> = {
   'AI Need Change': 'd73a4a',
 };
 
+/** Whether an Octokit error is an HTTP 404 (resource not found). */
+function isNotFound(error: unknown): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    (error as {status?: number}).status === 404
+  );
+}
+
 /** Ensures both gate labels exist in the repo, creating any that are missing. */
-function ensureLabelsExist(repo: string): void {
+async function ensureLabelsExist(client: GitHubClient): Promise<void> {
+  const {octokit, owner, repo} = client;
   for (const label of LABELS) {
-    // A 404 means the label does not exist yet → create it. Any other failure
-    // (auth, rate limit, network) rethrows rather than being misread as missing.
-    const existing = runAllowingHttpStatus(
-      ['api', `repos/${repo}/labels/${encodeURIComponent(label)}`],
-      [404],
-    );
-    if (existing !== null) {
-      continue;
+    try {
+      await octokit.rest.issues.getLabel({owner, repo, name: label});
+    } catch (error) {
+      // A 404 means the label does not exist yet → create it. Any other failure
+      // (auth, rate limit, network) rethrows rather than being misread.
+      if (!isNotFound(error)) {
+        throw error;
+      }
+      await octokit.rest.issues.createLabel({
+        owner,
+        repo,
+        name: label,
+        color: LABEL_COLORS[label],
+      });
     }
-    run('gh', [
-      'api',
-      '--method',
-      'POST',
-      `repos/${repo}/labels`,
-      '-f',
-      `name=${label}`,
-      '-f',
-      `color=${LABEL_COLORS[label]}`,
-    ]);
   }
 }
 
@@ -39,37 +45,39 @@ function ensureLabelsExist(repo: string): void {
  * Applies `label` to the PR and removes the opposite gate label, creating the
  * labels first if needed. A no-op when `label` is `null`.
  */
-export function applyLabel(
-  repo: string,
-  prNumber: string,
+export async function applyLabel(
+  client: GitHubClient,
+  prNumber: number,
   label: GateLabel | null,
-): void {
+): Promise<void> {
   if (label === null) {
     return;
   }
-  ensureLabelsExist(repo);
+  const {octokit, owner, repo} = client;
+  await ensureLabelsExist(client);
 
   const opposite = LABELS.find((candidate) => candidate !== label);
   if (opposite !== undefined) {
-    // A 404 means the opposite label was not on the PR — nothing to remove.
-    // Any other failure (auth, rate limit, network) rethrows and fails the job.
-    runAllowingHttpStatus(
-      [
-        'api',
-        '--method',
-        'DELETE',
-        `repos/${repo}/issues/${prNumber}/labels/${encodeURIComponent(opposite)}`,
-      ],
-      [404],
-    );
+    try {
+      await octokit.rest.issues.removeLabel({
+        owner,
+        repo,
+        issue_number: prNumber,
+        name: opposite,
+      });
+    } catch (error) {
+      // A 404 means the opposite label was not on the PR — nothing to remove.
+      // Any other failure rethrows and fails the job.
+      if (!isNotFound(error)) {
+        throw error;
+      }
+    }
   }
 
-  run('gh', [
-    'api',
-    '--method',
-    'POST',
-    `repos/${repo}/issues/${prNumber}/labels`,
-    '-f',
-    `labels[]=${label}`,
-  ]);
+  await octokit.rest.issues.addLabels({
+    owner,
+    repo,
+    issue_number: prNumber,
+    labels: [label],
+  });
 }
