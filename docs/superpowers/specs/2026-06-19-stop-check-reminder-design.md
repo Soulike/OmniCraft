@@ -28,7 +28,8 @@ The reminder must be:
 
 ## Goals
 
-- Add an extensible `StopCheck` registry evaluated at the turn-end boundary.
+- Add an extensible `StopCheck` mechanism evaluated at the turn-end boundary,
+  with the check list owned per agent type (no global static list).
 - Inject a reminder as a hidden `user` message to the LLM when one or more checks
   are unsatisfied, wrapped in `<system-reminder>`.
 - Emit a dedicated `stop-check-reminder` SSE event that is persisted and replayed
@@ -131,20 +132,35 @@ export const todoStopCheck: StopCheck = {
 };
 ```
 
-`index.ts`:
-
-```ts
-export const defaultStopChecks: readonly StopCheck[] = [todoStopCheck];
-```
+`index.ts` exports the interface and each check implementation
+(`todoStopCheck`). There is **no** global `defaultStopChecks` constant: the set of
+checks is owned per agent type, not globally (see below).
 
 `evaluate` may be sync or async, and reads a `runtimeState` snapshot. The
 `incomplete-todos` check is sync (memory read only), but the signature allows
 future IO-bound checks (e.g. `git status`) without an interface change. Each
-check owns its full reminder wording. Checks are injected through
-`RunAgentTurnInput` (new field `readonly stopChecks: readonly StopCheck[]`) rather
-than imported directly into the turn runner, matching the existing
-`toolRegistries`/`skillRegistries` injection style and keeping the runner
-testable.
+check owns its full reminder wording.
+
+#### Ownership: per agent type
+
+The check list is owned by each agent subclass and flows the same path as
+`toolRegistries`/`skillRegistries`, which already vary by agent type. Add
+`readonly stopChecks: readonly StopCheck[]` to `AgentOptions`
+(`agent-core/agent/types.ts`); the `Agent` base class stores it and forwards it
+into `RunAgentTurnInput` from `runAgentLoop` (`agent.ts`), mirroring the existing
+registry plumbing. The turn runner receives the list via `RunAgentTurnInput`
+rather than importing checks directly, keeping it testable.
+
+Each agent type declares its own list, matching its capabilities:
+
+- **MainAgent / CodingAgent** own `todoToolRegistry`, so they declare
+  `stopChecks: [todoStopCheck]`.
+- **ExploreSubAgent / GeneralSubAgent** are read-only and have no TODO tool, so
+  they declare `stopChecks: []`.
+
+This avoids the mismatch of a global list applying a TODO check to an agent that
+can never create a TODO. A global static array is intentionally rejected as too
+inflexible and inconsistent with how every other capability is wired.
 
 ### 3. LlmSession.sendReminder
 
@@ -365,6 +381,9 @@ Backend (`agent-turn-runner` tests, `stop-checks` tests):
 - `sendReminder` wraps `content` in `<system-reminder>` and records a `user`
   message in history; its returned `messageId` matches the emitted event's
   `messageId`.
+- A read-only agent type (Explore/General) is constructed with `stopChecks: []`
+  and never emits a `stop-check-reminder`, even with no tool calls; Main/Coding
+  carry `todoStopCheck`.
 
 Frontend (`useStreamChat` / message-rendering tests):
 
