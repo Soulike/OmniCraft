@@ -45,12 +45,17 @@ Two deliberate, bounded risks remain (accepted by design, not oversights):
   validate findings and look things up (CVE databases, library docs, etc.). This
   executes collaborator code in CI with outbound network. It is acceptable
   because forks are excluded, `ci.yml` already runs the same code, the repo is
-  single-maintainer, and the reviewer jobs hold only read-scoped GitHub
-  permissions. Note the residual exposure: a prompt-injection payload in the PR
-  diff could combine shell + network to exfiltrate data the job can read. Shell
-  tools stay scoped to `git`/`gh`/`bun` (not `--allow-all-tools`) to keep that
-  blast radius bounded; if it ever feels too broad, narrow the network with a
-  domain allowlist (`--allow-url=...`) instead of `--allow-all-urls`.
+  single-maintainer, and each job holds the **minimum** GitHub scope it needs:
+  the `review` jobs are read-only (`contents: read`, `pull-requests: read`),
+  while `confirm` adds `pull-requests: write` (to post the review) and `gate`
+  adds `issues: write` (to apply labels) — both agents still run PR code, so the
+  write scope on `confirm` is part of the exposure surface, not exempt from it.
+  Note the residual exposure: a prompt-injection payload in the PR diff could
+  combine shell + network to exfiltrate data a job can read, or (on `confirm`)
+  post on its behalf. Shell tools stay scoped to `git`/`gh`/`bun` (not
+  `--allow-all-tools`) to keep that blast radius bounded; if it ever feels too
+  broad, narrow the network with a domain allowlist (`--allow-url=...`) instead
+  of `--allow-all-urls`.
 - **`--secret-env-vars COPILOT_GITHUB_TOKEN`** strips the Copilot model-access
   token (the low-privilege "Copilot Requests" PAT) from any shell the agent
   spawns, so executing PR code cannot read it. The built-in `GH_TOKEN` used for
