@@ -22,9 +22,14 @@ const INVISIBLE_PATTERN = new RegExp(
  * `[^>]*>` consumes any run of non-`>` characters then requires the closing
  * `>`: a single greedy class followed by a required literal, which is linear
  * (no ambiguous adjacent quantifiers, so no catastrophic backtracking even on
- * unterminated tag-like input).
+ * unterminated tag-like input). The leading class also covers Unicode slash
+ * look-alikes (division/fullwidth/fraction/big solidus) a model might read as a
+ * closing slash.
  */
-const DELIMITER_PATTERN = /<[\s/\\]*system-reminder[^>]*>/gi;
+const DELIMITER_PATTERN = new RegExp(
+  '<[\\s/\\\\\\u2215\\uff0f\\u2044\\u29f8]*system-reminder[^>]*>',
+  'gi',
+);
 
 /** Replacement for a stripped delimiter, kept non-empty so neighbouring
  *  fragments cannot fuse into a fresh delimiter after removal. */
