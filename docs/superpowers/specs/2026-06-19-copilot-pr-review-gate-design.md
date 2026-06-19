@@ -53,12 +53,18 @@ Concretely (from issue #291):
 
 ## Approach
 
-A dedicated workflow, `.github/workflows/ai-review.yml`, runs on every push to
-an open PR. It has five single-purpose jobs: `config` validates configuration
-and emits the model matrix, `prepare` resolves what to review, a matrix `review`
-job runs the model reviewers in parallel, `confirm` reconciles their reports and
-posts the PR review, and `gate` decides the outcome and is the required check.
-Branching lives in `needs`/`if` between jobs, not inside them.
+A dedicated workflow, `.github/workflows/ai-review.yml`, runs **after the `CI`
+workflow succeeds** on a pull request. It has five single-purpose jobs: `config`
+validates configuration and emits the model matrix, `prepare` resolves what to
+review, a matrix `review` job runs the model reviewers in parallel, `confirm`
+reconciles their reports and posts the PR review, and `gate` decides the outcome
+and is the required check. Branching lives in `needs`/`if` between jobs, not
+inside them.
+
+Gating on CI success avoids spending premium-request credits reviewing code that
+does not compile or pass tests, and stops reviewers from re-flagging failures
+`ci.yml` already reports. When CI fails the AI review never runs, so the `gate`
+check produces no conclusion — the PR is already blocked by the red CI check.
 
 The model never emits structured JSON that another step must parse. Reviewers
 write Markdown reports (passed between jobs as plain-text artifacts). The
@@ -72,14 +78,35 @@ in the summary the agent posts:
 
 ### Trigger and concurrency
 
+The workflow is triggered by the completion of the `CI` workflow and runs only
+when CI succeeded on a pull request:
+
 ```yaml
 on:
-  pull_request:
-    types: [opened, synchronize, reopened]
+  workflow_run:
+    workflows: ['CI']
+    types: [completed]
 concurrency:
-  group: ai-review-${{ github.event.pull_request.number }}
+  group: ai-review-${{ github.event.workflow_run.head_branch }}
   cancel-in-progress: true
 ```
+
+Every job is guarded so the workflow no-ops unless CI passed for a PR:
+
+```yaml
+# config (entry job) and the gate:
+if: >-
+  github.event.workflow_run.event == 'pull_request' &&
+  github.event.workflow_run.conclusion == 'success'
+```
+
+`gate` additionally uses `always()` (`always() && <the guard above>`) so it still
+reports a conclusion when an AI-review job fails, but is skipped entirely when CI
+did not succeed. Because `workflow_run` carries no PR event context, `prepare`
+resolves the PR number and head SHA from `github.event.workflow_run.pull_requests`
+(populated for same-repo PRs), falling back to
+`gh api repos/{owner}/{repo}/commits/{head_sha}/pulls`. The workflow depends on
+the CI workflow being named `CI`.
 
 ### Authentication (two separate tokens, least privilege)
 
@@ -117,7 +144,8 @@ confirmation agent run with `--context long_context` to tolerate larger diffs.
 
 Each job has one purpose; branching lives in `needs`/`if`, not inside jobs.
 
-**1. `config`** (no checkout; permissions: none)
+**1. `config`** (no checkout; permissions: none; entry guard:
+`workflow_run.event == 'pull_request' && workflow_run.conclusion == 'success'`)
 
 Runs `scripts/src/ai-review/check-config.ts`, which fails fast with a clear
 message — before any checkout or model spend — when the repo is misconfigured:
@@ -136,12 +164,16 @@ message — before any checkout or model spend — when the repo is misconfigure
 
 **2. `prepare`** (`needs: config`; permissions: `contents: read`, `pull-requests: read`)
 
-- `actions/checkout` with `fetch-depth: 0`, checking out `pull_request.head.sha`
-  (the real head, not the synthetic merge commit).
+- Resolves the PR context from the `workflow_run` event: `pr_number` and
+  `head_sha` from `github.event.workflow_run.pull_requests`, falling back to
+  `gh api repos/{owner}/{repo}/commits/{head_sha}/pulls`. (`workflow_run` carries
+  no native PR context.)
+- `actions/checkout` with `fetch-depth: 0`, checking out the resolved `head_sha`
+  (the real head, not a synthetic merge commit).
 - Runs `scripts/src/ai-review/resolve-range.ts`, which reads existing PR reviews
   via `gh api repos/{owner}/{repo}/pulls/{n}/reviews`, parses the most recent
-  `ai-review` marker for the previous `reviewed-head` and `verdict`, and outputs:
-  - `head_sha` = current head.
+  `ai-review` marker for the previous `reviewed-head` and `verdict`, and outputs
+  (alongside `pr_number`, `head_sha`):
   - `start_sha` = previous `reviewed-head`, when present and reachable.
   - `is_full` = `true` on the first review, or when `start_sha` is not an
     ancestor of `head_sha` (force-push / rebase, via `git merge-base --is-ancestor`).
@@ -189,12 +221,16 @@ agent (`CONFIRM_MODEL`), which:
 - Allowed tools: `shell(git:*), shell(gh:*), shell(bun:*), read, write`, with
   `--secret-env-vars=COPILOT_GITHUB_TOKEN`.
 
-**5. `gate`** (`needs: [config, prepare, review, confirm]`, `if: always()`;
+**5. `gate`** (`needs: [config, prepare, review, confirm]`;
+`if: always() && github.event.workflow_run.event == 'pull_request' && github.event.workflow_run.conclusion == 'success'`;
 permissions: `contents: read`, `pull-requests: write`, `issues: write`)
 
-The single **required check** — decides the outcome and owns the label. Always
-runs so the check always reports a conclusion (avoids the "skipped required check
-stays pending" pitfall). Runs `scripts/src/ai-review/gate.ts`:
+The single **required check** — decides the outcome and owns the label. When the
+AI review runs at all (CI passed), it runs regardless of upstream AI-job
+success/failure (`always()`) so the check always reports a conclusion rather than
+hanging as a skipped-but-required check. (When CI did **not** pass it is skipped
+along with the rest of the workflow, and the red CI check blocks the PR instead.)
+Runs `scripts/src/ai-review/gate.ts`:
 
 - If any of `config`/`prepare`/`review`/`confirm` failed or was cancelled →
   **fail** (infra/incomplete; an incomplete review is never an approval). Existing
@@ -215,10 +251,14 @@ Only **Low / nit** findings pass. **Medium, High, Critical** block
 ### Data flow
 
 ```
-push to PR head
+CI workflow completes on a PR
+  └─ (CI conclusion != success) → AI review never triggers; gate never reports;
+                                  red CI check blocks the PR
+  └─ (CI conclusion == success) → AI review workflow_run fires:
   └─ config:   validate COPILOT_CLI_TOKEN + model env values;
                emit reviewer-model matrix JSON
-  └─ prepare (needs config): checkout + resolve-range.ts (gh reviews + git ancestry)
+  └─ prepare (needs config): resolve PR (number, head_sha) from workflow_run;
+               checkout + resolve-range.ts (gh reviews + git ancestry)
         → start_sha, head_sha, is_full, has_changes, carried_verdict
   └─ review (needs prepare, if has_changes; matrix = REVIEWER_MODELS):
         checkout + setup (bun install)
@@ -229,7 +269,7 @@ push to PR head
         checkout + setup → confirmation agent (CONFIRM_MODEL, xhigh)
           reads 4 reports → re-verifies code (re-runs repro tests)
           → posts 1 PR review (summary + inline comments + marker)
-  └─ gate (needs all, always) — REQUIRED CHECK:
+  └─ gate (needs all, always — only when CI passed) — REQUIRED CHECK:
         any upstream failed/cancelled → fail
         has_changes==false           → verdict = carried_verdict
         else                         → read-verdict.ts (marker from posted review)
@@ -274,6 +314,9 @@ the "two reviewers, different models" guarantee.
   message, before any checkout or model spend; a present-but-invalid token, or a
   model unavailable on the plan, surfaces later as a CLI error in `review`.
 - Fork PRs (no secret access) are out of scope and documented as unsupported.
+- When the `CI` workflow concludes non-success (failure/cancelled) the AI review
+  does not trigger; `gate` reports nothing and the PR is blocked by the red CI
+  check. Fixing CI and pushing re-runs CI, which re-triggers the AI review.
 
 ### Executing PR code
 
@@ -313,11 +356,14 @@ the model token is stripped from any spawned shell environment.
 1. Create a fine-grained PAT with the **"Copilot Requests"** permission; store it
    as repo secret **`COPILOT_CLI_TOKEN`**.
 2. After the first green run, mark the `gate` check as **required** in branch
-   protection for `main` so it blocks merges.
+   protection for `main` so it blocks merges. (It only reports once `CI` has
+   passed; on a red-CI commit it shows as pending, which is the desired block.)
 3. Optionally set repository **Variables** (`AI_REVIEW_REVIEWER_MODELS`,
    `AI_REVIEW_CONFIRM_MODEL`, `AI_REVIEW_EFFORT`) to override the model defaults
    without editing the workflow; confirm the chosen models are available on the
    Copilot plan.
+4. Keep the CI workflow named `CI`; the AI review's `workflow_run` trigger
+   references it by that name.
 
 The `AI Approved` / `AI Need Change` labels are created automatically by the
 workflow if they do not yet exist, so no manual label setup is required.
@@ -325,5 +371,7 @@ workflow if they do not yet exist, so no manual label setup is required.
 ## What is untouched
 
 - The existing `.github/workflows/ci.yml` (lint/format/typecheck/test) and its
-  `CI Result` gate — the AI review is a separate, independent workflow and check.
+  `CI Result` gate are not modified. The AI review is a separate workflow that
+  only _depends on_ CI's successful completion (by workflow name); it adds no
+  jobs or steps to `ci.yml`.
 - Production build/start and all application code.
