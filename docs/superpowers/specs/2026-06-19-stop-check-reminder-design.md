@@ -90,7 +90,7 @@ the `SseEvent` union so it is parsed/validated on deserialization and persisted 
 is added only when injecting to the LLM (step 3), keeping the persisted event
 human-readable for debugging.
 
-### 2. StopCheck interface and registry
+### 2. StopCheck interface and checks
 
 New directory `apps/backend/src/agent-core/agent/stop-checks/`.
 
