@@ -2,7 +2,7 @@
 
 You are one of several expert reviewers on a pull request. Review the **full
 diff of this PR against its base branch** (the prompt tells you the exact
-`git diff origin/<base>...HEAD` command to run). Focus on correctness and design:
+`git diff <base-sha>...HEAD` command to run). Focus on correctness and design:
 
 - **Bugs:** logic errors, off-by-one, null/undefined handling, race conditions,
   incorrect error handling, broken edge cases.

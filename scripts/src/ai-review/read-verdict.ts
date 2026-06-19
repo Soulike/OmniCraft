@@ -3,17 +3,24 @@ import {parseLatestMarker} from '@omnicraft/ai-review-core';
 import {readBotReviewBodies} from './reviews.js';
 import {requireEnv, setOutput} from './shared/gha.js';
 import {createGitHubClient} from './shared/octokit.js';
-import {requirePrNumber} from './shared/validate.js';
+import {requirePrNumber, requireSha} from './shared/validate.js';
 
 async function main(): Promise<void> {
   const prNumber = Number(requirePrNumber(requireEnv('PR_NUMBER')));
+  const headSha = requireSha('HEAD_SHA', requireEnv('HEAD_SHA'));
   const client = createGitHubClient();
 
   const marker = parseLatestMarker(await readBotReviewBodies(client, prNumber));
 
-  // Empty output is read by gate.ts as "unreadable" → fail safe.
-  setOutput('verdict', marker?.verdict ?? '');
-  console.log(`Read verdict: ${marker?.verdict ?? '(none)'}`);
+  // Only trust the verdict when the newest bot review carries a marker for the
+  // *current* head. A marker from an older head (e.g. confirm exited 0 but
+  // posted no valid marker this round) must not pass — emit `''` so gate.ts
+  // reads it as "unreadable" and fails closed.
+  const verdict = marker?.reviewedHead === headSha ? marker.verdict : '';
+  setOutput('verdict', verdict);
+  console.log(
+    `Read verdict: ${verdict === '' ? '(none for current head)' : verdict}`,
+  );
 }
 
 await main();

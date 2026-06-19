@@ -162,7 +162,7 @@ jobs:
           PR number: $PR_NUMBER
           Head SHA: $HEAD_SHA
           Reviewed range: full PR diff ($BASE_SHA...HEAD)
-          Reviewer reports are in the reports/ directory."
+          Reviewer reports are in the $GITHUB_WORKSPACE/reports/ directory."
           copilot --model "$CONFIRM_MODEL" --effort "$REASONING_EFFORT" \
             --context long_context \
             --allow-tool 'shell,read,write' \
@@ -199,6 +199,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           PR_NUMBER: ${{ needs.prepare.outputs.pr_number }}
+          HEAD_SHA: ${{ needs.prepare.outputs.head_sha }}
       - name: Decide gate
         run: bun scripts/src/ai-review/gate.ts
         env:
