@@ -52,12 +52,6 @@ jobs:
           GH_REPO: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-      - name: Upload known issues
-        uses: actions/upload-artifact@v7
-        with:
-          name: known-issues
-          path: ${{ steps.range.outputs.known_issues_file }}
-          if-no-files-found: error
 
   review:
     name: Review (${{ matrix.model }} / ${{ matrix.pass }})
@@ -90,23 +84,14 @@ jobs:
         working-directory: pr-head
       - name: Install Copilot CLI
         run: npm install -g @github/copilot
-      - name: Download known issues
-        uses: actions/download-artifact@v8
-        with:
-          name: known-issues
-          path: known-issues-dir
       - name: Review pass
         run: |
-          KNOWN="$(cat known-issues-dir/known-issues.md)"
           PROMPT="$(cat "$GITHUB_WORKSPACE/scripts/src/ai-review/prompts/review-$PASS.md")
 
           Repository: $GH_REPO
           PR number: $PR_NUMBER
           Review the full diff of this PR against its base: run
           \`git diff $BASE_SHA...HEAD\` (three-dot) inside pr-head.
-
-          Issues already raised on this PR and still open (do NOT re-report these):
-          $KNOWN
 
           Report file: $REPORT_FILE"
           copilot --model "$MODEL" --effort "$REASONING_EFFORT" \
