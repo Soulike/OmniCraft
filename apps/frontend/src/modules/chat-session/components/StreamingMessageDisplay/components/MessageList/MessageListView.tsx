@@ -46,5 +46,10 @@ function itemKey(item: MessageRenderItem, index: number): string {
       // expanded state stays put. Re-ordering or inserting before a todo card
       // would reset that state.
       return `todo-${index.toString()}`;
+    default:
+      // Exhaustiveness guard: a new MessageRenderItem variant must add a case
+      // above or this fails to compile.
+      item satisfies never;
+      return `unknown-${index.toString()}`;
   }
 }
