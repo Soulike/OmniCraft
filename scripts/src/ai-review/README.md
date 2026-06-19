@@ -57,16 +57,23 @@ Two further deliberate, bounded risks:
   adds `issues: write` (to apply labels) — both agents still run PR code, so the
   write scope on `confirm` is part of the exposure surface, not exempt from it.
   Residual exposure: a prompt-injection payload in the PR diff could combine
-  shell + network to exfiltrate data a job can read, or (on `confirm`) post on
-  its behalf. Shell is **not** restricted to a command allowlist: under the
-  `pull_request` trigger the workflow itself comes from the PR branch, so a
-  hostile PR could already lift any such limit — scoping shell would add friction
-  without a real boundary. The boundaries that still hold are `--secret-env-vars`
-  (token stripping, below) and the read-only GitHub scopes on the review jobs.
-- **`--secret-env-vars COPILOT_GITHUB_TOKEN`** strips the Copilot model-access
-  token (the low-privilege "Copilot Requests" PAT) from any shell the agent
-  spawns, so executing PR code cannot read it. The built-in `GH_TOKEN` used for
-  posting is the standard `github.token`, scoped per job.
+  shell + network to exfiltrate data a job can read — **including the
+  `COPILOT_GITHUB_TOKEN`** (a spawned shell can read it via `printenv`; see the
+  note on `--secret-env-vars` below) — or (on `confirm`) post on its behalf.
+  Shell is **not** restricted to a command allowlist: under the `pull_request`
+  trigger the workflow itself comes from the PR branch, so a hostile PR could
+  already lift any such limit — scoping shell would add friction without a real
+  boundary. The boundaries that actually hold are the read-only GitHub scopes on
+  the review jobs, fork exclusion, and the low privilege of the leaked token
+  itself (Copilot Requests only).
+- **`--secret-env-vars COPILOT_GITHUB_TOKEN`** redacts the Copilot model-access
+  token (the low-privilege "Copilot Requests" PAT) from the CLI's transcript and
+  output. Note it does **not** reliably remove the value from the spawned shell's
+  environment, so executing PR code can still read it (e.g. `printenv`); the
+  protection is "don't leak it into the visible session log," not isolation. The
+  token's narrow scope (it cannot read code or write to the repo) is what bounds
+  the impact. The built-in `GH_TOKEN` used for posting is the standard
+  `github.token`, scoped per job.
 
 Untrusted values that reach a `git`/`gh` argv (`GH_REPO`, `PR_NUMBER`, the PR's
 base ref and head SHA) are validated by `validate.ts` and option-terminated with
