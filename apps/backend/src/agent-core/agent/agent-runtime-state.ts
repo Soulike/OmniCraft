@@ -33,6 +33,7 @@ export class AgentRuntimeState {
   private readonly userInteractionBridge = new UserInteractionBridge();
   private readonly todoStore = new TodoStore();
   private readonly todoState: TodoState = {lastObservedVersion: undefined};
+  private readonly lastStopCheckTokens = new Map<string, string>();
 
   constructor(workingDirectory: string) {
     this.shellState = {cwd: workingDirectory};
@@ -44,6 +45,16 @@ export class AgentRuntimeState {
 
   listTodos(): TodoItem[] {
     return this.todoStore.list();
+  }
+
+  /** Returns the state token a stop-check last reminded on, or undefined. */
+  getLastStopCheckToken(checkName: string): string | undefined {
+    return this.lastStopCheckTokens.get(checkName);
+  }
+
+  /** Records the state token a stop-check just reminded on. */
+  recordStopCheckToken(checkName: string, token: string): void {
+    this.lastStopCheckTokens.set(checkName, token);
   }
 
   submitUserResponse(id: string, result: unknown): boolean {

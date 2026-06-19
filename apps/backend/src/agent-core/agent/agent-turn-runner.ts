@@ -339,22 +339,33 @@ export class AgentTurnRunner {
     const settled = await Promise.allSettled(
       stopChecks.map(async (check) => ({
         name: check.name,
-        content: await check.evaluate({runtimeState}),
+        result: await check.evaluate({runtimeState}),
       })),
     );
 
     const fired: {name: string; content: string}[] = [];
-    for (const [index, result] of settled.entries()) {
-      if (result.status === 'rejected') {
+    for (const [index, settledResult] of settled.entries()) {
+      if (settledResult.status === 'rejected') {
         logger.error(
-          {err: result.reason, check: stopChecks[index].name},
+          {err: settledResult.reason, check: stopChecks[index].name},
           'Stop-check evaluation failed; skipping',
         );
         continue;
       }
-      if (result.value.content !== null) {
-        fired.push({name: result.value.name, content: result.value.content});
+      const {name, result} = settledResult.value;
+      if (result === null) continue;
+      // State-token de-dup: suppress a reminder whose token matches the one we
+      // last reminded on for this check (the agent already saw it and stopped).
+      if (
+        result.stateToken !== undefined &&
+        result.stateToken === runtimeState.getLastStopCheckToken(name)
+      ) {
+        continue;
       }
+      if (result.stateToken !== undefined) {
+        runtimeState.recordStopCheckToken(name, result.stateToken);
+      }
+      fired.push({name, content: result.content});
     }
 
     if (fired.length === 0) return null;

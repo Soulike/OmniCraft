@@ -41,9 +41,11 @@ The reminder must be:
 
 - No `LlmMessage` schema change. History reload is purely SSE-event-driven (see
   Background), so marking the injected message would have no consumer.
-- No stateful "fired once" tracking. Checks are re-evaluated every turn-end
-  boundary; an unsatisfied check keeps reminding until satisfied or `maxRounds` is
-  reached.
+- State-token de-duplication, not unconditional re-reminding. A check may return a
+  `stateToken` identifying the state it observed; the reminder re-fires only when
+  that token changes. This prevents an infinite reminder loop when the agent
+  deliberately stops without acting (see §2 and §4). A check that omits the token
+  reminds every turn-end boundary.
 - No separate round budget for reminder rounds. Reminder rounds and tool rounds
   share one `round` counter and one `maxRounds` ceiling.
 - No dev-mode rendering of the reminder event. The event is persisted; a debug UI
@@ -101,12 +103,24 @@ export interface StopCheckContext {
   readonly runtimeState: AgentRuntimeState;
 }
 
+export interface StopCheckResult {
+  // Reminder text injected to the LLM.
+  readonly content: string;
+  // An opaque token identifying the checked state. The reminder re-fires only
+  // when this token changes between turn-end boundaries; an unchanged token is
+  // suppressed (the agent saw the reminder and chose to stop anyway). Omit to
+  // remind on every boundary.
+  readonly stateToken?: string;
+}
+
 export interface StopCheck {
   readonly name: string;
-  // Returns reminder text to block the turn from ending, or null to allow it.
+  // Returns a result to block the turn from ending, or null to allow it.
   // May be sync or async — async checks (e.g. shelling out to `git status`)
   // are supported.
-  evaluate(ctx: StopCheckContext): string | null | Promise<string | null>;
+  evaluate(
+    ctx: StopCheckContext,
+  ): StopCheckResult | null | Promise<StopCheckResult | null>;
 }
 ```
 
@@ -120,17 +134,25 @@ export const todoStopCheck: StopCheck = {
     if (todos.length === 0) return null;
     const unfinished = todos.filter((t) => t.status !== 'completed');
     if (unfinished.length === 0) return null;
-    return (
-      `Note: the TODO list still has ${unfinished.length} unfinished ` +
-      `item(s):\n` +
-      unfinished.map((t) => `- [${t.status}] ${t.subject}`).join('\n') +
-      `\nThis is just a reminder of the current state. If they are done, ` +
-      `update their status; if they are intentionally being left for later ` +
-      `or are no longer needed, you can proceed.`
-    );
+    return {
+      stateToken: String(runtimeState.todoVersion),
+      content:
+        `Note: the TODO list still has ${unfinished.length} unfinished ` +
+        `item(s):\n` +
+        unfinished.map((t) => `- [${t.status}] ${t.subject}`).join('\n') +
+        `\nThis is just a reminder of the current state. If they are done, ` +
+        `update their status; if they are intentionally being left for later ` +
+        `or are no longer needed, you can proceed.`,
+    };
   },
 };
 ```
+
+The `stateToken` is the todo store's `version` (already incremented on every todo
+mutation). So the reminder fires once per distinct todo state: if the agent stops
+without touching todos, the version is unchanged and the next boundary suppresses
+the reminder; if the agent actually edits todos and stops again, the version has
+advanced and a fresh reminder fires.
 
 `index.ts` exports the interface and each check implementation
 (`todoStopCheck`). There is **no** global `defaultStopChecks` constant: the set of
@@ -332,22 +354,33 @@ private async evaluateStopChecks(
   const settled = await Promise.allSettled(
     stopChecks.map(async (check) => ({
       name: check.name,
-      content: await check.evaluate({runtimeState}),
+      result: await check.evaluate({runtimeState}),
     })),
   );
 
   const fired: {name: string; content: string}[] = [];
-  for (const [i, result] of settled.entries()) {
-    if (result.status === 'rejected') {
+  for (const [i, settledResult] of settled.entries()) {
+    if (settledResult.status === 'rejected') {
       logger.error(
-        {err: result.reason, check: stopChecks[i].name},
+        {err: settledResult.reason, check: stopChecks[i].name},
         'Stop-check evaluation failed; skipping',
       );
       continue;
     }
-    if (result.value.content !== null) {
-      fired.push({name: result.value.name, content: result.value.content});
+    const {name, result} = settledResult.value;
+    if (result === null) continue;
+    // State-token de-dup: suppress a reminder whose token matches the one we
+    // last reminded on for this check (the agent already saw it and stopped).
+    if (
+      result.stateToken !== undefined &&
+      result.stateToken === runtimeState.getLastStopCheckToken(name)
+    ) {
+      continue;
     }
+    if (result.stateToken !== undefined) {
+      runtimeState.recordStopCheckToken(name, result.stateToken);
+    }
+    fired.push({name, content: result.content});
   }
 
   if (fired.length === 0) return null;
@@ -365,6 +398,12 @@ nothing to the reminder. The rejected `result` carries no name, so `stopChecks[i
 is used to identify the failed check. One broken check neither aborts the round
 nor leaks a partial result to the LLM.
 
+The per-check last-reminded token lives on `AgentRuntimeState` (per-session,
+same lifetime as the agent), exposed as `getLastStopCheckToken(name)` and
+`recordStopCheckToken(name, token)` backed by a private `Map<string, string>`.
+A token is recorded only when its reminder is actually included, so the next
+boundary suppresses an identical state and re-fires a changed one.
+
 Design points:
 
 - **Merged, not short-circuited.** All unsatisfied checks are collected in one
@@ -375,11 +414,13 @@ Design points:
 - **Shared round counter.** Reminder rounds and tool rounds increment the same
   `round` and share `maxRounds`. A turn whose tool rounds already approach the
   ceiling has correspondingly fewer reminder rounds left — a single anti-spin
-  gate. An agent that repeatedly ignores reminders burns rounds until
-  `max_rounds_reached`; it cannot loop forever.
-- **Stateless.** No "fired once" tracking. The boundary re-evaluates every time
-  the LLM returns no tool calls; an unsatisfied check keeps reminding until
-  satisfied or `maxRounds` hits.
+  gate.
+- **State-token de-dup terminates the loop.** A check that returns a `stateToken`
+  reminds once per distinct state. When the agent stops without acting, the token
+  is unchanged, the boundary suppresses the reminder, and the turn ends with
+  `complete` — not `max_rounds_reached`. A reminder re-fires only after the agent
+  changes the underlying state (advancing the token). `maxRounds` remains the
+  backstop for a check that omits the token or for genuinely churning state.
 - **Abort** is checked at the loop top and around `consume`, matching existing
   handling.
 - A reminder round emits `stop-check-reminder` and **never** `message-start` —
@@ -426,8 +467,14 @@ Backend (`agent-turn-runner` tests, `stop-checks` tests):
   turn ends with `reason: 'complete'`.
 - Multiple unsatisfied checks merge into one reminder: `checkNames` lists all
   fired checks and `content` contains each check's text joined by `\n\n`.
-- An agent that returns no tool calls and never satisfies the check terminates at
-  `maxRounds` with `reason: 'max_rounds_reached'` (no infinite loop).
+- State-token de-dup: when a check returns the same `stateToken` on a second
+  boundary (agent stopped without acting), the reminder is suppressed and the turn
+  ends with `reason: 'complete'` — not `max_rounds_reached`. Exactly one reminder
+  is emitted across the two boundaries.
+- A check whose `stateToken` changes between boundaries re-fires the reminder
+  (two reminders for two distinct states).
+- A check that omits `stateToken` reminds on every boundary and is bounded only by
+  `maxRounds`, terminating at `reason: 'max_rounds_reached'` (no infinite loop).
 - Reminder rounds and tool rounds share the `round` counter: a turn near the
   ceiling does not get extra reminder rounds.
 - The `stop-check-reminder` round does not emit a `message-start` event.
@@ -453,6 +500,10 @@ Frontend (`useStreamChat` / message-rendering tests):
 
 ## Open Decisions
 
-None. A stateful "remind only when state changes" policy is intentionally out of
-scope; the stateless merged-reminder design with a shared `maxRounds` ceiling and
-`allSettled` per-check error isolation is sufficient for the current checks.
+None. The state-token de-dup policy (a check reminds once per distinct state,
+tracked per-session on `AgentRuntimeState`) is the chosen termination mechanism,
+backed by the shared `maxRounds` ceiling and `allSettled` per-check error
+isolation. De-dup state is per-session and intentionally not persisted across
+turns' token history beyond the agent's lifetime; it resets when the agent is
+reconstructed, which is acceptable since a reminder on the first boundary of a
+restored session is harmless.

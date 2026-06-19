@@ -332,7 +332,7 @@ describe('AgentTurnRunner', () => {
     let calls = 0;
     const onceCheck = {
       name: 'once',
-      evaluate: () => (calls++ === 0 ? 'please reconsider' : null),
+      evaluate: () => (calls++ === 0 ? {content: 'please reconsider'} : null),
     };
 
     const events = await collectAll(
@@ -357,7 +357,7 @@ describe('AgentTurnRunner', () => {
     let calls = 0;
     const onceCheck = {
       name: 'once',
-      evaluate: () => (calls++ === 0 ? 'reconsider' : null),
+      evaluate: () => (calls++ === 0 ? {content: 'reconsider'} : null),
     };
 
     const events = await collectAll(
@@ -380,11 +380,11 @@ describe('AgentTurnRunner', () => {
     let bCalls = 0;
     const checkA = {
       name: 'a',
-      evaluate: () => (aCalls++ === 0 ? 'alpha' : null),
+      evaluate: () => (aCalls++ === 0 ? {content: 'alpha'} : null),
     };
     const checkB = {
       name: 'b',
-      evaluate: () => (bCalls++ === 0 ? 'beta' : null),
+      evaluate: () => (bCalls++ === 0 ? {content: 'beta'} : null),
     };
 
     const events = await collectAll(
@@ -413,7 +413,7 @@ describe('AgentTurnRunner', () => {
     };
     const ok = {
       name: 'ok',
-      evaluate: () => (good++ === 0 ? 'still here' : null),
+      evaluate: () => (good++ === 0 ? {content: 'still here'} : null),
     };
 
     const events = await collectAll(
@@ -424,17 +424,70 @@ describe('AgentTurnRunner', () => {
     expect(reminder).toMatchObject({checkNames: ['ok'], content: 'still here'});
   });
 
-  it('keeps reminding an always-firing check until max rounds', async () => {
+  it('reminds every round for a check that omits a state token, until max rounds', async () => {
     vi.spyOn(llmApi, 'countToken').mockResolvedValue(1);
     vi.spyOn(llmApi, 'streamCompletion').mockImplementation(() =>
       textCompletionStream('no tools'),
     );
 
-    const always = {name: 'always', evaluate: () => 'still not done'};
+    const always = {
+      name: 'always',
+      evaluate: () => ({content: 'still not done'}),
+    };
 
     const events = await collectAll(
       agentTurnRunner.run(
         createInput({stopChecks: [always], getMaxToolRounds: () => 2}),
+      ),
+    );
+
+    expect(events.at(-1)).toMatchObject({
+      type: 'done',
+      reason: 'max_rounds_reached',
+    });
+    const reminders = events.filter((e) => e.type === 'stop-check-reminder');
+    expect(reminders).toHaveLength(2);
+  });
+
+  it('suppresses a repeated reminder when the state token is unchanged', async () => {
+    vi.spyOn(llmApi, 'countToken').mockResolvedValue(1);
+    vi.spyOn(llmApi, 'streamCompletion').mockImplementation(() =>
+      textCompletionStream('no tools'),
+    );
+
+    // Same token every boundary: the agent never changed the underlying state.
+    const stuck = {
+      name: 'stuck',
+      evaluate: () => ({content: 'unchanged', stateToken: 'v1'}),
+    };
+
+    const events = await collectAll(
+      agentTurnRunner.run(
+        createInput({stopChecks: [stuck], getMaxToolRounds: () => 5}),
+      ),
+    );
+
+    const reminders = events.filter((e) => e.type === 'stop-check-reminder');
+    expect(reminders).toHaveLength(1);
+    expect(events.at(-1)).toMatchObject({type: 'done', reason: 'complete'});
+  });
+
+  it('re-fires a reminder when the state token changes', async () => {
+    vi.spyOn(llmApi, 'countToken').mockResolvedValue(1);
+    vi.spyOn(llmApi, 'streamCompletion').mockImplementation(() =>
+      textCompletionStream('no tools'),
+    );
+
+    // Token advances each boundary: distinct states each deserve a reminder.
+    let version = 0;
+    const advancing = {
+      name: 'advancing',
+      evaluate: () => ({content: 'changed', stateToken: `v${version++}`}),
+    };
+
+    const events = await collectAll(
+      agentTurnRunner.run(
+        createInput({stopChecks: [advancing], getMaxToolRounds: () => 2}),
       ),
     );
 

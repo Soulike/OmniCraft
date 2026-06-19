@@ -46,10 +46,11 @@ describe('todoStopCheck', () => {
       {subject: 'done one', description: 'd1', completed: true},
       {subject: 'open one', description: 'd2', completed: false},
     ]);
-    const reminder = await todoStopCheck.evaluate({runtimeState: state});
-    expect(reminder).not.toBeNull();
-    expect(reminder).toContain('1 unfinished');
-    expect(reminder).toContain('open one');
-    expect(reminder).not.toContain('done one');
+    const result = await todoStopCheck.evaluate({runtimeState: state});
+    expect(result).not.toBeNull();
+    expect(result?.content).toContain('1 unfinished');
+    expect(result?.content).toContain('open one');
+    expect(result?.content).not.toContain('done one');
+    expect(result?.stateToken).toBe(String(state.todoVersion));
   });
 });
