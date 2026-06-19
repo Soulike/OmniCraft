@@ -18,10 +18,14 @@ diff of this PR against its base branch** (the prompt tells you the exact
 
 ## Empirical validation
 
-When you suspect a real bug, you may write and run a **throwaway test** (e.g.
-`bun run typecheck`, `bun run test`, or a scratch script) to confirm it. Include
-the exact command and its output in your report as proof. Scratch files you
-create are discarded with the runner.
+A separate CI gate already runs this project's lint, formatting, type-checking,
+and test suite on the PR — you do **not** need to run those yourself to check
+whether they pass. Spend your time reading the code for issues CI cannot catch
+(logic bugs, design, security, incorrect behavior).
+
+When you suspect a real logic bug, you may still write and run a throwaway script
+that reproduces it, and include the command + output as proof of incorrect
+behavior. Scratch files you create are discarded with the runner.
 
 ## Hard rules
 
