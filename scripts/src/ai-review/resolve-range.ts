@@ -1,12 +1,5 @@
-import {writeFileSync} from 'node:fs';
+import {parseLatestMarker, resolveReviewRange} from '@omnicraft/ai-review-core';
 
-import {
-  parseLatestMarker,
-  renderKnownIssues,
-  resolveReviewRange,
-} from '@omnicraft/ai-review-core';
-
-import {fetchUnresolvedBotIssues} from './known-issues.js';
 import {readBotReviewBodies} from './reviews.js';
 import {requireEnv, setOutput} from './shared/gha.js';
 import {createGitHubClient} from './shared/octokit.js';
@@ -22,21 +15,14 @@ async function main(): Promise<void> {
   );
   const range = resolveReviewRange({headSha, previousMarker});
 
-  // Render the still-open findings so reviewers can skip already-raised ones,
-  // and hand the path to the review job via an output.
-  const knownIssues = await fetchUnresolvedBotIssues(client, prNumber);
-  const knownIssuesFile = `${requireEnv('RUNNER_TEMP')}/known-issues.md`;
-  writeFileSync(knownIssuesFile, renderKnownIssues(knownIssues));
-
   setOutput('pr_number', String(prNumber));
   setOutput('head_sha', headSha);
   setOutput('has_changes', String(range.hasChanges));
   setOutput('carried_verdict', range.carriedVerdict ?? '');
-  setOutput('known_issues_file', knownIssuesFile);
 
   console.log(
     `PR #${prNumber}: head=${headSha} hasChanges=${range.hasChanges} ` +
-      `carried=${range.carriedVerdict ?? '-'} knownIssues=${knownIssues.length}`,
+      `carried=${range.carriedVerdict ?? '-'}`,
   );
 }
 
