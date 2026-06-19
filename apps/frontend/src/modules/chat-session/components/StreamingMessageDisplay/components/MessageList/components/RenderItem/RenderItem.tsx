@@ -10,6 +10,7 @@ import {AssistantMessage} from '../AssistantMessage/index.js';
 import {ContextCompactionBlock} from '../ContextCompactionBlock/index.js';
 import {SubagentDisclosure} from '../SubagentDisclosure/index.js';
 import {ThinkingBlock} from '../ThinkingBlock/index.js';
+import {TodoCard} from '../TodoCard/index.js';
 import {ToolExecutionCard} from '../ToolExecutionCard/index.js';
 import {UserMessage} from '../UserMessage/index.js';
 import {WorkingIndicator} from '../WorkingIndicator/index.js';
@@ -131,6 +132,12 @@ export function RenderItem({item}: RenderItemProps) {
             status={item.status}
             eventBus={item.eventBus}
           />
+        </div>
+      );
+    case 'todo':
+      return (
+        <div className={styles.assistantMessage}>
+          <TodoCard items={item.items} />
         </div>
       );
     case 'context-compaction': {
