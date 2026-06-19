@@ -37,6 +37,16 @@ describe('validateReviewConfig', () => {
     ).toThrow(/REVIEWER_MODELS/);
   });
 
+  it('throws when REVIEWER_MODELS lists only one model', () => {
+    expect(() =>
+      validateReviewConfig({
+        reviewerModels: 'gpt-5.5',
+        confirmModel: 'claude-opus-4.8',
+        reasoningEffort: 'xhigh',
+      }),
+    ).toThrow(/at least two/i);
+  });
+
   it('throws when REVIEWER_MODELS has duplicates', () => {
     expect(() =>
       validateReviewConfig({
@@ -50,7 +60,7 @@ describe('validateReviewConfig', () => {
   it('throws when CONFIRM_MODEL is blank', () => {
     expect(() =>
       validateReviewConfig({
-        reviewerModels: 'gpt-5.5',
+        reviewerModels: 'gpt-5.5, claude-opus-4.8',
         confirmModel: '  ',
         reasoningEffort: 'xhigh',
       }),
@@ -60,7 +70,7 @@ describe('validateReviewConfig', () => {
   it('throws when REASONING_EFFORT is not an accepted level', () => {
     expect(() =>
       validateReviewConfig({
-        reviewerModels: 'gpt-5.5',
+        reviewerModels: 'gpt-5.5, claude-opus-4.8',
         confirmModel: 'claude-opus-4.8',
         reasoningEffort: 'turbo',
       }),

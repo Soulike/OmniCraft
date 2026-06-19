@@ -3,7 +3,12 @@ import {parseLatestMarker, resolveReviewRange} from '@omnicraft/ai-review-core';
 import {fail, requireEnv, setOutput} from './gha.js';
 import {isAncestor, run} from './git.js';
 import {readBotReviewBodies} from './reviews.js';
-import {requireGitRef, requireRepo, requireSha} from './validate.js';
+import {
+  requireGitRef,
+  requirePrNumber,
+  requireRepo,
+  requireSha,
+} from './validate.js';
 
 interface PullContext {
   readonly prNumber: number;
@@ -18,7 +23,7 @@ function resolvePull(repo: string, headSha: string): {prNumber: number} {
   const pulls = JSON.parse(pullsJson) as {number?: number}[];
   const first = pulls.at(0);
   if (first?.number !== undefined) {
-    return {prNumber: first.number};
+    return {prNumber: Number(requirePrNumber(String(first.number)))};
   }
   // workflow_run sometimes carries no PRs; fall back to the commit's PRs.
   const fallback = run('gh', [
@@ -30,7 +35,7 @@ function resolvePull(repo: string, headSha: string): {prNumber: number} {
   if (fallback === '' || fallback === 'null') {
     fail(`Could not resolve a PR for head ${headSha}.`);
   }
-  return {prNumber: Number(fallback)};
+  return {prNumber: Number(requirePrNumber(fallback))};
 }
 
 function resolveContext(): PullContext {

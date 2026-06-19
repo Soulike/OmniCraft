@@ -47,9 +47,10 @@ export function validateReviewConfig(raw: RawReviewConfig): ReviewConfig {
     .map((id) => id.trim())
     .filter((id) => id.length > 0);
 
-  if (reviewerModels.length === 0) {
+  if (reviewerModels.length < 2) {
     throw new Error(
-      'REVIEWER_MODELS must contain at least one non-blank model ID.',
+      'REVIEWER_MODELS must list at least two distinct model IDs (the gate ' +
+        'runs multiple reviewers with different models).',
     );
   }
 

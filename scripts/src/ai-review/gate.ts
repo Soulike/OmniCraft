@@ -8,8 +8,15 @@ import {requirePrNumber, requireRepo} from './validate.js';
 /** A GitHub Actions job result string. */
 type JobResult = 'success' | 'failure' | 'cancelled' | 'skipped' | '';
 
+/**
+ * Whether an upstream job result should block the gate. `failure`/`cancelled`
+ * block, and an empty string (a result the workflow failed to pass) is treated
+ * as unknown → blocking, to preserve fail-closed behavior. `skipped` does not
+ * block: review/confirm are legitimately skipped on the no-new-commits
+ * carry-forward path.
+ */
 function isFailedOrCancelled(result: JobResult): boolean {
-  return result === 'failure' || result === 'cancelled';
+  return result === 'failure' || result === 'cancelled' || result === '';
 }
 
 function asVerdict(value: string): Verdict | null {
