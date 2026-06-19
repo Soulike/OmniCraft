@@ -103,7 +103,9 @@ export interface StopCheckContext {
 export interface StopCheck {
   readonly name: string;
   // Returns reminder text to block the turn from ending, or null to allow it.
-  evaluate(ctx: StopCheckContext): string | null;
+  // May be sync or async — async checks (e.g. shelling out to `git status`)
+  // are supported.
+  evaluate(ctx: StopCheckContext): string | null | Promise<string | null>;
 }
 ```
 
@@ -118,9 +120,12 @@ export const todoStopCheck: StopCheck = {
     const unfinished = todos.filter((t) => t.status !== 'completed');
     if (unfinished.length === 0) return null;
     return (
-      `你还有 ${unfinished.length} 个未完成的 TODO:\n` +
+      `Note: the TODO list still has ${unfinished.length} unfinished ` +
+      `item(s):\n` +
       unfinished.map((t) => `- [${t.status}] ${t.subject}`).join('\n') +
-      `\n如果已经完成,请更新它们的状态;如果确实还没做,请继续完成,不要提前结束回合。`
+      `\nThis is just a reminder of the current state. If they are done, ` +
+      `update their status; if they are intentionally being left for later ` +
+      `or are no longer needed, you can proceed.`
     );
   },
 };
@@ -132,8 +137,10 @@ export const todoStopCheck: StopCheck = {
 export const defaultStopChecks: readonly StopCheck[] = [todoStopCheck];
 ```
 
-`evaluate` is synchronous, side-effect free, and reads a `runtimeState` snapshot.
-Each check owns its full reminder wording. Checks are injected through
+`evaluate` may be sync or async, and reads a `runtimeState` snapshot. The
+`incomplete-todos` check is sync (memory read only), but the signature allows
+future IO-bound checks (e.g. `git status`) without an interface change. Each
+check owns its full reminder wording. Checks are injected through
 `RunAgentTurnInput` (new field `readonly stopChecks: readonly StopCheck[]`) rather
 than imported directly into the turn runner, matching the existing
 `toolRegistries`/`skillRegistries` injection style and keeping the runner
@@ -197,7 +204,7 @@ while (true) {
 
   // No tool calls → the turn would end. Run stop-checks first.
   if (toolCalls.length === 0) {
-    const reminder = this.evaluateStopChecks(input.stopChecks, input.runtimeState);
+    const reminder = await this.evaluateStopChecks(input.stopChecks, input.runtimeState);
     if (!reminder) break; // all checks allow the turn to end
 
     round++;
@@ -245,15 +252,31 @@ yield* this.emitDoneAfterTurn({reason: 'complete', tools: toolDefs, systemPrompt
 Helper:
 
 ```ts
-private evaluateStopChecks(
+private async evaluateStopChecks(
   stopChecks: readonly StopCheck[],
   runtimeState: AgentRuntimeState,
-): {checkNames: string[]; content: string} | null {
+): Promise<{checkNames: string[]; content: string} | null> {
+  const settled = await Promise.allSettled(
+    stopChecks.map(async (check) => ({
+      name: check.name,
+      content: await check.evaluate({runtimeState}),
+    })),
+  );
+
   const fired: {name: string; content: string}[] = [];
-  for (const check of stopChecks) {
-    const content = check.evaluate({runtimeState});
-    if (content !== null) fired.push({name: check.name, content});
+  for (const [i, result] of settled.entries()) {
+    if (result.status === 'rejected') {
+      logger.error(
+        {err: result.reason, check: stopChecks[i].name},
+        'Stop-check evaluation failed; skipping',
+      );
+      continue;
+    }
+    if (result.value.content !== null) {
+      fired.push({name: result.value.name, content: result.value.content});
+    }
   }
+
   if (fired.length === 0) return null;
   return {
     checkNames: fired.map((f) => f.name),
@@ -261,6 +284,13 @@ private evaluateStopChecks(
   };
 }
 ```
+
+Checks run concurrently via `Promise.allSettled`. A rejected check (e.g. a
+future IO check whose subprocess fails) is logged via `logger` (from
+`@/logger.js`, per backend conventions — no `console`) and skipped, contributing
+nothing to the reminder. The rejected `result` carries no name, so `stopChecks[i]`
+is used to identify the failed check. One broken check neither aborts the round
+nor leaks a partial result to the LLM.
 
 Design points:
 
@@ -307,10 +337,10 @@ ensures the event deserializes without error during replay.
   termination guarantee for an agent that ignores reminders.
 - **`sendReminder` stream failure:** propagates through the same `try/catch` as
   `submitToolResults`; on abort it ends cleanly, otherwise it rethrows.
-- **A `StopCheck.evaluate` throwing:** out of scope to harden individually;
-  `evaluate` implementations must be total and side-effect free over a
-  `runtimeState` snapshot. The `todoStopCheck` reads only `listTodos()` and cannot
-  throw.
+- **A `StopCheck.evaluate` rejecting/throwing:** `evaluateStopChecks` runs checks
+  through `Promise.allSettled`, so a rejected check is logged via `logger.error`
+  and skipped (treated as "allow"). It does not abort the round, affect other
+  checks, or leak a partial result to the LLM.
 
 ## Testing
 
@@ -330,6 +360,8 @@ Backend (`agent-turn-runner` tests, `stop-checks` tests):
 - The `stop-check-reminder` round does not emit a `message-start` event.
 - `evaluateStopChecks` returns `null` when all checks pass and a merged result
   when any fire.
+- `evaluateStopChecks` runs checks concurrently; a check that rejects is logged
+  and skipped, while other checks' results still merge into the reminder.
 - `sendReminder` wraps `content` in `<system-reminder>` and records a `user`
   message in history; its returned `messageId` matches the emitted event's
   `messageId`.
@@ -341,6 +373,6 @@ Frontend (`useStreamChat` / message-rendering tests):
 
 ## Open Decisions
 
-None. A stateful "remind only when state changes" policy and per-check error
-isolation are intentionally out of scope; the stateless merged-reminder design
-with a shared `maxRounds` ceiling is sufficient for the current checks.
+None. A stateful "remind only when state changes" policy is intentionally out of
+scope; the stateless merged-reminder design with a shared `maxRounds` ceiling and
+`allSettled` per-check error isolation is sufficient for the current checks.
