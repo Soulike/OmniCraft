@@ -5,6 +5,7 @@
   --row-font-size: 12.5px;
   --row-line-height: 1.55;
   --node-size: 12px;
+  --row-padding: 5px;
   /* derived: first-line box height, and the node's top offset to center it */
   --row-line-box: calc(var(--row-font-size) * var(--row-line-height));
   --node-top: calc((var(--row-line-box) - var(--node-size)) / 2);
@@ -18,7 +19,7 @@
   display: flex;
   align-items: flex-start;
   gap: 12px;
-  padding: 5px 0;
+  padding: var(--row-padding) 0;
 }
 
 .nodeCol {
@@ -37,7 +38,9 @@
   position: absolute;
   /* start just below the node */
   top: calc(var(--node-top) + var(--node-size));
-  bottom: -10px;
+  /* reach the next node: span the gap between rows (this row's bottom padding +
+     the next row's top padding) */
+  bottom: calc(-2 * var(--row-padding));
   left: 50%;
   width: 1.5px;
   transform: translateX(-50%);
