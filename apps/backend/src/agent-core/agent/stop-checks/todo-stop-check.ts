@@ -1,3 +1,5 @@
+import {collapseLineTerminators} from '@/helpers/unicode.js';
+
 import type {StopCheck} from './types.js';
 
 /** Cap on how many unfinished items are listed verbatim in one reminder. A
@@ -5,21 +7,13 @@ import type {StopCheck} from './types.js';
  *  every stop (cost / context exhaustion); the rest are summarized as a count. */
 const MAX_LISTED = 20;
 
-/** The complete set of Unicode line terminators: LF, VT, FF, CR, NEL (U+0085),
- *  LINE SEPARATOR (U+2028), PARAGRAPH SEPARATOR (U+2029). */
-const LINE_BREAK_PATTERN = new RegExp(
-  // eslint-disable-next-line no-control-regex
-  '(?:\\n|\\u000b|\\f|\\r|\\u0085|\\u2028|\\u2029)+',
-  'g',
-);
-
 /** Collapses any line breaks in a todo subject to spaces before it is embedded
  *  in the privileged `<system-reminder>` block. The todo schema already rejects
- *  multi-line subjects, but stripping here keeps the rendered list one bullet
+ *  multi-line subjects, but collapsing here keeps the rendered list one bullet
  *  per item regardless of how the subject reached the store (defense in depth
  *  against a line break being read as standalone system guidance). */
 function toSingleLine(subject: string): string {
-  return subject.replace(LINE_BREAK_PATTERN, ' ');
+  return collapseLineTerminators(subject);
 }
 
 export const todoStopCheck: StopCheck = {

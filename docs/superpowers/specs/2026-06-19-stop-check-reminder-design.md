@@ -161,6 +161,13 @@ without touching todos, the version is unchanged and the next boundary suppresse
 the reminder; if the agent actually edits todos and stops again, the version has
 advanced and a fresh reminder fires.
 
+> The snippet above shows the core logic; the shipped check adds two hardening
+> details (see `todo-stop-check.ts`): it lists at most `MAX_LISTED` (20) items
+> verbatim and summarizes the rest as a count (bounding reminder size), and it
+> passes each `subject` through `collapseLineTerminators` before embedding it, so
+> a line break in an attacker-influenced subject cannot surface as standalone
+> system guidance in the privileged block.
+
 `index.ts` exports the interface and each check implementation
 (`todoStopCheck`). There is **no** global `defaultStopChecks` constant: the set of
 checks is owned per agent type, not globally (see below).

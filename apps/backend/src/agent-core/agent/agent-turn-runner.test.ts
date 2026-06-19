@@ -348,7 +348,7 @@ describe('AgentTurnRunner', () => {
     expect(events.at(-1)).toMatchObject({type: 'done', reason: 'complete'});
   });
 
-  it('does not emit a message-start for the reminder round', async () => {
+  it('does not emit a user message-start for the reminder round', async () => {
     vi.spyOn(llmApi, 'countToken').mockResolvedValue(1);
     vi.spyOn(llmApi, 'streamCompletion')
       .mockReturnValueOnce(textCompletionStream('first stop'))
