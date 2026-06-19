@@ -1,2 +1,2 @@
-// Exports are added in subsequent tasks.
-export {};
+export type {ReviewMarker, Verdict} from './marker.js';
+export {parseLatestMarker, parseMarker, renderMarker} from './marker.js';
