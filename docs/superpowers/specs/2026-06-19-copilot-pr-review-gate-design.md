@@ -30,6 +30,9 @@ Concretely (from issue #291):
   added since the previous review.
 - The confirmation agent posts one GitHub PR review per round: a human-readable
   summary plus inline comments anchored to the exact lines.
+- Reviewers can empirically validate a suspected bug by writing and running a
+  throwaway test, and present that proof in their report; the confirmation agent
+  can re-run it to confirm or refute the finding.
 - No malformable structured artifacts in the model's output path — reviewers
   emit prose reports; the only machine token is a verdict marker the agent
   writes into the summary it posts anyway.
@@ -126,7 +129,8 @@ permissions: `contents: read`, `pull-requests: read`)
 
 - Matrix over the two reviewer models.
 - Installs the CLI (`npm install -g @github/copilot`), checks out head at
-  `fetch-depth: 0`.
+  `fetch-depth: 0`, and runs `./.github/actions/setup` (bun install) so the
+  agent has a working toolchain.
 - Runs two passes, capturing stdout to files via `-s`:
   - **General pass** — prefer the built-in `/review`, scoped to the review range
     (`start_sha..head_sha`, or `base...head` when `is_full`), covering bugs,
@@ -134,9 +138,16 @@ permissions: `contents: read`, `pull-requests: read`)
   - **Security pass** — a focused, model-pinned review prompt (injection, auth,
     secrets, crypto, SSRF, path traversal, dependency risk, etc.).
 - Reviewers are instructed to read project conventions (`CLAUDE.md`,
-  `AGENTS.md`) and PR context (`gh pr view`, `gh pr diff`, review comments), and
-  to **not post anything** — they only produce reports.
-- Allowed tools: `shell(git:*), shell(gh:*), read`. Uploads
+  `AGENTS.md`) and PR context (`gh pr view`, `gh pr diff`, review comments). When
+  a reviewer suspects a bug it may **write and run a throwaway test** (e.g.
+  `bun test`/`bun run typecheck`) to empirically confirm it, and include that
+  validation (the repro and its result) in the report. Reviewers **must not post
+  anything** to the PR — they only produce reports; any files they create are
+  scratch on the ephemeral runner and are discarded.
+- Allowed tools: `shell(git:*), shell(gh:*), shell(bun:*), read, write`. The
+  model token is hidden from spawned shells via
+  `--secret-env-vars=COPILOT_GITHUB_TOKEN`, so executing PR code cannot read it.
+  Reviewer jobs hold only read-scoped GitHub permissions. Uploads
   `report-<model>-general.md` and `report-<model>-security.md` as artifacts.
 
 **3. `confirm`** (`needs: [prepare, review]`, `if: always()`;
@@ -146,21 +157,26 @@ Always runs so the required check always reports a conclusion (avoids the
 "skipped required check stays pending" pitfall). Logic:
 
 - If `prepare` did not succeed → **fail red** (cannot determine scope safely).
+- Otherwise checks out head at `fetch-depth: 0` and runs `./.github/actions/setup`
+  (bun install) so the confirmation agent has the same working toolchain.
 - If `has_changes == false` → set the gate from `carried_verdict` (no model
   calls, no comment), and re-apply the matching PR label. If the carried verdict
   is unreadable, fall back to a full review instead of blocking.
 - Else if any `review` matrix leg did not succeed → **fail red** ("review
   incomplete"); an incomplete review is never an approval.
 - Else download the four reports and run the confirmation agent, which:
-  - Re-verifies each reported finding against the actual code/diff; discards
-    anything it cannot confirm.
+  - Re-verifies each reported finding against the actual code/diff, **re-running
+    a reviewer's repro test when one is provided** to confirm or refute it;
+    discards anything it cannot confirm.
   - Assigns severities (Critical / High / Medium / Low / nit).
   - Posts **one PR review** via `gh api …/pulls/{n}/reviews` (`event: COMMENT`):
     a summary body (tag, reviewed range, severity table, and the hidden
     `reviewed-head` + `verdict` marker) plus inline comments on the exact
     changed lines. It self-corrects line-anchoring errors (retry, or move a
     finding to the summary if its line is not in the diff).
-  - Allowed tools: `shell(git:*), shell(gh:*), read, write`.
+  - Allowed tools: `shell(git:*), shell(gh:*), shell(bun:*), read, write`, with
+    `--secret-env-vars=COPILOT_GITHUB_TOKEN` to keep the model token out of
+    spawned shells.
 - After posting, `scripts/src/ai-review/read-verdict.ts` reads the just-posted
   review back via `gh`, extracts `verdict=`, **applies the matching PR label**
   (`AI Approved` or `AI Need Change`, removing the other; both labels are
@@ -183,15 +199,17 @@ push to PR head
                resolve-range.ts (gh reviews + git ancestry)
         → start_sha, head_sha, is_full, has_changes, carried_verdict
   └─ review (matrix gpt-5.5 | claude-opus-4.8), only if has_changes:
-        /review pass      ─┐
-        security pass      ┤→ report-<model>-{general,security}.md (artifacts)
+        setup (bun install) → toolchain available
+        /review pass      ─┐  (may write+run a repro test to
+        security pass      ┤   confirm a bug, included in report)
+                           └→ report-<model>-{general,security}.md (artifacts)
   └─ confirm (always):
         prepare failed     → gate = fail
         has_changes==false → gate = carried_verdict (re-apply label)
         any review failed  → gate = fail (incomplete)
-        else → confirmation agent (claude-opus-4.8 xhigh)
-                 reads 4 reports → re-verifies code → posts 1 PR review
-                 (summary + inline comments + marker)
+        else → setup (bun install) → confirmation agent (claude-opus-4.8 xhigh)
+                  reads 4 reports → re-verifies code (re-runs repro tests)
+                  → posts 1 PR review (summary + inline comments + marker)
                read-verdict.ts → apply "AI Approved"/"AI Need Change" label
                                 → exit 0 (approved) | 1 (need_change)
 ```
@@ -232,6 +250,15 @@ the "two reviewers, different models" guarantee.
   a present-but-invalid token surfaces later as a CLI auth error in `review`.
 - Fork PRs (no secret access) are out of scope and documented as unsupported.
 
+### Executing PR code
+
+Reviewer and confirmation agents may run the PR's build/tests to validate
+findings, which means executing (collaborator) code in CI. This is acceptable
+because forks are excluded, the existing `ci.yml` already runs the same code, and
+the repo is single-maintainer. Exposure is bounded by: read-only GitHub
+permissions on the reviewer jobs, and `--secret-env-vars=COPILOT_GITHUB_TOKEN` so
+the model token is stripped from any spawned shell environment.
+
 ## Code structure and testing
 
 - New package **`packages/ai-review-core/`** holds the pure, side-effect-free
@@ -248,8 +275,9 @@ the "two reviewers, different models" guarantee.
   `scripts/src/with-free-ports.ts`. Node APIs only (no Bun-specific APIs).
 - Integration is validated manually on a throwaway PR (documented checklist):
   first-run full review, incremental second push, force-push fallback,
-  no-new-commits carry-forward, and a deliberate Medium+ issue to confirm the
-  red gate and inline comments.
+  no-new-commits carry-forward, a reviewer writing a repro test to confirm a
+  bug, and a deliberate Medium+ issue to confirm the red gate, inline comments,
+  and the `AI Need Change` label.
 
 ## Prerequisites (maintainer, one-time)
 
