@@ -10,7 +10,7 @@ export interface ReviewMarker {
 }
 
 const MARKER_REGEX =
-  /<!--\s*ai-review\s+reviewed-head=(\S+)\s+verdict=(approved|need_change)\s*-->/;
+  /<!--\s*ai-review\s+reviewed-head=(\S+)\s+verdict=(approved|need_change)\s*-->/g;
 
 /** Renders a {@link ReviewMarker} as its canonical HTML-comment string. */
 export function renderMarker(marker: ReviewMarker): string {
@@ -18,17 +18,20 @@ export function renderMarker(marker: ReviewMarker): string {
 }
 
 /**
- * Extracts the first valid `ai-review` marker from a single review body.
- * Returns `null` when the body contains no well-formed marker.
+ * Extracts the `ai-review` marker from a single review body. The confirmation
+ * agent writes the marker as the final line of the body (see
+ * `prompts/confirm.md`); to enforce that invariant we return the **last**
+ * well-formed marker, so trailing text or an injected earlier marker cannot
+ * displace the terminal one. Returns `null` when none is present.
  */
 export function parseMarker(body: string): ReviewMarker | null {
-  const match = MARKER_REGEX.exec(body);
-  if (!match) {
+  const last = [...body.matchAll(MARKER_REGEX)].at(-1);
+  if (last === undefined) {
     return null;
   }
   return {
-    reviewedHead: match[1],
-    verdict: match[2] as Verdict,
+    reviewedHead: last[1],
+    verdict: last[2] as Verdict,
   };
 }
 

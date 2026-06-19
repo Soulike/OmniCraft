@@ -26,14 +26,17 @@ function resolvePull(repo: string, headSha: string): {prNumber: number} {
     return {prNumber: Number(requirePrNumber(String(first.number)))};
   }
   // workflow_run sometimes carries no PRs; fall back to the commit's PRs.
+  // A commit can belong to several PRs (cherry-pick/rebase/branch reuse), so
+  // select the open PR whose head SHA matches this run rather than blindly
+  // taking the first, and fail closed if none match.
   const fallback = run('gh', [
     'api',
     `repos/${repo}/commits/${headSha}/pulls`,
     '--jq',
-    '.[0].number',
+    `[.[] | select(.state == "open" and .head.sha == "${headSha}")][0].number // empty`,
   ]);
-  if (fallback === '' || fallback === 'null') {
-    fail(`Could not resolve a PR for head ${headSha}.`);
+  if (fallback === '') {
+    fail(`Could not resolve a unique open PR for head ${headSha}.`);
   }
   return {prNumber: Number(requirePrNumber(fallback))};
 }
