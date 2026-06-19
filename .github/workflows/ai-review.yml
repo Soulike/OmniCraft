@@ -1,12 +1,10 @@
 name: AI Review
 
 on:
-  workflow_run:
-    workflows: ['CI']
-    types: [completed]
+  pull_request:
 
 concurrency:
-  group: ai-review-${{ github.event.workflow_run.head_branch }}
+  group: ai-review-${{ github.event.pull_request.number }}
   cancel-in-progress: true
 
 env:
@@ -18,9 +16,6 @@ jobs:
   config:
     name: Validate config
     runs-on: ubuntu-latest
-    if: >-
-      github.event.workflow_run.event == 'pull_request' &&
-      github.event.workflow_run.conclusion == 'success'
     permissions:
       contents: read
     outputs:
@@ -61,8 +56,10 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
-          WORKFLOW_RUN_HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
-          WORKFLOW_RUN_PULLS: ${{ toJSON(github.event.workflow_run.pull_requests) }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_BASE_REF: ${{ github.event.pull_request.base.ref }}
 
   review:
     name: Review (${{ matrix.model }})
@@ -196,10 +193,7 @@ jobs:
   gate:
     name: AI Review Gate
     needs: [config, prepare, review, confirm]
-    if: >-
-      always() &&
-      github.event.workflow_run.event == 'pull_request' &&
-      github.event.workflow_run.conclusion == 'success'
+    if: always()
     runs-on: ubuntu-latest
     permissions:
       contents: read

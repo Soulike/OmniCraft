@@ -1,6 +1,6 @@
 # AI PR Review Gate
 
-A `workflow_run`-triggered gate that reviews each push to an open PR with the
+A `pull_request`-triggered gate that reviews each push to an open PR with the
 GitHub Copilot CLI, posts one PR review per round, and blocks merges on
 confirmed Medium+ findings. Deterministic logic lives in
 `@omnicraft/ai-review-core` (unit-tested); model invocation and posting are
@@ -11,14 +11,14 @@ delegated to the CLI via the prompts in `prompts/`.
 1. Create a fine-grained PAT whose only permission is **"Copilot Requests"**;
    store it as the repository secret **`COPILOT_CLI_TOKEN`**.
 2. After the first green run, mark the **`AI Review Gate`** check as **required**
-   in branch protection for `main`.
+   in branch protection for `main`. Because the workflow is triggered by
+   `pull_request`, every job (including `gate`) shows up natively in the PR's
+   check list.
 3. (Optional) Set repository **Variables** to override model defaults without
    editing the workflow, and confirm they are available on the Copilot plan:
    - `AI_REVIEW_REVIEWER_MODELS` (comma-separated, e.g. `gpt-5.5,claude-opus-4.8`)
    - `AI_REVIEW_CONFIRM_MODEL` (e.g. `claude-opus-4.8`)
    - `AI_REVIEW_EFFORT` (`none|low|medium|high|xhigh|max`)
-4. Keep the CI workflow named **`CI`**; the gate's `workflow_run` trigger
-   references it by that name.
 
 The `AI Approved` / `AI Need Change` labels are created automatically.
 
@@ -26,36 +26,42 @@ The `AI Approved` / `AI Need Change` labels are created automatically.
 
 - Same-repository branches only. **Fork PRs are unsupported** (no secret access).
 - The gate reviews and reports; it never auto-fixes or pushes commits.
-- It posts `event: COMMENT` reviews; blocking is enforced by the failing check,
-  not by a formal GitHub review state.
+- It posts `event: COMMENT` reviews; blocking is enforced by the failing `gate`
+  check, not by a formal GitHub review state.
+- It runs independently on every PR push — it does **not** wait for or depend on
+  the `CI` workflow. A new push cancels any in-progress run for the same PR
+  (`concurrency` keyed on the PR number).
 
 ## Security model
 
-The gate runs every gate-critical piece — `check-config.ts`, `resolve-range.ts`,
-`read-verdict.ts`, `gate.ts`, and the prompt files — from the **trusted default
-branch** (`workflow_run` always uses the default-branch copy of the workflow).
-The PR's own code is checked out separately into `pr-head/` purely as the subject
-of review. This prevents a PR from tampering with the verdict.
+This workflow is triggered by `pull_request`, so the workflow definition and the
+scripts it runs come from the **PR branch**, not the default branch. That means a
+PR can, in principle, modify `gate.ts` / `ai-review.yml` / the prompts to approve
+itself — **the gate is not tamper-proof against a malicious same-repo PR.** This
+is an accepted trade-off for this repo because it is **single-maintainer and forks
+are excluded**: anyone who can open a same-repo PR already has write access to the
+default branch and could change the gate directly, so there is no privilege to
+escalate. (If this repo ever takes outside contributors, switch the trigger back
+to `workflow_run` — which always runs the default-branch copy — to restore
+tamper-resistance.)
 
-Two deliberate, bounded risks remain (accepted by design, not oversights):
+Two further deliberate, bounded risks:
 
 - **The reviewer/confirmation agents run the PR's build and tests**
   (`shell(bun:*)`, `shell(gh:*)`, `shell(git:*)`, `read`, `write`) and have
   **unrestricted network access** (`--allow-all-urls`) so they can empirically
   validate findings and look things up (CVE databases, library docs, etc.). This
-  executes collaborator code in CI with outbound network. It is acceptable
-  because forks are excluded, `ci.yml` already runs the same code, the repo is
-  single-maintainer, and each job holds the **minimum** GitHub scope it needs:
-  the `review` jobs are read-only (`contents: read`, `pull-requests: read`),
-  while `confirm` adds `pull-requests: write` (to post the review) and `gate`
-  adds `issues: write` (to apply labels) — both agents still run PR code, so the
-  write scope on `confirm` is part of the exposure surface, not exempt from it.
-  Note the residual exposure: a prompt-injection payload in the PR diff could
-  combine shell + network to exfiltrate data a job can read, or (on `confirm`)
-  post on its behalf. Shell tools stay scoped to `git`/`gh`/`bun` (not
-  `--allow-all-tools`) to keep that blast radius bounded; if it ever feels too
-  broad, narrow the network with a domain allowlist (`--allow-url=...`) instead
-  of `--allow-all-urls`.
+  executes collaborator code in CI with outbound network. Each job holds the
+  **minimum** GitHub scope it needs: the `review` jobs are read-only
+  (`contents: read`, `pull-requests: read`), while `confirm` adds
+  `pull-requests: write` (to post the review) and `gate` adds `issues: write` (to
+  apply labels) — both agents still run PR code, so the write scope on `confirm`
+  is part of the exposure surface, not exempt from it. Residual exposure: a
+  prompt-injection payload in the PR diff could combine shell + network to
+  exfiltrate data a job can read, or (on `confirm`) post on its behalf. Shell
+  tools stay scoped to `git`/`gh`/`bun` (not `--allow-all-tools`) to keep that
+  blast radius bounded; if it ever feels too broad, narrow the network with a
+  domain allowlist (`--allow-url=...`) instead of `--allow-all-urls`.
 - **`--secret-env-vars COPILOT_GITHUB_TOKEN`** strips the Copilot model-access
   token (the low-privilege "Copilot Requests" PAT) from any shell the agent
   spawns, so executing PR code cannot read it. The built-in `GH_TOKEN` used for
@@ -67,15 +73,16 @@ base ref and head SHA) are validated by `validate.ts` and option-terminated with
 
 ## Manual integration checklist (run once on a throwaway PR)
 
-- [ ] **First run (full review):** open a PR with a small change; confirm CI
-      passes, the AI review runs, posts one review with the summary + marker, and
-      the gate check reports.
+- [ ] **First run (full review):** open a PR with a small change; confirm the AI
+      review runs, posts one review with the summary + marker, and the `gate`
+      check appears in the PR check list.
 - [ ] **Incremental second push:** push another commit; confirm the next review
-      covers only the new commits (range `start..head`, not the whole PR).
+      covers only the new commits (range `start..head`, not the whole PR), and
+      that the previous in-progress run was cancelled.
 - [ ] **Force-push fallback:** rebase/force-push; confirm the review falls back to
       a full `base...head` review.
-- [ ] **No-new-commits carry-forward:** re-run with head unchanged (e.g. re-run
-      CI); confirm the gate carries the prior verdict without re-reviewing.
+- [ ] **No-new-commits carry-forward:** re-run with head unchanged; confirm the
+      gate carries the prior verdict without re-reviewing.
 - [ ] **Repro-test path:** introduce a subtle bug a reviewer can confirm by
       writing+running a throwaway test; confirm the confirmation agent re-runs it.
 - [ ] **Red gate:** introduce a deliberate Medium+ issue; confirm the gate fails,
