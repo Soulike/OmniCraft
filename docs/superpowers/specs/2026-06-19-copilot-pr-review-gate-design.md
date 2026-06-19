@@ -119,11 +119,20 @@ Each job has one purpose; branching lives in `needs`/`if`, not inside jobs.
 
 **1. `config`** (no checkout; permissions: none)
 
-- Verifies required secrets are configured — fails fast with a clear message if
-  the `COPILOT_CLI_TOKEN` secret is empty/unset (the built-in `GITHUB_TOKEN` is
-  always present). Stops the pipeline before any checkout or model spend on a
-  misconfigured repo.
-- Emits the reviewer model matrix as a JSON array output (from `REVIEWER_MODELS`).
+Runs `scripts/src/ai-review/check-config.ts`, which fails fast with a clear
+message — before any checkout or model spend — when the repo is misconfigured:
+
+- **Secrets:** the `COPILOT_CLI_TOKEN` secret must be non-empty (the built-in
+  `GITHUB_TOKEN` is always present).
+- **Env values:** `REVIEWER_MODELS` must be non-empty and parse to a list of
+  distinct, non-blank model IDs (duplicates would run the same model twice);
+  `CONFIRM_MODEL` must be a single non-blank ID; `REASONING_EFFORT` must be one of
+  the CLI's accepted levels (`none|low|medium|high|xhigh|max`).
+- These are **format/shape** checks only; whether a model is actually available
+  on the Copilot plan can't be checked here and surfaces at the first `review`
+  run (documented as a prerequisite).
+- On success, emits the parsed reviewer-model list as a JSON array output for the
+  `review` matrix.
 
 **2. `prepare`** (`needs: config`; permissions: `contents: read`, `pull-requests: read`)
 
@@ -207,7 +216,8 @@ Only **Low / nit** findings pass. **Medium, High, Critical** block
 
 ```
 push to PR head
-  └─ config:   assert COPILOT_CLI_TOKEN set; emit reviewer-model matrix JSON
+  └─ config:   validate COPILOT_CLI_TOKEN + model env values;
+               emit reviewer-model matrix JSON
   └─ prepare (needs config): checkout + resolve-range.ts (gh reviews + git ancestry)
         → start_sha, head_sha, is_full, has_changes, carried_verdict
   └─ review (needs prepare, if has_changes; matrix = REVIEWER_MODELS):
@@ -258,9 +268,11 @@ the "two reviewers, different models" guarantee.
 - A confirmation failure, or an unreadable verdict marker in `gate`, fails safe (red).
 - A failed `gh` post is retried by the agent; if still failing, the `confirm` step
   fails and `gate` is red.
-- An unset `COPILOT_CLI_TOKEN` is caught by the `config` job and fails the
-  pipeline immediately with a clear message, before any checkout or model spend;
-  a present-but-invalid token surfaces later as a CLI auth error in `review`.
+- An unset `COPILOT_CLI_TOKEN` or an invalid model env value (empty/duplicate
+  `REVIEWER_MODELS`, blank `CONFIRM_MODEL`, or an unrecognized `REASONING_EFFORT`)
+  is caught by the `config` job and fails the pipeline immediately with a clear
+  message, before any checkout or model spend; a present-but-invalid token, or a
+  model unavailable on the plan, surfaces later as a CLI error in `review`.
 - Fork PRs (no secret access) are out of scope and documented as unsupported.
 
 ### Executing PR code
@@ -281,11 +293,15 @@ the model token is stripped from any spawned shell environment.
   - parse PR-review bodies → latest `{reviewedHead, verdict}`;
   - compute `{startSha, headSha, isFull, hasChanges}` from SHAs + ancestry
     results;
-  - render/parse the `ai-review` marker.
-- Thin orchestrators in **`scripts/src/ai-review/`** (`resolve-range.ts`,
-  `read-verdict.ts`, `gate.ts`) wire `git`/`gh` via `node:child_process` to those
-  pure functions and print GitHub Actions outputs / set exit codes — no tests,
-  mirroring `scripts/src/with-free-ports.ts`. Node APIs only (no Bun-specific APIs).
+  - render/parse the `ai-review` marker;
+  - validate the model config (non-empty distinct `REVIEWER_MODELS`, non-blank
+    `CONFIRM_MODEL`, allowed `REASONING_EFFORT`) → throws a clear error or returns
+    the parsed reviewer-model list.
+- Thin orchestrators in **`scripts/src/ai-review/`** (`check-config.ts`,
+  `resolve-range.ts`, `read-verdict.ts`, `gate.ts`) wire `git`/`gh` via
+  `node:child_process` to those pure functions and print GitHub Actions outputs /
+  set exit codes — no tests, mirroring `scripts/src/with-free-ports.ts`. Node APIs
+  only (no Bun-specific APIs).
 - Integration is validated manually on a throwaway PR (documented checklist):
   first-run full review, incremental second push, force-push fallback,
   no-new-commits carry-forward, a reviewer writing a repro test to confirm a
