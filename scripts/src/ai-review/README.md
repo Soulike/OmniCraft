@@ -40,11 +40,17 @@ of review. This prevents a PR from tampering with the verdict.
 Two deliberate, bounded risks remain (accepted by design, not oversights):
 
 - **The reviewer/confirmation agents run the PR's build and tests**
-  (`shell(bun:*)`, `shell(gh:*)`, `shell(git:*)`, `read`, `write`) so they can
-  empirically validate findings. This executes collaborator code in CI. It is
-  acceptable because forks are excluded, `ci.yml` already runs the same code, the
-  repo is single-maintainer, and the reviewer jobs hold only read-scoped GitHub
-  permissions.
+  (`shell(bun:*)`, `shell(gh:*)`, `shell(git:*)`, `read`, `write`) and have
+  **unrestricted network access** (`--allow-all-urls`) so they can empirically
+  validate findings and look things up (CVE databases, library docs, etc.). This
+  executes collaborator code in CI with outbound network. It is acceptable
+  because forks are excluded, `ci.yml` already runs the same code, the repo is
+  single-maintainer, and the reviewer jobs hold only read-scoped GitHub
+  permissions. Note the residual exposure: a prompt-injection payload in the PR
+  diff could combine shell + network to exfiltrate data the job can read. Shell
+  tools stay scoped to `git`/`gh`/`bun` (not `--allow-all-tools`) to keep that
+  blast radius bounded; if it ever feels too broad, narrow the network with a
+  domain allowlist (`--allow-url=...`) instead of `--allow-all-urls`.
 - **`--secret-env-vars COPILOT_GITHUB_TOKEN`** strips the Copilot model-access
   token (the low-privilege "Copilot Requests" PAT) from any shell the agent
   spawns, so executing PR code cannot read it. The built-in `GH_TOKEN` used for

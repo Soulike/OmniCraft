@@ -97,6 +97,7 @@ jobs:
           copilot --model "$MODEL" --effort "$REASONING_EFFORT" \
             --context long_context \
             --allow-tool 'shell(git:*),shell(gh:*),shell(bun:*),read,write' \
+            --allow-all-urls \
             --secret-env-vars COPILOT_GITHUB_TOKEN \
             -C pr-head \
             -p "$PROMPT" \
@@ -114,6 +115,7 @@ jobs:
           copilot --model "$MODEL" --effort "$REASONING_EFFORT" \
             --context long_context \
             --allow-tool 'shell(git:*),shell(gh:*),shell(bun:*),read,write' \
+            --allow-all-urls \
             --secret-env-vars COPILOT_GITHUB_TOKEN \
             -C pr-head \
             -p "$PROMPT" \
@@ -170,6 +172,7 @@ jobs:
           copilot --model "$CONFIRM_MODEL" --effort "$REASONING_EFFORT" \
             --context long_context \
             --allow-tool 'shell(git:*),shell(gh:*),shell(bun:*),read,write' \
+            --allow-all-urls \
             --secret-env-vars COPILOT_GITHUB_TOKEN \
             -C pr-head \
             -p "$PROMPT"
