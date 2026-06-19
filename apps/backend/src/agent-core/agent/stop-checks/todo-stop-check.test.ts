@@ -113,7 +113,10 @@ describe('todoStopCheck', () => {
     expect(result?.content).toContain('- [pending] task 19');
     expect(result?.content).not.toContain('- [pending] task 20');
     expect(result?.content).toContain('…and 30 more unfinished item(s).');
-    // The reminder size stays bounded regardless of list length.
-    expect(result?.content.length).toBeLessThan(2000);
+    // Bounded regardless of list length. With this test's short subjects the
+    // reminder is well under 1 KB; the production worst case is ~4.5 KB
+    // (MAX_LISTED=20 × the 200-char subject cap + framing), so assert a bound
+    // that holds for the real cap, not just these inputs.
+    expect(result?.content.length).toBeLessThan(5000);
   });
 });
