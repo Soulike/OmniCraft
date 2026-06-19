@@ -89,6 +89,30 @@ describe('todo tools', () => {
       expect(todoUpdateTool.name).toBe('todo_update');
     });
 
+    it('rejects a subject with any Unicode line terminator', () => {
+      // LF, VT, FF, CR, NEL, LINE SEPARATOR, PARAGRAPH SEPARATOR. Guards the
+      // update path independently of todo_append even though both share
+      // todoSubjectSchema today.
+      const terminators = [0x0a, 0x0b, 0x0c, 0x0d, 0x85, 0x2028, 0x2029].map(
+        (cp) => String.fromCodePoint(cp),
+      );
+      for (const sep of terminators) {
+        const parsed = todoUpdateTool.parameters.safeParse({
+          index: 0,
+          subject: `line one${sep}line two`,
+        });
+        expect(parsed.success).toBe(false);
+      }
+    });
+
+    it('accepts a single-line subject', () => {
+      const parsed = todoUpdateTool.parameters.safeParse({
+        index: 0,
+        subject: 'line one',
+      });
+      expect(parsed.success).toBe(true);
+    });
+
     it('updates item status', async () => {
       const ctx = createMockContext();
       await todoAppendTool.execute(
