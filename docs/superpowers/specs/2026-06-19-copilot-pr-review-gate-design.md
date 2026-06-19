@@ -144,11 +144,12 @@ confirmation agent run with `--context long_context` to tolerate larger diffs.
 
 Each job has one purpose; branching lives in `needs`/`if`, not inside jobs.
 
-**1. `config`** (no checkout; permissions: none; entry guard:
+**1. `config`** (checkout default branch + setup; permissions: none; entry guard:
 `workflow_run.event == 'pull_request' && workflow_run.conclusion == 'success'`)
 
-Runs `scripts/src/ai-review/check-config.ts`, which fails fast with a clear
-message — before any checkout or model spend — when the repo is misconfigured:
+Checks out the **default branch** (trusted code, never the PR's copy — see Trust
+model) and installs deps, then runs `scripts/src/ai-review/check-config.ts`, which
+fails fast with a clear message — before any model spend — when misconfigured:
 
 - **Secrets:** the `COPILOT_CLI_TOKEN` secret must be non-empty (the built-in
   `GITHUB_TOKEN` is always present).
@@ -164,16 +165,18 @@ message — before any checkout or model spend — when the repo is misconfigure
 
 **2. `prepare`** (`needs: config`; permissions: `contents: read`, `pull-requests: read`)
 
+- Checks out the **default branch** (trusted), so `resolve-range.ts` cannot be
+  tampered with by the PR.
 - Resolves the PR context from the `workflow_run` event: `pr_number` and
   `head_sha` from `github.event.workflow_run.pull_requests`, falling back to
   `gh api repos/{owner}/{repo}/commits/{head_sha}/pulls`. (`workflow_run` carries
   no native PR context.)
-- `actions/checkout` with `fetch-depth: 0`, checking out the resolved `head_sha`
-  (the real head, not a synthetic merge commit).
-- Runs `scripts/src/ai-review/resolve-range.ts`, which reads existing PR reviews
-  via `gh api repos/{owner}/{repo}/pulls/{n}/reviews`, parses the most recent
+- Runs `scripts/src/ai-review/resolve-range.ts`, which fetches the PR refs
+  (`refs/pull/{n}/head` and the base ref) into the trusted checkout for git
+  operations, reads existing PR reviews via
+  `gh api repos/{owner}/{repo}/pulls/{n}/reviews`, parses the most recent
   `ai-review` marker for the previous `reviewed-head` and `verdict`, and outputs
-  (alongside `pr_number`, `head_sha`):
+  (alongside `pr_number`, `head_sha`, `base_sha`, `base_ref`):
   - `start_sha` = previous `reviewed-head`, when present and reachable.
   - `is_full` = `true` on the first review, or when `start_sha` is not an
     ancestor of `head_sha` (force-push / rebase, via `git merge-base --is-ancestor`).
@@ -184,9 +187,11 @@ message — before any checkout or model spend — when the repo is misconfigure
 permissions: `contents: read`, `pull-requests: read`)
 
 - Matrix over `config`'s reviewer-model list.
-- Steps: checkout head (`fetch-depth: 0`) → install CLI (`npm install -g @github/copilot`)
-  → `./.github/actions/setup` (bun install) for a working toolchain → general
-  pass → security pass → upload reports.
+- Steps: checkout the **default branch** (trusted scripts + prompts) and install
+  deps → checkout the PR head into `pr-head/` (`fetch-depth: 0`) and `bun install`
+  there → install CLI (`npm install -g @github/copilot`) → general pass → security
+  pass → upload reports. The agent runs with `-C pr-head` (the code under review),
+  but its prompt comes from the trusted checkout.
   - **General pass** — prefer the built-in `/review`, scoped to the review range
     (`start_sha..head_sha`, or `base...head` when `is_full`), covering bugs,
     code quality, and structural design.
@@ -206,9 +211,11 @@ permissions: `contents: read`, `pull-requests: read`)
 `if: needs.prepare.outputs.has_changes == 'true' && needs.review.result == 'success'`;
 permissions: `contents: read`, `pull-requests: write`)
 
-The model step only — no gating logic. Steps: checkout head (`fetch-depth: 0`) →
-`./.github/actions/setup` → download the four reports → run the confirmation
-agent (`CONFIRM_MODEL`), which:
+The model step only — no gating logic. Steps: checkout the **default branch**
+(trusted prompt + scripts) and install deps → checkout the PR head into `pr-head/`
+(`fetch-depth: 0`) and `bun install` there → download the reports → run the
+confirmation agent (`CONFIRM_MODEL`) with `-C pr-head` and the trusted prompt,
+which:
 
 - Re-verifies each reported finding against the actual code/diff, **re-running a
   reviewer's repro test when one is provided**; discards anything it cannot confirm.
@@ -219,18 +226,20 @@ agent (`CONFIRM_MODEL`), which:
   lines. It self-corrects line-anchoring errors (retry, or move a finding to the
   summary if its line is not in the diff).
 - Allowed tools: `shell(git:*), shell(gh:*), shell(bun:*), read, write`, with
-  `--secret-env-vars=COPILOT_GITHUB_TOKEN`.
+  `--secret-env-vars=COPILOT_GITHUB_TOKEN`. The confirmation **prompt** is trusted
+  (from the default branch), so the verdict marker cannot be PR-injected.
 
 **5. `gate`** (`needs: [config, prepare, review, confirm]`;
 `if: always() && github.event.workflow_run.event == 'pull_request' && github.event.workflow_run.conclusion == 'success'`;
 permissions: `contents: read`, `pull-requests: write`, `issues: write`)
 
-The single **required check** — decides the outcome and owns the label. When the
-AI review runs at all (CI passed), it runs regardless of upstream AI-job
-success/failure (`always()`) so the check always reports a conclusion rather than
-hanging as a skipped-but-required check. (When CI did **not** pass it is skipped
-along with the rest of the workflow, and the red CI check blocks the PR instead.)
-Runs `scripts/src/ai-review/gate.ts`:
+The single **required check** — decides the outcome and owns the label. Runs from
+the **default branch** (trusted `gate.ts`). When the AI review runs at all (CI
+passed), it runs regardless of upstream AI-job success/failure (`always()`) so the
+check always reports a conclusion rather than hanging as a skipped-but-required
+check. (When CI did **not** pass it is skipped along with the rest of the
+workflow, and the red CI check blocks the PR instead.) Runs
+`scripts/src/ai-review/gate.ts`:
 
 - If any of `config`/`prepare`/`review`/`confirm` failed or was cancelled →
   **fail** (infra/incomplete; an incomplete review is never an approval). Existing
@@ -254,20 +263,21 @@ Only **Low / nit** findings pass. **Medium, High, Critical** block
 CI workflow completes on a PR
   └─ (CI conclusion != success) → AI review never triggers; gate never reports;
                                   red CI check blocks the PR
-  └─ (CI conclusion == success) → AI review workflow_run fires:
+  └─ (CI conclusion == success) → AI review workflow_run fires
+                                  (all jobs run TRUSTED default-branch scripts):
   └─ config:   validate COPILOT_CLI_TOKEN + model env values;
                emit reviewer-model matrix JSON
   └─ prepare (needs config): resolve PR (number, head_sha) from workflow_run;
-               checkout + resolve-range.ts (gh reviews + git ancestry)
+               resolve-range.ts (fetch PR refs + gh reviews + git ancestry)
         → start_sha, head_sha, is_full, has_changes, carried_verdict
   └─ review (needs prepare, if has_changes; matrix = REVIEWER_MODELS):
-        checkout + setup (bun install)
+        trusted checkout + PR head in pr-head/; agent runs -C pr-head
         /review pass      ─┐  (may write+run a repro test to
         security pass      ┤   confirm a bug, included in report)
                            └→ report-<model>-{general,security}.md (artifacts)
   └─ confirm (needs review, if has_changes && review==success):
-        checkout + setup → confirmation agent (CONFIRM_MODEL, xhigh)
-          reads 4 reports → re-verifies code (re-runs repro tests)
+        trusted checkout + PR head in pr-head/ → confirmation agent (CONFIRM_MODEL)
+          reads reports → re-verifies code (re-runs repro tests)
           → posts 1 PR review (summary + inline comments + marker)
   └─ gate (needs all, always — only when CI passed) — REQUIRED CHECK:
         any upstream failed/cancelled → fail
@@ -326,6 +336,18 @@ because forks are excluded, the existing `ci.yml` already runs the same code, an
 the repo is single-maintainer. Exposure is bounded by: read-only GitHub
 permissions on the reviewer jobs, and `--secret-env-vars=COPILOT_GITHUB_TOKEN` so
 the model token is stripped from any spawned shell environment.
+
+### Trust model
+
+Because `workflow_run` always runs the **default-branch** version of this
+workflow, every gate-critical piece runs from a trusted checkout of the default
+branch and is never the PR's copy: `check-config.ts`, `resolve-range.ts`,
+`gate.ts`, and the reviewer/confirmation **prompt files**. This prevents a PR from
+tampering with the verdict — e.g. rewriting `resolve-range` to emit
+`has_changes=false, carried_verdict=approved`, or rewriting `confirm.md` to post a
+fake `verdict=approved` marker — to bypass the gate. The PR's own code is checked
+out separately into `pr-head/` purely as the subject of review; the agents run
+with `-C pr-head` but always with trusted prompts and trusted orchestration.
 
 ## Code structure and testing
 
