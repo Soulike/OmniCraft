@@ -1,16 +1,22 @@
 import {spawn} from 'node:child_process';
-import path from 'node:path';
 
 import {getFreePorts} from '@omnicraft/free-ports';
 
-const repoRoot = path.resolve(import.meta.dirname, '../..');
+const [command, ...args] = process.argv.slice(2);
+
+if (process.argv.length < 3) {
+  console.error(
+    'Usage: with-free-ports <command> [args...]\n' +
+      'Runs <command> with PORT and VSCODE_PORT set to free TCP ports.',
+  );
+  process.exit(1);
+}
 
 const [httpPort, vscodePort] = await getFreePorts(2);
 
 console.log(`Dev ports: PORT=${httpPort}, VSCODE_PORT=${vscodePort}`);
 
-const child = spawn('bun', ['run', '--filter', './apps/*', 'dev'], {
-  cwd: repoRoot,
+const child = spawn(command, args, {
   stdio: 'inherit',
   env: {
     ...process.env,
@@ -20,7 +26,7 @@ const child = spawn('bun', ['run', '--filter', './apps/*', 'dev'], {
 });
 
 child.on('error', (error) => {
-  console.error('Failed to start dev processes:', error);
+  console.error('Failed to start command:', error);
   process.exit(1);
 });
 

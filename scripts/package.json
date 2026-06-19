@@ -4,7 +4,6 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "bun src/dev.ts",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
