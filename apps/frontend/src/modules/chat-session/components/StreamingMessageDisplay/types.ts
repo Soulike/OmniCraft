@@ -10,6 +10,7 @@ import type {
   SseThinkingDeltaEvent,
   SseThinkingEndEvent,
   SseThinkingStartEvent,
+  SseTodoItem,
   SseTodoUpdateEvent,
   SseToolExecuteDeltaEvent,
   SseToolExecuteEndEvent,
@@ -49,6 +50,12 @@ export interface SubagentContent {
   eventBus: ChatEventBus;
 }
 
+/** Todo list snapshot rendered as an inline "Plan" card. */
+export interface TodoContent {
+  type: 'todo';
+  items: readonly SseTodoItem[];
+}
+
 /** A single content entry in a chat message. */
 export type MessageContent =
   | TextContent
@@ -56,6 +63,7 @@ export type MessageContent =
   | SseToolExecuteStartEvent
   | SseToolExecuteEndEvent
   | SubagentContent
+  | TodoContent
   | SseContextCompactionStartEvent
   | SseContextCompactionEndEvent
   | SseContextCompactionErrorEvent;
