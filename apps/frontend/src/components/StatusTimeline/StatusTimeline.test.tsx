@@ -32,6 +32,20 @@ describe('StatusTimeline', () => {
     expect(screen.getByText('Hello row')).toBeInTheDocument();
   });
 
+  it('renders a check icon only for done nodes', () => {
+    render(
+      <StatusTimeline
+        items={[
+          {status: 'done', content: 'Done row'},
+          {status: 'pending', content: 'Pending row'},
+        ]}
+      />,
+    );
+    const nodes = screen.getAllByTestId('status-node');
+    expect(nodes[0].querySelector('svg')).not.toBeNull();
+    expect(nodes[1].querySelector('svg')).toBeNull();
+  });
+
   it('renders nothing when there are no items', () => {
     const {container} = render(<StatusTimeline items={[]} />);
     expect(

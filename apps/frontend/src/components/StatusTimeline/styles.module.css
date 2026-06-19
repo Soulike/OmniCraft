@@ -17,12 +17,15 @@
   width: 14px;
   display: flex;
   justify-content: center;
+  /* stretch to the row's full height so the spine spans multi-line rows */
+  align-self: stretch;
 }
 
 /* connecting spine between consecutive nodes */
 .row:not(:last-child) .nodeCol::after {
   content: '';
   position: absolute;
+  /* node geometry: margin-top 2 + node height 12 + ~2 gap below the node */
   top: 16px;
   bottom: -10px;
   left: 50%;
