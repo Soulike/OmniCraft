@@ -546,6 +546,65 @@ describe('AgentTurnRunner', () => {
     expect(reminders).toHaveLength(1);
   });
 
+  it('does not record the token when the reminder response wants tools but is budget-cut', async () => {
+    vi.spyOn(llmApi, 'countToken').mockResolvedValue(1);
+    // Turn 1: initial response has no tools → reminder fires → the reminder
+    // response asks for a tool, but maxRounds=1 cuts off before it runs.
+    // Each mock call must yield a FRESH generator (generators are single-use).
+    let call = 0;
+    vi.spyOn(llmApi, 'streamCompletion').mockImplementation(() => {
+      call += 1;
+      if (call === 1) return textCompletionStream('no tools yet');
+      if (call === 2) {
+        return toolCallCompletionStream([
+          {callId: 'call-1', toolName: 'mock_tool'},
+        ]);
+      }
+      // Turn 2 streams (fresh budget): no tools so the turn can settle.
+      return textCompletionStream('no tools');
+    });
+
+    const stuck = {
+      name: 'stuck',
+      evaluate: () => ({content: 'pending work', stateToken: 'v1'}),
+    };
+    const runtimeState = new AgentRuntimeState('/workspace/project');
+    const tool = createTool({name: 'mock_tool'});
+
+    const firstTurn = await collectAll(
+      agentTurnRunner.run(
+        createInput({
+          stopChecks: [stuck],
+          runtimeState,
+          toolRegistries: [toolRegistryWith(tool)],
+          getMaxToolRounds: () => 1,
+        }),
+      ),
+    );
+    // The reminder was delivered, but its tool never executed (budget cut).
+    expect(firstTurn.some((e) => e.type === 'stop-check-reminder')).toBe(true);
+    expect(firstTurn.some((e) => e.type === 'tool-execute-start')).toBe(false);
+    expect(firstTurn.at(-1)).toMatchObject({
+      type: 'done',
+      reason: 'max_rounds_reached',
+    });
+
+    // Turn 2: same unchanged state → the reminder must re-fire, because the
+    // agent tried to act (returned a tool call) rather than choosing to stop.
+    const secondTurn = await collectAll(
+      agentTurnRunner.run(
+        createInput({
+          stopChecks: [stuck],
+          runtimeState,
+          getMaxToolRounds: () => 5,
+        }),
+      ),
+    );
+    expect(
+      secondTurn.filter((e) => e.type === 'stop-check-reminder'),
+    ).toHaveLength(1);
+  });
+
   it('does not emit a reminder when no check fires', async () => {
     vi.spyOn(llmApi, 'countToken').mockResolvedValue(1);
     vi.spyOn(llmApi, 'streamCompletion').mockReturnValue(

@@ -166,11 +166,16 @@ export class AgentTurnRunner {
           });
           return;
         }
-        // Record de-dup tokens only after the reminder was actually delivered,
-        // so a round-budget cutoff or aborted/failed reminder round does not
-        // permanently suppress a reminder the model never saw.
-        for (const {name, stateToken} of reminder.tokens) {
-          input.runtimeState.recordStopCheckToken(name, stateToken);
+        // Record de-dup tokens only when the agent answered the reminder by
+        // stopping (no tool calls). If it returned tool calls it is trying to
+        // act — recording now would mis-mark the state as "seen and dismissed"
+        // and suppress a future reminder, especially if a maxRounds cutoff then
+        // prevents those tools from running. A tool-bearing response leaves the
+        // token unrecorded, so the reminder re-fires while the state is stuck.
+        if (reminded.toolCalls.length === 0) {
+          for (const {name, stateToken} of reminder.tokens) {
+            input.runtimeState.recordStopCheckToken(name, stateToken);
+          }
         }
         toolCalls = reminded.toolCalls;
         continue;
