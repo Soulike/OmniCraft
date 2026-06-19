@@ -21,7 +21,7 @@ jobs:
     outputs:
       reviewer_models_json: ${{ steps.check.outputs.reviewer_models_json }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
       - name: Check config
         id: check
@@ -42,7 +42,7 @@ jobs:
       has_changes: ${{ steps.range.outputs.has_changes }}
       carried_verdict: ${{ steps.range.outputs.carried_verdict }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
       - name: Resolve range
         id: range
@@ -53,7 +53,7 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
       - name: Upload known issues
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: known-issues
           path: ${{ steps.range.outputs.known_issues_file }}
@@ -73,10 +73,10 @@ jobs:
         model: ${{ fromJSON(needs.config.outputs.reviewer_models_json) }}
         pass: [general, security]
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
       - name: Checkout PR head
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           ref: ${{ needs.prepare.outputs.head_sha }}
           path: pr-head
@@ -91,7 +91,7 @@ jobs:
       - name: Install Copilot CLI
         run: npm install -g @github/copilot
       - name: Download known issues
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: known-issues
           path: known-issues-dir
@@ -131,7 +131,7 @@ jobs:
           BASE_REF: ${{ github.event.pull_request.base.ref }}
           REPORT_FILE: ${{ github.workspace }}/report-${{ matrix.model }}-${{ matrix.pass }}.md
       - name: Upload report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: reports-${{ matrix.model }}-${{ matrix.pass }}
           path: report-${{ matrix.model }}-${{ matrix.pass }}.md
@@ -146,10 +146,10 @@ jobs:
       contents: read
       pull-requests: write
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
       - name: Checkout PR head
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           ref: ${{ needs.prepare.outputs.head_sha }}
           path: pr-head
@@ -160,7 +160,7 @@ jobs:
       - name: Install Copilot CLI
         run: npm install -g @github/copilot
       - name: Download reports
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           pattern: reports-*
           path: reports
@@ -200,7 +200,7 @@ jobs:
       pull-requests: write
       issues: write
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
       - name: Read posted verdict
         id: verdict
