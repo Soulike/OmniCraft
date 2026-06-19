@@ -1,12 +1,16 @@
 /**
- * Zero-width and BOM code points (ZWSP, ZWNJ, ZWJ, word-joiner, ZWNBSP/BOM)
- * that are invisible but a model's tokenizer might ignore — so they could be
- * sprinkled inside a `<system-reminder>` tag (even inside the tag name) to slip
- * it past a naive filter. Stripped wholesale before delimiter matching.
+ * Effectively-invisible code points that a model's tokenizer might ignore — so
+ * they could be sprinkled inside a `<system-reminder>` tag (even inside the tag
+ * name) to slip it past the delimiter filter. Stripped wholesale before
+ * delimiter matching. Covers the whole Unicode format category (`\p{Cf}`:
+ * ZWSP/ZWNJ/ZWJ/word-joiner/BOM/SOFT HYPHEN/…), all variation selectors
+ * (`\p{Variation_Selector}`, e.g. U+FE0F), and the combining grapheme joiner
+ * (U+034F), which is an invisible joiner outside those properties. Visible text
+ * — letters, accents, CJK, emoji — is unaffected.
  */
-const ZERO_WIDTH_PATTERN = new RegExp(
-  '\\u200b|\\u200c|\\u200d|\\u2060|\\ufeff',
-  'g',
+const INVISIBLE_PATTERN = new RegExp(
+  '[\\p{Cf}\\p{Variation_Selector}\\u034f]',
+  'gu',
 );
 
 /**
@@ -30,13 +34,12 @@ const REDACTION = '[redacted-tag]';
  * (second-order prompt injection).
  *
  * Two linear passes, no fixed-point re-scan and no catastrophic backtracking:
- * first drop all zero-width/BOM code points (closing the "invisible char inside
- * the tag name" bypass), then replace each delimiter with a non-empty
- * placeholder (so removing one can never bring its neighbours together to form
- * another).
+ * first drop all invisible code points (closing the "invisible char inside the
+ * tag name" bypass), then replace each delimiter with a non-empty placeholder
+ * (so removing one can never bring its neighbours together to form another).
  */
 export function sanitizeReminderContent(content: string): string {
   return content
-    .replace(ZERO_WIDTH_PATTERN, '')
+    .replace(INVISIBLE_PATTERN, '')
     .replace(DELIMITER_PATTERN, REDACTION);
 }
