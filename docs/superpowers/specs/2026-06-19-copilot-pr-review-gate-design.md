@@ -101,6 +101,10 @@ Availability depends on the maintainer's Copilot plan. Reviewers run with
 
 **1. `prepare`** (permissions: `contents: read`, `pull-requests: read`)
 
+- **Preflight:** as the very first step, verify all required tokens are
+  configured — fail fast with a clear message if the `COPILOT_CLI_TOKEN` secret
+  is empty/unset (the built-in `GITHUB_TOKEN` is always present). This stops the
+  pipeline before any checkout or model spend when the repo is misconfigured.
 - `actions/checkout` with `fetch-depth: 0`, checking out
   `pull_request.head.sha` (the real head, not the synthetic merge commit).
 - Runs `scripts/src/ai-review/resolve-range.ts`, which:
@@ -136,15 +140,15 @@ permissions: `contents: read`, `pull-requests: read`)
   `report-<model>-general.md` and `report-<model>-security.md` as artifacts.
 
 **3. `confirm`** (`needs: [prepare, review]`, `if: always()`;
-permissions: `contents: read`, `pull-requests: write`)
+permissions: `contents: read`, `pull-requests: write`, `issues: write`)
 
 Always runs so the required check always reports a conclusion (avoids the
 "skipped required check stays pending" pitfall). Logic:
 
 - If `prepare` did not succeed → **fail red** (cannot determine scope safely).
 - If `has_changes == false` → set the gate from `carried_verdict` (no model
-  calls, no comment). If the carried verdict is unreadable, fall back to a full
-  review instead of blocking.
+  calls, no comment), and re-apply the matching PR label. If the carried verdict
+  is unreadable, fall back to a full review instead of blocking.
 - Else if any `review` matrix leg did not succeed → **fail red** ("review
   incomplete"); an incomplete review is never an approval.
 - Else download the four reports and run the confirmation agent, which:
@@ -158,8 +162,13 @@ Always runs so the required check always reports a conclusion (avoids the
     finding to the summary if its line is not in the diff).
   - Allowed tools: `shell(git:*), shell(gh:*), read, write`.
 - After posting, `scripts/src/ai-review/read-verdict.ts` reads the just-posted
-  review back via `gh`, extracts `verdict=`, and sets the job exit code: `0` for
-  `approved`, `1` for `need_change`. Missing/unreadable verdict → **fail safe**.
+  review back via `gh`, extracts `verdict=`, **applies the matching PR label**
+  (`AI Approved` or `AI Need Change`, removing the other; both labels are
+  created if missing), and sets the job exit code: `0` for `approved`, `1` for
+  `need_change`. Missing/unreadable verdict → **fail safe**. Labels are only
+  touched when a real verdict is determined (posted or carried); infrastructure
+  failures (incomplete/`prepare` failure) leave existing labels unchanged and
+  rely on the red check.
 
 ### Severity gate
 
@@ -170,18 +179,21 @@ Only **Low / nit** findings pass. **Medium, High, Critical** block
 
 ```
 push to PR head
-  └─ prepare:  resolve-range.ts (gh reviews + git ancestry)
+  └─ prepare:  preflight tokens (fail fast if COPILOT_CLI_TOKEN unset)
+               resolve-range.ts (gh reviews + git ancestry)
         → start_sha, head_sha, is_full, has_changes, carried_verdict
   └─ review (matrix gpt-5.5 | claude-opus-4.8), only if has_changes:
         /review pass      ─┐
         security pass      ┤→ report-<model>-{general,security}.md (artifacts)
   └─ confirm (always):
-        has_changes==false → gate = carried_verdict
+        prepare failed     → gate = fail
+        has_changes==false → gate = carried_verdict (re-apply label)
         any review failed  → gate = fail (incomplete)
         else → confirmation agent (claude-opus-4.8 xhigh)
                  reads 4 reports → re-verifies code → posts 1 PR review
                  (summary + inline comments + marker)
-               read-verdict.ts → exit 0 (approved) | 1 (need_change)
+               read-verdict.ts → apply "AI Approved"/"AI Need Change" label
+                                → exit 0 (approved) | 1 (need_change)
 ```
 
 ## Incremental review and the marker
@@ -215,8 +227,9 @@ the "two reviewers, different models" guarantee.
 - A confirmation failure, or an unreadable verdict marker, fails safe (red).
 - A failed `gh` post is retried by the agent; if still failing, the step fails
   and the gate is red.
-- A missing/invalid `COPILOT_CLI_TOKEN` surfaces as a CLI auth error and fails
-  the job with a clear message.
+- An unset `COPILOT_CLI_TOKEN` is caught by the `prepare` preflight and fails the
+  pipeline immediately with a clear message, before any checkout or model spend;
+  a present-but-invalid token surfaces later as a CLI auth error in `review`.
 - Fork PRs (no secret access) are out of scope and documented as unsupported.
 
 ## Code structure and testing
@@ -246,6 +259,9 @@ the "two reviewers, different models" guarantee.
    protection for `main` so the gate blocks merges.
 3. Confirm `gpt-5.5` and `claude-opus-4.8` are available on the Copilot plan;
    otherwise update the workflow `env` model IDs.
+
+The `AI Approved` / `AI Need Change` labels are created automatically by the
+workflow if they do not yet exist, so no manual label setup is required.
 
 ## What is untouched
 
