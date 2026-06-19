@@ -10,6 +10,8 @@ import {
 import {useEffect} from 'react';
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 
+import {ThemeProvider} from '@/contexts/theme/index.js';
+
 import {
   ChatEventBusProvider,
   type ChatSessionApi,
@@ -209,6 +211,7 @@ describe('useStreamChat', () => {
           />
         </ChatEventBusProvider>
       </ChatSessionApiContext>,
+      {wrapper: ThemeProvider},
     );
 
     fireEvent.click(screen.getByRole('button', {name: 'Send'}));
@@ -242,6 +245,7 @@ describe('useStreamChat', () => {
           />
         </ChatEventBusProvider>
       </ChatSessionApiContext>,
+      {wrapper: ThemeProvider},
     );
 
     fireEvent.click(screen.getByRole('button', {name: 'Send'}));
@@ -272,6 +276,7 @@ describe('useStreamChat', () => {
           />
         </ChatEventBusProvider>
       </ChatSessionApiContext>,
+      {wrapper: ThemeProvider},
     );
 
     fireEvent.click(screen.getByRole('button', {name: 'Send'}));
@@ -302,6 +307,7 @@ describe('useStreamChat', () => {
           />
         </ChatEventBusProvider>
       </ChatSessionApiContext>,
+      {wrapper: ThemeProvider},
     );
 
     fireEvent.click(screen.getByRole('button', {name: 'Send'}));
@@ -351,6 +357,7 @@ describe('useStreamChat', () => {
           <StreamOnlyHarnessContent />
         </ChatEventBusProvider>
       </ChatSessionApiContext>,
+      {wrapper: ThemeProvider},
     );
 
     await flushAsyncWork();
@@ -441,6 +448,7 @@ describe('useStreamChat', () => {
           <HarnessContent />
         </ChatEventBusProvider>
       </ChatSessionApiContext>,
+      {wrapper: ThemeProvider},
     );
 
     await flushAsyncWork();
@@ -528,6 +536,7 @@ describe('useStreamChat', () => {
           <HarnessContent />
         </ChatEventBusProvider>
       </ChatSessionApiContext>,
+      {wrapper: ThemeProvider},
     );
 
     await flushAsyncWork();

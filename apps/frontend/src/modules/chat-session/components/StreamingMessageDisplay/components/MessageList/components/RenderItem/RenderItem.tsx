@@ -6,11 +6,12 @@ import {SessionIdContext} from '../../../../contexts/SessionIdContext/index.js';
 import {formatTimestamp} from '../../helpers/formatTimestamp.js';
 import type {MessageRenderItem} from '../../hooks/useMessageList.js';
 import {AskUserCard} from '../AskUserCard/index.js';
+import {AssistantMessage} from '../AssistantMessage/index.js';
 import {ContextCompactionBlock} from '../ContextCompactionBlock/index.js';
-import {MessageBubble} from '../MessageBubble/index.js';
 import {SubagentDisclosure} from '../SubagentDisclosure/index.js';
 import {ThinkingBlock} from '../ThinkingBlock/index.js';
 import {ToolExecutionCard} from '../ToolExecutionCard/index.js';
+import {UserMessage} from '../UserMessage/index.js';
 import {WorkingIndicator} from '../WorkingIndicator/index.js';
 import styles from './styles.module.css';
 
@@ -23,7 +24,7 @@ export function RenderItem({item}: RenderItemProps) {
     case 'user-text':
       return (
         <div className={styles.userMessage}>
-          <MessageBubble role='user' id={item.id} content={item.content} />
+          <UserMessage id={item.id} content={item.content} />
           {item.createdAt !== null && (
             <time className={styles.timestamp}>
               {formatTimestamp(item.createdAt)}
@@ -34,7 +35,7 @@ export function RenderItem({item}: RenderItemProps) {
     case 'assistant-text':
       return (
         <div className={clsx(styles.assistantMessage, styles.fullWidthMessage)}>
-          <MessageBubble role='assistant' id={item.id} content={item.content} />
+          <AssistantMessage id={item.id} content={item.content} />
           {item.createdAt !== null && item.content !== '' && (
             <time className={styles.timestamp}>
               {formatTimestamp(item.createdAt)}
