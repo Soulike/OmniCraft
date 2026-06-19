@@ -1,6 +1,6 @@
 import type {GateLabel} from '@omnicraft/ai-review-core';
 
-import {run} from './git.js';
+import {run, runAllowingHttpStatus} from './git.js';
 
 const LABELS: readonly GateLabel[] = ['AI Approved', 'AI Need Change'];
 
@@ -46,16 +46,17 @@ export function applyLabel(
 
   const opposite = LABELS.find((candidate) => candidate !== label);
   if (opposite !== undefined) {
-    try {
-      run('gh', [
+    // A 404 means the opposite label was not on the PR — nothing to remove.
+    // Any other failure (auth, rate limit, network) rethrows and fails the job.
+    runAllowingHttpStatus(
+      [
         'api',
         '--method',
         'DELETE',
         `repos/${repo}/issues/${prNumber}/labels/${encodeURIComponent(opposite)}`,
-      ]);
-    } catch {
-      // The opposite label was not present; nothing to remove.
-    }
+      ],
+      [404],
+    );
   }
 
   run('gh', [

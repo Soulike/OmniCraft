@@ -85,7 +85,6 @@ function main(): void {
 
   const range = resolveReviewRange({
     headSha: context.headSha,
-    baseSha: context.baseSha,
     previousMarker,
     startIsAncestorOfHead,
   });

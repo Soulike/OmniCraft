@@ -6,6 +6,30 @@ export function run(command: string, args: readonly string[]): string {
 }
 
 /**
+ * Runs a `gh` command, returning trimmed stdout on success. If the command
+ * fails with one of the given HTTP statuses (parsed from `gh`'s stderr, e.g.
+ * `HTTP 404`), returns `null` instead of throwing. Any other failure rethrows,
+ * so genuine errors (auth, rate limit, network) are not silently swallowed.
+ */
+export function runAllowingHttpStatus(
+  args: readonly string[],
+  allowedStatuses: readonly number[],
+): string | null {
+  try {
+    return execFileSync('gh', args, {encoding: 'utf8'}).trim();
+  } catch (error) {
+    const stderr = (error as {stderr?: string | Buffer}).stderr;
+    const text =
+      typeof stderr === 'string' ? stderr : (stderr?.toString() ?? '');
+    const match = /HTTP (\d{3})/.exec(text);
+    if (match && allowedStatuses.includes(Number(match[1]))) {
+      return null;
+    }
+    throw error;
+  }
+}
+
+/**
  * Runs `git merge-base --is-ancestor <ancestor> <descendant>` and returns
  * whether the first commit is an ancestor of the second. Git exits 0 for true
  * and 1 for false. A higher exit (e.g. 128 when `ancestor` is not a valid commit

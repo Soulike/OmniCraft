@@ -4,8 +4,6 @@ import type {ReviewMarker, Verdict} from './marker.js';
 export interface ResolveRangeInput {
   /** Current PR head SHA. */
   readonly headSha: string;
-  /** PR base SHA (merge target). */
-  readonly baseSha: string;
   /** Marker from the most recent prior review, or `null` on the first run. */
   readonly previousMarker: ReviewMarker | null;
   /**

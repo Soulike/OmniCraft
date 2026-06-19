@@ -6,7 +6,6 @@ describe('resolveReviewRange', () => {
   it('is a full review on the first run (no prior marker)', () => {
     const result = resolveReviewRange({
       headSha: 'head1',
-      baseSha: 'base1',
       previousMarker: null,
       startIsAncestorOfHead: false,
     });
@@ -21,7 +20,6 @@ describe('resolveReviewRange', () => {
   it('is incremental when the prior reviewed-head is an ancestor of head', () => {
     const result = resolveReviewRange({
       headSha: 'head2',
-      baseSha: 'base1',
       previousMarker: {reviewedHead: 'mid1', verdict: 'approved'},
       startIsAncestorOfHead: true,
     });
@@ -37,7 +35,6 @@ describe('resolveReviewRange', () => {
     // prior reviewed-head is no longer reachable from head (force-push/rebase)
     const result = resolveReviewRange({
       headSha: 'head3',
-      baseSha: 'base1',
       previousMarker: {reviewedHead: 'gone1', verdict: 'need_change'},
       startIsAncestorOfHead: false,
     });
@@ -52,7 +49,6 @@ describe('resolveReviewRange', () => {
   it('carries the prior verdict when head is unchanged since the marker', () => {
     const result = resolveReviewRange({
       headSha: 'samehead',
-      baseSha: 'base1',
       previousMarker: {reviewedHead: 'samehead', verdict: 'approved'},
       startIsAncestorOfHead: true,
     });
