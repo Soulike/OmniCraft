@@ -1,0 +1,68 @@
+.card {
+  border-radius: 14px;
+  background: var(--aurora-glass-fill);
+  border: 1px solid var(--aurora-glass-border);
+  box-shadow: var(--aurora-glass-highlight), var(--aurora-glass-shadow);
+}
+
+.trigger {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  width: 100%;
+  padding: 11px 14px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  color: var(--foreground);
+  font-family: var(--font-ui);
+}
+
+.progress {
+  width: 84px;
+  flex-shrink: 0;
+}
+
+.headLabel {
+  font-size: 12.5px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.headCount {
+  color: var(--muted);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.current {
+  font-size: 12px;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.currentDivider {
+  margin: 0 7px;
+  opacity: 0.5;
+}
+
+.indicator {
+  margin-left: auto;
+  flex-shrink: 0;
+  color: var(--muted);
+}
+
+.body {
+  padding: 4px 14px 13px;
+  border-top: 1px solid var(--aurora-glass-border);
+}
+
+.completed {
+  color: var(--muted);
+  text-decoration: line-through;
+  text-decoration-color: color-mix(in oklab, var(--muted) 60%, transparent);
+}
