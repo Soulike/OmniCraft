@@ -121,6 +121,39 @@ export class LlmSession {
   }
 
   /**
+   * Injects a hidden reminder as a `user` message wrapped in
+   * `<system-reminder>` and continues the conversation. Used by the turn runner
+   * when a stop-check blocks the turn from ending. The reminder is visible to
+   * the LLM but is surfaced to clients via a `stop-check-reminder` SSE event
+   * (not `message-start`), so it never renders in the UI.
+   */
+  sendReminder(
+    content: string,
+    tools: readonly ToolDefinition[],
+    systemPrompt: string,
+    thinkingLevel: ThinkingLevel,
+    signal?: AbortSignal,
+  ): SendUserMessageResult {
+    const reminderMessage = {
+      id: crypto.randomUUID(),
+      createdAt: Date.now(),
+      role: 'user' as const,
+      content: `<system-reminder>\n${content}\n</system-reminder>`,
+    };
+    return {
+      stream: this.sendMessages(
+        [reminderMessage],
+        tools,
+        systemPrompt,
+        thinkingLevel,
+        signal,
+      ),
+      messageId: reminderMessage.id,
+      createdAt: reminderMessage.createdAt,
+    };
+  }
+
+  /**
    * Submits tool execution results and continues the LLM conversation.
    *
    * Records each tool result in the history, then calls the LLM so it

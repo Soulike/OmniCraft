@@ -303,6 +303,27 @@ describe('LlmSession compaction', () => {
 
     expect(session.toSnapshot().latestUsageInputMessageCount).toBe(1);
   });
+
+  it('sendReminder wraps content in <system-reminder> and records a user message', async () => {
+    const streamSpy = vi
+      .spyOn(llmApi, 'streamCompletion')
+      .mockReturnValue(normalStream());
+    const session = new LlmSession(() => Promise.resolve(CONFIG));
+
+    const result = session.sendReminder('two items left', [], '', 'none');
+    await drain(result.stream);
+
+    const reminder = streamSpy.mock.lastCall?.[0].messages.find(
+      (m) => m.role === 'user',
+    );
+    expect(reminder?.content).toBe(
+      '<system-reminder>\ntwo items left\n</system-reminder>',
+    );
+    expect(typeof result.messageId).toBe('string');
+    expect(session.getMessages().some((m) => m.id === result.messageId)).toBe(
+      true,
+    );
+  });
 });
 
 describe('LlmSession usage', () => {
