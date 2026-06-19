@@ -36,16 +36,13 @@ const forward = (signal: NodeJS.Signals) => {
   }
 };
 
-process.on('SIGINT', () => {
-  forward('SIGINT');
-});
-process.on('SIGTERM', () => {
-  forward('SIGTERM');
-});
+process.on('SIGINT', forward);
+process.on('SIGTERM', forward);
 
 child.on('exit', (code, signal) => {
   if (signal !== null) {
-    process.removeAllListeners(signal);
+    process.off('SIGINT', forward);
+    process.off('SIGTERM', forward);
     process.kill(process.pid, signal);
     return;
   }
