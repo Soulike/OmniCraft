@@ -8,7 +8,7 @@ function canBind(port: number): Promise<void> {
   return new Promise((resolve, reject) => {
     const server = net.createServer();
     server.once('error', reject);
-    server.listen(port, '127.0.0.1', () => {
+    server.listen(port, () => {
       server.close(() => {
         resolve();
       });
