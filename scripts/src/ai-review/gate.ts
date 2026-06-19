@@ -3,6 +3,7 @@ import {decideGate} from '@omnicraft/ai-review-core';
 
 import {optionalEnv, requireEnv} from './gha.js';
 import {applyLabel} from './labels.js';
+import {requirePrNumber, requireRepo} from './validate.js';
 
 /** A GitHub Actions job result string. */
 type JobResult = 'success' | 'failure' | 'cancelled' | 'skipped' | '';
@@ -19,8 +20,8 @@ function asVerdict(value: string): Verdict | null {
 }
 
 function main(): void {
-  const repo = requireEnv('GH_REPO');
-  const prNumber = requireEnv('PR_NUMBER');
+  const repo = requireRepo(requireEnv('GH_REPO'));
+  const prNumber = requirePrNumber(requireEnv('PR_NUMBER'));
 
   const upstream: JobResult[] = [
     optionalEnv('CONFIG_RESULT') as JobResult,

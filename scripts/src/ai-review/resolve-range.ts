@@ -2,6 +2,7 @@ import {parseLatestMarker, resolveReviewRange} from '@omnicraft/ai-review-core';
 
 import {fail, requireEnv, setOutput} from './gha.js';
 import {isAncestor, run} from './git.js';
+import {requireGitRef, requireRepo, requireSha} from './validate.js';
 
 interface PullContext {
   readonly prNumber: number;
@@ -37,23 +38,22 @@ function resolvePull(repo: string, headSha: string): {prNumber: number} {
 }
 
 function resolveContext(): PullContext {
-  const repo = requireEnv('GH_REPO');
-  const headSha = requireEnv('WORKFLOW_RUN_HEAD_SHA');
+  const repo = requireRepo(requireEnv('GH_REPO'));
+  const headSha = requireSha(
+    'WORKFLOW_RUN_HEAD_SHA',
+    requireEnv('WORKFLOW_RUN_HEAD_SHA'),
+  );
   const {prNumber} = resolvePull(repo, headSha);
 
   // Read base ref/sha straight from the PR.
-  const baseRef = run('gh', [
-    'api',
-    `repos/${repo}/pulls/${prNumber}`,
-    '--jq',
-    '.base.ref',
-  ]);
-  const baseSha = run('gh', [
-    'api',
-    `repos/${repo}/pulls/${prNumber}`,
-    '--jq',
-    '.base.sha',
-  ]);
+  const baseRef = requireGitRef(
+    'PR base ref',
+    run('gh', ['api', `repos/${repo}/pulls/${prNumber}`, '--jq', '.base.ref']),
+  );
+  const baseSha = requireSha(
+    'PR base sha',
+    run('gh', ['api', `repos/${repo}/pulls/${prNumber}`, '--jq', '.base.sha']),
+  );
   return {prNumber, headSha, baseSha, baseRef};
 }
 
@@ -68,12 +68,14 @@ function readReviewBodies(repo: string, prNumber: number): string[] {
 }
 
 function main(): void {
-  const repo = requireEnv('GH_REPO');
+  const repo = requireRepo(requireEnv('GH_REPO'));
   const context = resolveContext();
 
   // Fetch the PR head and base into the trusted checkout for git ancestry ops.
-  run('git', ['fetch', 'origin', context.baseRef]);
-  run('git', ['fetch', 'origin', `pull/${context.prNumber}/head`]);
+  // `--` stops git from parsing a `-`-leading ref as a flag (defense in depth;
+  // baseRef is already validated by requireGitRef).
+  run('git', ['fetch', 'origin', '--', context.baseRef]);
+  run('git', ['fetch', 'origin', '--', `pull/${context.prNumber}/head`]);
 
   const previousMarker = parseLatestMarker(
     readReviewBodies(repo, context.prNumber),

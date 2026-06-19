@@ -2,14 +2,15 @@ import {parseLatestMarker} from '@omnicraft/ai-review-core';
 
 import {requireEnv, setOutput} from './gha.js';
 import {run} from './git.js';
+import {requirePrNumber, requireRepo} from './validate.js';
 
 interface GhReview {
   readonly body?: string;
 }
 
 function main(): void {
-  const repo = requireEnv('GH_REPO');
-  const prNumber = requireEnv('PR_NUMBER');
+  const repo = requireRepo(requireEnv('GH_REPO'));
+  const prNumber = requirePrNumber(requireEnv('PR_NUMBER'));
 
   const json = run('gh', [
     'api',
