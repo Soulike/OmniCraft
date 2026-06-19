@@ -1,8 +1,16 @@
 import {execFileSync} from 'node:child_process';
 
+// `gh api` JSON responses (PR reviews, payloads) can exceed execFileSync's
+// default 1 MB stdout buffer on large PRs; allow up to 64 MB so the helpers do
+// not throw a spurious buffer error and fail the gate.
+const MAX_BUFFER = 64 * 1024 * 1024;
+
 /** Runs a command, returning trimmed stdout. Throws on a non-zero exit. */
 export function run(command: string, args: readonly string[]): string {
-  return execFileSync(command, args, {encoding: 'utf8'}).trim();
+  return execFileSync(command, args, {
+    encoding: 'utf8',
+    maxBuffer: MAX_BUFFER,
+  }).trim();
 }
 
 /**
@@ -16,7 +24,10 @@ export function runAllowingHttpStatus(
   allowedStatuses: readonly number[],
 ): string | null {
   try {
-    return execFileSync('gh', args, {encoding: 'utf8'}).trim();
+    return execFileSync('gh', args, {
+      encoding: 'utf8',
+      maxBuffer: MAX_BUFFER,
+    }).trim();
   } catch (error) {
     const stderr = (error as {stderr?: string | Buffer}).stderr;
     const text =

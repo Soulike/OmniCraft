@@ -13,20 +13,25 @@ const LABEL_COLORS: Record<GateLabel, string> = {
 /** Ensures both gate labels exist in the repo, creating any that are missing. */
 function ensureLabelsExist(repo: string): void {
   for (const label of LABELS) {
-    try {
-      run('gh', ['api', `repos/${repo}/labels/${encodeURIComponent(label)}`]);
-    } catch {
-      run('gh', [
-        'api',
-        '--method',
-        'POST',
-        `repos/${repo}/labels`,
-        '-f',
-        `name=${label}`,
-        '-f',
-        `color=${LABEL_COLORS[label]}`,
-      ]);
+    // A 404 means the label does not exist yet → create it. Any other failure
+    // (auth, rate limit, network) rethrows rather than being misread as missing.
+    const existing = runAllowingHttpStatus(
+      ['api', `repos/${repo}/labels/${encodeURIComponent(label)}`],
+      [404],
+    );
+    if (existing !== null) {
+      continue;
     }
+    run('gh', [
+      'api',
+      '--method',
+      'POST',
+      `repos/${repo}/labels`,
+      '-f',
+      `name=${label}`,
+      '-f',
+      `color=${LABEL_COLORS[label]}`,
+    ]);
   }
 }
 

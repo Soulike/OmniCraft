@@ -16,14 +16,22 @@ export function requireRepo(value: string): string {
   return value;
 }
 
+const MAX_SAFE_INTEGER_STR = String(Number.MAX_SAFE_INTEGER);
+
 /**
- * Validates a PR number is a positive integer with no leading zeros and returns
- * it unchanged. Rejects `0`, leading zeros (`01`), non-digits, and values beyond
- * the safe-integer range. Guards against a tainted `PR_NUMBER` reaching a
- * command argv.
+ * Validates a PR number is a positive integer with no leading zeros, within the
+ * JS safe-integer range, and returns it unchanged. Rejects `0`, leading zeros
+ * (`01`), non-digits, and out-of-range values. The range check is done on the
+ * string (length, then lexicographic compare for equal length) rather than via
+ * `Number()`, so a huge value cannot round *into* the safe range and slip
+ * through. Guards against a tainted `PR_NUMBER` reaching a command argv.
  */
 export function requirePrNumber(value: string): string {
-  if (!/^[1-9][0-9]*$/.test(value) || !Number.isSafeInteger(Number(value))) {
+  const inRange =
+    value.length < MAX_SAFE_INTEGER_STR.length ||
+    (value.length === MAX_SAFE_INTEGER_STR.length &&
+      value <= MAX_SAFE_INTEGER_STR);
+  if (!/^[1-9][0-9]*$/.test(value) || !inRange) {
     fail(`PR_NUMBER is not a positive integer: ${JSON.stringify(value)}`);
   }
   return value;
