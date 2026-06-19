@@ -1,16 +1,18 @@
 /**
- * Effectively-invisible code points that a model's tokenizer might ignore — so
- * they could be sprinkled inside a `<system-reminder>` tag (even inside the tag
- * name) to slip it past the delimiter filter. Stripped wholesale before
- * delimiter matching. Covers the whole Unicode format category (`\p{Cf}`:
- * ZWSP/ZWNJ/ZWJ/word-joiner/BOM/SOFT HYPHEN/…), all variation selectors
- * (`\p{Variation_Selector}`, e.g. U+FE0F), and the combining grapheme joiner
- * (U+034F), which is an invisible joiner outside those properties. Visible text
- * — letters, accents, CJK, emoji — is unaffected.
+ * Effectively-invisible or control code points that a model's tokenizer might
+ * ignore — so they could be sprinkled inside a `<system-reminder>` tag (even
+ * inside the tag name) to slip it past the delimiter filter. Stripped wholesale
+ * before delimiter matching. Covers the C0/C1 control category (`\p{Cc}`: TAB,
+ * NUL, NEL, …), the Unicode format category (`\p{Cf}`: ZWSP/ZWNJ/ZWJ/word-
+ * joiner/BOM/SOFT HYPHEN/…), all variation selectors (`\p{Variation_Selector}`,
+ * e.g. U+FE0F), and the combining grapheme joiner (U+034F) — minus `\n`, which
+ * the reminder template uses for its own line structure. Visible text — letters,
+ * accents, CJK, emoji — is unaffected. (`v` flag enables the `--` set
+ * subtraction.)
  */
 const INVISIBLE_PATTERN = new RegExp(
-  '[\\p{Cf}\\p{Variation_Selector}\\u034f]',
-  'gu',
+  '[[\\p{Cc}\\p{Cf}\\p{Variation_Selector}\\u034f]--[\\n]]',
+  'gv',
 );
 
 /**

@@ -37,8 +37,9 @@ describe('sanitizeReminderContent', () => {
   });
 
   it('strips other invisible code points inside the tag name', () => {
-    // SOFT HYPHEN, COMBINING GRAPHEME JOINER, VARIATION SELECTOR-16, BOM.
-    const invisibles = [0x00ad, 0x034f, 0xfe0f, 0xfeff].map((cp) =>
+    // SOFT HYPHEN, COMBINING GRAPHEME JOINER, VARIATION SELECTOR-16, BOM,
+    // and control characters (TAB, NEL).
+    const invisibles = [0x00ad, 0x034f, 0xfe0f, 0xfeff, 0x09, 0x85].map((cp) =>
       String.fromCodePoint(cp),
     );
     for (const ch of invisibles) {
@@ -46,6 +47,11 @@ describe('sanitizeReminderContent', () => {
       expect(out).not.toContain('system-reminder');
       expect(out).toContain('attacker');
     }
+  });
+
+  it('preserves newlines (the reminder template uses them for structure)', () => {
+    const multiline = 'Note:\n- [pending] a\n- [pending] b';
+    expect(sanitizeReminderContent(multiline)).toBe(multiline);
   });
 
   it('leaves visible text (letters, accents, CJK, emoji) untouched', () => {
