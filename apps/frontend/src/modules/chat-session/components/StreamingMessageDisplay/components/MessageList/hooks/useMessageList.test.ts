@@ -1,3 +1,4 @@
+import type {SseTodoItem} from '@omnicraft/sse-events';
 import {describe, expect, it} from 'vitest';
 
 import type {ChatEventBus, ChatMessage} from '../../../types.js';
@@ -763,5 +764,36 @@ describe('transformMessages', () => {
       },
     ];
     expect(transformMessages(messages)).toEqual([]);
+  });
+});
+
+describe('transformMessages — todo', () => {
+  const items: SseTodoItem[] = [
+    {index: 0, subject: 'A', description: 'da', status: 'completed'},
+    {index: 1, subject: 'B', description: 'db', status: 'in_progress'},
+  ];
+
+  it('converts a todo message to a TodoRenderItem', () => {
+    const result = transformMessages([
+      {
+        id: null,
+        createdAt: null,
+        role: 'assistant',
+        content: {type: 'todo', items},
+      },
+    ]);
+    expect(result).toEqual([{type: 'todo', items}]);
+  });
+
+  it('skips a todo message with an empty item list', () => {
+    const result = transformMessages([
+      {
+        id: null,
+        createdAt: null,
+        role: 'assistant',
+        content: {type: 'todo', items: []},
+      },
+    ]);
+    expect(result).toEqual([]);
   });
 });
