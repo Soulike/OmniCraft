@@ -2,14 +2,16 @@ import net from 'node:net';
 
 import {describe, expect, it} from 'vitest';
 
-import {getFreePorts} from './free-ports';
+import {getFreePorts} from './free-ports.js';
 
 function canBind(port: number): Promise<void> {
   return new Promise((resolve, reject) => {
     const server = net.createServer();
     server.once('error', reject);
     server.listen(port, '127.0.0.1', () => {
-      server.close(() => resolve());
+      server.close(() => {
+        resolve();
+      });
     });
   });
 }

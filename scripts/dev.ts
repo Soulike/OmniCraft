@@ -1,6 +1,6 @@
 import {spawn} from 'node:child_process';
 
-import {getFreePorts} from './free-ports';
+import {getFreePorts} from '@omnicraft/free-ports';
 
 const [httpPort, vscodePort] = await getFreePorts(2);
 

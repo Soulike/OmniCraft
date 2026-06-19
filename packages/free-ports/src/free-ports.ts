@@ -23,7 +23,9 @@ function listenOnFreePort(): Promise<HeldPort> {
 
 function close(server: net.Server): Promise<void> {
   return new Promise((resolve) => {
-    server.close(() => resolve());
+    server.close(() => {
+      resolve();
+    });
   });
 }
 
