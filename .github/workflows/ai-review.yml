@@ -82,7 +82,7 @@ jobs:
           path: pr-head
           fetch-depth: 0
       - name: Fetch base for diff range
-        run: git -C pr-head fetch --no-tags origin "${BASE_REF}"
+        run: git -C pr-head fetch --no-tags origin -- "${BASE_REF}"
         env:
           BASE_REF: ${{ github.event.pull_request.base.ref }}
       - name: Install deps in pr-head
