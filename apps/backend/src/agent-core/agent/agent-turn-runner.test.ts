@@ -141,6 +141,7 @@ function createInput(
     runtimeState: new AgentRuntimeState(workingDirectory),
     toolRegistries: [],
     skillRegistries: [],
+    stopChecks: [],
     baseSystemPrompt: '',
     getConfig: () => Promise.resolve(MAIN_CONFIG),
     getLightConfig: () => Promise.resolve(MAIN_CONFIG),

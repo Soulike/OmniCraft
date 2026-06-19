@@ -10,6 +10,7 @@ import type {LlmConfig} from '../llm-api/index.js';
 import {llmSessionSnapshotSchema} from '../llm-session/index.js';
 import type {SkillRegistry} from '../skill/index.js';
 import type {ToolRegistry} from '../tool/index.js';
+import type {StopCheck} from './stop-checks/index.js';
 
 // ---------------------------------------------------------------------------
 // Agent Event Types
@@ -51,6 +52,7 @@ export type AgentSnapshot = z.infer<typeof agentSnapshotSchema>;
 export interface AgentOptions {
   readonly toolRegistries: ToolRegistry[];
   readonly skillRegistries: SkillRegistry[];
+  readonly stopChecks: readonly StopCheck[];
   readonly baseSystemPrompt: string;
   readonly getMaxToolRounds: () => Promise<number> | number;
   readonly thinkingLevel: ThinkingLevel;

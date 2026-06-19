@@ -31,6 +31,7 @@ import {
   buildSystemPrompt,
 } from './catalog/agent-catalog.js';
 import type {SubagentRegistry} from './state/subagent-registry.js';
+import type {StopCheck} from './stop-checks/index.js';
 import type {AgentEvent, AgentEventStream} from './types.js';
 
 export interface RunAgentTurnInput {
@@ -45,6 +46,7 @@ export interface RunAgentTurnInput {
   readonly runtimeState: AgentRuntimeState;
   readonly toolRegistries: readonly ToolRegistry[];
   readonly skillRegistries: readonly SkillRegistry[];
+  readonly stopChecks: readonly StopCheck[];
   readonly baseSystemPrompt: string;
   readonly getConfig: () => Promise<LlmConfig>;
   readonly getLightConfig: () => Promise<LlmConfig>;
