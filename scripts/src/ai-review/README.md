@@ -1,9 +1,9 @@
 # AI PR Review Gate
 
-A `pull_request`-triggered gate that reviews each push to an open PR with the
-GitHub Copilot CLI, posts one PR review per round, and blocks merges on
-confirmed Medium+ findings. Deterministic logic lives in
-`@omnicraft/ai-review-core` (unit-tested); model invocation and posting are
+A `pull_request`-triggered gate that reviews the **full diff of each open PR
+against its base branch** with the GitHub Copilot CLI, posts one PR review per
+round, and blocks merges on confirmed Medium+ findings. Deterministic logic lives
+in `@omnicraft/ai-review-core` (unit-tested); model invocation and posting are
 delegated to the CLI via the prompts in `prompts/`.
 
 ## Maintainer prerequisites (one-time)
@@ -73,18 +73,19 @@ base ref and head SHA) are validated by `validate.ts` and option-terminated with
 
 ## Manual integration checklist (run once on a throwaway PR)
 
-- [ ] **First run (full review):** open a PR with a small change; confirm the AI
-      review runs, posts one review with the summary + marker, and the `gate`
-      check appears in the PR check list.
-- [ ] **Incremental second push:** push another commit; confirm the next review
-      covers only the new commits (range `start..head`, not the whole PR), and
-      that the previous in-progress run was cancelled.
-- [ ] **Force-push fallback:** rebase/force-push; confirm the review falls back to
-      a full `base...head` review.
-- [ ] **No-new-commits carry-forward:** re-run with head unchanged; confirm the
-      gate carries the prior verdict without re-reviewing.
-- [ ] **Repro-test path:** introduce a subtle bug a reviewer can confirm by
-      writing+running a throwaway test; confirm the confirmation agent re-runs it.
+- [ ] **First run:** open a PR with a small change; confirm the AI review runs,
+      reviews the full `origin/<base>...HEAD` diff, posts one review with the
+      summary + marker, and the `gate` check appears in the PR check list.
+- [ ] **Second push:** push another commit; confirm a fresh full review runs and
+      the previous in-progress run was cancelled (concurrency).
+- [ ] **Merge base into the PR:** merge `main` into the PR branch and push;
+      confirm the review still only flags the PR's own changes, not commits that
+      came from `main`.
+- [ ] **No-new-commits short-circuit:** re-run with the head unchanged; confirm
+      the gate carries the prior verdict without re-reviewing.
+- [ ] **Dedup:** leave a prior bot finding unresolved, push a trivial change;
+      confirm reviewers do not re-report the already-open finding, but a newly
+      introduced issue is still reported.
 - [ ] **Red gate:** introduce a deliberate Medium+ issue; confirm the gate fails,
       inline comments are posted, and the `AI Need Change` label is applied.
 - [ ] **Green gate:** with no Medium+ issues, confirm the gate passes and the
