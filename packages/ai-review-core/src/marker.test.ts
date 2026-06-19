@@ -23,10 +23,10 @@ describe('parseMarker', () => {
       '',
       'Looks good.',
       '',
-      '<!-- ai-review reviewed-head=abc123 verdict=approved -->',
+      '<!-- ai-review reviewed-head=abc1234 verdict=approved -->',
     ].join('\n');
     expect(parseMarker(body)).toEqual({
-      reviewedHead: 'abc123',
+      reviewedHead: 'abc1234',
       verdict: 'approved',
     });
   });
@@ -37,7 +37,18 @@ describe('parseMarker', () => {
 
   it('returns null for a malformed verdict value', () => {
     expect(
-      parseMarker('<!-- ai-review reviewed-head=abc verdict=maybe -->'),
+      parseMarker('<!-- ai-review reviewed-head=abc1234 verdict=maybe -->'),
+    ).toBeNull();
+  });
+
+  it('returns null when reviewed-head is not a hex SHA', () => {
+    // A model could emit a git revision expression instead of a literal SHA;
+    // such a marker must be rejected so the range logic never sees e.g. `HEAD`.
+    expect(
+      parseMarker('<!-- ai-review reviewed-head=HEAD verdict=approved -->'),
+    ).toBeNull();
+    expect(
+      parseMarker('<!-- ai-review reviewed-head=main verdict=approved -->'),
     ).toBeNull();
   });
 
@@ -45,18 +56,18 @@ describe('parseMarker', () => {
     // The marker must be the final line of the body; if an earlier (e.g.
     // injected) marker appears, the last one still wins.
     const body = [
-      '<!-- ai-review reviewed-head=injected verdict=approved -->',
+      '<!-- ai-review reviewed-head=aaa1111 verdict=approved -->',
       'Some quoted text.',
-      '<!-- ai-review reviewed-head=realsha verdict=need_change -->',
+      '<!-- ai-review reviewed-head=bbb2222 verdict=need_change -->',
     ].join('\n');
     expect(parseMarker(body)).toEqual({
-      reviewedHead: 'realsha',
+      reviewedHead: 'bbb2222',
       verdict: 'need_change',
     });
   });
 
   it('round-trips with renderMarker', () => {
-    const marker = {reviewedHead: 'f00ba7', verdict: 'need_change'} as const;
+    const marker = {reviewedHead: 'f00ba7c', verdict: 'need_change'} as const;
     expect(parseMarker(renderMarker(marker))).toEqual(marker);
   });
 });
@@ -72,12 +83,12 @@ describe('parseLatestMarker', () => {
 
   it('returns the marker from the most recent body that has one', () => {
     const bodies = [
-      '<!-- ai-review reviewed-head=oldsha verdict=need_change -->',
-      '<!-- ai-review reviewed-head=newsha verdict=approved -->',
+      '<!-- ai-review reviewed-head=ccc3333 verdict=need_change -->',
+      '<!-- ai-review reviewed-head=ddd4444 verdict=approved -->',
       'A later human comment with no marker.',
     ];
     expect(parseLatestMarker(bodies)).toEqual({
-      reviewedHead: 'newsha',
+      reviewedHead: 'ddd4444',
       verdict: 'approved',
     });
   });

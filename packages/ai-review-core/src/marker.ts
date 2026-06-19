@@ -10,7 +10,7 @@ export interface ReviewMarker {
 }
 
 const MARKER_REGEX =
-  /<!--\s*ai-review\s+reviewed-head=(\S+)\s+verdict=(approved|need_change)\s*-->/g;
+  /<!--\s*ai-review\s+reviewed-head=([0-9a-fA-F]{7,64})\s+verdict=(approved|need_change)\s*-->/g;
 
 /** Renders a {@link ReviewMarker} as its canonical HTML-comment string. */
 export function renderMarker(marker: ReviewMarker): string {
