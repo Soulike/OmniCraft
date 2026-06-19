@@ -1,64 +1,42 @@
-import {parseLatestMarker, resolveReviewRange} from '@omnicraft/ai-review-core';
+import {writeFileSync} from 'node:fs';
 
+import {
+  parseLatestMarker,
+  renderKnownIssues,
+  resolveReviewRange,
+} from '@omnicraft/ai-review-core';
+
+import {fetchUnresolvedBotIssues} from './known-issues.js';
 import {readBotReviewBodies} from './reviews.js';
 import {requireEnv, setOutput} from './shared/gha.js';
-import {isAncestor, run} from './shared/git.js';
 import {createGitHubClient} from './shared/octokit.js';
-import {requireGitRef, requirePrNumber, requireSha} from './shared/validate.js';
-
-interface PullContext {
-  readonly prNumber: number;
-  readonly headSha: string;
-  readonly baseSha: string;
-  readonly baseRef: string;
-}
-
-/** Resolves and validates PR context from the `pull_request` event env. */
-function resolveContext(): PullContext {
-  const prNumber = Number(requirePrNumber(requireEnv('PR_NUMBER')));
-  const headSha = requireSha('PR_HEAD_SHA', requireEnv('PR_HEAD_SHA'));
-  const baseSha = requireSha('PR_BASE_SHA', requireEnv('PR_BASE_SHA'));
-  const baseRef = requireGitRef('PR_BASE_REF', requireEnv('PR_BASE_REF'));
-  return {prNumber, headSha, baseSha, baseRef};
-}
+import {requirePrNumber, requireSha} from './shared/validate.js';
 
 async function main(): Promise<void> {
   const client = createGitHubClient();
-  const context = resolveContext();
-
-  // Fetch the PR head and base into the checkout for git ancestry ops.
-  // `--` stops git from parsing a `-`-leading ref as a flag (defense in depth;
-  // baseRef is already validated by requireGitRef).
-  run('git', ['fetch', 'origin', '--', context.baseRef]);
-  run('git', ['fetch', 'origin', '--', `pull/${context.prNumber}/head`]);
+  const prNumber = Number(requirePrNumber(requireEnv('PR_NUMBER')));
+  const headSha = requireSha('PR_HEAD_SHA', requireEnv('PR_HEAD_SHA'));
 
   const previousMarker = parseLatestMarker(
-    await readBotReviewBodies(client, context.prNumber),
+    await readBotReviewBodies(client, prNumber),
   );
+  const range = resolveReviewRange({headSha, previousMarker});
 
-  const startIsAncestorOfHead =
-    previousMarker !== null &&
-    isAncestor(previousMarker.reviewedHead, context.headSha);
+  // Render the still-open findings so reviewers can skip already-raised ones,
+  // and hand the path to the review job via an output.
+  const knownIssues = await fetchUnresolvedBotIssues(client, prNumber);
+  const knownIssuesFile = `${requireEnv('RUNNER_TEMP')}/known-issues.md`;
+  writeFileSync(knownIssuesFile, renderKnownIssues(knownIssues));
 
-  const range = resolveReviewRange({
-    headSha: context.headSha,
-    previousMarker,
-    startIsAncestorOfHead,
-  });
-
-  setOutput('pr_number', String(context.prNumber));
-  setOutput('head_sha', context.headSha);
-  setOutput('base_sha', context.baseSha);
-  setOutput('base_ref', context.baseRef);
-  setOutput('start_sha', range.startSha ?? '');
-  setOutput('is_full', String(range.isFull));
+  setOutput('pr_number', String(prNumber));
+  setOutput('head_sha', headSha);
   setOutput('has_changes', String(range.hasChanges));
   setOutput('carried_verdict', range.carriedVerdict ?? '');
+  setOutput('known_issues_file', knownIssuesFile);
 
   console.log(
-    `PR #${context.prNumber}: head=${context.headSha} ` +
-      `start=${range.startSha ?? '(full)'} isFull=${range.isFull} ` +
-      `hasChanges=${range.hasChanges} carried=${range.carriedVerdict ?? '-'}`,
+    `PR #${prNumber}: head=${headSha} hasChanges=${range.hasChanges} ` +
+      `carried=${range.carriedVerdict ?? '-'} knownIssues=${knownIssues.length}`,
   );
 }
 
