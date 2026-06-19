@@ -1,5 +1,6 @@
 import type {SseTodoItem} from '@omnicraft/sse-events';
 
+import {useTodoCard} from './hooks/useTodoCard.js';
 import {TodoCardView} from './TodoCardView.js';
 
 interface TodoCardProps {
@@ -7,5 +8,13 @@ interface TodoCardProps {
 }
 
 export function TodoCard({items}: TodoCardProps) {
-  return <TodoCardView items={items} />;
+  const {isExpanded, onExpandedChange} = useTodoCard();
+
+  return (
+    <TodoCardView
+      items={items}
+      isExpanded={isExpanded}
+      onExpandedChange={onExpandedChange}
+    />
+  );
 }

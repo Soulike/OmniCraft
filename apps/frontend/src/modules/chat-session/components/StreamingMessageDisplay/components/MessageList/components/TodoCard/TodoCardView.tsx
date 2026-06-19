@@ -1,6 +1,5 @@
 import {Disclosure, ProgressBar, Tooltip} from '@heroui/react';
 import type {SseTodoItem} from '@omnicraft/sse-events';
-import {useState} from 'react';
 
 import {
   StatusTimeline,
@@ -12,6 +11,8 @@ import styles from './styles.module.css';
 
 interface TodoCardViewProps {
   items: readonly SseTodoItem[];
+  isExpanded: boolean;
+  onExpandedChange: (isExpanded: boolean) => void;
 }
 
 const STATUS_MAP = {
@@ -20,8 +21,11 @@ const STATUS_MAP = {
   completed: 'done',
 } satisfies Record<SseTodoItem['status'], StatusTimelineStatus>;
 
-export function TodoCardView({items}: TodoCardViewProps) {
-  const [isExpanded, setIsExpanded] = useState(false);
+export function TodoCardView({
+  items,
+  isExpanded,
+  onExpandedChange,
+}: TodoCardViewProps) {
   const total = items.length;
   const completed = items.filter((i) => i.status === 'completed').length;
   const current = items.find((i) => i.status === 'in_progress');
@@ -36,6 +40,7 @@ export function TodoCardView({items}: TodoCardViewProps) {
             className={
               item.status === 'completed' ? styles.completed : undefined
             }
+            data-completed={item.status === 'completed' ? 'true' : undefined}
           >
             {item.subject}
           </span>
@@ -47,7 +52,7 @@ export function TodoCardView({items}: TodoCardViewProps) {
 
   return (
     <div className={styles.card}>
-      <Disclosure isExpanded={isExpanded} onExpandedChange={setIsExpanded}>
+      <Disclosure isExpanded={isExpanded} onExpandedChange={onExpandedChange}>
         <Disclosure.Heading>
           <Disclosure.Trigger className={styles.trigger}>
             <ProgressBar
@@ -62,15 +67,17 @@ export function TodoCardView({items}: TodoCardViewProps) {
               </ProgressBar.Track>
             </ProgressBar>
             <span className={styles.headLabel}>Plan</span>
-            <span aria-hidden='true' className={styles.headCount}>
-              {' · '}
+            <span aria-hidden='true' className={styles.currentDivider}>
+              ·
             </span>
             <span className={styles.headCount}>
               {completed}/{total}
             </span>
             {current && (
               <span className={styles.current} data-testid='todo-current'>
-                <span className={styles.currentDivider}>·</span>
+                <span aria-hidden='true' className={styles.currentDivider}>
+                  ·
+                </span>
                 {current.subject}
               </span>
             )}
