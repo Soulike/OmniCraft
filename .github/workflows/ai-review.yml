@@ -155,6 +155,10 @@ jobs:
           ref: ${{ needs.prepare.outputs.head_sha }}
           path: pr-head
           fetch-depth: 0
+      - name: Fetch base for diff range
+        run: git -C pr-head fetch --no-tags origin -- "${BASE_REF}"
+        env:
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
       - name: Install deps in pr-head
         run: bun install --frozen-lockfile
         working-directory: pr-head

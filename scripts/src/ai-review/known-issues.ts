@@ -2,8 +2,18 @@ import type {KnownIssue} from '@omnicraft/ai-review-core';
 
 import type {GitHubClient} from './shared/octokit.js';
 
-/** Login whose review threads count as already-raised gate findings. */
-const REVIEW_AUTHOR = 'github-actions[bot]';
+/**
+ * Login whose review threads count as already-raised gate findings. Note the
+ * GraphQL API reports the bot as `github-actions` while the REST API reports
+ * `github-actions[bot]`; {@link isReviewAuthor} normalizes the `[bot]` suffix so
+ * either spelling matches.
+ */
+const REVIEW_AUTHOR = 'github-actions';
+
+/** Whether a login is the gate bot, tolerating the REST `[bot]` suffix. */
+function isReviewAuthor(login: string | undefined): boolean {
+  return login?.replace(/\[bot\]$/, '') === REVIEW_AUTHOR;
+}
 
 interface ThreadComment {
   readonly author: {readonly login: string} | null;
@@ -89,7 +99,7 @@ export async function fetchUnresolvedBotIssues(
       // with `noUncheckedIndexedAccess` off: a thread row can outlive its only
       // comment (deleted), leaving `nodes` empty.
       const comment = thread.comments.nodes.at(0);
-      if (comment === undefined || comment.author?.login !== REVIEW_AUTHOR) {
+      if (comment === undefined || !isReviewAuthor(comment.author?.login)) {
         continue;
       }
       issues.push({path: comment.path, line: comment.line, body: comment.body});
