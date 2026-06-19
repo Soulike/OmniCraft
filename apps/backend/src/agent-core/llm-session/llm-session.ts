@@ -27,6 +27,7 @@ import type {
   LlmSessionEventStream,
   LlmSessionSnapshot,
   LlmSessionUsage,
+  SendReminderResult,
   SendUserMessageResult,
   ToolResult,
 } from './types.js';
@@ -128,11 +129,13 @@ export class LlmSession {
    * the LLM but is surfaced to clients via a `stop-check-reminder` SSE event
    * (not `message-start`), so it never renders in the UI.
    *
-   * `content` may include untrusted, tool-supplied text (e.g. todo subjects
-   * derived from repository content), so the wrapper delimiters are stripped
-   * from it first — otherwise a `</system-reminder>` embedded in the content
-   * could close the privileged wrapper early and smuggle text outside it
-   * (second-order prompt injection).
+   * This method is the SOLE owner of reminder sanitization: `content` may be
+   * raw, untrusted, tool-supplied text (e.g. todo subjects derived from
+   * repository content), and the wrapper delimiters are stripped here —
+   * otherwise a `</system-reminder>` embedded in the content could close the
+   * privileged wrapper early and smuggle text outside it (second-order prompt
+   * injection). The sanitized body is returned as `content` so callers surface
+   * the exact injected text without re-sanitizing.
    */
   sendReminder(
     content: string,
@@ -140,12 +143,13 @@ export class LlmSession {
     systemPrompt: string,
     thinkingLevel: ThinkingLevel,
     signal?: AbortSignal,
-  ): SendUserMessageResult {
+  ): SendReminderResult {
+    const safeContent = sanitizeReminderContent(content);
     const reminderMessage = {
       id: crypto.randomUUID(),
       createdAt: Date.now(),
       role: 'user' as const,
-      content: `<system-reminder>\n${sanitizeReminderContent(content)}\n</system-reminder>`,
+      content: `<system-reminder>\n${safeContent}\n</system-reminder>`,
     };
     return {
       stream: this.sendMessages(
@@ -157,6 +161,7 @@ export class LlmSession {
       ),
       messageId: reminderMessage.id,
       createdAt: reminderMessage.createdAt,
+      content: safeContent,
     };
   }
 

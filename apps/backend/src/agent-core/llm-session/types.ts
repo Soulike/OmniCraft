@@ -120,3 +120,11 @@ export interface SendUserMessageResult {
   messageId: string;
   createdAt: number;
 }
+
+/** Return value of LlmSession.sendReminder(). Adds the sanitized reminder text
+ *  actually injected, so callers surface the same text (e.g. in an SSE event)
+ *  without re-sanitizing. */
+export interface SendReminderResult extends SendUserMessageResult {
+  /** The injected reminder body, after wrapper-delimiter sanitization. */
+  content: string;
+}

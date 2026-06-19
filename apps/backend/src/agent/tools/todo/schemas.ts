@@ -12,15 +12,23 @@ export type TodoResult = z.infer<typeof todoResultSchema>;
 
 // --- Parameter schemas ---
 
+/** A todo title: short, single-line. The single-line constraint keeps an
+ *  attacker-influenced subject from injecting a newline that surfaces as
+ *  apparent system guidance when the title is later embedded in a
+ *  `<system-reminder>` stop-check block. */
+const todoSubjectSchema = z
+  .string()
+  .min(1)
+  .max(200)
+  .refine((value) => !/[\r\n]/.test(value), {
+    message: 'Subject must be a single line (no line breaks).',
+  });
+
 export const todoAppendParametersSchema = z.object({
   items: z
     .array(
       z.object({
-        subject: z
-          .string()
-          .min(1)
-          .max(200)
-          .describe('Brief title for the todo item'),
+        subject: todoSubjectSchema.describe('Brief title for the todo item'),
         description: z.string().describe('What needs to be done'),
       }),
     )
@@ -36,10 +44,7 @@ export const todoUpdateParametersSchema = z.object({
     .describe(
       'The 0-based index of the todo item to update, as shown in the todo list',
     ),
-  subject: z
-    .string()
-    .min(1)
-    .max(200)
+  subject: todoSubjectSchema
     .optional()
     .describe(
       'New title for the item. ' +

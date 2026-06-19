@@ -15,6 +15,20 @@ describe('todo tools', () => {
       expect(todoAppendTool.name).toBe('todo_append');
     });
 
+    it('rejects a multi-line subject', () => {
+      const parsed = todoAppendTool.parameters.safeParse({
+        items: [{subject: 'line one\nline two', description: 'd'}],
+      });
+      expect(parsed.success).toBe(false);
+    });
+
+    it('accepts a single-line subject', () => {
+      const parsed = todoAppendTool.parameters.safeParse({
+        items: [{subject: 'line one', description: 'd'}],
+      });
+      expect(parsed.success).toBe(true);
+    });
+
     it('appends an item and returns full list', async () => {
       const ctx = createMockContext();
       const result = await todoAppendTool.execute(

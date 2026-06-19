@@ -20,7 +20,6 @@ import type {
   LlmSessionEventStream,
   ToolResult,
 } from '../llm-session/index.js';
-import {sanitizeReminderContent} from '../llm-session/index.js';
 import type {SkillRegistry} from '../skill/index.js';
 import type {ToolDefinition, ToolRegistry} from '../tool/index.js';
 import {agentLlmStreamTranslator} from './agent-llm-stream-translator.js';
@@ -146,21 +145,22 @@ export class AgentTurnRunner {
           return;
         }
 
-        // Sanitize once and share between the LLM injection and the SSE event,
-        // so the persisted/broadcast event carries the same delimiter-stripped
-        // text the model sees — never the raw injection payload.
-        const reminderContent = sanitizeReminderContent(reminder.content);
-        const {stream, messageId, createdAt} = input.llmSession.sendReminder(
-          reminderContent,
-          toolDefs,
-          systemPrompt,
-          input.thinkingLevel,
-          input.signal,
-        );
+        // sendReminder is the sole owner of sanitization; it returns the
+        // sanitized body it injected, which we surface in the SSE event so the
+        // persisted/broadcast text matches what the model saw — never the raw
+        // payload.
+        const {stream, messageId, createdAt, content} =
+          input.llmSession.sendReminder(
+            reminder.content,
+            toolDefs,
+            systemPrompt,
+            input.thinkingLevel,
+            input.signal,
+          );
         yield {
           type: 'stop-check-reminder',
           checkNames: reminder.checkNames,
-          content: reminderContent,
+          content,
           messageId,
           createdAt,
         } satisfies SseStopCheckReminderEvent;

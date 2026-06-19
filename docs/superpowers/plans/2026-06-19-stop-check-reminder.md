@@ -607,6 +607,12 @@ function runtimeStateWithUnfinishedTodo(
 
 - [ ] **Step 2: Write the failing tests**
 
+> **Superseded:** the snippets below predate the final `StopCheck` interface.
+> `evaluate` returns `StopCheckResult | null` (`{content: string; stateToken?: string}`),
+> not a bare string. A later change also added state-token de-duplication. The
+> shipped tests in `agent-turn-runner.test.ts` are the source of truth; treat the
+> string-returning examples here as illustrative of control flow only.
+
 Add these tests inside the `describe('AgentTurnRunner', ...)` block. They use a stub `StopCheck` and the existing `textCompletionStream` / `toolCallCompletionStream` helpers.
 
 ```ts
