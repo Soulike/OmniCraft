@@ -2,6 +2,7 @@ import {parseLatestMarker, resolveReviewRange} from '@omnicraft/ai-review-core';
 
 import {fail, requireEnv, setOutput} from './gha.js';
 import {isAncestor, run} from './git.js';
+import {readBotReviewBodies} from './reviews.js';
 import {requireGitRef, requireRepo, requireSha} from './validate.js';
 
 interface PullContext {
@@ -9,11 +10,6 @@ interface PullContext {
   readonly headSha: string;
   readonly baseSha: string;
   readonly baseRef: string;
-}
-
-interface GhReview {
-  readonly body?: string;
-  readonly submitted_at?: string;
 }
 
 /** Resolves PR number + head SHA from the workflow_run event payload. */
@@ -58,13 +54,7 @@ function resolveContext(): PullContext {
 }
 
 function readReviewBodies(repo: string, prNumber: number): string[] {
-  const json = run('gh', [
-    'api',
-    `repos/${repo}/pulls/${prNumber}/reviews`,
-    '--paginate',
-  ]);
-  const reviews = JSON.parse(json) as GhReview[];
-  return reviews.map((review) => review.body ?? '');
+  return readBotReviewBodies(repo, String(prNumber));
 }
 
 function main(): void {
