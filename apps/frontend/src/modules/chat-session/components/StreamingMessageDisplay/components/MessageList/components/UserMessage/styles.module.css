@@ -1,9 +1,11 @@
-/* User: right-aligned glass accent capsule. */
+/* User: right-aligned neutral glass capsule. Distinguished from assistant
+   text by alignment + the clipped bottom-right corner, not by accent color
+   (accent is reserved for active/selected states). */
 .userBubble {
   padding: 10px 14px;
   border-radius: 16px;
   border-bottom-right-radius: 4px;
-  background: var(--aurora-active-fill);
+  background: var(--aurora-glass-fill);
   border: 1px solid var(--aurora-glass-border);
   box-shadow: var(--aurora-glass-highlight);
   color: var(--foreground);

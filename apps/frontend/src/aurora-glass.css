@@ -88,19 +88,26 @@
   /* --aurora-glass-*: the glass-accent material for small flush surfaces
      (glass pedestals, active pills, the composer capsule, expanded
      tool/thinking/subagent cards). */
-  /* translucent glass surface fill */
-  --aurora-glass-fill: linear-gradient(
-    160deg,
-    rgba(255, 255, 255, 0.75),
-    rgba(238, 241, 251, 0.6)
-  );
-  --aurora-glass-border: rgba(
-    20,
-    30,
-    80,
-    0.1
-  ); /* light-catching glass hairline */
-  --aurora-glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.9); /* inset top highlight on glass */
+  /* translucent glass surface fill — a single flat alpha (no gradient).
+     Brighter than the Mica panel (white .6) so a glass card reads as a
+     distinct frosted sheet, but kept translucent enough to still sample the
+     top-bright canvas so the surface itself carries a faint top→bottom light
+     falloff (the cue that makes the glass feel lit, matching dark mode). */
+  --aurora-glass-fill: rgba(255, 255, 255, 0.66);
+  /* glass hairline: a soft cool slate rim, visible against the near-white
+     panel but far softer than a hard outline. A pure-white rim vanishes on
+     white; the old navy stroke read as a wireframe. The dark-mode rim is a
+     bright blue edge for the same light-catching purpose — light must
+     reinterpret, not port it (P4). */
+  --aurora-glass-border: rgba(110, 130, 180, 0.32);
+  /* Directional bevel: a bright top inner crease (light from above) + a soft
+     dark underside line, so the edge reads as lit glass rather than a flat
+     solid outline. Dark gets the same top-lit feel for free from its near-
+     transparent fill sampling the canvas; light is too opaque for that, so the
+     direction is drawn explicitly here (P4). */
+  --aurora-glass-highlight:
+    inset 0 1px 0 rgba(255, 255, 255, 0.95),
+    inset 0 -1px 0 rgba(40, 55, 95, 0.1);
   /* --aurora-glass-shadow / -raised: outer drop shadow for raised glass (e.g.
      the composer capsule); -raised is the stronger lift on focus. Per-theme
      (P4): soft grey on light, deeper black on dark. */

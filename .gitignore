@@ -27,6 +27,9 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 .cache
 *.tsbuildinfo
 
+# Playwright MCP browser snapshots/screenshots (local verification artifacts)
+.playwright-mcp/
+
 # IntelliJ based IDEs
 .idea
 
