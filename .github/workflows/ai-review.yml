@@ -103,7 +103,7 @@ jobs:
           Repository: $GH_REPO
           PR number: $PR_NUMBER
           Review the full diff of this PR against its base: run
-          \`git diff origin/$BASE_REF...HEAD\` (three-dot) inside pr-head.
+          \`git diff $BASE_SHA...HEAD\` (three-dot) inside pr-head.
 
           Issues already raised on this PR and still open (do NOT re-report these):
           $KNOWN
@@ -129,6 +129,7 @@ jobs:
           GH_REPO: ${{ github.repository }}
           PR_NUMBER: ${{ needs.prepare.outputs.pr_number }}
           BASE_REF: ${{ github.event.pull_request.base.ref }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
           REPORT_FILE: ${{ github.workspace }}/report-${{ matrix.model }}-${{ matrix.pass }}.md
       - name: Upload report
         uses: actions/upload-artifact@v7
@@ -172,7 +173,7 @@ jobs:
           Repository: $GH_REPO
           PR number: $PR_NUMBER
           Head SHA: $HEAD_SHA
-          Reviewed range: full PR diff (origin/$BASE_REF...HEAD)
+          Reviewed range: full PR diff ($BASE_SHA...HEAD)
           Reviewer reports are in the reports/ directory."
           copilot --model "$CONFIRM_MODEL" --effort "$REASONING_EFFORT" \
             --context long_context \
@@ -188,7 +189,7 @@ jobs:
           GH_REPO: ${{ github.repository }}
           PR_NUMBER: ${{ needs.prepare.outputs.pr_number }}
           HEAD_SHA: ${{ needs.prepare.outputs.head_sha }}
-          BASE_REF: ${{ github.event.pull_request.base.ref }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
 
   gate:
     name: AI Review Gate

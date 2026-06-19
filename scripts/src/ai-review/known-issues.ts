@@ -85,8 +85,11 @@ export async function fetchUnresolvedBotIssues(
       if (thread.isResolved) {
         continue;
       }
-      const comment = thread.comments.nodes[0];
-      if (comment.author?.login !== REVIEW_AUTHOR) {
+      // `.at(0)` is typed `ThreadComment | undefined`, so the guard is real even
+      // with `noUncheckedIndexedAccess` off: a thread row can outlive its only
+      // comment (deleted), leaving `nodes` empty.
+      const comment = thread.comments.nodes.at(0);
+      if (comment === undefined || comment.author?.login !== REVIEW_AUTHOR) {
         continue;
       }
       issues.push({path: comment.path, line: comment.line, body: comment.body});
