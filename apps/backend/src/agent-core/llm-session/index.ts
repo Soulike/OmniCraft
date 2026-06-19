@@ -1,5 +1,4 @@
 export {LlmSession} from './llm-session.js';
-export {sanitizeReminderContent} from './sanitize-reminder.js';
 export type {
   LlmCompactionMetadata,
   LlmCompactionOptions,
