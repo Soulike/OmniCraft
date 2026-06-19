@@ -25,7 +25,7 @@
 .row:not(:last-child) .nodeCol::after {
   content: '';
   position: absolute;
-  /* node geometry: margin-top 2 + node height 12 + ~2 gap below the node */
+  /* start just below the node (node top = .node margin-top, node height 12) */
   top: 16px;
   bottom: -10px;
   left: 50%;
@@ -37,9 +37,12 @@
 .node {
   position: relative;
   z-index: 1;
+  box-sizing: border-box;
   width: 12px;
   height: 12px;
-  margin-top: 2px;
+  /* vertically center the dot on the first text line:
+     (line box 12.5px * 1.55 − node 12px) / 2 */
+  margin-top: calc((12.5px * 1.55 - 12px) / 2);
   border-radius: 50%;
   flex-shrink: 0;
 }
@@ -71,6 +74,5 @@
   font-size: 12.5px;
   line-height: 1.55;
   color: var(--foreground);
-  padding-top: 1px;
   min-width: 0;
 }

@@ -1,5 +1,6 @@
-import {Disclosure, ProgressBar, Tooltip} from '@heroui/react';
+import {Disclosure, Tooltip} from '@heroui/react';
 import type {SseTodoItem} from '@omnicraft/sse-events';
+import {ListChecks} from 'lucide-react';
 
 import {
   StatusTimeline,
@@ -15,6 +16,8 @@ interface TodoCardViewProps {
   onExpandedChange: (isExpanded: boolean) => void;
 }
 
+const ICON_SIZE = 14;
+
 const STATUS_MAP = {
   pending: 'pending',
   in_progress: 'in-progress',
@@ -29,7 +32,6 @@ export function TodoCardView({
   const total = items.length;
   const completed = items.filter((i) => i.status === 'completed').length;
   const current = items.find((i) => i.status === 'in_progress');
-  const percent = total === 0 ? 0 : (completed / total) * 100;
 
   const timelineItems: StatusTimelineItem[] = items.map((item) => ({
     status: STATUS_MAP[item.status],
@@ -55,19 +57,9 @@ export function TodoCardView({
       <Disclosure isExpanded={isExpanded} onExpandedChange={onExpandedChange}>
         <Disclosure.Heading>
           <Disclosure.Trigger className={styles.trigger}>
-            <ProgressBar
-              aria-label='Plan progress'
-              className={styles.progress}
-              color='accent'
-              size='sm'
-              value={percent}
-            >
-              <ProgressBar.Track>
-                <ProgressBar.Fill />
-              </ProgressBar.Track>
-            </ProgressBar>
+            <ListChecks className={styles.icon} size={ICON_SIZE} />
             <span className={styles.headLabel}>Plan</span>
-            <span aria-hidden='true' className={styles.currentDivider}>
+            <span aria-hidden='true' className={styles.divider}>
               ·
             </span>
             <span className={styles.headCount}>
@@ -75,7 +67,7 @@ export function TodoCardView({
             </span>
             {current && (
               <span className={styles.current} data-testid='todo-current'>
-                <span aria-hidden='true' className={styles.currentDivider}>
+                <span aria-hidden='true' className={styles.divider}>
                   ·
                 </span>
                 {current.subject}
