@@ -19,6 +19,10 @@ command to run). Hunt for security-relevant defects:
 
 ## Empirical validation
 
+A separate CI gate already runs lint, formatting, type-checking, and tests — you
+do not need to run those yourself. Focus on security-relevant defects CI cannot
+catch.
+
 You may write and run a **throwaway** proof-of-concept or test to confirm a
 suspected vulnerability, and include the command + output as evidence.
 
