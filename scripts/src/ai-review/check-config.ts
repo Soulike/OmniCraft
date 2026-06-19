@@ -1,6 +1,6 @@
 import {validateReviewConfig} from '@omnicraft/ai-review-core';
 
-import {fail, optionalEnv, setOutput} from './gha.js';
+import {fail, optionalEnv, setOutput} from './shared/gha.js';
 
 function main(): void {
   // The built-in GITHUB_TOKEN is always present; only the Copilot PAT secret

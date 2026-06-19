@@ -6,65 +6,29 @@ export interface ResolveRangeInput {
   readonly headSha: string;
   /** Marker from the most recent prior review, or `null` on the first run. */
   readonly previousMarker: ReviewMarker | null;
-  /**
-   * Result of `git merge-base --is-ancestor <previousMarker.reviewedHead> <headSha>`.
-   * Meaningless (and ignored) when `previousMarker` is `null`.
-   */
-  readonly startIsAncestorOfHead: boolean;
 }
 
-/** What to review this round. */
+/** Whether to review this round, and any verdict carried when skipping. */
 export interface ReviewRange {
-  /** SHA to diff from, or `null` for a full `base...head` review. */
-  readonly startSha: string | null;
-  /** Whether this is a full-PR review (first run or history rewrite). */
-  readonly isFull: boolean;
-  /** Whether there are new commits to review. */
+  /** Whether the PR head changed since the last review (so a review is due). */
   readonly hasChanges: boolean;
   /** Prior verdict to carry forward; only set when `hasChanges` is `false`. */
   readonly carriedVerdict: Verdict | null;
 }
 
 /**
- * Decides the review range from SHAs, the prior marker, and a precomputed
- * ancestry check. Full review on first run or when the prior reviewed-head is
- * not an ancestor of head (force-push/rebase); incremental otherwise; and when
- * head is unchanged, no new commits and the prior verdict carries forward.
+ * Decides whether a full review is due. Reviews on the first run and whenever
+ * the head SHA differs from the last reviewed head; when the head is unchanged
+ * there is nothing new to review, so the prior verdict carries forward. The diff
+ * range itself is always the full `base...head` and is computed by the workflow,
+ * not here.
  */
 export function resolveReviewRange(input: ResolveRangeInput): ReviewRange {
-  const {headSha, previousMarker, startIsAncestorOfHead} = input;
+  const {headSha, previousMarker} = input;
 
-  if (previousMarker === null) {
-    return {
-      startSha: null,
-      isFull: true,
-      hasChanges: true,
-      carriedVerdict: null,
-    };
+  if (previousMarker !== null && previousMarker.reviewedHead === headSha) {
+    return {hasChanges: false, carriedVerdict: previousMarker.verdict};
   }
 
-  if (!startIsAncestorOfHead) {
-    return {
-      startSha: null,
-      isFull: true,
-      hasChanges: true,
-      carriedVerdict: null,
-    };
-  }
-
-  if (previousMarker.reviewedHead === headSha) {
-    return {
-      startSha: headSha,
-      isFull: false,
-      hasChanges: false,
-      carriedVerdict: previousMarker.verdict,
-    };
-  }
-
-  return {
-    startSha: previousMarker.reviewedHead,
-    isFull: false,
-    hasChanges: true,
-    carriedVerdict: null,
-  };
+  return {hasChanges: true, carriedVerdict: null};
 }
