@@ -48,6 +48,11 @@ export class AgentRuntimeState {
     return this.todoStore.list();
   }
 
+  /** Returns a serializable snapshot of the todo list for persistence. */
+  todosToSnapshot(): SseTodoItem[] {
+    return this.todoStore.toSnapshot();
+  }
+
   /** Returns the state token a stop-check last reminded on, or undefined. */
   getLastStopCheckToken(checkName: string): string | undefined {
     return this.lastStopCheckTokens.get(checkName);

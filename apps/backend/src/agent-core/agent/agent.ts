@@ -179,7 +179,7 @@ export abstract class Agent {
       title: this.title,
       sseEventCount: this.sseEventCount,
       llmSession: this.llmSession.toSnapshot(),
-      todos: this.runtimeState.listTodos(),
+      todos: this.runtimeState.todosToSnapshot(),
       options: {
         workingDirectory: this.workingDirectory,
         thinkingLevel: this.thinkingLevel,
