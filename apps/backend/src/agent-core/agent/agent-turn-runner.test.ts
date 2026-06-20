@@ -141,6 +141,7 @@ function createInput(
     runtimeState: new AgentRuntimeState(workingDirectory),
     toolRegistries: [],
     skillRegistries: [],
+    stopChecks: [],
     baseSystemPrompt: '',
     getConfig: () => Promise.resolve(MAIN_CONFIG),
     getLightConfig: () => Promise.resolve(MAIN_CONFIG),
@@ -320,5 +321,335 @@ describe('AgentTurnRunner', () => {
       data: {message: 'Aborted'},
     });
     expect(events.at(-1)).toMatchObject({type: 'done', reason: 'aborted'});
+  });
+
+  it('emits a stop-check-reminder and continues when a check fires', async () => {
+    vi.spyOn(llmApi, 'countToken').mockResolvedValue(1);
+    vi.spyOn(llmApi, 'streamCompletion')
+      .mockReturnValueOnce(textCompletionStream('first stop'))
+      .mockReturnValueOnce(textCompletionStream('after reminder'));
+
+    let calls = 0;
+    const onceCheck = {
+      name: 'once',
+      evaluate: () => (calls++ === 0 ? {content: 'please reconsider'} : null),
+    };
+
+    const events = await collectAll(
+      agentTurnRunner.run(createInput({stopChecks: [onceCheck]})),
+    );
+
+    const reminder = events.find((e) => e.type === 'stop-check-reminder');
+    expect(reminder).toMatchObject({
+      type: 'stop-check-reminder',
+      checkNames: ['once'],
+      content: 'please reconsider',
+    });
+    expect(events.at(-1)).toMatchObject({type: 'done', reason: 'complete'});
+  });
+
+  it('does not emit a user message-start for the reminder round', async () => {
+    vi.spyOn(llmApi, 'countToken').mockResolvedValue(1);
+    vi.spyOn(llmApi, 'streamCompletion')
+      .mockReturnValueOnce(textCompletionStream('first stop'))
+      .mockReturnValueOnce(textCompletionStream('after reminder'));
+
+    let calls = 0;
+    const onceCheck = {
+      name: 'once',
+      evaluate: () => (calls++ === 0 ? {content: 'reconsider'} : null),
+    };
+
+    const events = await collectAll(
+      agentTurnRunner.run(createInput({stopChecks: [onceCheck]})),
+    );
+
+    const userStarts = events.filter(
+      (e) => e.type === 'message-start' && e.role === 'user',
+    );
+    expect(userStarts).toHaveLength(1);
+  });
+
+  it('merges multiple firing checks into one reminder', async () => {
+    vi.spyOn(llmApi, 'countToken').mockResolvedValue(1);
+    vi.spyOn(llmApi, 'streamCompletion')
+      .mockReturnValueOnce(textCompletionStream('first stop'))
+      .mockReturnValueOnce(textCompletionStream('after reminder'));
+
+    let aCalls = 0;
+    let bCalls = 0;
+    const checkA = {
+      name: 'a',
+      evaluate: () => (aCalls++ === 0 ? {content: 'alpha'} : null),
+    };
+    const checkB = {
+      name: 'b',
+      evaluate: () => (bCalls++ === 0 ? {content: 'beta'} : null),
+    };
+
+    const events = await collectAll(
+      agentTurnRunner.run(createInput({stopChecks: [checkA, checkB]})),
+    );
+
+    const reminder = events.find((e) => e.type === 'stop-check-reminder');
+    expect(reminder).toMatchObject({
+      checkNames: ['a', 'b'],
+      content: 'alpha\n\nbeta',
+    });
+  });
+
+  it('logs and skips a rejecting check, still merging others', async () => {
+    vi.spyOn(llmApi, 'countToken').mockResolvedValue(1);
+    vi.spyOn(llmApi, 'streamCompletion')
+      .mockReturnValueOnce(textCompletionStream('first stop'))
+      .mockReturnValueOnce(textCompletionStream('after reminder'));
+
+    let good = 0;
+    const boom = {
+      name: 'boom',
+      evaluate: () => {
+        throw new Error('check failed');
+      },
+    };
+    const ok = {
+      name: 'ok',
+      evaluate: () => (good++ === 0 ? {content: 'still here'} : null),
+    };
+
+    const events = await collectAll(
+      agentTurnRunner.run(createInput({stopChecks: [boom, ok]})),
+    );
+
+    const reminder = events.find((e) => e.type === 'stop-check-reminder');
+    expect(reminder).toMatchObject({checkNames: ['ok'], content: 'still here'});
+  });
+
+  it('reminds every round for a check that omits a state token, until max rounds', async () => {
+    vi.spyOn(llmApi, 'countToken').mockResolvedValue(1);
+    vi.spyOn(llmApi, 'streamCompletion').mockImplementation(() =>
+      textCompletionStream('no tools'),
+    );
+
+    const always = {
+      name: 'always',
+      evaluate: () => ({content: 'still not done'}),
+    };
+
+    const events = await collectAll(
+      agentTurnRunner.run(
+        createInput({stopChecks: [always], getMaxToolRounds: () => 2}),
+      ),
+    );
+
+    expect(events.at(-1)).toMatchObject({
+      type: 'done',
+      reason: 'max_rounds_reached',
+    });
+    const reminders = events.filter((e) => e.type === 'stop-check-reminder');
+    expect(reminders).toHaveLength(2);
+  });
+
+  it('suppresses a repeated reminder when the state token is unchanged', async () => {
+    vi.spyOn(llmApi, 'countToken').mockResolvedValue(1);
+    vi.spyOn(llmApi, 'streamCompletion').mockImplementation(() =>
+      textCompletionStream('no tools'),
+    );
+
+    // Same token every boundary: the agent never changed the underlying state.
+    const stuck = {
+      name: 'stuck',
+      evaluate: () => ({content: 'unchanged', stateToken: 'v1'}),
+    };
+
+    const events = await collectAll(
+      agentTurnRunner.run(
+        createInput({stopChecks: [stuck], getMaxToolRounds: () => 5}),
+      ),
+    );
+
+    const reminders = events.filter((e) => e.type === 'stop-check-reminder');
+    expect(reminders).toHaveLength(1);
+    expect(events.at(-1)).toMatchObject({type: 'done', reason: 'complete'});
+  });
+
+  it('re-fires a reminder when the state token changes', async () => {
+    vi.spyOn(llmApi, 'countToken').mockResolvedValue(1);
+    vi.spyOn(llmApi, 'streamCompletion').mockImplementation(() =>
+      textCompletionStream('no tools'),
+    );
+
+    // Token advances each boundary: distinct states each deserve a reminder.
+    let version = 0;
+    const advancing = {
+      name: 'advancing',
+      evaluate: () => ({content: 'changed', stateToken: `v${version++}`}),
+    };
+
+    const events = await collectAll(
+      agentTurnRunner.run(
+        createInput({stopChecks: [advancing], getMaxToolRounds: () => 2}),
+      ),
+    );
+
+    expect(events.at(-1)).toMatchObject({
+      type: 'done',
+      reason: 'max_rounds_reached',
+    });
+    const reminders = events.filter((e) => e.type === 'stop-check-reminder');
+    expect(reminders).toHaveLength(2);
+  });
+
+  it('does not record the de-dup token when max rounds cuts off the reminder', async () => {
+    vi.spyOn(llmApi, 'countToken').mockResolvedValue(1);
+    vi.spyOn(llmApi, 'streamCompletion').mockImplementation(() =>
+      textCompletionStream('no tools'),
+    );
+
+    // Same token across both turns: if turn 1 wrongly records it despite never
+    // delivering the reminder, turn 2 would suppress it and emit nothing.
+    const stuck = {
+      name: 'stuck',
+      evaluate: () => ({content: 'pending work', stateToken: 'v1'}),
+    };
+    const runtimeState = new AgentRuntimeState('/workspace/project');
+
+    // Turn 1: budget 0 → the no-tool boundary hits max rounds before sending.
+    const firstTurn = await collectAll(
+      agentTurnRunner.run(
+        createInput({
+          stopChecks: [stuck],
+          runtimeState,
+          getMaxToolRounds: () => 0,
+        }),
+      ),
+    );
+    expect(firstTurn.some((e) => e.type === 'stop-check-reminder')).toBe(false);
+    expect(firstTurn.at(-1)).toMatchObject({
+      type: 'done',
+      reason: 'max_rounds_reached',
+    });
+
+    // Turn 2: same runtimeState, real budget → the reminder must still fire,
+    // because turn 1 never delivered it and so must not have recorded the token.
+    const secondTurn = await collectAll(
+      agentTurnRunner.run(
+        createInput({
+          stopChecks: [stuck],
+          runtimeState,
+          getMaxToolRounds: () => 5,
+        }),
+      ),
+    );
+    const reminders = secondTurn.filter(
+      (e) => e.type === 'stop-check-reminder',
+    );
+    expect(reminders).toHaveLength(1);
+  });
+
+  it('does not record the token when the reminder response wants tools but is budget-cut', async () => {
+    vi.spyOn(llmApi, 'countToken').mockResolvedValue(1);
+    // Turn 1: initial response has no tools → reminder fires → the reminder
+    // response asks for a tool, but maxRounds=1 cuts off before it runs.
+    // Each mock call must yield a FRESH generator (generators are single-use).
+    let call = 0;
+    vi.spyOn(llmApi, 'streamCompletion').mockImplementation(() => {
+      call += 1;
+      if (call === 1) return textCompletionStream('no tools yet');
+      if (call === 2) {
+        return toolCallCompletionStream([
+          {callId: 'call-1', toolName: 'mock_tool'},
+        ]);
+      }
+      // Turn 2 streams (fresh budget): no tools so the turn can settle.
+      return textCompletionStream('no tools');
+    });
+
+    const stuck = {
+      name: 'stuck',
+      evaluate: () => ({content: 'pending work', stateToken: 'v1'}),
+    };
+    const runtimeState = new AgentRuntimeState('/workspace/project');
+    const tool = createTool({name: 'mock_tool'});
+
+    const firstTurn = await collectAll(
+      agentTurnRunner.run(
+        createInput({
+          stopChecks: [stuck],
+          runtimeState,
+          toolRegistries: [toolRegistryWith(tool)],
+          getMaxToolRounds: () => 1,
+        }),
+      ),
+    );
+    // The reminder was delivered, but its tool never executed (budget cut).
+    expect(firstTurn.some((e) => e.type === 'stop-check-reminder')).toBe(true);
+    expect(firstTurn.some((e) => e.type === 'tool-execute-start')).toBe(false);
+    expect(firstTurn.at(-1)).toMatchObject({
+      type: 'done',
+      reason: 'max_rounds_reached',
+    });
+
+    // Turn 2: same unchanged state → the reminder must re-fire, because the
+    // agent tried to act (returned a tool call) rather than choosing to stop.
+    const secondTurn = await collectAll(
+      agentTurnRunner.run(
+        createInput({
+          stopChecks: [stuck],
+          runtimeState,
+          getMaxToolRounds: () => 5,
+        }),
+      ),
+    );
+    expect(
+      secondTurn.filter((e) => e.type === 'stop-check-reminder'),
+    ).toHaveLength(1);
+  });
+
+  it('rejects a turn with duplicate stop-check names', async () => {
+    vi.spyOn(llmApi, 'countToken').mockResolvedValue(1);
+    vi.spyOn(llmApi, 'streamCompletion').mockReturnValue(
+      textCompletionStream(),
+    );
+
+    const a = {name: 'dup', evaluate: () => null};
+    const b = {name: 'dup', evaluate: () => null};
+
+    await expect(
+      collectAll(agentTurnRunner.run(createInput({stopChecks: [a, b]}))),
+    ).rejects.toThrow(/Duplicate stop-check name: dup/);
+  });
+
+  it('does not emit a reminder when no check fires', async () => {
+    vi.spyOn(llmApi, 'countToken').mockResolvedValue(1);
+    vi.spyOn(llmApi, 'streamCompletion').mockReturnValue(
+      textCompletionStream(),
+    );
+
+    const never = {name: 'never', evaluate: () => null};
+
+    const events = await collectAll(
+      agentTurnRunner.run(createInput({stopChecks: [never]})),
+    );
+
+    expect(events.some((e) => e.type === 'stop-check-reminder')).toBe(false);
+    expect(events.at(-1)).toMatchObject({type: 'done', reason: 'complete'});
+  });
+
+  it('treats an empty-content check as not firing (no reminder emitted)', async () => {
+    vi.spyOn(llmApi, 'countToken').mockResolvedValue(1);
+    vi.spyOn(llmApi, 'streamCompletion').mockReturnValue(
+      textCompletionStream(),
+    );
+
+    // A check that fires (non-null) but with empty content must not produce a
+    // reminder event — the SSE schema requires non-empty content.
+    const emptyCheck = {name: 'empty', evaluate: () => ({content: ''})};
+
+    const events = await collectAll(
+      agentTurnRunner.run(createInput({stopChecks: [emptyCheck]})),
+    );
+
+    expect(events.some((e) => e.type === 'stop-check-reminder')).toBe(false);
+    expect(events.at(-1)).toMatchObject({type: 'done', reason: 'complete'});
   });
 });

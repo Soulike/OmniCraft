@@ -1,0 +1,549 @@
+# Stop-Check Reminders
+
+A mechanism that lets the agent loop run extensible checks at the moment a turn
+would end, and inject a hidden reminder back to the LLM when a check is not
+satisfied — for example, "you still have unchecked TODOs". The reminder is
+visible to the LLM and persisted for debugging, but never rendered in the UI.
+
+## Problem
+
+The agent turn loop in `agent-turn-runner.ts` ends a turn solely by checking
+`while (toolCalls.length > 0)` (`agent-turn-runner.ts:111`). When the LLM stops
+calling tools, the loop exits unconditionally and `emitDoneAfterTurn` runs. There
+is no hook to inspect agent state and nudge the model before the turn closes.
+
+We want to catch cases where the agent stops prematurely while work is still
+pending. The first such case is incomplete TODOs: the agent has a TODO list with
+items still in `pending`/`in_progress`, but it stops calling tools and would end
+the turn. The system should remind it before letting the turn finish.
+
+The reminder must be:
+
+- **Visible to the LLM** so it can act on it (complete the work, or explicitly
+  state why it is stopping).
+- **Hidden from the UI** in both live streaming and history reload, so the chat
+  transcript is not polluted with system bookkeeping.
+- **Visible for debugging** so we can see the full causal chain of why a turn ran
+  extra rounds.
+
+## Goals
+
+- Add an extensible `StopCheck` mechanism evaluated at the turn-end boundary,
+  with the check list owned per agent type (no global static list).
+- Inject a reminder as a hidden `user` message to the LLM when one or more checks
+  are unsatisfied, wrapped in `<system-reminder>`.
+- Emit a dedicated `stop-check-reminder` SSE event that is persisted and replayed
+  but ignored by the frontend in both live and reload paths.
+- Ship an `incomplete-todos` check as the first `StopCheck`.
+- Guarantee termination via the existing `maxRounds` ceiling.
+
+## Non-Goals
+
+- No `LlmMessage` schema change. History reload is purely SSE-event-driven (see
+  Background), so marking the injected message would have no consumer.
+- State-token de-duplication, not unconditional re-reminding. A check may return a
+  `stateToken` identifying the state it observed; the reminder re-fires only when
+  that token changes. This prevents an infinite reminder loop when the agent
+  deliberately stops without acting (see §2 and §4). A check that omits the token
+  reminds every turn-end boundary.
+- No separate round budget for reminder rounds. Reminder rounds and tool rounds
+  share one `round` counter and one `maxRounds` ceiling.
+- No dev-mode rendering of the reminder event. The event is persisted; a debug UI
+  can be added later if needed.
+- No change to compaction, abort, usage reporting, or persistence beyond adding
+  the new event to the existing SSE log. Note: the reminder is a normal `user`
+  message, so it does feed the context-compaction summary input and can thus
+  influence a user-visible compaction summary. This is acceptable for the
+  shipped `todoStopCheck`, whose content is non-sensitive todo state already
+  surfaced via `todo-update` events — "hidden" here means live-transcript
+  cleanliness, not confidentiality. A future check carrying sensitive or
+  debug-only text would need reminder messages tagged so compaction can retain
+  model state without emitting them in summaries.
+
+## Background: how history reload works
+
+History reload is **SSE-event replay only**. On reconnect, the backend streams
+persisted events from `sse-events.jsonl` via the `GET .../session/:id/events`
+endpoint (`dispatcher/agent-session/router.ts`); it never sends `LlmMessage[]` or
+the `LlmSession` snapshot to the frontend. The frontend rebuilds every chat bubble
+from SSE events — a user bubble comes from a `message-start` event with
+`role: 'user'` (`useMessages.ts` `applyUserMessageStart`), not from an
+`LlmMessage`.
+
+Consequence: hiding the reminder is entirely controlled by **which SSE event we
+emit**. A reminder round emits `stop-check-reminder` (which the frontend ignores)
+instead of `message-start`, so it is invisible live and on reload, with identical
+behavior in both paths. No message marking is required.
+
+## Selected Design
+
+### 1. SSE event type
+
+Add to `packages/sse-events/src/schema.ts`:
+
+```ts
+export const sseStopCheckReminderEventSchema = z.object({
+  type: z.literal('stop-check-reminder'),
+  checkNames: z.array(z.string()), // which checks fired this round (debug)
+  content: z.string(), // merged reminder text, unwrapped
+  messageId: z.string(),
+  createdAt: z.number(),
+});
+```
+
+Add `SseStopCheckReminderEvent` to the exported TS types and include the schema in
+the `SseEvent` union so it is parsed/validated on deserialization and persisted to
+`sse-events.jsonl` like any other event.
+
+`content` stores the **unwrapped** reminder text. The `<system-reminder>` wrapper
+is added only when injecting to the LLM (step 3), keeping the persisted event
+human-readable for debugging.
+
+### 2. StopCheck interface and checks
+
+New directory `apps/backend/src/agent-core/agent/stop-checks/`.
+
+`types.ts`:
+
+```ts
+export interface StopCheckContext {
+  readonly runtimeState: AgentRuntimeState;
+}
+
+export interface StopCheckResult {
+  // Reminder text injected to the LLM.
+  readonly content: string;
+  // An opaque token identifying the checked state. The reminder re-fires only
+  // when this token changes between turn-end boundaries; an unchanged token is
+  // suppressed (the agent saw the reminder and chose to stop anyway). Omit to
+  // remind on every boundary.
+  readonly stateToken?: string;
+}
+
+export interface StopCheck {
+  readonly name: string;
+  // Returns a result to block the turn from ending, or null to allow it.
+  // May be sync or async — async checks (e.g. shelling out to `git status`)
+  // are supported.
+  evaluate(
+    ctx: StopCheckContext,
+  ): StopCheckResult | null | Promise<StopCheckResult | null>;
+}
+```
+
+`todo-stop-check.ts` (first implementation):
+
+```ts
+export const todoStopCheck: StopCheck = {
+  name: 'incomplete-todos',
+  evaluate({runtimeState}) {
+    const todos = runtimeState.listTodos();
+    if (todos.length === 0) return null;
+    const unfinished = todos.filter((t) => t.status !== 'completed');
+    if (unfinished.length === 0) return null;
+    return {
+      stateToken: String(runtimeState.todoVersion),
+      content:
+        `Note: the TODO list still has ${unfinished.length} unfinished ` +
+        `item(s):\n` +
+        unfinished.map((t) => `- [${t.status}] ${t.subject}`).join('\n') +
+        `\nThis is just a reminder of the current state. If they are done, ` +
+        `update their status; if they are no longer needed, clear or remove ` +
+        `them; if they are intentionally being left for later, you can proceed.`,
+    };
+  },
+};
+```
+
+The `stateToken` is the todo store's `version` (already incremented on every todo
+mutation). So the reminder fires once per distinct todo state: if the agent stops
+without touching todos, the version is unchanged and the next boundary suppresses
+the reminder; if the agent actually edits todos and stops again, the version has
+advanced and a fresh reminder fires.
+
+> The snippet above shows the core logic; the shipped check adds two hardening
+> details (see `todo-stop-check.ts`): it lists at most `MAX_LISTED` (20) items
+> verbatim and summarizes the rest as a count (bounding reminder size), and it
+> passes each `subject` through `collapseLineTerminators` before embedding it, so
+> a line break in an attacker-influenced subject cannot surface as standalone
+> system guidance in the privileged block.
+
+`index.ts` exports the interface and each check implementation
+(`todoStopCheck`). There is **no** global `defaultStopChecks` constant: the set of
+checks is owned per agent type, not globally (see below).
+
+`evaluate` may be sync or async, and reads a `runtimeState` snapshot. The
+`incomplete-todos` check is sync (memory read only), but the signature allows
+future IO-bound checks (e.g. `git status`) without an interface change. Each
+check owns its full reminder wording.
+
+#### Ownership: per agent type
+
+The check list is owned by each agent subclass and flows the same path as
+`toolRegistries`/`skillRegistries`, which already vary by agent type. Add
+`readonly stopChecks: readonly StopCheck[]` to `AgentOptions`
+(`agent-core/agent/types.ts`); the `Agent` base class stores it and forwards it
+into `RunAgentTurnInput` from `runAgentLoop` (`agent.ts`), mirroring the existing
+registry plumbing. The turn runner receives the list via `RunAgentTurnInput`
+rather than importing checks directly, keeping it testable.
+
+Each agent type declares its own list, matching its capabilities:
+
+- **MainAgent / CodingAgent** own `todoToolRegistry`, so they declare
+  `stopChecks: [todoStopCheck]`.
+- **ExploreSubAgent / GeneralSubAgent** are read-only and have no TODO tool, so
+  they declare `stopChecks: []`.
+
+This avoids the mismatch of a global list applying a TODO check to an agent that
+can never create a TODO. A global static array is intentionally rejected as too
+inflexible and inconsistent with how every other capability is wired.
+
+### 3. LlmSession.sendReminder
+
+Add to `llm-session.ts`, symmetric with `sendUserMessage` (`llm-session.ts:97`):
+
+```ts
+sendReminder(
+  content: string,
+  tools: readonly ToolDefinition[],
+  systemPrompt: string,
+  thinkingLevel: ThinkingLevel,
+  signal?: AbortSignal,
+): SendUserMessageResult {
+  const reminderMessage = {
+    id: crypto.randomUUID(),
+    createdAt: Date.now(),
+    role: 'user' as const,
+    content: `<system-reminder>\n${content}\n</system-reminder>`,
+  };
+  return {
+    stream: this.sendMessages(
+      [reminderMessage],
+      tools,
+      systemPrompt,
+      thinkingLevel,
+      signal,
+    ),
+    messageId: reminderMessage.id,
+    createdAt: reminderMessage.createdAt,
+  };
+}
+```
+
+- Injects a plain `user` message — no marking, since the frontend never sees
+  `LlmMessage`.
+- The `<system-reminder>` wrapper is applied **here and only here**. The SSE
+  event's `content` (step 1) is the unwrapped text.
+- Reuses `sendMessages`, inheriting mutex serialization, rollback on
+  failure/abort, and pre-call compaction — the same robust path as normal
+  messages.
+- Returns `SendUserMessageResult`. The runner forwards its `messageId`/`createdAt`
+  into the `stop-check-reminder` event so the event id matches the LLM-history
+  message id (debug correlation), but does **not** emit a `message-start`.
+
+### 4. Turn-runner control flow (Approach A)
+
+#### `advanceTurn` helper (deduplication)
+
+The current runner repeats the same block at both LLM-consume sites (initial
+`sendUserMessage` at `agent-turn-runner.ts:94`, and `submitToolResults` at `:236`):
+consume the stream into `toolCalls`, treat an abort-time throw as a clean exit,
+and report usage. Approach A adds a third consume site (the reminder round), which
+would make it three copies. Extract the shared operation — "feed the LLM a stream,
+consume it into tool calls, handle abort, report usage" — into one private
+generator so all three sites are identical.
+
+Because a sub-generator cannot force the parent `run()` to `return`, the helper
+signals abort via its **return value**; the single caller pattern decides whether
+to finish. It cannot reuse `AgentEventStream` (whose return type is `void`), so it
+is typed explicitly:
+
+```ts
+private async *advanceTurn(
+  stream: LlmSessionEventStream,
+  input: RunAgentTurnInput,
+): AsyncGenerator<AgentEvent, {aborted: boolean; toolCalls: LlmToolCall[]}, undefined> {
+  try {
+    const toolCalls = yield* agentLlmStreamTranslator.consume(stream);
+    yield await agentUsageReporter.buildUsageUpdateEvent(input);
+    return {aborted: false, toolCalls};
+  } catch (error: unknown) {
+    if (input.signal.aborted) return {aborted: true, toolCalls: []};
+    throw error;
+  }
+}
+```
+
+Each consume site collapses to:
+
+```ts
+const r = yield * this.advanceTurn(stream, input);
+if (r.aborted) {
+  yield *
+    this.emitAbortCompletion({
+      inFlightToolCalls,
+      tools: toolDefs,
+      systemPrompt,
+      input,
+    });
+  return;
+}
+toolCalls = r.toolCalls;
+```
+
+The initial `sendUserMessage` consume (`:94`) and the tool-round
+`submitToolResults` consume (`:236`) are migrated to this helper as part of this
+change, not just the new reminder round — otherwise the change would leave three
+copies of the abort/usage boilerplate instead of one.
+
+#### Loop
+
+Rewrite the loop in `agent-turn-runner.ts:111` from `while (toolCalls.length > 0)`
+to `while (true)`, handling the no-tool-calls branch at the top:
+
+```ts
+let round = 0;
+while (true) {
+  if (input.signal.aborted) {
+    yield* this.emitAbortCompletion({inFlightToolCalls, tools: toolDefs, systemPrompt, input});
+    return;
+  }
+
+  // No tool calls → the turn would end. Run stop-checks first.
+  if (toolCalls.length === 0) {
+    const reminder = await this.evaluateStopChecks(input.stopChecks, input.runtimeState);
+    if (!reminder) break; // all checks allow the turn to end
+
+    round++;
+    if (round > maxRounds) {
+      yield* this.emitDoneAfterTurn({reason: 'max_rounds_reached', tools: toolDefs, systemPrompt, input});
+      return;
+    }
+
+    const {stream, messageId, createdAt} = input.llmSession.sendReminder(
+      reminder.content, toolDefs, systemPrompt, input.thinkingLevel, input.signal,
+    );
+    yield {
+      type: 'stop-check-reminder',
+      checkNames: reminder.checkNames,
+      content: reminder.content,
+      messageId,
+      createdAt,
+    } satisfies SseStopCheckReminderEvent;
+
+    const r = yield* this.advanceTurn(stream, input);
+    if (r.aborted) {
+      yield* this.emitAbortCompletion({inFlightToolCalls, tools: toolDefs, systemPrompt, input});
+      return;
+    }
+    toolCalls = r.toolCalls;
+    continue;
+  }
+
+  // toolCalls.length > 0 → existing tool-execution body, unchanged
+  round++;
+  if (round > maxRounds) { /* emit max_rounds_reached, return */ }
+  // ...existing execution, SSE pumping...
+  const r = yield* this.advanceTurn(
+    input.llmSession.submitToolResults(orderedResults, toolDefs, systemPrompt, input.thinkingLevel, input.signal),
+    input,
+  );
+  if (r.aborted) {
+    yield* this.emitAbortCompletion({inFlightToolCalls, tools: toolDefs, systemPrompt, input});
+    return;
+  }
+  toolCalls = r.toolCalls;
+}
+
+yield* this.emitDoneAfterTurn({reason: 'complete', tools: toolDefs, systemPrompt, input});
+```
+
+`evaluateStopChecks` helper. Note it does **not** record tokens itself — it
+returns the firing checks' tokens, and the turn runner records them only after a
+delivered reminder that the agent answered by _stopping_ (see below). Recording
+eagerly here would wrongly suppress a future reminder when the agent tried to act
+but was budget-cut:
+
+```ts
+private async evaluateStopChecks(
+  stopChecks: readonly StopCheck[],
+  runtimeState: AgentRuntimeState,
+): Promise<{
+  checkNames: string[];
+  content: string;
+  tokens: {name: string; stateToken: string}[];
+} | null> {
+  const settled = await Promise.allSettled(
+    stopChecks.map(async (check) => ({
+      name: check.name,
+      result: await check.evaluate({runtimeState}),
+    })),
+  );
+
+  const fired: {name: string; content: string}[] = [];
+  const tokens: {name: string; stateToken: string}[] = [];
+  for (const [i, settledResult] of settled.entries()) {
+    if (settledResult.status === 'rejected') {
+      logger.error(
+        {err: settledResult.reason, check: stopChecks[i].name},
+        'Stop-check evaluation failed; skipping',
+      );
+      continue;
+    }
+    const {name, result} = settledResult.value;
+    if (result === null) continue;
+    // State-token de-dup: suppress a reminder whose token matches the one we
+    // last reminded on for this check (the agent already saw it and stopped).
+    if (
+      result.stateToken !== undefined &&
+      result.stateToken === runtimeState.getLastStopCheckToken(name)
+    ) {
+      continue;
+    }
+    if (result.stateToken !== undefined) {
+      tokens.push({name, stateToken: result.stateToken});
+    }
+    fired.push({name, content: result.content});
+  }
+
+  if (fired.length === 0) return null;
+  return {
+    checkNames: fired.map((f) => f.name),
+    content: fired.map((f) => f.content).join('\n\n'),
+    tokens,
+  };
+}
+```
+
+In the loop, after a reminder is delivered and consumed via `advanceTurn`, the
+runner records the returned `tokens` **only if the agent's response carried no
+tool calls** — i.e. it genuinely chose to stop. A tool-bearing response means the
+agent is trying to act, so the token is left unrecorded and the reminder re-fires
+on a later boundary (this also covers the case where a `maxRounds` cutoff then
+prevents those tools from running):
+
+```ts
+if (reminded.toolCalls.length === 0) {
+  for (const {name, stateToken} of reminder.tokens) {
+    input.runtimeState.recordStopCheckToken(name, stateToken);
+  }
+}
+```
+
+Checks run concurrently via `Promise.allSettled`. A rejected check (e.g. a
+future IO check whose subprocess fails) is logged via `logger` (from
+`@/logger.js`, per backend conventions — no `console`) and skipped, contributing
+nothing to the reminder. The rejected `result` carries no name, so `stopChecks[i]`
+is used to identify the failed check. One broken check neither aborts the round
+nor leaks a partial result to the LLM.
+
+The per-check last-reminded token lives on `AgentRuntimeState` (per-session,
+same lifetime as the agent), exposed as `getLastStopCheckToken(name)` and
+`recordStopCheckToken(name, token)` backed by a private `Map<string, string>`.
+A token is recorded only after a delivered reminder the agent answered by
+stopping, so the next boundary suppresses an identical state and re-fires a
+changed one.
+
+Design points:
+
+- **Merged, not short-circuited.** All unsatisfied checks are collected in one
+  pass and their texts joined with `\n\n` into a single reminder. The agent sees
+  every pending problem at once and can resolve them together, rather than one per
+  round. No numbering or headings are added — each check's text is already
+  self-contained.
+- **Shared round counter.** Reminder rounds and tool rounds increment the same
+  `round` and share `maxRounds`. A turn whose tool rounds already approach the
+  ceiling has correspondingly fewer reminder rounds left — a single anti-spin
+  gate.
+- **State-token de-dup terminates the loop.** A check that returns a `stateToken`
+  reminds once per distinct state. When the agent stops without acting, the token
+  is unchanged, the boundary suppresses the reminder, and the turn ends with
+  `complete` — not `max_rounds_reached`. A reminder re-fires only after the agent
+  changes the underlying state (advancing the token). `maxRounds` remains the
+  backstop for a check that omits the token or for genuinely churning state.
+- **Abort** is checked at the loop top and around `consume`, matching existing
+  handling.
+- A reminder round emits `stop-check-reminder` and **never** `message-start` —
+  this is the entire implementation of "hidden".
+
+### 5. Frontend: ignore the event
+
+The only frontend change is in the SSE dispatch `switch` in `useStreamChat.ts`:
+
+```ts
+case 'stop-check-reminder':
+  // Hidden reminder: not routed to the UI. Still in sse-events.jsonl for debug.
+  break;
+```
+
+Not calling `routeBaseEventToBus` keeps it out of the event bus, so rendering
+layers (`useMessages`, etc.) never see it — invisible live and on reload. An
+explicit `case` (rather than falling through to `default`) avoids unknown-event
+warnings and documents the deliberate non-rendering. The Zod schema from step 1
+ensures the event deserializes without error during replay.
+
+## Error Handling
+
+- **Abort during a reminder round:** handled identically to a tool round —
+  `emitAbortCompletion` runs and the turn ends with `reason: 'aborted'`.
+- **`maxRounds` reached via reminder rounds:** the turn ends with
+  `reason: 'max_rounds_reached'`, same as tool-round exhaustion. This is the
+  termination guarantee for an agent that ignores reminders.
+- **`sendReminder` stream failure:** propagates through the same `try/catch` as
+  `submitToolResults`; on abort it ends cleanly, otherwise it rethrows.
+- **A `StopCheck.evaluate` rejecting/throwing:** `evaluateStopChecks` runs checks
+  through `Promise.allSettled`, so a rejected check is logged via `logger.error`
+  and skipped (treated as "allow"). It does not abort the round, affect other
+  checks, or leak a partial result to the LLM.
+
+## Testing
+
+Backend (`agent-turn-runner` tests, `stop-checks` tests):
+
+- With an incomplete TODO list and a model that returns no tool calls, the runner
+  emits exactly one `stop-check-reminder` event and issues a `sendReminder`
+  follow-up round.
+- With all TODOs `completed` (or an empty list), no reminder is emitted and the
+  turn ends with `reason: 'complete'`.
+- Multiple unsatisfied checks merge into one reminder: `checkNames` lists all
+  fired checks and `content` contains each check's text joined by `\n\n`.
+- State-token de-dup: when a check returns the same `stateToken` on a second
+  boundary (agent stopped without acting), the reminder is suppressed and the turn
+  ends with `reason: 'complete'` — not `max_rounds_reached`. Exactly one reminder
+  is emitted across the two boundaries.
+- A check whose `stateToken` changes between boundaries re-fires the reminder
+  (two reminders for two distinct states).
+- A check that omits `stateToken` reminds on every boundary and is bounded only by
+  `maxRounds`, terminating at `reason: 'max_rounds_reached'` (no infinite loop).
+- Reminder rounds and tool rounds share the `round` counter: a turn near the
+  ceiling does not get extra reminder rounds.
+- The `stop-check-reminder` round does not emit a `message-start` event.
+- `advanceTurn` reports usage on success and, on an abort-time throw, returns
+  `{aborted: true}` rather than rethrowing; an abort at any of the three consume
+  sites (initial, tool round, reminder round) ends the turn via
+  `emitAbortCompletion` identically.
+- `evaluateStopChecks` returns `null` when all checks pass and a merged result
+  when any fire.
+- `evaluateStopChecks` runs checks concurrently; a check that rejects is logged
+  and skipped, while other checks' results still merge into the reminder.
+- `sendReminder` wraps `content` in `<system-reminder>` and records a `user`
+  message in history; its returned `messageId` matches the emitted event's
+  `messageId`.
+- A read-only agent type (Explore/General) is constructed with `stopChecks: []`
+  and never emits a `stop-check-reminder`, even with no tool calls; Main/Coding
+  carry `todoStopCheck`.
+
+Frontend (`useStreamChat` / message-rendering tests):
+
+- A `stop-check-reminder` event is not routed to the event bus and produces no
+  chat message, both live and on replay.
+
+## Open Decisions
+
+None. The state-token de-dup policy (a check reminds once per distinct state,
+tracked per-session on `AgentRuntimeState`) is the chosen termination mechanism,
+backed by the shared `maxRounds` ceiling and `allSettled` per-check error
+isolation. De-dup state is per-session and intentionally not persisted across
+turns' token history beyond the agent's lifetime; it resets when the agent is
+reconstructed, which is acceptable since a reminder on the first boundary of a
+restored session is harmless.

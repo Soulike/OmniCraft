@@ -15,6 +15,7 @@ import {
   agentPersistence,
   type AgentSnapshot,
 } from '@/agent-core/agent/index.js';
+import {todoStopCheck} from '@/agent-core/agent/stop-checks/index.js';
 import {settingsService} from '@/services/settings/index.js';
 
 import {codingAgentSystemPrompt} from './system-prompt.js';
@@ -48,6 +49,7 @@ export class CodingAgent extends Agent {
           todoToolRegistry,
         ],
         skillRegistries: [coreSkillRegistry],
+        stopChecks: [todoStopCheck],
         baseSystemPrompt: codingAgentSystemPrompt,
         getMaxToolRounds: async () => {
           const settings = await settingsService.getAll();

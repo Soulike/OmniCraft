@@ -1,7 +1,10 @@
+import assert from 'node:assert';
+
 import type {ThinkingLevel} from '@omnicraft/api-schema';
 import type {
   SseDoneEvent,
   SseMessageStartEvent,
+  SseStopCheckReminderEvent,
   SseTodoUpdateEvent,
   SseToolExecuteEndEvent,
   SseToolExecuteStartEvent,
@@ -9,9 +12,14 @@ import type {
 import type {ToolName} from '@omnicraft/tool-schemas';
 
 import {AsyncChannel} from '@/helpers/async-channel.js';
+import {logger} from '@/logger.js';
 
 import type {LlmConfig, LlmToolCall} from '../llm-api/index.js';
-import type {LlmSession, ToolResult} from '../llm-session/index.js';
+import type {
+  LlmSession,
+  LlmSessionEventStream,
+  ToolResult,
+} from '../llm-session/index.js';
 import type {SkillRegistry} from '../skill/index.js';
 import type {ToolDefinition, ToolRegistry} from '../tool/index.js';
 import {agentLlmStreamTranslator} from './agent-llm-stream-translator.js';
@@ -27,7 +35,8 @@ import {
   buildSystemPrompt,
 } from './catalog/agent-catalog.js';
 import type {SubagentRegistry} from './state/subagent-registry.js';
-import type {AgentEventStream} from './types.js';
+import type {StopCheck} from './stop-checks/index.js';
+import type {AgentEvent, AgentEventStream} from './types.js';
 
 export interface RunAgentTurnInput {
   readonly userMessage: string;
@@ -41,6 +50,7 @@ export interface RunAgentTurnInput {
   readonly runtimeState: AgentRuntimeState;
   readonly toolRegistries: readonly ToolRegistry[];
   readonly skillRegistries: readonly SkillRegistry[];
+  readonly stopChecks: readonly StopCheck[];
   readonly baseSystemPrompt: string;
   readonly getConfig: () => Promise<LlmConfig>;
   readonly getLightConfig: () => Promise<LlmConfig>;
@@ -56,6 +66,8 @@ export class AgentTurnRunner {
   async *run(input: RunAgentTurnInput): AgentEventStream {
     const inFlightToolCalls = new Set<string>();
     const maxRounds = await input.getMaxToolRounds();
+
+    assertUniqueStopCheckNames(input.stopChecks);
 
     const availableTools = buildAvailableTools(
       input.toolRegistries,
@@ -90,10 +102,21 @@ export class AgentTurnRunner {
       content: input.userMessage,
     } satisfies SseMessageStartEvent;
 
-    let toolCalls: LlmToolCall[];
-    try {
-      toolCalls = yield* agentLlmStreamTranslator.consume(userStream);
-    } catch (error: unknown) {
+    const initial = yield* this.advanceTurn(userStream, input);
+    if (initial.aborted) {
+      yield* this.emitAbortCompletion({
+        inFlightToolCalls,
+        tools: toolDefs,
+        systemPrompt,
+        input,
+      });
+      return;
+    }
+    let toolCalls = initial.toolCalls;
+
+    let round = 0;
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+    while (true) {
       if (input.signal.aborted) {
         yield* this.emitAbortCompletion({
           inFlightToolCalls,
@@ -103,20 +126,68 @@ export class AgentTurnRunner {
         });
         return;
       }
-      throw error;
-    }
-    yield await agentUsageReporter.buildUsageUpdateEvent(input);
 
-    let round = 0;
-    while (toolCalls.length > 0) {
-      if (input.signal.aborted) {
-        yield* this.emitAbortCompletion({
-          inFlightToolCalls,
-          tools: toolDefs,
-          systemPrompt,
-          input,
-        });
-        return;
+      if (toolCalls.length === 0) {
+        const reminder = await this.evaluateStopChecks(
+          input.stopChecks,
+          input.runtimeState,
+        );
+        if (!reminder) break;
+
+        round++;
+        if (round > maxRounds) {
+          yield* this.emitDoneAfterTurn({
+            reason: 'max_rounds_reached',
+            tools: toolDefs,
+            systemPrompt,
+            input,
+          });
+          return;
+        }
+
+        // sendReminder is the sole owner of sanitization; it returns the
+        // sanitized body it injected, which we surface in the SSE event so the
+        // persisted/broadcast text matches what the model saw — never the raw
+        // payload.
+        const {stream, messageId, createdAt, content} =
+          input.llmSession.sendReminder(
+            reminder.content,
+            toolDefs,
+            systemPrompt,
+            input.thinkingLevel,
+            input.signal,
+          );
+        yield {
+          type: 'stop-check-reminder',
+          checkNames: reminder.checkNames,
+          content,
+          messageId,
+          createdAt,
+        } satisfies SseStopCheckReminderEvent;
+
+        const reminded = yield* this.advanceTurn(stream, input);
+        if (reminded.aborted) {
+          yield* this.emitAbortCompletion({
+            inFlightToolCalls,
+            tools: toolDefs,
+            systemPrompt,
+            input,
+          });
+          return;
+        }
+        // Record de-dup tokens only when the agent answered the reminder by
+        // stopping (no tool calls). If it returned tool calls it is trying to
+        // act — recording now would mis-mark the state as "seen and dismissed"
+        // and suppress a future reminder, especially if a maxRounds cutoff then
+        // prevents those tools from running. A tool-bearing response leaves the
+        // token unrecorded, so the reminder re-fires while the state is stuck.
+        if (reminded.toolCalls.length === 0) {
+          for (const {name, stateToken} of reminder.tokens) {
+            input.runtimeState.recordStopCheckToken(name, stateToken);
+          }
+        }
+        toolCalls = reminded.toolCalls;
+        continue;
       }
 
       round++;
@@ -233,30 +304,26 @@ export class AgentTurnRunner {
         return result ? [result] : [];
       });
 
-      try {
-        toolCalls = yield* agentLlmStreamTranslator.consume(
-          input.llmSession.submitToolResults(
-            orderedResults,
-            toolDefs,
-            systemPrompt,
-            input.thinkingLevel,
-            input.signal,
-          ),
-        );
-      } catch (error: unknown) {
-        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-        if (input.signal.aborted) {
-          yield* this.emitAbortCompletion({
-            inFlightToolCalls,
-            tools: toolDefs,
-            systemPrompt,
-            input,
-          });
-          return;
-        }
-        throw error;
+      const next = yield* this.advanceTurn(
+        input.llmSession.submitToolResults(
+          orderedResults,
+          toolDefs,
+          systemPrompt,
+          input.thinkingLevel,
+          input.signal,
+        ),
+        input,
+      );
+      if (next.aborted) {
+        yield* this.emitAbortCompletion({
+          inFlightToolCalls,
+          tools: toolDefs,
+          systemPrompt,
+          input,
+        });
+        return;
       }
-      yield await agentUsageReporter.buildUsageUpdateEvent(input);
+      toolCalls = next.toolCalls;
     }
 
     yield* this.emitDoneAfterTurn({
@@ -265,6 +332,77 @@ export class AgentTurnRunner {
       systemPrompt,
       input,
     });
+  }
+
+  private async *advanceTurn(
+    stream: LlmSessionEventStream,
+    input: RunAgentTurnInput,
+  ): AsyncGenerator<
+    AgentEvent,
+    {aborted: boolean; toolCalls: LlmToolCall[]},
+    undefined
+  > {
+    try {
+      const toolCalls = yield* agentLlmStreamTranslator.consume(stream);
+      yield await agentUsageReporter.buildUsageUpdateEvent(input);
+      return {aborted: false, toolCalls};
+    } catch (error: unknown) {
+      if (input.signal.aborted) return {aborted: true, toolCalls: []};
+      throw error;
+    }
+  }
+
+  private async evaluateStopChecks(
+    stopChecks: readonly StopCheck[],
+    runtimeState: AgentRuntimeState,
+  ): Promise<{
+    checkNames: string[];
+    content: string;
+    tokens: {name: string; stateToken: string}[];
+  } | null> {
+    const settled = await Promise.allSettled(
+      stopChecks.map(async (check) => ({
+        name: check.name,
+        result: await check.evaluate({runtimeState}),
+      })),
+    );
+
+    const fired: {name: string; content: string}[] = [];
+    const tokens: {name: string; stateToken: string}[] = [];
+    for (const [index, settledResult] of settled.entries()) {
+      if (settledResult.status === 'rejected') {
+        logger.error(
+          {err: settledResult.reason, check: stopChecks[index].name},
+          'Stop-check evaluation failed; skipping',
+        );
+        continue;
+      }
+      const {name, result} = settledResult.value;
+      if (result === null) continue;
+      // An empty content has nothing to remind about — treat it like a check
+      // that didn't fire. This also keeps the emitted event non-empty, which
+      // the SSE schema (and the frontend's strict parse) requires.
+      if (result.content === '') continue;
+      // State-token de-dup: suppress a reminder whose token matches the one we
+      // last reminded on for this check (the agent already saw it and stopped).
+      if (
+        result.stateToken !== undefined &&
+        result.stateToken === runtimeState.getLastStopCheckToken(name)
+      ) {
+        continue;
+      }
+      if (result.stateToken !== undefined) {
+        tokens.push({name, stateToken: result.stateToken});
+      }
+      fired.push({name, content: result.content});
+    }
+
+    if (fired.length === 0) return null;
+    return {
+      checkNames: fired.map((entry) => entry.name),
+      content: fired.map((entry) => entry.content).join('\n\n'),
+      tokens,
+    };
   }
 
   private async *emitAbortCompletion({
@@ -313,3 +451,16 @@ export class AgentTurnRunner {
 }
 
 export const agentTurnRunner = new AgentTurnRunner();
+
+/**
+ * Stop-check names key the per-session de-dup token map, so duplicates would
+ * share a slot — one check could never be suppressed while another is
+ * suppressed forever. Enforce uniqueness explicitly as the check surface grows.
+ */
+function assertUniqueStopCheckNames(stopChecks: readonly StopCheck[]): void {
+  const names = new Set<string>();
+  for (const check of stopChecks) {
+    assert(!names.has(check.name), `Duplicate stop-check name: ${check.name}`);
+    names.add(check.name);
+  }
+}

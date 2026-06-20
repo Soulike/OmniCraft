@@ -22,6 +22,7 @@ import type {AgentSseLogReaderOptions} from './events/agent-sse-log.js';
 import {AgentSseLog} from './events/agent-sse-log.js';
 import {agentPersistence} from './persistence/agent-persistence.js';
 import {SubagentRegistry} from './state/subagent-registry.js';
+import type {StopCheck} from './stop-checks/index.js';
 import {generateTitle} from './title/agent-title.js';
 import {
   type AgentEventStream,
@@ -51,6 +52,7 @@ export abstract class Agent {
 
   private readonly toolRegistries: AgentOptions['toolRegistries'];
   private readonly skillRegistries: AgentOptions['skillRegistries'];
+  private readonly stopChecks: readonly StopCheck[];
   private readonly baseSystemPrompt: string;
   private readonly getMaxToolRounds: AgentOptions['getMaxToolRounds'];
   private readonly getConfig: () => Promise<LlmConfig>;
@@ -92,6 +94,7 @@ export abstract class Agent {
   ) {
     this.toolRegistries = options.toolRegistries;
     this.skillRegistries = options.skillRegistries;
+    this.stopChecks = options.stopChecks;
     this.baseSystemPrompt = options.baseSystemPrompt;
     this.getMaxToolRounds = options.getMaxToolRounds;
     this.getConfig = getConfig;
@@ -338,6 +341,7 @@ export abstract class Agent {
       runtimeState: this.runtimeState,
       toolRegistries: this.toolRegistries,
       skillRegistries: this.skillRegistries,
+      stopChecks: this.stopChecks,
       baseSystemPrompt: this.baseSystemPrompt,
       getConfig: this.getConfig,
       getLightConfig: this.getLightConfig ?? this.getConfig,

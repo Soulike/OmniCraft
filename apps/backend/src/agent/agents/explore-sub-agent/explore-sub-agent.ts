@@ -32,6 +32,7 @@ export class ExploreSubAgent extends Agent {
         bashToolRegistry,
       ],
       skillRegistries: [coreSkillRegistry],
+      stopChecks: [],
       baseSystemPrompt: exploreSubAgentSystemPrompt,
       getMaxToolRounds: async () => {
         const settings = await settingsService.getAll();
