@@ -298,10 +298,39 @@ export function pushCompactionEvent(
   ];
 }
 
+function todoItemsEqual(
+  a: readonly SseTodoItem[],
+  b: readonly SseTodoItem[],
+): boolean {
+  if (a.length !== b.length) return false;
+  return a.every((item, i) => {
+    const other = b[i];
+    return (
+      item.index === other.index &&
+      item.subject === other.subject &&
+      item.description === other.description &&
+      item.status === other.status
+    );
+  });
+}
+
 export function applyTodoUpdate(
   prev: ChatMessage[],
   items: readonly SseTodoItem[],
 ): ChatMessage[] {
+  // Redundant-update guard: a parallel tool round re-emits the same todo
+  // snapshot once per tool (each tool sees todoVersion changed and pushes
+  // listTodos()), separated by the visible tool's events. If the most recent
+  // todo card already holds this exact snapshot, the update is a no-op — without
+  // this guard the non-adjacent duplicate would append a second, identical card.
+  for (let i = prev.length - 1; i >= 0; i--) {
+    const content = prev[i].content;
+    if (content.type === 'todo') {
+      if (todoItemsEqual(content.items, items)) return prev;
+      break;
+    }
+  }
+
   // Strip a trailing empty assistant placeholder first: a silent tool-only
   // round can leave one between the previous todo card and this update, and
   // without stripping it the adjacency test below would miss the card and

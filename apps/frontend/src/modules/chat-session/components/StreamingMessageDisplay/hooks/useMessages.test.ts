@@ -201,4 +201,60 @@ describe('applyTodoUpdate', () => {
     expect(result).toHaveLength(1);
     expect(result[0].content).toEqual({type: 'todo', items: second});
   });
+
+  it('ignores a redundant update separated by a visible tool', () => {
+    // Parallel tool round: the suppressed todo tool and a visible tool both
+    // emit todo-update for the same version, separated by the visible tool's
+    // tool-execute-end. The identical second snapshot must NOT add a duplicate.
+    const snapshot = todoItems(['completed', 'in_progress']);
+    const state = [
+      ...applyTodoUpdate([], snapshot),
+      {
+        id: null,
+        createdAt: null,
+        role: 'assistant' as const,
+        content: {
+          type: 'tool-execute-end' as const,
+          callId: 'call-1',
+          result: 'ok',
+          status: 'success' as const,
+          data: undefined,
+        },
+      },
+    ];
+    const result = applyTodoUpdate(
+      state,
+      todoItems(['completed', 'in_progress']),
+    );
+    expect(result).toBe(state);
+    expect(result.filter((m) => m.content.type === 'todo')).toHaveLength(1);
+  });
+
+  it('appends a new card when the plan changes after a visible tool', () => {
+    // A genuinely different snapshot after intervening work still starts a
+    // fresh card (the redundant-update guard only short-circuits exact repeats).
+    const first = todoItems(['in_progress', 'pending']);
+    const state = [
+      ...applyTodoUpdate([], first),
+      {
+        id: null,
+        createdAt: null,
+        role: 'assistant' as const,
+        content: {
+          type: 'tool-execute-end' as const,
+          callId: 'call-1',
+          result: 'ok',
+          status: 'success' as const,
+          data: undefined,
+        },
+      },
+    ];
+    const second = todoItems(['completed', 'in_progress']);
+    const result = applyTodoUpdate(state, second);
+    expect(result.filter((m) => m.content.type === 'todo')).toHaveLength(2);
+    expect(result[result.length - 1].content).toEqual({
+      type: 'todo',
+      items: second,
+    });
+  });
 });
