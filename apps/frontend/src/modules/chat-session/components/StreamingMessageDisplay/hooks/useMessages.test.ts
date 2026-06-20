@@ -278,4 +278,32 @@ describe('applyTodoUpdate', () => {
     expect(result).toEqual([placeholder]);
     expect(result.some((m) => m.content.type === 'todo')).toBe(false);
   });
+
+  it('starts a fresh card in a new turn even if items match a prior turn', () => {
+    // The redundant-update guard must not reach across the user message into the
+    // previous turn — re-emitting the same plan after "continue" should still
+    // produce a Plan card in the new assistant response.
+    const items = todoItems(['in_progress', 'pending']);
+    const state = [
+      ...applyTodoUpdate([], items),
+      {
+        id: 'u1',
+        createdAt: 1,
+        role: 'user' as const,
+        content: {type: 'text' as const, content: 'continue'},
+      },
+      {
+        id: null,
+        createdAt: null,
+        role: 'assistant' as const,
+        content: {type: 'text' as const, content: ''},
+      },
+    ];
+    const result = applyTodoUpdate(
+      state,
+      todoItems(['in_progress', 'pending']),
+    );
+    expect(result.filter((m) => m.content.type === 'todo')).toHaveLength(2);
+    expect(result[result.length - 1].content).toEqual({type: 'todo', items});
+  });
 });

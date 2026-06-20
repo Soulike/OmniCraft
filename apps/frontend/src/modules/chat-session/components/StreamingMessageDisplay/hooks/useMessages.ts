@@ -321,10 +321,14 @@ export function applyTodoUpdate(
   // Redundant-update guard: a parallel tool round re-emits the same todo
   // snapshot once per executed tool (each sees todoVersion changed and pushes
   // listTodos()), separated by the visible tool's events. If the most recent
-  // todo card already holds this exact snapshot, the update is a no-op — without
-  // this guard the non-adjacent duplicate appends a second, identical card.
+  // todo card in the CURRENT assistant turn already holds this exact snapshot,
+  // the update is a no-op — without this guard the non-adjacent duplicate
+  // appends a second, identical card. Stop at a user message so a new turn that
+  // re-emits the previous turn's plan still gets its own fresh card.
   for (let i = prev.length - 1; i >= 0; i--) {
-    const content = prev[i].content;
+    const message = prev[i];
+    if (message.role === 'user') break;
+    const content = message.content;
     if (content.type === 'todo') {
       if (todoItemsEqual(content.items, items)) return prev;
       break;
