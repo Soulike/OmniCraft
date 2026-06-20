@@ -148,8 +148,8 @@ export const todoStopCheck: StopCheck = {
         `item(s):\n` +
         unfinished.map((t) => `- [${t.status}] ${t.subject}`).join('\n') +
         `\nThis is just a reminder of the current state. If they are done, ` +
-        `update their status; if they are intentionally being left for later ` +
-        `or are no longer needed, you can proceed.`,
+        `update their status; if they are no longer needed, clear or remove ` +
+        `them; if they are intentionally being left for later, you can proceed.`,
     };
   },
 };
