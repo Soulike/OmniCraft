@@ -279,6 +279,31 @@ describe('applyTodoUpdate', () => {
     expect(result.some((m) => m.content.type === 'todo')).toBe(false);
   });
 
+  it('does not clear a prior turn card on a new-turn empty snapshot', () => {
+    // A todoClear in a new turn must not reach across the user message and
+    // empty the previous turn's card, which would retroactively drop rendered
+    // history.
+    const prior = todoItems(['completed', 'completed']);
+    const state = [
+      ...applyTodoUpdate([], prior),
+      {
+        id: 'u1',
+        createdAt: 1,
+        role: 'user' as const,
+        content: {type: 'text' as const, content: 'next'},
+      },
+      {
+        id: null,
+        createdAt: null,
+        role: 'assistant' as const,
+        content: {type: 'text' as const, content: ''},
+      },
+    ];
+    const result = applyTodoUpdate(state, []);
+    expect(result).toBe(state);
+    expect(result[0].content).toEqual({type: 'todo', items: prior});
+  });
+
   it('starts a fresh card in a new turn even if items match a prior turn', () => {
     // The redundant-update guard must not reach across the user message into the
     // previous turn — re-emitting the same plan after "continue" should still

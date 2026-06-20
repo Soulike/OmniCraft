@@ -335,13 +335,16 @@ export function applyTodoUpdate(
     }
   }
 
-  // Empty snapshot (todoClear): clear the most recent todo card in place if one
-  // exists — the render transform then drops the empty card, so the plan
-  // disappears. With no card to clear, no-op rather than stripping the trailing
-  // working-indicator placeholder and appending an invisible empty card (which
-  // would briefly leave neither a Plan card nor a working indicator).
+  // Empty snapshot (todoClear): clear the most recent todo card in the CURRENT
+  // turn in place if one exists — the render transform then drops the empty
+  // card, so the plan disappears. Stop at a user message (like the guard above)
+  // so a todoClear in a new turn never empties the previous turn's card and
+  // retroactively removes rendered history. With no card to clear, no-op rather
+  // than stripping the trailing working-indicator placeholder and appending an
+  // invisible empty card (which would briefly leave neither card nor indicator).
   if (items.length === 0) {
     for (let i = prev.length - 1; i >= 0; i--) {
+      if (prev[i].role === 'user') break;
       if (prev[i].content.type === 'todo') {
         const next = [...prev];
         next[i] = {...prev[i], content: {type: 'todo', items}};
