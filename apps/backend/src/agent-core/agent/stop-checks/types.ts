@@ -18,7 +18,9 @@ export interface StopCheckContext {
 /** What a firing stop-check returns: the reminder text plus an optional token
  * identifying the state it observed. */
 export interface StopCheckResult {
-  /** Reminder text injected to the LLM. */
+  /** Reminder text injected to the LLM. Should be non-empty; a check with
+   *  nothing to say should return `null` instead. An empty string is treated
+   *  as "did not fire" by the turn runner (no reminder is emitted). */
   readonly content: string;
   /**
    * An opaque token identifying the checked state. The reminder re-fires only

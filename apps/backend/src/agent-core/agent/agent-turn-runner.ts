@@ -379,6 +379,10 @@ export class AgentTurnRunner {
       }
       const {name, result} = settledResult.value;
       if (result === null) continue;
+      // An empty content has nothing to remind about — treat it like a check
+      // that didn't fire. This also keeps the emitted event non-empty, which
+      // the SSE schema (and the frontend's strict parse) requires.
+      if (result.content === '') continue;
       // State-token de-dup: suppress a reminder whose token matches the one we
       // last reminded on for this check (the agent already saw it and stopped).
       if (

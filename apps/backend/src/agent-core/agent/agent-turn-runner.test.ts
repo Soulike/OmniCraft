@@ -634,4 +634,22 @@ describe('AgentTurnRunner', () => {
     expect(events.some((e) => e.type === 'stop-check-reminder')).toBe(false);
     expect(events.at(-1)).toMatchObject({type: 'done', reason: 'complete'});
   });
+
+  it('treats an empty-content check as not firing (no reminder emitted)', async () => {
+    vi.spyOn(llmApi, 'countToken').mockResolvedValue(1);
+    vi.spyOn(llmApi, 'streamCompletion').mockReturnValue(
+      textCompletionStream(),
+    );
+
+    // A check that fires (non-null) but with empty content must not produce a
+    // reminder event — the SSE schema requires non-empty content.
+    const emptyCheck = {name: 'empty', evaluate: () => ({content: ''})};
+
+    const events = await collectAll(
+      agentTurnRunner.run(createInput({stopChecks: [emptyCheck]})),
+    );
+
+    expect(events.some((e) => e.type === 'stop-check-reminder')).toBe(false);
+    expect(events.at(-1)).toMatchObject({type: 'done', reason: 'complete'});
+  });
 });
