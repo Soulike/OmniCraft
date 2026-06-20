@@ -3,6 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 
 import {SubAgentType} from '@omnicraft/api-schema';
+import type {SseTodoUpdateEvent} from '@omnicraft/sse-events';
 import {afterEach, beforeEach, describe, expect, it} from 'vitest';
 
 import {ExploreSubAgent, GeneralSubAgent} from '@/agent/agents/index.js';
@@ -571,6 +572,32 @@ describe('dispatchAgentTool', () => {
 
     it('wraps non-recursive agent events', () => {
       const event = {type: 'session-title', title: 'Multiplication'} as const;
+
+      expect(buildSubagentOutputEvent(agentId, event)).toEqual({
+        type: 'subagent-output',
+        agentId,
+        event,
+      });
+    });
+
+    it('forwards todo-update events through subagent-output', () => {
+      const event: SseTodoUpdateEvent = {
+        type: 'todo-update',
+        items: [
+          {
+            index: 0,
+            subject: 'Inspect the workspace',
+            description: 'Read the relevant files',
+            status: 'in_progress',
+          },
+          {
+            index: 1,
+            subject: 'Report findings',
+            description: 'Summarize what was found',
+            status: 'pending',
+          },
+        ],
+      };
 
       expect(buildSubagentOutputEvent(agentId, event)).toEqual({
         type: 'subagent-output',

@@ -5,9 +5,11 @@ import {
   bashToolRegistry,
   coreToolRegistry,
   fileToolRegistry,
+  todoToolRegistry,
   webToolRegistry,
 } from '@/agent/tools/index.js';
 import {Agent} from '@/agent-core/agent/index.js';
+import {todoStopCheck} from '@/agent-core/agent/stop-checks/index.js';
 import type {LlmConfig} from '@/agent-core/llm-api/index.js';
 import {settingsService} from '@/services/settings/index.js';
 
@@ -30,9 +32,10 @@ export class GeneralSubAgent extends Agent {
         fileToolRegistry,
         webToolRegistry,
         bashToolRegistry,
+        todoToolRegistry,
       ],
       skillRegistries: [coreSkillRegistry],
-      stopChecks: [],
+      stopChecks: [todoStopCheck],
       baseSystemPrompt: generalSubAgentSystemPrompt,
       getMaxToolRounds: async () => {
         const settings = await settingsService.getAll();
