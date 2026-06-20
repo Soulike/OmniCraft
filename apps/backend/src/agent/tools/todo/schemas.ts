@@ -12,11 +12,18 @@ export type TodoResult = z.infer<typeof todoResultSchema>;
 
 // --- Parameter schemas ---
 
+const todoSubjectSchema = z.string().min(1).max(200);
+
+const SUBJECT_DESCRIPTION =
+  'Brief, single-line title for the todo item. ' +
+  'Keep it to one line so the list renders cleanly; put any detail in the ' +
+  'description instead.';
+
 export const todoAppendParametersSchema = z.object({
   items: z
     .array(
       z.object({
-        subject: z.string().min(1).describe('Brief title for the todo item'),
+        subject: todoSubjectSchema.describe(SUBJECT_DESCRIPTION),
         description: z.string().describe('What needs to be done'),
       }),
     )
@@ -32,12 +39,10 @@ export const todoUpdateParametersSchema = z.object({
     .describe(
       'The 0-based index of the todo item to update, as shown in the todo list',
     ),
-  subject: z
-    .string()
-    .min(1)
+  subject: todoSubjectSchema
     .optional()
     .describe(
-      'New title for the item. ' +
+      `New title for the item. ${SUBJECT_DESCRIPTION} ` +
         'Only provide this when the title needs to change.',
     ),
   description: z

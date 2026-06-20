@@ -20,12 +20,14 @@ import {
   llmSessionCompactor,
 } from './compaction/index.js';
 import {createEmptyLlmSessionUsage} from './helpers.js';
+import {sanitizeReminderContent} from './sanitize-reminder.js';
 import type {
   LlmCompactionMetadata,
   LlmCompactionOptions,
   LlmSessionEventStream,
   LlmSessionSnapshot,
   LlmSessionUsage,
+  SendReminderResult,
   SendUserMessageResult,
   ToolResult,
 } from './types.js';
@@ -117,6 +119,49 @@ export class LlmSession {
       ),
       messageId: userMessage.id,
       createdAt: userMessage.createdAt,
+    };
+  }
+
+  /**
+   * Injects a hidden reminder as a `user` message wrapped in
+   * `<system-reminder>` and continues the conversation. Used by the turn runner
+   * when a stop-check blocks the turn from ending. The reminder is visible to
+   * the LLM but is surfaced to clients via a `stop-check-reminder` SSE event
+   * (not `message-start`), so it never renders in the UI.
+   *
+   * This method is the SOLE owner of reminder sanitization: `content` may be
+   * raw, untrusted, tool-supplied text (e.g. todo subjects derived from
+   * repository content), and the wrapper delimiters are stripped here —
+   * otherwise a `</system-reminder>` embedded in the content could close the
+   * privileged wrapper early and smuggle text outside it (second-order prompt
+   * injection). The sanitized body is returned as `content` so callers surface
+   * the exact injected text without re-sanitizing.
+   */
+  sendReminder(
+    content: string,
+    tools: readonly ToolDefinition[],
+    systemPrompt: string,
+    thinkingLevel: ThinkingLevel,
+    signal?: AbortSignal,
+  ): SendReminderResult {
+    const safeContent = sanitizeReminderContent(content);
+    const reminderMessage = {
+      id: crypto.randomUUID(),
+      createdAt: Date.now(),
+      role: 'user' as const,
+      content: `<system-reminder>\n${safeContent}\n</system-reminder>`,
+    };
+    return {
+      stream: this.sendMessages(
+        [reminderMessage],
+        tools,
+        systemPrompt,
+        thinkingLevel,
+        signal,
+      ),
+      messageId: reminderMessage.id,
+      createdAt: reminderMessage.createdAt,
+      content: safeContent,
     };
   }
 

@@ -15,6 +15,31 @@ describe('todo tools', () => {
       expect(todoAppendTool.name).toBe('todo_append');
     });
 
+    it('accepts a multi-line subject (no hard single-line rule)', () => {
+      const parsed = todoAppendTool.parameters.safeParse({
+        items: [{subject: 'line one\nline two', description: 'd'}],
+      });
+      expect(parsed.success).toBe(true);
+    });
+
+    it('enforces subject length bounds', () => {
+      const empty = todoAppendTool.parameters.safeParse({
+        items: [{subject: '', description: 'd'}],
+      });
+      expect(empty.success).toBe(false);
+      const tooLong = todoAppendTool.parameters.safeParse({
+        items: [{subject: 'a'.repeat(201), description: 'd'}],
+      });
+      expect(tooLong.success).toBe(false);
+    });
+
+    it('accepts a single-line subject', () => {
+      const parsed = todoAppendTool.parameters.safeParse({
+        items: [{subject: 'line one', description: 'd'}],
+      });
+      expect(parsed.success).toBe(true);
+    });
+
     it('appends an item and returns full list', async () => {
       const ctx = createMockContext();
       const result = await todoAppendTool.execute(
@@ -60,6 +85,22 @@ describe('todo tools', () => {
   describe('todo_update', () => {
     it('has the correct name', () => {
       expect(todoUpdateTool.name).toBe('todo_update');
+    });
+
+    it('accepts a multi-line subject (no hard single-line rule)', () => {
+      const parsed = todoUpdateTool.parameters.safeParse({
+        index: 0,
+        subject: 'line one\nline two',
+      });
+      expect(parsed.success).toBe(true);
+    });
+
+    it('accepts a single-line subject', () => {
+      const parsed = todoUpdateTool.parameters.safeParse({
+        index: 0,
+        subject: 'line one',
+      });
+      expect(parsed.success).toBe(true);
     });
 
     it('updates item status', async () => {

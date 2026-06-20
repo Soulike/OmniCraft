@@ -29,6 +29,7 @@
         "@omnicraft/tool-schemas": "workspace:^",
         "@tavily/core": "^0.7.2",
         "diff": "^9.0.0",
+        "escape-html": "^1.0.3",
         "fast-glob": "^3.3.3",
         "http-status-codes": "^2.3.0",
         "koa": "^3.1.1",
@@ -47,6 +48,7 @@
       "devDependencies": {
         "@config/eslint": "workspace:^",
         "@config/typescript": "workspace:^",
+        "@types/escape-html": "^1.0.4",
         "@types/koa": "^3.0.3",
         "@types/koa-compose": "^3.2.9",
         "@types/koa-pino-logger": "^3.0.5",
@@ -741,6 +743,8 @@
     "@types/debug": ["@types/debug@4.1.13", "https://registry.npmmirror.com/@types/debug/-/debug-4.1.13.tgz", { "dependencies": { "@types/ms": "*" } }, "sha512-KSVgmQmzMwPlmtljOomayoR89W4FynCAi3E8PPs7vmDVPe84hT+vGPKkJfThkmXs0x0jAaa9U8uW8bbfyS2fWw=="],
 
     "@types/deep-eql": ["@types/deep-eql@4.0.2", "https://registry.npmmirror.com/@types/deep-eql/-/deep-eql-4.0.2.tgz", {}, "sha512-c9h9dVVMigMPc4bwTvC5dxqtqJZwQPePsWjPlpSOnojbor6pGqdk541lfA7AqFQr5pB1BRdq0juY9db81BwyFw=="],
+
+    "@types/escape-html": ["@types/escape-html@1.0.4", "https://registry.npmmirror.com/@types/escape-html/-/escape-html-1.0.4.tgz", {}, "sha512-qZ72SFTgUAZ5a7Tj6kf2SHLetiH5S6f8G5frB2SPQ3EyF02kxdyBFf4Tz4banE3xCgGnKgWLt//a6VuYHKYJTg=="],
 
     "@types/esrecurse": ["@types/esrecurse@4.3.1", "https://registry.npmmirror.com/@types/esrecurse/-/esrecurse-4.3.1.tgz", {}, "sha512-xJBAbDifo5hpffDBuHl0Y8ywswbiAp/Wi7Y/GtAgSlZyIABppyurxVueOPE8LUQOxdlgi6Zqce7uoEpqNTeiUw=="],
 

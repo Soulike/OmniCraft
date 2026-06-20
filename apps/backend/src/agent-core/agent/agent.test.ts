@@ -63,6 +63,7 @@ function testAgentOptions() {
   return {
     toolRegistries: [],
     skillRegistries: [],
+    stopChecks: [],
     baseSystemPrompt: '',
     getMaxToolRounds: () => 1,
     getLightConfig: () => Promise.resolve(LIGHT_CONFIG),

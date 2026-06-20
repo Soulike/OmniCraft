@@ -556,4 +556,39 @@ describe('useStreamChat', () => {
 
     expect(screen.getByText('Resumed replay content')).toBeInTheDocument();
   });
+
+  it('ignores stop-check-reminder events (no bubble rendered)', async () => {
+    const events: SseEvent[] = [
+      {
+        type: 'message-start',
+        role: 'user',
+        messageId: 'user-1',
+        createdAt: 1,
+        content: 'hello there',
+      },
+      {
+        type: 'stop-check-reminder',
+        checkNames: ['incomplete-todos'],
+        content: 'SECRET REMINDER TEXT',
+        messageId: 'reminder-1',
+        createdAt: 2,
+      },
+      {type: 'done', reason: 'complete'},
+    ];
+
+    render(
+      <ChatSessionApiContext value={createApi(events)}>
+        <ChatEventBusProvider>
+          <HarnessContent />
+        </ChatEventBusProvider>
+      </ChatSessionApiContext>,
+      {wrapper: ThemeProvider},
+    );
+
+    await flushAsyncWork();
+    act(flushRaf);
+
+    expect(screen.getByText('hello there')).toBeInTheDocument();
+    expect(screen.queryByText('SECRET REMINDER TEXT')).not.toBeInTheDocument();
+  });
 });
