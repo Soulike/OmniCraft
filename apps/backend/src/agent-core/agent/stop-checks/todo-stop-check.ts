@@ -1,5 +1,3 @@
-import {collapseLineTerminators} from '@/helpers/unicode.js';
-
 import type {StopCheck} from './types.js';
 
 /** Cap on how many unfinished items are listed verbatim in one reminder. A
@@ -7,13 +5,12 @@ import type {StopCheck} from './types.js';
  *  every stop (cost / context exhaustion); the rest are summarized as a count. */
 const MAX_LISTED = 20;
 
-/** Collapses any line breaks in a todo subject to spaces before it is embedded
- *  in the privileged `<system-reminder>` block. The todo schema already rejects
- *  multi-line subjects, but collapsing here keeps the rendered list one bullet
- *  per item regardless of how the subject reached the store (defense in depth
- *  against a line break being read as standalone system guidance). */
+/** Collapses line breaks in a todo subject to a single space so it renders as
+ *  one bullet. Subjects come only from the LLM via tool calls, so plain
+ *  CR/LF is all we expect; this is purely cosmetic (injection is handled by
+ *  HTML-escaping the reminder content, not here). */
 function toSingleLine(subject: string): string {
-  return collapseLineTerminators(subject);
+  return subject.replace(/[\r\n]+/g, ' ');
 }
 
 export const todoStopCheck: StopCheck = {

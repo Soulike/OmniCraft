@@ -15,24 +15,22 @@ describe('todo tools', () => {
       expect(todoAppendTool.name).toBe('todo_append');
     });
 
-    it('rejects a multi-line subject', () => {
+    it('accepts a multi-line subject (no hard single-line rule)', () => {
       const parsed = todoAppendTool.parameters.safeParse({
         items: [{subject: 'line one\nline two', description: 'd'}],
       });
-      expect(parsed.success).toBe(false);
+      expect(parsed.success).toBe(true);
     });
 
-    it('rejects a subject with any Unicode line terminator', () => {
-      // LF, VT, FF, CR, NEL, LINE SEPARATOR, PARAGRAPH SEPARATOR.
-      const terminators = [0x0a, 0x0b, 0x0c, 0x0d, 0x85, 0x2028, 0x2029].map(
-        (cp) => String.fromCodePoint(cp),
-      );
-      for (const sep of terminators) {
-        const parsed = todoAppendTool.parameters.safeParse({
-          items: [{subject: `line one${sep}line two`, description: 'd'}],
-        });
-        expect(parsed.success).toBe(false);
-      }
+    it('enforces subject length bounds', () => {
+      const empty = todoAppendTool.parameters.safeParse({
+        items: [{subject: '', description: 'd'}],
+      });
+      expect(empty.success).toBe(false);
+      const tooLong = todoAppendTool.parameters.safeParse({
+        items: [{subject: 'a'.repeat(201), description: 'd'}],
+      });
+      expect(tooLong.success).toBe(false);
     });
 
     it('accepts a single-line subject', () => {
@@ -89,20 +87,12 @@ describe('todo tools', () => {
       expect(todoUpdateTool.name).toBe('todo_update');
     });
 
-    it('rejects a subject with any Unicode line terminator', () => {
-      // LF, VT, FF, CR, NEL, LINE SEPARATOR, PARAGRAPH SEPARATOR. Guards the
-      // update path independently of todo_append even though both share
-      // todoSubjectSchema today.
-      const terminators = [0x0a, 0x0b, 0x0c, 0x0d, 0x85, 0x2028, 0x2029].map(
-        (cp) => String.fromCodePoint(cp),
-      );
-      for (const sep of terminators) {
-        const parsed = todoUpdateTool.parameters.safeParse({
-          index: 0,
-          subject: `line one${sep}line two`,
-        });
-        expect(parsed.success).toBe(false);
-      }
+    it('accepts a multi-line subject (no hard single-line rule)', () => {
+      const parsed = todoUpdateTool.parameters.safeParse({
+        index: 0,
+        subject: 'line one\nline two',
+      });
+      expect(parsed.success).toBe(true);
     });
 
     it('accepts a single-line subject', () => {

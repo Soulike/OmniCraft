@@ -1,8 +1,6 @@
 import {sseTodoItemSchema, sseTodoStatusSchema} from '@omnicraft/sse-events';
 import {z} from 'zod';
 
-import {hasLineTerminator} from '@/helpers/unicode.js';
-
 // --- Shared types ---
 
 /** Shared result schema — all four todo tools return the full list. */
@@ -14,23 +12,18 @@ export type TodoResult = z.infer<typeof todoResultSchema>;
 
 // --- Parameter schemas ---
 
-/** A todo title: short, single-line. The single-line constraint keeps an
- *  attacker-influenced subject from injecting a line break that surfaces as
- *  apparent system guidance when the title is later embedded in a
- *  `<system-reminder>` stop-check block. */
-const todoSubjectSchema = z
-  .string()
-  .min(1)
-  .max(200)
-  .refine((value) => !hasLineTerminator(value), {
-    message: 'Subject must be a single line (no line breaks).',
-  });
+const todoSubjectSchema = z.string().min(1).max(200);
+
+const SUBJECT_DESCRIPTION =
+  'Brief, single-line title for the todo item. ' +
+  'Keep it to one line so the list renders cleanly; put any detail in the ' +
+  'description instead.';
 
 export const todoAppendParametersSchema = z.object({
   items: z
     .array(
       z.object({
-        subject: todoSubjectSchema.describe('Brief title for the todo item'),
+        subject: todoSubjectSchema.describe(SUBJECT_DESCRIPTION),
         description: z.string().describe('What needs to be done'),
       }),
     )
@@ -49,7 +42,7 @@ export const todoUpdateParametersSchema = z.object({
   subject: todoSubjectSchema
     .optional()
     .describe(
-      'New title for the item. ' +
+      `New title for the item. ${SUBJECT_DESCRIPTION} ` +
         'Only provide this when the title needs to change.',
     ),
   description: z
