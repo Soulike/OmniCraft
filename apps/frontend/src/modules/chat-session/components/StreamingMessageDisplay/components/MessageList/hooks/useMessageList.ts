@@ -290,10 +290,6 @@ export function transformMessages(
       case 'context-compaction-error':
         // Already paired with the matching start event above.
         break;
-      default:
-        // Exhaustiveness guard: a new MessageContent variant must add a case
-        // above or this fails to compile.
-        content satisfies never;
     }
   }
 

@@ -173,10 +173,5 @@ export function RenderItem({item}: RenderItemProps) {
         </div>
       );
     }
-    default:
-      // Exhaustiveness guard: a new MessageRenderItem variant must add a case
-      // above or this fails to compile.
-      item satisfies never;
-      return null;
   }
 }
