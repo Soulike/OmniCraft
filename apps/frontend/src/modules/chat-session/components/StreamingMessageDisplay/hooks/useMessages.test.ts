@@ -217,8 +217,8 @@ describe('applyTodoUpdate', () => {
           type: 'tool-execute-end' as const,
           callId: 'call-1',
           result: 'ok',
-          status: 'success' as const,
-          data: undefined,
+          status: 'failure' as const,
+          data: {message: 'ok'},
         },
       },
     ];
@@ -244,8 +244,8 @@ describe('applyTodoUpdate', () => {
           type: 'tool-execute-end' as const,
           callId: 'call-1',
           result: 'ok',
-          status: 'success' as const,
-          data: undefined,
+          status: 'failure' as const,
+          data: {message: 'ok'},
         },
       },
     ];
@@ -256,5 +256,26 @@ describe('applyTodoUpdate', () => {
       type: 'todo',
       items: second,
     });
+  });
+
+  it('clears the existing card in place on an empty snapshot (todoClear)', () => {
+    const state = applyTodoUpdate([], todoItems(['in_progress', 'pending']));
+    const result = applyTodoUpdate(state, []);
+    expect(result).toHaveLength(1);
+    expect(result[0].content).toEqual({type: 'todo', items: []});
+  });
+
+  it('keeps a trailing placeholder on an empty snapshot with no card', () => {
+    // todoClear before any todoWrite: must not strip the working-indicator
+    // placeholder to append an invisible empty card.
+    const placeholder = {
+      id: null,
+      createdAt: null,
+      role: 'assistant' as const,
+      content: {type: 'text' as const, content: ''},
+    };
+    const result = applyTodoUpdate([placeholder], []);
+    expect(result).toEqual([placeholder]);
+    expect(result.some((m) => m.content.type === 'todo')).toBe(false);
   });
 });

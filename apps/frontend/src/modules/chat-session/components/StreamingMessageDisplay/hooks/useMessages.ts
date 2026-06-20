@@ -319,16 +319,32 @@ export function applyTodoUpdate(
   items: readonly SseTodoItem[],
 ): ChatMessage[] {
   // Redundant-update guard: a parallel tool round re-emits the same todo
-  // snapshot once per tool (each tool sees todoVersion changed and pushes
+  // snapshot once per executed tool (each sees todoVersion changed and pushes
   // listTodos()), separated by the visible tool's events. If the most recent
   // todo card already holds this exact snapshot, the update is a no-op — without
-  // this guard the non-adjacent duplicate would append a second, identical card.
+  // this guard the non-adjacent duplicate appends a second, identical card.
   for (let i = prev.length - 1; i >= 0; i--) {
     const content = prev[i].content;
     if (content.type === 'todo') {
       if (todoItemsEqual(content.items, items)) return prev;
       break;
     }
+  }
+
+  // Empty snapshot (todoClear): clear the most recent todo card in place if one
+  // exists — the render transform then drops the empty card, so the plan
+  // disappears. With no card to clear, no-op rather than stripping the trailing
+  // working-indicator placeholder and appending an invisible empty card (which
+  // would briefly leave neither a Plan card nor a working indicator).
+  if (items.length === 0) {
+    for (let i = prev.length - 1; i >= 0; i--) {
+      if (prev[i].content.type === 'todo') {
+        const next = [...prev];
+        next[i] = {...prev[i], content: {type: 'todo', items}};
+        return next;
+      }
+    }
+    return prev;
   }
 
   // Strip a trailing empty assistant placeholder first: a silent tool-only
@@ -338,9 +354,8 @@ export function applyTodoUpdate(
   const base = removeTrailingAssistantMessageIfEmpty(prev);
   const last = base[base.length - 1];
   // Adjacency rule: a todo update that immediately follows a todo card replaces
-  // it in place; otherwise it starts a fresh card after the intervening work.
-  // An empty snapshot (e.g. todoClear) is also replaced in place here; the
-  // render transform then drops the empty card, so it disappears from the view.
+  // it in place; otherwise it starts a fresh card after the intervening work,
+  // giving a replayable plan → work → updated-plan timeline.
   if (base.length > 0 && last.content.type === 'todo') {
     return [...base.slice(0, -1), {...last, content: {type: 'todo', items}}];
   }
