@@ -13,26 +13,71 @@ export type ReasoningEffort = (typeof REASONING_EFFORTS)[number];
 
 /** Raw env-string config as read from the workflow. */
 export interface RawReviewConfig {
-  /** Comma-separated reviewer model IDs (`REVIEWER_MODELS`). */
-  readonly reviewerModels: string;
+  /** Comma-separated general-review model IDs (`GENERAL_MODELS`). */
+  readonly generalModels: string;
+  /** Comma-separated security-review model IDs (`SECURITY_MODELS`). */
+  readonly securityModels: string;
   /** Single confirmation model ID (`CONFIRM_MODEL`). */
   readonly confirmModel: string;
-  /** Reasoning effort level (`REASONING_EFFORT`). */
-  readonly reasoningEffort: string;
+  /** General-review reasoning effort (`GENERAL_EFFORT`). */
+  readonly generalEffort: string;
+  /** Security-review reasoning effort (`SECURITY_EFFORT`). */
+  readonly securityEffort: string;
+  /** Confirmation reasoning effort (`CONFIRM_EFFORT`). */
+  readonly confirmEffort: string;
 }
 
-/** Validated, normalized config. */
+/** Validated, normalized per-stage config. */
 export interface ReviewConfig {
-  /** Distinct, non-blank reviewer model IDs, in declared order. */
-  readonly reviewerModels: string[];
-  /** Confirmation model ID. */
-  readonly confirmModel: string;
-  /** Validated reasoning-effort level. */
-  readonly reasoningEffort: ReasoningEffort;
+  readonly general: {
+    readonly models: string[];
+    readonly effort: ReasoningEffort;
+  };
+  readonly security: {
+    readonly models: string[];
+    readonly effort: ReasoningEffort;
+  };
+  readonly confirm: {
+    readonly model: string;
+    readonly effort: ReasoningEffort;
+  };
 }
 
 function isReasoningEffort(value: string): value is ReasoningEffort {
   return (REASONING_EFFORTS as readonly string[]).includes(value);
+}
+
+/**
+ * Parses a comma-separated model list. A stage may list a single model, but the
+ * list must be non-blank and free of duplicates. `varName` names the offending
+ * variable in thrown errors.
+ */
+function parseModelList(raw: string, varName: string): string[] {
+  const models = raw
+    .split(',')
+    .map((id) => id.trim())
+    .filter((id) => id.length > 0);
+
+  if (models.length < 1) {
+    throw new Error(`${varName} must list at least one model ID.`);
+  }
+
+  if (new Set(models).size !== models.length) {
+    throw new Error(`${varName} must not contain duplicate model IDs.`);
+  }
+
+  return models;
+}
+
+/** Validates one reasoning-effort string. `varName` names it in errors. */
+function parseEffort(raw: string, varName: string): ReasoningEffort {
+  const effort = raw.trim();
+  if (!isReasoningEffort(effort)) {
+    throw new Error(
+      `${varName} must be one of: ${REASONING_EFFORTS.join('|')}.`,
+    );
+  }
+  return effort;
 }
 
 /**
@@ -42,34 +87,23 @@ function isReasoningEffort(value: string): value is ReasoningEffort {
  * on the Copilot plan is not (and cannot be) checked here.
  */
 export function validateReviewConfig(raw: RawReviewConfig): ReviewConfig {
-  const reviewerModels = raw.reviewerModels
-    .split(',')
-    .map((id) => id.trim())
-    .filter((id) => id.length > 0);
-
-  if (reviewerModels.length < 2) {
-    throw new Error(
-      'REVIEWER_MODELS must list at least two distinct model IDs (the gate ' +
-        'runs multiple reviewers with different models).',
-    );
-  }
-
-  const unique = new Set(reviewerModels);
-  if (unique.size !== reviewerModels.length) {
-    throw new Error('REVIEWER_MODELS must not contain duplicate model IDs.');
-  }
-
   const confirmModel = raw.confirmModel.trim();
   if (confirmModel.length === 0) {
     throw new Error('CONFIRM_MODEL must be a single non-blank model ID.');
   }
 
-  const reasoningEffort = raw.reasoningEffort.trim();
-  if (!isReasoningEffort(reasoningEffort)) {
-    throw new Error(
-      `REASONING_EFFORT must be one of: ${REASONING_EFFORTS.join('|')}.`,
-    );
-  }
-
-  return {reviewerModels, confirmModel, reasoningEffort};
+  return {
+    general: {
+      models: parseModelList(raw.generalModels, 'GENERAL_MODELS'),
+      effort: parseEffort(raw.generalEffort, 'GENERAL_EFFORT'),
+    },
+    security: {
+      models: parseModelList(raw.securityModels, 'SECURITY_MODELS'),
+      effort: parseEffort(raw.securityEffort, 'SECURITY_EFFORT'),
+    },
+    confirm: {
+      model: confirmModel,
+      effort: parseEffort(raw.confirmEffort, 'CONFIRM_EFFORT'),
+    },
+  };
 }
