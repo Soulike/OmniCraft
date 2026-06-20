@@ -157,4 +157,61 @@ describe('TodoStore', () => {
       expect(store.version).toBe(before);
     });
   });
+
+  describe('snapshot round-trip', () => {
+    it('toSnapshot returns the current items', () => {
+      const store = new TodoStore();
+      store.append([
+        {subject: 'Task A', description: 'Do A'},
+        {subject: 'Task B', description: 'Do B'},
+      ]);
+      store.update(1, {status: 'in_progress'});
+
+      expect(store.toSnapshot()).toEqual([
+        {index: 0, subject: 'Task A', description: 'Do A', status: 'pending'},
+        {
+          index: 1,
+          subject: 'Task B',
+          description: 'Do B',
+          status: 'in_progress',
+        },
+      ]);
+    });
+
+    it('restores items from a snapshot passed to the constructor', () => {
+      const source = new TodoStore();
+      source.append([{subject: 'Task A', description: 'Do A'}]);
+      source.update(0, {status: 'completed'});
+
+      const restored = new TodoStore(source.toSnapshot());
+
+      expect(restored.list()).toEqual(source.list());
+    });
+
+    it('seeds version to 1 when restoring a non-empty snapshot', () => {
+      const restored = new TodoStore([
+        {index: 0, subject: 'Task A', description: 'Do A', status: 'pending'},
+      ]);
+
+      expect(restored.version).toBe(1);
+    });
+
+    it('keeps version at 0 when restoring an empty snapshot', () => {
+      const restored = new TodoStore([]);
+
+      expect(restored.version).toBe(0);
+    });
+
+    it('appends after a restore using indices past the restored items', () => {
+      const restored = new TodoStore([
+        {index: 0, subject: 'Task A', description: 'Do A', status: 'pending'},
+      ]);
+      restored.append([{subject: 'Task B', description: 'Do B'}]);
+
+      expect(restored.list()).toEqual([
+        {index: 0, subject: 'Task A', description: 'Do A', status: 'pending'},
+        {index: 1, subject: 'Task B', description: 'Do B', status: 'pending'},
+      ]);
+    });
+  });
 });
