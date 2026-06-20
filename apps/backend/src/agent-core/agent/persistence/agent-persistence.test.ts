@@ -92,6 +92,16 @@ describe('agentPersistence', () => {
       expect(loaded).toEqual(snapshot);
     });
 
+    it('defaults todos to an empty list for snapshots written before the field existed', async () => {
+      const {todos: _omit, ...legacySnapshot} = createTestSnapshot(agentId);
+      const filePath = path.join(tmpDir, agentId, 'snapshot.json');
+      await writeFile(filePath, JSON.stringify(legacySnapshot, null, 2) + '\n');
+
+      const loaded = await agentPersistence.loadSnapshot(tmpDir, agentId);
+
+      expect(loaded.todos).toEqual([]);
+    });
+
     it('throws when snapshot.json does not exist', async () => {
       await expect(
         agentPersistence.loadSnapshot(tmpDir, 'nonexistent-id'),
