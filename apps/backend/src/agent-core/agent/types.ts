@@ -4,6 +4,7 @@ import {
   thinkingLevelSchema,
 } from '@omnicraft/api-schema';
 import type {SseErrorEvent, SseEvent} from '@omnicraft/sse-events';
+import {sseTodoItemSchema} from '@omnicraft/sse-events';
 import {z} from 'zod';
 
 import type {LlmConfig} from '../llm-api/index.js';
@@ -36,6 +37,9 @@ export const agentSnapshotSchema = z.object({
   title: z.string(),
   sseEventCount: z.number(),
   llmSession: llmSessionSnapshotSchema,
+  // Defaulted so snapshots written before TODO persistence still validate,
+  // restoring as an empty list.
+  todos: z.array(sseTodoItemSchema).default([]),
   options: agentSnapshotOptionsSchema,
 });
 
