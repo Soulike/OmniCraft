@@ -1,4 +1,4 @@
-import type {SseSubAgentEvent} from '@omnicraft/sse-events';
+import type {SseSubAgentEvent, SseTodoItem} from '@omnicraft/sse-events';
 
 import type {LlmConfig} from '../llm-api/index.js';
 import type {SkillDefinition} from '../skill/index.js';
@@ -31,12 +31,13 @@ export class AgentRuntimeState {
   private readonly fileStatTracker = new FileStatTracker();
   private readonly shellState: ShellState;
   private readonly userInteractionBridge = new UserInteractionBridge();
-  private readonly todoStore = new TodoStore();
+  private readonly todoStore: TodoStore;
   private readonly todoState: TodoState = {lastObservedVersion: undefined};
   private readonly lastStopCheckTokens = new Map<string, string>();
 
-  constructor(workingDirectory: string) {
+  constructor(workingDirectory: string, initialTodos?: readonly SseTodoItem[]) {
     this.shellState = {cwd: workingDirectory};
+    this.todoStore = new TodoStore(initialTodos);
   }
 
   get todoVersion(): number {
@@ -45,6 +46,11 @@ export class AgentRuntimeState {
 
   listTodos(): TodoItem[] {
     return this.todoStore.list();
+  }
+
+  /** Returns a serializable snapshot of the todo list for persistence. */
+  todosToSnapshot(): SseTodoItem[] {
+    return this.todoStore.toSnapshot();
   }
 
   /** Returns the state token a stop-check last reminded on, or undefined. */

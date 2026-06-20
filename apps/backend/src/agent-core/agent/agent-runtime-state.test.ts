@@ -1,4 +1,4 @@
-import type {SseSubAgentEvent} from '@omnicraft/sse-events';
+import type {SseSubAgentEvent, SseTodoItem} from '@omnicraft/sse-events';
 import {describe, expect, it} from 'vitest';
 
 import type {LlmConfig} from '../llm-api/index.js';
@@ -128,5 +128,27 @@ describe('AgentRuntimeState', () => {
     expect(state.submitUserResponse('missing', {ok: false})).toBe(false);
     expect(state.submitUserResponse('interaction-1', {ok: true})).toBe(true);
     await expect(responsePromise).resolves.toEqual({ok: true});
+  });
+
+  it('restores todos and version from an initial snapshot', () => {
+    const todos: SseTodoItem[] = [
+      {
+        index: 0,
+        subject: 'Restored task',
+        description: 'From snapshot',
+        status: 'in_progress',
+      },
+    ];
+    const state = new AgentRuntimeState('/workspace/project', todos);
+
+    expect(state.listTodos()).toEqual(todos);
+    expect(state.todoVersion).toBe(1);
+  });
+
+  it('defaults to an empty todo list when no snapshot is provided', () => {
+    const state = new AgentRuntimeState('/workspace/project');
+
+    expect(state.listTodos()).toEqual([]);
+    expect(state.todoVersion).toBe(0);
   });
 });

@@ -1,6 +1,6 @@
 import assert from 'node:assert';
 
-import type {SseTodoStatus} from '@omnicraft/sse-events';
+import type {SseTodoItem, SseTodoStatus} from '@omnicraft/sse-events';
 
 /** A single todo item in the store. */
 export interface TodoItem {
@@ -25,9 +25,19 @@ export interface TodoUpdateFields {
  * stale state.
  */
 export class TodoStore {
-  private items: TodoItem[] = [];
+  private items: TodoItem[];
 
-  private _version = 0;
+  private _version: number;
+
+  /**
+   * @param initialItems Items to restore from a snapshot. When non-empty, the
+   *   version starts at 1 so it reads as "mutated since empty"; an empty or
+   *   absent snapshot starts at version 0.
+   */
+  constructor(initialItems: readonly SseTodoItem[] = []) {
+    this.items = initialItems.map((item) => ({...item}));
+    this._version = initialItems.length === 0 ? 0 : 1;
+  }
 
   /** Incremented on every mutation. Callers can compare against a saved value to detect staleness. */
   get version(): number {
@@ -73,5 +83,10 @@ export class TodoStore {
   /** Returns a snapshot of all items. */
   list(): TodoItem[] {
     return [...this.items];
+  }
+
+  /** Returns a serializable snapshot of all items. */
+  toSnapshot(): SseTodoItem[] {
+    return this.items.map((item) => ({...item}));
   }
 }

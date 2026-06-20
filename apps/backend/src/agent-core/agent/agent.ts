@@ -130,7 +130,10 @@ export abstract class Agent {
       ? new AgentSseLog(agentPersistence.eventsPath(this.sessionsDir, this.id))
       : new AgentSseLog();
 
-    this.runtimeState = new AgentRuntimeState(this.workingDirectory);
+    this.runtimeState = new AgentRuntimeState(
+      this.workingDirectory,
+      snapshot?.todos,
+    );
 
     if (!snapshot && this.sessionsDir) {
       agentPersistence.persistSnapshot(
@@ -176,6 +179,7 @@ export abstract class Agent {
       title: this.title,
       sseEventCount: this.sseEventCount,
       llmSession: this.llmSession.toSnapshot(),
+      todos: this.runtimeState.todosToSnapshot(),
       options: {
         workingDirectory: this.workingDirectory,
         thinkingLevel: this.thinkingLevel,

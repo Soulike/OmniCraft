@@ -520,6 +520,7 @@ describe('Agent compaction lifecycle', () => {
           })),
           usage: emptyUsage(),
         },
+        todos: [],
         options: {thinkingLevel: 'high'},
       },
     );
@@ -730,6 +731,7 @@ describe('Agent abort flow', () => {
           })),
           usage: emptyUsage(),
         },
+        todos: [],
         options: {thinkingLevel: 'high'},
       },
     );
@@ -853,6 +855,65 @@ describe('Agent snapshot restore', () => {
         ),
     ).toThrow('Snapshot is missing thinkingLevel');
   });
+
+  it('restores the TODO list from a snapshot', () => {
+    const snapshot: AgentSnapshot = {
+      id: crypto.randomUUID(),
+      title: 'Restored Session',
+      sseEventCount: 0,
+      llmSession: {
+        id: 'llm-session-id',
+        messages: [],
+        compactions: [],
+        latestUsageInputMessageCount: null,
+        usage: emptyUsage(),
+      },
+      todos: [
+        {index: 0, subject: 'Task A', description: 'Do A', status: 'completed'},
+        {index: 1, subject: 'Task B', description: 'Do B', status: 'pending'},
+      ],
+      options: {
+        workingDirectory: realpathSync(os.tmpdir()),
+        thinkingLevel: 'high',
+      },
+    };
+
+    const agent = new TestAgent(
+      () => Promise.resolve(MAIN_CONFIG),
+      testAgentOptions(),
+      snapshot,
+    );
+
+    expect(agent.toSnapshot().todos).toEqual(snapshot.todos);
+  });
+
+  it('round-trips an empty TODO list through toSnapshot', () => {
+    const snapshot: AgentSnapshot = {
+      id: crypto.randomUUID(),
+      title: 'Restored Session',
+      sseEventCount: 0,
+      llmSession: {
+        id: 'llm-session-id',
+        messages: [],
+        compactions: [],
+        latestUsageInputMessageCount: null,
+        usage: emptyUsage(),
+      },
+      todos: [],
+      options: {
+        workingDirectory: realpathSync(os.tmpdir()),
+        thinkingLevel: 'high',
+      },
+    };
+
+    const agent = new TestAgent(
+      () => Promise.resolve(MAIN_CONFIG),
+      testAgentOptions(),
+      snapshot,
+    );
+
+    expect(agent.toSnapshot().todos).toEqual([]);
+  });
 });
 
 describe('Agent default working directory', () => {
@@ -898,6 +959,7 @@ describe('Agent default working directory', () => {
         latestUsageInputMessageCount: null,
         usage: emptyUsage(),
       },
+      todos: [],
       options: {
         thinkingLevel: 'high',
       },
