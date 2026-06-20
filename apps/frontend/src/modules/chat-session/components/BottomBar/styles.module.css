@@ -1,13 +1,4 @@
 .container {
-  position: relative;
-}
-
-.todoPanelWrapper {
-  position: absolute;
-  bottom: 100%;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 10;
-  padding-bottom: 6px;
-  min-width: 260px;
+  display: flex;
+  flex-direction: column;
 }

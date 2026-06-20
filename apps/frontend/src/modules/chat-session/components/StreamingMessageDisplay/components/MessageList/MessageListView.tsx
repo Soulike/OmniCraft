@@ -40,5 +40,11 @@ function itemKey(item: MessageRenderItem, index: number): string {
       return `subagent-${index.toString()}`;
     case 'context-compaction':
       return `context-compaction-${item.compactionId}`;
+    case 'todo':
+      // Index-based key, like thinking/subagent. Safe because the message
+      // stream is append-only — a todo card keeps its position, so TodoCard's
+      // expanded state stays put. Re-ordering or inserting before a todo card
+      // would reset that state.
+      return `todo-${index.toString()}`;
   }
 }
