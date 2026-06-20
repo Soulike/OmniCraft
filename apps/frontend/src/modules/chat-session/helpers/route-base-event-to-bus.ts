@@ -57,5 +57,9 @@ export function routeBaseEventToBus(
     case 'error':
       bus.emit('stream-error', {message: event.message});
       break;
+    case 'stop-check-reminder':
+      // Hidden reminder: not routed to the UI. It remains in
+      // sse-events.jsonl for debugging.
+      break;
   }
 }

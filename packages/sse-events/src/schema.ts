@@ -146,6 +146,28 @@ export const sseTodoUpdateEventSchema = z.object({
 export type SseTodoUpdateEvent = z.infer<typeof sseTodoUpdateEventSchema>;
 
 // ---------------------------------------------------------------------------
+// Stop-check reminder event
+// ---------------------------------------------------------------------------
+
+/** A hidden reminder injected when a stop-check blocks the turn from ending.
+ *  Persisted and replayed for debugging, but ignored by the frontend so it
+ *  never renders in the UI. `content` is the exact reminder body the LLM
+ *  received, minus the `<system-reminder>` wrapper — i.e. HTML-escaped, so a
+ *  subject like `don't forget <x>` appears here as `don&#39;t forget &lt;x&gt;`.
+ *  The event is only emitted when at least one check fired, so `checkNames` and
+ *  `content` are always non-empty. */
+export const sseStopCheckReminderEventSchema = z.object({
+  type: z.literal('stop-check-reminder'),
+  checkNames: z.array(z.string()).min(1),
+  content: z.string().min(1),
+  messageId: z.string(),
+  createdAt: z.number(),
+});
+export type SseStopCheckReminderEvent = z.infer<
+  typeof sseStopCheckReminderEventSchema
+>;
+
+// ---------------------------------------------------------------------------
 // Context compaction events
 // ---------------------------------------------------------------------------
 
@@ -217,6 +239,7 @@ const sseBaseEventSchemas = [
   sseErrorEventSchema,
   sseSessionTitleEventSchema,
   sseTodoUpdateEventSchema,
+  sseStopCheckReminderEventSchema,
   sseContextCompactionStartEventSchema,
   sseContextCompactionEndEventSchema,
   sseContextCompactionErrorEventSchema,

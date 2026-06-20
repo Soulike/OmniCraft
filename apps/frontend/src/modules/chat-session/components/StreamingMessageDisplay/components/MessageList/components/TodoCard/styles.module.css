@@ -1,0 +1,97 @@
+.card {
+  border-radius: 10px;
+  width: 100%;
+  max-width: 100%;
+}
+
+/* Expanded: glass shell (translucent + blur), blends into the Mica. Collapsed
+   stays chromeless — matches ToolExecutionCard. */
+.card:has(.trigger[aria-expanded='true']) {
+  background: var(--aurora-glass-fill);
+  border: 1px solid var(--aurora-glass-border);
+  box-shadow: var(--aurora-glass-highlight);
+  backdrop-filter: var(--aurora-glass-blur);
+  -webkit-backdrop-filter: var(--aurora-glass-blur);
+}
+
+.trigger {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  min-height: 28px;
+  box-sizing: border-box;
+  padding: 3px 8px;
+  cursor: pointer;
+  background: none;
+  border: none;
+  border-radius: 10px;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  transition: background 150ms ease;
+}
+
+.trigger:hover {
+  background: var(--aurora-glass-fill);
+}
+
+.trigger:focus-visible {
+  outline: 1px solid color-mix(in srgb, var(--accent) 55%, transparent);
+  outline-offset: 2px;
+}
+
+.icon {
+  flex-shrink: 0;
+  color: var(--muted);
+}
+
+.headLabel {
+  font-weight: 500;
+  font-size: 0.8125rem;
+  line-height: 1.3;
+  white-space: nowrap;
+}
+
+.headCount {
+  color: var(--muted);
+  font-size: 0.8125rem;
+  white-space: nowrap;
+}
+
+.current {
+  font-size: 0.8125rem;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.divider {
+  color: var(--muted);
+  opacity: 0.5;
+}
+
+.indicator {
+  margin-left: auto;
+  flex-shrink: 0;
+  color: var(--muted);
+  opacity: 0.75;
+}
+
+.body {
+  padding: 4px 10px 8px;
+}
+
+.completed {
+  color: var(--muted);
+  text-decoration: line-through;
+  text-decoration-color: color-mix(in oklab, var(--muted) 60%, transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .trigger {
+    transition: none;
+  }
+}

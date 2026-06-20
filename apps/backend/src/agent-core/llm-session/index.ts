@@ -12,6 +12,7 @@ export type {
   LlmSessionThinkingStartEvent,
   LlmSessionToolCallEvent,
   LlmSessionUsage,
+  SendReminderResult,
   SendUserMessageResult,
   ToolResult,
 } from './types.js';

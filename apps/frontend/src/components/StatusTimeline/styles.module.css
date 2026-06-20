@@ -1,0 +1,90 @@
+.timeline {
+  /* Row text metrics + node size — the single source the node/spine geometry
+     derives from, so changing the row font keeps the dot centered on the first
+     text line with no separate hand-tuning. */
+  --row-font-size: 12.5px;
+  --row-line-height: 1.55;
+  --node-size: 12px;
+  --row-padding: 5px;
+  /* derived: first-line box height, and the node's top offset to center it */
+  --row-line-box: calc(var(--row-font-size) * var(--row-line-height));
+  --node-top: calc((var(--row-line-box) - var(--node-size)) / 2);
+
+  display: flex;
+  flex-direction: column;
+}
+
+.row {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: var(--row-padding) 0;
+}
+
+.nodeCol {
+  position: relative;
+  flex-shrink: 0;
+  width: 14px;
+  display: flex;
+  justify-content: center;
+  /* stretch to the row's full height so the spine spans multi-line rows */
+  align-self: stretch;
+}
+
+/* connecting spine between consecutive nodes */
+.row:not(:last-child) .nodeCol::after {
+  content: '';
+  position: absolute;
+  /* start just below the node */
+  top: calc(var(--node-top) + var(--node-size));
+  /* reach the next node: span the gap between rows (this row's bottom padding +
+     the next row's top padding) */
+  bottom: calc(-2 * var(--row-padding));
+  left: 50%;
+  width: 1.5px;
+  transform: translateX(-50%);
+  background: var(--border);
+}
+
+.node {
+  position: relative;
+  z-index: 1;
+  box-sizing: border-box;
+  width: var(--node-size);
+  height: var(--node-size);
+  /* vertically center the dot on the first text line */
+  margin-top: var(--node-top);
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.node[data-status='pending'] {
+  border: 1.5px solid var(--border);
+  background: transparent;
+}
+
+.node[data-status='in-progress'] {
+  border: 2px solid var(--accent);
+  background: color-mix(in oklab, var(--accent) 25%, transparent);
+  box-shadow: var(--aurora-active-bar-glow);
+}
+
+.node[data-status='done'] {
+  border: 1.5px solid var(--success);
+  background: var(--success);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.check {
+  color: var(--success-foreground);
+}
+
+.rowContent {
+  font-size: var(--row-font-size);
+  line-height: var(--row-line-height);
+  color: var(--foreground);
+  min-width: 0;
+}

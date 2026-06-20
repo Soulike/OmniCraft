@@ -7,6 +7,8 @@ import type {
   SseMessageStartEvent,
   SseTextDeltaEvent,
   SseThinkingDeltaEvent,
+  SseTodoItem,
+  SseTodoUpdateEvent,
   SseToolExecuteEndEvent,
   SseToolExecuteStartEvent,
 } from '@omnicraft/sse-events';
@@ -296,6 +298,88 @@ export function pushCompactionEvent(
   ];
 }
 
+function todoItemsEqual(
+  a: readonly SseTodoItem[],
+  b: readonly SseTodoItem[],
+): boolean {
+  if (a.length !== b.length) return false;
+  return a.every((item, i) => {
+    const other = b[i];
+    return (
+      item.index === other.index &&
+      item.subject === other.subject &&
+      item.description === other.description &&
+      item.status === other.status
+    );
+  });
+}
+
+export function applyTodoUpdate(
+  prev: ChatMessage[],
+  items: readonly SseTodoItem[],
+): ChatMessage[] {
+  // Redundant-update guard: a parallel tool round re-emits the same todo
+  // snapshot once per executed tool (each sees todoVersion changed and pushes
+  // listTodos()), separated by the visible tool's events. If the most recent
+  // todo card in the CURRENT assistant turn already holds this exact snapshot,
+  // the update is a no-op — without this guard the non-adjacent duplicate
+  // appends a second, identical card. Stop at a user message so a new turn that
+  // re-emits the previous turn's plan still gets its own fresh card.
+  for (let i = prev.length - 1; i >= 0; i--) {
+    const message = prev[i];
+    if (message.role === 'user') break;
+    const content = message.content;
+    if (content.type === 'todo') {
+      if (todoItemsEqual(content.items, items)) return prev;
+      break;
+    }
+  }
+
+  // Empty snapshot (todoClear): clear the most recent todo card in the CURRENT
+  // turn in place if one exists — the render transform then drops the empty
+  // card, so the plan disappears. Stop at a user message (like the guard above)
+  // so a todoClear in a new turn never empties the previous turn's card and
+  // retroactively removes rendered history. With no card to clear, no-op rather
+  // than stripping the trailing working-indicator placeholder and appending an
+  // invisible empty card (which would briefly leave neither card nor indicator).
+  if (items.length === 0) {
+    for (let i = prev.length - 1; i >= 0; i--) {
+      if (prev[i].role === 'user') break;
+      if (prev[i].content.type === 'todo') {
+        const next = [...prev];
+        next[i] = {...prev[i], content: {type: 'todo', items}};
+        return next;
+      }
+    }
+    return prev;
+  }
+
+  // Strip a trailing empty assistant placeholder first: a silent tool-only
+  // round can leave one between the previous todo card and this update, and
+  // without stripping it the adjacency test below would miss the card and
+  // append a duplicate.
+  const base = removeTrailingAssistantMessageIfEmpty(prev);
+  const last = base[base.length - 1];
+  // Adjacency rule: a todo update that immediately follows a todo card replaces
+  // it in place; otherwise it starts a fresh card after the intervening work,
+  // giving a replayable plan → work → updated-plan timeline.
+  if (base.length > 0 && last.content.type === 'todo') {
+    return [...base.slice(0, -1), {...last, content: {type: 'todo', items}}];
+  }
+  return [
+    ...base,
+    {
+      // A todo card has no backend message ID and intentionally keeps id: null
+      // for its whole lifetime (unlike text placeholders, it is never
+      // back-filled by message-start). No render path reads a todo card's id.
+      id: null,
+      createdAt: null,
+      role: 'assistant' as const,
+      content: {type: 'todo', items},
+    },
+  ];
+}
+
 /** Manages the chat message history, subscribing to chat events. */
 export function useMessages() {
   const [messages, setMessages] = useFrameBatchedState<ChatMessage[]>([]);
@@ -365,6 +449,9 @@ export function useMessages() {
     const onCompactionError = (data: SseContextCompactionErrorEvent) => {
       setMessages((prev) => pushCompactionEvent(prev, data));
     };
+    const onTodoUpdate = (data: SseTodoUpdateEvent) => {
+      setMessages((prev) => applyTodoUpdate(prev, data.items));
+    };
 
     eventBus.on('user-message-sent', onUserMessageSent);
     eventBus.on('text-delta', onTextDelta);
@@ -381,6 +468,7 @@ export function useMessages() {
     eventBus.on('context-compaction-start', onCompactionStart);
     eventBus.on('context-compaction-end', onCompactionEnd);
     eventBus.on('context-compaction-error', onCompactionError);
+    eventBus.on('todo-update', onTodoUpdate);
 
     return () => {
       eventBus.off('user-message-sent', onUserMessageSent);
@@ -398,6 +486,7 @@ export function useMessages() {
       eventBus.off('context-compaction-start', onCompactionStart);
       eventBus.off('context-compaction-end', onCompactionEnd);
       eventBus.off('context-compaction-error', onCompactionError);
+      eventBus.off('todo-update', onTodoUpdate);
     };
   }, [eventBus, setMessages]);
 

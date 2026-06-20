@@ -120,6 +120,10 @@ export function useStreamChat({
               case 'session-title':
                 eventBus.emit('session-title', event);
                 break;
+              case 'stop-check-reminder':
+                // Hidden reminder: not routed to the UI. It remains in
+                // sse-events.jsonl for debugging.
+                break;
               case 'error':
                 receivedTerminalEvent = true;
                 eventBus.emit('stream-error', {message: event.message});

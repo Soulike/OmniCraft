@@ -3,6 +3,7 @@ import type {
   SseCompactionReason,
   SseContextCompactionEndEvent,
   SseContextCompactionErrorEvent,
+  SseTodoItem,
 } from '@omnicraft/sse-events';
 import type {
   AnyToolResultData,
@@ -85,6 +86,11 @@ export interface SubagentRenderItem {
   eventBus: ChatEventBus;
 }
 
+export interface TodoRenderItem {
+  type: 'todo';
+  items: readonly SseTodoItem[];
+}
+
 export type ContextCompactionRenderItem =
   | {
       type: 'context-compaction';
@@ -121,6 +127,7 @@ export type MessageRenderItem =
   | ToolExecutionRenderItem
   | ThinkingRenderItem
   | SubagentRenderItem
+  | TodoRenderItem
   | ContextCompactionRenderItem;
 
 /** Converts a ChatMessage[] into renderable MessageRenderItem[]. */
@@ -235,6 +242,11 @@ export function transformMessages(
           status: content.status,
           eventBus: content.eventBus,
         });
+        break;
+      }
+      case 'todo': {
+        if (content.items.length === 0) break;
+        items.push({type: 'todo', items: content.items});
         break;
       }
       case 'context-compaction-start': {

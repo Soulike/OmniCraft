@@ -120,3 +120,12 @@ export interface SendUserMessageResult {
   messageId: string;
   createdAt: number;
 }
+
+/** Return value of LlmSession.sendReminder(). Adds the escaped reminder text
+ *  actually injected, so callers surface the same text (e.g. in an SSE event)
+ *  without re-escaping. */
+export interface SendReminderResult extends SendUserMessageResult {
+  /** The injected reminder body, HTML-escaped (so e.g. `<` is `&lt;`). This is
+   *  the body the LLM received, without the `<system-reminder>` wrapper. */
+  content: string;
+}
