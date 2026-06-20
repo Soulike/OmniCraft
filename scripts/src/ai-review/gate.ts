@@ -53,7 +53,8 @@ async function main(): Promise<void> {
   const upstream: JobResult[] = [
     normalizeJobResult(optionalEnv('CONFIG_RESULT')),
     normalizeJobResult(optionalEnv('PREPARE_RESULT')),
-    normalizeJobResult(optionalEnv('REVIEW_RESULT')),
+    normalizeJobResult(optionalEnv('GENERAL_REVIEW_RESULT')),
+    normalizeJobResult(optionalEnv('SECURITY_REVIEW_RESULT')),
     normalizeJobResult(optionalEnv('CONFIRM_RESULT')),
   ];
   const anyUpstreamFailed = upstream.some(isFailedOrCancelled);

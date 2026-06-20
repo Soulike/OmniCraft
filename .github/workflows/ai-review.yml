@@ -8,9 +8,12 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  REVIEWER_MODELS: ${{ vars.AI_REVIEW_REVIEWER_MODELS || 'gpt-5.5,claude-opus-4.8' }}
+  GENERAL_MODELS: ${{ vars.AI_REVIEW_GENERAL_MODELS || 'gpt-5.5,claude-opus-4.8' }}
+  SECURITY_MODELS: ${{ vars.AI_REVIEW_SECURITY_MODELS || 'gpt-5.5,claude-opus-4.8' }}
   CONFIRM_MODEL: ${{ vars.AI_REVIEW_CONFIRM_MODEL || 'claude-opus-4.8' }}
-  REASONING_EFFORT: ${{ vars.AI_REVIEW_EFFORT || 'xhigh' }}
+  GENERAL_EFFORT: ${{ vars.AI_REVIEW_GENERAL_EFFORT || 'xhigh' }}
+  SECURITY_EFFORT: ${{ vars.AI_REVIEW_SECURITY_EFFORT || 'xhigh' }}
+  CONFIRM_EFFORT: ${{ vars.AI_REVIEW_CONFIRM_EFFORT || 'xhigh' }}
 
 jobs:
   config:
@@ -19,7 +22,8 @@ jobs:
     permissions:
       contents: read
     outputs:
-      reviewer_models_json: ${{ steps.check.outputs.reviewer_models_json }}
+      general_models_json: ${{ steps.check.outputs.general_models_json }}
+      security_models_json: ${{ steps.check.outputs.security_models_json }}
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
@@ -53,8 +57,8 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
 
-  review:
-    name: Review (${{ matrix.model }} / ${{ matrix.pass }})
+  general-review:
+    name: General review (${{ matrix.model }})
     needs: [config, prepare]
     if: needs.prepare.outputs.has_changes == 'true'
     runs-on: ubuntu-latest
@@ -64,68 +68,55 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        model: ${{ fromJSON(needs.config.outputs.reviewer_models_json) }}
-        pass: [general, security]
+        model: ${{ fromJSON(needs.config.outputs.general_models_json) }}
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
-      - name: Checkout PR head
-        uses: actions/checkout@v7
+      - uses: ./.github/actions/run-review-pass
         with:
-          ref: ${{ needs.prepare.outputs.head_sha }}
-          path: pr-head
-          fetch-depth: 0
-      - name: Fetch base for diff range
-        run: git -C pr-head fetch --no-tags origin -- "${BASE_REF}"
-        env:
-          BASE_REF: ${{ github.event.pull_request.base.ref }}
-      - name: Install deps in pr-head
-        run: bun install --frozen-lockfile
-        working-directory: pr-head
-      - name: Install Copilot CLI
-        run: npm install -g @github/copilot
-      - name: Review pass
-        run: |
-          PROMPT="$(cat "$GITHUB_WORKSPACE/scripts/src/ai-review/prompts/review-$PASS.md")
+          model: ${{ matrix.model }}
+          effort: ${{ env.GENERAL_EFFORT }}
+          pass: general
+          head-sha: ${{ needs.prepare.outputs.head_sha }}
+          base-sha: ${{ github.event.pull_request.base.sha }}
+          base-ref: ${{ github.event.pull_request.base.ref }}
+          pr-number: ${{ needs.prepare.outputs.pr_number }}
+          repo: ${{ github.repository }}
+          github-token: ${{ github.token }}
+          copilot-token: ${{ secrets.COPILOT_CLI_TOKEN }}
 
-          Repository: $GH_REPO
-          PR number: $PR_NUMBER
-          Review the full diff of this PR against its base: run
-          \`git diff $BASE_SHA...HEAD\` (three-dot) inside pr-head.
-
-          Report file: $REPORT_FILE"
-          copilot --model "$MODEL" --effort "$REASONING_EFFORT" \
-            --context long_context \
-            --allow-tool 'shell,read,write' \
-            --allow-all-urls \
-            --secret-env-vars COPILOT_GITHUB_TOKEN \
-            --add-dir "$GITHUB_WORKSPACE" \
-            -C pr-head \
-            -p "$PROMPT"
-          if [ ! -s "$REPORT_FILE" ]; then
-            echo "::error::Reviewer did not write a non-empty report to $REPORT_FILE"
-            exit 1
-          fi
-        env:
-          MODEL: ${{ matrix.model }}
-          PASS: ${{ matrix.pass }}
-          COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_CLI_TOKEN }}
-          GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
-          PR_NUMBER: ${{ needs.prepare.outputs.pr_number }}
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          REPORT_FILE: ${{ github.workspace }}/report-${{ matrix.model }}-${{ matrix.pass }}.md
-      - name: Upload report
-        uses: actions/upload-artifact@v7
+  security-review:
+    name: Security review (${{ matrix.model }})
+    needs: [config, prepare]
+    if: needs.prepare.outputs.has_changes == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    strategy:
+      fail-fast: false
+      matrix:
+        model: ${{ fromJSON(needs.config.outputs.security_models_json) }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup
+      - uses: ./.github/actions/run-review-pass
         with:
-          name: reports-${{ matrix.model }}-${{ matrix.pass }}
-          path: report-${{ matrix.model }}-${{ matrix.pass }}.md
-          if-no-files-found: error
+          model: ${{ matrix.model }}
+          effort: ${{ env.SECURITY_EFFORT }}
+          pass: security
+          head-sha: ${{ needs.prepare.outputs.head_sha }}
+          base-sha: ${{ github.event.pull_request.base.sha }}
+          base-ref: ${{ github.event.pull_request.base.ref }}
+          pr-number: ${{ needs.prepare.outputs.pr_number }}
+          repo: ${{ github.repository }}
+          github-token: ${{ github.token }}
+          copilot-token: ${{ secrets.COPILOT_CLI_TOKEN }}
 
   confirm:
     name: Confirm & post review
-    needs: [config, prepare, review]
-    if: needs.prepare.outputs.has_changes == 'true' && needs.review.result == 'success'
+    needs: [config, prepare, general-review, security-review]
+    if: needs.prepare.outputs.has_changes == 'true' && needs.general-review.result == 'success' && needs.security-review.result == 'success'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -163,7 +154,7 @@ jobs:
           Head SHA: $HEAD_SHA
           Reviewed range: full PR diff ($BASE_SHA...HEAD)
           Reviewer reports are in the $GITHUB_WORKSPACE/reports/ directory."
-          copilot --model "$CONFIRM_MODEL" --effort "$REASONING_EFFORT" \
+          copilot --model "$CONFIRM_MODEL" --effort "$CONFIRM_EFFORT" \
             --context long_context \
             --allow-tool 'shell,read,write' \
             --allow-all-urls \
@@ -181,7 +172,7 @@ jobs:
 
   gate:
     name: AI Review Gate
-    needs: [config, prepare, review, confirm]
+    needs: [config, prepare, general-review, security-review, confirm]
     if: always()
     runs-on: ubuntu-latest
     permissions:
@@ -208,7 +199,8 @@ jobs:
           PR_NUMBER: ${{ needs.prepare.outputs.pr_number }}
           CONFIG_RESULT: ${{ needs.config.result }}
           PREPARE_RESULT: ${{ needs.prepare.result }}
-          REVIEW_RESULT: ${{ needs.review.result }}
+          GENERAL_REVIEW_RESULT: ${{ needs.general-review.result }}
+          SECURITY_REVIEW_RESULT: ${{ needs.security-review.result }}
           CONFIRM_RESULT: ${{ needs.confirm.result }}
           HAS_CHANGES: ${{ needs.prepare.outputs.has_changes }}
           CARRIED_VERDICT: ${{ needs.prepare.outputs.carried_verdict }}
