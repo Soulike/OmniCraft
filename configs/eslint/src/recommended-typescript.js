@@ -27,7 +27,10 @@ export default [
         },
       ],
       '@typescript-eslint/restrict-template-expressions': 'off',
-      '@typescript-eslint/switch-exhaustiveness-check': 'error',
+      '@typescript-eslint/switch-exhaustiveness-check': [
+        'error',
+        {allowDefaultCaseForExhaustiveSwitch: false},
+      ],
       '@typescript-eslint/unified-signatures': 'off',
     },
   },
