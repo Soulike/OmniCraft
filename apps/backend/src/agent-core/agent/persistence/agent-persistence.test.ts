@@ -31,6 +31,7 @@ function createTestSnapshot(id: string): AgentSnapshot {
       latestUsageInputMessageCount: null,
       usage: emptyUsage(),
     },
+    todos: [],
     options: {
       workingDirectory: '/tmp/test-working-dir',
       thinkingLevel: 'medium',
