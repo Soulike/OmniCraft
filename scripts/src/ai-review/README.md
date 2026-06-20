@@ -14,11 +14,19 @@ delegated to the CLI via the prompts in `prompts/`.
    in branch protection for `main`. Because the workflow is triggered by
    `pull_request`, every job (including `gate`) shows up natively in the PR's
    check list.
-3. (Optional) Set repository **Variables** to override model defaults without
-   editing the workflow, and confirm they are available on the Copilot plan:
-   - `AI_REVIEW_REVIEWER_MODELS` (comma-separated, e.g. `gpt-5.5,claude-opus-4.8`)
-   - `AI_REVIEW_CONFIRM_MODEL` (e.g. `claude-opus-4.8`)
-   - `AI_REVIEW_EFFORT` (`none|low|medium|high|xhigh|max`)
+3. (Optional) Set repository **Variables** to override per-stage model and effort
+   defaults without editing the workflow, and confirm the models are available on
+   the Copilot plan. Each stage is configured independently:
+   - `AI_REVIEW_GENERAL_MODELS` (comma-separated, e.g. `gpt-5.5,claude-opus-4.8`)
+   - `AI_REVIEW_SECURITY_MODELS` (comma-separated, e.g. `gpt-5.5,claude-opus-4.8`)
+   - `AI_REVIEW_CONFIRM_MODEL` (single, e.g. `claude-opus-4.8`)
+   - `AI_REVIEW_GENERAL_EFFORT` (`none|low|medium|high|xhigh|max`)
+   - `AI_REVIEW_SECURITY_EFFORT` (`none|low|medium|high|xhigh|max`)
+   - `AI_REVIEW_CONFIRM_EFFORT` (`none|low|medium|high|xhigh|max`)
+
+   A model list may contain a single model. Unset variables fall back to the
+   defaults above (general & security `gpt-5.5,claude-opus-4.8`; confirm
+   `claude-opus-4.8`; all efforts `xhigh`), i.e. today's behavior.
 
 The `AI Approved` / `AI Need Change` labels are created automatically.
 
