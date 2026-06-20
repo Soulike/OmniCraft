@@ -59,6 +59,12 @@ describe('validateReviewConfig', () => {
     ).toThrow(/duplicate/i);
   });
 
+  it('throws when SECURITY_MODELS has duplicates', () => {
+    expect(() =>
+      validateReviewConfig({...validRaw(), securityModels: 'gpt-5.5, gpt-5.5'}),
+    ).toThrow(/SECURITY_MODELS/);
+  });
+
   it('throws when CONFIRM_MODEL is blank', () => {
     expect(() =>
       validateReviewConfig({...validRaw(), confirmModel: '  '}),
@@ -69,6 +75,12 @@ describe('validateReviewConfig', () => {
     expect(() =>
       validateReviewConfig({...validRaw(), generalEffort: 'turbo'}),
     ).toThrow(/GENERAL_EFFORT/);
+  });
+
+  it('throws when SECURITY_EFFORT is not an accepted level', () => {
+    expect(() =>
+      validateReviewConfig({...validRaw(), securityEffort: 'turbo'}),
+    ).toThrow(/SECURITY_EFFORT/);
   });
 
   it('throws when CONFIRM_EFFORT is not an accepted level', () => {
