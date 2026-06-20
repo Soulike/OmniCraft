@@ -16,14 +16,21 @@ function main(): void {
 
   try {
     const config = validateReviewConfig({
-      reviewerModels: optionalEnv('REVIEWER_MODELS'),
+      generalModels: optionalEnv('GENERAL_MODELS'),
+      securityModels: optionalEnv('SECURITY_MODELS'),
       confirmModel: optionalEnv('CONFIRM_MODEL'),
-      reasoningEffort: optionalEnv('REASONING_EFFORT'),
+      generalEffort: optionalEnv('GENERAL_EFFORT'),
+      securityEffort: optionalEnv('SECURITY_EFFORT'),
+      confirmEffort: optionalEnv('CONFIRM_EFFORT'),
     });
-    setOutput('reviewer_models_json', JSON.stringify(config.reviewerModels));
+    setOutput('general_models_json', JSON.stringify(config.general.models));
+    setOutput('security_models_json', JSON.stringify(config.security.models));
     console.log(
-      `Config OK. Reviewers: ${config.reviewerModels.join(', ')}; ` +
-        `confirm: ${config.confirmModel}; effort: ${config.reasoningEffort}.`,
+      `Config OK. General: ${config.general.models.join(', ')} ` +
+        `(${config.general.effort}); ` +
+        `security: ${config.security.models.join(', ')} ` +
+        `(${config.security.effort}); ` +
+        `confirm: ${config.confirm.model} (${config.confirm.effort}).`,
     );
   } catch (error) {
     fail(error instanceof Error ? error.message : String(error));

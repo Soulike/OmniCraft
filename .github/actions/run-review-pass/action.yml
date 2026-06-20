@@ -1,0 +1,95 @@
+name: Run review pass
+description: Prepare the PR head and run one Copilot review pass, verifying a non-empty report.
+
+inputs:
+  model:
+    description: Reviewer model ID
+    required: true
+  effort:
+    description: Reasoning effort level for this pass
+    required: true
+  pass:
+    description: Review pass name (general | security); selects the prompt file
+    required: true
+  head-sha:
+    description: PR head SHA to check out
+    required: true
+  base-sha:
+    description: PR base SHA for the diff range
+    required: true
+  base-ref:
+    description: PR base ref to fetch
+    required: true
+  pr-number:
+    description: PR number
+    required: true
+  repo:
+    description: owner/name of the repository
+    required: true
+  github-token:
+    description: GITHUB_TOKEN for the agent's gh calls
+    required: true
+  copilot-token:
+    description: Copilot Requests PAT (COPILOT_CLI_TOKEN secret)
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Checkout PR head
+      uses: actions/checkout@v7
+      with:
+        ref: ${{ inputs.head-sha }}
+        path: pr-head
+        fetch-depth: 0
+    - name: Fetch base for diff range
+      shell: bash
+      run: git -C pr-head fetch --no-tags origin -- "${BASE_REF}"
+      env:
+        BASE_REF: ${{ inputs.base-ref }}
+    - name: Install deps in pr-head
+      shell: bash
+      run: bun install --frozen-lockfile
+      working-directory: pr-head
+    - name: Install Copilot CLI
+      shell: bash
+      run: npm install -g @github/copilot
+    - name: Review pass
+      shell: bash
+      run: |
+        PROMPT="$(cat "$GITHUB_WORKSPACE/scripts/src/ai-review/prompts/review-$PASS.md")
+
+        Repository: $GH_REPO
+        PR number: $PR_NUMBER
+        Review the full diff of this PR against its base: run
+        \`git diff $BASE_SHA...HEAD\` (three-dot) inside pr-head.
+
+        Report file: $REPORT_FILE"
+        copilot --model "$MODEL" --effort "$EFFORT" \
+          --context long_context \
+          --allow-tool 'shell,read,write' \
+          --allow-all-urls \
+          --secret-env-vars COPILOT_GITHUB_TOKEN \
+          --add-dir "$GITHUB_WORKSPACE" \
+          -C pr-head \
+          -p "$PROMPT"
+        if [ ! -s "$REPORT_FILE" ]; then
+          echo "::error::Reviewer did not write a non-empty report to $REPORT_FILE"
+          exit 1
+        fi
+      env:
+        MODEL: ${{ inputs.model }}
+        EFFORT: ${{ inputs.effort }}
+        PASS: ${{ inputs.pass }}
+        COPILOT_GITHUB_TOKEN: ${{ inputs.copilot-token }}
+        GH_TOKEN: ${{ inputs.github-token }}
+        GH_REPO: ${{ inputs.repo }}
+        PR_NUMBER: ${{ inputs.pr-number }}
+        BASE_SHA: ${{ inputs.base-sha }}
+        REPORT_FILE: ${{ github.workspace }}/report-${{ inputs.pass }}-${{ inputs.model }}.md
+    - name: Upload report
+      uses: actions/upload-artifact@v7
+      with:
+        name: reports-${{ inputs.pass }}-${{ inputs.model }}
+        path: report-${{ inputs.pass }}-${{ inputs.model }}.md
+        if-no-files-found: error

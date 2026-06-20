@@ -2,18 +2,32 @@ import {describe, expect, it} from 'vitest';
 
 import {REASONING_EFFORTS, validateReviewConfig} from './config.js';
 
+function validRaw() {
+  return {
+    generalModels: 'gpt-5.5, claude-opus-4.8',
+    securityModels: 'gpt-5.5, claude-opus-4.8',
+    confirmModel: 'claude-opus-4.8',
+    generalEffort: 'xhigh',
+    securityEffort: 'high',
+    confirmEffort: 'max',
+  };
+}
+
 describe('validateReviewConfig', () => {
-  it('parses a valid config into a normalized shape', () => {
+  it('parses a valid config into the nested shape', () => {
+    expect(validateReviewConfig(validRaw())).toEqual({
+      general: {models: ['gpt-5.5', 'claude-opus-4.8'], effort: 'xhigh'},
+      security: {models: ['gpt-5.5', 'claude-opus-4.8'], effort: 'high'},
+      confirm: {model: 'claude-opus-4.8', effort: 'max'},
+    });
+  });
+
+  it('accepts a single-model list per stage', () => {
     const result = validateReviewConfig({
-      reviewerModels: 'gpt-5.5, claude-opus-4.8',
-      confirmModel: 'claude-opus-4.8',
-      reasoningEffort: 'xhigh',
+      ...validRaw(),
+      generalModels: 'gpt-5.5',
     });
-    expect(result).toEqual({
-      reviewerModels: ['gpt-5.5', 'claude-opus-4.8'],
-      confirmModel: 'claude-opus-4.8',
-      reasoningEffort: 'xhigh',
-    });
+    expect(result.general.models).toEqual(['gpt-5.5']);
   });
 
   it('exposes the accepted reasoning-effort levels', () => {
@@ -27,53 +41,51 @@ describe('validateReviewConfig', () => {
     ]);
   });
 
-  it('throws when REVIEWER_MODELS is empty', () => {
+  it('throws when GENERAL_MODELS is empty', () => {
     expect(() =>
-      validateReviewConfig({
-        reviewerModels: '   ',
-        confirmModel: 'claude-opus-4.8',
-        reasoningEffort: 'xhigh',
-      }),
-    ).toThrow(/REVIEWER_MODELS/);
+      validateReviewConfig({...validRaw(), generalModels: '   '}),
+    ).toThrow(/GENERAL_MODELS/);
   });
 
-  it('throws when REVIEWER_MODELS lists only one model', () => {
+  it('throws when SECURITY_MODELS is empty', () => {
     expect(() =>
-      validateReviewConfig({
-        reviewerModels: 'gpt-5.5',
-        confirmModel: 'claude-opus-4.8',
-        reasoningEffort: 'xhigh',
-      }),
-    ).toThrow(/at least two/i);
+      validateReviewConfig({...validRaw(), securityModels: '   '}),
+    ).toThrow(/SECURITY_MODELS/);
   });
 
-  it('throws when REVIEWER_MODELS has duplicates', () => {
+  it('throws when GENERAL_MODELS has duplicates', () => {
     expect(() =>
-      validateReviewConfig({
-        reviewerModels: 'gpt-5.5, gpt-5.5',
-        confirmModel: 'claude-opus-4.8',
-        reasoningEffort: 'xhigh',
-      }),
+      validateReviewConfig({...validRaw(), generalModels: 'gpt-5.5, gpt-5.5'}),
     ).toThrow(/duplicate/i);
+  });
+
+  it('throws when SECURITY_MODELS has duplicates', () => {
+    expect(() =>
+      validateReviewConfig({...validRaw(), securityModels: 'gpt-5.5, gpt-5.5'}),
+    ).toThrow(/SECURITY_MODELS/);
   });
 
   it('throws when CONFIRM_MODEL is blank', () => {
     expect(() =>
-      validateReviewConfig({
-        reviewerModels: 'gpt-5.5, claude-opus-4.8',
-        confirmModel: '  ',
-        reasoningEffort: 'xhigh',
-      }),
+      validateReviewConfig({...validRaw(), confirmModel: '  '}),
     ).toThrow(/CONFIRM_MODEL/);
   });
 
-  it('throws when REASONING_EFFORT is not an accepted level', () => {
+  it('throws when GENERAL_EFFORT is not an accepted level', () => {
     expect(() =>
-      validateReviewConfig({
-        reviewerModels: 'gpt-5.5, claude-opus-4.8',
-        confirmModel: 'claude-opus-4.8',
-        reasoningEffort: 'turbo',
-      }),
-    ).toThrow(/REASONING_EFFORT/);
+      validateReviewConfig({...validRaw(), generalEffort: 'turbo'}),
+    ).toThrow(/GENERAL_EFFORT/);
+  });
+
+  it('throws when SECURITY_EFFORT is not an accepted level', () => {
+    expect(() =>
+      validateReviewConfig({...validRaw(), securityEffort: 'turbo'}),
+    ).toThrow(/SECURITY_EFFORT/);
+  });
+
+  it('throws when CONFIRM_EFFORT is not an accepted level', () => {
+    expect(() =>
+      validateReviewConfig({...validRaw(), confirmEffort: 'turbo'}),
+    ).toThrow(/CONFIRM_EFFORT/);
   });
 });
