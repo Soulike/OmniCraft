@@ -11,6 +11,7 @@ const FIELDS = [
   {path: 'llm/baseUrl', schema: llmShape.baseUrl},
   {path: 'llm/model', schema: llmShape.model},
   {path: 'llm/lightModel', schema: llmShape.lightModel},
+  {path: 'llm/thinkingLevel', schema: llmShape.thinkingLevel},
 ];
 
 export function ChatLlmSection() {
