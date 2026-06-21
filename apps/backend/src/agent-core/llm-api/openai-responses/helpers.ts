@@ -72,7 +72,10 @@ export function toFunctionTool(
 /** Maps a ThinkingLevel to the OpenAI Reasoning config. */
 export function toReasoning(
   level: ThinkingLevel,
-): {effort: 'low' | 'medium' | 'high' | 'xhigh'; summary: 'auto'} | undefined {
+):
+  | {effort: 'minimal' | 'low' | 'medium' | 'high' | 'xhigh'; summary: 'auto'}
+  | undefined {
   if (level === 'none') return undefined;
+  if (level === 'max') return {effort: 'xhigh', summary: 'auto'};
   return {effort: level, summary: 'auto'};
 }
