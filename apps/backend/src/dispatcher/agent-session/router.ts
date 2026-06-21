@@ -9,7 +9,6 @@ import {
   createSessionRequestSchema,
   listSessionsQuerySchema,
   submitToolResponseRequestSchema,
-  type ThinkingLevel,
 } from '@omnicraft/api-schema';
 import type {SseEventCursorEntry} from '@omnicraft/sse-events';
 import {StatusCodes} from 'http-status-codes';
@@ -72,19 +71,18 @@ router.post(SESSION, async (ctx) => {
     return;
   }
 
-  let options: {thinkingLevel: ThinkingLevel; workspace?: string};
+  let options: {workspace?: string};
   try {
     switch (agentType) {
       case AgentType.CHAT: {
-        const body = createSessionRequestSchema.parse(ctx.request.body);
-        options = {thinkingLevel: body.thinkingLevel};
+        createSessionRequestSchema.parse(ctx.request.body);
+        options = {};
         break;
       }
       case AgentType.CODING: {
         const body = createCodingSessionRequestSchema.parse(ctx.request.body);
         options = {
           workspace: body.workspace,
-          thinkingLevel: body.thinkingLevel,
         };
         break;
       }

@@ -48,7 +48,6 @@ describe('LlmCompactionTokenEstimator', () => {
         reason: 'before-llm-call',
         tools: [],
         systemPrompt: '',
-        thinkingLevel: 'none',
       },
     });
 
@@ -72,7 +71,6 @@ describe('LlmCompactionTokenEstimator', () => {
         reason: 'before-llm-call',
         tools,
         systemPrompt: 'System prompt',
-        thinkingLevel: 'medium',
       },
     });
 
@@ -85,7 +83,6 @@ describe('LlmCompactionTokenEstimator', () => {
           description: tool.description,
           parameters: z.toJSONSchema(tool.parameters),
         })),
-        thinkingLevel: 'medium',
       }),
     );
   });
@@ -102,7 +99,6 @@ describe('LlmCompactionTokenEstimator', () => {
         reason: 'after-turn',
         tools,
         systemPrompt: 'Replacement system prompt',
-        thinkingLevel: 'high',
       },
     });
 
@@ -115,7 +111,6 @@ describe('LlmCompactionTokenEstimator', () => {
           description: tool.description,
           parameters: z.toJSONSchema(tool.parameters),
         })),
-        thinkingLevel: 'high',
       }),
     );
   });

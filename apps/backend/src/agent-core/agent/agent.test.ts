@@ -19,6 +19,7 @@ const MAIN_CONFIG: LlmConfig = {
   apiKey: 'test-key',
   baseUrl: 'https://example.test',
   model: 'main-model',
+  thinkingLevel: 'high',
 };
 
 const LIGHT_CONFIG: LlmConfig = {
@@ -40,7 +41,7 @@ class TestAgent extends Agent {}
 
 class UsageTestAgent extends Agent {
   streamForTest(userMessage: string): AsyncIterable<SseEvent> {
-    return this.runAgentLoop(userMessage, 'high', new AbortController().signal);
+    return this.runAgentLoop(userMessage, new AbortController().signal);
   }
 }
 
@@ -67,7 +68,6 @@ function testAgentOptions() {
     baseSystemPrompt: '',
     getMaxToolRounds: () => 1,
     getLightConfig: () => Promise.resolve(LIGHT_CONFIG),
-    thinkingLevel: 'high' as const,
     workingDirectory,
   };
 }
@@ -496,7 +496,6 @@ describe('Agent compaction lifecycle', () => {
     expect(compactionOptions.reason).toBe('after-turn');
     expect(compactionOptions.tools).toEqual([]);
     expect(typeof compactionOptions.systemPrompt).toBe('string');
-    expect(compactionOptions.thinkingLevel).toBe('high');
   });
 
   it('emits a clear error when pre-call compaction fails', async () => {
@@ -521,7 +520,7 @@ describe('Agent compaction lifecycle', () => {
           usage: emptyUsage(),
         },
         todos: [],
-        options: {thinkingLevel: 'high'},
+        options: {},
       },
     );
 
@@ -732,7 +731,7 @@ describe('Agent abort flow', () => {
           usage: emptyUsage(),
         },
         todos: [],
-        options: {thinkingLevel: 'high'},
+        options: {},
       },
     );
 
@@ -820,40 +819,12 @@ describe('Agent snapshot restore', () => {
     vi.restoreAllMocks();
   });
 
-  it('exposes working directory and thinking level for live subagent events', () => {
+  it('exposes working directory for live subagent events', () => {
     const options = testAgentOptions();
     const agent = new TestAgent(() => Promise.resolve(MAIN_CONFIG), options);
 
     expect(agent.getWorkingDirectory()).toBe(options.workingDirectory);
-    expect(agent.getThinkingLevel()).toBe('high');
     expect(agent.getSseEventCount()).toBe(0);
-  });
-
-  it('throws when a snapshot reaches the constructor without thinkingLevel', () => {
-    const snapshot = {
-      id: 'agent-with-missing-thinking-level',
-      title: 'Restored Session',
-      sseEventCount: 0,
-      llmSession: {
-        id: 'llm-session-id',
-        messages: [],
-        compactions: [],
-        latestUsageInputMessageCount: null,
-        usage: emptyUsage(),
-      },
-      options: {
-        workingDirectory: '/tmp/project',
-      },
-    } as unknown as AgentSnapshot;
-
-    expect(
-      () =>
-        new TestAgent(
-          () => Promise.resolve(MAIN_CONFIG),
-          testAgentOptions(),
-          snapshot,
-        ),
-    ).toThrow('Snapshot is missing thinkingLevel');
   });
 
   it('restores the TODO list from a snapshot', () => {
@@ -874,7 +845,6 @@ describe('Agent snapshot restore', () => {
       ],
       options: {
         workingDirectory: realpathSync(os.tmpdir()),
-        thinkingLevel: 'high',
       },
     };
 
@@ -902,7 +872,6 @@ describe('Agent snapshot restore', () => {
       todos: [],
       options: {
         workingDirectory: realpathSync(os.tmpdir()),
-        thinkingLevel: 'high',
       },
     };
 
@@ -960,9 +929,7 @@ describe('Agent default working directory', () => {
         usage: emptyUsage(),
       },
       todos: [],
-      options: {
-        thinkingLevel: 'high',
-      },
+      options: {},
     };
 
     const agent = new TestAgent(
@@ -988,9 +955,7 @@ describe('Agent default working directory', () => {
         latestUsageInputMessageCount: null,
         usage: emptyUsage(),
       },
-      options: {
-        thinkingLevel: 'high',
-      },
+      options: {},
     } as unknown as AgentSnapshot;
 
     expect(

@@ -1,5 +1,3 @@
-import type {ThinkingLevel} from '@omnicraft/api-schema';
-
 import {coreSkillRegistry} from '@/agent/skills/index.js';
 import {
   bashToolRegistry,
@@ -28,7 +26,6 @@ import {codingAgentSystemPrompt} from './system-prompt.js';
 export class CodingAgent extends Agent {
   constructor(
     workingDirectory: string | undefined,
-    thinkingLevel: ThinkingLevel,
     sessionsDir?: string,
     snapshot?: AgentSnapshot,
   ) {
@@ -68,7 +65,6 @@ export class CodingAgent extends Agent {
             thinkingLevel,
           };
         },
-        thinkingLevel,
         workingDirectory,
         sessionsDir,
       },
@@ -85,7 +81,6 @@ export class CodingAgent extends Agent {
     );
     return new CodingAgent(
       snapshot.options.workingDirectory,
-      snapshot.options.thinkingLevel,
       sessionsDir,
       snapshot,
     );

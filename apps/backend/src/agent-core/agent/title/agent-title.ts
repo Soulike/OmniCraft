@@ -12,7 +12,7 @@ export async function generateTitle(
   try {
     const config = await getConfig();
     const stream = llmApi.streamCompletion({
-      config,
+      config: {...config, thinkingLevel: 'none'},
       messages: [
         {
           id: crypto.randomUUID(),
@@ -27,7 +27,6 @@ export async function generateTitle(
         },
       ],
       tools: [],
-      thinkingLevel: 'none',
     });
 
     let title = '';

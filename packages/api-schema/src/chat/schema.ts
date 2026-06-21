@@ -1,19 +1,15 @@
-import {thinkingLevelSchema} from '@omnicraft/settings-schema';
 import {z} from 'zod';
 
 import {sessionIdSchema} from '../agent-id/schema.js';
 
 /** Schema for the POST /chat/session request body. */
-export const createSessionRequestSchema = z.strictObject({
-  thinkingLevel: thinkingLevelSchema,
-});
+export const createSessionRequestSchema = z.strictObject({});
 
 export type CreateSessionRequest = z.infer<typeof createSessionRequestSchema>;
 
 /** Schema for the POST /coding/session request body. */
 export const createCodingSessionRequestSchema = z.strictObject({
   workspace: z.string(),
-  thinkingLevel: thinkingLevelSchema,
 });
 
 export type CreateCodingSessionRequest = z.infer<

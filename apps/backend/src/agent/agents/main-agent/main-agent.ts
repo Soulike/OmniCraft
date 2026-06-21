@@ -1,5 +1,3 @@
-import type {ThinkingLevel} from '@omnicraft/api-schema';
-
 import {coreSkillRegistry} from '@/agent/skills/index.js';
 import {
   bashToolRegistry,
@@ -28,7 +26,6 @@ import {mainAgentSystemPrompt} from './system-prompt.js';
 export class MainAgent extends Agent {
   constructor(
     workingDirectory: string | undefined,
-    thinkingLevel: ThinkingLevel,
     sessionsDir?: string,
     snapshot?: AgentSnapshot,
   ) {
@@ -67,7 +64,6 @@ export class MainAgent extends Agent {
             thinkingLevel,
           };
         },
-        thinkingLevel,
         workingDirectory,
         sessionsDir,
       },
@@ -84,7 +80,6 @@ export class MainAgent extends Agent {
     );
     return new MainAgent(
       snapshot.options.workingDirectory,
-      snapshot.options.thinkingLevel,
       sessionsDir,
       snapshot,
     );
