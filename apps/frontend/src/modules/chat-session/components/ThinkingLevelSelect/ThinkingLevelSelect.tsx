@@ -2,7 +2,11 @@ import {ListBox, Select} from '@heroui/react';
 import type {ThinkingLevel} from '@omnicraft/api-schema';
 import {Lightbulb} from 'lucide-react';
 
-import {THINKING_LEVEL_LABELS, THINKING_LEVELS} from '../../constants.js';
+import {
+  getThinkingLevelLabel,
+  getThinkingLevelOptions,
+} from '@/helpers/thinking-level.js';
+
 import styles from './styles.module.css';
 
 interface ThinkingLevelSelectProps {
@@ -32,14 +36,14 @@ export function ThinkingLevelSelect({
         <Select.Value>
           <span className={styles.value}>
             <Lightbulb size={14} />
-            {`Thinking: ${THINKING_LEVEL_LABELS[value]}`}
+            {`Thinking: ${getThinkingLevelLabel(value)}`}
           </span>
         </Select.Value>
         <Select.Indicator />
       </Select.Trigger>
       <Select.Popover>
         <ListBox>
-          {THINKING_LEVELS.map(([id, label]) => (
+          {getThinkingLevelOptions().map(([id, label]) => (
             <ListBox.Item key={id} id={id} textValue={label}>
               {label}
               <ListBox.ItemIndicator />

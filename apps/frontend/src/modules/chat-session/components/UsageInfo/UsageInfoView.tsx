@@ -1,7 +1,8 @@
 import type {SseUsage} from '@omnicraft/sse-events';
 import clsx from 'clsx';
 
-import {THINKING_LEVEL_LABELS} from '../../constants.js';
+import {getThinkingLevelLabel} from '@/helpers/thinking-level.js';
+
 import {formatTokenCount} from './helpers/format-token-count.js';
 import styles from './styles.module.css';
 
@@ -31,7 +32,7 @@ export function UsageInfoView({usage, className}: UsageInfoViewProps) {
     <div className={clsx(styles.container, className)}>
       <span className={styles.item}>{usage.model}</span>
       <span className={styles.item}>
-        Thinking: {THINKING_LEVEL_LABELS[usage.thinkingLevel]}
+        Thinking: {getThinkingLevelLabel(usage.thinkingLevel)}
       </span>
       <span className={`${styles.item} ${isContextHigh ? styles.warning : ''}`}>
         Context: {formatTokenCount(usage.currentContextInputTokens)} /{' '}
