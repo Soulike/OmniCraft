@@ -34,4 +34,7 @@ export const llmSettingsSchema = z.object({
       'Model name for lightweight tasks (e.g. title generation). Falls back to the main model if empty.',
     )
     .default(''),
+  thinkingLevel: thinkingLevelSchema
+    .describe('Extended-thinking effort level for this agent')
+    .default('none'),
 });
