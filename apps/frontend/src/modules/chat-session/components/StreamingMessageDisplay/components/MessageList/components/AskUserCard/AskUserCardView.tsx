@@ -37,7 +37,7 @@ export function AskUserCardView({
     return <CancelledCard message={failureMessage} />;
   }
 
-  const disabled = submitActions.submitting;
+  const disabled = submitActions.submitting || !submitActions.canSubmit;
 
   return (
     <div className={styles.card}>
@@ -58,6 +58,13 @@ export function AskUserCardView({
           </Fragment>
         ))}
       </div>
+      {/* TODO(#<issue>): polish the disabled-state UI for sessions that cannot
+            accept form submission. */}
+      {!submitActions.canSubmit && (
+        <p className={styles.disabledNotice}>
+          This session does not support form submission.
+        </p>
+      )}
       <div className={styles.footer}>
         <Button
           variant='ghost'

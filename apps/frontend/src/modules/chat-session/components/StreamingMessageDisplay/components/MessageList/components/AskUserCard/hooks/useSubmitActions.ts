@@ -1,53 +1,44 @@
-import {toast} from '@heroui/react';
 import {useCallback, useState} from 'react';
 
-import {useChatSessionApi} from '../../../../../../../hooks/useChatSessionApi.js';
+import type {AskUserSubmitHandler} from '../../../../../types.js';
 import type {AnswerEntry} from '../types.js';
 
 interface UseSubmitActionsParams {
-  sessionId: string;
   callId: string;
   collectAnswers: () => AnswerEntry[];
+  onSubmit: AskUserSubmitHandler | null;
 }
 
 export interface SubmitActions {
   submitting: boolean;
+  canSubmit: boolean;
   handleSubmit: () => void;
   handleCancel: () => void;
 }
 
-/** Handles submitting or cancelling the questionnaire via the bridge API. */
+/** Submits or cancels the questionnaire via the injected handler. Fire-and-
+ *  forget: the outcome surfaces through subsequent SSE events. When no handler
+ *  is provided the stream cannot accept submissions.
+ *  TODO(#<issue>): refine disabled-state UI for the no-handler case. */
 export function useSubmitActions({
-  sessionId,
   callId,
   collectAnswers,
+  onSubmit,
 }: UseSubmitActionsParams): SubmitActions {
   const [submitting, setSubmitting] = useState(false);
-  const {submitToolResponse} = useChatSessionApi();
+  const canSubmit = onSubmit !== null;
 
   const handleSubmit = useCallback(() => {
-    if (submitting) return;
+    if (submitting || onSubmit === null) return;
     setSubmitting(true);
-
-    const answers = collectAnswers();
-    submitToolResponse(sessionId, callId, {
-      cancelled: false,
-      answers,
-    }).catch(() => {
-      setSubmitting(false);
-      toast.danger('Failed to submit response. Please try again.');
-    });
-  }, [sessionId, callId, collectAnswers, submitting, submitToolResponse]);
+    onSubmit(callId, {cancelled: false, answers: collectAnswers()});
+  }, [callId, collectAnswers, submitting, onSubmit]);
 
   const handleCancel = useCallback(() => {
-    if (submitting) return;
+    if (submitting || onSubmit === null) return;
     setSubmitting(true);
+    onSubmit(callId, {cancelled: true});
+  }, [callId, submitting, onSubmit]);
 
-    submitToolResponse(sessionId, callId, {cancelled: true}).catch(() => {
-      setSubmitting(false);
-      toast.danger('Failed to cancel. Please try again.');
-    });
-  }, [sessionId, callId, submitting, submitToolResponse]);
-
-  return {submitting, handleSubmit, handleCancel};
+  return {submitting, canSubmit, handleSubmit, handleCancel};
 }
