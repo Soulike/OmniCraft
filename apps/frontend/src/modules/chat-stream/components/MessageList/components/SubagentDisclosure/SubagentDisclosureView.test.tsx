@@ -30,7 +30,7 @@ vi.mock('../../../../StreamingMessageDisplay.js', () => ({
   StreamingMessageDisplay: () => null,
 }));
 
-vi.mock('../../../UsageInfo/index.js', () => ({
+vi.mock('@/modules/usage-info/index.js', () => ({
   UsageInfo: () => null,
 }));
 
