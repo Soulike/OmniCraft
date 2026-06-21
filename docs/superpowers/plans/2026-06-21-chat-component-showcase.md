@@ -109,7 +109,7 @@ export function Specimen({label, children}: SpecimenProps) {
   font-weight: 600;
   letter-spacing: 0.03em;
   text-transform: uppercase;
-  color: var(--color-foreground-500, #71717a);
+  color: var(--muted);
 }
 
 .body {
@@ -195,7 +195,7 @@ export function ShowcaseSection({id, title, children}: ShowcaseSectionProps) {
 .heading {
   font-size: 1.125rem;
   font-weight: 700;
-  color: var(--color-foreground, #18181b);
+  color: var(--foreground);
 }
 
 .specimens {
@@ -243,7 +243,7 @@ All mock props for every specimen, typed against the real schemas. This is the s
   - `askUserArgsOptions: string` — JSON string with option-bearing questions.
   - `askUserDoneData: ToolResultData<'ask_user'>` — `{answers: [...]}`.
   - `askUserFailureData: ToolFailureData` — `{message: string}`.
-  - `noopAskUserSubmit: AskUserSubmitHandler` — `async () => {}`.
+  - `noopAskUserSubmit: AskUserSubmitHandler` — `() => Promise.resolve()`.
   - `readFileData`, `writeFileData`, `editFileData`, `runCommandData`, `findFilesData`, `searchFilesData`, `webFetchData`, `webSearchData`, `loadSkillData` — each the matching `ToolResultData<...>`.
   - `readFileArgs`, `runCommandArgs`, `webSearchArgs`, etc. — JSON-string arguments per tool.
   - `toolFailureData: ToolFailureData`.
@@ -264,12 +264,11 @@ import type {SseTodoItem} from '@omnicraft/sse-events';
 import type {ToolFailureData, ToolResultData} from '@omnicraft/tool-schemas';
 
 import {EventBus} from '@/helpers/event-bus.js';
-
 import type {
   AskUserSubmitHandler,
   ChatEventBus,
   ChatEventMap,
-} from '../types.js';
+} from '@/modules/chat-events/index.js';
 
 // --- ask_user ---
 
@@ -307,7 +306,7 @@ export const askUserFailureData: ToolFailureData = {
   message: 'The user cancelled the prompt before answering.',
 };
 
-export const noopAskUserSubmit: AskUserSubmitHandler = async () => {};
+export const noopAskUserSubmit: AskUserSubmitHandler = () => Promise.resolve();
 
 // --- tool results ---
 
@@ -318,26 +317,29 @@ export const readFileData: ToolResultData<'read_file'> = {
   filePath: 'apps/frontend/src/main.tsx',
   totalLines: 23,
   startLine: 1,
-  endLine: 23,
+  endLine: 3,
   content:
     "import {StrictMode} from 'react';\nimport {createRoot} from 'react-dom/client';\n// ...",
 };
 
 export const writeFileArgs = JSON.stringify({
   filePath: 'apps/frontend/src/new-file.ts',
+  content: 'export const placeholder = true;\n',
 });
 export const writeFileData: ToolResultData<'write_file'> = {
   filePath: 'apps/frontend/src/new-file.ts',
-  lineCount: 42,
+  lineCount: 1,
 };
 
 export const editFileArgs = JSON.stringify({
   filePath: 'apps/frontend/src/router/router.tsx',
+  oldString: 'path: ROUTES.coding(),',
+  newString: 'path: ROUTES.showcase(),',
 });
 export const editFileData: ToolResultData<'edit_file'> = {
   filePath: 'apps/frontend/src/router/router.tsx',
   matchCount: 1,
-  diff: '@@ -60,3 +60,7 @@\n+      {\n+        path: ROUTES.showcase(),\n+        element: <ShowcasePage />,\n+      },',
+  diff: '--- a/apps/frontend/src/router/router.tsx\n+++ b/apps/frontend/src/router/router.tsx\n@@ -60,0 +60,4 @@\n+      {\n+        path: ROUTES.showcase(),\n+        element: <ShowcasePage />,\n+      },',
   truncated: false,
 };
 
@@ -523,6 +525,8 @@ The stateless view. Renders the sticky in-page nav and every `ShowcaseSection` w
 `ShowcasePageView.tsx`:
 
 ```tsx
+import type {ChatEventBus} from '@/modules/chat-events/index.js';
+
 import {AssistantMessage} from '../components/MessageList/components/AssistantMessage/index.js';
 import {AskUserCard} from '../components/MessageList/components/AskUserCard/index.js';
 import {ContextCompactionBlock} from '../components/MessageList/components/ContextCompactionBlock/index.js';
@@ -532,7 +536,6 @@ import {TodoCard} from '../components/MessageList/components/TodoCard/index.js';
 import {ToolExecutionCard} from '../components/MessageList/components/ToolExecutionCard/index.js';
 import {UserMessage} from '../components/MessageList/components/UserMessage/index.js';
 import {WorkingIndicator} from '../components/MessageList/components/WorkingIndicator/index.js';
-import type {ChatEventBus} from '../types.js';
 import {ShowcaseSection} from './components/ShowcaseSection/index.js';
 import {Specimen} from './components/Specimen/index.js';
 import * as mock from './mock-data.js';
@@ -846,13 +849,13 @@ export function ShowcasePageView({subagentEventBus}: ShowcasePageViewProps) {
   gap: 0.25rem 0.75rem;
   padding: 0.75rem 1rem;
   border-radius: 0.75rem;
-  background: var(--color-background, #fff);
-  border: 1px solid var(--color-foreground-200, #e4e4e7);
+  background: var(--surface);
+  border: 1px solid var(--border);
 }
 
 .navLink {
   font-size: 0.8125rem;
-  color: var(--color-foreground-600, #52525b);
+  color: var(--muted);
   text-decoration: none;
 }
 
