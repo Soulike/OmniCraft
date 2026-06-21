@@ -8,7 +8,7 @@ import {
   TextField,
 } from '@heroui/react';
 
-import {THINKING_LEVELS} from '@/modules/chat-session/index.js';
+import {THINKING_LEVELS} from '@/helpers/thinking-level-labels.js';
 
 import type {SettingSectionRenderProps} from '../../../components/SettingSection/index.js';
 

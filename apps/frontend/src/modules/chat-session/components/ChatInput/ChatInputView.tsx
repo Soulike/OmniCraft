@@ -34,7 +34,6 @@ export function ChatInputView({
         onKeyDown={onKeyDown}
       />
       <div className={styles.toolbar}>
-        <span />
         {isStreaming ? (
           <Button
             aria-label='Stop generation'

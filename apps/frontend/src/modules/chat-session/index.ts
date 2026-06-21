@@ -7,9 +7,6 @@ export {SessionSidebar} from './components/SessionSidebar/index.js';
 export {StreamingMessageDisplay} from './components/StreamingMessageDisplay/index.js';
 export {TitleBarView} from './components/TitleBar/index.js';
 
-// Constants
-export {THINKING_LEVEL_LABELS, THINKING_LEVELS} from './constants.js';
-
 // Contexts (providers + values)
 export {ChatEventBusProvider} from './contexts/ChatEventBusContext/index.js';
 export {
