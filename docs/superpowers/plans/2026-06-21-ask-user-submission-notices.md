@@ -15,7 +15,7 @@
 - No default exports. Components export via `export {Component} from './Component.js';` in `index.ts`; import siblings through their `index.js`.
 - CSS Modules only — no Tailwind utility classes in our own components.
 - Use HeroUI/aurora tokens via `var(--…)`; never hard-code colors. `--muted` and `--danger` are the only colors here.
-- Copy is **English** (decided): `"This session can't accept answers."` and `"Couldn't send your answer. Try again."`
+- Copy is **English** (decided): `"This session can't accept answers."` and `"Couldn't reach the server. Try again."`
 - Motion is event-driven only (P3): only `SubmitErrorNotice` animates (one-shot fade-in) and must honor `prefers-reduced-motion`. `UnsupportedNotice` is fully static.
 - One React component per file; MVVM file layout (`index.ts` + `<Name>.tsx` + `styles.module.css`). These two notices are stateless — no hook/container split needed.
 - Spec: `docs/superpowers/specs/2026-06-21-ask-user-submission-notices-design.md`.
@@ -321,7 +321,7 @@ git commit -m "feat(ask-user): add UnsupportedNotice component"
 **Interfaces:**
 
 - Consumes: nothing.
-- Produces: `SubmitErrorNotice` — a no-prop component exported as `export {SubmitErrorNotice} from './SubmitErrorNotice.js';`. Renders one danger-toned row with a faint danger tint block: `TriangleAlert` icon (16px) + the copy `"Couldn't send your answer. Try again."`, with a one-shot fade-in that snaps under `prefers-reduced-motion`.
+- Produces: `SubmitErrorNotice` — a no-prop component exported as `export {SubmitErrorNotice} from './SubmitErrorNotice.js';`. Renders one danger-toned row with a faint danger tint block: `TriangleAlert` icon (16px) + the copy `"Couldn't reach the server. Try again."`, with a one-shot fade-in that snaps under `prefers-reduced-motion`.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -338,7 +338,7 @@ describe('SubmitErrorNotice', () => {
     render(<SubmitErrorNotice />);
 
     expect(
-      screen.getByText("Couldn't send your answer. Try again."),
+      screen.getByText("Couldn't reach the server. Try again."),
     ).toBeInTheDocument();
   });
 });
@@ -404,7 +404,7 @@ export function SubmitErrorNotice() {
   return (
     <div className={styles.notice} role='alert'>
       <TriangleAlert size={ICON_SIZE} className={styles.icon} />
-      <span>Couldn&apos;t send your answer. Try again.</span>
+      <span>Couldn&apos;t reach the server. Try again.</span>
     </div>
   );
 }
@@ -553,7 +553,7 @@ Open: `http://localhost:5173/preview`
 For light AND dark (toggle via the sidebar theme button):
 
 - "AskUserCard — running (no submit support)": shows the muted `UnsupportedNotice` ("This session can't accept answers.") above the footer; questionnaire still visible but disabled.
-- "AskUserCard — submit fails": pick any answer, press **Submit** → the danger `SubmitErrorNotice` ("Couldn't send your answer. Try again.") fades in above the footer; answers remain selected; pressing Submit again clears the notice and re-triggers (then fails again). Confirm `ask_user submit failed` appears in the browser console with the raw error, and the raw message is NOT shown in the card.
+- "AskUserCard — submit fails": pick any answer, press **Submit** → the danger `SubmitErrorNotice` ("Couldn't reach the server. Try again.") fades in above the footer; answers remain selected; pressing Submit again clears the notice and re-triggers (then fails again). Confirm `ask_user submit failed` appears in the browser console with the raw error, and the raw message is NOT shown in the card.
 
 - [ ] **Step 4: Verify reduced-motion**
 

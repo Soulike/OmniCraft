@@ -124,7 +124,7 @@ user can see what was asked — only the bottom line is upgraded.
   (`opacity` + small `translateY`) when it appears. Under
   `@media (prefers-reduced-motion: reduce)`, snap straight to the final
   state (no transition).
-- Copy: **"Couldn't send your answer. Try again."**
+- Copy: **"Couldn't reach the server. Try again."**
 
 ### 3.5 State flow (`useSubmitActions`)
 
@@ -182,7 +182,14 @@ Chinese line into an otherwise-English card would read as inconsistent.
 Decided with the user: English.
 
 - Unsupported: **"This session can't accept answers."**
-- Submit failure: **"Couldn't send your answer. Try again."**
+- Submit/cancel failure: **"Couldn't reach the server. Try again."**
+
+The failure copy is deliberately **action-neutral**: the same notice fires
+for a failed submit _and_ a failed cancel (both go through the same
+rejecting handler), so wording like "Couldn't send your answer" would be
+inaccurate on the cancel path. "Couldn't reach the server" reads correctly
+for either, which is why one notice covers both rather than splitting into
+submit-/cancel-specific variants.
 
 ---
 
