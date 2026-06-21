@@ -1,7 +1,5 @@
 import {useCallback, useEffect, useMemo, useState} from 'react';
 
-import {useSessionConfig} from '@/modules/chat-session/index.js';
-
 import type {TaskDispatchErrors, TaskDispatchValues} from '../types.js';
 
 interface UseTaskDispatchFormOptions {
@@ -18,7 +16,6 @@ export function useTaskDispatchForm({
   const [task, setTask] = useState('');
   const [errors, setErrors] = useState<TaskDispatchErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const {thinkingLevel, setThinkingLevel} = useSessionConfig();
 
   const trimmedTask = task.trim();
   const isBusy = isSubmitting;
@@ -89,12 +86,10 @@ export function useTaskDispatchForm({
 
   return {
     task,
-    thinkingLevel,
     errors,
     isSubmitting,
     canSubmit,
     setTask: updateTask,
-    setThinkingLevel,
     submit,
   };
 }
