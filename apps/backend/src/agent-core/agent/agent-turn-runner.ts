@@ -1,6 +1,5 @@
 import assert from 'node:assert';
 
-import type {ThinkingLevel} from '@omnicraft/api-schema';
 import type {
   SseDoneEvent,
   SseMessageStartEvent,
@@ -44,7 +43,6 @@ export interface RunAgentTurnInput {
   readonly sessionsDir: string | null;
   readonly subagentRegistry: SubagentRegistry;
   readonly workingDirectory: string;
-  readonly thinkingLevel: ThinkingLevel;
   readonly signal: AbortSignal;
   readonly llmSession: LlmSession;
   readonly runtimeState: AgentRuntimeState;
@@ -58,7 +56,6 @@ export interface RunAgentTurnInput {
   readonly compactAfterTurn: (
     tools: readonly ToolDefinition[],
     systemPrompt: string,
-    thinkingLevel: ThinkingLevel,
   ) => Promise<void>;
 }
 
@@ -90,7 +87,6 @@ export class AgentTurnRunner {
       input.userMessage,
       toolDefs,
       systemPrompt,
-      input.thinkingLevel,
       input.signal,
     );
 
@@ -154,7 +150,6 @@ export class AgentTurnRunner {
             reminder.content,
             toolDefs,
             systemPrompt,
-            input.thinkingLevel,
             input.signal,
           );
         yield {
@@ -309,7 +304,6 @@ export class AgentTurnRunner {
           orderedResults,
           toolDefs,
           systemPrompt,
-          input.thinkingLevel,
           input.signal,
         ),
         input,
@@ -444,7 +438,7 @@ export class AgentTurnRunner {
     readonly systemPrompt: string;
     readonly input: RunAgentTurnInput;
   }): AgentEventStream {
-    await input.compactAfterTurn(tools, systemPrompt, input.thinkingLevel);
+    await input.compactAfterTurn(tools, systemPrompt);
     yield await agentUsageReporter.buildUsageUpdateEvent(input);
     yield {type: 'done', reason} satisfies SseDoneEvent;
   }

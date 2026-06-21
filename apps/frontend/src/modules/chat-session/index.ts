@@ -5,11 +5,7 @@ export {ChatInput} from './components/ChatInput/index.js';
 export {InfoBar} from './components/InfoBar/index.js';
 export {SessionSidebar} from './components/SessionSidebar/index.js';
 export {StreamingMessageDisplay} from './components/StreamingMessageDisplay/index.js';
-export {ThinkingLevelSelect} from './components/ThinkingLevelSelect/index.js';
 export {TitleBarView} from './components/TitleBar/index.js';
-
-// Constants
-export {THINKING_LEVEL_LABELS, THINKING_LEVELS} from './constants.js';
 
 // Contexts (providers + values)
 export {ChatEventBusProvider} from './contexts/ChatEventBusContext/index.js';

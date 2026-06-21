@@ -3,7 +3,6 @@ import {
   createSessionResponseSchema,
   type ListSessionsResponse,
   listSessionsResponseSchema,
-  type ThinkingLevel,
 } from '@omnicraft/api-schema';
 import {
   type SseEventCursorEntry,
@@ -18,7 +17,6 @@ function base(agentType: AgentType): string {
 }
 
 export interface CreateSessionOptions {
-  thinkingLevel: ThinkingLevel;
   workspace?: string;
 }
 

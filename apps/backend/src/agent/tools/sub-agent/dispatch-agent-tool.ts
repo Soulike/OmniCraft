@@ -68,24 +68,13 @@ export function createSubAgent(
   agentType: SubAgentType,
   getConfig: () => Promise<LlmConfig>,
   workingDirectory: string,
-  thinkingLevel: ThinkingLevel,
   sessionsDir?: string,
 ): Agent {
   switch (agentType) {
     case SubAgentType.GENERAL:
-      return new GeneralSubAgent(
-        getConfig,
-        workingDirectory,
-        thinkingLevel,
-        sessionsDir,
-      );
+      return new GeneralSubAgent(getConfig, workingDirectory, sessionsDir);
     case SubAgentType.EXPLORE:
-      return new ExploreSubAgent(
-        getConfig,
-        workingDirectory,
-        thinkingLevel,
-        sessionsDir,
-      );
+      return new ExploreSubAgent(getConfig, workingDirectory, sessionsDir);
   }
 }
 
@@ -101,8 +90,14 @@ export function registerSubAgent(
   subagent: Agent,
   agentType: SubAgentType,
   nickname: string,
+  thinkingLevel: ThinkingLevel,
 ): void {
-  context.subagentRegistry.register(subagent, agentType, nickname);
+  context.subagentRegistry.register(
+    subagent,
+    agentType,
+    nickname,
+    thinkingLevel,
+  );
 }
 
 const parameters = z.object({
@@ -133,9 +128,11 @@ const parameters = z.object({
   thinkingLevel: thinkingLevelSchema
     .optional()
     .describe(
-      "Controls extended thinking for the subagent ('none', 'low', 'medium', 'high', 'xhigh'). Defaults to 'none'. " +
-        'Increase this for subtasks that require multi-step reasoning, complex analysis, ' +
-        'or planning before acting.',
+      "Extended-thinking effort for the subagent. Defaults to 'none' (no " +
+        'extended thinking). Raise it for subtasks needing multi-step ' +
+        'reasoning, complex analysis, or planning before acting; leave it at ' +
+        "'none' when the subtask is straightforward and does not require " +
+        'extended reasoning.',
     ),
 });
 
@@ -182,9 +179,13 @@ export const dispatchAgentTool: ToolDefinition<
       }
     }
 
-    // Build config for the subagent — inherit from the parent agent
-    const getConfig =
+    // Build config for the subagent — inherit from the parent agent and override thinking level.
+    const baseGetConfig =
       model === 'light' ? context.getLightConfig : context.getConfig;
+    const getConfig = async (): Promise<LlmConfig> => ({
+      ...(await baseGetConfig()),
+      thinkingLevel,
+    });
 
     // Create subagent
     const subagentSessionsDir = getSubagentSessionsDir(context);
@@ -192,7 +193,6 @@ export const dispatchAgentTool: ToolDefinition<
       agentType,
       getConfig,
       workingDirectory,
-      thinkingLevel,
       subagentSessionsDir,
     );
 
@@ -219,7 +219,7 @@ export const dispatchAgentTool: ToolDefinition<
       // Register after the turn starts so the registry does not briefly treat
       // a newly created subagent as idle on the normal dispatch path.
       onTurnStarted: () => {
-        registerSubAgent(context, subagent, agentType, nickname);
+        registerSubAgent(context, subagent, agentType, nickname, thinkingLevel);
       },
     });
   },

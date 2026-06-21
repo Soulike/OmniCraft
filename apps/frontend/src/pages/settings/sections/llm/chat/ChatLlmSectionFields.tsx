@@ -8,6 +8,8 @@ import {
   TextField,
 } from '@heroui/react';
 
+import {THINKING_LEVELS} from '@/helpers/thinking-level-labels.js';
+
 import type {SettingSectionRenderProps} from '../../../components/SettingSection/index.js';
 
 export function ChatLlmSectionFields({
@@ -48,6 +50,37 @@ export function ChatLlmSectionFields({
         </Select.Popover>
         {validationErrors['llm/apiFormat'] && (
           <FieldError>{validationErrors['llm/apiFormat']}</FieldError>
+        )}
+      </Select>
+
+      <Select
+        value={String(values['llm/thinkingLevel'])}
+        isInvalid={'llm/thinkingLevel' in validationErrors}
+        isDisabled={isDisabled}
+        onChange={(value) => {
+          if (value) {
+            setValue('llm/thinkingLevel', String(value));
+          }
+        }}
+      >
+        <Label>Thinking Level</Label>
+        <Select.Trigger>
+          <Select.Value />
+          <Select.Indicator />
+        </Select.Trigger>
+        <Description>Extended-thinking effort for the chat agent</Description>
+        <Select.Popover>
+          <ListBox>
+            {THINKING_LEVELS.map(([id, label]) => (
+              <ListBox.Item key={id} id={id} textValue={label}>
+                {label}
+                <ListBox.ItemIndicator />
+              </ListBox.Item>
+            ))}
+          </ListBox>
+        </Select.Popover>
+        {validationErrors['llm/thinkingLevel'] && (
+          <FieldError>{validationErrors['llm/thinkingLevel']}</FieldError>
         )}
       </Select>
 

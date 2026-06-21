@@ -9,6 +9,7 @@ const TEST_CONFIG: LlmConfig = {
   apiKey: 'test-key',
   baseUrl: 'https://example.test',
   model: 'test-model',
+  thinkingLevel: 'none',
 };
 
 function emptyUsage() {
@@ -202,7 +203,6 @@ describe('LlmSession snapshot metadata', () => {
         [{callId: 'call-1', content: 'done', status: 'success'}],
         [],
         '',
-        'none',
       ),
     );
 

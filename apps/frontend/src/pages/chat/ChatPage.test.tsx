@@ -99,30 +99,20 @@ describe('ChatPage', () => {
     );
   });
 
-  it('creates a chat session with default thinking level and sends first message without it', async () => {
+  it('creates a chat session and sends first message', async () => {
     renderChatPage();
 
     const messageInput = screen.getByLabelText('Chat message');
-    expect(screen.getByLabelText('Thinking level')).toBeInTheDocument();
     fireEvent.change(messageInput, {target: {value: '  Hello session.  '}});
 
     fireEvent.click(screen.getByRole('button', {name: 'Send message'}));
 
     await waitFor(() => {
-      expect(mocks.createSession).toHaveBeenCalledWith({
-        thinkingLevel: 'none',
-      });
+      expect(mocks.createSession).toHaveBeenCalledWith({});
     });
     expect(mocks.sendMessage).toHaveBeenCalledWith(
       'chat-session-1',
       'Hello session.',
     );
-  });
-
-  it('hides thinking selector on existing sessions', async () => {
-    renderChatPage('/chat/existing-session');
-
-    expect(await screen.findByLabelText('Chat message')).toBeInTheDocument();
-    expect(screen.queryByLabelText('Thinking level')).not.toBeInTheDocument();
   });
 });

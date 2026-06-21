@@ -34,7 +34,6 @@ function createTestSnapshot(id: string): AgentSnapshot {
     todos: [],
     options: {
       workingDirectory: '/tmp/test-working-dir',
-      thinkingLevel: 'medium',
     },
   };
 }
@@ -120,30 +119,6 @@ describe('agentPersistence', () => {
     it('throws when snapshot fails schema validation', async () => {
       const filePath = path.join(tmpDir, agentId, 'snapshot.json');
       await writeFile(filePath, JSON.stringify({id: 'test', invalid: true}));
-
-      await expect(
-        agentPersistence.loadSnapshot(tmpDir, agentId),
-      ).rejects.toThrow();
-    });
-
-    it('throws when snapshot options are missing thinkingLevel', async () => {
-      const filePath = path.join(tmpDir, agentId, 'snapshot.json');
-      await writeFile(
-        filePath,
-        JSON.stringify({
-          id: agentId,
-          title: 'Test Session',
-          sseEventCount: 0,
-          llmSession: {
-            id: 'llm-session-id',
-            messages: [],
-            compactions: [],
-            latestUsageInputMessageCount: null,
-            usage: emptyUsage(),
-          },
-          options: {workingDirectory: '/tmp/test-working-dir'},
-        }),
-      );
 
       await expect(
         agentPersistence.loadSnapshot(tmpDir, agentId),

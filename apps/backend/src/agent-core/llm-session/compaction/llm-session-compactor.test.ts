@@ -19,6 +19,7 @@ const config: LlmConfig = {
   apiKey: 'key',
   baseUrl: 'https://example.test',
   model: 'test-model',
+  thinkingLevel: 'none',
 };
 
 const messages: LlmMessage[] = [

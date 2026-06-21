@@ -22,8 +22,6 @@ export {
   sessionMetadataSchema,
   type SubmitToolResponseRequest,
   submitToolResponseRequestSchema,
-  type ThinkingLevel,
-  thinkingLevelSchema,
 } from './chat/schema.js';
 export {
   type GetWorkspacesResponse,
@@ -56,3 +54,7 @@ export {
   type GetVscodeStatusResponse,
   getVscodeStatusResponseSchema,
 } from './vscode/schema.js';
+export {
+  type ThinkingLevel,
+  thinkingLevelSchema,
+} from '@omnicraft/settings-schema';

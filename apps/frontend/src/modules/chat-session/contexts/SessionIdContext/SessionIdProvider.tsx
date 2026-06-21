@@ -3,7 +3,6 @@ import {useNavigate, useParams} from 'react-router';
 
 import {useChatEventBus} from '../../hooks/useChatEventBus.js';
 import {useChatSessionApi} from '../../hooks/useChatSessionApi.js';
-import {useSessionConfig} from '../../hooks/useSessionConfig.js';
 import type {CreateNewSessionOptions} from './SessionIdContext.js';
 import {SessionIdContext} from './SessionIdContext.js';
 
@@ -25,7 +24,6 @@ export function SessionIdProvider({
   const [error, setError] = useState<string | null>(null);
   const eventBus = useChatEventBus();
   const {createSession} = useChatSessionApi();
-  const {thinkingLevel} = useSessionConfig();
 
   // Emit reset-session when sessionId changes, except for null → id
   // (session just created — display is already empty).
@@ -43,7 +41,7 @@ export function SessionIdProvider({
   const createNewSessionId = useCallback(
     async (config?: CreateNewSessionOptions) => {
       try {
-        const id = await createSession({...config, thinkingLevel});
+        const id = await createSession({...config});
         eventBus.emit('session-created', {sessionId: id});
         void navigate(buildSessionRoute(id), {replace: true});
         return id;
@@ -54,7 +52,7 @@ export function SessionIdProvider({
         return null;
       }
     },
-    [navigate, eventBus, buildSessionRoute, createSession, thinkingLevel],
+    [navigate, eventBus, buildSessionRoute, createSession],
   );
 
   const clearSessionId = useCallback(() => {

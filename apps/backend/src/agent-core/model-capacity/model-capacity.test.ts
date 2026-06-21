@@ -19,6 +19,7 @@ function makeConfig(
   return {
     apiKey: 'test-key',
     baseUrl: 'https://api.example.com',
+    thinkingLevel: 'none',
     ...overrides,
   };
 }

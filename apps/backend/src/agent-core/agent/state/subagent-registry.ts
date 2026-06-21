@@ -4,6 +4,7 @@ import {
   agentIdSchema,
   type SubAgentType,
   subAgentTypeSchema,
+  type ThinkingLevel,
 } from '@omnicraft/api-schema';
 
 import type {Agent} from '../agent.js';
@@ -17,6 +18,7 @@ interface LiveSubagentRegistryEntry {
   readonly agent: Agent;
   readonly agentType: SubAgentType;
   readonly nickname: string;
+  readonly thinkingLevel: ThinkingLevel;
   lastAccessOrder: number;
 }
 
@@ -32,6 +34,7 @@ export interface LiveSubagentHandle {
   readonly agent: Agent;
   readonly agentType: SubAgentType;
   readonly nickname: string;
+  readonly thinkingLevel: ThinkingLevel;
 }
 
 interface SubagentRegistryOptions {
@@ -49,7 +52,12 @@ export class SubagentRegistry {
 
   // The nickname is trusted to be unique among live entries; the registry
   // enforces no uniqueness here. Obtain one from generateNickname() to guarantee it.
-  register(agent: Agent, agentType: SubAgentType, nickname: string): void {
+  register(
+    agent: Agent,
+    agentType: SubAgentType,
+    nickname: string,
+    thinkingLevel: ThinkingLevel,
+  ): void {
     assert(
       nickname !== '' && nickname === nickname.trim(),
       'subagent nickname must be non-empty and have no surrounding whitespace',
@@ -60,6 +68,7 @@ export class SubagentRegistry {
       agent,
       agentType: parsedAgentType,
       nickname,
+      thinkingLevel,
       lastAccessOrder: this.nextAccessOrder(),
     });
     this.evictIfNeeded();
@@ -87,6 +96,7 @@ export class SubagentRegistry {
       agent: entry.agent,
       agentType: entry.agentType,
       nickname: entry.nickname,
+      thinkingLevel: entry.thinkingLevel,
     };
   }
 
@@ -100,6 +110,7 @@ export class SubagentRegistry {
         agent: entry.agent,
         agentType: entry.agentType,
         nickname: entry.nickname,
+        thinkingLevel: entry.thinkingLevel,
       };
     }
     return undefined;

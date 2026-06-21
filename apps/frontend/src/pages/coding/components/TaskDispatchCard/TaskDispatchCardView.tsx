@@ -11,12 +11,10 @@ import {
   TextArea,
   TextField,
 } from '@heroui/react';
-import type {ThinkingLevel} from '@omnicraft/api-schema';
 import type {Workspace} from '@omnicraft/settings-schema';
-import {Brain, FileText, FolderCode, Rocket} from 'lucide-react';
+import {FileText, FolderCode, Rocket} from 'lucide-react';
 import {Link} from 'react-router';
 
-import {ThinkingLevelSelect} from '@/modules/chat-session/index.js';
 import {ROUTES} from '@/routes.js';
 
 import styles from './styles.module.css';
@@ -29,14 +27,12 @@ interface TaskDispatchCardViewProps {
   readonly hasConfiguredWorkspaces: boolean;
   readonly selectedWorkspace: string | undefined;
   readonly task: string;
-  readonly thinkingLevel: ThinkingLevel;
   readonly errors: TaskDispatchErrors;
   readonly submitError: string | null;
   readonly canSubmit: boolean;
   readonly isStarting: boolean;
   readonly onWorkspaceChange: (workspace: string | undefined) => void;
   readonly onTaskChange: (task: string) => void;
-  readonly onThinkingLevelChange: (level: ThinkingLevel) => void;
   readonly onSubmit: () => void;
 }
 
@@ -47,14 +43,12 @@ export function TaskDispatchCardView({
   hasConfiguredWorkspaces,
   selectedWorkspace,
   task,
-  thinkingLevel,
   errors,
   submitError,
   canSubmit,
   isStarting,
   onWorkspaceChange,
   onTaskChange,
-  onThinkingLevelChange,
   onSubmit,
 }: TaskDispatchCardViewProps) {
   const showNoWorkspacesWarning =
@@ -138,19 +132,6 @@ export function TaskDispatchCardView({
                       </FieldError>
                     )}
                   </Select>
-                </div>
-                <div className={styles.field}>
-                  <Label>
-                    <span className={styles.labelContent}>
-                      <Brain size={16} />
-                      Thinking level
-                    </span>
-                  </Label>
-                  <ThinkingLevelSelect
-                    value={thinkingLevel}
-                    isDisabled={isStarting}
-                    onChange={onThinkingLevelChange}
-                  />
                 </div>
               </div>
 

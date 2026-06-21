@@ -128,7 +128,6 @@ describe('CodingPage', () => {
     await waitFor(() => {
       expect(mocks.createSession).toHaveBeenCalledWith({
         workspace: '/workspace/repo',
-        thinkingLevel: 'none',
       });
     });
     expect(mocks.sendMessage).toHaveBeenCalledWith(

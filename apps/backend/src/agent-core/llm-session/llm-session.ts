@@ -1,7 +1,6 @@
 import assert from 'node:assert';
 import crypto from 'node:crypto';
 
-import type {ThinkingLevel} from '@omnicraft/api-schema';
 import type {SseContextCompactionEvent} from '@omnicraft/sse-events';
 
 import {Mutex} from '@/helpers/mutex.js';
@@ -100,7 +99,6 @@ export class LlmSession {
     content: string,
     tools: readonly ToolDefinition[],
     systemPrompt: string,
-    thinkingLevel: ThinkingLevel,
     signal?: AbortSignal,
   ): SendUserMessageResult {
     const userMessage = {
@@ -110,13 +108,7 @@ export class LlmSession {
       content,
     };
     return {
-      stream: this.sendMessages(
-        [userMessage],
-        tools,
-        systemPrompt,
-        thinkingLevel,
-        signal,
-      ),
+      stream: this.sendMessages([userMessage], tools, systemPrompt, signal),
       messageId: userMessage.id,
       createdAt: userMessage.createdAt,
     };
@@ -141,7 +133,6 @@ export class LlmSession {
     content: string,
     tools: readonly ToolDefinition[],
     systemPrompt: string,
-    thinkingLevel: ThinkingLevel,
     signal?: AbortSignal,
   ): SendReminderResult {
     const safeContent = sanitizeReminderContent(content);
@@ -152,13 +143,7 @@ export class LlmSession {
       content: `<system-reminder>\n${safeContent}\n</system-reminder>`,
     };
     return {
-      stream: this.sendMessages(
-        [reminderMessage],
-        tools,
-        systemPrompt,
-        thinkingLevel,
-        signal,
-      ),
+      stream: this.sendMessages([reminderMessage], tools, systemPrompt, signal),
       messageId: reminderMessage.id,
       createdAt: reminderMessage.createdAt,
       content: safeContent,
@@ -176,7 +161,6 @@ export class LlmSession {
     results: ToolResult[],
     tools: readonly ToolDefinition[],
     systemPrompt: string,
-    thinkingLevel: ThinkingLevel,
     signal?: AbortSignal,
   ): LlmSessionEventStream {
     const toolMessages: LlmMessage[] = results.map((result) => ({
@@ -187,13 +171,7 @@ export class LlmSession {
       content: result.content,
       status: result.status,
     }));
-    yield* this.sendMessages(
-      toolMessages,
-      tools,
-      systemPrompt,
-      thinkingLevel,
-      signal,
-    );
+    yield* this.sendMessages(toolMessages, tools, systemPrompt, signal);
   }
 
   /** Returns latest context usage and accumulated token totals for this session. */
@@ -233,7 +211,6 @@ export class LlmSession {
     messages: LlmMessage[],
     tools: readonly ToolDefinition[],
     systemPrompt: string,
-    thinkingLevel: ThinkingLevel,
     signal?: AbortSignal,
   ): LlmSessionEventStream {
     const release = await this.mutex.acquire();
@@ -248,13 +225,12 @@ export class LlmSession {
       for await (const event of this.compactBeforeModelCall(
         tools,
         systemPrompt,
-        thinkingLevel,
         signal,
       )) {
         yield {type: 'compaction-sse', event};
       }
       throwIfAborted(signal);
-      yield* this.streamCompletion(tools, systemPrompt, thinkingLevel, signal);
+      yield* this.streamCompletion(tools, systemPrompt, signal);
       completed = true;
     } finally {
       if (!completed) {
@@ -273,7 +249,6 @@ export class LlmSession {
   private async *compactBeforeModelCall(
     tools: readonly ToolDefinition[],
     systemPrompt: string,
-    thinkingLevel: ThinkingLevel,
     signal?: AbortSignal,
   ): AsyncGenerator<SseContextCompactionEvent, void, undefined> {
     try {
@@ -282,7 +257,6 @@ export class LlmSession {
         reason: 'before-llm-call',
         tools,
         systemPrompt,
-        thinkingLevel,
         ...(signal ? {signal} : {}),
       });
       throwIfAborted(signal);
@@ -330,7 +304,6 @@ export class LlmSession {
   private async *streamCompletion(
     tools: readonly ToolDefinition[],
     systemPrompt: string,
-    thinkingLevel: ThinkingLevel,
     signal?: AbortSignal,
   ): LlmSessionEventStream {
     const llmConfig = await this.getConfig();
@@ -340,7 +313,6 @@ export class LlmSession {
       messages: this.messages,
       systemPrompt: systemPrompt || undefined,
       tools,
-      thinkingLevel,
       signal,
     });
 

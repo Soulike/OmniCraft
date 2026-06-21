@@ -72,6 +72,7 @@ export interface LlmConfig {
   apiKey: string;
   baseUrl: string;
   model: string;
+  readonly thinkingLevel: ThinkingLevel;
 }
 
 /** Token usage statistics reported by a single provider call. */
@@ -158,7 +159,6 @@ export interface LlmCompletionOptions {
   readonly messages: readonly LlmMessage[];
   readonly systemPrompt?: string;
   readonly tools: readonly ToolDefinition[];
-  readonly thinkingLevel: ThinkingLevel;
   readonly signal?: AbortSignal;
 }
 

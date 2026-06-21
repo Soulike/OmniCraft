@@ -1,6 +1,10 @@
 import {describe, expect, it} from 'vitest';
 
-import {addCacheBreakpoint} from './helpers.js';
+import {
+  addCacheBreakpoint,
+  toOutputConfig,
+  toThinkingConfig,
+} from './helpers.js';
 
 describe('addCacheBreakpoint', () => {
   it('converts string content to array with cache_control', () => {
@@ -75,5 +79,39 @@ describe('addCacheBreakpoint', () => {
     const result = addCacheBreakpoint(message);
 
     expect(result).toEqual(message);
+  });
+});
+
+describe('toThinkingConfig', () => {
+  it('disables thinking only for none', () => {
+    expect(toThinkingConfig('none')).toEqual({type: 'disabled'});
+    for (const level of [
+      'minimal',
+      'low',
+      'medium',
+      'high',
+      'xhigh',
+      'max',
+    ] as const) {
+      expect(toThinkingConfig(level)).toEqual({type: 'adaptive'});
+    }
+  });
+});
+
+describe('toOutputConfig', () => {
+  it('returns undefined for none', () => {
+    expect(toOutputConfig('none')).toBeUndefined();
+  });
+
+  it('clamps minimal to low', () => {
+    expect(toOutputConfig('minimal')).toEqual({effort: 'low'});
+  });
+
+  it('maps shared levels 1:1 and preserves xhigh and max', () => {
+    expect(toOutputConfig('low')).toEqual({effort: 'low'});
+    expect(toOutputConfig('medium')).toEqual({effort: 'medium'});
+    expect(toOutputConfig('high')).toEqual({effort: 'high'});
+    expect(toOutputConfig('xhigh')).toEqual({effort: 'xhigh'});
+    expect(toOutputConfig('max')).toEqual({effort: 'max'});
   });
 });

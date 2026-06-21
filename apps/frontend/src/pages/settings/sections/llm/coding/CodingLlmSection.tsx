@@ -11,6 +11,7 @@ const FIELDS = [
   {path: 'codingLlm/baseUrl', schema: codingLlmShape.baseUrl},
   {path: 'codingLlm/model', schema: codingLlmShape.model},
   {path: 'codingLlm/lightModel', schema: codingLlmShape.lightModel},
+  {path: 'codingLlm/thinkingLevel', schema: codingLlmShape.thinkingLevel},
 ];
 
 export function CodingLlmSection() {

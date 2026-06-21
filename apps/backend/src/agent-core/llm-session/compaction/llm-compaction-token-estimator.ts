@@ -25,7 +25,6 @@ export class LlmCompactionTokenEstimator {
         description: tool.description,
         parameters: z.toJSONSchema(tool.parameters),
       })),
-      thinkingLevel: options.thinkingLevel,
     });
   }
 

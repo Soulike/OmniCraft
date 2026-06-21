@@ -87,11 +87,13 @@ describe('listResumableAgentsTool', () => {
       general,
       SubAgentType.GENERAL,
       'crimson-otter',
+      'none',
     );
     context.subagentRegistry.register(
       explore,
       SubAgentType.EXPLORE,
       'silver-wren',
+      'none',
     );
 
     const result = await listResumableAgentsTool.execute({}, context);
@@ -133,6 +135,7 @@ describe('listResumableAgentsTool', () => {
       agent,
       SubAgentType.GENERAL,
       'crimson-otter',
+      'none',
     );
 
     const result = await listResumableAgentsTool.execute({}, context);

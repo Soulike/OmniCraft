@@ -2,28 +2,14 @@ import {z} from 'zod';
 
 import {sessionIdSchema} from '../agent-id/schema.js';
 
-/** Thinking/reasoning level for models that support extended thinking. */
-export const thinkingLevelSchema = z.enum([
-  'none',
-  'low',
-  'medium',
-  'high',
-  'xhigh',
-]);
-
-export type ThinkingLevel = z.infer<typeof thinkingLevelSchema>;
-
 /** Schema for the POST /chat/session request body. */
-export const createSessionRequestSchema = z.strictObject({
-  thinkingLevel: thinkingLevelSchema,
-});
+export const createSessionRequestSchema = z.strictObject({});
 
 export type CreateSessionRequest = z.infer<typeof createSessionRequestSchema>;
 
 /** Schema for the POST /coding/session request body. */
 export const createCodingSessionRequestSchema = z.strictObject({
   workspace: z.string(),
-  thinkingLevel: thinkingLevelSchema,
 });
 
 export type CreateCodingSessionRequest = z.infer<

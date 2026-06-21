@@ -1,5 +1,3 @@
-import type {ThinkingLevel} from '@omnicraft/api-schema';
-
 import {coreSkillRegistry} from '@/agent/skills/index.js';
 import {
   bashToolRegistry,
@@ -28,15 +26,14 @@ import {mainAgentSystemPrompt} from './system-prompt.js';
 export class MainAgent extends Agent {
   constructor(
     workingDirectory: string | undefined,
-    thinkingLevel: ThinkingLevel,
     sessionsDir?: string,
     snapshot?: AgentSnapshot,
   ) {
     super(
       async () => {
         const settings = await settingsService.getAll();
-        const {apiFormat, apiKey, baseUrl, model} = settings.llm;
-        return {apiFormat, apiKey, baseUrl, model};
+        const {apiFormat, apiKey, baseUrl, model, thinkingLevel} = settings.llm;
+        return {apiFormat, apiKey, baseUrl, model, thinkingLevel};
       },
       {
         toolRegistries: [
@@ -57,10 +54,16 @@ export class MainAgent extends Agent {
         },
         getLightConfig: async () => {
           const settings = await settingsService.getAll();
-          const {apiFormat, apiKey, baseUrl, model, lightModel} = settings.llm;
-          return {apiFormat, apiKey, baseUrl, model: lightModel || model};
+          const {apiFormat, apiKey, baseUrl, model, lightModel, thinkingLevel} =
+            settings.llm;
+          return {
+            apiFormat,
+            apiKey,
+            baseUrl,
+            model: lightModel || model,
+            thinkingLevel,
+          };
         },
-        thinkingLevel,
         workingDirectory,
         sessionsDir,
       },
@@ -77,7 +80,6 @@ export class MainAgent extends Agent {
     );
     return new MainAgent(
       snapshot.options.workingDirectory,
-      snapshot.options.thinkingLevel,
       sessionsDir,
       snapshot,
     );

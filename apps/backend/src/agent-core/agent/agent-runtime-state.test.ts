@@ -10,6 +10,7 @@ const MAIN_CONFIG: LlmConfig = {
   apiKey: 'test-key',
   baseUrl: 'https://example.test',
   model: 'main-model',
+  thinkingLevel: 'none',
 };
 
 const LIGHT_CONFIG: LlmConfig = {

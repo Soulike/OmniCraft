@@ -13,6 +13,7 @@ const CONFIG: LlmConfig = {
   apiKey: 'key',
   baseUrl: 'https://example.test',
   model: 'model',
+  thinkingLevel: 'none',
 };
 
 async function* summaryStream(): LlmEventStream {
@@ -46,9 +47,8 @@ describe('compactionSummaryGenerator', () => {
     expect(summary).toBe('summary text');
     expect(streamSpy).toHaveBeenCalledWith(
       expect.objectContaining({
-        config: CONFIG,
+        config: {...CONFIG, thinkingLevel: 'none'},
         tools: [],
-        thinkingLevel: 'none',
       }),
     );
     expect(streamSpy.mock.calls[0]?.[0].messages[0]?.content).toContain(

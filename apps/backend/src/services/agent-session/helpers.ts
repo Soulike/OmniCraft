@@ -8,6 +8,6 @@ export async function getLlmConfig(agentType: AgentType): Promise<LlmConfig> {
   const settings = await settingsService.getAll();
   const llmSettings =
     agentType === AgentType.CODING ? settings.codingLlm : settings.llm;
-  const {apiFormat, apiKey, baseUrl, model} = llmSettings;
-  return {apiFormat, apiKey, baseUrl, model};
+  const {apiFormat, apiKey, baseUrl, model, thinkingLevel} = llmSettings;
+  return {apiFormat, apiKey, baseUrl, model, thinkingLevel};
 }

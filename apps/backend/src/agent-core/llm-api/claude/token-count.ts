@@ -19,7 +19,7 @@ export async function countClaudeTokens(
     apiKey: config.apiKey,
     baseURL: config.baseUrl,
   });
-  const outputConfig = toOutputConfig(options.thinkingLevel);
+  const outputConfig = toOutputConfig(options.config.thinkingLevel);
   const request = {
     model: config.model,
     system: systemPrompt
@@ -27,7 +27,7 @@ export async function countClaudeTokens(
       : undefined,
     messages: messages.map(toSdkMessage),
     tools: options.tools.map(toClaudeTool),
-    thinking: toThinkingConfig(options.thinkingLevel),
+    thinking: toThinkingConfig(options.config.thinkingLevel),
     ...(outputConfig ? {output_config: outputConfig} : {}),
   };
 

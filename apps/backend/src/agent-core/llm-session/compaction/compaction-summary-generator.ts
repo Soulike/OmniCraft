@@ -30,10 +30,9 @@ export class CompactionSummaryGenerator {
       },
     ];
     const stream = llmApi.streamCompletion({
-      config: options.config,
+      config: {...options.config, thinkingLevel: 'none'},
       messages,
       tools: [],
-      thinkingLevel: 'none',
       ...(options.signal ? {signal: options.signal} : {}),
     });
 

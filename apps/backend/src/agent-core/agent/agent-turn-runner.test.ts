@@ -15,6 +15,7 @@ const MAIN_CONFIG: LlmConfig = {
   apiKey: 'test-key',
   baseUrl: 'https://example.test',
   model: 'main-model',
+  thinkingLevel: 'none',
 };
 
 class TestToolRegistry extends ToolRegistry {
@@ -135,7 +136,6 @@ function createInput(
     sessionsDir: null,
     subagentRegistry,
     workingDirectory,
-    thinkingLevel: 'high',
     signal: new AbortController().signal,
     llmSession,
     runtimeState: new AgentRuntimeState(workingDirectory),

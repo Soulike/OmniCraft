@@ -14,7 +14,7 @@ export async function countOpenAIResponsesTokens(
     apiKey: config.apiKey,
     baseURL: config.baseUrl,
   });
-  const reasoning = toReasoning(options.thinkingLevel);
+  const reasoning = toReasoning(options.config.thinkingLevel);
   const request = {
     model: config.model,
     input: toInputItems(messages),

@@ -16,8 +16,6 @@ function createWrapper() {
     loadError: null,
     selectedWorkspace: undefined,
     setSelectedWorkspace: vi.fn(),
-    thinkingLevel: 'none',
-    setThinkingLevel: vi.fn(),
   };
 
   return function Wrapper({children}: {readonly children: ReactNode}) {

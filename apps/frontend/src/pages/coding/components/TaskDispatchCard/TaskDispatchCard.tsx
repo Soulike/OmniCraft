@@ -69,14 +69,12 @@ export function TaskDispatchCard({onSend}: TaskDispatchCardProps) {
       hasConfiguredWorkspaces={hasConfiguredWorkspaces}
       selectedWorkspace={selectedWorkspace}
       task={form.task}
-      thinkingLevel={form.thinkingLevel}
       errors={form.errors}
       submitError={submitError}
       canSubmit={form.canSubmit}
       isStarting={form.isSubmitting}
       onWorkspaceChange={handleWorkspaceChange}
       onTaskChange={handleTaskChange}
-      onThinkingLevelChange={form.setThinkingLevel}
       onSubmit={handleSubmit}
     />
   );
