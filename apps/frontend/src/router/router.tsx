@@ -11,6 +11,7 @@ import {
   CodingPage,
   SearchSection,
   SettingsPage,
+  ShowcasePage,
   WorkspacesSection,
 } from './lazy-pages.js';
 
@@ -34,6 +35,10 @@ export const router = createBrowserRouter([
       {
         path: `${ROUTES.coding()}/:sessionId?`,
         element: <CodingPage />,
+      },
+      {
+        path: ROUTES.showcase(),
+        element: <ShowcasePage />,
       },
       {
         path: ROUTES.settings(),

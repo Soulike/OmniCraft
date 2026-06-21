@@ -5,6 +5,7 @@ export const ROUTES = defineRoutes({
   dashboard: {},
   chat: {},
   coding: {},
+  showcase: {},
   settings: {
     llm: {chat: {}, coding: {}},
     agent: {runtime: {}},
