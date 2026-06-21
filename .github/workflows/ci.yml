@@ -50,7 +50,7 @@ jobs:
         run: bun run format:check
 
       - name: Lint all workspaces
-        run: bun run --filter '*' --if-present lint
+        run: bun run lint:all
 
   typecheck:
     name: Typecheck
@@ -60,7 +60,7 @@ jobs:
       - uses: ./.github/actions/setup
 
       - name: Typecheck all workspaces
-        run: bun run --filter '*' --if-present typecheck
+        run: bun run typecheck:all
 
   backend:
     name: Backend
