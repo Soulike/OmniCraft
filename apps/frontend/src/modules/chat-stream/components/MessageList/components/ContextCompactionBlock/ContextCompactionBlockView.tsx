@@ -3,7 +3,7 @@ import clsx from 'clsx';
 import {Archive, TriangleAlert} from 'lucide-react';
 
 import {MarkdownRenderer} from '@/components/MarkdownRenderer/index.js';
-import {formatTokenCount} from '@/modules/usage-info/helpers/format-token-count.js';
+import {formatTokenCount} from '@/modules/usage-info/index.js';
 
 import styles from './styles.module.css';
 
