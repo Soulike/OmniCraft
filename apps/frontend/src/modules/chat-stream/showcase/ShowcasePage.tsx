@@ -1,10 +1,8 @@
-import {useState} from 'react';
-
-import {makeSubagentEventBus} from './mock-data.js';
+import {useSubagentEventBus} from './hooks/useSubagentEventBus.js';
 import {ShowcasePageView} from './ShowcasePageView.js';
 
 export function ShowcasePage() {
-  const [subagentEventBus] = useState(makeSubagentEventBus);
+  const subagentEventBus = useSubagentEventBus();
 
   return <ShowcasePageView subagentEventBus={subagentEventBus} />;
 }

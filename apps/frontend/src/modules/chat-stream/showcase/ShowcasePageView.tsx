@@ -118,6 +118,7 @@ export function ShowcasePageView({subagentEventBus}: ShowcasePageViewProps) {
               displayName='Run Command'
               arguments={mock.runCommandArgs}
               status='failure'
+              result={mock.toolFailureResult}
               data={mock.toolFailureData}
             />
           </Specimen>
@@ -128,6 +129,7 @@ export function ShowcasePageView({subagentEventBus}: ShowcasePageViewProps) {
               displayName='Run Command'
               arguments={mock.runCommandArgs}
               status='error'
+              result={mock.toolFailureResult}
               data={mock.toolFailureData}
             />
           </Specimen>
@@ -138,6 +140,7 @@ export function ShowcasePageView({subagentEventBus}: ShowcasePageViewProps) {
               displayName='Read File'
               arguments={mock.readFileArgs}
               status='done'
+              result={mock.readFileResult}
               data={mock.readFileData}
             />
           </Specimen>
@@ -148,6 +151,7 @@ export function ShowcasePageView({subagentEventBus}: ShowcasePageViewProps) {
               displayName='Write File'
               arguments={mock.writeFileArgs}
               status='done'
+              result={mock.writeFileResult}
               data={mock.writeFileData}
             />
           </Specimen>
@@ -158,6 +162,7 @@ export function ShowcasePageView({subagentEventBus}: ShowcasePageViewProps) {
               displayName='Edit File'
               arguments={mock.editFileArgs}
               status='done'
+              result={mock.editFileResult}
               data={mock.editFileData}
             />
           </Specimen>
@@ -168,6 +173,7 @@ export function ShowcasePageView({subagentEventBus}: ShowcasePageViewProps) {
               displayName='Run Command'
               arguments={mock.runCommandArgs}
               status='done'
+              result={mock.runCommandResult}
               data={mock.runCommandData}
             />
           </Specimen>
@@ -178,6 +184,7 @@ export function ShowcasePageView({subagentEventBus}: ShowcasePageViewProps) {
               displayName='Find Files'
               arguments={mock.findFilesArgs}
               status='done'
+              result={mock.findFilesResult}
               data={mock.findFilesData}
             />
           </Specimen>
@@ -188,6 +195,7 @@ export function ShowcasePageView({subagentEventBus}: ShowcasePageViewProps) {
               displayName='Search Files'
               arguments={mock.searchFilesArgs}
               status='done'
+              result={mock.searchFilesResult}
               data={mock.searchFilesData}
             />
           </Specimen>
@@ -198,6 +206,7 @@ export function ShowcasePageView({subagentEventBus}: ShowcasePageViewProps) {
               displayName='Web Fetch'
               arguments={mock.webFetchArgs}
               status='done'
+              result={mock.webFetchResult}
               data={mock.webFetchData}
             />
           </Specimen>
@@ -208,6 +217,7 @@ export function ShowcasePageView({subagentEventBus}: ShowcasePageViewProps) {
               displayName='Web Search'
               arguments={mock.webSearchArgs}
               status='done'
+              result={mock.webSearchResult}
               data={mock.webSearchData}
             />
           </Specimen>
@@ -218,6 +228,7 @@ export function ShowcasePageView({subagentEventBus}: ShowcasePageViewProps) {
               displayName='Load Skill'
               arguments={mock.loadSkillArgs}
               status='done'
+              result={mock.loadSkillResult}
               data={mock.loadSkillData}
             />
           </Specimen>

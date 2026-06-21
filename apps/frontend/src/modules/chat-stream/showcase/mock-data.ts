@@ -147,6 +147,21 @@ export const toolFailureData: ToolFailureData = {
   message: 'Command exited with code 1: file not found.',
 };
 
+// Raw `result` strings. ToolExecutionCard only renders its Result section when
+// `result` is defined; with `data` present the rich sub-renderer reads `data`
+// and the string is just the gate plus a parse-failure fallback. Each mirrors
+// its own `data` so the fallback path stays faithful too.
+export const readFileResult = JSON.stringify(readFileData);
+export const writeFileResult = JSON.stringify(writeFileData);
+export const editFileResult = JSON.stringify(editFileData);
+export const findFilesResult = JSON.stringify(findFilesData);
+export const searchFilesResult = JSON.stringify(searchFilesData);
+export const runCommandResult = JSON.stringify(runCommandData);
+export const webFetchResult = JSON.stringify(webFetchData);
+export const webSearchResult = JSON.stringify(webSearchData);
+export const loadSkillResult = JSON.stringify(loadSkillData);
+export const toolFailureResult = JSON.stringify(toolFailureData);
+
 // --- todo ---
 
 export const todoItemsMixed: readonly SseTodoItem[] = [
