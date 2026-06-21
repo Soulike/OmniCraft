@@ -18,6 +18,7 @@ Before starting any task, you must first confirm:
 ## Dependencies
 
 - When adding a new npm package, always install it via the package manager (e.g., `bun add <package>`). Never manually write a version number in package.json.
+- Never re-export a workspace package's exports from a local module (e.g., `export ... from '@omnicraft/foo'`). Import directly from the package wherever it is needed instead of routing it through a local barrel.
 
 ## Verification
 
