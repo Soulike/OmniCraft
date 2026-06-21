@@ -72,7 +72,7 @@ export const writeFileArgs = JSON.stringify({
 });
 export const writeFileData: ToolResultData<'write_file'> = {
   filePath: 'apps/frontend/src/new-file.ts',
-  lineCount: 42,
+  lineCount: 1,
 };
 
 export const editFileArgs = JSON.stringify({
