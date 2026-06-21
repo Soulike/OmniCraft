@@ -128,10 +128,11 @@ const parameters = z.object({
   thinkingLevel: thinkingLevelSchema
     .optional()
     .describe(
-      "Extended-thinking effort for the subagent: 'none' | 'minimal' | 'low' | " +
-        "'medium' | 'high' | 'xhigh' | 'max'. Defaults to 'none'. Raise it for " +
-        'subtasks needing multi-step reasoning, complex analysis, or planning ' +
-        'before acting; leave at none for routine lookups and edits.',
+      "Extended-thinking effort for the subagent. Defaults to 'none' (no " +
+        'extended thinking). Raise it for subtasks needing multi-step ' +
+        'reasoning, complex analysis, or planning before acting; leave it at ' +
+        "'none' when the subtask is straightforward and does not require " +
+        'extended reasoning.',
     ),
 });
 
