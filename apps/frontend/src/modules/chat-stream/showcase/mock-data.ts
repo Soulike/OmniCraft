@@ -45,6 +45,10 @@ export const askUserFailureData: ToolFailureData = {
   message: 'The user cancelled the prompt before answering.',
 };
 
+export const askUserErrorData: ToolFailureData = {
+  message: 'Failed to deliver the prompt: the session was disconnected.',
+};
+
 // eslint-disable-next-line @typescript-eslint/no-empty-function
 export const noopAskUserSubmit: AskUserSubmitHandler = async () => {};
 
@@ -143,6 +147,11 @@ export const loadSkillData: ToolResultData<'load_skill'> = {
     '# Frontend Design\nGuidance for distinctive, intentional visual design...',
 };
 
+export const getCurrentTimeArgs = JSON.stringify({});
+export const getCurrentTimeData: ToolResultData<'get_current_time'> = {
+  iso: '2026-06-21T08:00:00.000Z',
+};
+
 export const toolFailureData: ToolFailureData = {
   message: 'Command exited with code 1: file not found.',
 };
@@ -160,6 +169,7 @@ export const runCommandResult = JSON.stringify(runCommandData);
 export const webFetchResult = JSON.stringify(webFetchData);
 export const webSearchResult = JSON.stringify(webSearchData);
 export const loadSkillResult = JSON.stringify(loadSkillData);
+export const getCurrentTimeResult = JSON.stringify(getCurrentTimeData);
 export const toolFailureResult = JSON.stringify(toolFailureData);
 
 // --- todo ---

@@ -96,7 +96,7 @@ export function ShowcasePageView({subagentEventBus}: ShowcasePageViewProps) {
               callId='ask-5'
               arguments={mock.askUserArgsOptions}
               onSubmit={mock.noopAskUserSubmit}
-              data={mock.askUserFailureData}
+              data={mock.askUserErrorData}
             />
           </Specimen>
         </ShowcaseSection>
@@ -230,6 +230,17 @@ export function ShowcasePageView({subagentEventBus}: ShowcasePageViewProps) {
               status='done'
               result={mock.loadSkillResult}
               data={mock.loadSkillData}
+            />
+          </Specimen>
+          <Specimen label='get_current_time · done'>
+            <ToolExecutionCard
+              callId='t-time'
+              toolName='get_current_time'
+              displayName='Get Current Time'
+              arguments={mock.getCurrentTimeArgs}
+              status='done'
+              result={mock.getCurrentTimeResult}
+              data={mock.getCurrentTimeData}
             />
           </Specimen>
         </ShowcaseSection>

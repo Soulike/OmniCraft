@@ -4,7 +4,7 @@
 
 **Goal:** Build a static `/showcase` route that renders every `chat-stream` card component in every state, co-located inside the `chat-stream` module, for visual review of components left unverified after the Chat UI refactor.
 
-**Architecture:** A new `modules/chat-stream/showcase/` directory holds an MVVM page (`ShowcasePage` container + `ShowcasePageView`) plus two presentational helpers (`ShowcaseSection`, `Specimen`) and a `mock-data.ts` fixtures file. Leaf cards are imported by relative path (they stay internal to the module); a single `ShowcasePage` export is added to `chat-stream/index.ts` for the router to lazy-mount under the existing `<Layout>` route.
+**Architecture:** A new `modules/chat-stream/showcase/` directory holds an MVVM page (`ShowcasePage` container + `ShowcasePageView`) plus two presentational helpers (`ShowcaseSection`, `Specimen`) and a `mock-data.ts` fixtures file. Leaf cards are imported by relative path (they stay internal to the module). The router lazy-mounts the page under the existing `<Layout>` route by deep-importing `@/modules/chat-stream/showcase/index.js` — the page is deliberately NOT re-exported from the module's public `index.ts`, so the debug surface and its mock fixtures stay out of the shared production chunk.
 
 **Tech Stack:** React 19, Vite, React Router 7, HeroUI v3, CSS Modules, Vitest. Schemas from `@omnicraft/sse-events`, `@omnicraft/tool-schemas`, `@omnicraft/api-schema`.
 
@@ -27,7 +27,7 @@
 
 ```
 apps/frontend/src/modules/chat-stream/
-├── index.ts                                    # MODIFY: add ShowcasePage export
+├── index.ts                                    # UNCHANGED: page is NOT re-exported here (router deep-imports it)
 ├── CLAUDE.md                                   # CREATE: module debug-surface + maintenance contract
 └── showcase/
     ├── index.ts                                # CREATE: export {ShowcasePage}
@@ -934,31 +934,25 @@ git commit -m "feat(showcase): add ShowcasePage container"
 
 ---
 
-### Task 6: Export `ShowcasePage` from the module + register the route
+### Task 6: Register the route via a deep import
 
-Expose the page through the module's public `index.ts`, then wire the route.
+Mount the page from the router by deep-importing the showcase's own `index.ts`.
+The page is deliberately NOT re-exported from the module's public `index.ts`,
+so the debug surface and its mock fixtures stay out of the shared production
+chunk that `/chat` and `/coding` load (see `chat-stream/CLAUDE.md`).
 
 **Files:**
 
-- Modify: `apps/frontend/src/modules/chat-stream/index.ts` (append export)
 - Modify: `apps/frontend/src/routes.ts` (add `showcase: {}`)
-- Modify: `apps/frontend/src/router/lazy-pages.tsx` (add lazy loader)
+- Modify: `apps/frontend/src/router/lazy-pages.tsx` (add lazy loader, deep import)
 - Modify: `apps/frontend/src/router/router.tsx` (add route under `<Layout>`)
 
 **Interfaces:**
 
-- Consumes: `ShowcasePage` from the module.
+- Consumes: `ShowcasePage` from `@/modules/chat-stream/showcase/index.js`.
 - Produces: a reachable `/showcase` route; `ROUTES.showcase()` path helper.
 
-- [ ] **Step 1: Add the module export**
-
-In `apps/frontend/src/modules/chat-stream/index.ts`, add (keep exports alphabetically grouped with the existing component exports at the top):
-
-```ts
-export {ShowcasePage} from './showcase/index.js';
-```
-
-- [ ] **Step 2: Add the route key**
+- [ ] **Step 1: Add the route key**
 
 In `apps/frontend/src/routes.ts`, add `showcase: {}` to the `defineRoutes` map:
 
@@ -977,18 +971,19 @@ export const ROUTES = defineRoutes({
 });
 ```
 
-- [ ] **Step 3: Add the lazy loader**
+- [ ] **Step 2: Add the lazy loader (deep import)**
 
 In `apps/frontend/src/router/lazy-pages.tsx`, add:
 
 ```tsx
 export const ShowcasePage = lazy(async () => {
-  const {ShowcasePage} = await import('@/modules/chat-stream/index.js');
+  const {ShowcasePage} =
+    await import('@/modules/chat-stream/showcase/index.js');
   return {default: ShowcasePage};
 });
 ```
 
-- [ ] **Step 4: Register the route**
+- [ ] **Step 3: Register the route**
 
 In `apps/frontend/src/router/router.tsx`:
 
@@ -1002,15 +997,15 @@ In `apps/frontend/src/router/router.tsx`:
 },
 ```
 
-- [ ] **Step 5: Typecheck**
+- [ ] **Step 4: Typecheck**
 
 Run: `bun run --filter '@omnicraft/frontend' build`
 Expected: PASS.
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 5: Commit**
 
 ```bash
-git add apps/frontend/src/modules/chat-stream/index.ts apps/frontend/src/routes.ts apps/frontend/src/router/lazy-pages.tsx apps/frontend/src/router/router.tsx
+git add apps/frontend/src/routes.ts apps/frontend/src/router/lazy-pages.tsx apps/frontend/src/router/router.tsx
 git commit -m "feat(showcase): register /showcase route"
 ```
 
