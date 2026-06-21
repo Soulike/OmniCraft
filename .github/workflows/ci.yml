@@ -49,11 +49,8 @@ jobs:
       - name: Format check
         run: bun run format:check
 
-      - name: Lint backend
-        run: bun run --filter '@omnicraft/backend' lint
-
-      - name: Lint frontend
-        run: bun run --filter '@omnicraft/frontend' lint
+      - name: Lint all workspaces
+        run: bun run --filter '*' --if-present lint
 
   typecheck:
     name: Typecheck
