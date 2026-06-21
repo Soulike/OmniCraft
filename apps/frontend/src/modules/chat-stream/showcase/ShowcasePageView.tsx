@@ -1,3 +1,5 @@
+import type {ChatEventBus} from '@/modules/chat-events/index.js';
+
 import {AskUserCard} from '../components/MessageList/components/AskUserCard/index.js';
 import {AssistantMessage} from '../components/MessageList/components/AssistantMessage/index.js';
 import {ContextCompactionBlock} from '../components/MessageList/components/ContextCompactionBlock/index.js';
@@ -7,7 +9,6 @@ import {TodoCard} from '../components/MessageList/components/TodoCard/index.js';
 import {ToolExecutionCard} from '../components/MessageList/components/ToolExecutionCard/index.js';
 import {UserMessage} from '../components/MessageList/components/UserMessage/index.js';
 import {WorkingIndicator} from '../components/MessageList/components/WorkingIndicator/index.js';
-import type {ChatEventBus} from '../types.js';
 import {ShowcaseSection} from './components/ShowcaseSection/index.js';
 import {Specimen} from './components/Specimen/index.js';
 import * as mock from './mock-data.js';

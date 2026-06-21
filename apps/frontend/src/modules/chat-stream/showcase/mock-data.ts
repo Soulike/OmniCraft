@@ -3,12 +3,11 @@ import type {SseTodoItem} from '@omnicraft/sse-events';
 import type {ToolFailureData, ToolResultData} from '@omnicraft/tool-schemas';
 
 import {EventBus} from '@/helpers/event-bus.js';
-
 import type {
   AskUserSubmitHandler,
   ChatEventBus,
   ChatEventMap,
-} from '../types.js';
+} from '@/modules/chat-events/index.js';
 
 // --- ask_user ---
 
