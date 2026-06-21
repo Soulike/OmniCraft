@@ -1,5 +1,18 @@
 import {z} from 'zod';
 
+/** Thinking/reasoning level for models that support extended thinking. */
+export const thinkingLevelSchema = z.enum([
+  'none',
+  'minimal',
+  'low',
+  'medium',
+  'high',
+  'xhigh',
+  'max',
+]);
+
+export type ThinkingLevel = z.infer<typeof thinkingLevelSchema>;
+
 export const llmSettingsSchema = z.object({
   apiFormat: z
     .enum(['claude', 'openai-responses'])
