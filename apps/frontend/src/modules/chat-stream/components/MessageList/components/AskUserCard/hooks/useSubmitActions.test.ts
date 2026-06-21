@@ -108,4 +108,62 @@ describe('useSubmitActions', () => {
     });
     // no throw; nothing to assert beyond not crashing
   });
+
+  it('exposes submitError=false initially', () => {
+    const onSubmit = vi.fn(() => Promise.resolve());
+    const {result} = renderHook(() =>
+      useSubmitActions({callId: 'c1', collectAnswers: () => [], onSubmit}),
+    );
+
+    expect(result.current.submitError).toBe(false);
+  });
+
+  it('sets submitError=true when a submit fails, and logs the raw error', async () => {
+    const error = new Error('network');
+    const onSubmit = vi.fn(() => Promise.reject(error));
+    // eslint-disable-next-line @typescript-eslint/no-empty-function
+    const consoleError = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => {});
+    const {result} = renderHook(() =>
+      useSubmitActions({callId: 'c1', collectAnswers: () => [], onSubmit}),
+    );
+
+    act(() => {
+      result.current.handleSubmit();
+    });
+
+    await waitFor(() => {
+      expect(result.current.submitError).toBe(true);
+    });
+    expect(consoleError).toHaveBeenCalledWith('ask_user submit failed', error);
+    consoleError.mockRestore();
+  });
+
+  it('clears submitError when the user submits again', async () => {
+    let attempt = 0;
+    const onSubmit = vi.fn(() => {
+      attempt += 1;
+      return attempt === 1
+        ? Promise.reject(new Error('network'))
+        : Promise.resolve();
+    });
+    // eslint-disable-next-line @typescript-eslint/no-empty-function
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    const {result} = renderHook(() =>
+      useSubmitActions({callId: 'c1', collectAnswers: () => [], onSubmit}),
+    );
+
+    act(() => {
+      result.current.handleSubmit();
+    });
+    await waitFor(() => {
+      expect(result.current.submitError).toBe(true);
+    });
+
+    act(() => {
+      result.current.handleSubmit();
+    });
+    expect(result.current.submitError).toBe(false);
+  });
 });
