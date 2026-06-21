@@ -42,7 +42,10 @@ module — `chat-stream/index.ts` only exports `StreamingMessageDisplay`,
 either reach across the module boundary into internals or widen the module's
 public API just for a dev page. Co-locating the showcase inside the module lets
 it import those components by relative path while keeping the public surface
-clean. The router mounts it via the module's own export.
+clean. The router mounts it by deep-importing the showcase's own `index.ts`
+(`@/modules/chat-stream/showcase/index.js`) — it is NOT re-exported from the
+module's public `chat-stream/index.ts`, so the debug page and its fixtures stay
+out of the shared production chunk.
 
 ```
 apps/frontend/src/modules/chat-stream/showcase/
@@ -69,12 +72,12 @@ internal to the module and are NOT promoted into `chat-stream/index.ts`.
 
 ### Route registration
 
-- `chat-stream/index.ts`: add `export {ShowcasePage} from './showcase/index.js';`
-  — the single public entry the router mounts. (This is the only addition to the
-  module's public surface; the individual leaf cards stay internal.)
 - `routes.ts`: add `showcase: {}` to the `defineRoutes` map.
-- `router/lazy-pages.tsx`: add a lazy loader for `ShowcasePage`, importing
-  `{ShowcasePage}` from `@/modules/chat-stream/index.js`.
+- `router/lazy-pages.tsx`: add a lazy loader for `ShowcasePage`, deep-importing
+  `{ShowcasePage}` from `@/modules/chat-stream/showcase/index.js`. The page is
+  deliberately NOT re-exported from the module's public `chat-stream/index.ts`,
+  so the debug surface and its mock fixtures stay out of the shared production
+  chunk that `/chat` and `/coding` load.
 - `router/router.tsx`: add `{ path: ROUTES.showcase(), element: <ShowcasePage /> }`
   as a child of the existing `<Layout>` route (so it inherits the theme toggle
   and app chrome, making both themes reviewable).

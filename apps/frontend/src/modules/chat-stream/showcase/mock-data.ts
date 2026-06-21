@@ -68,6 +68,7 @@ export const readFileData: ToolResultData<'read_file'> = {
 
 export const writeFileArgs = JSON.stringify({
   filePath: 'apps/frontend/src/new-file.ts',
+  content: 'export const placeholder = true;\n',
 });
 export const writeFileData: ToolResultData<'write_file'> = {
   filePath: 'apps/frontend/src/new-file.ts',
@@ -76,6 +77,8 @@ export const writeFileData: ToolResultData<'write_file'> = {
 
 export const editFileArgs = JSON.stringify({
   filePath: 'apps/frontend/src/router/router.tsx',
+  oldString: 'path: ROUTES.coding(),',
+  newString: 'path: ROUTES.showcase(),',
 });
 export const editFileData: ToolResultData<'edit_file'> = {
   filePath: 'apps/frontend/src/router/router.tsx',

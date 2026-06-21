@@ -9,7 +9,7 @@
   font-weight: 600;
   letter-spacing: 0.03em;
   text-transform: uppercase;
-  color: var(--color-foreground-500, #71717a);
+  color: var(--muted);
 }
 
 .body {
