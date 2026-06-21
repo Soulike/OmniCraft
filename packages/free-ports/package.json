@@ -7,12 +7,14 @@
     ".": "./src/index.ts"
   },
   "scripts": {
+    "lint": "eslint src",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
     "@config/eslint": "workspace:^",
     "@config/typescript": "workspace:^",
+    "@types/node": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"
   }
