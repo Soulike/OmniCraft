@@ -143,6 +143,22 @@ Tool-result `data` payloads use the `@omnicraft/tool-schemas` result types for
 each tool. The subagent fixture owns the constructed `EventBus` and the events
 it pre-emits.
 
+## Module documentation (CLAUDE.md)
+
+Add a `CLAUDE.md` at `modules/chat-stream/CLAUDE.md` documenting the showcase as
+the module's debug/visual-review surface. It must state:
+
+- What the showcase is and where it lives (`showcase/`, route `/showcase`).
+- **The maintenance contract**: whenever a chat card component is added or
+  removed under `components/MessageList/components/`, the showcase
+  (`showcase/mock-data.ts` + `ShowcasePageView.tsx`) must be updated in the same
+  change — add a specimen for the new component (all states) or remove the
+  stale one. This keeps the visual catalog complete so it stays a reliable
+  review surface.
+
+This instruction lives in the module so that any future work touching the cards
+picks it up via the nearest `CLAUDE.md`.
+
 ## Styling
 
 CSS Modules only (`styles.module.css`), no Tailwind utility classes in custom
