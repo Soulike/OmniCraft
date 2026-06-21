@@ -1,30 +1,30 @@
 import {useEffect, useLayoutEffect, useRef} from 'react';
 
+import {AskUserSubmitContext} from './contexts/AskUserSubmitContext/index.js';
 import {ChatEventBusProvider} from './contexts/ChatEventBusContext/index.js';
-import {SessionIdContext} from './contexts/SessionIdContext/index.js';
 import {ToolOutputProvider} from './contexts/ToolOutputContext/index.js';
 import {useMessages} from './hooks/useMessages.js';
 import {StreamingMessageDisplayView} from './StreamingMessageDisplayView.js';
-import type {ChatEventBus, ChatMessage} from './types.js';
+import type {AskUserSubmitHandler, ChatEventBus, ChatMessage} from './types.js';
 
 interface StreamingMessageDisplayProps {
   eventBus: ChatEventBus;
-  sessionId: string | null;
+  onAskUserSubmit?: AskUserSubmitHandler;
   onMessagesChange?: (messages: readonly ChatMessage[]) => void;
 }
 
 export function StreamingMessageDisplay({
   eventBus,
-  sessionId,
+  onAskUserSubmit,
   onMessagesChange,
 }: StreamingMessageDisplayProps) {
   return (
     <ChatEventBusProvider eventBus={eventBus}>
-      <SessionIdContext value={sessionId}>
+      <AskUserSubmitContext value={onAskUserSubmit ?? null}>
         <ToolOutputProvider>
           <StreamingMessageDisplayInner onMessagesChange={onMessagesChange} />
         </ToolOutputProvider>
-      </SessionIdContext>
+      </AskUserSubmitContext>
     </ChatEventBusProvider>
   );
 }

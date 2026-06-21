@@ -1,5 +1,6 @@
 export {StreamingMessageDisplay} from './StreamingMessageDisplay.js';
 export type {
+  AskUserSubmitHandler,
   ChatEventBus,
   ChatEventMap,
   ChatMessage,
@@ -8,3 +9,4 @@ export type {
   TextContent,
   ThinkingContent,
 } from './types.js';
+export type {AskUserBridgeResponse} from '@omnicraft/tool-schemas';

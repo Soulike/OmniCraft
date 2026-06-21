@@ -2,7 +2,7 @@ import {TOOL_NAME} from '@omnicraft/tool-schemas';
 import clsx from 'clsx';
 import {use} from 'react';
 
-import {SessionIdContext} from '../../../../contexts/SessionIdContext/index.js';
+import {AskUserSubmitContext} from '../../../../contexts/AskUserSubmitContext/index.js';
 import {formatTimestamp} from '../../helpers/formatTimestamp.js';
 import type {MessageRenderItem} from '../../hooks/useMessageList.js';
 import {AskUserCard} from '../AskUserCard/index.js';
@@ -46,17 +46,12 @@ export function RenderItem({item}: RenderItemProps) {
       );
     case 'tool-execution': {
       if (item.toolName === TOOL_NAME.ASK_USER) {
-        const sessionId = use(SessionIdContext);
-        // sessionId can be null during session transitions (old messages
-        // not yet cleared). Skip rendering; messages will be cleared next frame.
-        if (sessionId === null) {
-          return null;
-        }
+        const onAskUserSubmit = use(AskUserSubmitContext);
         if (item.status === 'running') {
           return (
             <div className={styles.assistantMessage}>
               <AskUserCard
-                sessionId={sessionId}
+                onSubmit={onAskUserSubmit}
                 callId={item.callId}
                 arguments={item.arguments}
                 status='running'
@@ -68,7 +63,7 @@ export function RenderItem({item}: RenderItemProps) {
           return (
             <div className={styles.assistantMessage}>
               <AskUserCard
-                sessionId={sessionId}
+                onSubmit={onAskUserSubmit}
                 callId={item.callId}
                 arguments={item.arguments}
                 status='done'
@@ -80,7 +75,7 @@ export function RenderItem({item}: RenderItemProps) {
         return (
           <div className={styles.assistantMessage}>
             <AskUserCard
-              sessionId={sessionId}
+              onSubmit={onAskUserSubmit}
               callId={item.callId}
               arguments={item.arguments}
               status={item.status}
