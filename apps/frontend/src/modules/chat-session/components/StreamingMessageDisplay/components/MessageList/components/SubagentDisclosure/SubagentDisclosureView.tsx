@@ -91,7 +91,7 @@ export function SubagentDisclosureView({
                 </div>
               </div>
               <ScrollShadow className={styles.content} ref={scrollRef}>
-                <StreamingMessageDisplay eventBus={eventBus} sessionId={null} />
+                <StreamingMessageDisplay eventBus={eventBus} />
               </ScrollShadow>
             </Disclosure.Body>
             <div className={styles.footer}>
