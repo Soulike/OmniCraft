@@ -103,6 +103,7 @@ describe('useSubmitActions', () => {
     await waitFor(() => {
       expect(result.current.submitting).toBe(false);
     });
+    expect(result.current.submitError).toBe(true);
     consoleError.mockRestore();
   });
 

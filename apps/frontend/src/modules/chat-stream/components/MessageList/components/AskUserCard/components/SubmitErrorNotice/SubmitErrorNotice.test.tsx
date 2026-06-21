@@ -8,7 +8,7 @@ describe('SubmitErrorNotice', () => {
     render(<SubmitErrorNotice />);
 
     expect(
-      screen.getByText("Couldn't send your answer. Try again."),
+      screen.getByText("Couldn't reach the server. Try again."),
     ).toBeInTheDocument();
   });
 });

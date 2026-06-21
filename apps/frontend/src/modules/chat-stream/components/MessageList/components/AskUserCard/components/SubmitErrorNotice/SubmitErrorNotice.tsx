@@ -8,7 +8,7 @@ export function SubmitErrorNotice() {
   return (
     <div className={styles.notice} role='alert'>
       <TriangleAlert size={ICON_SIZE} className={styles.icon} />
-      <span>Couldn&apos;t send your answer. Try again.</span>
+      <span>Couldn&apos;t reach the server. Try again.</span>
     </div>
   );
 }
