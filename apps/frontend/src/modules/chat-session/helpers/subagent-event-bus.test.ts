@@ -1,6 +1,6 @@
 import {describe, expect, it, vi} from 'vitest';
 
-import type {ChatEventMap} from '@/modules/chat-stream/index.js';
+import type {ChatEventMap} from '@/modules/chat-events/index.js';
 
 import {SubagentEventBus} from './subagent-event-bus.js';
 

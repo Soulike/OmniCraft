@@ -1,7 +1,8 @@
 import type {SseTodoItem} from '@omnicraft/sse-events';
 import {describe, expect, it} from 'vitest';
 
-import type {ChatEventBus, ChatMessage} from '../../../types.js';
+import type {ChatEventBus, ChatMessage} from '@/modules/chat-events/index.js';
+
 import {transformMessages} from './useMessageList.js';
 
 describe('transformMessages', () => {

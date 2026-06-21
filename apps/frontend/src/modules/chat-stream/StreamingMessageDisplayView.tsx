@@ -1,5 +1,6 @@
+import type {ChatMessage} from '@/modules/chat-events/index.js';
+
 import {MessageList} from './components/MessageList/index.js';
-import type {ChatMessage} from './types.js';
 
 interface StreamingMessageDisplayViewProps {
   messages: ChatMessage[];

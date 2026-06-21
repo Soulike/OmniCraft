@@ -2,7 +2,7 @@ import type {ReactNode} from 'react';
 import {useState} from 'react';
 
 import {EventBus} from '@/helpers/event-bus.js';
-import type {ChatEventMap} from '@/modules/chat-stream/index.js';
+import type {ChatEventMap} from '@/modules/chat-events/index.js';
 
 import {ChatEventBusContext} from './ChatEventBusContext.js';
 

@@ -1,7 +1,8 @@
 import {use} from 'react';
 
+import type {ChatEventBus} from '@/modules/chat-events/index.js';
+
 import {ChatEventBusContext} from '../contexts/ChatEventBusContext/index.js';
-import type {ChatEventBus} from '../types.js';
 
 export function useChatEventBus(): ChatEventBus {
   const bus = use(ChatEventBusContext);

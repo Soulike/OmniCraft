@@ -1,4 +1,4 @@
-import type {ChatEventBus} from '@/modules/chat-stream/index.js';
+import type {ChatEventBus} from '@/modules/chat-events/index.js';
 import {UsageInfo} from '@/modules/chat-stream/index.js';
 
 import {AccessInfo} from './components/AccessInfo/index.js';

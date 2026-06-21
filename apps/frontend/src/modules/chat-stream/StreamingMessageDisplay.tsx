@@ -1,11 +1,16 @@
 import {useEffect, useLayoutEffect, useRef} from 'react';
 
+import type {
+  AskUserSubmitHandler,
+  ChatEventBus,
+  ChatMessage,
+} from '@/modules/chat-events/index.js';
+
 import {AskUserSubmitContext} from './contexts/AskUserSubmitContext/index.js';
 import {ChatEventBusProvider} from './contexts/ChatEventBusContext/index.js';
 import {ToolOutputProvider} from './contexts/ToolOutputContext/index.js';
 import {useMessages} from './hooks/useMessages.js';
 import {StreamingMessageDisplayView} from './StreamingMessageDisplayView.js';
-import type {AskUserSubmitHandler, ChatEventBus, ChatMessage} from './types.js';
 
 interface StreamingMessageDisplayProps {
   eventBus: ChatEventBus;

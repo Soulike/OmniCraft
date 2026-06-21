@@ -8,7 +8,8 @@ import {
 import type {ReactNode, RefObject} from 'react';
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 
-import type {ChatEventBus} from '../../../../types.js';
+import type {ChatEventBus} from '@/modules/chat-events/index.js';
+
 import {SubagentDisclosureView} from './SubagentDisclosureView.js';
 
 vi.mock('@heroui/react', async (importOriginal) => {
