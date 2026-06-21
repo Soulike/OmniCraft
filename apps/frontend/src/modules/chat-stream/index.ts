@@ -10,4 +10,3 @@ export type {
   TextContent,
   ThinkingContent,
 } from './types.js';
-export type {AskUserBridgeResponse} from '@omnicraft/tool-schemas';
