@@ -51,9 +51,6 @@ function createMockSubagent(
     getWorkingDirectory() {
       return '/workspace/project';
     },
-    getThinkingLevel() {
-      return 'none' as const;
-    },
     getSseEventCount() {
       return 0;
     },
@@ -134,6 +131,7 @@ describe('resumeAgentTool', () => {
       subagent,
       SubAgentType.GENERAL,
       'crimson-otter',
+      'none',
     );
 
     const result = await resumeAgentTool.execute(
@@ -152,6 +150,7 @@ describe('resumeAgentTool', () => {
       subagent,
       SubAgentType.EXPLORE,
       'crimson-otter',
+      'none',
     );
 
     const result = await resumeAgentTool.execute(
@@ -213,9 +212,6 @@ describe('resumeAgentTool', () => {
       getWorkingDirectory() {
         return '/workspace/project';
       },
-      getThinkingLevel() {
-        return 'none' as const;
-      },
       getSseEventCount() {
         return 0;
       },
@@ -228,6 +224,7 @@ describe('resumeAgentTool', () => {
       subagent,
       SubAgentType.GENERAL,
       'crimson-otter',
+      'none',
     );
 
     const first = resumeAgentTool.execute(

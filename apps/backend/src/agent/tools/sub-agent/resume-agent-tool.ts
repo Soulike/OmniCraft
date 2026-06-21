@@ -76,7 +76,7 @@ export const resumeAgentTool: ToolDefinition<
         nickname: handle.nickname,
         task: args.task,
         agentType: handle.agentType,
-        thinkingLevel: handle.agent.getThinkingLevel(),
+        thinkingLevel: handle.thinkingLevel,
         workingDirectory: handle.agent.getWorkingDirectory(),
       },
       startTurn: () => handle.agent.tryStartUserTurn(args.task),
