@@ -49,11 +49,18 @@ jobs:
       - name: Format check
         run: bun run format:check
 
-      - name: Lint backend
-        run: bun run --filter '@omnicraft/backend' lint
+      - name: Lint all workspaces
+        run: bun run lint:all
 
-      - name: Lint frontend
-        run: bun run --filter '@omnicraft/frontend' lint
+  typecheck:
+    name: Typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup
+
+      - name: Typecheck all workspaces
+        run: bun run typecheck:all
 
   backend:
     name: Backend
@@ -89,16 +96,17 @@ jobs:
     name: CI Result
     runs-on: ubuntu-latest
     if: always()
-    needs: [changes, lint-format, backend, frontend]
+    needs: [changes, lint-format, typecheck, backend, frontend]
     steps:
       - name: Check results
         run: |
-          if [[ "$CHANGES" == "failure" || "$CHANGES" == "cancelled" || "$LINT_FORMAT" == "failure" || "$LINT_FORMAT" == "cancelled" || "$BACKEND" == "failure" || "$BACKEND" == "cancelled" || "$FRONTEND" == "failure" || "$FRONTEND" == "cancelled" ]]; then
+          if [[ "$CHANGES" == "failure" || "$CHANGES" == "cancelled" || "$LINT_FORMAT" == "failure" || "$LINT_FORMAT" == "cancelled" || "$TYPECHECK" == "failure" || "$TYPECHECK" == "cancelled" || "$BACKEND" == "failure" || "$BACKEND" == "cancelled" || "$FRONTEND" == "failure" || "$FRONTEND" == "cancelled" ]]; then
             echo "CI failed."
             exit 1
           fi
         env:
           CHANGES: ${{ needs.changes.result }}
           LINT_FORMAT: ${{ needs.lint-format.result }}
+          TYPECHECK: ${{ needs.typecheck.result }}
           BACKEND: ${{ needs.backend.result }}
           FRONTEND: ${{ needs.frontend.result }}
