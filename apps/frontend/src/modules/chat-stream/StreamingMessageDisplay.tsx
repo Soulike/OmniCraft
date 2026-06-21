@@ -9,7 +9,9 @@ import type {AskUserSubmitHandler, ChatEventBus, ChatMessage} from './types.js';
 
 interface StreamingMessageDisplayProps {
   eventBus: ChatEventBus;
-  onAskUserSubmit?: AskUserSubmitHandler | null;
+  /** The ask_user submit handler, or null when this stream cannot accept
+   *  submissions (e.g. a subagent stream, or a page with no active session). */
+  onAskUserSubmit: AskUserSubmitHandler | null;
   onMessagesChange?: (messages: readonly ChatMessage[]) => void;
 }
 
@@ -20,7 +22,7 @@ export function StreamingMessageDisplay({
 }: StreamingMessageDisplayProps) {
   return (
     <ChatEventBusProvider eventBus={eventBus}>
-      <AskUserSubmitContext value={onAskUserSubmit ?? null}>
+      <AskUserSubmitContext value={onAskUserSubmit}>
         <ToolOutputProvider>
           <StreamingMessageDisplayInner onMessagesChange={onMessagesChange} />
         </ToolOutputProvider>

@@ -91,7 +91,11 @@ export function SubagentDisclosureView({
                 </div>
               </div>
               <ScrollShadow className={styles.content} ref={scrollRef}>
-                <StreamingMessageDisplay eventBus={eventBus} />
+                {/* Subagent streams are read-only: no user submission. */}
+                <StreamingMessageDisplay
+                  eventBus={eventBus}
+                  onAskUserSubmit={null}
+                />
               </ScrollShadow>
             </Disclosure.Body>
             <div className={styles.footer}>
