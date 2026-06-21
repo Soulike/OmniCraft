@@ -58,7 +58,7 @@ export function AskUserCardView({
           </Fragment>
         ))}
       </div>
-      {/* TODO(#<issue>): polish the disabled-state UI for sessions that cannot
+      {/* TODO(#307): polish the disabled-state UI for sessions that cannot
             accept form submission. */}
       {!submitActions.canSubmit && (
         <p className={styles.disabledNotice}>

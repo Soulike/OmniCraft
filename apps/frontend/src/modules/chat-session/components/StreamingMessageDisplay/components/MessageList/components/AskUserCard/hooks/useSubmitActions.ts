@@ -19,7 +19,7 @@ export interface SubmitActions {
 /** Submits or cancels the questionnaire via the injected handler. Fire-and-
  *  forget: the outcome surfaces through subsequent SSE events. When no handler
  *  is provided the stream cannot accept submissions.
- *  TODO(#<issue>): refine disabled-state UI for the no-handler case. */
+ *  TODO(#307): refine disabled-state UI for the no-handler case. */
 export function useSubmitActions({
   callId,
   collectAnswers,
