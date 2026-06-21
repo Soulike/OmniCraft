@@ -26,15 +26,26 @@ components in every state, so the user can scan it and flag what is broken.
 - No SSE-pipeline / dispatcher coverage. The page does NOT route mock SSE events
   through `StreamingMessageDisplay` / `useMessageList` / `RenderItem`. Wiring
   bugs in the dispatcher are out of scope for this page.
-- No Storybook. This is a plain route page (repo has no Storybook today).
+- No Storybook. This is a plain route page mounted from the `chat-stream`
+  module (repo has no Storybook today).
 - Not linked from the sidebar; reached by typing the URL.
 
 ## Architecture
 
-A new route page following the existing `pages/` convention.
+The showcase lives **inside the `chat-stream` module**, not under `pages/`.
+
+The leaf cards it needs to render (`AskUserCard`, `ToolExecutionCard`,
+`ThinkingBlock`, `TodoCard`, `SubagentDisclosure`, `ContextCompactionBlock`,
+`WorkingIndicator`, `UserMessage`, `AssistantMessage`) are **internal** to the
+module — `chat-stream/index.ts` only exports `StreamingMessageDisplay`,
+`UsageInfo`, and types. Putting the showcase under `pages/` would force us to
+either reach across the module boundary into internals or widen the module's
+public API just for a dev page. Co-locating the showcase inside the module lets
+it import those components by relative path while keeping the public surface
+clean. The router mounts it via the module's own export.
 
 ```
-apps/frontend/src/pages/showcase/
+apps/frontend/src/modules/chat-stream/showcase/
 ├── ShowcasePage.tsx        # container — assembles sections, owns mock event bus setup
 ├── ShowcasePageView.tsx    # view — sticky in-page nav + scrollable column of sections
 ├── index.ts                # exports { ShowcasePage }
@@ -52,21 +63,30 @@ apps/frontend/src/pages/showcase/
 └── styles.module.css
 ```
 
+The leaf cards are imported by relative path
+(`../components/MessageList/components/AskUserCard/index.js`, etc.) — these stay
+internal to the module and are NOT promoted into `chat-stream/index.ts`.
+
 ### Route registration
 
+- `chat-stream/index.ts`: add `export {ShowcasePage} from './showcase/index.js';`
+  — the single public entry the router mounts. (This is the only addition to the
+  module's public surface; the individual leaf cards stay internal.)
 - `routes.ts`: add `showcase: {}` to the `defineRoutes` map.
-- `router/lazy-pages.tsx`: add a lazy loader for `ShowcasePage` from
-  `@/pages/showcase/index.js`.
+- `router/lazy-pages.tsx`: add a lazy loader for `ShowcasePage`, importing
+  `{ShowcasePage}` from `@/modules/chat-stream/index.js`.
 - `router/router.tsx`: add `{ path: ROUTES.showcase(), element: <ShowcasePage /> }`
   as a child of the existing `<Layout>` route (so it inherits the theme toggle
   and app chrome, making both themes reviewable).
 
 ## How components are rendered
 
-Each component is rendered through its **public `index.ts` export** (the
-Container), with hand-written mock props typed against the real schema packages
-(`@omnicraft/sse-events`, `@omnicraft/tool-schemas`, `@omnicraft/api-schema`).
-No mock SSE events are pushed through the real pipeline.
+Each component is rendered through its own folder `index.ts` (the Container),
+imported by relative path from within the module, with hand-written mock props
+typed against the real schema packages (`@omnicraft/sse-events`,
+`@omnicraft/tool-schemas`, `@omnicraft/api-schema`). These cards are internal to
+`chat-stream` and are not promoted to the module's public API. No mock SSE
+events are pushed through the real pipeline.
 
 ### Per-component wiring
 
