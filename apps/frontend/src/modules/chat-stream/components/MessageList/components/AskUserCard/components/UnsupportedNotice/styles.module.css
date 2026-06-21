@@ -11,4 +11,7 @@
 .icon {
   flex-shrink: 0;
   color: var(--muted);
+  /* Text glyphs sit high in their line-box; nudge the box-centered icon up
+     1px so the two share an optical center. */
+  margin-top: -1px;
 }
