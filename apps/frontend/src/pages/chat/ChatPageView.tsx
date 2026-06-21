@@ -1,4 +1,5 @@
 import {ScrollShadow} from '@heroui/react';
+import type {AskUserBridgeResponse} from '@omnicraft/tool-schemas';
 import {MessagesSquare} from 'lucide-react';
 import type {RefObject} from 'react';
 
@@ -24,6 +25,7 @@ interface ChatPageViewProps {
   maxRoundsReached: boolean;
   scrollRef: RefObject<HTMLDivElement | null>;
   sessionId: string | null;
+  onAskUserSubmit: (callId: string, result: AskUserBridgeResponse) => void;
   onMessagesChange: (messages: readonly ChatMessage[]) => void;
   onStartSession: (content: string) => void;
   onSend: (content: string) => void;
@@ -44,6 +46,7 @@ export function ChatPageView({
   maxRoundsReached,
   scrollRef,
   sessionId,
+  onAskUserSubmit,
   onMessagesChange,
   onStartSession,
   onSend,
@@ -100,7 +103,7 @@ export function ChatPageView({
             )}
             <StreamingMessageDisplay
               eventBus={eventBus}
-              sessionId={sessionId}
+              onAskUserSubmit={onAskUserSubmit}
               onMessagesChange={onMessagesChange}
             />
           </ScrollShadow>

@@ -1,4 +1,5 @@
 import {ScrollShadow} from '@heroui/react';
+import type {AskUserBridgeResponse} from '@omnicraft/tool-schemas';
 import type {RefObject} from 'react';
 
 import {
@@ -24,6 +25,7 @@ interface CodingPageViewProps {
   maxRoundsReached: boolean;
   scrollRef: RefObject<HTMLDivElement | null>;
   sessionId: string | null;
+  onAskUserSubmit: (callId: string, result: AskUserBridgeResponse) => void;
   onMessagesChange: (messages: readonly ChatMessage[]) => void;
   onStartTask: (content: string) => Promise<void>;
   onSend: (content: string) => Promise<void>;
@@ -44,6 +46,7 @@ export function CodingPageView({
   maxRoundsReached,
   scrollRef,
   sessionId,
+  onAskUserSubmit,
   onMessagesChange,
   onStartTask,
   onSend,
@@ -96,7 +99,7 @@ export function CodingPageView({
             )}
             <StreamingMessageDisplay
               eventBus={eventBus}
-              sessionId={sessionId}
+              onAskUserSubmit={onAskUserSubmit}
               onMessagesChange={onMessagesChange}
             />
           </ScrollShadow>
