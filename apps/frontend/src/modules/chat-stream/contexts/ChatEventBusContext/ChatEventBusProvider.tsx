@@ -1,6 +1,7 @@
 import type {ReactNode} from 'react';
 
-import type {ChatEventBus} from '../../types.js';
+import type {ChatEventBus} from '@/modules/chat-events/index.js';
+
 import {ChatEventBusContext} from './ChatEventBusContext.js';
 
 interface ChatEventBusProviderProps {

@@ -1,6 +1,6 @@
 import type {SseBaseEvent} from '@omnicraft/sse-events';
 
-import type {ChatEventBus} from '@/modules/chat-stream/index.js';
+import type {ChatEventBus} from '@/modules/chat-events/index.js';
 
 /** Routes an SSE base event to a ChatEventBus. Each case narrows the event
  *  so TypeScript verifies the type↔payload correlation. */

@@ -1,4 +1,5 @@
-import type {ChatMessage} from '../../types.js';
+import type {ChatMessage} from '@/modules/chat-events/index.js';
+
 import {useMessageList} from './hooks/useMessageList.js';
 import {MessageListView} from './MessageListView.js';
 

@@ -1,6 +1,6 @@
 import {useEffect, useState} from 'react';
 
-import type {ChatEventMap} from '@/modules/chat-stream/index.js';
+import type {ChatEventMap} from '@/modules/chat-events/index.js';
 
 import {useChatEventBus} from './useChatEventBus.js';
 

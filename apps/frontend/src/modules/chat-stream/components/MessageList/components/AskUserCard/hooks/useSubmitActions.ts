@@ -1,6 +1,7 @@
 import {useCallback, useState} from 'react';
 
-import type {AskUserSubmitHandler} from '../../../../../types.js';
+import type {AskUserSubmitHandler} from '@/modules/chat-events/index.js';
+
 import type {AnswerEntry} from '../types.js';
 
 interface UseSubmitActionsParams {

@@ -25,8 +25,5 @@ export {useSessionTitle} from './hooks/useSessionTitle.js';
 export {useStreamChat} from './hooks/useStreamChat.js';
 export {useVscodeStatus} from './hooks/useVscodeStatus.js';
 
-// Types
-export type {ChatEventBus, ChatMessage} from '@/modules/chat-stream/index.js';
-
 // Styles
 export {default as chatSessionStyles} from './styles.module.css';

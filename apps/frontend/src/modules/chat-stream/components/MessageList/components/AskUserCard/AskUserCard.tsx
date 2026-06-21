@@ -1,6 +1,7 @@
 import type {ToolFailureData, ToolResultData} from '@omnicraft/tool-schemas';
 
-import type {AskUserSubmitHandler} from '../../../../types.js';
+import type {AskUserSubmitHandler} from '@/modules/chat-events/index.js';
+
 import {AskUserCardView} from './AskUserCardView.js';
 import {useFormState} from './hooks/useFormState.js';
 import {useQuestions} from './hooks/useQuestions.js';
