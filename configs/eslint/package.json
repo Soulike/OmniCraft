@@ -5,6 +5,7 @@
   "type": "module",
   "main": "src/index.js",
   "scripts": {
+    "lint": "eslint src",
     "build": "echo \"eslint-config is not required to build.\""
   },
   "devDependencies": {
