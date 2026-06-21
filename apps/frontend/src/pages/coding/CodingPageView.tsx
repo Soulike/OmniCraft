@@ -1,5 +1,4 @@
 import {ScrollShadow} from '@heroui/react';
-import type {AskUserBridgeResponse} from '@omnicraft/tool-schemas';
 import type {RefObject} from 'react';
 
 import {
@@ -11,6 +10,7 @@ import {
   TitleBarView,
 } from '@/modules/chat-session/index.js';
 import {
+  type AskUserSubmitHandler,
   type ChatEventBus,
   type ChatMessage,
   StreamingMessageDisplay,
@@ -27,7 +27,7 @@ interface CodingPageViewProps {
   maxRoundsReached: boolean;
   scrollRef: RefObject<HTMLDivElement | null>;
   sessionId: string | null;
-  onAskUserSubmit: (callId: string, result: AskUserBridgeResponse) => void;
+  onAskUserSubmit: AskUserSubmitHandler;
   onMessagesChange: (messages: readonly ChatMessage[]) => void;
   onStartTask: (content: string) => Promise<void>;
   onSend: (content: string) => Promise<void>;

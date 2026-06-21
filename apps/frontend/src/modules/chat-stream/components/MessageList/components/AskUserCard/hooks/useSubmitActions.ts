@@ -16,10 +16,10 @@ export interface SubmitActions {
   handleCancel: () => void;
 }
 
-/** Submits or cancels the questionnaire via the injected handler. Fire-and-
- *  forget: the outcome surfaces through subsequent SSE events. When no handler
- *  is provided the stream cannot accept submissions.
- *  TODO(#307): refine disabled-state UI for the no-handler case. */
+/** Submits or cancels the questionnaire via the injected handler. The handler
+ *  returns a promise; on rejection the submitting state is reset so the user
+ *  can retry. When no handler is provided the stream cannot accept submissions.
+ *  TODO(#307): surface an in-card failure message on rejection. */
 export function useSubmitActions({
   callId,
   collectAnswers,
@@ -31,13 +31,19 @@ export function useSubmitActions({
   const handleSubmit = useCallback(() => {
     if (submitting || onSubmit === null) return;
     setSubmitting(true);
-    onSubmit(callId, {cancelled: false, answers: collectAnswers()});
+    onSubmit(callId, {cancelled: false, answers: collectAnswers()}).catch(
+      () => {
+        setSubmitting(false);
+      },
+    );
   }, [callId, collectAnswers, submitting, onSubmit]);
 
   const handleCancel = useCallback(() => {
     if (submitting || onSubmit === null) return;
     setSubmitting(true);
-    onSubmit(callId, {cancelled: true});
+    onSubmit(callId, {cancelled: true}).catch(() => {
+      setSubmitting(false);
+    });
   }, [callId, submitting, onSubmit]);
 
   return {submitting, canSubmit, handleSubmit, handleCancel};

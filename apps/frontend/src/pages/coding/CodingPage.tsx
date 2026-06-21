@@ -1,5 +1,3 @@
-import {toast} from '@heroui/react';
-import type {AskUserBridgeResponse} from '@omnicraft/tool-schemas';
 import {useCallback, useMemo} from 'react';
 
 import * as codingApi from '@/api/coding/index.js';
@@ -10,8 +8,8 @@ import {
   ChatSessionApiContext,
   SessionConfigProvider,
   SessionIdProvider,
+  useAskUserSubmit,
   useChatEventBus,
-  useChatSessionApi,
   useMessageCount,
   useSessionConfig,
   useSessionId,
@@ -53,17 +51,7 @@ function CodingPageContent() {
     clearCreateNewSessionIdError,
   } = useSessionId();
 
-  const {submitToolResponse} = useChatSessionApi();
-
-  const handleAskUserSubmit = useCallback(
-    (callId: string, result: AskUserBridgeResponse) => {
-      if (sessionId === null) return;
-      submitToolResponse(sessionId, callId, result).catch(() => {
-        toast.danger('Failed to submit response. Please try again.');
-      });
-    },
-    [sessionId, submitToolResponse],
-  );
+  const handleAskUserSubmit = useAskUserSubmit();
 
   const {messageCount, onMessagesChange} = useMessageCount();
   const {title} = useSessionTitle();

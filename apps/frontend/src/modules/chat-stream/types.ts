@@ -143,9 +143,10 @@ export interface ChatEventMap {
 export type ChatEventBus = EventBus<ChatEventMap>;
 
 /** Handles the user's response to an ask_user tool call within the stream.
- *  Fire-and-forget: the result of the submission surfaces via subsequent SSE
- *  events (the running card is replaced by a done/error card). */
+ *  Returns a promise that rejects if the submission could not be delivered, so
+ *  the card can reset its submitting state and let the user retry. The eventual
+ *  accepted/failed outcome still surfaces via subsequent SSE events. */
 export type AskUserSubmitHandler = (
   callId: string,
   result: AskUserBridgeResponse,
-) => void;
+) => Promise<void>;
