@@ -151,6 +151,7 @@
       "devDependencies": {
         "@config/eslint": "workspace:^",
         "@config/typescript": "workspace:^",
+        "@types/node": "catalog:",
         "typescript": "catalog:",
         "vitest": "catalog:",
       },
