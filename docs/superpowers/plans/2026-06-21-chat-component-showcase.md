@@ -1080,7 +1080,7 @@ Navigate to `<url>/showcase`. Verify, using the webapp-testing / browser tooling
 
 - All 8 sections render; sticky nav anchors jump to each.
 - AskUserCard shows running (free-text + options), done (CompletedCard with answers), failure, and error (CancelledCard with message).
-- ToolExecutionCard renders running/failure/error and all 9 done sub-renderers without crashing when expanded.
+- ToolExecutionCard renders running/failure/error and all 11 done sub-renderers without crashing when expanded.
 - SubagentDisclosure renders for running/complete/error and expands to a nested (empty) stream without error.
 - ThinkingBlock, TodoCard, ContextCompactionBlock, WorkingIndicator render.
 - No console errors.

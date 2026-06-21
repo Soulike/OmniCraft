@@ -126,17 +126,17 @@ glance.
 
 ## Specimen catalog
 
-| Component              | States / variants                                                                                                                                           |
-| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| UserMessage            | short text; long text with markdown                                                                                                                         |
-| AssistantMessage       | empty/streaming (→ WorkingIndicator); with markdown                                                                                                         |
-| AskUserCard            | running (free-text); running (with options); done; failure; error                                                                                           |
-| ToolExecutionCard      | running; failure; error; + 9 result sub-renderers (done): ReadFile, WriteFile, EditFile, RunCommand, FindFiles, SearchFiles, WebFetch, WebSearch, LoadSkill |
-| ThinkingBlock          | thinking (not done); done                                                                                                                                   |
-| TodoCard               | in-progress (mixed item states); all complete                                                                                                               |
-| SubagentDisclosure     | running; complete; error                                                                                                                                    |
-| ContextCompactionBlock | in-progress; done; failed                                                                                                                                   |
-| WorkingIndicator       | default                                                                                                                                                     |
+| Component              | States / variants                                                                                                                                                                         |
+| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| UserMessage            | short text; long text with markdown                                                                                                                                                       |
+| AssistantMessage       | empty/streaming (→ WorkingIndicator); with markdown                                                                                                                                       |
+| AskUserCard            | running (free-text); running (with options); done; failure; error                                                                                                                         |
+| ToolExecutionCard      | running; failure; error; + 11 result sub-renderers (done): ReadFile, WriteFile, EditFile, RunCommand, FindFiles, SearchFiles, WebFetch, WebFetchRaw, WebSearch, LoadSkill, GetCurrentTime |
+| ThinkingBlock          | thinking (not done); done                                                                                                                                                                 |
+| TodoCard               | in-progress (mixed item states); all complete                                                                                                                                             |
+| SubagentDisclosure     | running; complete; error                                                                                                                                                                  |
+| ContextCompactionBlock | in-progress; done; failed                                                                                                                                                                 |
+| WorkingIndicator       | default                                                                                                                                                                                   |
 
 ## Mock data
 

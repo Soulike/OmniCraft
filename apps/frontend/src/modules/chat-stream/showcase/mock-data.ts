@@ -61,7 +61,7 @@ export const readFileData: ToolResultData<'read_file'> = {
   filePath: 'apps/frontend/src/main.tsx',
   totalLines: 23,
   startLine: 1,
-  endLine: 23,
+  endLine: 3,
   content:
     "import {StrictMode} from 'react';\nimport {createRoot} from 'react-dom/client';\n// ...",
 };
