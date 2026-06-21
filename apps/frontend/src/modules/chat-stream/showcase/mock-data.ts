@@ -216,8 +216,15 @@ export const subagentBaseProps = {
   nickname: 'Showcase Explorer',
   task: 'Map all chat-stream components and their states for the showcase page.',
   agentType: 'Explore',
-  thinkingLevel: 'medium' as ThinkingLevel,
+  thinkingLevel: 'medium',
   workingDirectory: '/repo/apps/frontend',
+} satisfies {
+  agentId: string;
+  nickname: string;
+  task: string;
+  agentType: string;
+  thinkingLevel: ThinkingLevel;
+  workingDirectory: string;
 };
 
 export function makeSubagentEventBus(): ChatEventBus {

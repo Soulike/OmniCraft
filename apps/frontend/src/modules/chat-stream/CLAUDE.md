@@ -4,8 +4,11 @@ This module renders the chat message stream. The leaf card components under
 `components/MessageList/components/` (AskUserCard, ToolExecutionCard,
 ThinkingBlock, TodoCard, SubagentDisclosure, ContextCompactionBlock,
 WorkingIndicator, UserMessage, AssistantMessage) are internal to this module —
-only `StreamingMessageDisplay`, `UsageInfo`, `ShowcasePage`, and types are
-exported from `index.ts`.
+only `StreamingMessageDisplay`, `UsageInfo`, and types are exported from
+`index.ts`. The showcase page (`showcase/`) is mounted by the router via a
+deep import (`@/modules/chat-stream/showcase/index.js`), deliberately kept out
+of the public `index.ts` so the debug surface and its mock fixtures stay out
+of the shared production chunk.
 
 ## Showcase (debug surface)
 

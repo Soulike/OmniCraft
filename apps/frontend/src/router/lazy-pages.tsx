@@ -11,7 +11,8 @@ export const CodingPage = lazy(async () => {
 });
 
 export const ShowcasePage = lazy(async () => {
-  const {ShowcasePage} = await import('@/modules/chat-stream/index.js');
+  const {ShowcasePage} =
+    await import('@/modules/chat-stream/showcase/index.js');
   return {default: ShowcasePage};
 });
 
