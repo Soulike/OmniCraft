@@ -27,39 +27,7 @@ const KNOWN_MODELS = new Map<string, CachedCapacity>([
     },
   ],
   [
-    'claude-opus-4.7-1m-internal',
-    {
-      maxContextWindowTokens: 1_000_000,
-      maxPromptTokens: 936_000,
-      maxOutputTokens: 64_000,
-    },
-  ],
-  [
     'claude-opus-4.7',
-    {
-      maxContextWindowTokens: 1_000_000,
-      maxPromptTokens: 936_000,
-      maxOutputTokens: 64_000,
-    },
-  ],
-  [
-    'claude-opus-4.7-high',
-    {
-      maxContextWindowTokens: 200_000,
-      maxPromptTokens: 168_000,
-      maxOutputTokens: 64_000,
-    },
-  ],
-  [
-    'claude-opus-4.7-xhigh',
-    {
-      maxContextWindowTokens: 200_000,
-      maxPromptTokens: 168_000,
-      maxOutputTokens: 64_000,
-    },
-  ],
-  [
-    'claude-opus-4.6-1m',
     {
       maxContextWindowTokens: 1_000_000,
       maxPromptTokens: 936_000,
