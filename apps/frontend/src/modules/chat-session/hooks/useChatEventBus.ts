@@ -1,6 +1,7 @@
 import {use} from 'react';
 
-import type {ChatEventBus} from '../components/StreamingMessageDisplay/index.js';
+import type {ChatEventBus} from '@/modules/chat-stream/index.js';
+
 import {ChatEventBusContext} from '../contexts/ChatEventBusContext/index.js';
 
 export function useChatEventBus(): ChatEventBus {

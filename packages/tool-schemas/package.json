@@ -3,12 +3,13 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "scripts": {
-    "lint": "eslint src",
-    "typecheck": "tsc --noEmit"
-  },
   "exports": {
     ".": "./src/index.ts"
+  },
+  "scripts": {
+    "lint": "eslint src",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "zod": "catalog:"
@@ -17,6 +18,7 @@
     "@config/eslint": "workspace:^",
     "@config/typescript": "workspace:^",
     "@types/node": "catalog:",
-    "typescript": "catalog:"
+    "typescript": "catalog:",
+    "vitest": "catalog:"
   }
 }

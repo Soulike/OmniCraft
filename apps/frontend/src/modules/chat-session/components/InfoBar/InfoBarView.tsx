@@ -1,5 +1,6 @@
-import type {ChatEventBus} from '../StreamingMessageDisplay/index.js';
-import {UsageInfo} from '../UsageInfo/index.js';
+import type {ChatEventBus} from '@/modules/chat-stream/index.js';
+import {UsageInfo} from '@/modules/chat-stream/index.js';
+
 import {AccessInfo} from './components/AccessInfo/index.js';
 import styles from './styles.module.css';
 

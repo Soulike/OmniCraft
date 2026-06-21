@@ -8,6 +8,7 @@ import {
   ChatSessionApiContext,
   SessionConfigProvider,
   SessionIdProvider,
+  useAskUserSubmit,
   useChatEventBus,
   useMessageCount,
   useSessionConfig,
@@ -49,6 +50,8 @@ function CodingPageContent() {
     clearSessionId,
     clearCreateNewSessionIdError,
   } = useSessionId();
+
+  const handleAskUserSubmit = useAskUserSubmit();
 
   const {messageCount, onMessagesChange} = useMessageCount();
   const {title} = useSessionTitle();
@@ -134,6 +137,7 @@ function CodingPageContent() {
       maxRoundsReached={maxRoundsReached}
       scrollRef={scrollRef}
       sessionId={sessionId}
+      onAskUserSubmit={handleAskUserSubmit}
       onMessagesChange={onMessagesChange}
       onStartTask={handleStartTask}
       onSend={handleSend}

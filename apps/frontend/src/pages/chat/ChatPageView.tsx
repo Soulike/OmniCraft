@@ -5,14 +5,17 @@ import type {RefObject} from 'react';
 import {
   BottomBar,
   ChatAlert,
-  type ChatEventBus,
   ChatInput,
-  type ChatMessage,
   chatSessionStyles as styles,
   SessionSidebar,
-  StreamingMessageDisplay,
   TitleBarView,
 } from '@/modules/chat-session/index.js';
+import {
+  type AskUserSubmitHandler,
+  type ChatEventBus,
+  type ChatMessage,
+  StreamingMessageDisplay,
+} from '@/modules/chat-stream/index.js';
 
 interface ChatPageViewProps {
   title: string | null;
@@ -24,6 +27,7 @@ interface ChatPageViewProps {
   maxRoundsReached: boolean;
   scrollRef: RefObject<HTMLDivElement | null>;
   sessionId: string | null;
+  onAskUserSubmit: AskUserSubmitHandler | null;
   onMessagesChange: (messages: readonly ChatMessage[]) => void;
   onStartSession: (content: string) => void;
   onSend: (content: string) => void;
@@ -44,6 +48,7 @@ export function ChatPageView({
   maxRoundsReached,
   scrollRef,
   sessionId,
+  onAskUserSubmit,
   onMessagesChange,
   onStartSession,
   onSend,
@@ -100,7 +105,7 @@ export function ChatPageView({
             )}
             <StreamingMessageDisplay
               eventBus={eventBus}
-              sessionId={sessionId}
+              onAskUserSubmit={onAskUserSubmit}
               onMessagesChange={onMessagesChange}
             />
           </ScrollShadow>

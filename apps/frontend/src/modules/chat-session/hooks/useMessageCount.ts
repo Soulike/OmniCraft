@@ -1,6 +1,6 @@
 import {useCallback, useState} from 'react';
 
-import type {ChatMessage} from '../components/StreamingMessageDisplay/index.js';
+import type {ChatMessage} from '@/modules/chat-stream/index.js';
 
 /**
  * Tracks message count via an onMessagesChange callback

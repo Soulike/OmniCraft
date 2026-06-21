@@ -2,8 +2,8 @@ import type {SseBaseEvent} from '@omnicraft/sse-events';
 import {describe, expect, it, vi} from 'vitest';
 
 import {EventBus} from '@/helpers/event-bus.js';
+import type {ChatEventMap} from '@/modules/chat-stream/index.js';
 
-import type {ChatEventMap} from '../components/StreamingMessageDisplay/index.js';
 import {routeBaseEventToBus} from './route-base-event-to-bus.js';
 
 function createBus() {

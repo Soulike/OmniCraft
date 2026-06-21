@@ -224,6 +224,7 @@
         "@config/typescript": "workspace:^",
         "@types/node": "catalog:",
         "typescript": "catalog:",
+        "vitest": "catalog:",
       },
     },
     "scripts": {
