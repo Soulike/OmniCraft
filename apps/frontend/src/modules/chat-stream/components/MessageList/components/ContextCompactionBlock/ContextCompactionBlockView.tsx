@@ -43,7 +43,6 @@ export function ContextCompactionBlockView(
       className={clsx(
         styles.card,
         isInProgress && styles.inProgress,
-        props.status === 'done' && styles.done,
         props.status === 'failed' && styles.failed,
       )}
     >

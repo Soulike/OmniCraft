@@ -51,6 +51,11 @@ export const askUserErrorData: ToolFailureData = {
 
 export const noopAskUserSubmit: AskUserSubmitHandler = () => Promise.resolve();
 
+/** Always rejects, to exercise AskUserCard's submit-error notice in the
+ *  showcase (click Submit on that specimen to trigger it). */
+export const rejectingAskUserSubmit: AskUserSubmitHandler = () =>
+  Promise.reject(new Error('showcase: simulated submission failure'));
+
 // --- tool results ---
 
 export const readFileArgs = JSON.stringify({

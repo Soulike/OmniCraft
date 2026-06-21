@@ -1,7 +1,8 @@
 .card {
   border-radius: 12px;
-  background: var(--surface);
-  border: 1px solid var(--border);
+  background: var(--aurora-glass-fill);
+  border: 1px solid var(--aurora-glass-border);
+  box-shadow: var(--aurora-glass-highlight);
   overflow: hidden;
   width: 520px;
   max-width: 100%;
@@ -32,17 +33,16 @@
   gap: 20px;
 }
 
+/* Card owns the inset placement of the submit-error notice; the notice itself
+   carries only its own tint/padding (see Layout rule in apps/frontend/CLAUDE.md). */
+.errorSlot {
+  padding: 4px 16px;
+}
+
 .footer {
   display: flex;
   justify-content: flex-end;
   gap: 8px;
   padding: 12px 16px;
   border-top: 1px solid var(--border);
-}
-
-.disabledNotice {
-  margin: 0;
-  padding: 0 12px;
-  font-size: 0.85em;
-  color: var(--muted);
 }

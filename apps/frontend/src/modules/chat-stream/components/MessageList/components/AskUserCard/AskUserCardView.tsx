@@ -5,6 +5,8 @@ import {Fragment} from 'react';
 import {CancelledCard} from './components/CancelledCard/index.js';
 import {CompletedCard} from './components/CompletedCard/index.js';
 import {QuestionItem} from './components/QuestionItem/index.js';
+import {SubmitErrorNotice} from './components/SubmitErrorNotice/index.js';
+import {UnsupportedNotice} from './components/UnsupportedNotice/index.js';
 import type {FormState} from './hooks/useFormState.js';
 import type {SubmitActions} from './hooks/useSubmitActions.js';
 import styles from './styles.module.css';
@@ -58,12 +60,11 @@ export function AskUserCardView({
           </Fragment>
         ))}
       </div>
-      {/* TODO(#307): polish the disabled-state UI for sessions that cannot
-            accept form submission. */}
-      {!submitActions.canSubmit && (
-        <p className={styles.disabledNotice}>
-          This session does not support form submission.
-        </p>
+      {!submitActions.canSubmit && <UnsupportedNotice />}
+      {submitActions.canSubmit && submitActions.submitError && (
+        <div className={styles.errorSlot}>
+          <SubmitErrorNotice />
+        </div>
       )}
       <div className={styles.footer}>
         <Button

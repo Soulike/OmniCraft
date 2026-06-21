@@ -99,6 +99,22 @@ export function ShowcasePageView({subagentEventBus}: ShowcasePageViewProps) {
               data={mock.askUserErrorData}
             />
           </Specimen>
+          <Specimen label='running · unsupported (no submit channel)'>
+            <AskUserCard
+              status='running'
+              callId='ask-6'
+              arguments={mock.askUserArgsOptions}
+              onSubmit={null}
+            />
+          </Specimen>
+          <Specimen label='running · submit error (click Submit)'>
+            <AskUserCard
+              status='running'
+              callId='ask-7'
+              arguments={mock.askUserArgsOptions}
+              onSubmit={mock.rejectingAskUserSubmit}
+            />
+          </Specimen>
         </ShowcaseSection>
 
         <ShowcaseSection id='tools' title='ToolExecutionCard'>

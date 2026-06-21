@@ -1,44 +1,53 @@
 .card {
-  border-radius: 12px;
+  border-radius: 10px;
   overflow: hidden;
   width: 100%;
   max-width: 100%;
-  background: var(--surface);
 }
 
-.inProgress {
-  border: 1px dashed color-mix(in oklch, var(--accent) 50%, transparent);
-}
-
-.done {
-  border: 1px solid var(--border);
-}
-
-.failed {
-  border: 1px solid color-mix(in oklch, var(--danger) 60%, transparent);
-  background: color-mix(in oklch, var(--danger) 6%, var(--surface));
+/* Expanded: glass shell (translucent + blur), blends into the Mica. Collapsed
+   stays chromeless — matches ThinkingBlock / ToolExecutionCard. */
+.card:has(.trigger[aria-expanded='true']) {
+  background: var(--aurora-glass-fill);
+  border: 1px solid var(--aurora-glass-border);
+  box-shadow: var(--aurora-glass-highlight);
+  backdrop-filter: var(--aurora-glass-blur);
+  -webkit-backdrop-filter: var(--aurora-glass-blur);
 }
 
 .trigger {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   width: 100%;
-  padding: 10px 12px;
+  padding: 6px 10px;
   cursor: pointer;
   background: none;
   border: none;
+  border-radius: 10px;
   color: inherit;
   font: inherit;
   text-align: left;
+  transition: background 150ms ease;
+}
+
+.trigger:not([aria-disabled='true']):hover {
+  background: var(--aurora-glass-fill);
+}
+
+.trigger:focus-visible {
+  outline: 1px solid color-mix(in srgb, var(--accent) 55%, transparent);
+  outline-offset: 2px;
 }
 
 .iconDone {
   color: var(--muted);
+  flex-shrink: 0;
 }
 
 .iconFailed {
   color: var(--danger);
+  flex-shrink: 0;
 }
 
 .label {
@@ -46,6 +55,10 @@
   font-weight: 600;
   font-size: 0.875rem;
   color: var(--muted);
+}
+
+.inProgress .label {
+  color: var(--accent);
 }
 
 .failed .label {
@@ -64,4 +77,10 @@
 
 .failed .content {
   color: var(--foreground);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .trigger {
+    transition: none;
+  }
 }
