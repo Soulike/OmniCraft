@@ -94,7 +94,7 @@ function HarnessContent() {
     createNewSessionId: () => Promise.resolve('session-1'),
   });
 
-  return <StreamingMessageDisplay eventBus={eventBus} sessionId='session-1' />;
+  return <StreamingMessageDisplay eventBus={eventBus} />;
 }
 
 type SendResult = {status: 'fulfilled'} | {error: unknown; status: 'rejected'};
