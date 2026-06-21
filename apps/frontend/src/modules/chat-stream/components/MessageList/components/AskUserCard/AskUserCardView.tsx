@@ -62,7 +62,9 @@ export function AskUserCardView({
       </div>
       {!submitActions.canSubmit && <UnsupportedNotice />}
       {submitActions.canSubmit && submitActions.submitError && (
-        <SubmitErrorNotice />
+        <div className={styles.errorSlot}>
+          <SubmitErrorNotice />
+        </div>
       )}
       <div className={styles.footer}>
         <Button

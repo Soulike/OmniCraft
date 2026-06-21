@@ -107,6 +107,35 @@ describe('useSubmitActions', () => {
     consoleError.mockRestore();
   });
 
+  it('clears submitError when the user cancels again', async () => {
+    let attempt = 0;
+    const onSubmit = vi.fn(() => {
+      attempt += 1;
+      return attempt === 1
+        ? Promise.reject(new Error('network'))
+        : Promise.resolve();
+    });
+    const consoleError = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+    const {result} = renderHook(() =>
+      useSubmitActions({callId: 'c1', collectAnswers: () => [], onSubmit}),
+    );
+
+    act(() => {
+      result.current.handleCancel();
+    });
+    await waitFor(() => {
+      expect(result.current.submitError).toBe(true);
+    });
+
+    act(() => {
+      result.current.handleCancel();
+    });
+    expect(result.current.submitError).toBe(false);
+    consoleError.mockRestore();
+  });
+
   it('reports canSubmit=false when no handler is provided', () => {
     const {result} = renderHook(() =>
       useSubmitActions({
