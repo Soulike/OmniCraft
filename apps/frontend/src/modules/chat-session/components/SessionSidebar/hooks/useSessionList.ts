@@ -3,9 +3,9 @@ import type {RefObject} from 'react';
 import {useCallback, useEffect} from 'react';
 
 import {useInfiniteScroll} from '@/hooks/useInfiniteScroll.js';
+import type {ChatEventBus} from '@/modules/chat-stream/index.js';
 
 import {useChatSessionApi} from '../../../hooks/useChatSessionApi.js';
-import type {ChatEventBus} from '../../StreamingMessageDisplay/index.js';
 
 interface UseSessionListOptions {
   eventBus: ChatEventBus;

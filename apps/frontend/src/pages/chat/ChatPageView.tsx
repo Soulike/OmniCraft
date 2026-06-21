@@ -6,14 +6,16 @@ import type {RefObject} from 'react';
 import {
   BottomBar,
   ChatAlert,
-  type ChatEventBus,
   ChatInput,
-  type ChatMessage,
   chatSessionStyles as styles,
   SessionSidebar,
-  StreamingMessageDisplay,
   TitleBarView,
 } from '@/modules/chat-session/index.js';
+import {
+  type ChatEventBus,
+  type ChatMessage,
+  StreamingMessageDisplay,
+} from '@/modules/chat-stream/index.js';
 
 interface ChatPageViewProps {
   title: string | null;

@@ -1,6 +1,7 @@
 import {useEffect, useState} from 'react';
 
-import type {ChatEventMap} from '../components/StreamingMessageDisplay/index.js';
+import type {ChatEventMap} from '@/modules/chat-stream/index.js';
+
 import {useChatEventBus} from './useChatEventBus.js';
 
 /** Tracks the session title from backend-generated `session-title` SSE events. */

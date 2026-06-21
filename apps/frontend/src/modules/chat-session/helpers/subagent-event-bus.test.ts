@@ -1,6 +1,7 @@
 import {describe, expect, it, vi} from 'vitest';
 
-import type {ChatEventMap} from '../components/StreamingMessageDisplay/index.js';
+import type {ChatEventMap} from '@/modules/chat-stream/index.js';
+
 import {SubagentEventBus} from './subagent-event-bus.js';
 
 function createBus() {

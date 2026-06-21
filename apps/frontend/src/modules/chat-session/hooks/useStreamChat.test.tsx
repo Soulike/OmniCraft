@@ -11,12 +11,12 @@ import {useEffect} from 'react';
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 
 import {ThemeProvider} from '@/contexts/theme/index.js';
+import {StreamingMessageDisplay} from '@/modules/chat-stream/index.js';
 
 import {
   ChatEventBusProvider,
   type ChatSessionApi,
   ChatSessionApiContext,
-  StreamingMessageDisplay,
   useChatEventBus,
   useStreamChat,
 } from '../index.js';
