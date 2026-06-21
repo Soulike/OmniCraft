@@ -17,6 +17,7 @@ import type {
   SseToolExecuteStartEvent,
   SseUsageUpdateEvent,
 } from '@omnicraft/sse-events';
+import type {AskUserBridgeResponse} from '@omnicraft/tool-schemas';
 
 import type {EventBus} from '@/helpers/event-bus.js';
 
@@ -140,3 +141,12 @@ export interface ChatEventMap {
 
 /** Typed event bus for the chat page. */
 export type ChatEventBus = EventBus<ChatEventMap>;
+
+/** Handles the user's response to an ask_user tool call within the stream.
+ *  Returns a promise that rejects if the submission could not be delivered, so
+ *  the card can reset its submitting state and let the user retry. The eventual
+ *  accepted/failed outcome still surfaces via subsequent SSE events. */
+export type AskUserSubmitHandler = (
+  callId: string,
+  result: AskUserBridgeResponse,
+) => Promise<void>;

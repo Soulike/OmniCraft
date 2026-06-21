@@ -1,6 +1,5 @@
 import {EventBus} from '@/helpers/event-bus.js';
-
-import type {ChatEventMap} from '../components/StreamingMessageDisplay/index.js';
+import type {ChatEventMap} from '@/modules/chat-stream/index.js';
 
 type Listener<T> = (data: T) => void;
 

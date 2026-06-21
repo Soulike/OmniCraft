@@ -1,4 +1,4 @@
-import type {ChatEventBus} from '../StreamingMessageDisplay/index.js';
+import type {ChatEventBus} from '../../types.js';
 import {useUsage} from './hooks/useUsage.js';
 import {UsageInfoView} from './UsageInfoView.js';
 

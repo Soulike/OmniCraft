@@ -1,3 +1,4 @@
+export type {AskUserBridgeResponse} from './parameter-schemas.js';
 export {
   askUserBridgeResponseSchema,
   askUserParametersSchema,

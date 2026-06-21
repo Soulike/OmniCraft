@@ -4,9 +4,9 @@ import clsx from 'clsx';
 import {Bot, CircleCheck, CircleX} from 'lucide-react';
 import type {RefObject} from 'react';
 
-import {UsageInfo} from '../../../../../UsageInfo/index.js';
 import {StreamingMessageDisplay} from '../../../../StreamingMessageDisplay.js';
 import type {ChatEventBus, SubagentMode} from '../../../../types.js';
+import {UsageInfo} from '../../../UsageInfo/index.js';
 import styles from './styles.module.css';
 
 interface SubagentDisclosureViewProps {
@@ -91,7 +91,11 @@ export function SubagentDisclosureView({
                 </div>
               </div>
               <ScrollShadow className={styles.content} ref={scrollRef}>
-                <StreamingMessageDisplay eventBus={eventBus} sessionId={null} />
+                {/* Subagent streams are read-only: no user submission. */}
+                <StreamingMessageDisplay
+                  eventBus={eventBus}
+                  onAskUserSubmit={null}
+                />
               </ScrollShadow>
             </Disclosure.Body>
             <div className={styles.footer}>

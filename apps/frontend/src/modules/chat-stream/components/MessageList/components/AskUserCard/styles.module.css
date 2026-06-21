@@ -39,3 +39,10 @@
   padding: 12px 16px;
   border-top: 1px solid var(--border);
 }
+
+.disabledNotice {
+  margin: 0;
+  padding: 0 12px;
+  font-size: 0.85em;
+  color: var(--muted);
+}

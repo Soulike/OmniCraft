@@ -4,14 +4,17 @@ import type {RefObject} from 'react';
 import {
   BottomBar,
   ChatAlert,
-  type ChatEventBus,
   ChatInput,
-  type ChatMessage,
   chatSessionStyles as styles,
   SessionSidebar,
-  StreamingMessageDisplay,
   TitleBarView,
 } from '@/modules/chat-session/index.js';
+import {
+  type AskUserSubmitHandler,
+  type ChatEventBus,
+  type ChatMessage,
+  StreamingMessageDisplay,
+} from '@/modules/chat-stream/index.js';
 
 import {TaskDispatchCard} from './components/TaskDispatchCard/index.js';
 
@@ -24,6 +27,7 @@ interface CodingPageViewProps {
   maxRoundsReached: boolean;
   scrollRef: RefObject<HTMLDivElement | null>;
   sessionId: string | null;
+  onAskUserSubmit: AskUserSubmitHandler | null;
   onMessagesChange: (messages: readonly ChatMessage[]) => void;
   onStartTask: (content: string) => Promise<void>;
   onSend: (content: string) => Promise<void>;
@@ -44,6 +48,7 @@ export function CodingPageView({
   maxRoundsReached,
   scrollRef,
   sessionId,
+  onAskUserSubmit,
   onMessagesChange,
   onStartTask,
   onSend,
@@ -96,7 +101,7 @@ export function CodingPageView({
             )}
             <StreamingMessageDisplay
               eventBus={eventBus}
-              sessionId={sessionId}
+              onAskUserSubmit={onAskUserSubmit}
               onMessagesChange={onMessagesChange}
             />
           </ScrollShadow>

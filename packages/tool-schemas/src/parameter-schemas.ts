@@ -224,3 +224,5 @@ export const askUserBridgeResponseSchema = z.discriminatedUnion('cancelled', [
   }),
   z.object({cancelled: z.literal(true)}),
 ]);
+
+export type AskUserBridgeResponse = z.infer<typeof askUserBridgeResponseSchema>;
