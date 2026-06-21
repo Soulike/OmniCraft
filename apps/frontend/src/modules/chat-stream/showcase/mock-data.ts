@@ -102,7 +102,7 @@ export const searchFilesData: ToolResultData<'search_files'> = {
   matches: [
     {
       file: 'apps/frontend/src/router/lazy-pages.tsx',
-      line: 10,
+      line: 13,
       content: 'export const ShowcasePage = lazy(async () => {',
     },
   ],
@@ -124,6 +124,14 @@ export const webFetchData: ToolResultData<'web_fetch'> = {
   url: 'https://bun.com/docs',
   title: 'Bun Documentation',
   content: '# Bun\nBun is an all-in-one JavaScript runtime & toolkit...',
+};
+
+export const webFetchRawArgs = JSON.stringify({
+  url: 'https://bun.com/llms.txt',
+});
+export const webFetchRawData: ToolResultData<'web_fetch_raw'> = {
+  url: 'https://bun.com/llms.txt',
+  content: '<!doctype html>\n<html><head><title>Bun</title></head>...',
 };
 
 export const webSearchArgs = JSON.stringify({
@@ -167,6 +175,7 @@ export const findFilesResult = JSON.stringify(findFilesData);
 export const searchFilesResult = JSON.stringify(searchFilesData);
 export const runCommandResult = JSON.stringify(runCommandData);
 export const webFetchResult = JSON.stringify(webFetchData);
+export const webFetchRawResult = JSON.stringify(webFetchRawData);
 export const webSearchResult = JSON.stringify(webSearchData);
 export const loadSkillResult = JSON.stringify(loadSkillData);
 export const getCurrentTimeResult = JSON.stringify(getCurrentTimeData);

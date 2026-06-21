@@ -210,6 +210,17 @@ export function ShowcasePageView({subagentEventBus}: ShowcasePageViewProps) {
               data={mock.webFetchData}
             />
           </Specimen>
+          <Specimen label='web_fetch_raw · done'>
+            <ToolExecutionCard
+              callId='t-fetch-raw'
+              toolName='web_fetch_raw'
+              displayName='Web Fetch (raw)'
+              arguments={mock.webFetchRawArgs}
+              status='done'
+              result={mock.webFetchRawResult}
+              data={mock.webFetchRawData}
+            />
+          </Specimen>
           <Specimen label='web_search · done'>
             <ToolExecutionCard
               callId='t-websearch'
