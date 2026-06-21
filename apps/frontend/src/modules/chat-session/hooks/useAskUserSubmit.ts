@@ -20,7 +20,12 @@ export function useAskUserSubmit():
 
   const handler = useCallback(
     (callId: string, result: AskUserBridgeResponse) => {
-      if (sessionId === null) return Promise.resolve();
+      // Invariant: this handler is only returned when sessionId is non-null
+      // (see the guarded return below). Assert rather than silently coerce, so
+      // a future refactor that breaks the invariant fails loudly.
+      if (sessionId === null) {
+        throw new Error('useAskUserSubmit handler called without a session');
+      }
       return submitToolResponse(sessionId, callId, result);
     },
     [sessionId, submitToolResponse],
