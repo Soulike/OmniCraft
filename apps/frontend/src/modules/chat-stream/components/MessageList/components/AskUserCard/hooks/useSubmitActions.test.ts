@@ -121,10 +121,9 @@ describe('useSubmitActions', () => {
   it('sets submitError=true when a submit fails, and logs the raw error', async () => {
     const error = new Error('network');
     const onSubmit = vi.fn(() => Promise.reject(error));
-    // eslint-disable-next-line @typescript-eslint/no-empty-function
     const consoleError = vi
       .spyOn(console, 'error')
-      .mockImplementation(() => {});
+      .mockImplementation(() => undefined);
     const {result} = renderHook(() =>
       useSubmitActions({callId: 'c1', collectAnswers: () => [], onSubmit}),
     );
@@ -148,8 +147,7 @@ describe('useSubmitActions', () => {
         ? Promise.reject(new Error('network'))
         : Promise.resolve();
     });
-    // eslint-disable-next-line @typescript-eslint/no-empty-function
-    vi.spyOn(console, 'error').mockImplementation(() => {});
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
     const {result} = renderHook(() =>
       useSubmitActions({callId: 'c1', collectAnswers: () => [], onSubmit}),
     );
