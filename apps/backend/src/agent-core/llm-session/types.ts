@@ -1,4 +1,3 @@
-import type {ThinkingLevel} from '@omnicraft/api-schema';
 import type {
   SseCompactionReason,
   SseContextCompactionEvent,
@@ -52,7 +51,6 @@ export interface LlmCompactionOptions {
   readonly reason: SseCompactionReason;
   readonly tools: readonly ToolDefinition[];
   readonly systemPrompt: string;
-  readonly thinkingLevel: ThinkingLevel;
   readonly signal?: AbortSignal;
 }
 

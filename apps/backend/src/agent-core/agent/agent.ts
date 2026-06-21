@@ -1,7 +1,5 @@
-import assert from 'node:assert';
 import crypto from 'node:crypto';
 
-import type {ThinkingLevel} from '@omnicraft/api-schema';
 import type {
   SseEvent,
   SseEventCursorEntry,
@@ -57,7 +55,6 @@ export abstract class Agent {
   private readonly getMaxToolRounds: AgentOptions['getMaxToolRounds'];
   private readonly getConfig: () => Promise<LlmConfig>;
   private readonly getLightConfig: (() => Promise<LlmConfig>) | null;
-  private readonly thinkingLevel: ThinkingLevel;
 
   private readonly subagentRegistry: SubagentRegistry;
 
@@ -103,11 +100,6 @@ export abstract class Agent {
     this.sessionsDir = options.sessionsDir ?? null;
 
     if (snapshot) {
-      assert(
-        Object.hasOwn(snapshot.options, 'thinkingLevel'),
-        'Snapshot is missing thinkingLevel',
-      );
-      this.thinkingLevel = snapshot.options.thinkingLevel;
       this.id = snapshot.id;
       this.title = snapshot.title;
       this.sseEventCount = snapshot.sseEventCount;
@@ -117,7 +109,6 @@ export abstract class Agent {
       this.llmSession = new LlmSession(getConfig, snapshot.llmSession);
       this.subagentRegistry = new SubagentRegistry();
     } else {
-      this.thinkingLevel = options.thinkingLevel;
       this.id = crypto.randomUUID();
       this.workingDirectory =
         options.workingDirectory ??
@@ -162,11 +153,6 @@ export abstract class Agent {
     return this.workingDirectory;
   }
 
-  /** Returns the Agent's configured thinking level. */
-  getThinkingLevel(): ThinkingLevel {
-    return this.thinkingLevel;
-  }
-
   /** Returns the number of SSE events emitted by this Agent. */
   getSseEventCount(): number {
     return this.sseEventCount;
@@ -182,7 +168,6 @@ export abstract class Agent {
       todos: this.runtimeState.todosToSnapshot(),
       options: {
         workingDirectory: this.workingDirectory,
-        thinkingLevel: this.thinkingLevel,
       },
     };
   }
@@ -253,11 +238,9 @@ export abstract class Agent {
   private async runTurn(userMessage: string): Promise<void> {
     const release = await this.mutex.acquire();
     try {
-      const thinkingLevel = this.thinkingLevel;
       this.abortController = new AbortController();
       const stream = this.runAgentLoop(
         userMessage,
-        thinkingLevel,
         this.abortController.signal,
       );
       await this.pump(stream, (event) => {
@@ -310,14 +293,12 @@ export abstract class Agent {
   private async compactAfterTurn(
     tools: readonly ToolDefinition[],
     systemPrompt: string,
-    thinkingLevel: ThinkingLevel,
   ): Promise<void> {
     try {
       for await (const event of this.llmSession.compactIfNeeded({
         reason: 'after-turn',
         tools,
         systemPrompt,
-        thinkingLevel,
       })) {
         await this.appendSseEvent(event);
       }
@@ -330,7 +311,6 @@ export abstract class Agent {
 
   protected runAgentLoop(
     userMessage: string,
-    thinkingLevel: ThinkingLevel,
     signal: AbortSignal,
   ): AgentEventStream {
     return agentTurnRunner.run({
@@ -339,7 +319,6 @@ export abstract class Agent {
       sessionsDir: this.sessionsDir,
       subagentRegistry: this.subagentRegistry,
       workingDirectory: this.workingDirectory,
-      thinkingLevel,
       signal,
       llmSession: this.llmSession,
       runtimeState: this.runtimeState,
@@ -350,8 +329,8 @@ export abstract class Agent {
       getConfig: this.getConfig,
       getLightConfig: this.getLightConfig ?? this.getConfig,
       getMaxToolRounds: this.getMaxToolRounds,
-      compactAfterTurn: (tools, systemPrompt, compactThinkingLevel) =>
-        this.compactAfterTurn(tools, systemPrompt, compactThinkingLevel),
+      compactAfterTurn: (tools, systemPrompt) =>
+        this.compactAfterTurn(tools, systemPrompt),
     });
   }
 
