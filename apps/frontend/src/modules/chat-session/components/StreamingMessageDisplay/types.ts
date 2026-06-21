@@ -17,6 +17,7 @@ import type {
   SseToolExecuteStartEvent,
   SseUsageUpdateEvent,
 } from '@omnicraft/sse-events';
+import type {AskUserBridgeResponse} from '@omnicraft/tool-schemas';
 
 import type {EventBus} from '@/helpers/event-bus.js';
 
@@ -140,3 +141,11 @@ export interface ChatEventMap {
 
 /** Typed event bus for the chat page. */
 export type ChatEventBus = EventBus<ChatEventMap>;
+
+/** Handles the user's response to an ask_user tool call within the stream.
+ *  Fire-and-forget: the result of the submission surfaces via subsequent SSE
+ *  events (the running card is replaced by a done/error card). */
+export type AskUserSubmitHandler = (
+  callId: string,
+  result: AskUserBridgeResponse,
+) => void;
