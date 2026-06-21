@@ -828,6 +828,19 @@ export type {AskUserBridgeResponse} from '@omnicraft/tool-schemas';
 git rm -r apps/frontend/src/modules/chat-session/components/StreamingMessageDisplay/contexts/SessionIdContext/
 ```
 
+- [ ] **Step 5b: Fix `useStreamChat.test.tsx` stream usage**
+
+`apps/frontend/src/modules/chat-session/hooks/useStreamChat.test.tsx` has a test harness (`HarnessContent`) that renders `<StreamingMessageDisplay eventBus={eventBus} sessionId='session-1' />`. The `sessionId` prop no longer exists on the stream. Remove just that prop:
+
+```tsx
+// before
+return <StreamingMessageDisplay eventBus={eventBus} sessionId='session-1' />;
+// after
+return <StreamingMessageDisplay eventBus={eventBus} />;
+```
+
+Leave the `useStreamChat({sessionId: 'session-1', ...})` calls untouched — `useStreamChat` is a logic-layer hook that legitimately keeps its own `sessionId` parameter. Only the `StreamingMessageDisplay` JSX prop is removed.
+
 - [ ] **Step 6: Run stream tests + typecheck**
 
 Run: `cd apps/frontend && bun run test src/modules/chat-session/components/StreamingMessageDisplay/ && bunx tsc --noEmit`
