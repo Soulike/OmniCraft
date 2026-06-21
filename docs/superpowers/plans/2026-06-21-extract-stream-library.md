@@ -57,6 +57,171 @@
 
 ## Phase A — Contract Change (in place)
 
+### Task A0: Extract `thinking-level` label helper (remove duplicated label map)
+
+`THINKING_LEVEL_LABELS` (a `ThinkingLevel`→label map) and its derived `THINKING_LEVELS` array live in `chat-session/constants.ts`. They are used by `UsageInfoView` (which will move into chat-stream) **and** `ThinkingLevelSelect` (which stays in chat-session). To avoid two modules carrying duplicate label data after the move — and to avoid a cross-module dependency — extract a single app-level helper now. The `chat-session/index.ts` re-export of these constants has **no external consumers** (verified), so it is dead and can be deleted.
+
+**Files:**
+
+- Create: `apps/frontend/src/helpers/thinking-level.ts`
+- Test: `apps/frontend/src/helpers/thinking-level.test.ts`
+- Modify: `apps/frontend/src/modules/chat-session/components/ThinkingLevelSelect/ThinkingLevelSelect.tsx`
+- Modify: `apps/frontend/src/modules/chat-session/components/UsageInfo/UsageInfoView.tsx`
+- Modify: `apps/frontend/src/modules/chat-session/index.ts` (remove dead re-export line)
+- Delete: `apps/frontend/src/modules/chat-session/constants.ts` (becomes empty)
+
+**Interfaces:**
+
+- Produces:
+  - `getThinkingLevelLabel(level: ThinkingLevel): string`
+  - `getThinkingLevelOptions(): readonly [ThinkingLevel, string][]` (all levels as `[level, label]` pairs, in display order)
+  - both exported from `@/helpers/thinking-level.js`.
+
+- [ ] **Step 1: Write the failing test**
+
+Create `apps/frontend/src/helpers/thinking-level.test.ts`:
+
+```ts
+import {describe, expect, it} from 'vitest';
+
+import {
+  getThinkingLevelLabel,
+  getThinkingLevelOptions,
+} from './thinking-level.js';
+
+describe('getThinkingLevelLabel', () => {
+  it('maps each level to its display label', () => {
+    expect(getThinkingLevelLabel('none')).toBe('None');
+    expect(getThinkingLevelLabel('low')).toBe('Low');
+    expect(getThinkingLevelLabel('medium')).toBe('Medium');
+    expect(getThinkingLevelLabel('high')).toBe('High');
+    expect(getThinkingLevelLabel('xhigh')).toBe('Extra High');
+  });
+});
+
+describe('getThinkingLevelOptions', () => {
+  it('returns all levels as [level, label] pairs in display order', () => {
+    expect(getThinkingLevelOptions()).toEqual([
+      ['none', 'None'],
+      ['low', 'Low'],
+      ['medium', 'Medium'],
+      ['high', 'High'],
+      ['xhigh', 'Extra High'],
+    ]);
+  });
+});
+```
+
+- [ ] **Step 2: Run test to verify it fails**
+
+Run: `cd apps/frontend && bun run test src/helpers/thinking-level.test.ts`
+Expected: FAIL — module `./thinking-level.js` does not exist.
+
+- [ ] **Step 3: Create the helper**
+
+`apps/frontend/src/helpers/thinking-level.ts`:
+
+```ts
+import type {ThinkingLevel} from '@omnicraft/api-schema';
+
+const THINKING_LEVEL_LABELS: Record<ThinkingLevel, string> = {
+  none: 'None',
+  low: 'Low',
+  medium: 'Medium',
+  high: 'High',
+  xhigh: 'Extra High',
+};
+
+/** Display label for a thinking level. Single source of truth for all UI. */
+export function getThinkingLevelLabel(level: ThinkingLevel): string {
+  return THINKING_LEVEL_LABELS[level];
+}
+
+/** All thinking levels as [level, label] pairs, in display order. For
+ *  rendering selectable lists. */
+export function getThinkingLevelOptions(): readonly [ThinkingLevel, string][] {
+  return Object.entries(THINKING_LEVEL_LABELS) as [ThinkingLevel, string][];
+}
+```
+
+- [ ] **Step 4: Run test to verify it passes**
+
+Run: `cd apps/frontend && bun run test src/helpers/thinking-level.test.ts`
+Expected: PASS (2 tests).
+
+- [ ] **Step 5: Update `ThinkingLevelSelect.tsx`**
+
+Replace the constants import (line 5) and the two usages:
+
+```ts
+// import line
+import {
+  getThinkingLevelLabel,
+  getThinkingLevelOptions,
+} from '@/helpers/thinking-level.js';
+```
+
+```tsx
+// trigger label (was THINKING_LEVEL_LABELS[value])
+{
+  `Thinking: ${getThinkingLevelLabel(value)}`;
+}
+```
+
+```tsx
+// options list (was THINKING_LEVELS.map(...))
+{
+  getThinkingLevelOptions().map(([id, label]) => (
+    <ListBox.Item key={id} id={id} textValue={label}>
+      {label}
+      <ListBox.ItemIndicator />
+    </ListBox.Item>
+  ));
+}
+```
+
+- [ ] **Step 6: Update `UsageInfoView.tsx`**
+
+Replace the constants import (line 4) and the usage (line 34):
+
+```ts
+import {getThinkingLevelLabel} from '@/helpers/thinking-level.js';
+```
+
+```tsx
+Thinking: {
+  getThinkingLevelLabel(usage.thinkingLevel);
+}
+```
+
+- [ ] **Step 7: Remove the dead re-export and delete the empty constants file**
+
+In `apps/frontend/src/modules/chat-session/index.ts`, delete the line:
+
+```ts
+export {THINKING_LEVEL_LABELS, THINKING_LEVELS} from './constants.js';
+```
+
+Then delete the now-empty file:
+
+```bash
+git rm apps/frontend/src/modules/chat-session/constants.ts
+```
+
+- [ ] **Step 8: Typecheck + run affected tests**
+
+Run: `cd apps/frontend && bunx tsc --noEmit && bun run test src/helpers/thinking-level.test.ts src/modules/chat-session/components/ThinkingLevelSelect/ src/modules/chat-session/components/UsageInfo/`
+Expected: no type errors; tests PASS. (`tsc` confirms no other file referenced the deleted constants.)
+
+- [ ] **Step 9: Commit**
+
+```bash
+git add apps/frontend/src/helpers/thinking-level.ts apps/frontend/src/helpers/thinking-level.test.ts apps/frontend/src/modules/chat-session/components/ThinkingLevelSelect/ThinkingLevelSelect.tsx apps/frontend/src/modules/chat-session/components/UsageInfo/UsageInfoView.tsx apps/frontend/src/modules/chat-session/index.ts
+git commit -m "refactor(frontend): extract thinking-level label helper, drop duplicated map"
+```
+
+---
+
 ### Task A1: Export precise `AskUserBridgeResponse` type from tool-schemas
 
 The submit `result` must be the exact union, not `unknown`. The schema exists; the inferred type is not exported yet.
@@ -913,30 +1078,16 @@ Resolution (no upward import into chat-session — that would break the library'
 
 1. **`ChatEventBus` type** — now comes from `../../types.js` (UsageInfo is at `chat-stream/components/UsageInfo/`, types at `chat-stream/types.ts`).
 
-2. **`THINKING_LEVEL_LABELS`** — this map is **shared**: `ThinkingLevelSelect` (staying in chat-session) also uses it, and chat-session's `index.ts` re-exports it. `chat-stream` must not import upward from `chat-session`. Keep a **local copy** in `chat-stream` — it is an 8-line presentation map keyed by `ThinkingLevel` (from `@omnicraft/api-schema`, a contract package both modules already depend on), and small presentation duplication is preferable to a wrong-direction module dependency. Create `chat-stream/components/UsageInfo/constants.ts`:
+2. **`THINKING_LEVEL_LABELS`** — already removed in Task A0. `UsageInfoView` now imports `getThinkingLevelLabel` from `@/helpers/thinking-level.js`, an app-level helper with no module coupling. That import is unaffected by the move (it is an `@/` alias path), so **no change is needed here for the label** — just confirm `UsageInfoView` still reads `getThinkingLevelLabel(usage.thinkingLevel)`.
 
-```ts
-import type {ThinkingLevel} from '@omnicraft/api-schema';
-
-/** Display labels for thinking levels, shown in the usage footer. */
-export const THINKING_LEVEL_LABELS: Record<ThinkingLevel, string> = {
-  // copy the exact entries from
-  // apps/frontend/src/modules/chat-session/constants.ts (read it first;
-  // reproduce verbatim so labels stay consistent across modules)
-};
-```
-
-Read `apps/frontend/src/modules/chat-session/constants.ts` and copy the `THINKING_LEVEL_LABELS` object literal verbatim. (chat-session keeps its own copy; `THINKING_LEVELS`, derived from it, stays in chat-session since only `ThinkingLevelSelect` uses it.)
-
-Update the three UsageInfo files:
+Update the two remaining UsageInfo files for the `ChatEventBus` import:
 
 ```ts
 // UsageInfo.tsx
 import type {ChatEventBus} from '../../types.js';
 // hooks/useUsage.ts
 import type {ChatEventBus} from '../../types.js';
-// UsageInfoView.tsx
-import {THINKING_LEVEL_LABELS} from './constants.js';
+// UsageInfoView.tsx — unchanged: still imports getThinkingLevelLabel from '@/helpers/thinking-level.js'
 ```
 
 - [ ] **Step 4: Fix `SubagentDisclosureView` import of `UsageInfo`**
@@ -951,7 +1102,31 @@ Replace with the correct relative path from `chat-stream/components/MessageList/
 import {UsageInfo} from '../../../UsageInfo/index.js';
 ```
 
-- [ ] **Step 5: Update all chat-session consumers of the moved code**
+- [ ] **Step 5: Fix `ContextCompactionBlockView`'s `format-token-count` import**
+
+`format-token-count.ts` (a zero-dependency pure helper with its own test) lives at `chat-session/components/UsageInfo/helpers/` and moved into `chat-stream` together with `UsageInfo` in Step 1. It has two consumers, both now inside `chat-stream`: `UsageInfoView` (relative import, already correct) and `ContextCompactionBlockView`, which used an absolute `@/` path into chat-session:
+
+```ts
+// before (ContextCompactionBlockView.tsx:6)
+import {formatTokenCount} from '@/modules/chat-session/components/UsageInfo/helpers/format-token-count.js';
+```
+
+Replace it with the correct relative path from `chat-stream/components/MessageList/components/ContextCompactionBlock/` to `chat-stream/components/UsageInfo/helpers/format-token-count.js`:
+
+```ts
+// after
+import {formatTokenCount} from '../../../UsageInfo/helpers/format-token-count.js';
+```
+
+Verify no consumer outside `chat-stream` still references this helper:
+
+```bash
+grep -rn "format-token-count" apps/frontend/src --include='*.ts' --include='*.tsx' | grep -v "modules/chat-stream"
+```
+
+Expected: no output (the helper now lives entirely inside chat-stream; chat-session no longer needs it).
+
+- [ ] **Step 6: Update all chat-session consumers of the moved code**
 
 These files imported from `components/StreamingMessageDisplay/`:
 `index.ts`, `contexts/ChatEventBusContext/ChatEventBusContext.ts`, `contexts/ChatEventBusContext/ChatEventBusProvider.tsx`, `hooks/useMessageCount.ts`, `hooks/useChatEventBus.ts`, `hooks/useStreamChat.ts`, `hooks/useSessionTitle.ts`, `helpers/subagent-event-bus.ts`, `helpers/route-base-event-to-bus.ts`, and the two helper test files.
@@ -976,7 +1151,7 @@ grep -rln "StreamingMessageDisplay\|components/UsageInfo" apps/frontend/src/modu
 
 Update each to import from `@/modules/chat-stream/index.js` (public types/components only). Also update `InfoBarView.tsx` and `SessionSidebar/hooks/useSessionList.ts` and `UsageInfo`-referencing files flagged by the grep.
 
-- [ ] **Step 6: Update the two PageViews' imports**
+- [ ] **Step 7: Update the two PageViews' imports**
 
 `ChatPageView.tsx` / `CodingPageView.tsx` import `StreamingMessageDisplay` (and `ChatEventBus`, `ChatMessage` types) from `@/modules/chat-session/index.js`. Decide: keep re-exporting these from chat-session for compatibility, **or** point pages at `@/modules/chat-stream`. Per the design (stream is its own library), point the stream-specific imports at `@/modules/chat-stream`:
 
@@ -990,17 +1165,17 @@ import {
 
 Keep the layout components (`BottomBar`, `ChatAlert`, `ChatInput`, `SessionSidebar`, `TitleBarView`, `chatSessionStyles`) imported from `@/modules/chat-session`.
 
-- [ ] **Step 7: Typecheck**
+- [ ] **Step 8: Typecheck**
 
 Run: `cd apps/frontend && bunx tsc --noEmit`
 Expected: no errors. Fix any remaining stale relative paths it reports.
 
-- [ ] **Step 8: Run the full test suite**
+- [ ] **Step 9: Run the full test suite**
 
 Run: `cd apps/frontend && bun run test`
 Expected: all PASS (tests moved with their files; paths resolved).
 
-- [ ] **Step 9: Commit**
+- [ ] **Step 10: Commit**
 
 ```bash
 git add -A apps/frontend/src/modules/chat-stream apps/frontend/src/modules/chat-session apps/frontend/src/pages
@@ -1042,4 +1217,4 @@ Expected: both print the "clean" message.
 - **Spec coverage:** placement under `modules/` (B1) ✓; `{eventBus, onAskUserSubmit?, onMessagesChange?}` contract (A4) ✓; `sessionId` + `SessionIdContext` removed (A4) ✓; submit as injected callback (A3) ✓; `callId` from SSE flows through unchanged (A3/A4) ✓; precise `AskUserBridgeResponse` type (A1) ✓; absent-handler ⇒ disabled+notice, history still replays read-only (A3 — done/failure/error branches untouched) ✓; `onMessagesChange` retained (A4) ✓; logic layer keeps `useStreamChat`/routing/`ChatSessionApi` (untouched) ✓; follow-up issue + TODO (A7) ✓.
 - **Decision refinement during planning:** `onAskUserSubmit` is fire-and-forget `=> void` (not `Promise`); the AskUserCard owns its own error display; submission outcome surfaces via subsequent SSE. Transport-failure toast handled by the page closure. Captured in A3/A6.
 - **Type consistency:** `AskUserSubmitHandler = (callId: string, result: AskUserBridgeResponse) => void` used identically in A2 (def), A3 (consumer), A4 (provider), A6 (page closure). `SubmitActions` gains `canSubmit: boolean` in A3, consumed in A3 Step 6 view.
-- **`UsageInfo` cross-module coupling resolved:** B1 Step 3 pins the one real entanglement — `UsageInfoView` uses `THINKING_LEVEL_LABELS`, shared with `ThinkingLevelSelect` (which stays in chat-session). Resolution is a small local copy in chat-stream (verbatim from chat-session's constants) rather than an upward import, preserving the library's independence.
+- **`UsageInfo` cross-module coupling resolved:** The one shared symbol — `THINKING_LEVEL_LABELS`, used by both `UsageInfoView` (moves to chat-stream) and `ThinkingLevelSelect` (stays in chat-session) — is extracted in Task A0 into an app-level helper `@/helpers/thinking-level.js` (`getThinkingLevelLabel` / `getThinkingLevelOptions`). Both modules import the single helper; no duplicated map, no cross-module dependency. `format-token-count` (B1 Step 5) moves wholesale with `UsageInfo` since both its consumers end up in chat-stream.
