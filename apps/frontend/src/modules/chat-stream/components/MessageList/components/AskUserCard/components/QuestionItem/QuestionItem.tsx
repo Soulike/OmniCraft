@@ -34,18 +34,14 @@ export function QuestionItem({
               variant='secondary'
               isDisabled={disabled}
               isSelected={selected === option && !isCustom}
-              onChange={(checked) => {
-                if (checked) {
-                  formState.toggleOption(index, option);
-                } else {
-                  formState.toggleOption(index, option);
-                }
+              onChange={() => {
+                formState.toggleOption(index, option);
               }}
             >
-              <Checkbox.Control>
-                <Checkbox.Indicator />
-              </Checkbox.Control>
               <Checkbox.Content>
+                <Checkbox.Control>
+                  <Checkbox.Indicator />
+                </Checkbox.Control>
                 <Label>{option}</Label>
               </Checkbox.Content>
             </Checkbox>
@@ -62,10 +58,10 @@ export function QuestionItem({
               }
             }}
           >
-            <Checkbox.Control>
-              <Checkbox.Indicator />
-            </Checkbox.Control>
             <Checkbox.Content>
+              <Checkbox.Control>
+                <Checkbox.Indicator />
+              </Checkbox.Control>
               <Label>Other</Label>
             </Checkbox.Content>
           </Checkbox>
