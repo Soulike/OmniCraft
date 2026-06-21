@@ -9,7 +9,7 @@ import type {AskUserSubmitHandler, ChatEventBus, ChatMessage} from './types.js';
 
 interface StreamingMessageDisplayProps {
   eventBus: ChatEventBus;
-  onAskUserSubmit?: AskUserSubmitHandler;
+  onAskUserSubmit?: AskUserSubmitHandler | null;
   onMessagesChange?: (messages: readonly ChatMessage[]) => void;
 }
 

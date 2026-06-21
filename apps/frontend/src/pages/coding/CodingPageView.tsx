@@ -27,7 +27,7 @@ interface CodingPageViewProps {
   maxRoundsReached: boolean;
   scrollRef: RefObject<HTMLDivElement | null>;
   sessionId: string | null;
-  onAskUserSubmit: AskUserSubmitHandler;
+  onAskUserSubmit: AskUserSubmitHandler | null;
   onMessagesChange: (messages: readonly ChatMessage[]) => void;
   onStartTask: (content: string) => Promise<void>;
   onSend: (content: string) => Promise<void>;
