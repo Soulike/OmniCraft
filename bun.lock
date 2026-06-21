@@ -121,14 +121,6 @@
         "vitest": "^4.1.8",
       },
     },
-    "configs/bun": {
-      "name": "@config/bun",
-      "devDependencies": {
-        "@config/eslint": "workspace:^",
-        "@config/typescript": "workspace:^",
-        "typescript": "catalog:",
-      },
-    },
     "configs/eslint": {
       "name": "@config/eslint",
       "devDependencies": {
@@ -344,8 +336,6 @@
     "@commitlint/top-level": ["@commitlint/top-level@21.0.2", "https://registry.npmmirror.com/@commitlint/top-level/-/top-level-21.0.2.tgz", { "dependencies": { "escalade": "^3.2.0" } }, "sha512-s9KKM+e+mXgFeIh4n7KmOGAVT3mkJ3Fp1bBYHIK5pjeUwlEMzp/tZfb5u0Poa680AsQTXMEMRxZi1vQ9m2X5ug=="],
 
     "@commitlint/types": ["@commitlint/types@21.0.1", "https://registry.npmmirror.com/@commitlint/types/-/types-21.0.1.tgz", { "dependencies": { "conventional-commits-parser": "^6.3.0", "picocolors": "^1.1.1" } }, "sha512-4u7w8jcoCUFWhjWnASYzZHAP34OqOtuFBN87nQmFvqda03YU0T6z+yB4w0gSAMpekiRqqGk5rt+qSlW+a2vSEg=="],
-
-    "@config/bun": ["@config/bun@workspace:configs/bun"],
 
     "@config/eslint": ["@config/eslint@workspace:configs/eslint"],
 
