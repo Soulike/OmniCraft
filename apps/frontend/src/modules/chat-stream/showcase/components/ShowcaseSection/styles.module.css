@@ -1,0 +1,18 @@
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  scroll-margin-top: 4rem;
+}
+
+.heading {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: var(--foreground);
+}
+
+.specimens {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
