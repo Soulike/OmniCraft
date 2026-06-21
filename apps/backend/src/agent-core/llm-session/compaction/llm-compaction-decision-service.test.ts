@@ -13,6 +13,7 @@ const config: LlmConfig = {
   apiKey: 'key',
   baseUrl: 'https://example.test',
   model: 'test-model',
+  thinkingLevel: 'none',
 };
 
 const messages: LlmMessage[] = [
@@ -39,7 +40,6 @@ const options = {
   reason: 'before-llm-call' as const,
   tools: [],
   systemPrompt: '',
-  thinkingLevel: 'none' as const,
 };
 
 function createService(currentTokens: number): LlmCompactionDecisionService {

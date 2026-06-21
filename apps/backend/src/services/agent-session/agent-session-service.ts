@@ -1,8 +1,4 @@
-import {
-  AgentType,
-  type SessionMetadata,
-  type ThinkingLevel,
-} from '@omnicraft/api-schema';
+import {AgentType, type SessionMetadata} from '@omnicraft/api-schema';
 import type {SseEventCursorEntry} from '@omnicraft/sse-events';
 
 import {CodingAgent, MainAgent} from '@/agent/agents/index.js';
@@ -32,7 +28,6 @@ function getStore(agentType: AgentType) {
 // ---------------------------------------------------------------------------
 
 interface CreateSessionOptions {
-  thinkingLevel: ThinkingLevel;
   workspace?: string;
 }
 
@@ -75,18 +70,10 @@ export const agentSessionService = {
     let agent: Agent;
     switch (agentType) {
       case AgentType.CHAT:
-        agent = new MainAgent(
-          options.workspace,
-          options.thinkingLevel,
-          sessionsDir,
-        );
+        agent = new MainAgent(options.workspace, sessionsDir);
         break;
       case AgentType.CODING:
-        agent = new CodingAgent(
-          options.workspace,
-          options.thinkingLevel,
-          sessionsDir,
-        );
+        agent = new CodingAgent(options.workspace, sessionsDir);
         break;
     }
     return {success: true, sessionId: agent.id};

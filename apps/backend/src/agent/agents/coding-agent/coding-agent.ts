@@ -1,5 +1,3 @@
-import type {ThinkingLevel} from '@omnicraft/api-schema';
-
 import {coreSkillRegistry} from '@/agent/skills/index.js';
 import {
   bashToolRegistry,
@@ -28,15 +26,15 @@ import {codingAgentSystemPrompt} from './system-prompt.js';
 export class CodingAgent extends Agent {
   constructor(
     workingDirectory: string | undefined,
-    thinkingLevel: ThinkingLevel,
     sessionsDir?: string,
     snapshot?: AgentSnapshot,
   ) {
     super(
       async () => {
         const settings = await settingsService.getAll();
-        const {apiFormat, apiKey, baseUrl, model} = settings.codingLlm;
-        return {apiFormat, apiKey, baseUrl, model};
+        const {apiFormat, apiKey, baseUrl, model, thinkingLevel} =
+          settings.codingLlm;
+        return {apiFormat, apiKey, baseUrl, model, thinkingLevel};
       },
       {
         toolRegistries: [
@@ -57,11 +55,16 @@ export class CodingAgent extends Agent {
         },
         getLightConfig: async () => {
           const settings = await settingsService.getAll();
-          const {apiFormat, apiKey, baseUrl, model, lightModel} =
+          const {apiFormat, apiKey, baseUrl, model, lightModel, thinkingLevel} =
             settings.codingLlm;
-          return {apiFormat, apiKey, baseUrl, model: lightModel || model};
+          return {
+            apiFormat,
+            apiKey,
+            baseUrl,
+            model: lightModel || model,
+            thinkingLevel,
+          };
         },
-        thinkingLevel,
         workingDirectory,
         sessionsDir,
       },
@@ -78,7 +81,6 @@ export class CodingAgent extends Agent {
     );
     return new CodingAgent(
       snapshot.options.workingDirectory,
-      snapshot.options.thinkingLevel,
       sessionsDir,
       snapshot,
     );

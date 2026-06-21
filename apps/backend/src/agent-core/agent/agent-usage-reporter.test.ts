@@ -1,4 +1,3 @@
-import type {ThinkingLevel} from '@omnicraft/api-schema';
 import {afterEach, describe, expect, it, vi} from 'vitest';
 
 import type {LlmConfig} from '../llm-api/index.js';
@@ -11,6 +10,7 @@ const MAIN_CONFIG: LlmConfig = {
   apiKey: 'test-key',
   baseUrl: 'https://example.test',
   model: 'main-model',
+  thinkingLevel: 'high',
 };
 
 describe('AgentUsageReporter', () => {
@@ -33,7 +33,6 @@ describe('AgentUsageReporter', () => {
     const event = await agentUsageReporter.buildUsageUpdateEvent({
       getConfig: () => Promise.resolve(MAIN_CONFIG),
       llmSession,
-      thinkingLevel: 'high' satisfies ThinkingLevel,
     });
 
     expect(event).toEqual({

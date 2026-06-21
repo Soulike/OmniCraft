@@ -1,4 +1,3 @@
-import type {ThinkingLevel} from '@omnicraft/api-schema';
 import type {SseUsage, SseUsageUpdateEvent} from '@omnicraft/sse-events';
 
 import type {LlmConfig} from '../llm-api/index.js';
@@ -8,7 +7,6 @@ import {modelCapacity} from '../model-capacity/index.js';
 export interface BuildAgentUsageInput {
   readonly getConfig: () => Promise<LlmConfig>;
   readonly llmSession: Pick<LlmSession, 'getUsage'>;
-  readonly thinkingLevel: ThinkingLevel;
 }
 
 export class AgentUsageReporter {
@@ -20,7 +18,7 @@ export class AgentUsageReporter {
       model: config.model,
       contextWindowTokens,
       ...usage,
-      thinkingLevel: input.thinkingLevel,
+      thinkingLevel: config.thinkingLevel,
     };
   }
 

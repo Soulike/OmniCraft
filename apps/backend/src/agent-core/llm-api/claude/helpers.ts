@@ -128,6 +128,6 @@ export function toOutputConfig(
   level: ThinkingLevel,
 ): Anthropic.OutputConfig | undefined {
   if (level === 'none') return undefined;
-  if (level === 'xhigh') return {effort: 'max'};
+  if (level === 'minimal') return {effort: 'low'};
   return {effort: level};
 }

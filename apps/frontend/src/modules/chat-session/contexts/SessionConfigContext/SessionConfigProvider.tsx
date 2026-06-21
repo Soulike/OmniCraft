@@ -1,4 +1,3 @@
-import type {ThinkingLevel} from '@omnicraft/api-schema';
 import type {Workspace} from '@omnicraft/settings-schema';
 import {type ReactNode, useCallback, useEffect, useMemo, useState} from 'react';
 
@@ -13,7 +12,6 @@ export function SessionConfigProvider({children}: {children: ReactNode}) {
   const [selectedWorkspace, setSelectedWorkspace] = useState<
     string | undefined
   >(undefined);
-  const [thinkingLevel, setThinkingLevel] = useState<ThinkingLevel>('none');
 
   const load = useCallback(async () => {
     setIsLoading(true);
@@ -38,10 +36,8 @@ export function SessionConfigProvider({children}: {children: ReactNode}) {
       loadError,
       selectedWorkspace,
       setSelectedWorkspace,
-      thinkingLevel,
-      setThinkingLevel,
     }),
-    [workspaces, isLoading, loadError, selectedWorkspace, thinkingLevel],
+    [workspaces, isLoading, loadError, selectedWorkspace],
   );
 
   return <SessionConfigContext value={value}>{children}</SessionConfigContext>;

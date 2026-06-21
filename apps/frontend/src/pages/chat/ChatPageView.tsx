@@ -119,7 +119,6 @@ export function ChatPageView({
           ) : (
             <ChatInput
               isStreaming={isStreaming}
-              showThinkingLevelSelect
               onSend={onStartSession}
               onStop={onStop}
             />

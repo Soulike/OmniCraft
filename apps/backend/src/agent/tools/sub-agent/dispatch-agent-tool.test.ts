@@ -69,9 +69,6 @@ function createForwardingMockSubagent(
     getWorkingDirectory() {
       return workingDirectory;
     },
-    getThinkingLevel() {
-      return 'none' as const;
-    },
     getSseEventCount() {
       return 0;
     },
@@ -132,9 +129,6 @@ function createResumedTurnMockSubagent(workingDirectory: string): Agent & {
     },
     getWorkingDirectory() {
       return workingDirectory;
-    },
-    getThinkingLevel() {
-      return 'none' as const;
     },
     getSseEventCount() {
       return 3;
@@ -221,7 +215,6 @@ describe('dispatchAgentTool', () => {
       SubAgentType.GENERAL,
       context.getConfig,
       tmpDir,
-      'none',
     );
 
     expect(subagent).toBeInstanceOf(GeneralSubAgent);
@@ -232,7 +225,6 @@ describe('dispatchAgentTool', () => {
       SubAgentType.EXPLORE,
       context.getConfig,
       tmpDir,
-      'none',
     );
 
     expect(subagent).toBeInstanceOf(ExploreSubAgent);
@@ -266,7 +258,6 @@ describe('dispatchAgentTool', () => {
       SubAgentType.GENERAL,
       context.getConfig,
       tmpDir,
-      'none',
       sessionsDir,
     );
 
@@ -291,7 +282,7 @@ describe('dispatchAgentTool', () => {
         latestUsageInputMessageCount: null,
         usage: emptyUsage(),
       },
-      options: {workingDirectory: tmpDir, thinkingLevel: 'none'},
+      options: {workingDirectory: tmpDir},
     });
     expect(metadata).toEqual({
       id: subagent.id,
@@ -306,7 +297,6 @@ describe('dispatchAgentTool', () => {
       SubAgentType.EXPLORE,
       context.getConfig,
       tmpDir,
-      'none',
       sessionsDir,
     );
 
@@ -331,7 +321,7 @@ describe('dispatchAgentTool', () => {
         latestUsageInputMessageCount: null,
         usage: emptyUsage(),
       },
-      options: {workingDirectory: tmpDir, thinkingLevel: 'none'},
+      options: {workingDirectory: tmpDir},
     });
     expect(metadata).toEqual({
       id: subagent.id,
@@ -351,12 +341,19 @@ describe('dispatchAgentTool', () => {
       get: () => false,
     });
 
-    registerSubAgent(context, subagent, SubAgentType.EXPLORE, 'crimson-otter');
+    registerSubAgent(
+      context,
+      subagent,
+      SubAgentType.EXPLORE,
+      'crimson-otter',
+      'none',
+    );
 
     expect(context.subagentRegistry.get(subagent.id)).toEqual({
       agent: subagent,
       agentType: SubAgentType.EXPLORE,
       nickname: 'crimson-otter',
+      thinkingLevel: 'none',
     });
     expect(context.subagentRegistry.list()).toEqual([
       {
@@ -407,6 +404,7 @@ describe('dispatchAgentTool', () => {
           subagent,
           SubAgentType.GENERAL,
           'crimson-otter',
+          'none',
         );
       },
     });

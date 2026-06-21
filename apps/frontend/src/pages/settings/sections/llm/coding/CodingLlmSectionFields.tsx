@@ -8,6 +8,8 @@ import {
   TextField,
 } from '@heroui/react';
 
+import {THINKING_LEVELS} from '@/helpers/thinking-level-labels.js';
+
 import type {SettingSectionRenderProps} from '../../../components/SettingSection/index.js';
 
 export function CodingLlmSectionFields({
@@ -48,6 +50,37 @@ export function CodingLlmSectionFields({
         </Select.Popover>
         {validationErrors['codingLlm/apiFormat'] && (
           <FieldError>{validationErrors['codingLlm/apiFormat']}</FieldError>
+        )}
+      </Select>
+
+      <Select
+        value={String(values['codingLlm/thinkingLevel'])}
+        isInvalid={'codingLlm/thinkingLevel' in validationErrors}
+        isDisabled={isDisabled}
+        onChange={(value) => {
+          if (value) {
+            setValue('codingLlm/thinkingLevel', String(value));
+          }
+        }}
+      >
+        <Label>Thinking Level</Label>
+        <Select.Trigger>
+          <Select.Value />
+          <Select.Indicator />
+        </Select.Trigger>
+        <Description>Extended-thinking effort for the coding agent</Description>
+        <Select.Popover>
+          <ListBox>
+            {THINKING_LEVELS.map(([id, label]) => (
+              <ListBox.Item key={id} id={id} textValue={label}>
+                {label}
+                <ListBox.ItemIndicator />
+              </ListBox.Item>
+            ))}
+          </ListBox>
+        </Select.Popover>
+        {validationErrors['codingLlm/thinkingLevel'] && (
+          <FieldError>{validationErrors['codingLlm/thinkingLevel']}</FieldError>
         )}
       </Select>
 
