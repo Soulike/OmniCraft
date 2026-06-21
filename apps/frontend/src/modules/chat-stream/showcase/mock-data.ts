@@ -49,8 +49,7 @@ export const askUserErrorData: ToolFailureData = {
   message: 'Failed to deliver the prompt: the session was disconnected.',
 };
 
-// eslint-disable-next-line @typescript-eslint/no-empty-function
-export const noopAskUserSubmit: AskUserSubmitHandler = async () => {};
+export const noopAskUserSubmit: AskUserSubmitHandler = () => Promise.resolve();
 
 // --- tool results ---
 
@@ -83,7 +82,7 @@ export const editFileArgs = JSON.stringify({
 export const editFileData: ToolResultData<'edit_file'> = {
   filePath: 'apps/frontend/src/router/router.tsx',
   matchCount: 1,
-  diff: '--- a/apps/frontend/src/router/router.tsx\n+++ b/apps/frontend/src/router/router.tsx\n@@ -60,3 +60,7 @@\n+      {\n+        path: ROUTES.showcase(),\n+        element: <ShowcasePage />,\n+      },',
+  diff: '--- a/apps/frontend/src/router/router.tsx\n+++ b/apps/frontend/src/router/router.tsx\n@@ -60,0 +60,4 @@\n+      {\n+        path: ROUTES.showcase(),\n+        element: <ShowcasePage />,\n+      },',
   truncated: false,
 };
 

@@ -275,7 +275,7 @@ export function ShowcasePageView({subagentEventBus}: ShowcasePageViewProps) {
         </ShowcaseSection>
 
         <ShowcaseSection id='subagent' title='SubagentDisclosure'>
-          <Specimen label='running'>
+          <Specimen label='dispatch · running'>
             <SubagentDisclosure
               mode='dispatch'
               status='running'
@@ -283,7 +283,7 @@ export function ShowcasePageView({subagentEventBus}: ShowcasePageViewProps) {
               {...mock.subagentBaseProps}
             />
           </Specimen>
-          <Specimen label='complete'>
+          <Specimen label='dispatch · complete'>
             <SubagentDisclosure
               mode='dispatch'
               status='complete'
@@ -291,7 +291,31 @@ export function ShowcasePageView({subagentEventBus}: ShowcasePageViewProps) {
               {...mock.subagentBaseProps}
             />
           </Specimen>
-          <Specimen label='error'>
+          <Specimen label='dispatch · error'>
+            <SubagentDisclosure
+              mode='dispatch'
+              status='error'
+              eventBus={subagentEventBus}
+              {...mock.subagentBaseProps}
+            />
+          </Specimen>
+          <Specimen label='resume · running'>
+            <SubagentDisclosure
+              mode='resume'
+              status='running'
+              eventBus={subagentEventBus}
+              {...mock.subagentBaseProps}
+            />
+          </Specimen>
+          <Specimen label='resume · complete'>
+            <SubagentDisclosure
+              mode='resume'
+              status='complete'
+              eventBus={subagentEventBus}
+              {...mock.subagentBaseProps}
+            />
+          </Specimen>
+          <Specimen label='resume · error'>
             <SubagentDisclosure
               mode='resume'
               status='error'
