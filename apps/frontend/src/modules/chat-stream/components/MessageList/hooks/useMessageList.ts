@@ -13,7 +13,11 @@ import type {
 } from '@omnicraft/tool-schemas';
 import {useMemo} from 'react';
 
-import type {ChatEventBus, ChatMessage, SubagentMode} from '../../../types.js';
+import type {
+  ChatEventBus,
+  ChatMessage,
+  SubagentMode,
+} from '@/modules/chat-events/index.js';
 
 export interface UserTextRenderItem {
   type: 'user-text';

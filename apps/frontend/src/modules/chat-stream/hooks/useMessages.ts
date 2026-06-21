@@ -15,8 +15,12 @@ import type {
 import {useEffect} from 'react';
 
 import {useFrameBatchedState} from '@/hooks/useFrameBatchedState.js';
+import type {
+  ChatEventBus,
+  ChatMessage,
+  SubagentMode,
+} from '@/modules/chat-events/index.js';
 
-import type {ChatEventBus, ChatMessage, SubagentMode} from '../types.js';
 import {useChatEventBus} from './useChatEventBus.js';
 
 /**

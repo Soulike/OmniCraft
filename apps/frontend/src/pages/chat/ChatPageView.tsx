@@ -2,6 +2,11 @@ import {ScrollShadow} from '@heroui/react';
 import {MessagesSquare} from 'lucide-react';
 import type {RefObject} from 'react';
 
+import type {
+  AskUserSubmitHandler,
+  ChatEventBus,
+  ChatMessage,
+} from '@/modules/chat-events/index.js';
 import {
   BottomBar,
   ChatAlert,
@@ -10,12 +15,7 @@ import {
   SessionSidebar,
   TitleBarView,
 } from '@/modules/chat-session/index.js';
-import {
-  type AskUserSubmitHandler,
-  type ChatEventBus,
-  type ChatMessage,
-  StreamingMessageDisplay,
-} from '@/modules/chat-stream/index.js';
+import {StreamingMessageDisplay} from '@/modules/chat-stream/index.js';
 
 interface ChatPageViewProps {
   title: string | null;

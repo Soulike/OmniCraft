@@ -1,8 +1,8 @@
 import type {ThinkingLevel} from '@omnicraft/api-schema';
 
 import {useAutoScroll} from '@/hooks/useAutoScroll.js';
+import type {ChatEventBus, SubagentMode} from '@/modules/chat-events/index.js';
 
-import type {ChatEventBus, SubagentMode} from '../../../../types.js';
 import {SubagentDisclosureView} from './SubagentDisclosureView.js';
 
 interface SubagentDisclosureProps {

@@ -2,7 +2,7 @@ import {useCallback, useEffect, useRef, useState} from 'react';
 
 import {HttpError} from '@/api/helpers/http-error.js';
 import {abortableSleep} from '@/helpers/abortable-sleep.js';
-import type {ChatEventBus} from '@/modules/chat-stream/index.js';
+import type {ChatEventBus} from '@/modules/chat-events/index.js';
 
 import {routeBaseEventToBus} from '../helpers/route-base-event-to-bus.js';
 import {SubagentEventBus} from '../helpers/subagent-event-bus.js';
