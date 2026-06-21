@@ -6,12 +6,17 @@
   "exports": {
     ".": "./src/index.ts"
   },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
   "dependencies": {
     "zod": "catalog:"
   },
   "devDependencies": {
     "@config/typescript": "workspace:^",
     "@config/eslint": "workspace:^",
-    "typescript": "catalog:"
+    "typescript": "catalog:",
+    "vitest": "catalog:"
   }
 }
