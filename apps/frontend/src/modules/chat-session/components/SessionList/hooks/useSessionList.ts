@@ -1,5 +1,5 @@
 import type {SessionMetadata} from '@omnicraft/api-schema';
-import type {RefObject} from 'react';
+import type {RefCallback} from 'react';
 import {useCallback, useEffect} from 'react';
 
 import {useInfiniteScroll} from '@/hooks/useInfiniteScroll.js';
@@ -17,7 +17,7 @@ interface UseSessionListReturn {
   isLoadingMore: boolean;
   error: string | null;
   hasMore: boolean;
-  sentinelRef: RefObject<HTMLDivElement | null>;
+  sentinelRef: RefCallback<HTMLDivElement>;
   deleteSession: (id: string) => Promise<void>;
 }
 

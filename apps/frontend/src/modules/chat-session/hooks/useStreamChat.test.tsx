@@ -79,7 +79,7 @@ function createApiWithSubscribeEvents(
   return {
     createSession: vi.fn(() => Promise.resolve('session-1')),
     sendMessage: vi.fn(() => Promise.resolve()),
-    subscribeEvents,
+    subscribeEvents: vi.fn(subscribeEvents),
     abortCompletion: vi.fn(() => Promise.resolve()),
     submitToolResponse: vi.fn(() => Promise.resolve()),
     listSessions: vi.fn(() => Promise.resolve({sessions: [], total: 0})),
@@ -590,5 +590,52 @@ describe('useStreamChat', () => {
 
     expect(screen.getByText('hello there')).toBeInTheDocument();
     expect(screen.queryByText('SECRET REMINDER TEXT')).not.toBeInTheDocument();
+  });
+
+  it('does not reconnect when the api identity changes but the session stays the same', async () => {
+    const openForever = (): ChatSessionApi['subscribeEvents'] =>
+      async function* (
+        _sessionId: string,
+        _from: number,
+        signal?: AbortSignal,
+      ) {
+        yield* [];
+        await new Promise<void>((resolve) => {
+          signal?.addEventListener(
+            'abort',
+            () => {
+              resolve();
+            },
+            {once: true},
+          );
+        });
+      };
+
+    const apiA = createApiWithSubscribeEvents(openForever());
+    const apiB = createApiWithSubscribeEvents(openForever());
+
+    const tree = (api: ChatSessionApi) => (
+      <ChatSessionApiContext value={api}>
+        <ChatEventBusProvider>
+          <StreamOnlyHarnessContent />
+        </ChatEventBusProvider>
+      </ChatSessionApiContext>
+    );
+
+    const {rerender, unmount} = render(tree(apiA), {wrapper: ThemeProvider});
+
+    await flushAsyncWork();
+    expect(apiA.subscribeEvents).toHaveBeenCalledTimes(1);
+
+    // Same sessionId, brand-new api object (new subscribeEvents identity).
+    rerender(tree(apiB));
+    await flushAsyncWork();
+
+    // The connection is keyed on sessionId, so swapping the api must not
+    // tear it down and reconnect.
+    expect(apiB.subscribeEvents).not.toHaveBeenCalled();
+    expect(apiA.subscribeEvents).toHaveBeenCalledTimes(1);
+
+    unmount();
   });
 });

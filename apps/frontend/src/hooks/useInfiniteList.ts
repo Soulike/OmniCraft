@@ -1,4 +1,4 @@
-import {useCallback, useEffect, useRef, useState} from 'react';
+import {useCallback, useEffect, useEffectEvent, useRef, useState} from 'react';
 
 interface Page<T> {
   items: readonly T[];
@@ -61,38 +61,42 @@ export function useInfiniteList<T>({
     setRefreshKey((prev) => prev + 1);
   }, []);
 
-  // Initial load / refresh
-  useEffect(() => {
-    let cancelled = false;
-
-    async function fetchFirstPage() {
+  // Loads the first page. Declared as an Effect Event so the Effect below can
+  // read the latest `fetcher` without listing it as a dependency — callers
+  // commonly pass a fresh inline fetcher on every render, which would otherwise
+  // re-trigger a first-page fetch each render. `pageSize` is passed in so it
+  // stays a genuine reactive trigger of the Effect.
+  const fetchFirstPage = useEffectEvent(
+    async (limit: number, isCancelled: () => boolean) => {
       if (showLoadingRef.current) {
         setIsLoadingInitial(true);
       }
       setError(null);
       try {
-        const page = await fetcher(0, pageSize);
-        if (!cancelled) {
-          setItems(page.items);
-          setTotal(page.total);
-        }
+        const page = await fetcher(0, limit);
+        if (isCancelled()) return;
+        setItems(page.items);
+        setTotal(page.total);
       } catch (e: unknown) {
-        if (!cancelled) {
-          setError(e instanceof Error ? e.message : 'Failed to load');
-        }
+        if (isCancelled()) return;
+        setError(e instanceof Error ? e.message : 'Failed to load');
       } finally {
-        if (!cancelled) {
+        if (!isCancelled()) {
           setIsLoadingInitial(false);
         }
       }
-    }
+    },
+  );
 
-    void fetchFirstPage();
-
+  // Initial load / refresh. Re-runs only when the page size changes or a
+  // refresh is requested — not when the fetcher's identity changes.
+  useEffect(() => {
+    let cancelled = false;
+    void fetchFirstPage(pageSize, () => cancelled);
     return () => {
       cancelled = true;
     };
-  }, [fetcher, pageSize, refreshKey]);
+  }, [pageSize, refreshKey]);
 
   const hasMore = items.length < total;
 
