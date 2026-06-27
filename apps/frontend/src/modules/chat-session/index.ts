@@ -24,6 +24,3 @@ export {useSessionId} from './hooks/useSessionId.js';
 export {useSessionTitle} from './hooks/useSessionTitle.js';
 export {useStreamChat} from './hooks/useStreamChat.js';
 export {useVscodeStatus} from './hooks/useVscodeStatus.js';
-
-// Styles
-export {default as chatSessionStyles} from './styles.module.css';

@@ -11,13 +11,13 @@ import {
   BottomBar,
   ChatAlert,
   ChatInput,
-  chatSessionStyles as styles,
   SessionList,
   TitleBarView,
 } from '@/modules/chat-session/index.js';
 import {StreamingMessageDisplay} from '@/modules/chat-stream/index.js';
 
 import {TaskDispatchCard} from './components/TaskDispatchCard/index.js';
+import styles from './styles.module.css';
 
 interface CodingPageViewProps {
   title: string | null;
