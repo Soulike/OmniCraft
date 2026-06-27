@@ -1,11 +1,11 @@
 import {Checkbox, Input, Label, TextField} from '@heroui/react';
 
 import type {FormState} from '../../hooks/useFormState.js';
-import type {Question} from '../../types.js';
+import type {AskUserQuestion} from '../../types.js';
 import styles from './styles.module.css';
 
 interface QuestionItemProps {
-  question: Question;
+  question: AskUserQuestion;
   index: number;
   formState: FormState;
   disabled: boolean;

@@ -1,7 +1,7 @@
 import {useCallback, useState} from 'react';
 
 import {OTHER_VALUE} from '../constants.js';
-import type {AnswerEntry, Question} from '../types.js';
+import type {AskUserAnswer, AskUserQuestion} from '../types.js';
 
 export interface FormState {
   /** Selected option value per question index. */
@@ -18,12 +18,12 @@ export interface FormState {
   clearCustom: (questionIndex: number) => void;
   /** Update custom text for a question. */
   setCustomText: (questionIndex: number, text: string) => void;
-  /** Collect current form state into an AnswerEntry array. */
-  collectAnswers: () => AnswerEntry[];
+  /** Collect current form state into an answer array. */
+  collectAnswers: () => AskUserAnswer[];
 }
 
 /** Manages the form selection state for the questionnaire. */
-export function useFormState(questions: Question[]): FormState {
+export function useFormState(questions: AskUserQuestion[]): FormState {
   const [selectedOptionByIndex, setSelectedOptionByIndex] = useState<
     Map<number, string>
   >(() => new Map());
@@ -73,7 +73,7 @@ export function useFormState(questions: Question[]): FormState {
     setCustomTextByIndex((prev) => new Map(prev).set(questionIndex, text));
   }, []);
 
-  const collectAnswers = useCallback((): AnswerEntry[] => {
+  const collectAnswers = useCallback((): AskUserAnswer[] => {
     return questions.map((q, i) => {
       if (isCustomByIndex.get(i)) {
         const text = customTextByIndex.get(i)?.trim();
