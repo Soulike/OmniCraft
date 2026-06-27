@@ -1,7 +1,8 @@
 import Router from '@koa/router';
 import compose from 'koa-compose';
 
-import {router as agentSessionRouter} from './agent-session/index.js';
+import {router as chatAgentSessionRouter} from './chat-agent-session/index.js';
+import {router as codingAgentSessionRouter} from './coding-agent-session/index.js';
 import {router as fileAccessSettingsRouter} from './file-access-settings/index.js';
 import {router as healthRouter} from './health/index.js';
 import {router as settingsRouter} from './settings/index.js';
@@ -14,7 +15,14 @@ apiRouter.use(async (ctx, next) => {
   ctx.set('Cache-Control', 'no-store');
 });
 
-apiRouter.use(agentSessionRouter.routes(), agentSessionRouter.allowedMethods());
+apiRouter.use(
+  chatAgentSessionRouter.routes(),
+  chatAgentSessionRouter.allowedMethods(),
+);
+apiRouter.use(
+  codingAgentSessionRouter.routes(),
+  codingAgentSessionRouter.allowedMethods(),
+);
 apiRouter.use(
   fileAccessSettingsRouter.routes(),
   fileAccessSettingsRouter.allowedMethods(),

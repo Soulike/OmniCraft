@@ -1,4 +1,4 @@
-/** Reasons why session creation can fail. */
+/** Reasons why coding session creation can fail. */
 export enum CreateSessionError {
   BASE_URL_NOT_CONFIGURED = 'BASE_URL_NOT_CONFIGURED',
   MODEL_NOT_CONFIGURED = 'MODEL_NOT_CONFIGURED',

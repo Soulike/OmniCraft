@@ -2,7 +2,10 @@ import type {ListSessionsResponse} from '@omnicraft/api-schema';
 import type {SseEventCursorEntry} from '@omnicraft/sse-events';
 import {createContext} from 'react';
 
-import type {CreateSessionOptions} from '@/api/agent-session/index.js';
+/** Options accepted when creating a session through the injected API. */
+export interface CreateSessionOptions {
+  workspace?: string;
+}
 
 export interface ChatSessionApi {
   createSession: (options: CreateSessionOptions) => Promise<string>;

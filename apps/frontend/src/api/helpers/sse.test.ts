@@ -1,6 +1,6 @@
 import {describe, expect, it} from 'vitest';
 
-import {parseSseStream} from './sse.js';
+import {parseCursor, parseSseStream} from './sse.js';
 
 function createMockResponse(chunks: string[]): Response {
   const encoder = new TextEncoder();
@@ -319,5 +319,22 @@ describe('parseSseStream', () => {
       const results = await collectResults(response);
       expect(results).toEqual([largePayload]);
     });
+  });
+});
+
+describe('parseCursor', () => {
+  it('parses a canonical non-negative integer id', () => {
+    expect(parseCursor('0')).toBe(0);
+    expect(parseCursor('42')).toBe(42);
+  });
+
+  it('throws when the id is missing', () => {
+    expect(() => parseCursor(null)).toThrow('missing resume cursor');
+  });
+
+  it('throws on a non-canonical id', () => {
+    expect(() => parseCursor('01')).toThrow('Invalid SSE resume cursor id');
+    expect(() => parseCursor('-1')).toThrow('Invalid SSE resume cursor id');
+    expect(() => parseCursor('1.5')).toThrow('Invalid SSE resume cursor id');
   });
 });
