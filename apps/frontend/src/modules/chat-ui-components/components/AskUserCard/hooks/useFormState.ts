@@ -75,7 +75,9 @@ export function useFormState(questions: AskUserQuestion[]): FormState {
 
   const collectAnswers = useCallback((): AskUserAnswer[] => {
     return questions.map((q, i) => {
-      if (isCustomByIndex.get(i)) {
+      // Free-text questions (no options) and "Other" both collect from the
+      // custom text input — mirror QuestionItem's render condition exactly.
+      if (q.options.length === 0 || isCustomByIndex.get(i)) {
         const text = customTextByIndex.get(i)?.trim();
         return {question: q.question, answer: text?.length ? text : null};
       }
