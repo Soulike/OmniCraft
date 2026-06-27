@@ -2,18 +2,21 @@ import {TOOL_NAME} from '@omnicraft/tool-schemas';
 import clsx from 'clsx';
 import {use} from 'react';
 
+import {
+  AssistantMessage,
+  ContextCompactionBlock,
+  ThinkingBlock,
+  TodoCard,
+  UserMessage,
+  WorkingIndicator,
+} from '@/modules/chat-ui-components/index.js';
+
 import {AskUserSubmitContext} from '../../../../contexts/AskUserSubmitContext/index.js';
 import {formatTimestamp} from '../../helpers/formatTimestamp.js';
 import type {MessageRenderItem} from '../../hooks/useMessageList.js';
 import {AskUserCard} from '../AskUserCard/index.js';
-import {AssistantMessage} from '../AssistantMessage/index.js';
-import {ContextCompactionBlock} from '../ContextCompactionBlock/index.js';
 import {SubagentDisclosure} from '../SubagentDisclosure/index.js';
-import {ThinkingBlock} from '../ThinkingBlock/index.js';
-import {TodoCard} from '../TodoCard/index.js';
 import {ToolExecutionCard} from '../ToolExecutionCard/index.js';
-import {UserMessage} from '../UserMessage/index.js';
-import {WorkingIndicator} from '../WorkingIndicator/index.js';
 import styles from './styles.module.css';
 
 interface RenderItemProps {

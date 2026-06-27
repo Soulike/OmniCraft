@@ -1,14 +1,16 @@
 import type {ChatEventBus} from '@/modules/chat-events/index.js';
+import {
+  AssistantMessage,
+  ContextCompactionBlock,
+  ThinkingBlock,
+  TodoCard,
+  UserMessage,
+  WorkingIndicator,
+} from '@/modules/chat-ui-components/index.js';
 
 import {AskUserCard} from '../components/MessageList/components/AskUserCard/index.js';
-import {AssistantMessage} from '../components/MessageList/components/AssistantMessage/index.js';
-import {ContextCompactionBlock} from '../components/MessageList/components/ContextCompactionBlock/index.js';
 import {SubagentDisclosure} from '../components/MessageList/components/SubagentDisclosure/index.js';
-import {ThinkingBlock} from '../components/MessageList/components/ThinkingBlock/index.js';
-import {TodoCard} from '../components/MessageList/components/TodoCard/index.js';
 import {ToolExecutionCard} from '../components/MessageList/components/ToolExecutionCard/index.js';
-import {UserMessage} from '../components/MessageList/components/UserMessage/index.js';
-import {WorkingIndicator} from '../components/MessageList/components/WorkingIndicator/index.js';
 import {ShowcaseSection} from './components/ShowcaseSection/index.js';
 import {Specimen} from './components/Specimen/index.js';
 import * as mock from './mock-data.js';
