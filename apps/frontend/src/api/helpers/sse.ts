@@ -152,3 +152,24 @@ function extractIdFromEvent(event: string): string | null {
 
   return id;
 }
+
+/**
+ * Parses an SSE event `id` field into a numeric resume cursor.
+ * Throws if the id is missing or is not a canonical non-negative integer.
+ */
+export function parseCursor(id: string | null): number {
+  if (id === null) {
+    throw new Error('SSE event is missing resume cursor id');
+  }
+
+  if (!/^(0|[1-9]\d*)$/.test(id)) {
+    throw new Error(`Invalid SSE resume cursor id: ${id}`);
+  }
+
+  const cursor = Number(id);
+  if (!Number.isSafeInteger(cursor)) {
+    throw new Error(`Invalid SSE resume cursor id: ${id}`);
+  }
+
+  return cursor;
+}

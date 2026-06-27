@@ -20,3 +20,6 @@ Each dispatcher module follows this structure:
 - A `validator.ts` is only needed when a dispatcher has backend-specific validation helpers (e.g. `parseLeafKeyPath`). Pure re-export files should not exist.
 - Router handlers must not contain inline validation logic. All input validation goes through schemas or validator helpers.
 - Router handlers catch `ZodError` and return 400 with `e.issues`. Unknown errors are re-thrown.
+- Agent-agnostic transport helpers shared across resource modules live in
+  `dispatcher/helpers/` (e.g. SSE cursor parsing and event pumping), not inside
+  any single resource folder.

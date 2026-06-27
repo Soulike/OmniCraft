@@ -1,11 +1,10 @@
-import {AgentType} from '@omnicraft/api-schema';
 import {
   type SseEventCursorEntry,
   sseEventCursorEntrySchema,
 } from '@omnicraft/sse-events';
 import {afterEach, describe, expect, it, vi} from 'vitest';
 
-import {subscribeEvents} from './agent-session.js';
+import {subscribeEvents} from './chat.js';
 
 function createMockResponse(body: string, init?: ResponseInit): Response {
   return new Response(body, init);
@@ -14,7 +13,7 @@ function createMockResponse(body: string, init?: ResponseInit): Response {
 async function collectSubscription(): Promise<SseEventCursorEntry[]> {
   const events: SseEventCursorEntry[] = [];
 
-  for await (const event of subscribeEvents(AgentType.CHAT, 'session-1', 0)) {
+  for await (const event of subscribeEvents('session-1', 0)) {
     events.push(event);
   }
 

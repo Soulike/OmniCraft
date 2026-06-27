@@ -1,23 +1,20 @@
-import type {IncomingMessage} from 'node:http';
 import {PassThrough} from 'node:stream';
 
 import Router from '@koa/router';
 import {
-  AgentType,
   chatCompletionsRequestSchema,
-  createCodingSessionRequestSchema,
   createSessionRequestSchema,
   listSessionsQuerySchema,
   submitToolResponseRequestSchema,
 } from '@omnicraft/api-schema';
-import type {SseEventCursorEntry} from '@omnicraft/sse-events';
 import {StatusCodes} from 'http-status-codes';
 import {ZodError} from 'zod';
 
-import {agentSessionService} from '@/services/agent-session/index.js';
+import {chatAgentSessionService} from '@/services/chat-agent-session/index.js';
 
-import {parseSseResumeCursor} from './helpers/cursor.js';
-import {writeSseEvent} from './helpers/sse.js';
+import {parseSseResumeCursor} from '../helpers/cursor.js';
+import {parseSessionId} from '../helpers/session-id.js';
+import {pumpSseEvents} from '../helpers/sse.js';
 import {
   SESSION,
   SESSION_ABORT,
@@ -27,18 +24,11 @@ import {
   SESSION_TOOL_RESPONSE,
   SESSIONS,
 } from './path.js';
-import {parseAgentType} from './validator.js';
 
 const router = new Router();
 
-/** GET /:agentType/sessions — lists persisted sessions with pagination. */
+/** GET /chat/sessions — lists persisted sessions with pagination. */
 router.get(SESSIONS, async (ctx) => {
-  const agentType = parseAgentType(ctx.params.agentType);
-  if (!agentType) {
-    ctx.response.status = StatusCodes.NOT_FOUND;
-    return;
-  }
-
   let offset: number;
   let limit: number;
   try {
@@ -54,39 +44,15 @@ router.get(SESSIONS, async (ctx) => {
     throw e;
   }
 
-  const result = await agentSessionService.listSessions(
-    agentType,
-    offset,
-    limit,
-  );
+  const result = await chatAgentSessionService.listSessions(offset, limit);
   ctx.response.status = StatusCodes.OK;
   ctx.response.body = result;
 });
 
-/** POST /:agentType/session — creates a new session. */
+/** POST /chat/session — creates a new session. */
 router.post(SESSION, async (ctx) => {
-  const agentType = parseAgentType(ctx.params.agentType);
-  if (!agentType) {
-    ctx.response.status = StatusCodes.NOT_FOUND;
-    return;
-  }
-
-  let options: {workspace?: string};
   try {
-    switch (agentType) {
-      case AgentType.CHAT: {
-        createSessionRequestSchema.parse(ctx.request.body);
-        options = {};
-        break;
-      }
-      case AgentType.CODING: {
-        const body = createCodingSessionRequestSchema.parse(ctx.request.body);
-        options = {
-          workspace: body.workspace,
-        };
-        break;
-      }
-    }
+    createSessionRequestSchema.parse(ctx.request.body);
   } catch (e) {
     if (e instanceof ZodError) {
       ctx.response.status = StatusCodes.BAD_REQUEST;
@@ -96,8 +62,7 @@ router.post(SESSION, async (ctx) => {
     throw e;
   }
 
-  const result = await agentSessionService.createSession(agentType, options);
-
+  const result = await chatAgentSessionService.createSession();
   if (!result.success) {
     ctx.response.status = StatusCodes.UNPROCESSABLE_ENTITY;
     ctx.response.body = {error: result.error};
@@ -108,15 +73,14 @@ router.post(SESSION, async (ctx) => {
   ctx.response.body = {sessionId: result.sessionId};
 });
 
-/** POST /:agentType/session/:id/completions — starts a completion in the background. */
+/** POST /chat/session/:id/completions — starts a completion in the background. */
 router.post(SESSION_COMPLETIONS, async (ctx) => {
-  const agentType = parseAgentType(ctx.params.agentType);
-  if (!agentType) {
+  const id = parseSessionId(ctx.params.id);
+  if (id === null) {
     ctx.response.status = StatusCodes.NOT_FOUND;
+    ctx.response.body = {error: `Session not found: ${ctx.params.id}`};
     return;
   }
-
-  const {id} = ctx.params;
 
   let message: string;
   try {
@@ -131,11 +95,7 @@ router.post(SESSION_COMPLETIONS, async (ctx) => {
     throw e;
   }
 
-  const found = await agentSessionService.sendCompletion(
-    agentType,
-    id,
-    message,
-  );
+  const found = await chatAgentSessionService.sendCompletion(id, message);
   if (!found) {
     ctx.response.status = StatusCodes.NOT_FOUND;
     ctx.response.body = {error: `Session not found: ${id}`};
@@ -145,15 +105,14 @@ router.post(SESSION_COMPLETIONS, async (ctx) => {
   ctx.response.status = StatusCodes.ACCEPTED;
 });
 
-/** GET /:agentType/session/:id/events — SSE stream of agent events. */
+/** GET /chat/session/:id/events — SSE stream of agent events. */
 router.get(SESSION_EVENTS, async (ctx) => {
-  const agentType = parseAgentType(ctx.params.agentType);
-  if (!agentType) {
+  const id = parseSessionId(ctx.params.id);
+  if (id === null) {
     ctx.response.status = StatusCodes.NOT_FOUND;
+    ctx.response.body = {error: `Session not found: ${ctx.params.id}`};
     return;
   }
-
-  const {id} = ctx.params;
 
   let from: number;
   try {
@@ -167,7 +126,7 @@ router.get(SESSION_EVENTS, async (ctx) => {
   }
 
   const abortController = new AbortController();
-  const eventStream = await agentSessionService.subscribe(agentType, id, {
+  const eventStream = await chatAgentSessionService.subscribe(id, {
     startIndex: from,
     signal: abortController.signal,
   });
@@ -188,49 +147,16 @@ router.get(SESSION_EVENTS, async (ctx) => {
   void pumpSseEvents(stream, eventStream, ctx.req, abortController);
 });
 
-/**
- * Pumps events from an async iterable to a PassThrough SSE stream.
- * Runs in the background — must not be awaited inside a Koa handler,
- * otherwise Koa's respond() never fires and the client receives nothing.
- */
-async function pumpSseEvents(
-  stream: PassThrough,
-  eventStream: AsyncIterable<SseEventCursorEntry>,
-  req: IncomingMessage,
-  abortController: AbortController,
-): Promise<void> {
-  const onDisconnect = () => {
-    req.off('close', onDisconnect);
-    abortController.abort();
-    if (!stream.destroyed) {
-      stream.end();
-    }
-  };
-  req.on('close', onDisconnect);
-
-  try {
-    for await (const entry of eventStream) {
-      writeSseEvent(stream, entry.event, entry.nextIndex);
-    }
-  } finally {
-    req.off('close', onDisconnect);
-    if (!stream.destroyed) {
-      stream.end();
-    }
-  }
-}
-
-/** POST /:agentType/session/:id/abort — aborts the running agent turn. */
+/** POST /chat/session/:id/abort — aborts the running agent turn. */
 router.post(SESSION_ABORT, async (ctx) => {
-  const agentType = parseAgentType(ctx.params.agentType);
-  if (!agentType) {
+  const id = parseSessionId(ctx.params.id);
+  if (id === null) {
     ctx.response.status = StatusCodes.NOT_FOUND;
+    ctx.response.body = {error: `Session not found: ${ctx.params.id}`};
     return;
   }
 
-  const {id} = ctx.params;
-
-  const found = await agentSessionService.abortCompletion(agentType, id);
+  const found = await chatAgentSessionService.abortCompletion(id);
   if (!found) {
     ctx.response.status = StatusCodes.NOT_FOUND;
     ctx.response.body = {error: `Session not found: ${id}`};
@@ -240,15 +166,14 @@ router.post(SESSION_ABORT, async (ctx) => {
   ctx.response.status = StatusCodes.NO_CONTENT;
 });
 
-/** POST /:agentType/session/:id/tool-response — submits a user response for a client-side tool. */
+/** POST /chat/session/:id/tool-response — submits a user response for a client-side tool. */
 router.post(SESSION_TOOL_RESPONSE, async (ctx) => {
-  const agentType = parseAgentType(ctx.params.agentType);
-  if (!agentType) {
+  const id = parseSessionId(ctx.params.id);
+  if (id === null) {
     ctx.response.status = StatusCodes.NOT_FOUND;
+    ctx.response.body = {error: `Session not found: ${ctx.params.id}`};
     return;
   }
-
-  const {id} = ctx.params;
 
   let interactionId: string;
   let result: unknown;
@@ -265,8 +190,7 @@ router.post(SESSION_TOOL_RESPONSE, async (ctx) => {
     throw e;
   }
 
-  const found = await agentSessionService.submitToolResponse(
-    agentType,
+  const found = await chatAgentSessionService.submitToolResponse(
     id,
     interactionId,
     result,
@@ -280,17 +204,16 @@ router.post(SESSION_TOOL_RESPONSE, async (ctx) => {
   ctx.response.status = StatusCodes.NO_CONTENT;
 });
 
-/** DELETE /:agentType/session/:id — deletes a session from memory and disk. */
+/** DELETE /chat/session/:id — deletes a session from memory and disk. */
 router.delete(SESSION_BY_ID, async (ctx) => {
-  const agentType = parseAgentType(ctx.params.agentType);
-  if (!agentType) {
+  const id = parseSessionId(ctx.params.id);
+  if (id === null) {
     ctx.response.status = StatusCodes.NOT_FOUND;
+    ctx.response.body = {error: `Session not found: ${ctx.params.id}`};
     return;
   }
 
-  const {id} = ctx.params;
-
-  const found = await agentSessionService.deleteSession(agentType, id);
+  const found = await chatAgentSessionService.deleteSession(id);
   if (!found) {
     ctx.response.status = StatusCodes.NOT_FOUND;
     ctx.response.body = {error: `Session not found: ${id}`};
