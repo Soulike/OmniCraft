@@ -10,8 +10,6 @@ import {SessionItem} from './components/SessionItem/index.js';
 import styles from './styles.module.css';
 
 interface SessionSidebarViewProps {
-  isOpen: boolean;
-  onOpenChange: (open: boolean) => void;
   sessions: readonly SessionMetadata[];
   isLoadingInitial: boolean;
   isLoadingMore: boolean;
@@ -24,8 +22,6 @@ interface SessionSidebarViewProps {
 }
 
 export function SessionSidebarView({
-  isOpen,
-  onOpenChange,
   sessions,
   isLoadingInitial,
   isLoadingMore,
@@ -117,13 +113,5 @@ export function SessionSidebarView({
     onDeleteSession,
   ]);
 
-  return (
-    <CollapsibleSidebar
-      isOpen={isOpen}
-      onOpenChange={onOpenChange}
-      title='Sessions'
-    >
-      {content}
-    </CollapsibleSidebar>
-  );
+  return <CollapsibleSidebar title='Sessions'>{content}</CollapsibleSidebar>;
 }

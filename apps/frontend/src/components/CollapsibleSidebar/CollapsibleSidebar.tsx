@@ -1,24 +1,25 @@
 import {Button, ScrollShadow, Tooltip} from '@heroui/react';
 import {SidebarClose, SidebarOpen} from 'lucide-react';
 import type {ReactNode} from 'react';
+import {useState} from 'react';
 
 import styles from './styles.module.css';
 
 interface CollapsibleSidebarProps {
-  isOpen: boolean;
-  onOpenChange: (open: boolean) => void;
   title: string;
   headerExtra?: ReactNode;
+  defaultOpen?: boolean;
   children: ReactNode;
 }
 
 export function CollapsibleSidebar({
-  isOpen,
-  onOpenChange,
   title,
   headerExtra,
+  defaultOpen = true,
   children,
 }: CollapsibleSidebarProps) {
+  const [isOpen, setIsOpen] = useState(defaultOpen);
+
   return (
     <aside className={styles.sidebar} data-open={isOpen}>
       <div className={styles.expanded}>
@@ -35,7 +36,7 @@ export function CollapsibleSidebar({
                 variant='ghost'
                 aria-label='Collapse sidebar'
                 onPress={() => {
-                  onOpenChange(false);
+                  setIsOpen(false);
                 }}
               >
                 <SidebarClose size={16} />
@@ -57,7 +58,7 @@ export function CollapsibleSidebar({
               variant='ghost'
               aria-label='Expand sidebar'
               onPress={() => {
-                onOpenChange(true);
+                setIsOpen(true);
               }}
             >
               <SidebarOpen size={16} />

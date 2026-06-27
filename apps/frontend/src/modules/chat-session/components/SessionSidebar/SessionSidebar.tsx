@@ -1,5 +1,5 @@
 import {toast} from '@heroui/react';
-import {useCallback, useState} from 'react';
+import {useCallback} from 'react';
 import {useNavigate} from 'react-router';
 
 import {useChatEventBus} from '../../hooks/useChatEventBus.js';
@@ -8,7 +8,6 @@ import {useSessionList} from './hooks/useSessionList.js';
 import {SessionSidebarView} from './SessionSidebarView.js';
 
 export function SessionSidebar() {
-  const [isOpen, setIsOpen] = useState(true);
   const eventBus = useChatEventBus();
   const {sessionId, buildSessionRoute, baseRoute} = useSessionId();
   const {
@@ -52,8 +51,6 @@ export function SessionSidebar() {
 
   return (
     <SessionSidebarView
-      isOpen={isOpen}
-      onOpenChange={setIsOpen}
       sessions={sessions}
       isLoadingInitial={isLoadingInitial}
       isLoadingMore={isLoadingMore}
