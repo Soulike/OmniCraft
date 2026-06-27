@@ -33,4 +33,12 @@
   line-height: 1.5;
   overflow-x: auto;
   border-radius: 6px;
+  /*
+   * The diff is rendered inside ResultSection's `.pre` wrapper, which sets
+   * `white-space: pre-wrap` for plain-text tool output. diff2html emits an
+   * HTML table whose inter-tag newlines and indentation would render as blank
+   * lines under `pre-wrap`, inflating every row. Reset to `normal`; diff2html
+   * applies `white-space: pre` on the code cells that need it.
+   */
+  white-space: normal;
 }
