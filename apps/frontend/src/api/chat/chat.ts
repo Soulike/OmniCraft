@@ -13,18 +13,17 @@ import {parseCursor, parseSseStream} from '../helpers/sse.js';
 
 const BASE = '/api/chat';
 
-export interface CreateSessionOptions {
-  workspace?: string;
-}
-
-/** Creates a new chat session. Returns the session ID. */
-export async function createSession(
-  options: CreateSessionOptions,
-): Promise<string> {
+/**
+ * Creates a new chat session. Returns the session ID.
+ *
+ * Chat session creation takes no options — the backend schema is an empty
+ * object (`z.strictObject({})`), mirroring `chatAgentSessionService.createSession()`.
+ */
+export async function createSession(): Promise<string> {
   const res = await fetch(`${BASE}/session`, {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify(options),
+    body: '{}',
   });
 
   if (!res.ok) {
