@@ -1,5 +1,5 @@
 import type {RefObject} from 'react';
-import {useEffect, useRef} from 'react';
+import {useEffect, useEffectEvent, useRef} from 'react';
 
 import type {Fetcher} from './useInfiniteList.js';
 import {useInfiniteList} from './useInfiniteList.js';
@@ -56,6 +56,12 @@ export function useInfiniteScroll<T>({
 
   const sentinelRef = useRef<HTMLDivElement | null>(null);
 
+  // Calling loadMore is non-reactive: the observer should not be rebuilt just
+  // because loadMore's identity changed (it changes on every page append).
+  const onSentinelVisible = useEffectEvent(() => {
+    loadMore();
+  });
+
   useEffect(() => {
     const sentinel = sentinelRef.current;
     if (!sentinel || !hasMore) {
@@ -65,7 +71,7 @@ export function useInfiniteScroll<T>({
     const observer = new IntersectionObserver(
       (entries) => {
         if (entries[0]?.isIntersecting) {
-          loadMore();
+          onSentinelVisible();
         }
       },
       {threshold: 0},
@@ -76,7 +82,7 @@ export function useInfiniteScroll<T>({
     return () => {
       observer.disconnect();
     };
-  }, [hasMore, loadMore]);
+  }, [hasMore]);
 
   return {
     items,
