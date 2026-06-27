@@ -21,13 +21,13 @@ function makeUnderlying(total: number) {
 }
 
 describe('useInfiniteList', () => {
-  it('fetches the first page once even when the fetcher identity changes every render', () => {
+  it('fetches the first page once even when the fetcher identity changes every render', async () => {
     const underlying = makeUnderlying(10);
     // Each render hands the hook a brand-new inline fetcher, exactly like a
     // caller that defines `async (o, l) => {…}` inside its render body.
     const makeFetcher = (): Fetcher<{id: number}> => (o, l) => underlying(o, l);
 
-    const {rerender} = renderHook(
+    const {rerender, result} = renderHook(
       ({fetcher}) => useInfiniteList({fetcher, pageSize: 2}),
       {initialProps: {fetcher: makeFetcher()}},
     );
@@ -37,6 +37,12 @@ describe('useInfiniteList', () => {
     });
     act(() => {
       rerender({fetcher: makeFetcher()});
+    });
+
+    // Wait for the initial fetch to settle so the count reflects real Effect
+    // runs rather than passing vacuously if the fetch is ever deferred.
+    await waitFor(() => {
+      expect(result.current.isLoadingInitial).toBe(false);
     });
 
     const firstPageCalls = underlying.mock.calls.filter(
