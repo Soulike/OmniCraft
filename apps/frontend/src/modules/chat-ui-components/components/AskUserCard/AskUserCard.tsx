@@ -37,10 +37,11 @@ export function AskUserCard({
 }: AskUserCardProps) {
   const formState = useFormState(questions);
   const canSubmit = onSubmit !== null;
+  const {collectAnswers} = formState;
 
   const handleSubmit = useCallback(() => {
-    onSubmit?.(formState.collectAnswers());
-  }, [onSubmit, formState]);
+    onSubmit?.(collectAnswers());
+  }, [onSubmit, collectAnswers]);
 
   return (
     <AskUserCardView
