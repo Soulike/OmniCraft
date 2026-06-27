@@ -2,6 +2,7 @@ import type {Selection} from '@heroui/react';
 import {ListBox, Spinner} from '@heroui/react';
 import type {SessionMetadata} from '@omnicraft/api-schema';
 import type {RefObject} from 'react';
+import {useMemo} from 'react';
 
 import {SessionItem} from './components/SessionItem/index.js';
 import styles from './styles.module.css';
@@ -29,6 +30,14 @@ export function SessionListView({
   onSelectSession,
   onDeleteSession,
 }: SessionListViewProps) {
+  const selectedKeys = useMemo(
+    () =>
+      currentSessionId !== null
+        ? new Set([currentSessionId])
+        : new Set<string>(),
+    [currentSessionId],
+  );
+
   if (isLoadingInitial) {
     return (
       <div className={styles.centered}>
@@ -52,9 +61,6 @@ export function SessionListView({
       </div>
     );
   }
-
-  const selectedKeys =
-    currentSessionId !== null ? new Set([currentSessionId]) : new Set<string>();
 
   return (
     <>
