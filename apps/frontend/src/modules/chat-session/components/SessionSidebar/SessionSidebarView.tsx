@@ -1,7 +1,7 @@
 import type {Selection} from '@heroui/react';
 import {ListBox, Spinner} from '@heroui/react';
 import type {SessionMetadata} from '@omnicraft/api-schema';
-import type {ReactNode, RefObject} from 'react';
+import type {ReactNode, RefCallback} from 'react';
 import {useMemo} from 'react';
 
 import {CollapsibleSidebar} from '@/components/CollapsibleSidebar/index.js';
@@ -17,7 +17,7 @@ interface SessionSidebarViewProps {
   isLoadingMore: boolean;
   error: string | null;
   hasMore: boolean;
-  sentinelRef: RefObject<HTMLDivElement | null>;
+  sentinelRef: RefCallback<HTMLDivElement>;
   currentSessionId: string | null;
   onSelectSession: (id: string) => void;
   onDeleteSession: (id: string) => Promise<void>;

@@ -1,5 +1,5 @@
-import type {RefObject} from 'react';
-import {useEffect, useEffectEvent, useRef, useState} from 'react';
+import type {RefCallback} from 'react';
+import {useCallback, useEffect, useEffectEvent, useState} from 'react';
 
 import type {Fetcher} from './useInfiniteList.js';
 import {useInfiniteList} from './useInfiniteList.js';
@@ -15,7 +15,7 @@ interface UseInfiniteScrollReturn<T> {
   isLoadingMore: boolean;
   error: string | null;
   hasMore: boolean;
-  sentinelRef: RefObject<HTMLDivElement | null>;
+  sentinelRef: RefCallback<HTMLDivElement>;
   refresh: () => void;
   backgroundRefresh: () => void;
 }
@@ -54,32 +54,29 @@ export function useInfiniteScroll<T>({
     backgroundRefresh,
   } = useInfiniteList<T>({fetcher, pageSize});
 
-  const sentinelRef = useRef<HTMLDivElement | null>(null);
   const [sentinelVisible, setSentinelVisible] = useState(false);
 
-  // The observer's only job is to keep `sentinelVisible` in sync with whether
-  // the sentinel is on screen. It is built once per `hasMore` window (when the
-  // sentinel mounts/unmounts), never rebuilt per page.
-  useEffect(() => {
-    const sentinel = sentinelRef.current;
-    if (!sentinel || !hasMore) {
+  // The observer's lifecycle is the sentinel node's lifecycle. A stable
+  // callback ref attaches the observer when the node mounts and (via the
+  // returned cleanup, React 19) tears it down when it unmounts — so the
+  // observer never needs to know about `hasMore`. That belongs to the load
+  // decision below.
+  const sentinelRef = useCallback((node: HTMLDivElement | null) => {
+    if (!node) {
       return;
     }
-
     const observer = new IntersectionObserver(
       (entries) => {
         setSentinelVisible(entries[0]?.isIntersecting ?? false);
       },
       {threshold: 0},
     );
-
-    observer.observe(sentinel);
-
+    observer.observe(node);
     return () => {
       observer.disconnect();
       setSentinelVisible(false);
     };
-  }, [hasMore]);
+  }, []);
 
   // Load the next page while the sentinel is visible and more remains. This
   // re-runs after each page commits (`items.length` grows), so a page that does

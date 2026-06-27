@@ -56,6 +56,13 @@ function Harness({fetcher}: {fetcher: Fetcher<{id: number}>}) {
   );
 }
 
+function AlwaysSentinelHarness({fetcher}: {fetcher: Fetcher<{id: number}>}) {
+  // Renders the sentinel unconditionally — NOT gated on hasMore — to prove the
+  // observer's lifecycle is the node's, not hasMore's.
+  const {sentinelRef} = useInfiniteScroll({fetcher, pageSize: 2});
+  return <div ref={sentinelRef} />;
+}
+
 beforeEach(() => {
   intersecting = false;
   observers = [];
@@ -178,5 +185,22 @@ describe('useInfiniteScroll', () => {
     });
     expect(offsets).not.toContain(4);
     expect(getByTestId('hasMore').textContent).toBe('true');
+  });
+
+  it('observes the sentinel as soon as it mounts, independent of hasMore', async () => {
+    // hasMore stays false (empty result), yet the observer must still attach —
+    // its lifecycle is the sentinel node's, not hasMore's.
+    const fetcher: Fetcher<{id: number}> = () =>
+      Promise.resolve({items: [], total: 0});
+
+    render(<AlwaysSentinelHarness fetcher={fetcher} />);
+
+    expect(observers).toHaveLength(1);
+    expect(observers[0]?.disconnected).toBe(false);
+
+    // Flush the initial fetch so no state update escapes act.
+    await act(async () => {
+      await Promise.resolve();
+    });
   });
 });
