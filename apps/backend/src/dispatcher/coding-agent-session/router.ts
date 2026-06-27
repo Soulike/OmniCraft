@@ -13,6 +13,7 @@ import {ZodError} from 'zod';
 import {codingAgentSessionService} from '@/services/coding-agent-session/index.js';
 
 import {parseSseResumeCursor} from '../helpers/cursor.js';
+import {parseSessionId} from '../helpers/session-id.js';
 import {pumpSseEvents} from '../helpers/sse.js';
 import {
   SESSION,
@@ -76,7 +77,12 @@ router.post(SESSION, async (ctx) => {
 
 /** POST /coding/session/:id/completions — starts a completion in the background. */
 router.post(SESSION_COMPLETIONS, async (ctx) => {
-  const {id} = ctx.params;
+  const id = parseSessionId(ctx.params.id);
+  if (id === null) {
+    ctx.response.status = StatusCodes.NOT_FOUND;
+    ctx.response.body = {error: `Session not found: ${ctx.params.id}`};
+    return;
+  }
 
   let message: string;
   try {
@@ -103,7 +109,12 @@ router.post(SESSION_COMPLETIONS, async (ctx) => {
 
 /** GET /coding/session/:id/events — SSE stream of agent events. */
 router.get(SESSION_EVENTS, async (ctx) => {
-  const {id} = ctx.params;
+  const id = parseSessionId(ctx.params.id);
+  if (id === null) {
+    ctx.response.status = StatusCodes.NOT_FOUND;
+    ctx.response.body = {error: `Session not found: ${ctx.params.id}`};
+    return;
+  }
 
   let from: number;
   try {
@@ -140,7 +151,12 @@ router.get(SESSION_EVENTS, async (ctx) => {
 
 /** POST /coding/session/:id/abort — aborts the running agent turn. */
 router.post(SESSION_ABORT, async (ctx) => {
-  const {id} = ctx.params;
+  const id = parseSessionId(ctx.params.id);
+  if (id === null) {
+    ctx.response.status = StatusCodes.NOT_FOUND;
+    ctx.response.body = {error: `Session not found: ${ctx.params.id}`};
+    return;
+  }
 
   const found = await codingAgentSessionService.abortCompletion(id);
   if (!found) {
@@ -154,7 +170,12 @@ router.post(SESSION_ABORT, async (ctx) => {
 
 /** POST /coding/session/:id/tool-response — submits a user response for a client-side tool. */
 router.post(SESSION_TOOL_RESPONSE, async (ctx) => {
-  const {id} = ctx.params;
+  const id = parseSessionId(ctx.params.id);
+  if (id === null) {
+    ctx.response.status = StatusCodes.NOT_FOUND;
+    ctx.response.body = {error: `Session not found: ${ctx.params.id}`};
+    return;
+  }
 
   let interactionId: string;
   let result: unknown;
@@ -187,7 +208,12 @@ router.post(SESSION_TOOL_RESPONSE, async (ctx) => {
 
 /** DELETE /coding/session/:id — deletes a session from memory and disk. */
 router.delete(SESSION_BY_ID, async (ctx) => {
-  const {id} = ctx.params;
+  const id = parseSessionId(ctx.params.id);
+  if (id === null) {
+    ctx.response.status = StatusCodes.NOT_FOUND;
+    ctx.response.body = {error: `Session not found: ${ctx.params.id}`};
+    return;
+  }
 
   const found = await codingAgentSessionService.deleteSession(id);
   if (!found) {
