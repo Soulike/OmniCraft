@@ -1,4 +1,4 @@
-import {useEffect, useLayoutEffect, useRef} from 'react';
+import {useEffect, useEffectEvent} from 'react';
 
 import type {
   AskUserSubmitHandler,
@@ -42,13 +42,15 @@ function StreamingMessageDisplayInner({
   onMessagesChange?: (messages: readonly ChatMessage[]) => void;
 }) {
   const {messages} = useMessages();
-  const callbackRef = useRef(onMessagesChange);
-  useLayoutEffect(() => {
-    callbackRef.current = onMessagesChange;
-  });
+
+  const notifyMessagesChange = useEffectEvent(
+    (current: readonly ChatMessage[]) => {
+      onMessagesChange?.(current);
+    },
+  );
 
   useEffect(() => {
-    callbackRef.current?.(messages);
+    notifyMessagesChange(messages);
   }, [messages]);
 
   return <StreamingMessageDisplayView messages={messages} />;
