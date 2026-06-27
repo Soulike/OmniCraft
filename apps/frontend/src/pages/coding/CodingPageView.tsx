@@ -1,6 +1,7 @@
 import {ScrollShadow} from '@heroui/react';
 import type {RefObject} from 'react';
 
+import {CollapsibleSidebar} from '@/components/CollapsibleSidebar/index.js';
 import type {
   AskUserSubmitHandler,
   ChatEventBus,
@@ -10,13 +11,13 @@ import {
   BottomBar,
   ChatAlert,
   ChatInput,
-  chatSessionStyles as styles,
-  SessionSidebar,
+  SessionList,
   TitleBarView,
 } from '@/modules/chat-session/index.js';
 import {StreamingMessageDisplay} from '@/modules/chat-stream/index.js';
 
 import {TaskDispatchCard} from './components/TaskDispatchCard/index.js';
+import styles from './styles.module.css';
 
 interface CodingPageViewProps {
   title: string | null;
@@ -61,7 +62,9 @@ export function CodingPageView({
 }: CodingPageViewProps) {
   return (
     <div className={styles.wrapper}>
-      <SessionSidebar />
+      <CollapsibleSidebar title='Sessions'>
+        <SessionList />
+      </CollapsibleSidebar>
       <div className={styles.main}>
         <div className={styles.page}>
           {isReconnecting && (

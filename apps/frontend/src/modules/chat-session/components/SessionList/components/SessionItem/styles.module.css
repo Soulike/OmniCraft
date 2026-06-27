@@ -32,15 +32,6 @@
   white-space: nowrap;
 }
 
-.workingDirectory {
-  display: block;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 0.75rem;
-  color: var(--muted);
-}
-
 .actions {
   flex: 0 0 auto;
   display: flex;

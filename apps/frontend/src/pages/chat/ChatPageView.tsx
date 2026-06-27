@@ -2,6 +2,7 @@ import {ScrollShadow} from '@heroui/react';
 import {MessagesSquare} from 'lucide-react';
 import type {RefObject} from 'react';
 
+import {CollapsibleSidebar} from '@/components/CollapsibleSidebar/index.js';
 import type {
   AskUserSubmitHandler,
   ChatEventBus,
@@ -11,11 +12,12 @@ import {
   BottomBar,
   ChatAlert,
   ChatInput,
-  chatSessionStyles as styles,
-  SessionSidebar,
+  SessionList,
   TitleBarView,
 } from '@/modules/chat-session/index.js';
 import {StreamingMessageDisplay} from '@/modules/chat-stream/index.js';
+
+import styles from './styles.module.css';
 
 interface ChatPageViewProps {
   title: string | null;
@@ -60,7 +62,9 @@ export function ChatPageView({
 }: ChatPageViewProps) {
   return (
     <div className={styles.wrapper}>
-      <SessionSidebar />
+      <CollapsibleSidebar title='Sessions'>
+        <SessionList />
+      </CollapsibleSidebar>
       <div className={styles.main}>
         <div className={styles.page}>
           {isReconnecting && (
