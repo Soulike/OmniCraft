@@ -14,10 +14,10 @@ class IntersectionObserverStub {
     IntersectionObserverStub.instances.push(this);
   }
   observe(): void {
-    // Stub: does nothing
+    // Intentionally unused: the hook only needs construct + disconnect tracking.
   }
   unobserve(): void {
-    // Stub: does nothing
+    // Intentionally unused: the hook only needs construct + disconnect tracking.
   }
   disconnect(): void {
     this.disconnected = true;

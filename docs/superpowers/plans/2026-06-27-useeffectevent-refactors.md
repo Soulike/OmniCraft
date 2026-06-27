@@ -875,5 +875,3 @@ These are internal logic refactors with zero visual/DOM-output change, so the re
 2. **Placeholder scan:** Every step contains concrete code or an exact command with expected output. No TBD/TODO/"handle edge cases".
 3. **Type consistency:** `useEffectEvent` imported from `'react'` in all four files; `SseEventCursorEntry['event']` (Task 4) is the exact element type of `ChatSessionApi['subscribeEvents']`; `Fetcher<T>` (Tasks 1–2) matches the `useInfiniteList` export; return shapes of all four hooks/components are unchanged.
 4. **Lint invariant:** Confirmed against the existing committed code that `react-hooks/exhaustive-deps` (v7.1.1) tolerates an extra reactive dep (`refreshKey`) and does not require values read only inside an Effect Event — each task ends with a targeted `eslint` run as the gate.
-   </content>
-   </invoke>
