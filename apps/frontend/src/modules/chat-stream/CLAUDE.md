@@ -6,15 +6,18 @@ coupled to the live agent run: the event-bus subscription (`useMessages`), the
 connector that injects those live concerns as props.
 
 The pure, stateless presentation cards (UserMessage, AssistantMessage,
-ThinkingBlock, TodoCard, WorkingIndicator, ContextCompactionBlock) live in
-`@/modules/chat-ui-components` — they take content as props and have no
-knowledge of the agent runtime. The cards still coupled to tool/agent specifics
-remain internal here under `components/MessageList/components/` (AskUserCard,
-ToolExecutionCard, SubagentDisclosure). Only `StreamingMessageDisplay` and
-types are exported from `index.ts`. The showcase page (`showcase/`) is mounted
-by the router via a deep import (`@/modules/chat-stream/showcase/index.js`),
-deliberately kept out of the public `index.ts` so the debug surface and its
-mock fixtures stay out of the shared production chunk.
+ThinkingBlock, TodoCard, WorkingIndicator, ContextCompactionBlock, AskUserCard)
+live in `@/modules/chat-ui-components`, and the tool-execution UI lives in
+`@/modules/tool-ui` — none of them know about the agent runtime. What remains
+internal here under `components/MessageList/components/` are the thin
+**connectors** that bridge the live run to those views: `AskUserCard` (parses
+args, owns the submit flow), `ToolExecutionCard` (pulls live `useToolOutput`,
+feeds `tool-ui`), and `SubagentDisclosure` (still fully internal — mounts a
+nested live stream). Only `StreamingMessageDisplay` and types are exported from
+`index.ts`. The showcase page (`showcase/`) is mounted by the router via a deep
+import (`@/modules/chat-stream/showcase/index.js`), deliberately kept out of the
+public `index.ts` so the debug surface and its mock fixtures stay out of the
+shared production chunk.
 
 ## Showcase (debug surface)
 
