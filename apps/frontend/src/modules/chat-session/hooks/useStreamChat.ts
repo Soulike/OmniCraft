@@ -1,4 +1,5 @@
-import {useCallback, useEffect, useRef, useState} from 'react';
+import type {SseEventCursorEntry} from '@omnicraft/sse-events';
+import {useCallback, useEffect, useEffectEvent, useRef, useState} from 'react';
 
 import {HttpError} from '@/api/helpers/http-error.js';
 import {abortableSleep} from '@/helpers/abortable-sleep.js';
@@ -56,6 +57,97 @@ export function useStreamChat({
     };
   }, [eventBus]);
 
+  // Opens the event stream using the latest subscribeEvents. Reading it here
+  // (instead of as an Effect dependency) keeps the connection keyed on
+  // sessionId only.
+  const openEventStream = useEffectEvent(
+    (activeSessionId: string, from: number, signal: AbortSignal) =>
+      subscribeEvents(activeSessionId, from, signal),
+  );
+
+  // Dispatches a single stream event onto the latest eventBus. Returns true
+  // when the event terminates the current round (done / error).
+  const dispatchStreamEvent = useEffectEvent(
+    (event: SseEventCursorEntry['event']): boolean => {
+      const subagentBusMap = subagentBusMapRef.current;
+      switch (event.type) {
+        case 'message-start':
+          if (event.role === 'assistant') {
+            setIsStreaming(true);
+          }
+          routeBaseEventToBus(event, eventBus);
+          break;
+        case 'text-delta':
+        case 'tool-execute-start':
+        case 'tool-execute-end':
+        case 'tool-execute-delta':
+        case 'thinking-start':
+        case 'thinking-delta':
+        case 'thinking-end':
+        case 'context-compaction-start':
+        case 'context-compaction-end':
+        case 'context-compaction-error':
+          routeBaseEventToBus(event, eventBus);
+          break;
+        case 'todo-update':
+          eventBus.emit('todo-update', event);
+          break;
+        case 'usage-update':
+          routeBaseEventToBus(event, eventBus);
+          break;
+        case 'done':
+          if (event.reason === 'max_rounds_reached') {
+            setMaxRoundsReached(true);
+          }
+          routeBaseEventToBus(event, eventBus);
+          setIsStreaming(false);
+          return true;
+        case 'session-title':
+          eventBus.emit('session-title', event);
+          break;
+        case 'stop-check-reminder':
+          // Hidden reminder: not routed to the UI. It remains in
+          // sse-events.jsonl for debugging.
+          break;
+        case 'error':
+          eventBus.emit('stream-error', {message: event.message});
+          setStreamError(event.message);
+          setIsStreaming(false);
+          return true;
+        case 'subagent-dispatch':
+        case 'subagent-resume': {
+          const bus = new SubagentEventBus();
+          subagentBusMap.set(event.agentId, bus);
+          eventBus.emit('subagent-dispatched', {
+            mode: event.type === 'subagent-dispatch' ? 'dispatch' : 'resume',
+            agentId: event.agentId,
+            nickname: event.nickname,
+            task: event.task,
+            agentType: event.agentType,
+            thinkingLevel: event.thinkingLevel,
+            workingDirectory: event.workingDirectory,
+            eventBus: bus,
+          });
+          break;
+        }
+        case 'subagent-output': {
+          const bus = subagentBusMap.get(event.agentId);
+          if (bus) routeBaseEventToBus(event.event, bus);
+          break;
+        }
+        case 'subagent-complete': {
+          eventBus.emit('subagent-completed', {
+            agentId: event.agentId,
+            status: event.status,
+          });
+          subagentBusMap.delete(event.agentId);
+          break;
+        }
+      }
+      return false;
+    },
+  );
+
   // Persistent SSE connection — connects when sessionId is set.
   useEffect(() => {
     if (!sessionId) return;
@@ -70,7 +162,7 @@ export function useStreamChat({
 
       while (!controller.signal.aborted) {
         try {
-          const eventStream = subscribeEvents(
+          const eventStream = openEventStream(
             activeSessionId,
             lastIndex,
             controller.signal,
@@ -84,82 +176,8 @@ export function useStreamChat({
               setIsReconnecting(false);
             }
 
-            switch (event.type) {
-              case 'message-start':
-                if (event.role === 'assistant') {
-                  setIsStreaming(true);
-                }
-                routeBaseEventToBus(event, eventBus);
-                break;
-              case 'text-delta':
-              case 'tool-execute-start':
-              case 'tool-execute-end':
-              case 'tool-execute-delta':
-              case 'thinking-start':
-              case 'thinking-delta':
-              case 'thinking-end':
-              case 'context-compaction-start':
-              case 'context-compaction-end':
-              case 'context-compaction-error':
-                routeBaseEventToBus(event, eventBus);
-                break;
-              case 'todo-update':
-                eventBus.emit('todo-update', event);
-                break;
-              case 'usage-update':
-                routeBaseEventToBus(event, eventBus);
-                break;
-              case 'done':
-                receivedTerminalEvent = true;
-                if (event.reason === 'max_rounds_reached') {
-                  setMaxRoundsReached(true);
-                }
-                routeBaseEventToBus(event, eventBus);
-                setIsStreaming(false);
-                break;
-              case 'session-title':
-                eventBus.emit('session-title', event);
-                break;
-              case 'stop-check-reminder':
-                // Hidden reminder: not routed to the UI. It remains in
-                // sse-events.jsonl for debugging.
-                break;
-              case 'error':
-                receivedTerminalEvent = true;
-                eventBus.emit('stream-error', {message: event.message});
-                setStreamError(event.message);
-                setIsStreaming(false);
-                break;
-              case 'subagent-dispatch':
-              case 'subagent-resume': {
-                const bus = new SubagentEventBus();
-                subagentBusMap.set(event.agentId, bus);
-                eventBus.emit('subagent-dispatched', {
-                  mode:
-                    event.type === 'subagent-dispatch' ? 'dispatch' : 'resume',
-                  agentId: event.agentId,
-                  nickname: event.nickname,
-                  task: event.task,
-                  agentType: event.agentType,
-                  thinkingLevel: event.thinkingLevel,
-                  workingDirectory: event.workingDirectory,
-                  eventBus: bus,
-                });
-                break;
-              }
-              case 'subagent-output': {
-                const bus = subagentBusMap.get(event.agentId);
-                if (bus) routeBaseEventToBus(event.event, bus);
-                break;
-              }
-              case 'subagent-complete': {
-                eventBus.emit('subagent-completed', {
-                  agentId: event.agentId,
-                  status: event.status,
-                });
-                subagentBusMap.delete(event.agentId);
-                break;
-              }
+            if (dispatchStreamEvent(event)) {
+              receivedTerminalEvent = true;
             }
             lastIndex = nextIndex;
           }
@@ -202,7 +220,7 @@ export function useStreamChat({
       controller.abort();
       subagentBusMap.clear();
     };
-  }, [sessionId, eventBus, subscribeEvents]);
+  }, [sessionId]);
 
   const sendMessageToSession = useCallback(
     async (targetSessionId: string, content: string) => {
