@@ -1,5 +1,5 @@
 import type {RefObject} from 'react';
-import {useEffect, useEffectEvent, useRef} from 'react';
+import {useEffect, useEffectEvent, useRef, useState} from 'react';
 
 import type {Fetcher} from './useInfiniteList.js';
 import {useInfiniteList} from './useInfiniteList.js';
@@ -55,13 +55,11 @@ export function useInfiniteScroll<T>({
   } = useInfiniteList<T>({fetcher, pageSize});
 
   const sentinelRef = useRef<HTMLDivElement | null>(null);
+  const [sentinelVisible, setSentinelVisible] = useState(false);
 
-  // Calling loadMore is non-reactive: the observer should not be rebuilt just
-  // because loadMore's identity changed (it changes on every page append).
-  const onSentinelVisible = useEffectEvent(() => {
-    loadMore();
-  });
-
+  // The observer's only job is to keep `sentinelVisible` in sync with whether
+  // the sentinel is on screen. It is built once per `hasMore` window (when the
+  // sentinel mounts/unmounts), never rebuilt per page.
   useEffect(() => {
     const sentinel = sentinelRef.current;
     if (!sentinel || !hasMore) {
@@ -70,9 +68,7 @@ export function useInfiniteScroll<T>({
 
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries[0]?.isIntersecting) {
-          onSentinelVisible();
-        }
+        setSentinelVisible(entries[0]?.isIntersecting ?? false);
       },
       {threshold: 0},
     );
@@ -81,8 +77,24 @@ export function useInfiniteScroll<T>({
 
     return () => {
       observer.disconnect();
+      setSentinelVisible(false);
     };
   }, [hasMore]);
+
+  // Load the next page while the sentinel is visible and more remains. This
+  // re-runs after each page commits (`items.length` grows), so a page that does
+  // not fill the viewport keeps loading until the sentinel is pushed out of
+  // view (the observer flips `sentinelVisible` to false) or `hasMore` becomes
+  // false. `loadMore()` no-ops while a fetch is in flight, so it never
+  // double-loads.
+  const loadNextPage = useEffectEvent(() => {
+    loadMore();
+  });
+  useEffect(() => {
+    if (sentinelVisible && hasMore) {
+      loadNextPage();
+    }
+  }, [sentinelVisible, hasMore, items.length]);
 
   return {
     items,
