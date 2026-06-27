@@ -1,10 +1,10 @@
 import {CircleCheck} from 'lucide-react';
 
-import type {AnswerEntry} from '../../types.js';
+import type {AskUserAnswer} from '../../types.js';
 import styles from './styles.module.css';
 
 interface CompletedCardProps {
-  answers: AnswerEntry[];
+  answers: AskUserAnswer[];
 }
 
 export function CompletedCard({answers}: CompletedCardProps) {

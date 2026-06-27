@@ -1,12 +1,10 @@
 import {useCallback, useState} from 'react';
 
 import type {AskUserSubmitHandler} from '@/modules/chat-events/index.js';
-
-import type {AnswerEntry} from '../types.js';
+import type {AskUserAnswer} from '@/modules/chat-ui-components/index.js';
 
 interface UseSubmitActionsParams {
   callId: string;
-  collectAnswers: () => AnswerEntry[];
   onSubmit: AskUserSubmitHandler | null;
 }
 
@@ -14,7 +12,7 @@ export interface SubmitActions {
   submitting: boolean;
   submitError: boolean;
   canSubmit: boolean;
-  handleSubmit: () => void;
+  handleSubmit: (answers: AskUserAnswer[]) => void;
   handleCancel: () => void;
 }
 
@@ -26,25 +24,25 @@ export interface SubmitActions {
  *  the stream cannot accept submissions. */
 export function useSubmitActions({
   callId,
-  collectAnswers,
   onSubmit,
 }: UseSubmitActionsParams): SubmitActions {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState(false);
   const canSubmit = onSubmit !== null;
 
-  const handleSubmit = useCallback(() => {
-    if (submitting || onSubmit === null) return;
-    setSubmitting(true);
-    setSubmitError(false);
-    onSubmit(callId, {cancelled: false, answers: collectAnswers()}).catch(
-      (error: unknown) => {
+  const handleSubmit = useCallback(
+    (answers: AskUserAnswer[]) => {
+      if (submitting || onSubmit === null) return;
+      setSubmitting(true);
+      setSubmitError(false);
+      onSubmit(callId, {cancelled: false, answers}).catch((error: unknown) => {
         console.error('ask_user submit failed', error);
         setSubmitting(false);
         setSubmitError(true);
-      },
-    );
-  }, [callId, collectAnswers, submitting, onSubmit]);
+      });
+    },
+    [callId, submitting, onSubmit],
+  );
 
   const handleCancel = useCallback(() => {
     if (submitting || onSubmit === null) return;

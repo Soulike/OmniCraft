@@ -1,9 +1,8 @@
 import type {ToolFailureData, ToolResultData} from '@omnicraft/tool-schemas';
 
 import type {AskUserSubmitHandler} from '@/modules/chat-events/index.js';
+import {AskUserCard as AskUserCardUi} from '@/modules/chat-ui-components/index.js';
 
-import {AskUserCardView} from './AskUserCardView.js';
-import {useFormState} from './hooks/useFormState.js';
 import {useQuestions} from './hooks/useQuestions.js';
 import {useSubmitActions} from './hooks/useSubmitActions.js';
 
@@ -29,14 +28,16 @@ type AskUserCardProps =
       data: ToolFailureData;
     };
 
+/**
+ * Connector for the ask_user card: parses the tool arguments into questions and
+ * owns the submit flow (calling the injected handler, in-flight and error
+ * state). The visual rendering is delegated to the agent-agnostic AskUserCard
+ * presentation component, which hands collected answers back via onSubmit.
+ */
 export function AskUserCard(props: AskUserCardProps) {
   const questions = useQuestions(props.arguments);
-  const formState = useFormState(questions);
-  const submitActions = useSubmitActions({
-    callId: props.callId,
-    collectAnswers: formState.collectAnswers,
-    onSubmit: props.onSubmit,
-  });
+  const {submitting, submitError, canSubmit, handleSubmit, handleCancel} =
+    useSubmitActions({callId: props.callId, onSubmit: props.onSubmit});
 
   const completedAnswers = props.status === 'done' ? props.data.answers : null;
 
@@ -46,11 +47,13 @@ export function AskUserCard(props: AskUserCardProps) {
       : null;
 
   return (
-    <AskUserCardView
-      questions={questions}
-      formState={formState}
-      submitActions={submitActions}
+    <AskUserCardUi
       status={props.status}
+      questions={questions}
+      onSubmit={canSubmit ? handleSubmit : null}
+      onCancel={handleCancel}
+      submitting={submitting}
+      submitError={submitError}
       completedAnswers={completedAnswers}
       failureMessage={failureMessage}
     />

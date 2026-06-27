@@ -4,15 +4,14 @@ import {describe, expect, it, vi} from 'vitest';
 import {useSubmitActions} from './useSubmitActions.js';
 
 describe('useSubmitActions', () => {
-  it('calls onSubmit with collected answers on submit', () => {
+  it('calls onSubmit with the given answers on submit', () => {
     const onSubmit = vi.fn(() => Promise.resolve());
-    const collectAnswers = () => [{question: 'q', answer: 'a'}];
     const {result} = renderHook(() =>
-      useSubmitActions({callId: 'c1', collectAnswers, onSubmit}),
+      useSubmitActions({callId: 'c1', onSubmit}),
     );
 
     act(() => {
-      result.current.handleSubmit();
+      result.current.handleSubmit([{question: 'q', answer: 'a'}]);
     });
 
     expect(onSubmit).toHaveBeenCalledWith('c1', {
@@ -24,7 +23,7 @@ describe('useSubmitActions', () => {
   it('calls onSubmit with cancelled on cancel', () => {
     const onSubmit = vi.fn(() => Promise.resolve());
     const {result} = renderHook(() =>
-      useSubmitActions({callId: 'c1', collectAnswers: () => [], onSubmit}),
+      useSubmitActions({callId: 'c1', onSubmit}),
     );
 
     act(() => {
@@ -43,11 +42,11 @@ describe('useSubmitActions', () => {
         }),
     );
     const {result} = renderHook(() =>
-      useSubmitActions({callId: 'c1', collectAnswers: () => [], onSubmit}),
+      useSubmitActions({callId: 'c1', onSubmit}),
     );
 
     act(() => {
-      result.current.handleSubmit();
+      result.current.handleSubmit([]);
     });
 
     expect(result.current.submitting).toBe(true);
@@ -63,11 +62,11 @@ describe('useSubmitActions', () => {
       .spyOn(console, 'error')
       .mockImplementation(() => undefined);
     const {result} = renderHook(() =>
-      useSubmitActions({callId: 'c1', collectAnswers: () => [], onSubmit}),
+      useSubmitActions({callId: 'c1', onSubmit}),
     );
 
     act(() => {
-      result.current.handleSubmit();
+      result.current.handleSubmit([]);
     });
 
     await waitFor(() => {
@@ -76,7 +75,7 @@ describe('useSubmitActions', () => {
 
     // Retry is possible again: a second submit invokes the handler once more.
     act(() => {
-      result.current.handleSubmit();
+      result.current.handleSubmit([]);
     });
     expect(onSubmit).toHaveBeenCalledTimes(2);
     // Wait for the retry's rejection to settle while the spy is still active,
@@ -93,7 +92,7 @@ describe('useSubmitActions', () => {
       .spyOn(console, 'error')
       .mockImplementation(() => undefined);
     const {result} = renderHook(() =>
-      useSubmitActions({callId: 'c1', collectAnswers: () => [], onSubmit}),
+      useSubmitActions({callId: 'c1', onSubmit}),
     );
 
     act(() => {
@@ -119,7 +118,7 @@ describe('useSubmitActions', () => {
       .spyOn(console, 'error')
       .mockImplementation(() => undefined);
     const {result} = renderHook(() =>
-      useSubmitActions({callId: 'c1', collectAnswers: () => [], onSubmit}),
+      useSubmitActions({callId: 'c1', onSubmit}),
     );
 
     act(() => {
@@ -138,16 +137,12 @@ describe('useSubmitActions', () => {
 
   it('reports canSubmit=false when no handler is provided', () => {
     const {result} = renderHook(() =>
-      useSubmitActions({
-        callId: 'c1',
-        collectAnswers: () => [],
-        onSubmit: null,
-      }),
+      useSubmitActions({callId: 'c1', onSubmit: null}),
     );
 
     expect(result.current.canSubmit).toBe(false);
     act(() => {
-      result.current.handleSubmit();
+      result.current.handleSubmit([]);
     });
     // no throw; nothing to assert beyond not crashing
   });
@@ -155,7 +150,7 @@ describe('useSubmitActions', () => {
   it('exposes submitError=false initially', () => {
     const onSubmit = vi.fn(() => Promise.resolve());
     const {result} = renderHook(() =>
-      useSubmitActions({callId: 'c1', collectAnswers: () => [], onSubmit}),
+      useSubmitActions({callId: 'c1', onSubmit}),
     );
 
     expect(result.current.submitError).toBe(false);
@@ -168,11 +163,11 @@ describe('useSubmitActions', () => {
       .spyOn(console, 'error')
       .mockImplementation(() => undefined);
     const {result} = renderHook(() =>
-      useSubmitActions({callId: 'c1', collectAnswers: () => [], onSubmit}),
+      useSubmitActions({callId: 'c1', onSubmit}),
     );
 
     act(() => {
-      result.current.handleSubmit();
+      result.current.handleSubmit([]);
     });
 
     await waitFor(() => {
@@ -194,18 +189,18 @@ describe('useSubmitActions', () => {
       .spyOn(console, 'error')
       .mockImplementation(() => undefined);
     const {result} = renderHook(() =>
-      useSubmitActions({callId: 'c1', collectAnswers: () => [], onSubmit}),
+      useSubmitActions({callId: 'c1', onSubmit}),
     );
 
     act(() => {
-      result.current.handleSubmit();
+      result.current.handleSubmit([]);
     });
     await waitFor(() => {
       expect(result.current.submitError).toBe(true);
     });
 
     act(() => {
-      result.current.handleSubmit();
+      result.current.handleSubmit([]);
     });
     expect(result.current.submitError).toBe(false);
     consoleError.mockRestore();

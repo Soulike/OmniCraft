@@ -8,28 +8,35 @@ import {QuestionItem} from './components/QuestionItem/index.js';
 import {SubmitErrorNotice} from './components/SubmitErrorNotice/index.js';
 import {UnsupportedNotice} from './components/UnsupportedNotice/index.js';
 import type {FormState} from './hooks/useFormState.js';
-import type {SubmitActions} from './hooks/useSubmitActions.js';
 import styles from './styles.module.css';
-import type {AnswerEntry, Question} from './types.js';
+import type {AskUserAnswer, AskUserQuestion} from './types.js';
 
 type CardStatus = 'running' | 'done' | 'failure' | 'error';
 
 interface AskUserCardViewProps {
-  questions: Question[];
+  questions: AskUserQuestion[];
   formState: FormState;
-  submitActions: SubmitActions;
   status: CardStatus;
-  completedAnswers: AnswerEntry[] | null;
+  completedAnswers: AskUserAnswer[] | null;
   failureMessage: string | null;
+  submitting: boolean;
+  submitError: boolean;
+  canSubmit: boolean;
+  onSubmit: () => void;
+  onCancel: () => void;
 }
 
 export function AskUserCardView({
   questions,
   formState,
-  submitActions,
   status,
   completedAnswers,
   failureMessage,
+  submitting,
+  submitError,
+  canSubmit,
+  onSubmit,
+  onCancel,
 }: AskUserCardViewProps) {
   if (status === 'done' && completedAnswers) {
     return <CompletedCard answers={completedAnswers} />;
@@ -39,7 +46,7 @@ export function AskUserCardView({
     return <CancelledCard message={failureMessage} />;
   }
 
-  const disabled = submitActions.submitting || !submitActions.canSubmit;
+  const disabled = submitting || !canSubmit;
 
   return (
     <div className={styles.card}>
@@ -60,26 +67,18 @@ export function AskUserCardView({
           </Fragment>
         ))}
       </div>
-      {!submitActions.canSubmit && <UnsupportedNotice />}
-      {submitActions.canSubmit && submitActions.submitError && (
+      {!canSubmit && <UnsupportedNotice />}
+      {canSubmit && submitError && (
         <div className={styles.errorSlot}>
           <SubmitErrorNotice />
         </div>
       )}
       <div className={styles.footer}>
-        <Button
-          variant='ghost'
-          isDisabled={disabled}
-          onPress={submitActions.handleCancel}
-        >
+        <Button variant='ghost' isDisabled={disabled} onPress={onCancel}>
           Cancel
         </Button>
-        <Button
-          variant='primary'
-          isDisabled={disabled}
-          onPress={submitActions.handleSubmit}
-        >
-          {submitActions.submitting ? <Spinner size='sm' /> : 'Submit'}
+        <Button variant='primary' isDisabled={disabled} onPress={onSubmit}>
+          {submitting ? <Spinner size='sm' /> : 'Submit'}
         </Button>
       </div>
     </div>

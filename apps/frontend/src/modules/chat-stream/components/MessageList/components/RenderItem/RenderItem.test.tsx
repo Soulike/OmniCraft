@@ -2,8 +2,8 @@ import {cleanup, render, screen} from '@testing-library/react';
 import {afterEach, describe, expect, it} from 'vitest';
 
 import {ThemeProvider} from '@/contexts/theme/index.js';
+import {WORKING_WORDS} from '@/modules/chat-ui-components/index.js';
 
-import {WORKING_WORDS} from '../WorkingIndicator/words.js';
 import {RenderItem} from './RenderItem.js';
 
 afterEach(() => {

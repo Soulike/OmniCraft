@@ -1,7 +1,8 @@
 import type {AnyToolResultData, ToolName} from '@omnicraft/tool-schemas';
 
+import {ToolExecutionCardView} from '@/modules/tool-ui/index.js';
+
 import {useToolOutput} from '../../../../contexts/ToolOutputContext/index.js';
-import {ToolExecutionCardView} from './ToolExecutionCardView.js';
 
 interface ToolExecutionCardProps {
   callId: string;
@@ -13,6 +14,12 @@ interface ToolExecutionCardProps {
   data?: AnyToolResultData;
 }
 
+/**
+ * Connector for a tool execution: the only SSE-coupled piece. It pulls the live
+ * streaming output from the event bus (`useToolOutput`) and feeds the
+ * agent-agnostic tool-ui view, which renders parameters/result from the
+ * tool-schema shapes alone.
+ */
 export function ToolExecutionCard({
   callId,
   toolName,
