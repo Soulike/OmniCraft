@@ -2,17 +2,18 @@ import {toast} from '@heroui/react';
 import {useCallback, useMemo} from 'react';
 import {useNavigate} from 'react-router';
 
-import {stripTrailingSlash} from '@/helpers/path.js';
 import {useSessionConfig, useSessionId} from '@/modules/chat-session/index.js';
 
+import {
+  sessionGroupKey,
+  UNGROUPED_KEY,
+  workspaceGroupKey,
+} from './helpers/group-key.js';
 import {useAllCodingSessions} from './hooks/useAllCodingSessions.js';
 import {useExpandedGroups} from './hooks/useExpandedGroups.js';
 import {useWorkspaceGroups} from './hooks/useWorkspaceGroups.js';
 import type {WorkspaceGroupEntry} from './WorkspaceSessionListView.js';
 import {WorkspaceSessionListView} from './WorkspaceSessionListView.js';
-
-/** Sentinel key for the trailing "Ungrouped" group (orphan sessions). */
-const UNGROUPED_KEY = '\x00ungrouped';
 
 interface WorkspaceSessionListProps {
   readonly onNewSession: (workspacePath: string) => void;
@@ -32,7 +33,7 @@ export function WorkspaceSessionList({
     () =>
       groups.map((group) => ({
         key: group.workspace
-          ? stripTrailingSlash(group.workspace.path)
+          ? workspaceGroupKey(group.workspace.path)
           : UNGROUPED_KEY,
         group,
       })),
@@ -45,13 +46,7 @@ export function WorkspaceSessionList({
     if (active === undefined) {
       return null;
     }
-    const key = active.workingDirectory
-      ? stripTrailingSlash(active.workingDirectory)
-      : null;
-    return key !== null &&
-      workspaces.some((w) => stripTrailingSlash(w.path) === key)
-      ? key
-      : UNGROUPED_KEY;
+    return sessionGroupKey(active.workingDirectory, workspaces);
   }, [sessions, sessionId, workspaces]);
 
   const {expandedGroups, toggleGroup, expandGroup} =
@@ -59,7 +54,7 @@ export function WorkspaceSessionList({
 
   const handleNewSession = useCallback(
     (workspacePath: string) => {
-      expandGroup(stripTrailingSlash(workspacePath));
+      expandGroup(workspaceGroupKey(workspacePath));
       onNewSession(workspacePath);
     },
     [expandGroup, onNewSession],

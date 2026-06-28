@@ -2,7 +2,7 @@ import type {SessionMetadata} from '@omnicraft/api-schema';
 import type {Workspace} from '@omnicraft/settings-schema';
 import {useMemo} from 'react';
 
-import {stripTrailingSlash} from '@/helpers/path.js';
+import {workspaceGroupKey} from '../helpers/group-key.js';
 
 export interface WorkspaceGroup {
   /** undefined ⇒ the orphan "Ungrouped" group (rendered without a `+`). */
@@ -22,7 +22,7 @@ export function groupSessionsByWorkspace(
 ): WorkspaceGroup[] {
   const byPath = new Map<string, SessionMetadata[]>();
   for (const workspace of workspaces) {
-    byPath.set(stripTrailingSlash(workspace.path), []);
+    byPath.set(workspaceGroupKey(workspace.path), []);
   }
 
   const orphans: SessionMetadata[] = [];
@@ -30,7 +30,7 @@ export function groupSessionsByWorkspace(
     const key =
       session.workingDirectory === undefined
         ? undefined
-        : stripTrailingSlash(session.workingDirectory);
+        : workspaceGroupKey(session.workingDirectory);
     const bucket = key === undefined ? undefined : byPath.get(key);
     if (bucket) {
       bucket.push(session);
@@ -41,7 +41,7 @@ export function groupSessionsByWorkspace(
 
   const groups: WorkspaceGroup[] = workspaces.map((workspace) => ({
     workspace,
-    sessions: byPath.get(stripTrailingSlash(workspace.path)) ?? [],
+    sessions: byPath.get(workspaceGroupKey(workspace.path)) ?? [],
   }));
 
   if (orphans.length > 0) {
