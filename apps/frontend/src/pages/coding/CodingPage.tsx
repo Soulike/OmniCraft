@@ -1,4 +1,4 @@
-import {useCallback, useMemo, useState} from 'react';
+import {useCallback, useMemo} from 'react';
 
 import * as codingApi from '@/api/coding/index.js';
 import {getVscodeUrl} from '@/api/vscode/index.js';
@@ -20,6 +20,8 @@ import {
 import {ROUTES} from '@/routes.js';
 
 import {CodingPageView} from './CodingPageView.js';
+import {NewSessionModal} from './components/NewSessionModal/index.js';
+import {useNewSessionModal} from './hooks/useNewSessionModal.js';
 
 /** Coding page container. Wraps content in providers. */
 export function CodingPage() {
@@ -57,10 +59,6 @@ function CodingPageContent() {
 
   const {selectedWorkspace, setSelectedWorkspace} = useSessionConfig();
 
-  const [newSessionWorkspace, setNewSessionWorkspace] = useState<string | null>(
-    null,
-  );
-
   const {
     available: vscodeAvailable,
     port: vscodePort,
@@ -92,40 +90,24 @@ function CodingPageContent() {
 
   const {containerRef: scrollRef, scrollToBottom} = useAutoScroll();
 
-  const handleRequestNewSession = useCallback(
-    (workspacePath: string) => {
-      setSelectedWorkspace(workspacePath);
-      setNewSessionWorkspace(workspacePath);
-    },
-    [setSelectedWorkspace],
-  );
+  const scrollAfterPaint = useCallback(() => {
+    requestAnimationFrame(() => {
+      scrollToBottom();
+    });
+  }, [scrollToBottom]);
 
-  const handleCloseNewSession = useCallback(() => {
-    setNewSessionWorkspace(null);
-  }, []);
-
-  const handleSubmitNewSession = useCallback(
-    async (task: string) => {
-      if (newSessionWorkspace === null) {
-        return;
-      }
-      setNewSessionWorkspace(null);
-      await sendMessageToNewSession(task, {workspace: newSessionWorkspace});
-      requestAnimationFrame(() => {
-        scrollToBottom();
-      });
-    },
-    [newSessionWorkspace, sendMessageToNewSession, scrollToBottom],
-  );
+  const newSession = useNewSessionModal({
+    sendMessageToNewSession,
+    onOpen: setSelectedWorkspace,
+    onSubmitted: scrollAfterPaint,
+  });
 
   const handleSend = useCallback(
     async (content: string) => {
       await sendMessage(content);
-      requestAnimationFrame(() => {
-        scrollToBottom();
-      });
+      scrollAfterPaint();
     },
-    [sendMessage, scrollToBottom],
+    [sendMessage, scrollAfterPaint],
   );
 
   const displayError = createNewSessionIdError ?? streamError;
@@ -136,26 +118,30 @@ function CodingPageContent() {
   }, [clearCreateNewSessionIdError, clearStreamError]);
 
   return (
-    <CodingPageView
-      title={title}
-      eventBus={eventBus}
-      isStreaming={isStreaming}
-      isReconnecting={isReconnecting}
-      error={displayError}
-      maxRoundsReached={maxRoundsReached}
-      scrollRef={scrollRef}
-      sessionId={sessionId}
-      onAskUserSubmit={handleAskUserSubmit}
-      onMessagesChange={onMessagesChange}
-      onSend={handleSend}
-      onStop={stopGeneration}
-      onRequestNewSession={handleRequestNewSession}
-      newSessionWorkspace={newSessionWorkspace}
-      onCloseNewSession={handleCloseNewSession}
-      onSubmitNewSession={handleSubmitNewSession}
-      vscodeUrl={vscodeUrl}
-      onDismissError={dismissError}
-      onDismissMaxRoundsReached={clearMaxRoundsReached}
-    />
+    <>
+      <CodingPageView
+        title={title}
+        eventBus={eventBus}
+        isStreaming={isStreaming}
+        isReconnecting={isReconnecting}
+        error={displayError}
+        maxRoundsReached={maxRoundsReached}
+        scrollRef={scrollRef}
+        sessionId={sessionId}
+        onAskUserSubmit={handleAskUserSubmit}
+        onMessagesChange={onMessagesChange}
+        onSend={handleSend}
+        onStop={stopGeneration}
+        onRequestNewSession={newSession.open}
+        vscodeUrl={vscodeUrl}
+        onDismissError={dismissError}
+        onDismissMaxRoundsReached={clearMaxRoundsReached}
+      />
+      <NewSessionModal
+        workspace={newSession.workspace}
+        onClose={newSession.close}
+        onSubmit={newSession.submit}
+      />
+    </>
   );
 }

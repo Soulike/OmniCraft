@@ -15,7 +15,6 @@ import {
 } from '@/modules/chat-session/index.js';
 import {StreamingMessageDisplay} from '@/modules/chat-stream/index.js';
 
-import {NewSessionModal} from './components/NewSessionModal/index.js';
 import {WorkspaceSessionList} from './components/WorkspaceSessionList/index.js';
 import styles from './styles.module.css';
 
@@ -33,9 +32,6 @@ interface CodingPageViewProps {
   onSend: (content: string) => Promise<void>;
   onStop: () => void;
   onRequestNewSession: (workspacePath: string) => void;
-  newSessionWorkspace: string | null;
-  onCloseNewSession: () => void;
-  onSubmitNewSession: (task: string) => Promise<void>;
   vscodeUrl: string | null;
   onDismissError: () => void;
   onDismissMaxRoundsReached: () => void;
@@ -55,9 +51,6 @@ export function CodingPageView({
   onSend,
   onStop,
   onRequestNewSession,
-  newSessionWorkspace,
-  onCloseNewSession,
-  onSubmitNewSession,
   vscodeUrl,
   onDismissError,
   onDismissMaxRoundsReached,
@@ -120,11 +113,6 @@ export function CodingPageView({
           )}
         </div>
       </div>
-      <NewSessionModal
-        workspace={newSessionWorkspace}
-        onClose={onCloseNewSession}
-        onSubmit={onSubmitNewSession}
-      />
     </div>
   );
 }
