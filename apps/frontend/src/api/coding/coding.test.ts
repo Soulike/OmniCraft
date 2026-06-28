@@ -4,7 +4,7 @@ import {
 } from '@omnicraft/sse-events';
 import {afterEach, describe, expect, it, vi} from 'vitest';
 
-import {subscribeEvents} from './coding.js';
+import {listAllSessions, subscribeEvents} from './coding.js';
 
 function createMockResponse(body: string, init?: ResponseInit): Response {
   return new Response(body, init);
@@ -88,5 +88,29 @@ describe('subscribeEvents', () => {
     await expect(collectSubscription()).rejects.toThrow(
       'Invalid SSE resume cursor id: 1e3',
     );
+  });
+});
+
+describe('listAllSessions', () => {
+  it('GETs /api/coding/sessions and returns the parsed sessions', async () => {
+    const id = '123e4567-e89b-12d3-a456-426614174000';
+    const fetchMock = vi.fn(() =>
+      Promise.resolve(
+        createMockResponse(
+          JSON.stringify({
+            sessions: [{id, title: 'Task', workingDirectory: '/ws'}],
+          }),
+          {status: 200, headers: {'Content-Type': 'application/json'}},
+        ),
+      ),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await listAllSessions();
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/coding/sessions');
+    expect(result.sessions).toEqual([
+      {id, title: 'Task', workingDirectory: '/ws'},
+    ]);
   });
 });

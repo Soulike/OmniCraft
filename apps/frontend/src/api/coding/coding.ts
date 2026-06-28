@@ -1,7 +1,7 @@
 import {
   createSessionResponseSchema,
-  type ListSessionsResponse,
-  listSessionsResponseSchema,
+  type ListCodingSessionsResponse,
+  listCodingSessionsResponseSchema,
 } from '@omnicraft/api-schema';
 import {
   type SseEventCursorEntry,
@@ -127,16 +127,9 @@ export async function submitToolResponse(
   }
 }
 
-/** Fetches the list of past coding sessions. */
-export async function listSessions(
-  offset: number,
-  limit: number,
-): Promise<ListSessionsResponse> {
-  const params = new URLSearchParams({
-    offset: offset.toString(),
-    limit: limit.toString(),
-  });
-  const res = await fetch(`${BASE}/sessions?${params.toString()}`);
+/** Fetches all coding sessions (no pagination). */
+export async function listAllSessions(): Promise<ListCodingSessionsResponse> {
+  const res = await fetch(`${BASE}/sessions`);
 
   if (!res.ok) {
     const body = await res.text();
@@ -146,7 +139,7 @@ export async function listSessions(
   }
 
   const json: unknown = await res.json();
-  return listSessionsResponseSchema.parse(json);
+  return listCodingSessionsResponseSchema.parse(json);
 }
 
 /** Deletes a coding session by ID. */

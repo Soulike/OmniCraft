@@ -26,7 +26,7 @@ export interface ChatSessionApi {
     result: unknown,
   ) => Promise<void>;
 
-  listSessions: (
+  listSessions?: (
     offset: number,
     limit: number,
   ) => Promise<ListSessionsResponse>;
