@@ -182,7 +182,7 @@ export function TaskDispatchCardView({
                           No workspaces configured.{' '}
                           <Link
                             className={styles.settingsLink}
-                            to={ROUTES.settings['file-access'].workspaces()}
+                            to={ROUTES.settings.coding.workspaces()}
                           >
                             Configure workspaces in Settings
                           </Link>

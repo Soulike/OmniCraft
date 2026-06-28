@@ -7,9 +7,9 @@ export const ROUTES = defineRoutes({
   coding: {},
   showcase: {},
   settings: {
-    llm: {chat: {}, coding: {}},
+    llm: {chat: {}},
+    coding: {agent: {}, workspaces: {}},
     agent: {runtime: {}},
-    'file-access': {workspaces: {}},
     tools: {search: {}},
   },
 });

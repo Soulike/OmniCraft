@@ -53,7 +53,7 @@ export const router = createBrowserRouter([
             element: <ChatLlmSection />,
           },
           {
-            path: ROUTES.settings.llm.coding(),
+            path: ROUTES.settings.coding.agent(),
             element: <CodingLlmSection />,
           },
           {
@@ -65,7 +65,7 @@ export const router = createBrowserRouter([
             element: <SearchSection />,
           },
           {
-            path: ROUTES.settings['file-access'].workspaces(),
+            path: ROUTES.settings.coding.workspaces(),
             element: <WorkspacesSection />,
           },
         ],
