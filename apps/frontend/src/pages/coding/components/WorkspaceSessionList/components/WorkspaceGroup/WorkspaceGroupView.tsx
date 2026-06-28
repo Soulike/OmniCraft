@@ -5,9 +5,9 @@ import type {Workspace} from '@omnicraft/settings-schema';
 import {Plus} from 'lucide-react';
 import {useMemo} from 'react';
 
+import {basename} from '@/helpers/path.js';
 import {SessionItem} from '@/modules/chat-session/index.js';
 
-import {workspaceBasename} from '../../helpers/workspace-basename.js';
 import styles from './styles.module.css';
 
 interface WorkspaceGroupViewProps {
@@ -31,7 +31,7 @@ export function WorkspaceGroupView({
   onDeleteSession,
   onNewSession,
 }: WorkspaceGroupViewProps) {
-  const label = workspace ? workspaceBasename(workspace.path) : 'Ungrouped';
+  const label = workspace ? basename(workspace.path) : 'Ungrouped';
 
   const selectedKeys = useMemo(
     () =>

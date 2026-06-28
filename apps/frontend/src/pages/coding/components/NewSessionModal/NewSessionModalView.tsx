@@ -10,7 +10,8 @@ import {
 } from '@heroui/react';
 import {FolderCode} from 'lucide-react';
 
-import {workspaceBasename} from './helpers/workspace-basename.js';
+import {basename} from '@/helpers/path.js';
+
 import styles from './styles.module.css';
 
 interface NewSessionModalViewProps {
@@ -38,7 +39,7 @@ export function NewSessionModalView({
   onSubmit,
   onClose,
 }: NewSessionModalViewProps) {
-  const label = workspace ? workspaceBasename(workspace) : '';
+  const label = workspace ? basename(workspace) : '';
 
   return (
     <Modal.Backdrop

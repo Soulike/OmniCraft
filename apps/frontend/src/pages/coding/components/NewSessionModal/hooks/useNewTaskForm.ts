@@ -11,14 +11,17 @@ export function useNewTaskForm({isOpen, onSubmit}: UseNewTaskFormOptions) {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Reset the draft whenever the modal closes.
+  // Reset the draft when the modal opens (not on close), so its content does
+  // not blank out mid close-animation; the clear happens while the dialog is
+  // still entering and not yet visible.
   useEffect(() => {
-    if (isOpen) {
+    if (!isOpen) {
       return;
     }
     setTask('');
     setError(undefined);
     setSubmitError(null);
+    setIsSubmitting(false);
   }, [isOpen]);
 
   const trimmed = task.trim();

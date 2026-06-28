@@ -2,9 +2,9 @@ import {toast} from '@heroui/react';
 import {useCallback, useEffect, useMemo, useState} from 'react';
 import {useNavigate} from 'react-router';
 
+import {stripTrailingSlash} from '@/helpers/path.js';
 import {useSessionConfig, useSessionId} from '@/modules/chat-session/index.js';
 
-import {normalizeWorkspacePath} from './helpers/normalize-workspace-path.js';
 import {useAllCodingSessions} from './hooks/useAllCodingSessions.js';
 import {useWorkspaceGroups} from './hooks/useWorkspaceGroups.js';
 import type {WorkspaceGroupEntry} from './WorkspaceSessionListView.js';
@@ -30,7 +30,7 @@ export function WorkspaceSessionList({
     () =>
       groups.map((group) => ({
         key: group.workspace
-          ? normalizeWorkspacePath(group.workspace.path)
+          ? stripTrailingSlash(group.workspace.path)
           : UNGROUPED_KEY,
         group,
       })),
@@ -41,7 +41,7 @@ export function WorkspaceSessionList({
   const activeKey = useMemo(() => {
     const active = sessions.find((s) => s.id === sessionId);
     return active?.workingDirectory
-      ? normalizeWorkspacePath(active.workingDirectory)
+      ? stripTrailingSlash(active.workingDirectory)
       : null;
   }, [sessions, sessionId]);
 
@@ -60,7 +60,7 @@ export function WorkspaceSessionList({
   const handleNewSession = useCallback(
     (workspacePath: string) => {
       setExpanded((prev) =>
-        new Set(prev).add(normalizeWorkspacePath(workspacePath)),
+        new Set(prev).add(stripTrailingSlash(workspacePath)),
       );
       onNewSession(workspacePath);
     },
