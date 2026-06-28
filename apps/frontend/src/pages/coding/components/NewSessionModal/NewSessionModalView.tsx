@@ -44,6 +44,8 @@ export function NewSessionModalView({
   return (
     <Modal.Backdrop
       isOpen={isOpen}
+      isDismissable={!isSubmitting}
+      isKeyboardDismissDisabled={isSubmitting}
       onOpenChange={(open) => {
         if (!open) {
           onClose();
@@ -52,7 +54,7 @@ export function NewSessionModalView({
     >
       <Modal.Container>
         <Modal.Dialog className={styles.dialog}>
-          <Modal.CloseTrigger />
+          {!isSubmitting && <Modal.CloseTrigger />}
           <Modal.Header>
             <Modal.Heading>New task in {label}</Modal.Heading>
           </Modal.Header>
@@ -76,7 +78,6 @@ export function NewSessionModalView({
               >
                 <Label>Task</Label>
                 <TextArea
-                  aria-label='Task'
                   className={styles.taskInput}
                   placeholder='Describe the coding task: files, expected behavior, constraints, and how to verify.'
                   rows={8}
@@ -97,7 +98,7 @@ export function NewSessionModalView({
             </div>
           </Modal.Body>
           <Modal.Footer>
-            <Button slot='close' variant='ghost'>
+            <Button slot='close' variant='ghost' isDisabled={isSubmitting}>
               Cancel
             </Button>
             <Button

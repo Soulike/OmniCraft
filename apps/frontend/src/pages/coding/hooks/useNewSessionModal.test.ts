@@ -21,7 +21,7 @@ describe('useNewSessionModal', () => {
   });
 
   it('creates the session, then closes and reports the workspace', async () => {
-    const sendMessageToNewSession = vi.fn().mockResolvedValue('id');
+    const sendMessageToNewSession = vi.fn().mockResolvedValue('new-id');
     const onCreated = vi.fn();
     const {result} = renderHook(() =>
       useNewSessionModal({sendMessageToNewSession, onCreated}),
@@ -41,10 +41,8 @@ describe('useNewSessionModal', () => {
     expect(onCreated).toHaveBeenCalledWith('/ws');
   });
 
-  it('keeps the modal open and does not report when the send fails', async () => {
-    const sendMessageToNewSession = vi
-      .fn()
-      .mockRejectedValue(new Error('boom'));
+  it('keeps the modal open and does not report when creation fails (resolves null)', async () => {
+    const sendMessageToNewSession = vi.fn().mockResolvedValue(null);
     const onCreated = vi.fn();
     const {result} = renderHook(() =>
       useNewSessionModal({sendMessageToNewSession, onCreated}),
@@ -54,7 +52,7 @@ describe('useNewSessionModal', () => {
       result.current.open('/ws');
     });
     await act(async () => {
-      await expect(result.current.submit('do it')).rejects.toThrow('boom');
+      await result.current.submit('do it');
     });
 
     expect(result.current.workspace).toBe('/ws');
