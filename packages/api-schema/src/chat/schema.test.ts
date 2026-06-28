@@ -4,7 +4,6 @@ import {
   chatCompletionsRequestSchema,
   createCodingSessionRequestSchema,
   createSessionRequestSchema,
-  listCodingSessionsResponseSchema,
 } from './schema.js';
 
 describe('chat API schemas', () => {
@@ -34,24 +33,5 @@ describe('chat API schemas', () => {
         message: 'Run tests',
       }),
     ).toThrow();
-  });
-});
-
-describe('listCodingSessionsResponseSchema', () => {
-  it('accepts a sessions array with no total field', () => {
-    const parsed = listCodingSessionsResponseSchema.parse({
-      sessions: [
-        {
-          id: '123e4567-e89b-12d3-a456-426614174000',
-          title: 'Task',
-          workingDirectory: '/tmp/ws',
-        },
-      ],
-    });
-    expect(parsed.sessions).toHaveLength(1);
-  });
-
-  it('rejects a payload missing the sessions field', () => {
-    expect(() => listCodingSessionsResponseSchema.parse({})).toThrow();
   });
 });

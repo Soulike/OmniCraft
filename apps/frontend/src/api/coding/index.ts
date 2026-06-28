@@ -2,7 +2,7 @@ export {
   abortCompletion,
   createSession,
   deleteSession,
-  listAllSessions,
+  listSessions,
   sendMessage,
   submitToolResponse,
   subscribeEvents,

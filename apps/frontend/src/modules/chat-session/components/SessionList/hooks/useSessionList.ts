@@ -36,9 +36,6 @@ export function useSessionList({
     backgroundRefresh,
   } = useInfiniteScroll<SessionMetadata>({
     fetcher: async (offset: number, limit: number) => {
-      if (!listSessions) {
-        throw new Error('listSessions API is unavailable');
-      }
       const result = await listSessions(offset, limit);
       return {items: result.sessions, total: result.total};
     },

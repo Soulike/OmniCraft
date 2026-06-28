@@ -14,8 +14,6 @@ export {
   createSessionRequestSchema,
   type CreateSessionResponse,
   createSessionResponseSchema,
-  type ListCodingSessionsResponse,
-  listCodingSessionsResponseSchema,
   type ListSessionsQuery,
   listSessionsQuerySchema,
   type ListSessionsResponse,

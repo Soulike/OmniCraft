@@ -4,6 +4,7 @@ import Router from '@koa/router';
 import {
   chatCompletionsRequestSchema,
   createCodingSessionRequestSchema,
+  listSessionsQuerySchema,
   submitToolResponseRequestSchema,
 } from '@omnicraft/api-schema';
 import {StatusCodes} from 'http-status-codes';
@@ -26,10 +27,26 @@ import {
 
 const router = new Router();
 
-/** GET /coding/sessions — lists all persisted sessions (no pagination). */
+/** GET /coding/sessions — lists persisted sessions with pagination. */
 router.get(SESSIONS, async (ctx) => {
+  let offset: number;
+  let limit: number;
+  try {
+    const query = listSessionsQuerySchema.parse(ctx.query);
+    offset = query.offset;
+    limit = query.limit;
+  } catch (e) {
+    if (e instanceof ZodError) {
+      ctx.response.status = StatusCodes.BAD_REQUEST;
+      ctx.response.body = {error: e.issues};
+      return;
+    }
+    throw e;
+  }
+
+  const result = await codingAgentSessionService.listSessions(offset, limit);
   ctx.response.status = StatusCodes.OK;
-  ctx.response.body = await codingAgentSessionService.listSessions();
+  ctx.response.body = result;
 });
 
 /** POST /coding/session — creates a new session. */

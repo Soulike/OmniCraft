@@ -24,7 +24,7 @@ const mocks = vi.hoisted(() => ({
   getVscodeStatus: vi.fn(),
   getVscodeUrl: vi.fn(),
   getWorkspaces: vi.fn(),
-  listAllSessions: vi.fn(),
+  listSessions: vi.fn(),
   sendMessage: vi.fn(),
   submitToolResponse: vi.fn(),
   subscribeEvents: vi.fn(),
@@ -34,7 +34,7 @@ vi.mock('@/api/coding/index.js', () => ({
   abortCompletion: mocks.abortCompletion,
   createSession: mocks.createSession,
   deleteSession: mocks.deleteSession,
-  listAllSessions: mocks.listAllSessions,
+  listSessions: mocks.listSessions,
   sendMessage: mocks.sendMessage,
   submitToolResponse: mocks.submitToolResponse,
   subscribeEvents: mocks.subscribeEvents,
@@ -99,7 +99,7 @@ describe('CodingPage', () => {
     });
     mocks.getVscodeUrl.mockReturnValue('http://localhost:18927');
     mocks.getWorkspaces.mockResolvedValue([{path: '/workspace/repo'}]);
-    mocks.listAllSessions.mockResolvedValue({sessions: []});
+    mocks.listSessions.mockResolvedValue({sessions: [], total: 0});
     mocks.sendMessage.mockResolvedValue(undefined);
     mocks.submitToolResponse.mockResolvedValue(undefined);
     mocks.subscribeEvents.mockImplementation(

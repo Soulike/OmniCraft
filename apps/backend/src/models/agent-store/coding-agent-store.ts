@@ -61,25 +61,15 @@ export class CodingAgentStore extends AgentStore {
     CodingAgentStore.instance = null;
   }
 
-  async listAllSessionMetadata(): Promise<SessionMetadata[]> {
-    return this.readAllSessionsSorted();
-  }
-
   async listSessionMetadata(
     offset: number,
     limit: number,
   ): Promise<{sessions: SessionMetadata[]; total: number}> {
-    const all = await this.readAllSessionsSorted();
-    return {sessions: all.slice(offset, offset + limit), total: all.length};
-  }
-
-  /** Reads every session's metadata, newest snapshot first. */
-  private async readAllSessionsSorted(): Promise<SessionMetadata[]> {
     let entries: string[];
     try {
       entries = await readdir(this.sessionsDir);
     } catch {
-      return [];
+      return {sessions: [], total: 0};
     }
 
     const statResults: {id: string; mtime: number}[] = [];
@@ -100,9 +90,11 @@ export class CodingAgentStore extends AgentStore {
     );
 
     statResults.sort((a, b) => b.mtime - a.mtime);
+    const total = statResults.length;
+    const page = statResults.slice(offset, offset + limit);
 
     const results = await Promise.all(
-      statResults.map(async ({id}): Promise<SessionMetadata | null> => {
+      page.map(async ({id}): Promise<SessionMetadata | null> => {
         try {
           const content = await this.readSessionMetadataFile(id);
           const json: unknown = JSON.parse(content);
@@ -114,7 +106,9 @@ export class CodingAgentStore extends AgentStore {
       }),
     );
 
-    return results.filter((r): r is SessionMetadata => r !== null);
+    const sessions = results.filter((r): r is SessionMetadata => r !== null);
+
+    return {sessions, total};
   }
 
   protected async loadFromDisk(id: string): Promise<Agent | undefined> {

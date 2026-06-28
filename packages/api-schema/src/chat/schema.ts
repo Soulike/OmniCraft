@@ -72,12 +72,3 @@ export const listSessionsResponseSchema = z.object({
 });
 
 export type ListSessionsResponse = z.infer<typeof listSessionsResponseSchema>;
-
-/** Schema for the GET /coding/sessions response body (no pagination). */
-export const listCodingSessionsResponseSchema = z.object({
-  sessions: z.array(sessionMetadataSchema),
-});
-
-export type ListCodingSessionsResponse = z.infer<
-  typeof listCodingSessionsResponseSchema
->;
