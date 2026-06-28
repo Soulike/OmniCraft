@@ -1,46 +1,47 @@
 import {useCallback, useEffect, useState} from 'react';
 
 interface UseExpandedGroupsResult {
-  readonly expanded: ReadonlySet<string>;
-  readonly toggle: (key: string, isExpanded: boolean) => void;
-  readonly expand: (key: string) => void;
+  readonly expandedGroups: ReadonlySet<string>;
+  readonly toggleGroup: (groupKey: string, isExpanded: boolean) => void;
+  readonly expandGroup: (groupKey: string) => void;
 }
 
 /**
- * Tracks which workspace groups are expanded. Seeds the set once from the group
- * holding the active session (`seedKey`); thereafter the user controls it.
+ * Tracks which workspace groups are expanded. Seeds the set once from the
+ * active session's group (`initialActiveGroupKey`); only the first non-null
+ * value is consumed, after which the user controls expansion.
  */
 export function useExpandedGroups(
-  seedKey: string | null,
+  initialActiveGroupKey: string | null,
 ): UseExpandedGroupsResult {
-  const [expanded, setExpanded] = useState<ReadonlySet<string>>(
+  const [expandedGroups, setExpandedGroups] = useState<ReadonlySet<string>>(
     () => new Set<string>(),
   );
   const [seeded, setSeeded] = useState(false);
 
   useEffect(() => {
-    if (seeded || seedKey === null) {
+    if (seeded || initialActiveGroupKey === null) {
       return;
     }
-    setExpanded(new Set([seedKey]));
+    setExpandedGroups(new Set([initialActiveGroupKey]));
     setSeeded(true);
-  }, [seeded, seedKey]);
+  }, [seeded, initialActiveGroupKey]);
 
-  const toggle = useCallback((key: string, isExpanded: boolean) => {
-    setExpanded((prev) => {
+  const toggleGroup = useCallback((groupKey: string, isExpanded: boolean) => {
+    setExpandedGroups((prev) => {
       const next = new Set(prev);
       if (isExpanded) {
-        next.add(key);
+        next.add(groupKey);
       } else {
-        next.delete(key);
+        next.delete(groupKey);
       }
       return next;
     });
   }, []);
 
-  const expand = useCallback((key: string) => {
-    setExpanded((prev) => new Set(prev).add(key));
+  const expandGroup = useCallback((groupKey: string) => {
+    setExpandedGroups((prev) => new Set(prev).add(groupKey));
   }, []);
 
-  return {expanded, toggle, expand};
+  return {expandedGroups, toggleGroup, expandGroup};
 }

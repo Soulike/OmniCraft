@@ -54,14 +54,15 @@ export function WorkspaceSessionList({
       : UNGROUPED_KEY;
   }, [sessions, sessionId, workspaces]);
 
-  const {expanded, toggle, expand} = useExpandedGroups(activeKey);
+  const {expandedGroups, toggleGroup, expandGroup} =
+    useExpandedGroups(activeKey);
 
   const handleNewSession = useCallback(
     (workspacePath: string) => {
-      expand(stripTrailingSlash(workspacePath));
+      expandGroup(stripTrailingSlash(workspacePath));
       onNewSession(workspacePath);
     },
-    [expand, onNewSession],
+    [expandGroup, onNewSession],
   );
 
   const handleSelectSession = useCallback(
@@ -93,11 +94,11 @@ export function WorkspaceSessionList({
   return (
     <WorkspaceSessionListView
       entries={entries}
-      expanded={expanded}
+      expanded={expandedGroups}
       isLoading={isLoading}
       error={error}
       currentSessionId={sessionId}
-      onToggle={toggle}
+      onToggle={toggleGroup}
       onSelectSession={handleSelectSession}
       onDeleteSession={handleDeleteSession}
       onNewSession={handleNewSession}
