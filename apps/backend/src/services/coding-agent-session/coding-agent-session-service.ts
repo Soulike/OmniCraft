@@ -90,12 +90,11 @@ export const codingAgentSessionService = {
     return agent.submitUserResponse(interactionId, result);
   },
 
-  /** Lists persisted sessions with pagination. */
-  async listSessions(
-    offset: number,
-    limit: number,
-  ): Promise<{sessions: SessionMetadata[]; total: number}> {
-    return CodingAgentStore.getInstance().listSessionMetadata(offset, limit);
+  /** Lists all persisted sessions (no pagination). */
+  async listSessions(): Promise<{sessions: SessionMetadata[]}> {
+    const sessions =
+      await CodingAgentStore.getInstance().listAllSessionMetadata();
+    return {sessions};
   },
 
   /** Deletes a session. Returns false if session not found. */
