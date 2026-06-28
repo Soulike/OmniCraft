@@ -44,14 +44,14 @@ export function WorkspaceSessionListView({
             <Spinner size='sm' />
           </div>
         )}
-        {!isLoading && error !== null && (
+        {!isLoading && error !== null && entries.length === 0 && (
           <p className={styles.errorText}>Failed to load sessions</p>
         )}
         {!isLoading && error === null && entries.length === 0 && (
           <p className={styles.emptyText}>No workspaces configured</p>
         )}
         {!isLoading &&
-          error === null &&
+          entries.length > 0 &&
           entries.map(({key, group}) => (
             <WorkspaceGroupView
               key={key}

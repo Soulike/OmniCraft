@@ -57,6 +57,16 @@ export function WorkspaceSessionList({
     setSeeded(true);
   }, [seeded, activeKey]);
 
+  const handleNewSession = useCallback(
+    (workspacePath: string) => {
+      setExpanded((prev) =>
+        new Set(prev).add(normalizeWorkspacePath(workspacePath)),
+      );
+      onNewSession(workspacePath);
+    },
+    [onNewSession],
+  );
+
   const handleToggle = useCallback((key: string, isExpanded: boolean) => {
     setExpanded((prev) => {
       const next = new Set(prev);
@@ -105,7 +115,7 @@ export function WorkspaceSessionList({
       onToggle={handleToggle}
       onSelectSession={handleSelectSession}
       onDeleteSession={handleDeleteSession}
-      onNewSession={onNewSession}
+      onNewSession={handleNewSession}
     />
   );
 }
