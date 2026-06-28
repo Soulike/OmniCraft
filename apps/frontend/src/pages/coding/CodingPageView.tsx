@@ -11,12 +11,12 @@ import {
   BottomBar,
   ChatAlert,
   ChatInput,
-  SessionList,
   TitleBarView,
 } from '@/modules/chat-session/index.js';
 import {StreamingMessageDisplay} from '@/modules/chat-stream/index.js';
 
-import {TaskDispatchCard} from './components/TaskDispatchCard/index.js';
+import {NewSessionModal} from './components/NewSessionModal/index.js';
+import {WorkspaceSessionList} from './components/WorkspaceSessionList/index.js';
 import styles from './styles.module.css';
 
 interface CodingPageViewProps {
@@ -30,11 +30,12 @@ interface CodingPageViewProps {
   sessionId: string | null;
   onAskUserSubmit: AskUserSubmitHandler | null;
   onMessagesChange: (messages: readonly ChatMessage[]) => void;
-  onStartTask: (content: string) => Promise<void>;
   onSend: (content: string) => Promise<void>;
   onStop: () => void;
-  onNewSession: () => void;
-  newSessionDisabled: boolean;
+  onRequestNewSession: (workspacePath: string) => void;
+  newSessionWorkspace: string | null;
+  onCloseNewSession: () => void;
+  onSubmitNewSession: (task: string) => Promise<void>;
   vscodeUrl: string | null;
   onDismissError: () => void;
   onDismissMaxRoundsReached: () => void;
@@ -51,19 +52,20 @@ export function CodingPageView({
   sessionId,
   onAskUserSubmit,
   onMessagesChange,
-  onStartTask,
   onSend,
   onStop,
-  onNewSession,
-  newSessionDisabled,
+  onRequestNewSession,
+  newSessionWorkspace,
+  onCloseNewSession,
+  onSubmitNewSession,
   vscodeUrl,
   onDismissError,
   onDismissMaxRoundsReached,
 }: CodingPageViewProps) {
   return (
     <div className={styles.wrapper}>
-      <CollapsibleSidebar title='Sessions'>
-        <SessionList />
+      <CollapsibleSidebar title='Workspaces'>
+        <WorkspaceSessionList onNewSession={onRequestNewSession} />
       </CollapsibleSidebar>
       <div className={styles.main}>
         <div className={styles.page}>
@@ -90,16 +92,14 @@ export function CodingPageView({
               onDismiss={onDismissMaxRoundsReached}
             />
           )}
-          <TitleBarView
-            title={title}
-            onNewSession={onNewSession}
-            newSessionDisabled={newSessionDisabled}
-            vscodeUrl={vscodeUrl}
-          />
+          <TitleBarView title={title} vscodeUrl={vscodeUrl} />
           <ScrollShadow className={styles.messageListWrapper} ref={scrollRef}>
             {!sessionId && (
               <div className={styles.emptyState}>
-                <TaskDispatchCard onSend={onStartTask} />
+                <p className={styles.emptyHint}>
+                  Select a session, or click + on a workspace to start a new
+                  task.
+                </p>
               </div>
             )}
             <StreamingMessageDisplay
@@ -120,6 +120,11 @@ export function CodingPageView({
           )}
         </div>
       </div>
+      <NewSessionModal
+        workspace={newSessionWorkspace}
+        onClose={onCloseNewSession}
+        onSubmit={onSubmitNewSession}
+      />
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import {useCallback, useMemo} from 'react';
+import {useCallback, useMemo, useState} from 'react';
 
 import * as codingApi from '@/api/coding/index.js';
 import {getVscodeUrl} from '@/api/vscode/index.js';
@@ -47,16 +47,19 @@ function CodingPageContent() {
     sessionId,
     createNewSessionIdError,
     createNewSessionId,
-    clearSessionId,
     clearCreateNewSessionIdError,
   } = useSessionId();
 
   const handleAskUserSubmit = useAskUserSubmit();
 
-  const {messageCount, onMessagesChange} = useMessageCount();
+  const {onMessagesChange} = useMessageCount();
   const {title} = useSessionTitle();
 
-  const {selectedWorkspace} = useSessionConfig();
+  const {selectedWorkspace, setSelectedWorkspace} = useSessionConfig();
+
+  const [newSessionWorkspace, setNewSessionWorkspace] = useState<string | null>(
+    null,
+  );
 
   const {
     available: vscodeAvailable,
@@ -85,26 +88,34 @@ function CodingPageContent() {
     stopGeneration,
     clearStreamError,
     clearMaxRoundsReached,
-  } = useStreamChat({
-    sessionId,
-    createNewSessionId,
-  });
+  } = useStreamChat({sessionId, createNewSessionId});
 
   const {containerRef: scrollRef, scrollToBottom} = useAutoScroll();
 
-  const handleStartTask = useCallback(
-    async (content: string) => {
-      if (selectedWorkspace === undefined) {
-        throw new Error('Please select a workspace before starting a session.');
+  const handleRequestNewSession = useCallback(
+    (workspacePath: string) => {
+      setSelectedWorkspace(workspacePath);
+      setNewSessionWorkspace(workspacePath);
+    },
+    [setSelectedWorkspace],
+  );
+
+  const handleCloseNewSession = useCallback(() => {
+    setNewSessionWorkspace(null);
+  }, []);
+
+  const handleSubmitNewSession = useCallback(
+    async (task: string) => {
+      if (newSessionWorkspace === null) {
+        return;
       }
-      await sendMessageToNewSession(content, {
-        workspace: selectedWorkspace,
-      });
+      setNewSessionWorkspace(null);
+      await sendMessageToNewSession(task, {workspace: newSessionWorkspace});
       requestAnimationFrame(() => {
         scrollToBottom();
       });
     },
-    [sendMessageToNewSession, scrollToBottom, selectedWorkspace],
+    [newSessionWorkspace, sendMessageToNewSession, scrollToBottom],
   );
 
   const handleSend = useCallback(
@@ -124,9 +135,6 @@ function CodingPageContent() {
     clearStreamError();
   }, [clearCreateNewSessionIdError, clearStreamError]);
 
-  const isEmpty = messageCount === 0;
-  const newSessionDisabled = (sessionId === null && isEmpty) || isStreaming;
-
   return (
     <CodingPageView
       title={title}
@@ -139,11 +147,12 @@ function CodingPageContent() {
       sessionId={sessionId}
       onAskUserSubmit={handleAskUserSubmit}
       onMessagesChange={onMessagesChange}
-      onStartTask={handleStartTask}
       onSend={handleSend}
       onStop={stopGeneration}
-      onNewSession={clearSessionId}
-      newSessionDisabled={newSessionDisabled}
+      onRequestNewSession={handleRequestNewSession}
+      newSessionWorkspace={newSessionWorkspace}
+      onCloseNewSession={handleCloseNewSession}
+      onSubmitNewSession={handleSubmitNewSession}
       vscodeUrl={vscodeUrl}
       onDismissError={dismissError}
       onDismissMaxRoundsReached={clearMaxRoundsReached}

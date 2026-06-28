@@ -24,7 +24,7 @@ const mocks = vi.hoisted(() => ({
   getVscodeStatus: vi.fn(),
   getVscodeUrl: vi.fn(),
   getWorkspaces: vi.fn(),
-  listSessions: vi.fn(),
+  listAllSessions: vi.fn(),
   sendMessage: vi.fn(),
   submitToolResponse: vi.fn(),
   subscribeEvents: vi.fn(),
@@ -34,7 +34,7 @@ vi.mock('@/api/coding/index.js', () => ({
   abortCompletion: mocks.abortCompletion,
   createSession: mocks.createSession,
   deleteSession: mocks.deleteSession,
-  listSessions: mocks.listSessions,
+  listAllSessions: mocks.listAllSessions,
   sendMessage: mocks.sendMessage,
   submitToolResponse: mocks.submitToolResponse,
   subscribeEvents: mocks.subscribeEvents,
@@ -99,7 +99,7 @@ describe('CodingPage', () => {
     });
     mocks.getVscodeUrl.mockReturnValue('http://localhost:18927');
     mocks.getWorkspaces.mockResolvedValue([{path: '/workspace/repo'}]);
-    mocks.listSessions.mockResolvedValue({sessions: [], total: 0});
+    mocks.listAllSessions.mockResolvedValue({sessions: []});
     mocks.sendMessage.mockResolvedValue(undefined);
     mocks.submitToolResponse.mockResolvedValue(undefined);
     mocks.subscribeEvents.mockImplementation(
@@ -108,12 +108,15 @@ describe('CodingPage', () => {
     );
   });
 
-  it('starts a coding session from the dispatch card and switches to chat input', async () => {
+  it('starts a coding session via the workspace + button and modal, then switches to chat input', async () => {
     renderCodingPage();
 
     expect(screen.queryByLabelText('Chat message')).not.toBeInTheDocument();
 
-    const taskInput = await screen.findByLabelText('Task');
+    const newTaskButton = await screen.findByLabelText('New task');
+    fireEvent.click(newTaskButton);
+
+    const taskInput = await screen.findByRole('textbox', {name: 'Task'});
     fireEvent.change(taskInput, {
       target: {value: '  Implement the requested task.  '},
     });
@@ -136,7 +139,6 @@ describe('CodingPage', () => {
     );
 
     expect(await screen.findByLabelText('Chat message')).toBeInTheDocument();
-    expect(screen.queryByLabelText('Thinking level')).not.toBeInTheDocument();
     expect(screen.queryByLabelText('Task')).not.toBeInTheDocument();
   });
 });
