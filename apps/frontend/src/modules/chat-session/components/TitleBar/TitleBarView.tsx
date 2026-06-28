@@ -5,8 +5,8 @@ import styles from './styles.module.css';
 
 interface TitleBarViewProps {
   title: string | null;
-  onNewSession: () => void;
-  newSessionDisabled: boolean;
+  onNewSession?: () => void;
+  newSessionDisabled?: boolean;
   vscodeUrl?: string | null;
 }
 
@@ -40,23 +40,25 @@ export function TitleBarView({
             </Tooltip.Content>
           </Tooltip>
         )}
-        <Tooltip delay={0}>
-          <Tooltip.Trigger>
-            <Button
-              isIconOnly
-              size='sm'
-              variant='ghost'
-              aria-label='New session'
-              isDisabled={newSessionDisabled}
-              onPress={onNewSession}
-            >
-              <MessageSquarePlus size={16} />
-            </Button>
-          </Tooltip.Trigger>
-          <Tooltip.Content>
-            <p>New session</p>
-          </Tooltip.Content>
-        </Tooltip>
+        {!!onNewSession && (
+          <Tooltip delay={0}>
+            <Tooltip.Trigger>
+              <Button
+                isIconOnly
+                size='sm'
+                variant='ghost'
+                aria-label='New session'
+                isDisabled={newSessionDisabled}
+                onPress={onNewSession}
+              >
+                <MessageSquarePlus size={16} />
+              </Button>
+            </Tooltip.Trigger>
+            <Tooltip.Content>
+              <p>New session</p>
+            </Tooltip.Content>
+          </Tooltip>
+        )}
       </div>
     </div>
   );
