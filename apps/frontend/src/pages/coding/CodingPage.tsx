@@ -96,10 +96,17 @@ function CodingPageContent() {
     });
   }, [scrollToBottom]);
 
+  const handleSessionCreated = useCallback(
+    (workspacePath: string) => {
+      setSelectedWorkspace(workspacePath);
+      scrollAfterPaint();
+    },
+    [setSelectedWorkspace, scrollAfterPaint],
+  );
+
   const newSession = useNewSessionModal({
     sendMessageToNewSession,
-    onOpen: setSelectedWorkspace,
-    onSubmitted: scrollAfterPaint,
+    onCreated: handleSessionCreated,
   });
 
   const handleSend = useCallback(

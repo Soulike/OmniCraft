@@ -7,12 +7,10 @@ interface UseNewSessionModalOptions {
     options: {workspace: string},
   ) => Promise<unknown>;
   /**
-   * Called when the modal opens for a workspace — e.g. to record it as the
-   * active workspace for the VSCode link.
+   * Called after a session is successfully created in the given workspace —
+   * e.g. to record it as the active workspace for the VSCode link and to scroll.
    */
-  readonly onOpen?: (workspacePath: string) => void;
-  /** Called after a task is submitted — e.g. to scroll the message list. */
-  readonly onSubmitted?: () => void;
+  readonly onCreated?: (workspacePath: string) => void;
 }
 
 interface UseNewSessionModalResult {
@@ -29,18 +27,13 @@ interface UseNewSessionModalResult {
  */
 export function useNewSessionModal({
   sendMessageToNewSession,
-  onOpen,
-  onSubmitted,
+  onCreated,
 }: UseNewSessionModalOptions): UseNewSessionModalResult {
   const [workspace, setWorkspace] = useState<string | null>(null);
 
-  const open = useCallback(
-    (workspacePath: string) => {
-      onOpen?.(workspacePath);
-      setWorkspace(workspacePath);
-    },
-    [onOpen],
-  );
+  const open = useCallback((workspacePath: string) => {
+    setWorkspace(workspacePath);
+  }, []);
 
   const close = useCallback(() => {
     setWorkspace(null);
@@ -51,11 +44,14 @@ export function useNewSessionModal({
       if (workspace === null) {
         return;
       }
-      setWorkspace(null);
+      // Create first; only close (and mark the workspace active) on success,
+      // so a failure surfaces in the still-open modal rather than being
+      // swallowed, and cancelling never mutates the active workspace.
       await sendMessageToNewSession(task, {workspace});
-      onSubmitted?.();
+      setWorkspace(null);
+      onCreated?.(workspace);
     },
-    [workspace, sendMessageToNewSession, onSubmitted],
+    [workspace, sendMessageToNewSession, onCreated],
   );
 
   return {workspace, open, close, submit};

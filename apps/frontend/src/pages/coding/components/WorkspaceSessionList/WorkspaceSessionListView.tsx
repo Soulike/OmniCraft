@@ -36,6 +36,12 @@ export function WorkspaceSessionListView({
   onDeleteSession,
   onNewSession,
 }: WorkspaceSessionListViewProps) {
+  // `entries` always has one group per configured workspace, so its length
+  // can't tell a real load failure from "no sessions yet". Gate the error on
+  // whether any session actually loaded.
+  const hasSessions = entries.some((entry) => entry.group.sessions.length > 0);
+  const loadFailed = error !== null && !hasSessions;
+
   return (
     <div className={styles.wrapper}>
       <div className={styles.scroll}>
@@ -44,13 +50,14 @@ export function WorkspaceSessionListView({
             <Spinner size='sm' />
           </div>
         )}
-        {!isLoading && error !== null && entries.length === 0 && (
+        {!isLoading && loadFailed && (
           <p className={styles.errorText}>Failed to load sessions</p>
         )}
-        {!isLoading && error === null && entries.length === 0 && (
+        {!isLoading && !loadFailed && entries.length === 0 && (
           <p className={styles.emptyText}>No workspaces configured</p>
         )}
         {!isLoading &&
+          !loadFailed &&
           entries.length > 0 &&
           entries.map(({key, group}) => (
             <WorkspaceGroupView
