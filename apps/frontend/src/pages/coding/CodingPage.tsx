@@ -139,7 +139,7 @@ function CodingPageContent() {
         onMessagesChange={onMessagesChange}
         onSend={handleSend}
         onStop={stopGeneration}
-        onRequestNewSession={newSession.open}
+        onNewSession={newSession.open}
         vscodeUrl={vscodeUrl}
         onDismissError={dismissError}
         onDismissMaxRoundsReached={clearMaxRoundsReached}

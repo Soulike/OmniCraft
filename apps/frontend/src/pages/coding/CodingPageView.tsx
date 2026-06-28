@@ -31,7 +31,7 @@ interface CodingPageViewProps {
   onMessagesChange: (messages: readonly ChatMessage[]) => void;
   onSend: (content: string) => Promise<void>;
   onStop: () => void;
-  onRequestNewSession: (workspacePath: string) => void;
+  onNewSession: (workspacePath: string) => void;
   vscodeUrl: string | null;
   onDismissError: () => void;
   onDismissMaxRoundsReached: () => void;
@@ -50,7 +50,7 @@ export function CodingPageView({
   onMessagesChange,
   onSend,
   onStop,
-  onRequestNewSession,
+  onNewSession,
   vscodeUrl,
   onDismissError,
   onDismissMaxRoundsReached,
@@ -58,7 +58,7 @@ export function CodingPageView({
   return (
     <div className={styles.wrapper}>
       <CollapsibleSidebar title='Workspaces'>
-        <WorkspaceSessionList onNewSession={onRequestNewSession} />
+        <WorkspaceSessionList onNewSession={onNewSession} />
       </CollapsibleSidebar>
       <div className={styles.main}>
         <div className={styles.page}>
