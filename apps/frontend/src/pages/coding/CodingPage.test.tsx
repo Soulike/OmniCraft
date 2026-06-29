@@ -113,7 +113,7 @@ describe('CodingPage', () => {
 
     expect(screen.queryByLabelText('Chat message')).not.toBeInTheDocument();
 
-    const newTaskButton = await screen.findByLabelText('New task');
+    const newTaskButton = await screen.findByLabelText(/New task/);
     fireEvent.click(newTaskButton);
 
     const taskInput = await screen.findByRole('textbox', {name: 'Task'});

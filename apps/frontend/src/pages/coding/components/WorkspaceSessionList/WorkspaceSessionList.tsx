@@ -53,13 +53,19 @@ export function WorkspaceSessionList({
   );
 
   // Key of the group holding the active session; orphan sessions seed Ungrouped.
+  // Wait until both workspaces and sessions have loaded — seeding off a partial
+  // load would wrongly resolve the active session to Ungrouped and leave its
+  // real group collapsed.
   const activeKey = useMemo(() => {
+    if (workspacesLoading || sessionsLoading) {
+      return null;
+    }
     const active = sessions.find((s) => s.id === sessionId);
     if (active === undefined) {
       return null;
     }
     return sessionGroupKey(active.workingDirectory, workspaces);
-  }, [sessions, sessionId, workspaces]);
+  }, [workspacesLoading, sessionsLoading, sessions, sessionId, workspaces]);
 
   const {expandedGroups, toggleGroup, expandGroup} =
     useExpandedGroups(activeKey);

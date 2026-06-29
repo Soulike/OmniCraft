@@ -62,7 +62,7 @@ export function WorkspaceGroupView({
                 isIconOnly
                 size='sm'
                 variant='ghost'
-                aria-label='New task'
+                aria-label={`New task in ${label}`}
                 className={styles.plus}
                 onPress={() => {
                   onNewSession(workspace.path);

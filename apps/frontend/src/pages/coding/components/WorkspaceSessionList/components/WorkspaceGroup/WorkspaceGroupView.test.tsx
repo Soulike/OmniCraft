@@ -26,7 +26,9 @@ describe('WorkspaceGroupView', () => {
     );
     expect(screen.getByText('proj')).toBeInTheDocument();
     expect(screen.getByText('·1')).toBeInTheDocument();
-    expect(screen.getByRole('button', {name: 'New task'})).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', {name: 'New task in proj'}),
+    ).toBeInTheDocument();
   });
 
   it('renders the Ungrouped label with no New task button and an empty hint', () => {
@@ -43,7 +45,7 @@ describe('WorkspaceGroupView', () => {
     expect(screen.getByText('Ungrouped')).toBeInTheDocument();
     expect(screen.getByText('No sessions yet')).toBeInTheDocument();
     expect(
-      screen.queryByRole('button', {name: 'New task'}),
+      screen.queryByRole('button', {name: /New task/}),
     ).not.toBeInTheDocument();
   });
 });
