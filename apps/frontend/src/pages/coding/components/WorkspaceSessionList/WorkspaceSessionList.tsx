@@ -27,6 +27,7 @@ export function WorkspaceSessionList({
     isLoading: workspacesLoading,
     loadError: workspacesError,
     reload: reloadWorkspaces,
+    setSelectedWorkspace,
   } = useSessionConfig();
   const {
     sessions,
@@ -73,11 +74,15 @@ export function WorkspaceSessionList({
 
   const handleSelectSession = useCallback(
     (id: string) => {
+      // Keep the active workspace in sync so the title-bar VSCode link points
+      // at the selected session's directory, not only at freshly created ones.
+      const selected = sessions.find((s) => s.id === id);
+      setSelectedWorkspace(selected?.workingDirectory);
       if (id !== sessionId) {
         void navigate(buildSessionRoute(id));
       }
     },
-    [navigate, sessionId, buildSessionRoute],
+    [sessions, setSelectedWorkspace, navigate, sessionId, buildSessionRoute],
   );
 
   const handleDeleteSession = useCallback(

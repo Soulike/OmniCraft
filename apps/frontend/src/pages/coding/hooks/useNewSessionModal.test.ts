@@ -41,7 +41,7 @@ describe('useNewSessionModal', () => {
     expect(onCreated).toHaveBeenCalledWith('/ws');
   });
 
-  it('keeps the modal open and does not report when creation fails (resolves null)', async () => {
+  it('throws and keeps the modal open when creation fails (resolves null)', async () => {
     const sendMessageToNewSession = vi.fn().mockResolvedValue(null);
     const onCreated = vi.fn();
     const {result} = renderHook(() =>
@@ -52,7 +52,9 @@ describe('useNewSessionModal', () => {
       result.current.open('/ws');
     });
     await act(async () => {
-      await result.current.submit('do it');
+      await expect(result.current.submit('do it')).rejects.toThrow(
+        'Failed to start task.',
+      );
     });
 
     expect(result.current.workspace).toBe('/ws');

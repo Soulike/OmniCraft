@@ -47,12 +47,12 @@ export function useNewSessionModal({
       if (workspace === null) {
         return;
       }
-      // Only close (and mark the workspace active) when a session was actually
-      // created. sendMessageToNewSession resolves null on failure, so leaving
-      // the modal open lets the failure surface there instead of vanishing.
+      // sendMessageToNewSession resolves null on failure. Throw so the form's
+      // submit handler shows the error inside the modal; the modal sits on top
+      // of the page-level alert, so returning quietly would hide the failure.
       const created = await sendMessageToNewSession(task, {workspace});
       if (created === null) {
-        return;
+        throw new Error('Failed to start task.');
       }
       setWorkspace(null);
       onCreated?.(workspace);
