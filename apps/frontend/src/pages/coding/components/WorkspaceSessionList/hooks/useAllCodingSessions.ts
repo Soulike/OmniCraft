@@ -18,6 +18,7 @@ interface UseAllCodingSessionsResult {
   readonly sessions: readonly SessionMetadata[];
   readonly isLoading: boolean;
   readonly error: string | null;
+  readonly reload: () => Promise<void>;
   readonly removeSession: (id: string) => Promise<void>;
 }
 
@@ -69,5 +70,5 @@ export function useAllCodingSessions(): UseAllCodingSessionsResult {
     [deleteSession, reload],
   );
 
-  return {sessions, isLoading, error, removeSession};
+  return {sessions, isLoading, error, reload, removeSession};
 }

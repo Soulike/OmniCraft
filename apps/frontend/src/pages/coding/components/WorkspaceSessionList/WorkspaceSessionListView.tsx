@@ -1,4 +1,4 @@
-import {Spinner} from '@heroui/react';
+import {Button, Spinner} from '@heroui/react';
 import {Settings2} from 'lucide-react';
 import {Link} from 'react-router';
 
@@ -17,8 +17,11 @@ interface WorkspaceSessionListViewProps {
   readonly entries: readonly WorkspaceGroupEntry[];
   readonly expanded: ReadonlySet<string>;
   readonly isLoading: boolean;
-  readonly error: string | null;
+  readonly workspacesFailed: boolean;
+  readonly sessionsFailed: boolean;
   readonly currentSessionId: string | null;
+  readonly onReloadWorkspaces: () => void;
+  readonly onReloadSessions: () => void;
   readonly onToggle: (key: string, isExpanded: boolean) => void;
   readonly onSelectSession: (id: string) => void;
   readonly onDeleteSession: (id: string) => Promise<void>;
@@ -29,19 +32,16 @@ export function WorkspaceSessionListView({
   entries,
   expanded,
   isLoading,
-  error,
+  workspacesFailed,
+  sessionsFailed,
   currentSessionId,
+  onReloadWorkspaces,
+  onReloadSessions,
   onToggle,
   onSelectSession,
   onDeleteSession,
   onNewSession,
 }: WorkspaceSessionListViewProps) {
-  // `entries` always has one group per configured workspace, so its length
-  // can't tell a real load failure from "no sessions yet". Gate the error on
-  // whether any session actually loaded.
-  const hasSessions = entries.some((entry) => entry.group.sessions.length > 0);
-  const loadFailed = error !== null && !hasSessions;
-
   return (
     <div className={styles.wrapper}>
       <div className={styles.scroll}>
@@ -50,14 +50,31 @@ export function WorkspaceSessionListView({
             <Spinner size='sm' />
           </div>
         )}
-        {!isLoading && loadFailed && (
-          <p className={styles.errorText}>Failed to load sessions</p>
+        {!isLoading && workspacesFailed && (
+          <div className={styles.failure}>
+            <p className={styles.errorText}>Failed to load workspaces</p>
+            <Button size='sm' variant='secondary' onPress={onReloadWorkspaces}>
+              Try again
+            </Button>
+          </div>
         )}
-        {!isLoading && !loadFailed && entries.length === 0 && (
-          <p className={styles.emptyText}>No workspaces configured</p>
+        {!isLoading && !workspacesFailed && sessionsFailed && (
+          <div className={styles.failure}>
+            <p className={styles.errorText}>Failed to load sessions</p>
+            <Button size='sm' variant='secondary' onPress={onReloadSessions}>
+              Try again
+            </Button>
+          </div>
         )}
         {!isLoading &&
-          !loadFailed &&
+          !workspacesFailed &&
+          !sessionsFailed &&
+          entries.length === 0 && (
+            <p className={styles.emptyText}>No workspaces configured</p>
+          )}
+        {!isLoading &&
+          !workspacesFailed &&
+          !sessionsFailed &&
           entries.length > 0 &&
           entries.map(({key, group}) => (
             <WorkspaceGroupView

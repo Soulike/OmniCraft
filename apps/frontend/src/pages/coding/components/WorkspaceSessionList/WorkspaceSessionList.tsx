@@ -22,8 +22,19 @@ interface WorkspaceSessionListProps {
 export function WorkspaceSessionList({
   onNewSession,
 }: WorkspaceSessionListProps) {
-  const {workspaces} = useSessionConfig();
-  const {sessions, isLoading, error, removeSession} = useAllCodingSessions();
+  const {
+    workspaces,
+    isLoading: workspacesLoading,
+    loadError: workspacesError,
+    reload: reloadWorkspaces,
+  } = useSessionConfig();
+  const {
+    sessions,
+    isLoading: sessionsLoading,
+    error: sessionsError,
+    reload: reloadSessions,
+    removeSession,
+  } = useAllCodingSessions();
   const {sessionId, buildSessionRoute, baseRoute} = useSessionId();
   const navigate = useNavigate();
 
@@ -90,9 +101,12 @@ export function WorkspaceSessionList({
     <WorkspaceSessionListView
       entries={entries}
       expanded={expandedGroups}
-      isLoading={isLoading}
-      error={error}
+      isLoading={workspacesLoading || sessionsLoading}
+      workspacesFailed={workspacesError !== null}
+      sessionsFailed={sessionsError !== null}
       currentSessionId={sessionId}
+      onReloadWorkspaces={() => void reloadWorkspaces()}
+      onReloadSessions={() => void reloadSessions()}
       onToggle={toggleGroup}
       onSelectSession={handleSelectSession}
       onDeleteSession={handleDeleteSession}

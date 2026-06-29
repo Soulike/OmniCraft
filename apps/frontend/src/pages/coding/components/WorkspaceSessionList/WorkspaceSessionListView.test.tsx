@@ -1,6 +1,6 @@
-import {cleanup, render, screen} from '@testing-library/react';
+import {cleanup, fireEvent, render, screen} from '@testing-library/react';
 import {MemoryRouter} from 'react-router';
-import {afterEach, describe, expect, it} from 'vitest';
+import {afterEach, describe, expect, it, vi} from 'vitest';
 
 import {WorkspaceSessionListView} from './WorkspaceSessionListView.js';
 
@@ -11,23 +11,30 @@ afterEach(() => {
 const noop = () => undefined;
 const asyncNoop = () => Promise.resolve();
 
+const baseProps = {
+  expanded: new Set<string>(),
+  isLoading: false,
+  workspacesFailed: false,
+  sessionsFailed: false,
+  currentSessionId: null,
+  onReloadWorkspaces: noop,
+  onReloadSessions: noop,
+  onToggle: noop,
+  onSelectSession: noop,
+  onDeleteSession: asyncNoop,
+  onNewSession: noop,
+};
+
 describe('WorkspaceSessionListView', () => {
   it('renders one group per entry and a Manage workspaces link', () => {
     render(
       <MemoryRouter>
         <WorkspaceSessionListView
+          {...baseProps}
           entries={[
             {key: '/a', group: {workspace: {path: '/a'}, sessions: []}},
             {key: '/b', group: {workspace: {path: '/b'}, sessions: []}},
           ]}
-          expanded={new Set()}
-          isLoading={false}
-          error={null}
-          currentSessionId={null}
-          onToggle={noop}
-          onSelectSession={noop}
-          onDeleteSession={asyncNoop}
-          onNewSession={noop}
         />
       </MemoryRouter>,
     );
@@ -38,55 +45,54 @@ describe('WorkspaceSessionListView', () => {
     ).toBeInTheDocument();
   });
 
-  it('shows the error only when no sessions have loaded', () => {
+  it('shows a workspaces failure with retry, hiding groups', () => {
+    const onReloadWorkspaces = vi.fn();
     render(
       <MemoryRouter>
         <WorkspaceSessionListView
+          {...baseProps}
+          entries={[]}
+          workspacesFailed
+          onReloadWorkspaces={onReloadWorkspaces}
+        />
+      </MemoryRouter>,
+    );
+    expect(screen.getByText('Failed to load workspaces')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', {name: /try again/i}));
+    expect(onReloadWorkspaces).toHaveBeenCalledOnce();
+  });
+
+  it('shows a sessions failure with retry, hiding groups', () => {
+    const onReloadSessions = vi.fn();
+    render(
+      <MemoryRouter>
+        <WorkspaceSessionListView
+          {...baseProps}
           entries={[
             {key: '/a', group: {workspace: {path: '/a'}, sessions: []}},
           ]}
-          expanded={new Set()}
-          isLoading={false}
-          error='boom'
-          currentSessionId={null}
-          onToggle={noop}
-          onSelectSession={noop}
-          onDeleteSession={asyncNoop}
-          onNewSession={noop}
+          sessionsFailed
+          onReloadSessions={onReloadSessions}
         />
       </MemoryRouter>,
     );
     expect(screen.getByText('Failed to load sessions')).toBeInTheDocument();
     expect(screen.queryByText('a')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', {name: /try again/i}));
+    expect(onReloadSessions).toHaveBeenCalledOnce();
   });
 
-  it('keeps groups visible on a refresh error when sessions are present', () => {
+  it('renders groups when nothing has failed', () => {
     render(
       <MemoryRouter>
         <WorkspaceSessionListView
+          {...baseProps}
           entries={[
-            {
-              key: '/a',
-              group: {
-                workspace: {path: '/a'},
-                sessions: [{id: 's1', title: 'One'}],
-              },
-            },
+            {key: '/a', group: {workspace: {path: '/a'}, sessions: []}},
           ]}
-          expanded={new Set(['/a'])}
-          isLoading={false}
-          error='boom'
-          currentSessionId={null}
-          onToggle={noop}
-          onSelectSession={noop}
-          onDeleteSession={asyncNoop}
-          onNewSession={noop}
         />
       </MemoryRouter>,
     );
-    expect(
-      screen.queryByText('Failed to load sessions'),
-    ).not.toBeInTheDocument();
     expect(screen.getByText('a')).toBeInTheDocument();
   });
 });
