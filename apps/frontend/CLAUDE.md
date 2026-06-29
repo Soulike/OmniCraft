@@ -31,6 +31,12 @@ Calendar/
   | styles.module.css       // Part of view
 ```
 
+## Hooks
+
+- One hook, one concern. Each hook is a view model for a single responsibility (e.g. data loading, grouping, expansion state).
+- Do NOT write a "super hook" that bundles a component's whole logic (its state + data fetching + handlers). Split it into focused hooks instead.
+- The container (`Component.tsx`) is the composition point: it combines several domain hooks and wires their results to the view. It holds no state of its own.
+
 ## Component Exporting
 
 We don't use default export, since it makes renaming difficult.

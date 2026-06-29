@@ -3,6 +3,7 @@ export {BottomBar} from './components/BottomBar/index.js';
 export {ChatAlert} from './components/ChatAlert/index.js';
 export {ChatInput} from './components/ChatInput/index.js';
 export {InfoBar} from './components/InfoBar/index.js';
+export {SessionItem} from './components/SessionList/components/SessionItem/index.js';
 export {SessionList} from './components/SessionList/index.js';
 export {TitleBarView} from './components/TitleBar/index.js';
 
@@ -18,6 +19,7 @@ export {SessionIdProvider} from './contexts/SessionIdContext/index.js';
 // Hooks
 export {useAskUserSubmit} from './hooks/useAskUserSubmit.js';
 export {useChatEventBus} from './hooks/useChatEventBus.js';
+export {useChatSessionApi} from './hooks/useChatSessionApi.js';
 export {useMessageCount} from './hooks/useMessageCount.js';
 export {useSessionConfig} from './hooks/useSessionConfig.js';
 export {useSessionId} from './hooks/useSessionId.js';

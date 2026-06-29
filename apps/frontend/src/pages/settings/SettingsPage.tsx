@@ -16,10 +16,21 @@ const SETTINGS_NAV_ITEMS: readonly SettingsNavItem[] = [
     label: 'LLM',
     children: [
       {id: 'llm.chat', label: 'Chat Agent', path: ROUTES.settings.llm.chat()},
+    ],
+  },
+  {
+    id: 'coding',
+    label: 'Coding',
+    children: [
       {
-        id: 'llm.coding',
+        id: 'coding.agent',
         label: 'Coding Agent',
-        path: ROUTES.settings.llm.coding(),
+        path: ROUTES.settings.coding.agent(),
+      },
+      {
+        id: 'coding.workspaces',
+        label: 'Workspaces',
+        path: ROUTES.settings.coding.workspaces(),
       },
     ],
   },
@@ -31,17 +42,6 @@ const SETTINGS_NAV_ITEMS: readonly SettingsNavItem[] = [
         id: 'agent.runtime',
         label: 'Runtime',
         path: ROUTES.settings.agent.runtime(),
-      },
-    ],
-  },
-  {
-    id: 'file-access',
-    label: 'File Access',
-    children: [
-      {
-        id: 'file-access.workspaces',
-        label: 'Workspaces',
-        path: ROUTES.settings['file-access'].workspaces(),
       },
     ],
   },

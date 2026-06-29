@@ -29,7 +29,7 @@ export const ChatLlmSection = lazy(async () => {
 
 export const CodingLlmSection = lazy(async () => {
   const {CodingLlmSection} =
-    await import('@/pages/settings/sections/llm/coding/index.js');
+    await import('@/pages/settings/sections/coding/agent/index.js');
   return {default: CodingLlmSection};
 });
 
@@ -47,6 +47,6 @@ export const SearchSection = lazy(async () => {
 
 export const WorkspacesSection = lazy(async () => {
   const {WorkspacesSection} =
-    await import('@/pages/settings/sections/file-access/workspaces/index.js');
+    await import('@/pages/settings/sections/coding/workspaces/index.js');
   return {default: WorkspacesSection};
 });

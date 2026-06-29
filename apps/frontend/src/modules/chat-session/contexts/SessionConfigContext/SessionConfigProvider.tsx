@@ -34,10 +34,11 @@ export function SessionConfigProvider({children}: {children: ReactNode}) {
       workspaces,
       isLoading,
       loadError,
+      reload: load,
       selectedWorkspace,
       setSelectedWorkspace,
     }),
-    [workspaces, isLoading, loadError, selectedWorkspace],
+    [workspaces, isLoading, loadError, load, selectedWorkspace],
   );
 
   return <SessionConfigContext value={value}>{children}</SessionConfigContext>;

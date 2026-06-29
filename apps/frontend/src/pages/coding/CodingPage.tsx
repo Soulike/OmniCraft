@@ -20,6 +20,8 @@ import {
 import {ROUTES} from '@/routes.js';
 
 import {CodingPageView} from './CodingPageView.js';
+import {NewSessionModal} from './components/NewSessionModal/index.js';
+import {useNewSessionModal} from './hooks/useNewSessionModal.js';
 
 /** Coding page container. Wraps content in providers. */
 export function CodingPage() {
@@ -47,16 +49,15 @@ function CodingPageContent() {
     sessionId,
     createNewSessionIdError,
     createNewSessionId,
-    clearSessionId,
     clearCreateNewSessionIdError,
   } = useSessionId();
 
   const handleAskUserSubmit = useAskUserSubmit();
 
-  const {messageCount, onMessagesChange} = useMessageCount();
+  const {onMessagesChange} = useMessageCount();
   const {title} = useSessionTitle();
 
-  const {selectedWorkspace} = useSessionConfig();
+  const {selectedWorkspace, setSelectedWorkspace} = useSessionConfig();
 
   const {
     available: vscodeAvailable,
@@ -85,36 +86,35 @@ function CodingPageContent() {
     stopGeneration,
     clearStreamError,
     clearMaxRoundsReached,
-  } = useStreamChat({
-    sessionId,
-    createNewSessionId,
-  });
+  } = useStreamChat({sessionId, createNewSessionId});
 
   const {containerRef: scrollRef, scrollToBottom} = useAutoScroll();
 
-  const handleStartTask = useCallback(
-    async (content: string) => {
-      if (selectedWorkspace === undefined) {
-        throw new Error('Please select a workspace before starting a session.');
-      }
-      await sendMessageToNewSession(content, {
-        workspace: selectedWorkspace,
-      });
-      requestAnimationFrame(() => {
-        scrollToBottom();
-      });
+  const scrollAfterPaint = useCallback(() => {
+    requestAnimationFrame(() => {
+      scrollToBottom();
+    });
+  }, [scrollToBottom]);
+
+  const handleSessionCreated = useCallback(
+    (workspacePath: string) => {
+      setSelectedWorkspace(workspacePath);
+      scrollAfterPaint();
     },
-    [sendMessageToNewSession, scrollToBottom, selectedWorkspace],
+    [setSelectedWorkspace, scrollAfterPaint],
   );
+
+  const newSession = useNewSessionModal({
+    sendMessageToNewSession,
+    onCreated: handleSessionCreated,
+  });
 
   const handleSend = useCallback(
     async (content: string) => {
       await sendMessage(content);
-      requestAnimationFrame(() => {
-        scrollToBottom();
-      });
+      scrollAfterPaint();
     },
-    [sendMessage, scrollToBottom],
+    [sendMessage, scrollAfterPaint],
   );
 
   const displayError = createNewSessionIdError ?? streamError;
@@ -124,29 +124,31 @@ function CodingPageContent() {
     clearStreamError();
   }, [clearCreateNewSessionIdError, clearStreamError]);
 
-  const isEmpty = messageCount === 0;
-  const newSessionDisabled = (sessionId === null && isEmpty) || isStreaming;
-
   return (
-    <CodingPageView
-      title={title}
-      eventBus={eventBus}
-      isStreaming={isStreaming}
-      isReconnecting={isReconnecting}
-      error={displayError}
-      maxRoundsReached={maxRoundsReached}
-      scrollRef={scrollRef}
-      sessionId={sessionId}
-      onAskUserSubmit={handleAskUserSubmit}
-      onMessagesChange={onMessagesChange}
-      onStartTask={handleStartTask}
-      onSend={handleSend}
-      onStop={stopGeneration}
-      onNewSession={clearSessionId}
-      newSessionDisabled={newSessionDisabled}
-      vscodeUrl={vscodeUrl}
-      onDismissError={dismissError}
-      onDismissMaxRoundsReached={clearMaxRoundsReached}
-    />
+    <>
+      <CodingPageView
+        title={title}
+        eventBus={eventBus}
+        isStreaming={isStreaming}
+        isReconnecting={isReconnecting}
+        error={displayError}
+        maxRoundsReached={maxRoundsReached}
+        scrollRef={scrollRef}
+        sessionId={sessionId}
+        onAskUserSubmit={handleAskUserSubmit}
+        onMessagesChange={onMessagesChange}
+        onSend={handleSend}
+        onStop={stopGeneration}
+        onNewSession={newSession.open}
+        vscodeUrl={vscodeUrl}
+        onDismissError={dismissError}
+        onDismissMaxRoundsReached={clearMaxRoundsReached}
+      />
+      <NewSessionModal
+        workspace={newSession.workspace}
+        onClose={newSession.close}
+        onSubmit={newSession.submit}
+      />
+    </>
   );
 }
