@@ -1,0 +1,59 @@
+.dialog {
+  width: min(420px, 100%);
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.wsCard {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 9px 11px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+}
+
+.wsIcon {
+  flex: 0 0 auto;
+  color: var(--accent);
+}
+
+.wsText {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.wsName {
+  font-weight: 600;
+  font-size: 0.875rem;
+}
+
+.wsPath {
+  font-size: 0.72rem;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.taskInput {
+  resize: vertical;
+}
+
+.fieldError {
+  margin: 0;
+  color: var(--danger);
+  font-size: 0.8125rem;
+}

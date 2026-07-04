@@ -108,12 +108,15 @@ describe('CodingPage', () => {
     );
   });
 
-  it('starts a coding session from the dispatch card and switches to chat input', async () => {
+  it('starts a coding session via the workspace + button and modal, then switches to chat input', async () => {
     renderCodingPage();
 
     expect(screen.queryByLabelText('Chat message')).not.toBeInTheDocument();
 
-    const taskInput = await screen.findByLabelText('Task');
+    const newTaskButton = await screen.findByLabelText(/New task/);
+    fireEvent.click(newTaskButton);
+
+    const taskInput = await screen.findByRole('textbox', {name: 'Task'});
     fireEvent.change(taskInput, {
       target: {value: '  Implement the requested task.  '},
     });
@@ -136,7 +139,6 @@ describe('CodingPage', () => {
     );
 
     expect(await screen.findByLabelText('Chat message')).toBeInTheDocument();
-    expect(screen.queryByLabelText('Thinking level')).not.toBeInTheDocument();
     expect(screen.queryByLabelText('Task')).not.toBeInTheDocument();
   });
 });

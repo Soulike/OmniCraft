@@ -5,6 +5,7 @@ interface SessionConfigContextValue {
   readonly workspaces: readonly Workspace[];
   readonly isLoading: boolean;
   readonly loadError: unknown;
+  readonly reload: () => Promise<void>;
   readonly selectedWorkspace: string | undefined;
   readonly setSelectedWorkspace: (workspace: string | undefined) => void;
 }

@@ -30,3 +30,11 @@
   height: 100%;
   padding: 16px;
 }
+
+.emptyHint {
+  margin: 0;
+  max-width: 32rem;
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
