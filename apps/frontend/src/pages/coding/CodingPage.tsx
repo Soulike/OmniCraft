@@ -57,7 +57,7 @@ function CodingPageContent() {
   const {onMessagesChange} = useMessageCount();
   const {title} = useSessionTitle();
 
-  const {selectedWorkspace, setSelectedWorkspace} = useSessionConfig();
+  const {selectedWorkspace} = useSessionConfig();
 
   const {
     available: vscodeAvailable,
@@ -96,17 +96,11 @@ function CodingPageContent() {
     });
   }, [scrollToBottom]);
 
-  const handleSessionCreated = useCallback(
-    (workspacePath: string) => {
-      setSelectedWorkspace(workspacePath);
-      scrollAfterPaint();
-    },
-    [setSelectedWorkspace, scrollAfterPaint],
-  );
-
+  // The active workspace is derived from the session inside the sidebar
+  // (useSyncSelectedWorkspace); creating a session only needs to scroll.
   const newSession = useNewSessionModal({
     sendMessageToNewSession,
-    onCreated: handleSessionCreated,
+    onCreated: scrollAfterPaint,
   });
 
   const handleSend = useCallback(

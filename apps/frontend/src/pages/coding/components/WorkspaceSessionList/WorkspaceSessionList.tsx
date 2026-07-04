@@ -11,6 +11,7 @@ import {
 } from './helpers/group-key.js';
 import {useAllCodingSessions} from './hooks/useAllCodingSessions.js';
 import {useExpandedGroups} from './hooks/useExpandedGroups.js';
+import {useSyncSelectedWorkspace} from './hooks/useSyncSelectedWorkspace.js';
 import {useWorkspaceGroups} from './hooks/useWorkspaceGroups.js';
 import type {WorkspaceGroupEntry} from './WorkspaceSessionListView.js';
 import {WorkspaceSessionListView} from './WorkspaceSessionListView.js';
@@ -38,6 +39,8 @@ export function WorkspaceSessionList({
   } = useAllCodingSessions();
   const {sessionId, buildSessionRoute, baseRoute} = useSessionId();
   const navigate = useNavigate();
+
+  useSyncSelectedWorkspace(sessions, sessionId, setSelectedWorkspace);
 
   const groups = useWorkspaceGroups(workspaces, sessions);
 
@@ -80,15 +83,11 @@ export function WorkspaceSessionList({
 
   const handleSelectSession = useCallback(
     (id: string) => {
-      // Keep the active workspace in sync so the title-bar VSCode link points
-      // at the selected session's directory, not only at freshly created ones.
-      const selected = sessions.find((s) => s.id === id);
-      setSelectedWorkspace(selected?.workingDirectory);
       if (id !== sessionId) {
         void navigate(buildSessionRoute(id));
       }
     },
-    [sessions, setSelectedWorkspace, navigate, sessionId, buildSessionRoute],
+    [navigate, sessionId, buildSessionRoute],
   );
 
   const handleDeleteSession = useCallback(

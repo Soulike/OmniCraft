@@ -11,7 +11,8 @@ interface UseNewSessionModalOptions {
   ) => Promise<string | null>;
   /**
    * Called after a session is successfully created in the given workspace —
-   * e.g. to record it as the active workspace for the VSCode link and to scroll.
+   * e.g. to scroll once the new session appears. The active workspace itself is
+   * derived from the session elsewhere, so this need not record it.
    */
   readonly onCreated?: (workspacePath: string) => void;
 }
