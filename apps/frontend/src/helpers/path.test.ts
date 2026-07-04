@@ -18,6 +18,12 @@ describe('stripTrailingSlash', () => {
   it('preserves the root path', () => {
     expect(stripTrailingSlash('/')).toBe('/');
   });
+
+  it('strips a trailing Windows separator', () => {
+    expect(stripTrailingSlash('C:\\Users\\me\\proj\\')).toBe(
+      'C:\\Users\\me\\proj',
+    );
+  });
 });
 
 describe('basename', () => {
@@ -27,6 +33,11 @@ describe('basename', () => {
 
   it('ignores trailing slashes', () => {
     expect(basename('/a/b//')).toBe('b');
+  });
+
+  it('handles Windows-style separators', () => {
+    expect(basename('C:\\Users\\me\\proj')).toBe('proj');
+    expect(basename('C:\\Users\\me\\proj\\')).toBe('proj');
   });
 
   it('falls back to the full path when there is no segment', () => {
