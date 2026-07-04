@@ -1,5 +1,5 @@
 import type {SessionMetadata} from '@omnicraft/api-schema';
-import {useCallback, useEffect, useState} from 'react';
+import {useCallback, useEffect, useRef, useState} from 'react';
 
 import {
   useChatEventBus,
@@ -18,7 +18,13 @@ interface UseAllCodingSessionsResult {
   readonly sessions: readonly SessionMetadata[];
   readonly isLoading: boolean;
   readonly error: string | null;
-  readonly reload: () => Promise<void>;
+  /**
+   * Re-fetch the session list. Pass `background: false` for a user-initiated
+   * load (e.g. Retry) to show the loading spinner; `background: true` for a
+   * silent refresh (event-driven / post-delete) that must not flash a spinner
+   * over the visible list.
+   */
+  readonly reload: (background: boolean) => Promise<void>;
   readonly removeSession: (id: string) => Promise<void>;
 }
 
@@ -34,25 +40,44 @@ export function useAllCodingSessions(): UseAllCodingSessionsResult {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const reload = useCallback(async () => {
-    try {
-      const result = await listSessions(0, FETCH_ALL_LIMIT);
-      setSessions(result.sessions);
-      setError(null);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load sessions');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [listSessions]);
+  // Bumped on every reload; a response is applied only if its generation is
+  // still current, so a slow earlier load can't overwrite a newer refresh.
+  const generationRef = useRef(0);
+
+  const reload = useCallback(
+    async (background: boolean) => {
+      const generation = (generationRef.current += 1);
+      if (!background) {
+        setIsLoading(true);
+      }
+      try {
+        const result = await listSessions(0, FETCH_ALL_LIMIT);
+        if (generation !== generationRef.current) {
+          return;
+        }
+        setSessions(result.sessions);
+        setError(null);
+      } catch (e) {
+        if (generation !== generationRef.current) {
+          return;
+        }
+        setError(e instanceof Error ? e.message : 'Failed to load sessions');
+      } finally {
+        if (generation === generationRef.current) {
+          setIsLoading(false);
+        }
+      }
+    },
+    [listSessions],
+  );
 
   useEffect(() => {
-    void reload();
+    void reload(false);
   }, [reload]);
 
   useEffect(() => {
     const onRefresh = () => {
-      void reload();
+      void reload(true);
     };
     eventBus.on('session-created', onRefresh);
     eventBus.on('session-title', onRefresh);
@@ -65,7 +90,7 @@ export function useAllCodingSessions(): UseAllCodingSessionsResult {
   const removeSession = useCallback(
     async (id: string) => {
       await deleteSession(id);
-      await reload();
+      await reload(true);
     },
     [deleteSession, reload],
   );

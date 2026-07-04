@@ -117,7 +117,7 @@ export function WorkspaceSessionList({
       sessionsFailed={sessionsError !== null}
       currentSessionId={sessionId}
       onReloadWorkspaces={() => void reloadWorkspaces()}
-      onReloadSessions={() => void reloadSessions()}
+      onReloadSessions={() => void reloadSessions(false)}
       onToggle={toggleGroup}
       onSelectSession={handleSelectSession}
       onDeleteSession={handleDeleteSession}
