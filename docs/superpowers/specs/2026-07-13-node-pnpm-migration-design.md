@@ -33,18 +33,17 @@ delete `bun.lock`.
 
 ## Runtime Commands
 
-Use Node.js as the explicit process runtime for TypeScript entry points:
+Use the locally installed `tsx` development dependency to launch TypeScript
+entry points on Node.js:
 
-- Backend development runs Node watch mode with `tsx` registered as an import
-  hook.
-- Backend production start runs Node with the same `tsx` hook but without watch
-  mode.
+- Backend development runs `tsx watch`.
+- Backend production start runs `tsx` without watch mode.
 - Both backend commands use Node's `--env-file-if-exists=.env`, retaining Bun's
   previous optional `.env` loading behavior.
-- Root repository tooling and AI-review TypeScript scripts run through
-  `node --import tsx`.
+- Root package scripts invoke the local `tsx` binary directly. GitHub workflow
+  steps outside package scripts use `pnpm exec tsx`.
 
-The `tsx` hook is required because the backend currently uses TypeScript path
+The `tsx` launcher is required because the backend currently uses TypeScript path
 aliases and `.js` import specifiers that resolve to `.ts` sources during
 development. Node's native type stripping does not implement the TypeScript
 path mapping needed by this codebase. The executing runtime remains Node.js;

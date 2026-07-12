@@ -4,7 +4,7 @@
 
 **Goal:** Replace Bun with Node.js 24 or newer and PNPM `^11.12.0` across local development, runtime scripts, hooks, and GitHub automation.
 
-**Architecture:** PNPM owns workspace discovery, catalogs, dependency installation, and lockfile state. Node.js executes backend and repository TypeScript entry points with `tsx` as an import hook, preserving the current source-first workflow, `.js` import specifiers, and TypeScript path aliases.
+**Architecture:** PNPM owns workspace discovery, catalogs, dependency installation, and lockfile state. The locally installed `tsx` development dependency launches backend and repository TypeScript entry points on Node.js, preserving the current source-first workflow, `.js` import specifiers, and TypeScript path aliases.
 
 **Tech Stack:** Node.js 24+, PNPM 11.12+, TypeScript, tsx, GitHub Actions, Husky, Vitest, Vite.
 
@@ -143,7 +143,7 @@ Run:
 node apps/backend/src/startup/init-services.ts
 ```
 
-Expected: FAIL resolving TypeScript source imports or the backend `@/` alias. This proves the Node runtime needs the `tsx` import hook for the existing source layout.
+Expected: FAIL resolving TypeScript source imports or the backend `@/` alias. This proves the Node runtime needs the local `tsx` launcher for the existing source layout.
 
 - [ ] **Step 2: Convert root orchestration scripts**
 
@@ -152,7 +152,7 @@ Replace the Bun-dependent root scripts in `package.json` with:
 ```json
 "lint:all": "pnpm --recursive --if-present run lint",
 "typecheck:all": "pnpm --recursive --if-present run typecheck",
-"dev": "node --import tsx scripts/src/with-free-ports.ts pnpm --filter './apps/*' --parallel run dev",
+"dev": "tsx scripts/src/with-free-ports.ts pnpm --filter './apps/*' --parallel run dev",
 "build:frontend": "pnpm --filter '@omnicraft/frontend' run build",
 "start": "pnpm run build:frontend && pnpm --filter '@omnicraft/backend' run start"
 ```
@@ -162,8 +162,8 @@ Replace the Bun-dependent root scripts in `package.json` with:
 Replace the backend `dev` and `start` scripts in `apps/backend/package.json` with:
 
 ```json
-"dev": "NODE_ENV=development node --watch --import tsx --env-file-if-exists=.env src/index.ts",
-"start": "NODE_ENV=production node --import tsx --env-file-if-exists=.env src/index.ts"
+"dev": "NODE_ENV=development tsx watch --env-file-if-exists=.env src/index.ts",
+"start": "NODE_ENV=production tsx --env-file-if-exists=.env src/index.ts"
 ```
 
 - [ ] **Step 4: Prove Node can resolve backend source imports**
@@ -171,7 +171,7 @@ Replace the backend `dev` and `start` scripts in `apps/backend/package.json` wit
 Run:
 
 ```bash
-pnpm --filter '@omnicraft/backend' exec node --import tsx --input-type=module -e "await import('./src/startup/init-services.ts')"
+pnpm --filter '@omnicraft/backend' exec tsx src/startup/init-services.ts
 ```
 
 Expected: PASS with exit code 0 and no module-resolution error.
@@ -383,11 +383,11 @@ Use these commands for the CI steps:
 In `.github/workflows/ai-review.yml`, make these replacements:
 
 ```yaml
-run: node --import tsx scripts/src/ai-review/check-config.ts
-run: node --import tsx scripts/src/ai-review/resolve-range.ts
+run: pnpm exec tsx scripts/src/ai-review/check-config.ts
+run: pnpm exec tsx scripts/src/ai-review/resolve-range.ts
 run: pnpm install --frozen-lockfile
-run: node --import tsx scripts/src/ai-review/read-verdict.ts
-run: node --import tsx scripts/src/ai-review/gate.ts
+run: pnpm exec tsx scripts/src/ai-review/read-verdict.ts
+run: pnpm exec tsx scripts/src/ai-review/gate.ts
 ```
 
 Keep each replacement in the existing step and preserve all existing IDs, working directories, and environment variables.
