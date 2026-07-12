@@ -3,14 +3,17 @@
 ## Goal
 
 Replace Bun as OmniCraft's runtime and package manager with Node.js 24 or newer
-and PNPM 11.12.0, while preserving the existing TypeScript source-first
+and PNPM 11.12.0 or a compatible PNPM 11 release, while preserving the existing TypeScript source-first
 development workflow and application behavior.
 
 ## Version Policy
 
 - Declare `engines.node` as `>=24` in the root package manifest.
-- Pin `packageManager` to PNPM 11.12.0 so Corepack and supporting tools select a
-  deterministic package-manager version.
+- Declare `devEngines.packageManager` with PNPM version `^11.12.0` and
+  `onFail: "download"`. PNPM 11 supports version ranges through this field; it
+  resolves the range to an exact package-manager version stored in
+  `pnpm-lock.yaml` under `packageManagerDependencies` and reuses that version
+  while it satisfies the range.
 - Run CI on Node.js 24 so the minimum supported major is continuously tested.
 
 ## Workspace and Dependency Management
@@ -56,7 +59,8 @@ Change Husky hooks to invoke local binaries with `pnpm exec`.
 
 Replace the shared GitHub setup action with this sequence:
 
-1. Install the pinned PNPM release from the root package manifest.
+1. Bootstrap PNPM 11.12.0, which satisfies the repository's declared PNPM
+   range.
 2. Install Node.js 24 and enable PNPM store caching through `actions/setup-node`.
 3. Run `pnpm install --frozen-lockfile`.
 
