@@ -10,10 +10,12 @@ development workflow and application behavior.
 
 - Declare `engines.node` as `>=24` in the root package manifest.
 - Declare `devEngines.packageManager` with PNPM version `^11.12.0` and
-  `onFail: "download"`. PNPM 11 supports version ranges through this field; it
+  `onFail: "error"`. PNPM 11 supports version ranges through this field; it
   resolves the range to an exact package-manager version stored in
   `pnpm-lock.yaml` under `packageManagerDependencies` and reuses that version
-  while it satisfies the range.
+  while it satisfies the range. A missing or incompatible PNPM installation is
+  an explicit setup error; the repository does not automatically download a
+  different package-manager executable.
 - Run CI on Node.js 24 so the minimum supported major is continuously tested.
 
 ## Workspace and Dependency Management
