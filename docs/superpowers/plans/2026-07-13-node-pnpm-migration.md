@@ -4,7 +4,7 @@
 
 **Goal:** Replace Bun with Node.js 24 or newer and PNPM `^11.12.0` across local development, runtime scripts, hooks, and GitHub automation.
 
-**Architecture:** PNPM owns workspace discovery, catalogs, dependency installation, and lockfile state. The locally installed `tsx` development dependency launches backend and repository TypeScript entry points on Node.js, preserving the current source-first workflow, `.js` import specifiers, and TypeScript path aliases.
+**Architecture:** PNPM owns workspace discovery, catalogs, dependency installation, and lockfile state. Node.js 24 natively strips erasable types from repository scripts and their source-level workspace dependencies; the backend alone uses the local `tsx` development dependency to preserve its existing `.js` import specifiers and TypeScript path aliases.
 
 **Tech Stack:** Node.js 24+, PNPM 11.12+, TypeScript, tsx, GitHub Actions, Husky, Vitest, Vite.
 
@@ -15,8 +15,10 @@
 - Create `pnpm-workspace.yaml`: PNPM workspace globs and shared dependency catalog.
 - Create `pnpm-lock.yaml`: generated PNPM dependency and package-manager resolution.
 - Delete `bun.lock`: obsolete Bun dependency lock.
-- Modify `package.json`: version policy, PNPM orchestration, and root `tsx` dependency.
+- Modify `package.json`: version policy and PNPM/Node orchestration.
 - Modify `apps/backend/package.json`: Node runtime commands and backend `tsx` dependency.
+- Modify `scripts/tsconfig.json`, `packages/free-ports/tsconfig.json`, and `packages/ai-review-core/tsconfig.json`: enforce Node-erasable TypeScript and permit explicit `.ts` imports.
+- Modify relative imports under `scripts/src`, `packages/free-ports/src`, and `packages/ai-review-core/src`: make native Node source resolution explicit.
 - Modify `.github/actions/setup/action.yml`: deterministic Node/PNPM setup and store caching.
 - Modify `.github/actions/run-review-pass/action.yml`: PNPM install for checked-out PR heads.
 - Modify `.github/workflows/ci.yml`: PNPM change detection and verification commands.
@@ -91,11 +93,10 @@ In `package.json`:
 Run:
 
 ```bash
-pnpm add --save-dev --workspace-root --save-catalog tsx
 pnpm --filter '@omnicraft/backend' add --save-dev --save-catalog tsx
 ```
 
-Expected: `tsx` is added as `"catalog:"` in both root and backend `devDependencies`, and its resolved range is added once to the default catalog in `pnpm-workspace.yaml`. Do not manually type the registry version.
+Expected: `tsx` is added as `"catalog:"` only in backend `devDependencies`, and its resolved range is added to the default catalog in `pnpm-workspace.yaml`. Do not manually type the registry version.
 
 - [ ] **Step 5: Replace the lockfile**
 
@@ -116,7 +117,7 @@ Run:
 ```bash
 pnpm --version
 node --version
-pnpm exec tsx --version
+pnpm --filter '@omnicraft/backend' exec tsx --version
 ```
 
 Expected: PNPM reports a version in `>=11.12.0 <12.0.0`, Node reports 24 or newer, and `tsx` reports its installed version.
@@ -128,36 +129,88 @@ git add package.json apps/backend/package.json pnpm-workspace.yaml pnpm-lock.yam
 git commit -m "build: migrate workspace dependencies to PNPM"
 ```
 
-### Task 2: Run repository and backend TypeScript with Node.js
+### Task 2: Run repository scripts natively and backend TypeScript with Node.js
 
 **Files:**
 
 - Modify: `package.json`
 - Modify: `apps/backend/package.json`
+- Modify: `scripts/tsconfig.json`
+- Modify: `packages/free-ports/tsconfig.json`
+- Modify: `packages/ai-review-core/tsconfig.json`
+- Modify: TypeScript imports under `scripts/src`, `packages/free-ports/src`, and `packages/ai-review-core/src`
 
-- [ ] **Step 1: Demonstrate why plain Node is insufficient**
+- [ ] **Step 1: Reproduce native Node's import-resolution failure**
 
 Run:
 
 ```bash
-node apps/backend/src/startup/init-services.ts
+npx --yes node@24.18.0 scripts/src/with-free-ports.ts
 ```
 
-Expected: FAIL resolving TypeScript source imports or the backend `@/` alias. This proves the Node runtime needs the local `tsx` launcher for the existing source layout.
+Expected: FAIL with `ERR_MODULE_NOT_FOUND` for `packages/free-ports/src/free-ports.js`. Node strips the TypeScript syntax but does not reinterpret a `.js` specifier as a `.ts` source file.
 
-- [ ] **Step 2: Convert root orchestration scripts**
+- [ ] **Step 2: Enforce erasable syntax and explicit TypeScript imports**
+
+Add these options inside `compilerOptions` in `scripts/tsconfig.json`, `packages/free-ports/tsconfig.json`, and `packages/ai-review-core/tsconfig.json`:
+
+```json
+"allowImportingTsExtensions": true,
+"erasableSyntaxOnly": true,
+```
+
+These projects typecheck with `tsc --noEmit`, satisfying the TypeScript requirement for `allowImportingTsExtensions`.
+
+- [ ] **Step 3: Make native source resolution explicit**
+
+In every TypeScript file under these three source trees, change relative import and export specifier suffixes from `.js` to `.ts`:
+
+```text
+scripts/src/**/*.ts
+packages/free-ports/src/**/*.ts
+packages/ai-review-core/src/**/*.ts
+```
+
+Apply this exact transformation to both runtime files and tests:
+
+```typescript
+import {value} from './module.js';
+export {value} from './module.js';
+```
+
+becomes:
+
+```typescript
+import {value} from './module.ts';
+export {value} from './module.ts';
+```
+
+Do not change package imports such as `@omnicraft/free-ports` or external dependencies.
+
+- [ ] **Step 4: Prove scripts execute directly on Node 24**
+
+Run:
+
+```bash
+npx --yes node@24.18.0 scripts/src/with-free-ports.ts
+COPILOT_CLI_TOKEN='' npx --yes node@24.18.0 scripts/src/ai-review/check-config.ts
+```
+
+Expected: the first command reaches the script's own `Usage: with-free-ports` validation and the second reaches its own missing-secret error. Neither command reports a TypeScript syntax or module-resolution error.
+
+- [ ] **Step 5: Convert root orchestration scripts**
 
 Replace the Bun-dependent root scripts in `package.json` with:
 
 ```json
 "lint:all": "pnpm --recursive --if-present run lint",
 "typecheck:all": "pnpm --recursive --if-present run typecheck",
-"dev": "tsx scripts/src/with-free-ports.ts pnpm --filter './apps/*' --parallel run dev",
+"dev": "node scripts/src/with-free-ports.ts pnpm --filter './apps/*' --parallel run dev",
 "build:frontend": "pnpm --filter '@omnicraft/frontend' run build",
 "start": "pnpm run build:frontend && pnpm --filter '@omnicraft/backend' run start"
 ```
 
-- [ ] **Step 3: Convert backend runtime scripts**
+- [ ] **Step 6: Convert backend runtime scripts**
 
 Replace the backend `dev` and `start` scripts in `apps/backend/package.json` with:
 
@@ -166,7 +219,7 @@ Replace the backend `dev` and `start` scripts in `apps/backend/package.json` wit
 "start": "NODE_ENV=production tsx --env-file-if-exists=.env src/index.ts"
 ```
 
-- [ ] **Step 4: Prove Node can resolve backend source imports**
+- [ ] **Step 7: Prove the backend launcher resolves existing source imports**
 
 Run:
 
@@ -176,7 +229,7 @@ pnpm --filter '@omnicraft/backend' exec tsx src/startup/init-services.ts
 
 Expected: PASS with exit code 0 and no module-resolution error.
 
-- [ ] **Step 5: Prove PNPM workspace orchestration works**
+- [ ] **Step 8: Prove PNPM workspace orchestration works**
 
 Run:
 
@@ -187,10 +240,10 @@ pnpm typecheck:all
 
 Expected: all workspaces with the corresponding script pass; packages without a script are skipped.
 
-- [ ] **Step 6: Commit runtime scripts**
+- [ ] **Step 9: Commit runtime scripts and native imports**
 
 ```bash
-git add package.json apps/backend/package.json
+git add package.json apps/backend/package.json scripts/tsconfig.json scripts/src packages/free-ports/tsconfig.json packages/free-ports/src packages/ai-review-core/tsconfig.json packages/ai-review-core/src
 git commit -m "build: run TypeScript workloads on Node.js"
 ```
 
@@ -383,11 +436,11 @@ Use these commands for the CI steps:
 In `.github/workflows/ai-review.yml`, make these replacements:
 
 ```yaml
-run: pnpm exec tsx scripts/src/ai-review/check-config.ts
-run: pnpm exec tsx scripts/src/ai-review/resolve-range.ts
+run: node scripts/src/ai-review/check-config.ts
+run: node scripts/src/ai-review/resolve-range.ts
 run: pnpm install --frozen-lockfile
-run: pnpm exec tsx scripts/src/ai-review/read-verdict.ts
-run: pnpm exec tsx scripts/src/ai-review/gate.ts
+run: node scripts/src/ai-review/read-verdict.ts
+run: node scripts/src/ai-review/gate.ts
 ```
 
 Keep each replacement in the existing step and preserve all existing IDs, working directories, and environment variables.

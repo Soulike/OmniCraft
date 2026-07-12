@@ -27,27 +27,33 @@ file. Remove the root `workspaces` and `catalog` fields because PNPM reads both
 concerns from `pnpm-workspace.yaml`.
 
 Remove `@types/bun`; runtime source already follows the repository convention of
-using Node.js APIs. Add `tsx` as a catalogued development dependency where
-TypeScript entry points are executed. Generate and commit `pnpm-lock.yaml`, and
-delete `bun.lock`.
+using Node.js APIs. Add `tsx` as a catalogued backend development dependency.
+Generate and commit `pnpm-lock.yaml`, and delete `bun.lock`.
 
 ## Runtime Commands
 
-Use the locally installed `tsx` development dependency to launch TypeScript
-entry points on Node.js:
+Use Node.js 24's native type stripping for repository scripts:
+
+- Add `erasableSyntaxOnly` and `allowImportingTsExtensions` to the `scripts`,
+  `free-ports`, and `ai-review-core` TypeScript configurations.
+- Change relative imports in those source trees from `.js` to `.ts`, allowing
+  Node to resolve the source files without a loader.
+- Root package scripts and AI-review workflow steps run their `.ts` entry points
+  directly with `node`.
+
+The backend remains source-run through its locally installed `tsx` development
+dependency:
 
 - Backend development runs `tsx watch`.
 - Backend production start runs `tsx` without watch mode.
 - Both backend commands use Node's `--env-file-if-exists=.env`, retaining Bun's
   previous optional `.env` loading behavior.
-- Root package scripts invoke the local `tsx` binary directly. GitHub workflow
-  steps outside package scripts use `pnpm exec tsx`.
 
-The `tsx` launcher is required because the backend currently uses TypeScript path
-aliases and `.js` import specifiers that resolve to `.ts` sources during
-development. Node's native type stripping does not implement the TypeScript
-path mapping needed by this codebase. The executing runtime remains Node.js;
-`tsx` only supplies TypeScript transformation and resolution.
+The `tsx` launcher remains necessary for the backend because it uses TypeScript
+path aliases and hundreds of `.js` import specifiers that resolve to `.ts`
+sources during development. Node's native type stripping does not implement
+that TypeScript resolution behavior. The executing runtime remains Node.js;
+`tsx` only supplies backend TypeScript transformation and resolution.
 
 Convert workspace script orchestration to PNPM commands. The root development
 command continues to allocate distinct ports first, then starts both app
