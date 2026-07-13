@@ -1,9 +1,10 @@
 ## OmniCraft Backend
 
-- Runtime: Bun
+- Runtime: Node.js with `tsx` for source TypeScript execution
 - Framework: Koa + @koa/router
 - Logger: Pino (with koa-pino-logger middleware; use `ctx.log` in requests, `logger` from `@/logger.js` elsewhere)
-- Config: `.env` (Bun auto-loads; see `.env.example` for available variables)
+- Config: `.env` loaded when present through Node.js
+  `--env-file-if-exists=.env`; see `.env.example` for available variables
 
 ## Project Structure
 

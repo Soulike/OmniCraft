@@ -18,7 +18,7 @@ cp apps/backend/.env.example apps/backend/.env
 Run from the repo root to start both frontend and backend:
 
 ```bash
-bun run dev
+pnpm dev
 ```
 
 - Frontend: http://localhost:5173/
@@ -26,6 +26,7 @@ bun run dev
 
 ## Notes
 
-- The root `dev` script runs `bun run --filter './apps/*' dev`, starting all apps in parallel.
+- The root `dev` script allocates free ports, then runs
+  `pnpm --filter './apps/*' --parallel run dev` to start all apps in parallel.
 - Frontend dev server (Vite) proxies API requests to the backend.
 - Do not start frontend alone unless explicitly asked — always use the root command.
