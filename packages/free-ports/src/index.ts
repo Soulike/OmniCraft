@@ -1,1 +1,1 @@
-export {getFreePorts} from './free-ports.js';
+export {getFreePorts} from './free-ports.ts';

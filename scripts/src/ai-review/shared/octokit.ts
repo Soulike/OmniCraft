@@ -1,7 +1,7 @@
 import {Octokit} from '@octokit/rest';
 
-import {requireEnv} from './gha.js';
-import {requireRepo} from './validate.js';
+import {requireEnv} from './gha.ts';
+import {requireRepo} from './validate.ts';
 
 /** An authenticated Octokit client plus the parsed `owner`/`repo` it targets. */
 export interface GitHubClient {

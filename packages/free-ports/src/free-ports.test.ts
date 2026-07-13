@@ -2,7 +2,7 @@ import net from 'node:net';
 
 import {describe, expect, it} from 'vitest';
 
-import {getFreePorts} from './free-ports.js';
+import {getFreePorts} from './free-ports.ts';
 
 function canBind(port: number): Promise<void> {
   return new Promise((resolve, reject) => {

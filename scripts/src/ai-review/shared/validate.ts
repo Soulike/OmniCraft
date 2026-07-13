@@ -1,4 +1,4 @@
-import {fail} from './gha.js';
+import {fail} from './gha.ts';
 
 const REPO_PATTERN = /^[a-zA-Z0-9_.-]+\/[a-zA-Z0-9_.-]+$/;
 const SHA_PATTERN = /^[0-9a-fA-F]{7,64}$/;

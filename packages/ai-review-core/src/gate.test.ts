@@ -1,6 +1,6 @@
 import {describe, expect, it} from 'vitest';
 
-import {decideGate} from './gate.js';
+import {decideGate} from './gate.ts';
 
 describe('decideGate', () => {
   it('approves and labels AI Approved when verdict is approved', () => {
