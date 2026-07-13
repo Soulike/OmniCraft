@@ -29,14 +29,16 @@ jobs:
               - packages/**
               - configs/**
               - .github/**
-              - bun.lock
+              - pnpm-lock.yaml
+              - pnpm-workspace.yaml
               - package.json
             frontend:
               - apps/frontend/**
               - packages/**
               - configs/**
               - .github/**
-              - bun.lock
+              - pnpm-lock.yaml
+              - pnpm-workspace.yaml
               - package.json
 
   lint-format:
@@ -47,10 +49,10 @@ jobs:
       - uses: ./.github/actions/setup
 
       - name: Format check
-        run: bun run format:check
+        run: pnpm format:check
 
       - name: Lint all workspaces
-        run: bun run lint:all
+        run: pnpm lint:all
 
   typecheck:
     name: Typecheck
@@ -60,7 +62,7 @@ jobs:
       - uses: ./.github/actions/setup
 
       - name: Typecheck all workspaces
-        run: bun run typecheck:all
+        run: pnpm typecheck:all
 
   backend:
     name: Backend
@@ -72,10 +74,10 @@ jobs:
       - uses: ./.github/actions/setup
 
       - name: Typecheck
-        run: bun run --filter '@omnicraft/backend' typecheck
+        run: pnpm --filter '@omnicraft/backend' typecheck
 
       - name: Test
-        run: bun run --filter '@omnicraft/backend' test
+        run: pnpm --filter '@omnicraft/backend' test
 
   frontend:
     name: Frontend
@@ -87,10 +89,10 @@ jobs:
       - uses: ./.github/actions/setup
 
       - name: Typecheck & Build
-        run: bun run --filter '@omnicraft/frontend' build
+        run: pnpm --filter '@omnicraft/frontend' build
 
       - name: Test
-        run: bun run --filter '@omnicraft/frontend' test
+        run: pnpm --filter '@omnicraft/frontend' test
 
   result:
     name: CI Result
