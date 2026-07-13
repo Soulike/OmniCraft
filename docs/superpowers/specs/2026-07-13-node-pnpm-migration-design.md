@@ -27,8 +27,10 @@ file. Remove the root `workspaces` and `catalog` fields because PNPM reads both
 concerns from `pnpm-workspace.yaml`.
 
 Remove `@types/bun`; runtime source already follows the repository convention of
-using Node.js APIs. Add `tsx` as a catalogued backend development dependency.
-Generate and commit `pnpm-lock.yaml`, and delete `bun.lock`.
+using Node.js APIs. Add `tsx` and `@config/typescript` as backend runtime
+dependencies because production start executes TypeScript source and loads the
+extended backend TypeScript configuration. Generate and commit
+`pnpm-lock.yaml`, and delete `bun.lock`.
 
 ## Runtime Commands
 
@@ -41,8 +43,7 @@ Use Node.js 24's native type stripping for repository scripts:
 - Root package scripts and AI-review workflow steps run their `.ts` entry points
   directly with `node`.
 
-The backend remains source-run through its locally installed `tsx` development
-dependency:
+The backend remains source-run through its locally installed `tsx` dependency:
 
 - Backend development runs `tsx watch`.
 - Backend production start runs `tsx` without watch mode.
