@@ -1,4 +1,4 @@
-import type {ReviewMarker, Verdict} from './marker.js';
+import type {ReviewMarker, Verdict} from './marker.ts';
 
 /** Inputs to {@link resolveReviewRange}; all side effects resolved upstream. */
 export interface ResolveRangeInput {

@@ -29,7 +29,7 @@ jobs:
       - uses: ./.github/actions/setup
       - name: Check config
         id: check
-        run: bun scripts/src/ai-review/check-config.ts
+        run: node scripts/src/ai-review/check-config.ts
         env:
           COPILOT_CLI_TOKEN: ${{ secrets.COPILOT_CLI_TOKEN }}
 
@@ -50,7 +50,7 @@ jobs:
       - uses: ./.github/actions/setup
       - name: Resolve range
         id: range
-        run: bun scripts/src/ai-review/resolve-range.ts
+        run: node scripts/src/ai-review/resolve-range.ts
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
@@ -135,7 +135,7 @@ jobs:
         env:
           BASE_REF: ${{ github.event.pull_request.base.ref }}
       - name: Install deps in pr-head
-        run: bun install --frozen-lockfile
+        run: pnpm install --frozen-lockfile
         working-directory: pr-head
       - name: Install Copilot CLI
         run: npm install -g @github/copilot
@@ -185,14 +185,14 @@ jobs:
       - name: Read posted verdict
         id: verdict
         if: needs.prepare.outputs.has_changes == 'true' && needs.confirm.result == 'success'
-        run: bun scripts/src/ai-review/read-verdict.ts
+        run: node scripts/src/ai-review/read-verdict.ts
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           PR_NUMBER: ${{ needs.prepare.outputs.pr_number }}
           HEAD_SHA: ${{ needs.prepare.outputs.head_sha }}
       - name: Decide gate
-        run: bun scripts/src/ai-review/gate.ts
+        run: node scripts/src/ai-review/gate.ts
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}

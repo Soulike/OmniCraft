@@ -1,26 +1,29 @@
 {
   "name": "omni-craft",
   "private": true,
+  "engines": {
+    "node": ">=24"
+  },
+  "devEngines": {
+    "packageManager": {
+      "name": "pnpm",
+      "version": "^11.12.0",
+      "onFail": "error"
+    }
+  },
   "scripts": {
     "prepare": "test -d node_modules/husky && husky",
     "format": "prettier --write --ignore-unknown .",
     "format:check": "prettier --check --ignore-unknown .",
-    "lint:all": "bun run --filter '*' --if-present lint",
-    "typecheck:all": "bun run --filter '*' --if-present typecheck",
-    "dev": "bun scripts/src/with-free-ports.ts bun run --filter './apps/*' dev",
-    "build:frontend": "bun run --filter '@omnicraft/frontend' build",
-    "start": "bun run build:frontend && bun run --filter '@omnicraft/backend' start"
+    "lint:all": "pnpm --recursive --if-present run lint",
+    "typecheck:all": "pnpm --recursive --if-present run typecheck",
+    "dev": "node scripts/src/with-free-ports.ts pnpm --filter './apps/*' --parallel run dev",
+    "build:frontend": "pnpm --filter '@omnicraft/frontend' run build",
+    "start": "pnpm run build:frontend && pnpm --filter '@omnicraft/backend' run start"
   },
-  "workspaces": [
-    "apps/*",
-    "packages/*",
-    "configs/*",
-    "scripts"
-  ],
   "devDependencies": {
     "@commitlint/cli": "^21.0.2",
     "@commitlint/config-conventional": "^21.0.2",
-    "@types/bun": "^1.3.14",
     "eslint": "catalog:",
     "husky": "^9.1.7",
     "lint-staged": "^17.0.7",
@@ -37,12 +40,5 @@
     "extends": [
       "@commitlint/config-conventional"
     ]
-  },
-  "catalog": {
-    "@types/node": "^24.12.0",
-    "eslint": "^10.5.0",
-    "typescript": "^6.0.3",
-    "vitest": "^4.1.8",
-    "zod": "^4.3.6"
   }
 }

@@ -49,7 +49,7 @@ runs:
         BASE_REF: ${{ inputs.base-ref }}
     - name: Install deps in pr-head
       shell: bash
-      run: bun install --frozen-lockfile
+      run: pnpm install --frozen-lockfile
       working-directory: pr-head
     - name: Install Copilot CLI
       shell: bash

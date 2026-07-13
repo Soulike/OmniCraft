@@ -1,6 +1,6 @@
 import {describe, expect, it} from 'vitest';
 
-import {parseLatestMarker, parseMarker, renderMarker} from './marker.js';
+import {parseLatestMarker, parseMarker, renderMarker} from './marker.ts';
 
 describe('renderMarker', () => {
   it('renders the exact marker comment', () => {

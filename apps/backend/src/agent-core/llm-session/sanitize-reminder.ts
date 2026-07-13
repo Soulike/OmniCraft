@@ -13,7 +13,7 @@ import escapeHtml from 'escape-html';
  * in the content: the only real `<system-reminder>` the model sees is the
  * wrapper we add. `escape-html` is a tiny, widely-used library (already a
  * transitive dependency via Koa); the Node standard library has no HTML-escape
- * primitive and `Bun.escapeHTML` is disallowed by project convention.
+ * primitive, so the project uses the focused `escape-html` dependency.
  *
  * This also preserves content fidelity: a legitimate subject like
  * `refactor <Modal> generics` survives as `refactor &lt;Modal&gt; generics`

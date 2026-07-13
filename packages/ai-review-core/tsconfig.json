@@ -1,6 +1,8 @@
 {
   "extends": "@config/typescript/package",
   "compilerOptions": {
+    "allowImportingTsExtensions": true,
+    "erasableSyntaxOnly": true,
     "rootDir": "./src",
     "outDir": "./dist"
   }

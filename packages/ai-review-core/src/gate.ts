@@ -1,4 +1,4 @@
-import type {Verdict} from './marker.js';
+import type {Verdict} from './marker.ts';
 
 /** PR label applied by the gate. */
 export type GateLabel = 'AI Approved' | 'AI Need Change';

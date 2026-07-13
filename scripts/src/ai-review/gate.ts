@@ -1,10 +1,10 @@
 import type {Verdict} from '@omnicraft/ai-review-core';
 import {decideGate} from '@omnicraft/ai-review-core';
 
-import {applyLabel} from './labels.js';
-import {optionalEnv, requireEnv} from './shared/gha.js';
-import {createGitHubClient} from './shared/octokit.js';
-import {requirePrNumber} from './shared/validate.js';
+import {applyLabel} from './labels.ts';
+import {optionalEnv, requireEnv} from './shared/gha.ts';
+import {createGitHubClient} from './shared/octokit.ts';
+import {requirePrNumber} from './shared/validate.ts';
 
 /** A GitHub Actions job result string. */
 type JobResult = 'success' | 'failure' | 'cancelled' | 'skipped' | '';

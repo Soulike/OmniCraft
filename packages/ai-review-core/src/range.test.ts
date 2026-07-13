@@ -1,6 +1,6 @@
 import {describe, expect, it} from 'vitest';
 
-import {resolveReviewRange} from './range.js';
+import {resolveReviewRange} from './range.ts';
 
 describe('resolveReviewRange', () => {
   it('reviews on the first run (no prior marker)', () => {

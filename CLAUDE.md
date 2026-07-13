@@ -1,11 +1,6 @@
 # Development Instructions
 
-This is a Bun monorepo containing multiple types of projects.
-
-## Bun Doc
-
-Since Bun is new, you may not know its latest functionalities. You can refer
-to [latest Bun doc](https://bun.com/docs/llms.txt) if you need information.
+This is a Node.js monorepo managed with PNPM.
 
 ## Task Preparation
 
@@ -17,7 +12,7 @@ Before starting any task, you must first confirm:
 
 ## Dependencies
 
-- When adding a new npm package, always install it via the package manager (e.g., `bun add <package>`). Never manually write a version number in package.json.
+- When adding a new npm package, always install it via the package manager (e.g., `pnpm add <package>`). Never manually write a version number in package.json.
 - Never re-export a workspace package's exports from a local module (e.g., `export ... from '@omnicraft/foo'`). Import directly from the package wherever it is needed instead of routing it through a local barrel.
 
 ## Verification
@@ -26,7 +21,9 @@ Before starting any task, you must first confirm:
 
 ## Runtime APIs
 
-- Bun is used only as the package manager and runtime. In code, always use Node.js APIs (e.g., `node:fs/promises`, `node:path`). Do not use Bun-specific APIs (e.g., `Bun.file()`, `Bun.write()`).
+- Node.js is the runtime. Use Node.js APIs (for example,
+  `node:fs/promises` and `node:path`) and do not introduce APIs tied to an
+  alternative JavaScript runtime.
 
 ---
 

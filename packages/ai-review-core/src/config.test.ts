@@ -1,6 +1,6 @@
 import {describe, expect, it} from 'vitest';
 
-import {REASONING_EFFORTS, validateReviewConfig} from './config.js';
+import {REASONING_EFFORTS, validateReviewConfig} from './config.ts';
 
 function validRaw() {
   return {
