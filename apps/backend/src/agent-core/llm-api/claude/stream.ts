@@ -49,7 +49,7 @@ export async function* streamClaude(
 
   const thinking = toThinkingConfig(options.config.thinkingLevel);
   const outputConfig = toOutputConfig(options.config.thinkingLevel);
-  const maxTokens = await modelCapacity.getMaxOutputTokens(options.config);
+  const maxTokens = modelCapacity.getMaxOutputTokens(options.config);
 
   const stream = client.messages.stream(
     {

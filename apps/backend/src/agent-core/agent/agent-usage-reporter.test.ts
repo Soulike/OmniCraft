@@ -11,6 +11,8 @@ const MAIN_CONFIG: LlmConfig = {
   baseUrl: 'https://example.test',
   model: 'main-model',
   thinkingLevel: 'high',
+  maxContextTokens: 200_000,
+  maxOutputTokens: 32_000,
 };
 
 describe('AgentUsageReporter', () => {
@@ -19,7 +21,7 @@ describe('AgentUsageReporter', () => {
   });
 
   it('builds usage-update events from config, model capacity, and session usage', async () => {
-    vi.spyOn(modelCapacity, 'getMaxPromptTokens').mockResolvedValue(200_000);
+    vi.spyOn(modelCapacity, 'getMaxPromptTokens').mockReturnValue(200_000);
     const llmSession = {
       getUsage: () => ({
         currentContextInputTokens: 40,

@@ -23,6 +23,8 @@ const CONFIG: LlmConfig = {
   baseUrl: 'https://example.test',
   model: 'gpt-4.1',
   thinkingLevel: 'none',
+  maxContextTokens: 200_000,
+  maxOutputTokens: 32_000,
 };
 
 const startEvent: SseContextCompactionEvent = {

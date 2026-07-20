@@ -24,9 +24,7 @@ export async function* streamOpenAIResponses(
   const input = toInputItems(messages);
   const tools = options.tools.map(toFunctionTool);
   const reasoning = toReasoning(options.config.thinkingLevel);
-  const maxOutputTokens = await modelCapacity.getMaxOutputTokens(
-    options.config,
-  );
+  const maxOutputTokens = modelCapacity.getMaxOutputTokens(options.config);
 
   const stream = await client.responses.create(
     {

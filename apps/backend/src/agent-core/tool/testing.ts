@@ -59,6 +59,8 @@ export function createMockContext(
         baseUrl: 'https://api.anthropic.com',
         model: 'mock-model',
         thinkingLevel: 'none' as const,
+        maxContextTokens: 200_000,
+        maxOutputTokens: 32_000,
       }),
     getLightConfig: () =>
       Promise.resolve({
@@ -67,6 +69,8 @@ export function createMockContext(
         baseUrl: 'https://api.anthropic.com',
         model: 'mock-light-model',
         thinkingLevel: 'none' as const,
+        maxContextTokens: 200_000,
+        maxOutputTokens: 32_000,
       }),
     ...overrides,
   };

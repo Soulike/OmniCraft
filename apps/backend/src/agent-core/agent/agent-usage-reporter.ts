@@ -12,7 +12,7 @@ export interface BuildAgentUsageInput {
 export class AgentUsageReporter {
   async buildUsage(input: BuildAgentUsageInput): Promise<SseUsage> {
     const config = await input.getConfig();
-    const contextWindowTokens = await modelCapacity.getMaxPromptTokens(config);
+    const contextWindowTokens = modelCapacity.getMaxPromptTokens(config);
     const usage = input.llmSession.getUsage();
     return {
       model: config.model,

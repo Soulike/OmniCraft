@@ -10,6 +10,8 @@ const TEST_CONFIG: LlmConfig = {
   baseUrl: 'https://example.test',
   model: 'test-model',
   thinkingLevel: 'none',
+  maxContextTokens: 200_000,
+  maxOutputTokens: 32_000,
 };
 
 function emptyUsage() {
