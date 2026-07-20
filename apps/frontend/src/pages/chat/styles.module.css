@@ -38,9 +38,8 @@
   height: 52px;
   border-radius: 14px;
   color: var(--accent);
-  background: var(--aurora-active-fill);
-  border: 1px solid var(--aurora-glass-border);
-  box-shadow: var(--aurora-glass-highlight);
+  background: var(--accent-soft);
+  border: 1px solid var(--border);
 }
 
 .emptyStateText {
