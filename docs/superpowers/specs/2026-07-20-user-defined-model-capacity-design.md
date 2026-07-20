@@ -50,9 +50,12 @@ thinking effort than the main model.
 - In-app settings migration. A **one-time standalone script** migrates the local
   `settings.json` (single-user tool, no other installs). The script is not wired
   into startup and can be deleted afterward.
-- Hard-blocking the Save button on the cross-field rule (output < context) by
-  modifying the shared `SettingSection` engine. Handled by an inline warning in
-  the reusable component plus a backend runtime clamp (see §3, §5, Risks).
+- Hard-blocking the frontend Save button on the cross-field rule by modifying
+  the shared `SettingSection` engine. The rule is enforced in three
+  independent, non-invasive ways instead: an inline error in the reusable
+  component (immediate UX), the settings schema's per-model `.refine()`
+  (rejects the write server-side), and the backend runtime clamp (defense in
+  depth). See §1, §3, §5, Risks.
 - Any change to session persistence, the usage-reporting wire format, compaction
   policy, or settings navigation.
 
@@ -119,46 +122,58 @@ thinking effort than the main model.
 
 Restructure `llmSettingsSchema` (`packages/settings-schema/src/llm/schema.ts`)
 into **shared connection fields + two nested model configs** (`main`, `light`).
-A small builder keeps the per-model shape identical while letting the `model`
-field differ (main required; light may be empty → falls back to main):
+A shared base object holds the fields common to both; each variant extends it
+with its own `model` field (main required; light may be empty → falls back to
+main) and a `.refine()` enforcing the capacity constraint:
 
 ```ts
-function createModelSettingsSchema(modelField: z.ZodType) {
-  return z.object({
-    model: modelField,
-    thinkingLevel: thinkingLevelSchema
-      .describe('Extended-thinking effort level for this model')
-      .default('none'),
-    maxContextTokens: z
-      .number()
-      .int()
-      .min(1)
-      .describe('Full context window of the model, in tokens (prompt + output)')
-      .default(200_000),
-    maxOutputTokens: z
-      .number()
-      .int()
-      .min(1)
-      .describe('Maximum output tokens the model may generate per response')
-      .default(32_000),
-  });
-}
-
-export const mainModelSettingsSchema = createModelSettingsSchema(
-  z
-    .string()
+const baseModelSettingsSchema = z.object({
+  thinkingLevel: thinkingLevelSchema
+    .describe('Extended-thinking effort level for this model')
+    .default('none'),
+  maxContextTokens: z
+    .number()
+    .int()
     .min(1)
-    .describe('Model name to use')
-    .default('claude-sonnet-4-20250514'),
-);
-export const lightModelSettingsSchema = createModelSettingsSchema(
-  z
-    .string()
-    .describe(
-      'Model for lightweight tasks (e.g. title generation). Falls back to the main model if empty.',
-    )
-    .default(''),
-);
+    .describe('Full context window of the model, in tokens (prompt + output)')
+    .default(200_000),
+  maxOutputTokens: z
+    .number()
+    .int()
+    .min(1)
+    .describe('Maximum output tokens the model may generate per response')
+    .default(32_000),
+});
+
+const OUTPUT_EXCEEDS_CONTEXT_MESSAGE =
+  'Max output tokens must be less than max context tokens';
+
+export const mainModelSettingsSchema = baseModelSettingsSchema
+  .extend({
+    model: z
+      .string()
+      .min(1)
+      .describe('Model name to use')
+      .default('claude-sonnet-4-20250514'),
+  })
+  .refine((config) => config.maxContextTokens > config.maxOutputTokens, {
+    error: OUTPUT_EXCEEDS_CONTEXT_MESSAGE,
+    path: ['maxOutputTokens'],
+  });
+
+export const lightModelSettingsSchema = baseModelSettingsSchema
+  .extend({
+    model: z
+      .string()
+      .describe(
+        'Model for lightweight tasks (e.g. title generation). Falls back to the main model if empty.',
+      )
+      .default(''),
+  })
+  .refine((config) => config.maxContextTokens > config.maxOutputTokens, {
+    error: OUTPUT_EXCEEDS_CONTEXT_MESSAGE,
+    path: ['maxOutputTokens'],
+  });
 
 export const llmSettingsSchema = z.object({
   apiFormat: z
@@ -175,17 +190,25 @@ export const llmSettingsSchema = z.object({
 });
 ```
 
-- Everything stays plain `z.object` (no object-level `.refine`), so
-  `.shape`/`.unwrap()` introspection and the `z.toJSONSchema()` test keep
-  working. The builder is a plain function returning a `z.object`.
+- `main`/`light` remain object schemas (they keep `.shape`) each carrying a
+  `.refine()` requiring `maxContextTokens > maxOutputTokens`. **Verified against
+  Zod 4.4.3:** a `.refine()`d object keeps `.shape`, survives
+  `prefault().unwrap().shape`, converts via `z.toJSONSchema()`, and stays a
+  valid nested leaf path — so both the frontend's `.shape`/`.unwrap()`
+  introspection (the `FIELDS` arrays) and the settings API's `isLeafSchemaPath`
+  check keep working. (This differs from Zod 3, where `.refine()` produced a
+  `ZodEffects` without `.shape`.)
 - `main`/`light` use `.prefault({})` (mirroring how the root composes
   `llm`/`codingLlm`), so omitting them fills their inner defaults.
 - New leaf paths: `llm/main/{model,thinkingLevel,maxContextTokens,maxOutputTokens}`,
   `llm/light/{…}`, and the same under `codingLlm/…`. All valid per
   `isLeafSchemaPath`.
-- The cross-field constraint (context > output) is **not** a schema `.refine`
-  (would break `.shape` and JSON-schema). Enforced in the UI (§3), safe at
-  runtime (§2).
+- The cross-field constraint (context > output) is enforced at three layers: the
+  schema `.refine()` above (rejects the write; the settings router returns 400
+  with an issue path of `[section, 'main'|'light', 'maxOutputTokens']`), the
+  reusable component's inline error for immediate UX (§3), and the backend
+  runtime clamp as defense in depth (§2). The defaults (`200_000` / `32_000`)
+  satisfy the constraint, so fresh and migrated files pass.
 
 ### 2. Backend — limits from config, tables deleted, light independent
 
@@ -260,7 +283,11 @@ It renders a labeled group: `model` `TextField`, `thinkingLevel` `Select` (over
 `maxOutputTokens` `NumberField` (`minValue={1}`). **Cross-field UX:** when
 `Number(values[`${prefix}/maxOutputTokens`]) >= Number(values[`${prefix}/maxContextTokens`])`,
 show an inline `FieldError` on the max-output field ("Max output must be less
-than max context"). View-level only; the backend clamp (§2) is the safety net.
+than max context"). This is immediate view-level feedback; the schema `.refine()`
+(§1) is the server-side enforcement and the backend clamp (§2) is the final
+safety net. The shared `SettingSection` engine is left untouched (no hard-block
+of the Save button); a bad save that slips past the inline error is rejected by
+the schema with a 400.
 
 Sections (`ChatLlmSectionFields.tsx`, `CodingLlmSectionFields.tsx`) render the
 connection fields (`apiFormat`, `apiKey`, `baseUrl`) once, then two model groups:
@@ -327,8 +354,10 @@ Settings
 
 - **settings-schema**: keep the `z.toJSONSchema()` test passing with the nested
   shape; assert `settingsSchema.parse({})` fills `llm.main` / `llm.light`
-  defaults (`200_000` / `32_000`, model defaults), and that `main.model` requires
-  a non-empty string while `light.model` allows empty.
+  defaults (`200_000` / `32_000`, model defaults); that `main.model` requires
+  a non-empty string while `light.model` allows empty; and that a config with
+  `maxOutputTokens >= maxContextTokens` is **rejected** by the `.refine()` with
+  an issue path of `[section, 'main'|'light', 'maxOutputTokens']`.
 - **backend model-capacity**: rewrite `model-capacity.test.ts` for the pure
   derivation (`getMaxOutputTokens` = config value; `getMaxPromptTokens` =
   `context − output`, incl. the clamp when `output >= context`); the rewrite
@@ -363,9 +392,12 @@ Settings
 - **Removing the Anthropic auto-fetch fallback.** Unknown Claude models no longer
   self-resolve limits; the user fills them in. Intended trade-off; sensible
   defaults keep the app usable out of the box.
-- **Degenerate cross-field values.** If `maxOutputTokens >= maxContextTokens` is
-  saved, the input budget clamps to 1 (near-constant compaction), not a crash.
-  Inline UI warning is the primary mitigation; hard-blocking Save is a possible
-  follow-up (needs a section-level validator hook in `SettingSection`).
+- **Degenerate cross-field values.** `maxOutputTokens >= maxContextTokens` is
+  now rejected at write time by the schema `.refine()` (400), caught earlier by
+  the component's inline error, and — should a value ever bypass both — clamped
+  at runtime to an input budget of ≥ 1 (aggressive compaction, never a crash).
+  A hand-edited settings file that violates the constraint fails `load()`
+  validation exactly like any other schema violation (backed up and reset at
+  startup; a mid-run edit surfaces as a 500 on the next read).
 - **`LlmConfig` fixture churn.** Two new required fields surface compile errors
   wherever a config is built in tests; mechanical, pinpointed by the type checker.

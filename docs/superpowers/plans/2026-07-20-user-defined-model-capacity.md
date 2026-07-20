@@ -61,7 +61,7 @@
 
 **Interfaces:**
 
-- Produces: `llmSettingsSchema` with shape `{apiFormat, apiKey, baseUrl, main, light}`, where `main`/`light` are objects `{model, thinkingLevel, maxContextTokens, maxOutputTokens}`. New leaf paths: `llm/main/model`, `llm/main/thinkingLevel`, `llm/main/maxContextTokens`, `llm/main/maxOutputTokens`, and the same under `llm/light`, `codingLlm/main`, `codingLlm/light`. Exports `thinkingLevelSchema`, `ThinkingLevel` (unchanged), plus `mainModelSettingsSchema`, `lightModelSettingsSchema`.
+- Produces: `llmSettingsSchema` with shape `{apiFormat, apiKey, baseUrl, main, light}`, where `main`/`light` are objects `{model, thinkingLevel, maxContextTokens, maxOutputTokens}` each carrying a `.refine()` that requires `maxContextTokens > maxOutputTokens`. New leaf paths: `llm/main/model`, `llm/main/thinkingLevel`, `llm/main/maxContextTokens`, `llm/main/maxOutputTokens`, and the same under `llm/light`, `codingLlm/main`, `codingLlm/light`. Exports `thinkingLevelSchema`, `ThinkingLevel` (unchanged), plus `mainModelSettingsSchema`, `lightModelSettingsSchema`. Verified against Zod 4.4.3: `.refine()` on an object preserves `.shape`, survives `prefault().unwrap().shape`, converts via `z.toJSONSchema()`, and keeps nested leaf-path traversal working — so the constraint lives on the schema without breaking frontend introspection or the settings API's leaf-path check.
 
 - [ ] **Step 1: Update the schema test to the nested shape (failing)**
 
@@ -86,6 +86,18 @@ describe('llm.main / llm.light defaults', () => {
     });
     expect(parsed.llm.main.thinkingLevel).toBe('minimal');
     expect(parsed.codingLlm.light.thinkingLevel).toBe('max');
+  });
+
+  it('rejects a model whose output is not less than its context', () => {
+    const result = settingsSchema.safeParse({
+      llm: {main: {maxContextTokens: 100_000, maxOutputTokens: 100_000}},
+    });
+    expect(result.success).toBe(false);
+    expect(result.success ? [] : result.error.issues[0]?.path).toEqual([
+      'llm',
+      'main',
+      'maxOutputTokens',
+    ]);
   });
 });
 ```
@@ -136,24 +148,38 @@ const baseModelSettingsSchema = z.object({
     .default(32_000),
 });
 
+/** Error shown when a model reserves more output than its context allows. */
+const OUTPUT_EXCEEDS_CONTEXT_MESSAGE =
+  'Max output tokens must be less than max context tokens';
+
 /** Main model: a name is required. */
-export const mainModelSettingsSchema = baseModelSettingsSchema.extend({
-  model: z
-    .string()
-    .min(1)
-    .describe('Model name to use')
-    .default('claude-sonnet-4-20250514'),
-});
+export const mainModelSettingsSchema = baseModelSettingsSchema
+  .extend({
+    model: z
+      .string()
+      .min(1)
+      .describe('Model name to use')
+      .default('claude-sonnet-4-20250514'),
+  })
+  .refine((config) => config.maxContextTokens > config.maxOutputTokens, {
+    error: OUTPUT_EXCEEDS_CONTEXT_MESSAGE,
+    path: ['maxOutputTokens'],
+  });
 
 /** Light model: name may be empty (falls back to the main model). */
-export const lightModelSettingsSchema = baseModelSettingsSchema.extend({
-  model: z
-    .string()
-    .describe(
-      'Model name for lightweight tasks (e.g. title generation). Falls back to the main model if empty.',
-    )
-    .default(''),
-});
+export const lightModelSettingsSchema = baseModelSettingsSchema
+  .extend({
+    model: z
+      .string()
+      .describe(
+        'Model name for lightweight tasks (e.g. title generation). Falls back to the main model if empty.',
+      )
+      .default(''),
+  })
+  .refine((config) => config.maxContextTokens > config.maxOutputTokens, {
+    error: OUTPUT_EXCEEDS_CONTEXT_MESSAGE,
+    path: ['maxOutputTokens'],
+  });
 
 export const llmSettingsSchema = z.object({
   apiFormat: z
