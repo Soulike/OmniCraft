@@ -2,37 +2,30 @@
   padding: 0;
 }
 
-.listBox :global(.list-box) {
-  gap: 2px;
-  padding: 2px;
-}
-
-.listBox :global(.list-box-item) {
+.item {
   position: relative;
-  border-radius: 10px;
+  border-radius: var(--radius-lg);
   padding: 6px 10px;
   min-height: unset;
   font-size: 0.85rem;
   color: var(--muted);
-  gap: 0;
   transition:
     color 150ms ease,
     background 150ms ease;
 }
 
-.listBox :global(.list-box-item):hover {
+.item[data-hovered='true'] {
   color: var(--foreground);
-  background: var(--aurora-glass-fill);
+  background: var(--surface-secondary);
 }
 
-.listBox :global(.list-box-item[data-selected='true']) {
+.item[data-selected='true'] {
   color: var(--foreground);
-  background: var(--aurora-active-fill);
-  box-shadow: var(--aurora-glass-highlight);
+  background: var(--accent-soft);
   font-weight: 500;
 }
 
-.listBox :global(.list-box-item[data-selected='true'])::before {
+.item[data-selected='true']::before {
   content: '';
   position: absolute;
   left: 0;
@@ -40,8 +33,7 @@
   height: 50%;
   width: 3px;
   border-radius: 0 3px 3px 0;
-  background: var(--aurora-active-bar);
-  box-shadow: var(--aurora-active-bar-glow);
+  background: var(--accent);
 }
 
 .centered {
@@ -62,7 +54,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .listBox :global(.list-box-item) {
+  .item {
     transition: none;
   }
 }

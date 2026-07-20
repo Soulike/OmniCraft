@@ -1,10 +1,12 @@
 import {Button, Popover} from '@heroui/react';
+import clsx from 'clsx';
 import {MessageSquare, Trash2} from 'lucide-react';
 
 import styles from './styles.module.css';
 
 interface SessionItemViewProps {
   title: string;
+  isSelected: boolean;
   isDeleteOpen: boolean;
   onDeleteOpenChange: (open: boolean) => void;
   onConfirmDelete: () => void;
@@ -13,6 +15,7 @@ interface SessionItemViewProps {
 
 export function SessionItemView({
   title,
+  isSelected,
   isDeleteOpen,
   onDeleteOpenChange,
   onConfirmDelete,
@@ -20,7 +23,7 @@ export function SessionItemView({
 }: SessionItemViewProps) {
   return (
     <div className={styles.item}>
-      <div className={styles.icon}>
+      <div className={clsx(styles.icon, isSelected && styles.iconSelected)}>
         <MessageSquare size={14} fill='currentColor' strokeWidth={1.5} />
       </div>
       <div className={styles.content}>
