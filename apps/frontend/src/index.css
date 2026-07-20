@@ -1,7 +1,6 @@
 @import 'tailwindcss';
 @import '@heroui/styles';
 @import './heroui-overrides.css';
-@import './aurora-glass.css';
 
 :root {
   /* App typography tokens: self-hosted Latin design fonts first, OS CJK
