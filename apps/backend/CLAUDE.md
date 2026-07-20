@@ -2,7 +2,7 @@
 
 - Runtime: Node.js with `tsx` for source TypeScript execution
 - Framework: Koa + @koa/router
-- Logger: Pino (with koa-pino-logger middleware; use `ctx.log` in requests, `logger` from `@/logger.js` elsewhere)
+- Logger: Pino (with koa-pino-logger middleware; use `ctx.log` in requests, `logger` from `@/logger.js` elsewhere). Per-request auto-logging is filtered by `middleware/request-logger.ts`: successful responses (2xx/3xx) are silenced, 4xx logs at `warn`, 5xx or thrown requests at `error`.
 - Config: `.env` loaded when present through Node.js
   `--env-file-if-exists=.env`; see `.env.example` for available variables
 
