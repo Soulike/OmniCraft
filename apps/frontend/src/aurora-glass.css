@@ -15,16 +15,6 @@
  */
 
 :root {
-  /* Font stacks: self-hosted Latin design font first, OS Chinese font as
-     fallback for CJK glyphs (we do not self-host a CJK webfont). The
-     `*-variable` packages are installed via Fontsource. */
-  --font-display:
-    'Bricolage Grotesque Variable', 'PingFang SC', 'Microsoft YaHei',
-    'Noto Sans CJK SC', sans-serif;
-  --font-ui:
-    'Sora Variable', 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC',
-    sans-serif;
-
   /* Backdrop blur for expandable glass cards (tool/thinking disclosures).
      Theme-independent. Kept small and only applied to a few transient
      expanded cards, not to every surface. */

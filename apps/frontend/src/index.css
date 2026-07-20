@@ -3,6 +3,17 @@
 @import './heroui-overrides.css';
 @import './aurora-glass.css';
 
+:root {
+  /* App typography tokens: self-hosted Latin design fonts first, OS CJK
+     fallback after (we do not self-host a CJK webfont). */
+  --font-display:
+    'Bricolage Grotesque Variable', 'PingFang SC', 'Microsoft YaHei',
+    'Noto Sans CJK SC', sans-serif;
+  --font-ui:
+    'Sora Variable', 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC',
+    sans-serif;
+}
+
 body {
   min-height: 100dvh;
   background: var(--background);
