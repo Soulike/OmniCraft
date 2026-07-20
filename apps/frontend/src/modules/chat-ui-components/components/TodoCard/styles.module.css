@@ -4,14 +4,11 @@
   max-width: 100%;
 }
 
-/* Expanded: glass shell (translucent + blur), blends into the Mica. Collapsed
-   stays chromeless — matches ToolExecutionCard. */
+/* Expanded: secondary-surface card with border. Collapsed stays chromeless —
+   matches ToolExecutionCard. */
 .card:has(.trigger[aria-expanded='true']) {
-  background: var(--aurora-glass-fill);
-  border: 1px solid var(--aurora-glass-border);
-  box-shadow: var(--aurora-glass-highlight);
-  backdrop-filter: var(--aurora-glass-blur);
-  -webkit-backdrop-filter: var(--aurora-glass-blur);
+  background: var(--surface);
+  border: 1px solid var(--border);
 }
 
 .trigger {
@@ -33,7 +30,7 @@
 }
 
 .trigger:hover {
-  background: var(--aurora-glass-fill);
+  background: color-mix(in oklch, var(--foreground) 5%, transparent);
 }
 
 .trigger:focus-visible {

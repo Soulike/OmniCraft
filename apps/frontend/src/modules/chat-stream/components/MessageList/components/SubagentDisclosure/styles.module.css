@@ -4,20 +4,12 @@
 }
 
 .card {
+  background: var(--surface);
   border-radius: 12px;
-  background: var(--aurora-glass-fill);
-  border: 1px solid var(--aurora-glass-border);
-  box-shadow: var(--aurora-glass-highlight);
+  border: 1px solid var(--border);
   overflow: hidden;
   width: 600px;
   max-width: 100%;
-}
-
-/* Backdrop blur only while expanded (matches tool/thinking cards) so resting
-   subagent cards don't each run a backdrop-filter. */
-.card:has(.trigger[aria-expanded='true']) {
-  backdrop-filter: var(--aurora-glass-blur);
-  -webkit-backdrop-filter: var(--aurora-glass-blur);
 }
 
 .running {

@@ -85,11 +85,15 @@ export function SessionListView({
             key={session.id}
             id={session.id}
             textValue={session.title}
+            className={styles.item}
           >
-            <SessionItem
-              title={session.title}
-              onDelete={async () => onDeleteSession(session.id)}
-            />
+            {({isSelected}) => (
+              <SessionItem
+                title={session.title}
+                isSelected={isSelected}
+                onDelete={async () => onDeleteSession(session.id)}
+              />
+            )}
           </ListBox.Item>
         )}
       </ListBox>

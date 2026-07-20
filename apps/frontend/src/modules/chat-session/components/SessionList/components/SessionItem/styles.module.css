@@ -13,7 +13,7 @@
   align-items: center;
 }
 
-:global(.list-box-item[data-selected='true']) .icon {
+.iconSelected {
   color: var(--accent);
 }
 
@@ -41,8 +41,8 @@
   transition: opacity 150ms ease;
 }
 
-:global(.list-box-item):hover .actions,
-:global(.list-box-item):focus-within .actions {
+.item:hover .actions,
+.item:focus-within .actions {
   opacity: 1;
 }
 

@@ -81,8 +81,16 @@ import {Component} from 'path/to/Component/index.js';
 
 ## Design Language
 
-- Before designing or restyling any UI, read [`docs/design-language.md`](docs/design-language.md). It is the single source of truth for OmniCraft's visual language ("Aurora Glass"): aesthetic principles, color/material tokens, typography, depth, component patterns, and motion rules. Keep new UI consistent with it.
-- Key rules enforced there: motion is event-driven only (never ambient/looping), light and dark themes are both first-class (reinterpreted, not ported), accent color is used sparingly, and HeroUI is reused unless its styling blocks the aesthetic.
+- Component styling flows from a **single source**: HeroUI's theme tokens.
+  Global HeroUI token customization lives only in `src/heroui-overrides.css`.
+  Do NOT redefine HeroUI tokens, reach into HeroUI internals (`:global(...)`),
+  or paint bespoke material in component CSS Modules — consume HeroUI tokens
+  (`var(--surface)`, `var(--border)`, `var(--accent-soft)`, …) instead.
+- The app frame (`pages/_layout`) is the only component allowed to carry
+  bespoke material (background gradient + Mica backdrop-blur), and it holds it
+  as component-internal CSS, not as shared tokens.
+- Motion stays event-driven, never ambient; honor `prefers-reduced-motion`.
+- Light and dark are both first-class — verify every change in both.
 
 ## Directory Structure
 

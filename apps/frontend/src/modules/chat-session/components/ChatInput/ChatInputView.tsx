@@ -24,6 +24,7 @@ export function ChatInputView({
       <TextArea
         aria-label='Chat message'
         className={styles.textarea}
+        variant='secondary'
         placeholder='Type a message... (Enter to send, Shift+Enter for newline)'
         rows={1}
         value={input}
