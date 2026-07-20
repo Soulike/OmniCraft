@@ -5,8 +5,10 @@
   max-width: 100%;
 }
 
+/* Thinking is low-priority context: no fill, a dashed hairline to keep its
+   presence quiet even when expanded. */
 .card:has(.trigger[aria-expanded='true']) {
-  border: 1px solid var(--border);
+  border: 1px dashed var(--border);
 }
 
 .streaming .label {
