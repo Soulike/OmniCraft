@@ -33,7 +33,6 @@
 
 .item[data-active='true'] .icon {
   color: var(--accent);
-  filter: var(--aurora-active-icon-glow);
 }
 
 /* One-shot spring only when the item became active via navigation, not on
