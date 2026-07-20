@@ -43,6 +43,7 @@
 **frontend (Tasks 3–4)**
 
 - Create `apps/frontend/src/pages/settings/components/ModelSettingsFields/` (`index.ts`, `ModelSettingsFields.tsx`, `styles.module.css`, `helpers/to-number-field-value.ts`, `ModelSettingsFields.test.tsx`).
+- Create `apps/frontend/src/pages/settings/components/ConnectionFields/` (`index.ts`, `ConnectionFields.tsx`, `ConnectionFields.test.tsx`) — prefix-parameterized apiFormat/apiKey/baseUrl group, so the connection block is not duplicated across sections.
 - Modify `apps/frontend/src/pages/settings/sections/llm/chat/ChatLlmSection.tsx` + `ChatLlmSectionFields.tsx`.
 - Modify `apps/frontend/src/pages/settings/sections/coding/agent/CodingLlmSection.tsx` + `CodingLlmSectionFields.tsx`.
 
@@ -788,10 +789,13 @@ git commit -m "feat(frontend): add reusable ModelSettingsFields component"
 
 ---
 
-## Task 4: Frontend — wire the component into the Chat and Coding sections
+## Task 4: Frontend — reusable `ConnectionFields` + wire both groups into the sections
 
 **Files:**
 
+- Create: `apps/frontend/src/pages/settings/components/ConnectionFields/index.ts`
+- Create: `apps/frontend/src/pages/settings/components/ConnectionFields/ConnectionFields.tsx`
+- Test: `apps/frontend/src/pages/settings/components/ConnectionFields/ConnectionFields.test.tsx`
 - Modify: `apps/frontend/src/pages/settings/sections/llm/chat/ChatLlmSection.tsx`
 - Modify: `apps/frontend/src/pages/settings/sections/llm/chat/ChatLlmSectionFields.tsx`
 - Modify: `apps/frontend/src/pages/settings/sections/coding/agent/CodingLlmSection.tsx`
@@ -799,9 +803,167 @@ git commit -m "feat(frontend): add reusable ModelSettingsFields component"
 
 **Interfaces:**
 
-- Consumes: `ModelSettingsFields` (Task 3); nested schema (Task 1); `SettingSection` engine.
+- Consumes: `ModelSettingsFields` (Task 3); `SettingSectionRenderProps` from `../SettingSection/index.js`; nested schema (Task 1); `SettingSection` engine.
+- Produces: `ConnectionFields` — props `SettingSectionRenderProps & { prefix: string }` — renders the `apiFormat` / `apiKey` / `baseUrl` fields under `` `${prefix}/…` ``. Both section fields views compose `<ConnectionFields prefix=…>` + two `<ModelSettingsFields>`, so no field JSX is duplicated between sections.
 
-- [ ] **Step 1: Rebuild the Chat section `FIELDS`**
+- [ ] **Step 1: Write the failing ConnectionFields test**
+
+Create `apps/frontend/src/pages/settings/components/ConnectionFields/ConnectionFields.test.tsx`:
+
+```tsx
+import {render, screen} from '@testing-library/react';
+import {describe, expect, it, vi} from 'vitest';
+
+import type {SettingFieldValues} from '../SettingSection/index.js';
+import {ConnectionFields} from './ConnectionFields.js';
+
+describe('ConnectionFields', () => {
+  it('renders the connection fields for the given prefix', () => {
+    const values: SettingFieldValues = {
+      'llm/apiFormat': 'claude',
+      'llm/apiKey': 'sk-test',
+      'llm/baseUrl': 'https://api.anthropic.com',
+    };
+    render(
+      <ConnectionFields
+        values={values}
+        setValue={vi.fn()}
+        validationErrors={{}}
+        isDisabled={false}
+        prefix='llm'
+      />,
+    );
+    expect(screen.getByText('API Format')).toBeInTheDocument();
+    expect(screen.getByText('API Key')).toBeInTheDocument();
+    expect(screen.getByText('Base URL')).toBeInTheDocument();
+  });
+});
+```
+
+- [ ] **Step 2: Run it to verify it fails**
+
+Run: `pnpm --filter @omnicraft/frontend exec vitest run src/pages/settings/components/ConnectionFields/ConnectionFields.test.tsx`
+Expected: FAIL — module `./ConnectionFields.js` does not exist.
+
+- [ ] **Step 3: Write the ConnectionFields component**
+
+Create `apps/frontend/src/pages/settings/components/ConnectionFields/ConnectionFields.tsx`:
+
+```tsx
+import {
+  Description,
+  FieldError,
+  Input,
+  Label,
+  ListBox,
+  Select,
+  TextField,
+} from '@heroui/react';
+
+import type {SettingSectionRenderProps} from '../SettingSection/index.js';
+
+interface ConnectionFieldsProps extends SettingSectionRenderProps {
+  /** Key-path prefix for this section, e.g. 'llm' or 'codingLlm'. */
+  prefix: string;
+}
+
+export function ConnectionFields({
+  values,
+  setValue,
+  validationErrors,
+  isDisabled,
+  prefix,
+}: ConnectionFieldsProps) {
+  const apiFormatPath = `${prefix}/apiFormat`;
+  const apiKeyPath = `${prefix}/apiKey`;
+  const baseUrlPath = `${prefix}/baseUrl`;
+
+  return (
+    <>
+      <Select
+        value={String(values[apiFormatPath])}
+        isInvalid={apiFormatPath in validationErrors}
+        isDisabled={isDisabled}
+        onChange={(value) => {
+          if (value) {
+            setValue(apiFormatPath, String(value));
+          }
+        }}
+      >
+        <Label>API Format</Label>
+        <Select.Trigger>
+          <Select.Value />
+          <Select.Indicator />
+        </Select.Trigger>
+        <Description>Protocol format for the LLM API</Description>
+        <Select.Popover>
+          <ListBox>
+            <ListBox.Item id='claude' textValue='Claude'>
+              Claude
+              <ListBox.ItemIndicator />
+            </ListBox.Item>
+            <ListBox.Item id='openai-responses' textValue='OpenAI Responses'>
+              OpenAI Responses
+              <ListBox.ItemIndicator />
+            </ListBox.Item>
+          </ListBox>
+        </Select.Popover>
+        {validationErrors[apiFormatPath] && (
+          <FieldError>{validationErrors[apiFormatPath]}</FieldError>
+        )}
+      </Select>
+
+      <TextField
+        value={String(values[apiKeyPath])}
+        isInvalid={apiKeyPath in validationErrors}
+        isDisabled={isDisabled}
+        onChange={(val) => {
+          setValue(apiKeyPath, val);
+        }}
+        type='password'
+      >
+        <Label>API Key</Label>
+        <Input placeholder='sk-...' />
+        <Description>API key for the LLM service</Description>
+        {validationErrors[apiKeyPath] && (
+          <FieldError>{validationErrors[apiKeyPath]}</FieldError>
+        )}
+      </TextField>
+
+      <TextField
+        value={String(values[baseUrlPath])}
+        isInvalid={baseUrlPath in validationErrors}
+        isDisabled={isDisabled}
+        onChange={(val) => {
+          setValue(baseUrlPath, val);
+        }}
+      >
+        <Label>Base URL</Label>
+        <Input placeholder='https://api.anthropic.com' type='url' />
+        <Description>Base URL of the LLM API</Description>
+        {validationErrors[baseUrlPath] && (
+          <FieldError>{validationErrors[baseUrlPath]}</FieldError>
+        )}
+      </TextField>
+    </>
+  );
+}
+```
+
+- [ ] **Step 4: Write the entry point**
+
+Create `apps/frontend/src/pages/settings/components/ConnectionFields/index.ts`:
+
+```ts
+export {ConnectionFields} from './ConnectionFields.js';
+```
+
+- [ ] **Step 5: Run the ConnectionFields test to verify it passes**
+
+Run: `pnpm --filter @omnicraft/frontend exec vitest run src/pages/settings/components/ConnectionFields/ConnectionFields.test.tsx`
+Expected: PASS.
+
+- [ ] **Step 6: Rebuild the Chat section `FIELDS`**
 
 Replace the entire contents of `apps/frontend/src/pages/settings/sections/llm/chat/ChatLlmSection.tsx`:
 
@@ -838,94 +1000,19 @@ export function ChatLlmSection() {
 }
 ```
 
-- [ ] **Step 2: Rebuild the Chat section fields view**
+- [ ] **Step 7: Rebuild the Chat section fields view**
 
 Replace the entire contents of `apps/frontend/src/pages/settings/sections/llm/chat/ChatLlmSectionFields.tsx`:
 
 ```tsx
-import {
-  Description,
-  FieldError,
-  Input,
-  Label,
-  ListBox,
-  Select,
-  TextField,
-} from '@heroui/react';
-
+import {ConnectionFields} from '../../../components/ConnectionFields/index.js';
 import {ModelSettingsFields} from '../../../components/ModelSettingsFields/index.js';
 import type {SettingSectionRenderProps} from '../../../components/SettingSection/index.js';
 
 export function ChatLlmSectionFields(props: SettingSectionRenderProps) {
-  const {values, setValue, validationErrors, isDisabled} = props;
   return (
     <>
-      <Select
-        value={String(values['llm/apiFormat'])}
-        isInvalid={'llm/apiFormat' in validationErrors}
-        isDisabled={isDisabled}
-        onChange={(value) => {
-          if (value) {
-            setValue('llm/apiFormat', String(value));
-          }
-        }}
-      >
-        <Label>API Format</Label>
-        <Select.Trigger>
-          <Select.Value />
-          <Select.Indicator />
-        </Select.Trigger>
-        <Description>Protocol format for the LLM API</Description>
-        <Select.Popover>
-          <ListBox>
-            <ListBox.Item id='claude' textValue='Claude'>
-              Claude
-              <ListBox.ItemIndicator />
-            </ListBox.Item>
-            <ListBox.Item id='openai-responses' textValue='OpenAI Responses'>
-              OpenAI Responses
-              <ListBox.ItemIndicator />
-            </ListBox.Item>
-          </ListBox>
-        </Select.Popover>
-        {validationErrors['llm/apiFormat'] && (
-          <FieldError>{validationErrors['llm/apiFormat']}</FieldError>
-        )}
-      </Select>
-
-      <TextField
-        value={String(values['llm/apiKey'])}
-        isInvalid={'llm/apiKey' in validationErrors}
-        isDisabled={isDisabled}
-        onChange={(val) => {
-          setValue('llm/apiKey', val);
-        }}
-        type='password'
-      >
-        <Label>API Key</Label>
-        <Input placeholder='sk-...' />
-        <Description>API key for the LLM service</Description>
-        {validationErrors['llm/apiKey'] && (
-          <FieldError>{validationErrors['llm/apiKey']}</FieldError>
-        )}
-      </TextField>
-
-      <TextField
-        value={String(values['llm/baseUrl'])}
-        isInvalid={'llm/baseUrl' in validationErrors}
-        isDisabled={isDisabled}
-        onChange={(val) => {
-          setValue('llm/baseUrl', val);
-        }}
-      >
-        <Label>Base URL</Label>
-        <Input placeholder='https://api.anthropic.com' type='url' />
-        <Description>Base URL of the LLM API</Description>
-        {validationErrors['llm/baseUrl'] && (
-          <FieldError>{validationErrors['llm/baseUrl']}</FieldError>
-        )}
-      </TextField>
-
+      <ConnectionFields {...props} prefix='llm' />
       <ModelSettingsFields {...props} prefix='llm/main' title='Main model' />
       <ModelSettingsFields
         {...props}
@@ -939,7 +1026,7 @@ export function ChatLlmSectionFields(props: SettingSectionRenderProps) {
 }
 ```
 
-- [ ] **Step 3: Rebuild the Coding section `FIELDS`**
+- [ ] **Step 8: Rebuild the Coding section `FIELDS`**
 
 Replace the entire contents of `apps/frontend/src/pages/settings/sections/coding/agent/CodingLlmSection.tsx`:
 
@@ -979,94 +1066,19 @@ export function CodingLlmSection() {
 }
 ```
 
-- [ ] **Step 4: Rebuild the Coding section fields view**
+- [ ] **Step 9: Rebuild the Coding section fields view**
 
-Replace the entire contents of `apps/frontend/src/pages/settings/sections/coding/agent/CodingLlmSectionFields.tsx` with the same structure as Step 2 but with the `codingLlm/` prefix on the connection fields:
+Replace the entire contents of `apps/frontend/src/pages/settings/sections/coding/agent/CodingLlmSectionFields.tsx`:
 
 ```tsx
-import {
-  Description,
-  FieldError,
-  Input,
-  Label,
-  ListBox,
-  Select,
-  TextField,
-} from '@heroui/react';
-
+import {ConnectionFields} from '../../../components/ConnectionFields/index.js';
 import {ModelSettingsFields} from '../../../components/ModelSettingsFields/index.js';
 import type {SettingSectionRenderProps} from '../../../components/SettingSection/index.js';
 
 export function CodingLlmSectionFields(props: SettingSectionRenderProps) {
-  const {values, setValue, validationErrors, isDisabled} = props;
   return (
     <>
-      <Select
-        value={String(values['codingLlm/apiFormat'])}
-        isInvalid={'codingLlm/apiFormat' in validationErrors}
-        isDisabled={isDisabled}
-        onChange={(value) => {
-          if (value) {
-            setValue('codingLlm/apiFormat', String(value));
-          }
-        }}
-      >
-        <Label>API Format</Label>
-        <Select.Trigger>
-          <Select.Value />
-          <Select.Indicator />
-        </Select.Trigger>
-        <Description>Protocol format for the LLM API</Description>
-        <Select.Popover>
-          <ListBox>
-            <ListBox.Item id='claude' textValue='Claude'>
-              Claude
-              <ListBox.ItemIndicator />
-            </ListBox.Item>
-            <ListBox.Item id='openai-responses' textValue='OpenAI Responses'>
-              OpenAI Responses
-              <ListBox.ItemIndicator />
-            </ListBox.Item>
-          </ListBox>
-        </Select.Popover>
-        {validationErrors['codingLlm/apiFormat'] && (
-          <FieldError>{validationErrors['codingLlm/apiFormat']}</FieldError>
-        )}
-      </Select>
-
-      <TextField
-        value={String(values['codingLlm/apiKey'])}
-        isInvalid={'codingLlm/apiKey' in validationErrors}
-        isDisabled={isDisabled}
-        onChange={(val) => {
-          setValue('codingLlm/apiKey', val);
-        }}
-        type='password'
-      >
-        <Label>API Key</Label>
-        <Input placeholder='sk-...' />
-        <Description>API key for the LLM service</Description>
-        {validationErrors['codingLlm/apiKey'] && (
-          <FieldError>{validationErrors['codingLlm/apiKey']}</FieldError>
-        )}
-      </TextField>
-
-      <TextField
-        value={String(values['codingLlm/baseUrl'])}
-        isInvalid={'codingLlm/baseUrl' in validationErrors}
-        isDisabled={isDisabled}
-        onChange={(val) => {
-          setValue('codingLlm/baseUrl', val);
-        }}
-      >
-        <Label>Base URL</Label>
-        <Input placeholder='https://api.anthropic.com' type='url' />
-        <Description>Base URL of the LLM API</Description>
-        {validationErrors['codingLlm/baseUrl'] && (
-          <FieldError>{validationErrors['codingLlm/baseUrl']}</FieldError>
-        )}
-      </TextField>
-
+      <ConnectionFields {...props} prefix='codingLlm' />
       <ModelSettingsFields
         {...props}
         prefix='codingLlm/main'
@@ -1084,21 +1096,21 @@ export function CodingLlmSectionFields(props: SettingSectionRenderProps) {
 }
 ```
 
-- [ ] **Step 5: Typecheck and test the frontend**
+- [ ] **Step 10: Typecheck and test the frontend**
 
 Run: `pnpm --filter @omnicraft/frontend typecheck`
 Expected: no errors.
 Run: `pnpm --filter @omnicraft/frontend test`
 Expected: PASS.
 
-- [ ] **Step 6: Browser validation (both themes)**
+- [ ] **Step 11: Browser validation (both themes)**
 
 Start the dev server from the repo root (`pnpm dev`), open the app, go to Settings → Chat Agent and Settings → Coding Agent. Verify each shows: API Format, API Key, Base URL, then a "Main model" group (Model / Thinking Level / Max Context / Max Output) and a "Light model" group. Change Max Output above Max Context and confirm the inline "Max output must be less than max context" error appears. Save and confirm the toast. Repeat the visual check in **light and dark** themes. Capture screenshots for the PR.
 
-- [ ] **Step 7: Commit**
+- [ ] **Step 12: Commit**
 
 ```bash
-git add apps/frontend/src/pages/settings/sections
+git add apps/frontend/src/pages/settings/components/ConnectionFields apps/frontend/src/pages/settings/sections
 git commit -m "feat(frontend): render per-model settings for main and light models"
 ```
 
