@@ -7,7 +7,6 @@
 /* Expanded: secondary-surface shell. Inner code/terminal/diff blocks stay
    opaque (see ResultSection .pre). */
 .card:has(.trigger[aria-expanded='true']) {
-  background: var(--surface-secondary);
   border: 1px solid var(--border);
 }
 
@@ -31,7 +30,7 @@
 }
 
 .trigger:hover {
-  background: var(--surface-secondary);
+  background: color-mix(in oklch, var(--foreground) 5%, transparent);
 }
 
 .trigger:focus-visible {

@@ -8,7 +8,6 @@
 /* Expanded: secondary-surface card with border. Collapsed stays chromeless —
    matches ThinkingBlock / ToolExecutionCard. */
 .card:has(.trigger[aria-expanded='true']) {
-  background: var(--surface-secondary);
   border: 1px solid var(--border);
 }
 
@@ -29,7 +28,7 @@
 }
 
 .trigger:not([aria-disabled='true']):hover {
-  background: var(--surface-secondary);
+  background: color-mix(in oklch, var(--foreground) 5%, transparent);
 }
 
 .trigger:focus-visible {
