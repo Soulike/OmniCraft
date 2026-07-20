@@ -5,12 +5,10 @@
   max-width: 100%;
 }
 
+/* Thinking is low-priority context: no fill, a dashed hairline to keep its
+   presence quiet even when expanded. */
 .card:has(.trigger[aria-expanded='true']) {
-  background: var(--aurora-glass-fill);
-  border: 1px solid var(--aurora-glass-border);
-  box-shadow: var(--aurora-glass-highlight);
-  backdrop-filter: var(--aurora-glass-blur);
-  -webkit-backdrop-filter: var(--aurora-glass-blur);
+  border: 1px dashed var(--border);
 }
 
 .streaming .label {
@@ -34,7 +32,7 @@
 }
 
 .trigger:hover {
-  background: var(--aurora-glass-fill);
+  background: color-mix(in oklch, var(--foreground) 5%, transparent);
 }
 
 .label {

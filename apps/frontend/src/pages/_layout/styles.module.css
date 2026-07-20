@@ -1,8 +1,111 @@
+/* Frame-only material. Lives here on purpose: gradient + backdrop-blur have
+   no HeroUI token, so the frame owns them as component-internal styles. */
 .layout {
+  /* Page canvas: many small, varied, interleaved colour patches over the base
+     background. The hue variety + contrast is what gives the panel's Mica blur
+     a genuine hazy colour drift (not a flat gradient). Keep alphas low so it
+     stays delicate and never competes with content. */
+  --frame-canvas:
+    radial-gradient(
+      38% 34% at 10% 8%,
+      rgba(95, 135, 250, 0.16),
+      transparent 62%
+    ),
+    radial-gradient(
+      34% 32% at 32% 24%,
+      rgba(150, 120, 250, 0.13),
+      transparent 62%
+    ),
+    radial-gradient(
+      36% 36% at 60% 6%,
+      rgba(110, 200, 225, 0.12),
+      transparent 62%
+    ),
+    radial-gradient(
+      40% 38% at 92% 18%,
+      rgba(180, 130, 235, 0.14),
+      transparent 62%
+    ),
+    radial-gradient(
+      36% 34% at 78% 44%,
+      rgba(120, 160, 250, 0.1),
+      transparent 62%
+    ),
+    radial-gradient(
+      40% 40% at 22% 70%,
+      rgba(130, 200, 210, 0.1),
+      transparent 62%
+    ),
+    radial-gradient(
+      38% 36% at 55% 92%,
+      rgba(165, 135, 240, 0.12),
+      transparent 62%
+    ),
+    radial-gradient(
+      40% 38% at 90% 88%,
+      rgba(110, 150, 245, 0.11),
+      transparent 62%
+    ),
+    var(--background);
+  /* --frame-mica-*: the main content panel is a translucent "Mica" surface
+     that blurs the canvas behind it, picking up a faint tint. Frame-only —
+     HeroUI content inside the panel does not get this blur. */
+  --frame-mica-fill: rgba(255, 255, 255, 0.6); /* Mica panel base fill */
+  --frame-mica-blur: blur(72px) saturate(1.7); /* panel backdrop-filter */
+  --frame-mica-border: 1px solid rgba(255, 255, 255, 0.7); /* panel hairline */
+
   height: 100dvh;
   display: flex;
   flex-direction: row;
-  background: var(--aurora-canvas);
+  background: var(--frame-canvas);
+}
+
+:global(:root.dark) .layout {
+  --frame-canvas:
+    radial-gradient(
+      38% 34% at 10% 8%,
+      rgba(70, 110, 255, 0.3),
+      transparent 62%
+    ),
+    radial-gradient(
+      34% 32% at 32% 24%,
+      rgba(140, 80, 255, 0.24),
+      transparent 62%
+    ),
+    radial-gradient(
+      36% 36% at 60% 6%,
+      rgba(50, 170, 220, 0.2),
+      transparent 62%
+    ),
+    radial-gradient(
+      40% 38% at 92% 18%,
+      rgba(160, 90, 240, 0.24),
+      transparent 62%
+    ),
+    radial-gradient(
+      36% 34% at 78% 44%,
+      rgba(80, 130, 255, 0.18),
+      transparent 62%
+    ),
+    radial-gradient(
+      40% 40% at 22% 70%,
+      rgba(60, 180, 200, 0.16),
+      transparent 62%
+    ),
+    radial-gradient(
+      38% 36% at 55% 92%,
+      rgba(150, 95, 245, 0.2),
+      transparent 62%
+    ),
+    radial-gradient(
+      40% 38% at 90% 88%,
+      rgba(70, 120, 255, 0.18),
+      transparent 62%
+    ),
+    var(--background);
+  --frame-mica-fill: rgba(18, 20, 30, 0.52);
+  --frame-mica-blur: blur(72px) saturate(1.8);
+  --frame-mica-border: 1px solid rgba(160, 180, 255, 0.16);
 }
 
 .sidebarWrapper {
@@ -13,10 +116,10 @@
   flex: 1;
   min-width: 0;
   margin: 7px;
-  background: var(--aurora-mica-fill);
-  backdrop-filter: var(--aurora-mica-blur);
-  -webkit-backdrop-filter: var(--aurora-mica-blur);
-  border: var(--aurora-mica-border);
+  background: var(--frame-mica-fill);
+  backdrop-filter: var(--frame-mica-blur);
+  -webkit-backdrop-filter: var(--frame-mica-blur);
+  border: var(--frame-mica-border);
   border-radius: 12px;
   overflow: hidden;
   display: flex;

@@ -67,7 +67,6 @@
 .node[data-status='in-progress'] {
   border: 2px solid var(--accent);
   background: color-mix(in oklab, var(--accent) 25%, transparent);
-  box-shadow: var(--aurora-active-bar-glow);
 }
 
 .node[data-status='done'] {

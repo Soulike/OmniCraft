@@ -4,14 +4,11 @@
   max-width: 100%;
 }
 
-/* Expanded: B-tier glass shell (translucent + blur), blends into the Mica.
-   Inner code/terminal/diff blocks stay opaque (see ResultSection .pre). */
+/* Expanded: secondary-surface shell. Inner code/terminal/diff blocks stay
+   opaque (see ResultSection .pre). */
 .card:has(.trigger[aria-expanded='true']) {
-  background: var(--aurora-glass-fill);
-  border: 1px solid var(--aurora-glass-border);
-  box-shadow: var(--aurora-glass-highlight);
-  backdrop-filter: var(--aurora-glass-blur);
-  -webkit-backdrop-filter: var(--aurora-glass-blur);
+  background: var(--surface);
+  border: 1px solid var(--border);
 }
 
 .trigger {
@@ -34,7 +31,7 @@
 }
 
 .trigger:hover {
-  background: var(--aurora-glass-fill);
+  background: color-mix(in oklch, var(--foreground) 5%, transparent);
 }
 
 .trigger:focus-visible {

@@ -4,10 +4,11 @@ import {SessionItemView} from './SessionItemView.js';
 
 interface SessionItemProps {
   title: string;
+  isSelected: boolean;
   onDelete: () => Promise<void>;
 }
 
-export function SessionItem({title, onDelete}: SessionItemProps) {
+export function SessionItem({title, isSelected, onDelete}: SessionItemProps) {
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -24,6 +25,7 @@ export function SessionItem({title, onDelete}: SessionItemProps) {
   return (
     <SessionItemView
       title={title}
+      isSelected={isSelected}
       isDeleteOpen={isDeleteOpen}
       onDeleteOpenChange={setIsDeleteOpen}
       onConfirmDelete={() => {
