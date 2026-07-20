@@ -4,8 +4,8 @@
   max-width: 100%;
 }
 
-/* Expanded: glass shell (translucent + blur), blends into the Mica. Collapsed
-   stays chromeless — matches ToolExecutionCard. */
+/* Expanded: secondary-surface card with border. Collapsed stays chromeless —
+   matches ToolExecutionCard. */
 .card:has(.trigger[aria-expanded='true']) {
   background: var(--surface-secondary);
   border: 1px solid var(--border);
