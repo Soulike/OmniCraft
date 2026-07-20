@@ -2,12 +2,13 @@ import assert from 'node:assert';
 import path from 'node:path';
 
 import {bodyParser} from '@koa/bodyparser';
+import type {Context} from 'koa';
 import Koa from 'koa';
 
 import {dispatcher} from '@/dispatcher/index.js';
 import {fileExists} from '@/helpers/fs.js';
 import {ShellCommandRunner} from '@/helpers/shell-command-runner.js';
-import {isPrematureCloseError} from '@/helpers/stream-errors.js';
+import {isClientDisconnectError} from '@/helpers/stream-errors.js';
 import {logger} from '@/logger.js';
 import {requestLogger} from '@/middleware/request-logger.js';
 import {serveSpa} from '@/middleware/serve-spa.js';
@@ -22,11 +23,12 @@ await initServices();
 const app = new Koa();
 app.proxy = true;
 
-app.on('error', (e: unknown) => {
+app.on('error', (e: unknown, ctx?: Context) => {
   // A client disconnecting mid-stream (e.g. the frontend switching SSE
   // sessions) makes Koa's response pipeline emit ERR_STREAM_PREMATURE_CLOSE.
-  // The connection is already cleaned up on `req` close — drop the noise.
-  if (isPrematureCloseError(e)) return;
+  // The connection is already cleaned up on `req` close — drop that noise, but
+  // still log source-side truncations, which leave the request alive.
+  if (ctx !== undefined && isClientDisconnectError(e, ctx.req)) return;
   logger.error(e, 'Uncaught error');
 });
 
