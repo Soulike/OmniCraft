@@ -5,9 +5,8 @@
   padding: 10px 14px;
   border-radius: 16px;
   border-bottom-right-radius: 4px;
-  background: var(--aurora-glass-fill);
-  border: 1px solid var(--aurora-glass-border);
-  box-shadow: var(--aurora-glass-highlight);
+  background: var(--surface-secondary);
+  border: 1px solid var(--border);
   color: var(--foreground);
   word-wrap: break-word;
 }

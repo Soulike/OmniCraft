@@ -1,8 +1,7 @@
 .card {
   border-radius: 12px;
-  background: var(--aurora-glass-fill);
-  border: 1px solid var(--aurora-glass-border);
-  box-shadow: var(--aurora-glass-highlight);
+  background: var(--surface-secondary);
+  border: 1px solid var(--border);
   overflow: hidden;
   width: 520px;
   max-width: 100%;
