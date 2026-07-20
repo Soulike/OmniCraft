@@ -331,8 +331,9 @@ Settings
   a non-empty string while `light.model` allows empty.
 - **backend model-capacity**: rewrite `model-capacity.test.ts` for the pure
   derivation (`getMaxOutputTokens` = config value; `getMaxPromptTokens` =
-  `context − output`, incl. the clamp when `output >= context`). Delete
-  `claude-capacity.test.ts` and `openai-capacity.test.ts`.
+  `context − output`, incl. the clamp when `output >= context`); the rewrite
+  drops the Anthropic SDK mock. The `claude-capacity.ts` / `openai-capacity.ts`
+  source files are deleted (they have no dedicated test files).
 - **backend config builders**: update the four sites; assert `getLightConfig`
   uses `light.thinkingLevel` and `light` limits, and that an empty `light.model`
   falls back to `main.model` while keeping light's own thinking/limits. Update
