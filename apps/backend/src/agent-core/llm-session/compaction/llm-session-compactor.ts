@@ -61,7 +61,7 @@ export class LlmSessionCompactor {
   async *compactIfNeeded(
     input: CompactLlmSessionIfNeededInput,
   ): AsyncGenerator<SseContextCompactionEvent, void, undefined> {
-    const decision = await this.decisionService.decide(input);
+    const decision = this.decisionService.decide(input);
     if (decision.type === 'skip') return;
 
     yield this.eventFactory.createStartEvent(decision);

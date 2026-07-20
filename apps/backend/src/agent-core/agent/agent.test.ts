@@ -20,6 +20,13 @@ const MAIN_CONFIG: LlmConfig = {
   baseUrl: 'https://example.test',
   model: 'main-model',
   thinkingLevel: 'high',
+  // Prompt budget (context - output) intentionally matches the old
+  // hardcoded default of 128_000 for an unmapped openai-responses model —
+  // several tests below size their fixture content to cross that
+  // compaction-trigger threshold (see the 12 x 30_000-char messages further
+  // down in this file).
+  maxContextTokens: 144_384,
+  maxOutputTokens: 16_384,
 };
 
 const LIGHT_CONFIG: LlmConfig = {

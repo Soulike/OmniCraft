@@ -17,19 +17,35 @@ describe('settingsSchema', () => {
   });
 });
 
-describe('llm.thinkingLevel', () => {
-  it('defaults to none for both llm and codingLlm', () => {
+describe('llm.main / llm.light defaults', () => {
+  it('fills nested main/light defaults for both llm and codingLlm', () => {
     const parsed = settingsSchema.parse({});
-    expect(parsed.llm.thinkingLevel).toBe('none');
-    expect(parsed.codingLlm.thinkingLevel).toBe('none');
+    expect(parsed.llm.main.thinkingLevel).toBe('none');
+    expect(parsed.llm.main.model).toBe('claude-sonnet-4-20250514');
+    expect(parsed.llm.main.maxContextTokens).toBe(200_000);
+    expect(parsed.llm.main.maxOutputTokens).toBe(32_000);
+    expect(parsed.llm.light.model).toBe('');
+    expect(parsed.codingLlm.light.thinkingLevel).toBe('none');
   });
 
-  it('accepts the widened union members', () => {
+  it('accepts per-model thinking levels', () => {
     const parsed = settingsSchema.parse({
-      llm: {thinkingLevel: 'minimal'},
-      codingLlm: {thinkingLevel: 'max'},
+      llm: {main: {thinkingLevel: 'minimal'}},
+      codingLlm: {light: {thinkingLevel: 'max'}},
     });
-    expect(parsed.llm.thinkingLevel).toBe('minimal');
-    expect(parsed.codingLlm.thinkingLevel).toBe('max');
+    expect(parsed.llm.main.thinkingLevel).toBe('minimal');
+    expect(parsed.codingLlm.light.thinkingLevel).toBe('max');
+  });
+
+  it('rejects a model whose output is not less than its context', () => {
+    const result = settingsSchema.safeParse({
+      llm: {main: {maxContextTokens: 100_000, maxOutputTokens: 100_000}},
+    });
+    expect(result.success).toBe(false);
+    expect(result.success ? [] : result.error.issues[0]?.path).toEqual([
+      'llm',
+      'main',
+      'maxOutputTokens',
+    ]);
   });
 });

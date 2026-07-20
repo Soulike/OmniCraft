@@ -32,8 +32,16 @@ export class MainAgent extends Agent {
     super(
       async () => {
         const settings = await settingsService.getAll();
-        const {apiFormat, apiKey, baseUrl, model, thinkingLevel} = settings.llm;
-        return {apiFormat, apiKey, baseUrl, model, thinkingLevel};
+        const {apiFormat, apiKey, baseUrl, main} = settings.llm;
+        return {
+          apiFormat,
+          apiKey,
+          baseUrl,
+          model: main.model,
+          thinkingLevel: main.thinkingLevel,
+          maxContextTokens: main.maxContextTokens,
+          maxOutputTokens: main.maxOutputTokens,
+        };
       },
       {
         toolRegistries: [
@@ -54,14 +62,15 @@ export class MainAgent extends Agent {
         },
         getLightConfig: async () => {
           const settings = await settingsService.getAll();
-          const {apiFormat, apiKey, baseUrl, model, lightModel, thinkingLevel} =
-            settings.llm;
+          const {apiFormat, apiKey, baseUrl, main, light} = settings.llm;
           return {
             apiFormat,
             apiKey,
             baseUrl,
-            model: lightModel || model,
-            thinkingLevel,
+            model: light.model || main.model,
+            thinkingLevel: light.thinkingLevel,
+            maxContextTokens: light.maxContextTokens,
+            maxOutputTokens: light.maxOutputTokens,
           };
         },
         workingDirectory,

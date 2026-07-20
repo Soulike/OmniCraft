@@ -16,6 +16,8 @@ const MAIN_CONFIG: LlmConfig = {
   baseUrl: 'https://example.test',
   model: 'main-model',
   thinkingLevel: 'none',
+  maxContextTokens: 200_000,
+  maxOutputTokens: 32_000,
 };
 
 class TestToolRegistry extends ToolRegistry {

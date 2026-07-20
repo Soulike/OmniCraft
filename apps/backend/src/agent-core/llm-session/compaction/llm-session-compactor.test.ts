@@ -20,6 +20,8 @@ const config: LlmConfig = {
   baseUrl: 'https://example.test',
   model: 'test-model',
   thinkingLevel: 'none',
+  maxContextTokens: 200_000,
+  maxOutputTokens: 32_000,
 };
 
 const messages: LlmMessage[] = [
@@ -122,7 +124,7 @@ function createDecisionService(
   decision: LlmCompactionDecision,
 ): LlmCompactionDecisionService {
   const decisionService = new LlmCompactionDecisionService();
-  vi.spyOn(decisionService, 'decide').mockResolvedValue(decision);
+  vi.spyOn(decisionService, 'decide').mockReturnValue(decision);
 
   return decisionService;
 }

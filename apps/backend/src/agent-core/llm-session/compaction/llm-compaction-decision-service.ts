@@ -16,12 +16,8 @@ export class LlmCompactionDecisionService {
     private readonly tokenEstimator: LlmCompactionTokenEstimator = llmCompactionTokenEstimator,
   ) {}
 
-  async decide(
-    input: LlmCompactionDecisionInput,
-  ): Promise<LlmCompactionDecision> {
-    const maxPromptTokens = await modelCapacity.getMaxPromptTokens(
-      input.config,
-    );
+  decide(input: LlmCompactionDecisionInput): LlmCompactionDecision {
+    const maxPromptTokens = modelCapacity.getMaxPromptTokens(input.config);
     const currentTokens = this.tokenEstimator.estimateCurrentTokens(input);
 
     if (

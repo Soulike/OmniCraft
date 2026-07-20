@@ -73,6 +73,8 @@ export interface LlmConfig {
   baseUrl: string;
   model: string;
   readonly thinkingLevel: ThinkingLevel;
+  maxContextTokens: number;
+  maxOutputTokens: number;
 }
 
 /** Token usage statistics reported by a single provider call. */
