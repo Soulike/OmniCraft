@@ -1,0 +1,11 @@
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.heading {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--foreground);
+}

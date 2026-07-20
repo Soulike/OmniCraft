@@ -32,9 +32,16 @@ export class CodingAgent extends Agent {
     super(
       async () => {
         const settings = await settingsService.getAll();
-        const {apiFormat, apiKey, baseUrl, model, thinkingLevel} =
-          settings.codingLlm;
-        return {apiFormat, apiKey, baseUrl, model, thinkingLevel};
+        const {apiFormat, apiKey, baseUrl, main} = settings.codingLlm;
+        return {
+          apiFormat,
+          apiKey,
+          baseUrl,
+          model: main.model,
+          thinkingLevel: main.thinkingLevel,
+          maxContextTokens: main.maxContextTokens,
+          maxOutputTokens: main.maxOutputTokens,
+        };
       },
       {
         toolRegistries: [
@@ -55,14 +62,15 @@ export class CodingAgent extends Agent {
         },
         getLightConfig: async () => {
           const settings = await settingsService.getAll();
-          const {apiFormat, apiKey, baseUrl, model, lightModel, thinkingLevel} =
-            settings.codingLlm;
+          const {apiFormat, apiKey, baseUrl, main, light} = settings.codingLlm;
           return {
             apiFormat,
             apiKey,
             baseUrl,
-            model: lightModel || model,
-            thinkingLevel,
+            model: light.model || main.model,
+            thinkingLevel: light.thinkingLevel,
+            maxContextTokens: light.maxContextTokens,
+            maxOutputTokens: light.maxOutputTokens,
           };
         },
         workingDirectory,

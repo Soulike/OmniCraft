@@ -14,6 +14,8 @@ const config: LlmConfig = {
   baseUrl: 'https://example.test',
   model: 'test-model',
   thinkingLevel: 'none',
+  maxContextTokens: 200_000,
+  maxOutputTokens: 32_000,
 };
 
 const messages: LlmMessage[] = [
@@ -56,11 +58,11 @@ describe('LlmCompactionDecisionService', () => {
     vi.restoreAllMocks();
   });
 
-  it('returns skip below threshold', async () => {
-    vi.spyOn(modelCapacity, 'getMaxPromptTokens').mockResolvedValue(1000);
+  it('returns skip below threshold', () => {
+    vi.spyOn(modelCapacity, 'getMaxPromptTokens').mockReturnValue(1000);
     const service = createService(899);
 
-    await expect(
+    expect(
       service.decide({
         config,
         messages,
@@ -68,14 +70,14 @@ describe('LlmCompactionDecisionService', () => {
         latestUsageInputMessageCount: null,
         options,
       }),
-    ).resolves.toEqual({type: 'skip'});
+    ).toEqual({type: 'skip'});
   });
 
-  it('returns skip when messages are empty even if token estimate is high', async () => {
-    vi.spyOn(modelCapacity, 'getMaxPromptTokens').mockResolvedValue(1000);
+  it('returns skip when messages are empty even if token estimate is high', () => {
+    vi.spyOn(modelCapacity, 'getMaxPromptTokens').mockReturnValue(1000);
     const service = createService(1000);
 
-    await expect(
+    expect(
       service.decide({
         config,
         messages: [],
@@ -83,18 +85,18 @@ describe('LlmCompactionDecisionService', () => {
         latestUsageInputMessageCount: null,
         options,
       }),
-    ).resolves.toEqual({type: 'skip'});
+    ).toEqual({type: 'skip'});
   });
 
-  it('returns compact decision at or above threshold with metadata', async () => {
-    vi.spyOn(modelCapacity, 'getMaxPromptTokens').mockResolvedValue(1000);
+  it('returns compact decision at or above threshold with metadata', () => {
+    vi.spyOn(modelCapacity, 'getMaxPromptTokens').mockReturnValue(1000);
     vi.spyOn(crypto, 'randomUUID').mockReturnValue(
       '00000000-0000-4000-8000-000000000000',
     );
     vi.spyOn(Date, 'now').mockReturnValue(12345);
     const service = createService(900);
 
-    await expect(
+    expect(
       service.decide({
         config,
         messages,
@@ -102,7 +104,7 @@ describe('LlmCompactionDecisionService', () => {
         latestUsageInputMessageCount: null,
         options,
       }),
-    ).resolves.toEqual({
+    ).toEqual({
       type: 'compact',
       compactionId: '00000000-0000-4000-8000-000000000000',
       reason: 'before-llm-call',

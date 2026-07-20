@@ -14,6 +14,8 @@ const CONFIG: LlmConfig = {
   baseUrl: 'https://example.test',
   model: 'model',
   thinkingLevel: 'none',
+  maxContextTokens: 200_000,
+  maxOutputTokens: 32_000,
 };
 
 async function* summaryStream(): LlmEventStream {
