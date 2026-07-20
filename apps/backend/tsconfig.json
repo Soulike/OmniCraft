@@ -1,6 +1,5 @@
 {
   "extends": "@config/typescript/node",
-  "include": ["src"],
   "compilerOptions": {
     "rootDir": "./src",
     "outDir": "./dist",
