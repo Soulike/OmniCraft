@@ -8,6 +8,7 @@ import pinoLogger from 'koa-pino-logger';
 import {dispatcher} from '@/dispatcher/index.js';
 import {fileExists} from '@/helpers/fs.js';
 import {ShellCommandRunner} from '@/helpers/shell-command-runner.js';
+import {isPrematureCloseError} from '@/helpers/stream-errors.js';
 import {logger} from '@/logger.js';
 import {serveSpa} from '@/middleware/serve-spa.js';
 import {VscodeServerManager} from '@/models/vscode-server-manager/index.js';
@@ -22,6 +23,10 @@ const app = new Koa();
 app.proxy = true;
 
 app.on('error', (e: unknown) => {
+  // A client disconnecting mid-stream (e.g. the frontend switching SSE
+  // sessions) makes Koa's response pipeline emit ERR_STREAM_PREMATURE_CLOSE.
+  // The connection is already cleaned up on `req` close — drop the noise.
+  if (isPrematureCloseError(e)) return;
   logger.error(e, 'Uncaught error');
 });
 
