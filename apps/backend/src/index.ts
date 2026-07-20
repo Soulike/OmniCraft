@@ -3,13 +3,13 @@ import path from 'node:path';
 
 import {bodyParser} from '@koa/bodyparser';
 import Koa from 'koa';
-import pinoLogger from 'koa-pino-logger';
 
 import {dispatcher} from '@/dispatcher/index.js';
 import {fileExists} from '@/helpers/fs.js';
 import {ShellCommandRunner} from '@/helpers/shell-command-runner.js';
 import {isPrematureCloseError} from '@/helpers/stream-errors.js';
 import {logger} from '@/logger.js';
+import {requestLogger} from '@/middleware/request-logger.js';
 import {serveSpa} from '@/middleware/serve-spa.js';
 import {VscodeServerManager} from '@/models/vscode-server-manager/index.js';
 import {initServices} from '@/startup/index.js';
@@ -30,7 +30,7 @@ app.on('error', (e: unknown) => {
   logger.error(e, 'Uncaught error');
 });
 
-app.use(pinoLogger({logger}));
+app.use(requestLogger());
 app.use(bodyParser());
 app.use(dispatcher());
 
