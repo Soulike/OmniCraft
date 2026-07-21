@@ -35,6 +35,18 @@ describe('LlmSettingsFields', () => {
     expect(screen.getByText('Lightweight model')).toBeInTheDocument();
   });
 
+  it('renders tiers most-capable first (guards the schema-derived order)', () => {
+    renderFields(base);
+    const headings = screen
+      .getAllByRole('heading', {level: 3})
+      .map((heading) => heading.textContent);
+    expect(headings).toEqual([
+      'Powerful model',
+      'Versatile model',
+      'Lightweight model',
+    ]);
+  });
+
   it('flags a blank model on the selected default tier', () => {
     renderFields({...base, 'llm/powerful/model': ''});
     expect(
