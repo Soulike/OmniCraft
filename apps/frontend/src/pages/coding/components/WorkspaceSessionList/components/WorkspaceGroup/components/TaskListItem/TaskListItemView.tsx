@@ -29,7 +29,9 @@ export function TaskListItemView({
     >
       <span aria-hidden='true' className={styles.dot} />
       <div className={styles.content}>
-        <span className={styles.title}>{title}</span>
+        <span className={styles.title} title={title}>
+          {title}
+        </span>
         {timeLabel !== null && <span className={styles.meta}>{timeLabel}</span>}
       </div>
       <div className={styles.actions}>
