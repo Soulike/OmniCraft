@@ -36,35 +36,6 @@ const baseModelSettingsSchema = z.object({
 const OUTPUT_EXCEEDS_CONTEXT_MESSAGE =
   'Max output tokens must be less than max context tokens';
 
-/** Main model: a name is required. */
-export const mainModelSettingsSchema = baseModelSettingsSchema
-  .extend({
-    model: z
-      .string()
-      .min(1)
-      .describe('Model name to use')
-      .default('claude-sonnet-4-20250514'),
-  })
-  .refine((config) => config.maxContextTokens > config.maxOutputTokens, {
-    error: OUTPUT_EXCEEDS_CONTEXT_MESSAGE,
-    path: ['maxOutputTokens'],
-  });
-
-/** Light model: name may be empty (falls back to the main model). */
-export const lightModelSettingsSchema = baseModelSettingsSchema
-  .extend({
-    model: z
-      .string()
-      .describe(
-        'Model name for lightweight tasks (e.g. title generation). Falls back to the main model if empty.',
-      )
-      .default(''),
-  })
-  .refine((config) => config.maxContextTokens > config.maxOutputTokens, {
-    error: OUTPUT_EXCEEDS_CONTEXT_MESSAGE,
-    path: ['maxOutputTokens'],
-  });
-
 /** Model capability tiers, ordered from cheapest/lowest to most capable. */
 export const MODEL_TIER_LADDER = [
   'lightweight',
@@ -102,8 +73,6 @@ export const llmSettingsSchema = z
       .url()
       .describe('Base URL of the LLM API')
       .default('https://api.anthropic.com'),
-    main: mainModelSettingsSchema.prefault({}),
-    light: lightModelSettingsSchema.prefault({}),
     defaultTier: modelTierSchema
       .describe('Tier the agent runs on; also the fallback for blank tiers')
       .default('powerful'),
