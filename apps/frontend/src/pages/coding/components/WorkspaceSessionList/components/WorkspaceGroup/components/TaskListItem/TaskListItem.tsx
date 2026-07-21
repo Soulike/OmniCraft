@@ -1,4 +1,5 @@
-import {formatRelativeTime} from './helpers/format-relative-time.js';
+import {formatRelativeTime} from '@/helpers/format-relative-time.js';
+
 import {useTaskDeletion} from './hooks/useTaskDeletion.js';
 import {TaskListItemView} from './TaskListItemView.js';
 
