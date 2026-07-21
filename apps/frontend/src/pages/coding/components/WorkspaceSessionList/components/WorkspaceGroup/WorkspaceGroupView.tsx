@@ -56,10 +56,10 @@ export function WorkspaceGroupView({
           <span className={styles.label} title={workspace?.path}>
             {label}
           </span>
+          <Chip className={styles.count} size='sm' variant='soft'>
+            {sessions.length}
+          </Chip>
         </Disclosure.Trigger>
-        <Chip className={styles.count} size='sm' variant='soft'>
-          {sessions.length}
-        </Chip>
         {!!onNewSession && !!workspace && (
           <Tooltip delay={0}>
             <Tooltip.Trigger>
