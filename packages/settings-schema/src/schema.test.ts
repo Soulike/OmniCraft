@@ -45,4 +45,22 @@ describe('model tiers', () => {
     });
     expect(result.success).toBe(true);
   });
+
+  it('rejects a tier whose max output is not less than its max context', () => {
+    const result = settingsSchema.safeParse({
+      llm: {
+        powerful: {
+          model: 'opus',
+          maxContextTokens: 100_000,
+          maxOutputTokens: 100_000,
+        },
+      },
+    });
+    expect(result.success).toBe(false);
+    expect(result.success ? [] : result.error.issues[0]?.path).toEqual([
+      'llm',
+      'powerful',
+      'maxOutputTokens',
+    ]);
+  });
 });
