@@ -123,4 +123,34 @@ describe('useAllCodingSessions', () => {
     });
     expect(result.current.isLoading).toBe(false);
   });
+
+  it('polls in the background every 3 seconds', async () => {
+    vi.useFakeTimers();
+    try {
+      listSessions.mockResolvedValue({sessions: [], total: 0});
+      const {result} = renderHook(() => useAllCodingSessions(), {wrapper});
+
+      // Flush the mount load.
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
+      expect(result.current.isLoading).toBe(false);
+      const afterMount = listSessions.mock.calls.length;
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(3000);
+      });
+      expect(listSessions.mock.calls.length).toBe(afterMount + 1);
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(3000);
+      });
+      expect(listSessions.mock.calls.length).toBe(afterMount + 2);
+
+      // Background poll must not flip the loading spinner.
+      expect(result.current.isLoading).toBe(false);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });

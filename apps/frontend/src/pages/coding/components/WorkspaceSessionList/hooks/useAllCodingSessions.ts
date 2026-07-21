@@ -14,6 +14,9 @@ import {
  */
 const FETCH_ALL_LIMIT = Number.MAX_SAFE_INTEGER;
 
+/** Unconditional background poll cadence for running/idle + recency freshness. */
+const POLL_INTERVAL_MS = 3000;
+
 interface UseAllCodingSessionsResult {
   readonly sessions: readonly SessionMetadata[];
   readonly isLoading: boolean;
@@ -86,6 +89,15 @@ export function useAllCodingSessions(): UseAllCodingSessionsResult {
       eventBus.off('session-title', onRefresh);
     };
   }, [eventBus, reload]);
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      void reload(true);
+    }, POLL_INTERVAL_MS);
+    return () => {
+      clearInterval(id);
+    };
+  }, [reload]);
 
   const removeSession = useCallback(
     async (id: string) => {
