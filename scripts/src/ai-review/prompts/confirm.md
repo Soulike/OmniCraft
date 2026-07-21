@@ -6,7 +6,10 @@ Reconcile them into a single, precise PR review. You are running with `-C pr-hea
 
 ## Process
 
-1. **De-duplicate** findings that the reviewers raised in common.
+1. **De-duplicate** findings that the reviewers raised in common. Include the
+   PR's existing review comments in this scope (`gh` is available) and drop
+   anything already raised there — use your own judgment on what counts as a
+   duplicate.
 2. **Re-verify each finding against the real code/diff.** When a reviewer
    included a repro test, **re-run it** to confirm or refute. **Discard anything
    you cannot independently confirm** — false positives must not survive.
