@@ -1,4 +1,5 @@
 import {Description, FieldError, Label, ListBox, Select} from '@heroui/react';
+import {MODEL_TIER_LADDER, type ModelTier} from '@omnicraft/settings-schema';
 
 import {ConnectionFields} from '../ConnectionFields/index.js';
 import {ModelSettingsFields} from '../ModelSettingsFields/index.js';
@@ -8,33 +9,38 @@ interface LlmSettingsFieldsProps extends SettingSectionRenderProps {
   prefix: 'llm' | 'codingLlm';
 }
 
-const TIER_META = [
-  {
-    tier: 'powerful',
-    title: 'Powerful model',
+/**
+ * UI-only copy per tier. Keyed by `ModelTier` so the schema stays the single
+ * source of truth for which tiers exist — adding or renaming a tier is a
+ * compile error here rather than silent drift.
+ */
+const TIER_PRESENTATION = {
+  powerful: {
     placeholder: 'claude-opus-4-20250514',
     description: 'Most capable tier, for hard multi-step reasoning.',
   },
-  {
-    tier: 'versatile',
-    title: 'Versatile model',
+  versatile: {
     placeholder: 'claude-sonnet-4-20250514',
     description: 'Balanced default. Leave empty to inherit the default tier.',
   },
-  {
-    tier: 'lightweight',
-    title: 'Lightweight model',
+  lightweight: {
     placeholder: 'claude-haiku-4-20250514',
     description:
       'Cheapest tier for trivial subtasks. Leave empty to inherit the default tier.',
   },
-] as const;
+} as const satisfies Record<
+  ModelTier,
+  {placeholder: string; description: string}
+>;
 
-const DEFAULT_TIER_OPTIONS = [
-  ['powerful', 'Powerful'],
-  ['versatile', 'Versatile'],
-  ['lightweight', 'Lightweight'],
-] as const;
+/** Most-capable first — the reverse of the schema's low→high ladder. */
+const TIER_DISPLAY_ORDER: readonly ModelTier[] = [
+  ...MODEL_TIER_LADDER,
+].reverse();
+
+function tierLabel(tier: ModelTier): string {
+  return tier.charAt(0).toUpperCase() + tier.slice(1);
+}
 
 export function LlmSettingsFields(props: LlmSettingsFieldsProps) {
   const {prefix, values, setValue, validationErrors, isDisabled} = props;
@@ -67,9 +73,9 @@ export function LlmSettingsFields(props: LlmSettingsFieldsProps) {
         </Description>
         <Select.Popover>
           <ListBox>
-            {DEFAULT_TIER_OPTIONS.map(([id, label]) => (
-              <ListBox.Item key={id} id={id} textValue={label}>
-                {label}
+            {TIER_DISPLAY_ORDER.map((tier) => (
+              <ListBox.Item key={tier} id={tier} textValue={tierLabel(tier)}>
+                {tierLabel(tier)}
                 <ListBox.ItemIndicator />
               </ListBox.Item>
             ))}
@@ -80,7 +86,8 @@ export function LlmSettingsFields(props: LlmSettingsFieldsProps) {
         )}
       </Select>
 
-      {TIER_META.map(({tier, title, placeholder, description}) => {
+      {TIER_DISPLAY_ORDER.map((tier) => {
+        const {placeholder, description} = TIER_PRESENTATION[tier];
         const modelValue = values[`${prefix}/${tier}/model`];
         const modelIsBlank =
           typeof modelValue !== 'string' || modelValue.trim() === '';
@@ -89,7 +96,7 @@ export function LlmSettingsFields(props: LlmSettingsFieldsProps) {
             key={tier}
             {...props}
             prefix={`${prefix}/${tier}`}
-            title={title}
+            title={`${tierLabel(tier)} model`}
             modelPlaceholder={placeholder}
             modelDescription={description}
             modelError={

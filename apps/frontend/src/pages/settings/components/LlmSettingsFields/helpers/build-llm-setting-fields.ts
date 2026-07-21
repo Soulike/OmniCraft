@@ -1,8 +1,6 @@
-import {settingsSchema} from '@omnicraft/settings-schema';
+import {MODEL_TIER_LADDER, settingsSchema} from '@omnicraft/settings-schema';
 
 import type {FieldConfig} from '../../SettingSection/index.js';
-
-const TIERS = ['powerful', 'versatile', 'lightweight'] as const;
 
 /** Builds the SettingSection field list for one LLM settings group. */
 export function buildLlmSettingFields(
@@ -15,7 +13,7 @@ export function buildLlmSettingFields(
     {path: `${prefix}/baseUrl`, schema: shape.baseUrl},
     {path: `${prefix}/defaultTier`, schema: shape.defaultTier},
   ];
-  for (const tier of TIERS) {
+  for (const tier of MODEL_TIER_LADDER) {
     const tierShape = shape[tier].unwrap().shape;
     fields.push(
       {path: `${prefix}/${tier}/model`, schema: tierShape.model},
