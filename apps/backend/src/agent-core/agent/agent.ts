@@ -342,7 +342,7 @@ export abstract class Agent {
   }
 
   /**
-   * Generates a session title from the first user message using the light LLM,
+   * Generates a session title from the first user message using the lightweight tier,
    * then appends a `session-title` event to sseLog.
    * Fire-and-forget — errors are swallowed and a fallback title is used.
    */

@@ -16,7 +16,7 @@ import {toNumberFieldValue} from './helpers/to-number-field-value.js';
 import styles from './styles.module.css';
 
 interface ModelSettingsFieldsProps extends SettingSectionRenderProps {
-  /** Key-path prefix for this model's fields, e.g. 'llm/main'. */
+  /** Key-path prefix for this model's fields, e.g. 'llm/powerful'. */
   prefix: string;
   /** Group heading shown above the fields. */
   title: string;
