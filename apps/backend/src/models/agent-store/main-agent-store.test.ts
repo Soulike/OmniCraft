@@ -456,4 +456,20 @@ describe('MainAgentStore', () => {
       }).not.toThrow();
     });
   });
+
+  describe('getRunningIds', () => {
+    it('returns an empty set when nothing is running', () => {
+      const store = MainAgentStore.create(sessionsDir);
+      store.set(createMockAgent('idle-1'));
+      expect(store.getRunningIds()).toEqual(new Set());
+    });
+
+    it('returns only the ids of running agents', () => {
+      const store = MainAgentStore.create(sessionsDir);
+      store.set(createMockAgent('idle-1'));
+      store.set(createMockAgent('run-1', {isRunning: true}));
+      store.set(createMockAgent('run-2', {isRunning: true}));
+      expect(store.getRunningIds()).toEqual(new Set(['run-1', 'run-2']));
+    });
+  });
 });
