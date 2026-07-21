@@ -53,6 +53,7 @@ export const sessionMetadataSchema = z.object({
   id: sessionIdSchema,
   title: z.string(),
   workingDirectory: z.string().optional(),
+  updatedAt: z.number().optional(), // epoch ms; last-activity (snapshot mtime, may be fractional)
 });
 
 export type SessionMetadata = z.infer<typeof sessionMetadataSchema>;

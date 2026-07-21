@@ -19,13 +19,14 @@ describe('WorkspaceGroupView', () => {
         isExpanded
         onExpandedChange={noop}
         currentSessionId={null}
+        now={1_700_000_000_000}
         onSelectSession={noop}
         onDeleteSession={asyncNoop}
         onNewSession={vi.fn()}
       />,
     );
     expect(screen.getByText('proj')).toBeInTheDocument();
-    expect(screen.getByText('·1')).toBeInTheDocument();
+    expect(screen.getByText('1')).toBeInTheDocument();
     expect(
       screen.getByRole('button', {name: 'New task in proj'}),
     ).toBeInTheDocument();
@@ -38,12 +39,13 @@ describe('WorkspaceGroupView', () => {
         isExpanded
         onExpandedChange={noop}
         currentSessionId={null}
+        now={1_700_000_000_000}
         onSelectSession={noop}
         onDeleteSession={asyncNoop}
       />,
     );
     expect(screen.getByText('Ungrouped')).toBeInTheDocument();
-    expect(screen.getByText('No sessions yet')).toBeInTheDocument();
+    expect(screen.getByText('No tasks yet')).toBeInTheDocument();
     expect(
       screen.queryByRole('button', {name: /New task/}),
     ).not.toBeInTheDocument();

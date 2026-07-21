@@ -5,21 +5,38 @@
 .heading {
   display: flex;
   align-items: center;
-  gap: 2px;
-  padding: 1px 2px;
+  gap: 6px;
+  /* Inset to match the ListBox body's inner padding so the header row and the
+     task rows share the same left/right band; hover fills the whole row. */
+  margin: 0 8px;
+  padding: 6px 8px;
+  border-left: 2px solid transparent;
+  cursor: pointer;
 }
 
+.heading:hover {
+  background: color-mix(in oklab, var(--foreground) 5%, transparent);
+}
+
+/* Quiet header trigger — the hover surface is the whole .heading row. */
 .trigger {
   flex: 1;
   min-width: 0;
   display: flex;
   align-items: center;
-  justify-content: flex-start;
-  gap: 8px;
-  padding: 7px 8px;
-  height: auto;
-  font: inherit;
+  gap: 7px;
+  padding: 0;
+  background: none;
+  border: none;
   color: var(--foreground);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.trigger:focus-visible {
+  outline: 1px solid color-mix(in srgb, var(--accent) 55%, transparent);
+  outline-offset: 2px;
 }
 
 .indicator {
@@ -27,9 +44,16 @@
   color: var(--muted);
 }
 
+.folder {
+  flex: 0 0 auto;
+  color: var(--muted);
+}
+
 .label {
+  flex: 1;
+  min-width: 0;
   font-weight: 600;
-  font-size: 0.875rem;
+  font-size: 0.8125rem;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -37,8 +61,6 @@
 
 .count {
   flex: 0 0 auto;
-  color: var(--muted);
-  font-size: 0.72rem;
 }
 
 .plus {
@@ -58,10 +80,32 @@
 }
 
 .listBox {
-  padding-left: 14px;
+  padding-left: 0;
 }
 
-.item[data-selected='true'] {
+/* The ListBox.Item is the row surface. It owns hover/selected visuals — set on
+   the item's own class + React-Aria state attributes (data-hovered/data-selected),
+   overriding HeroUI's default option background + radius — so the highlight is a
+   straight-edged full-width band aligned with the header row. */
+.item {
+  width: 100%;
+  padding: 6px 8px;
+  border-radius: 0;
+  border-left: 2px solid transparent;
+  background: transparent;
+}
+
+.item[data-hovered]:not([data-selected]) {
+  background: color-mix(in oklab, var(--foreground) 5%, transparent);
+}
+
+.item[data-selected] {
   background: var(--accent-soft);
-  border-radius: var(--radius-lg);
+  border-left-color: var(--accent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .trigger {
+    transition: none;
+  }
 }

@@ -8,11 +8,14 @@ interface UseExpandedGroupsResult {
 
 /**
  * Tracks which workspace groups are expanded. Seeds the set once from the
- * active session's group (`initialActiveGroupKey`); only the first non-null
- * value is consumed, after which the user controls expansion.
+ * active session's group (`initialActiveGroupKey`), or — when no session is
+ * active — from `initialFallbackGroupKey` (the most-recent group), so the
+ * panel opens with content. Only the first non-null seed is consumed; after
+ * that the user controls expansion.
  */
 export function useExpandedGroups(
   initialActiveGroupKey: string | null,
+  initialFallbackGroupKey: string | null = null,
 ): UseExpandedGroupsResult {
   const [expandedGroups, setExpandedGroups] = useState<ReadonlySet<string>>(
     () => new Set<string>(),
@@ -20,12 +23,16 @@ export function useExpandedGroups(
   const [seeded, setSeeded] = useState(false);
 
   useEffect(() => {
-    if (seeded || initialActiveGroupKey === null) {
+    if (seeded) {
       return;
     }
-    setExpandedGroups(new Set([initialActiveGroupKey]));
+    const seedKey = initialActiveGroupKey ?? initialFallbackGroupKey;
+    if (seedKey === null) {
+      return;
+    }
+    setExpandedGroups(new Set([seedKey]));
     setSeeded(true);
-  }, [seeded, initialActiveGroupKey]);
+  }, [seeded, initialActiveGroupKey, initialFallbackGroupKey]);
 
   const toggleGroup = useCallback((groupKey: string, isExpanded: boolean) => {
     setExpandedGroups((prev) => {

@@ -57,7 +57,7 @@ export function CodingPageView({
 }: CodingPageViewProps) {
   return (
     <div className={styles.wrapper}>
-      <CollapsibleSidebar title='Workspaces'>
+      <CollapsibleSidebar title='Tasks'>
         <WorkspaceSessionList onNewSession={onNewSession} />
       </CollapsibleSidebar>
       <div className={styles.main}>

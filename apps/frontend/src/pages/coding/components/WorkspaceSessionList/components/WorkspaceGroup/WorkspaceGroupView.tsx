@@ -1,13 +1,13 @@
 import type {Selection} from '@heroui/react';
-import {Button, Disclosure, ListBox, Tooltip} from '@heroui/react';
+import {Button, Chip, Disclosure, ListBox, Tooltip} from '@heroui/react';
 import type {SessionMetadata} from '@omnicraft/api-schema';
 import type {Workspace} from '@omnicraft/settings-schema';
-import {Plus} from 'lucide-react';
+import {Folder, Plus} from 'lucide-react';
 import {useMemo} from 'react';
 
 import {basename} from '@/helpers/path.js';
-import {SessionItem} from '@/modules/chat-session/index.js';
 
+import {TaskListItem} from './components/TaskListItem/index.js';
 import styles from './styles.module.css';
 
 interface WorkspaceGroupViewProps {
@@ -16,6 +16,7 @@ interface WorkspaceGroupViewProps {
   readonly isExpanded: boolean;
   readonly onExpandedChange: (expanded: boolean) => void;
   readonly currentSessionId: string | null;
+  readonly now: number;
   readonly onSelectSession: (id: string) => void;
   readonly onDeleteSession: (id: string) => Promise<void>;
   readonly onNewSession?: (workspacePath: string) => void;
@@ -27,6 +28,7 @@ export function WorkspaceGroupView({
   isExpanded,
   onExpandedChange,
   currentSessionId,
+  now,
   onSelectSession,
   onDeleteSession,
   onNewSession,
@@ -48,13 +50,16 @@ export function WorkspaceGroupView({
       onExpandedChange={onExpandedChange}
     >
       <Disclosure.Heading className={styles.heading}>
-        <Button slot='trigger' variant='ghost' className={styles.trigger}>
+        <Disclosure.Trigger className={styles.trigger}>
           <Disclosure.Indicator className={styles.indicator} />
+          <Folder className={styles.folder} size={14} />
           <span className={styles.label} title={workspace?.path}>
             {label}
           </span>
-          <span className={styles.count}>·{sessions.length}</span>
-        </Button>
+          <Chip className={styles.count} size='sm' variant='soft'>
+            {sessions.length}
+          </Chip>
+        </Disclosure.Trigger>
         {!!onNewSession && !!workspace && (
           <Tooltip delay={0}>
             <Tooltip.Trigger>
@@ -80,10 +85,10 @@ export function WorkspaceGroupView({
       <Disclosure.Content>
         <Disclosure.Body className={styles.body}>
           {sessions.length === 0 ? (
-            <p className={styles.empty}>No sessions yet</p>
+            <p className={styles.empty}>No tasks yet</p>
           ) : (
             <ListBox
-              aria-label={`${label} sessions`}
+              aria-label={`${label} tasks`}
               className={styles.listBox}
               items={sessions}
               selectedKeys={selectedKeys}
@@ -106,9 +111,11 @@ export function WorkspaceGroupView({
                   className={styles.item}
                 >
                   {({isSelected}) => (
-                    <SessionItem
+                    <TaskListItem
                       title={session.title}
+                      updatedAt={session.updatedAt}
                       isSelected={isSelected}
+                      now={now}
                       onDelete={async () => onDeleteSession(session.id)}
                     />
                   )}

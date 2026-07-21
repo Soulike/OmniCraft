@@ -2,6 +2,7 @@ import {toast} from '@heroui/react';
 import {useCallback, useMemo} from 'react';
 import {useNavigate} from 'react-router';
 
+import {useNow} from '@/hooks/useNow.js';
 import {useSessionConfig, useSessionId} from '@/modules/chat-session/index.js';
 
 import {
@@ -39,6 +40,7 @@ export function WorkspaceSessionList({
   } = useAllCodingSessions();
   const {sessionId, buildSessionRoute, baseRoute} = useSessionId();
   const navigate = useNavigate();
+  const now = useNow();
 
   useSyncSelectedWorkspace(sessions, sessionId, setSelectedWorkspace);
 
@@ -70,8 +72,24 @@ export function WorkspaceSessionList({
     return sessionGroupKey(active.workingDirectory, workspaces);
   }, [workspacesLoading, sessionsLoading, sessions, sessionId, workspaces]);
 
-  const {expandedGroups, toggleGroup, expandGroup} =
-    useExpandedGroups(activeKey);
+  // When no session is active, seed expansion with the group holding the most
+  // recently updated session (sessions are returned mtime-desc), so the panel
+  // never opens fully collapsed.
+  const mostRecentGroupKey = useMemo(() => {
+    if (workspacesLoading || sessionsLoading) {
+      return null;
+    }
+    const mostRecent = sessions.at(0);
+    if (mostRecent === undefined) {
+      return null;
+    }
+    return sessionGroupKey(mostRecent.workingDirectory, workspaces);
+  }, [workspacesLoading, sessionsLoading, sessions, workspaces]);
+
+  const {expandedGroups, toggleGroup, expandGroup} = useExpandedGroups(
+    activeKey,
+    mostRecentGroupKey,
+  );
 
   const handleNewSession = useCallback(
     (workspacePath: string) => {
@@ -115,6 +133,7 @@ export function WorkspaceSessionList({
       workspacesFailed={workspacesError !== null}
       sessionsFailed={sessionsError !== null}
       currentSessionId={sessionId}
+      now={now}
       onReloadWorkspaces={() => void reloadWorkspaces()}
       onReloadSessions={() => void reloadSessions(false)}
       onToggle={toggleGroup}

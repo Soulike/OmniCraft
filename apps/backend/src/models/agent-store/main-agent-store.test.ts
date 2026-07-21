@@ -253,7 +253,9 @@ describe('MainAgentStore', () => {
       });
       const result = await store.listSessionMetadata(0, 100);
       expect(result).toEqual({
-        sessions: [{id, title: 'Title A'}],
+        sessions: [
+          {id, title: 'Title A', updatedAt: expect.any(Number) as unknown},
+        ],
         total: 1,
       });
     });
@@ -284,8 +286,8 @@ describe('MainAgentStore', () => {
 
       const result = await store.listSessionMetadata(0, 100);
       expect(result.sessions).toEqual([
-        {id: newerId, title: 'Newer'},
-        {id: olderId, title: 'Older'},
+        {id: newerId, title: 'Newer', updatedAt: expect.any(Number) as unknown},
+        {id: olderId, title: 'Older', updatedAt: expect.any(Number) as unknown},
       ]);
     });
 
@@ -300,7 +302,13 @@ describe('MainAgentStore', () => {
 
       const result = await store.listSessionMetadata(0, 100);
       expect(result).toEqual({
-        sessions: [{id: validId, title: 'Valid'}],
+        sessions: [
+          {
+            id: validId,
+            title: 'Valid',
+            updatedAt: expect.any(Number) as unknown,
+          },
+        ],
         total: 1,
       });
     });
@@ -315,7 +323,9 @@ describe('MainAgentStore', () => {
       await writeSnapshot(sessionsDir, goodId, {id: goodId, title: 'Good'});
 
       const result = await store.listSessionMetadata(0, 100);
-      expect(result.sessions).toEqual([{id: goodId, title: 'Good'}]);
+      expect(result.sessions).toEqual([
+        {id: goodId, title: 'Good', updatedAt: expect.any(Number) as unknown},
+      ]);
     });
 
     it('skips snapshots missing required fields', async () => {
@@ -329,7 +339,13 @@ describe('MainAgentStore', () => {
       });
 
       const result = await store.listSessionMetadata(0, 100);
-      expect(result.sessions).toEqual([{id: completeId, title: 'Complete'}]);
+      expect(result.sessions).toEqual([
+        {
+          id: completeId,
+          title: 'Complete',
+          updatedAt: expect.any(Number) as unknown,
+        },
+      ]);
     });
 
     it('paginates with offset and limit', async () => {
@@ -353,20 +369,22 @@ describe('MainAgentStore', () => {
       const page1 = await store.listSessionMetadata(0, 2);
       expect(page1.total).toBe(5);
       expect(page1.sessions).toEqual([
-        {id: ids[4], title: 'T4'},
-        {id: ids[3], title: 'T3'},
+        {id: ids[4], title: 'T4', updatedAt: expect.any(Number) as unknown},
+        {id: ids[3], title: 'T3', updatedAt: expect.any(Number) as unknown},
       ]);
 
       const page2 = await store.listSessionMetadata(2, 2);
       expect(page2.total).toBe(5);
       expect(page2.sessions).toEqual([
-        {id: ids[2], title: 'T2'},
-        {id: ids[1], title: 'T1'},
+        {id: ids[2], title: 'T2', updatedAt: expect.any(Number) as unknown},
+        {id: ids[1], title: 'T1', updatedAt: expect.any(Number) as unknown},
       ]);
 
       const page3 = await store.listSessionMetadata(4, 2);
       expect(page3.total).toBe(5);
-      expect(page3.sessions).toEqual([{id: ids[0], title: 'T0'}]);
+      expect(page3.sessions).toEqual([
+        {id: ids[0], title: 'T0', updatedAt: expect.any(Number) as unknown},
+      ]);
     });
 
     it('reads from metadata.json when present', async () => {
@@ -387,7 +405,12 @@ describe('MainAgentStore', () => {
 
       const result = await store.listSessionMetadata(0, 100);
       expect(result.sessions).toEqual([
-        {id, title: 'Metadata Title', workingDirectory: '/tmp'},
+        {
+          id,
+          title: 'Metadata Title',
+          workingDirectory: '/tmp',
+          updatedAt: expect.any(Number) as unknown,
+        },
       ]);
     });
 
@@ -403,7 +426,20 @@ describe('MainAgentStore', () => {
       });
 
       const result = await store.listSessionMetadata(0, 100);
-      expect(result.sessions).toEqual([{id, title: 'Legacy Title'}]);
+      expect(result.sessions).toEqual([
+        {id, title: 'Legacy Title', updatedAt: expect.any(Number) as unknown},
+      ]);
+    });
+
+    it('includes updatedAt equal to the snapshot mtime', async () => {
+      const store = MainAgentStore.create(sessionsDir);
+      const id = crypto.randomUUID();
+      await writeSnapshot(sessionsDir, id, {id, title: 'Timed'});
+      const when = new Date('2026-01-02T03:04:05.000Z');
+      await utimes(path.join(sessionsDir, id, 'snapshot.json'), when, when);
+
+      const result = await store.listSessionMetadata(0, 100);
+      expect(result.sessions[0].updatedAt).toBe(when.getTime());
     });
   });
 
