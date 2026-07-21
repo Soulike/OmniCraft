@@ -2,6 +2,7 @@ import {toast} from '@heroui/react';
 import {useCallback, useMemo} from 'react';
 import {useNavigate} from 'react-router';
 
+import {useNow} from '@/hooks/useNow.js';
 import {useSessionConfig, useSessionId} from '@/modules/chat-session/index.js';
 
 import {
@@ -36,10 +37,10 @@ export function WorkspaceSessionList({
     error: sessionsError,
     reload: reloadSessions,
     removeSession,
-    loadedAt,
   } = useAllCodingSessions();
   const {sessionId, buildSessionRoute, baseRoute} = useSessionId();
   const navigate = useNavigate();
+  const now = useNow();
 
   useSyncSelectedWorkspace(sessions, sessionId, setSelectedWorkspace);
 
@@ -132,7 +133,7 @@ export function WorkspaceSessionList({
       workspacesFailed={workspacesError !== null}
       sessionsFailed={sessionsError !== null}
       currentSessionId={sessionId}
-      now={loadedAt}
+      now={now}
       onReloadWorkspaces={() => void reloadWorkspaces()}
       onReloadSessions={() => void reloadSessions(false)}
       onToggle={toggleGroup}
