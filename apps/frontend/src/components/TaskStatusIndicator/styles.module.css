@@ -1,0 +1,89 @@
+/*
+ * Task status indicator. Consumes HeroUI tokens only. Motion appears only for
+ * active/pending states (running spinner; done/waiting diffusion) — never at
+ * rest (idle). prefers-reduced-motion drops all motion but keeps every state
+ * distinguishable via color + a static halo.
+ */
+.indicator {
+  position: relative;
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.indicator[data-status='idle'] {
+  border: 1.5px solid var(--muted);
+  background: transparent;
+  opacity: 0.55;
+}
+
+.indicator[data-status='running'] {
+  width: 12px;
+  height: 12px;
+}
+
+.indicator[data-status='done'] {
+  background: var(--success);
+  color: var(--success);
+}
+
+.indicator[data-status='waiting'] {
+  background: var(--warning);
+  color: var(--warning);
+}
+
+.spinner {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 2px solid var(--accent-soft);
+  border-top-color: var(--accent);
+  animation: task-status-spin 0.7s linear infinite;
+}
+
+.ripple {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: currentColor;
+  animation: task-status-ripple 1.7s ease-out infinite;
+}
+
+.rippleDelayed {
+  animation-delay: 0.85s;
+}
+
+@keyframes task-status-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes task-status-ripple {
+  0% {
+    transform: scale(1);
+    opacity: 0.5;
+  }
+  80%,
+  100% {
+    transform: scale(3);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    animation: none;
+  }
+  .ripple {
+    animation: none;
+    opacity: 0;
+  }
+  .indicator[data-status='done'] {
+    box-shadow: 0 0 0 3px var(--success-soft);
+  }
+  .indicator[data-status='waiting'] {
+    box-shadow: 0 0 0 3px var(--warning-soft);
+  }
+}
