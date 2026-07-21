@@ -17,34 +17,49 @@ describe('settingsSchema', () => {
   });
 });
 
-describe('llm.main / llm.light defaults', () => {
-  it('fills nested main/light defaults for both llm and codingLlm', () => {
+describe('model tiers', () => {
+  it('defaults defaultTier to powerful with a concrete anchor model', () => {
     const parsed = settingsSchema.parse({});
-    expect(parsed.llm.main.thinkingLevel).toBe('none');
-    expect(parsed.llm.main.model).toBe('claude-sonnet-4-20250514');
-    expect(parsed.llm.main.maxContextTokens).toBe(200_000);
-    expect(parsed.llm.main.maxOutputTokens).toBe(32_000);
-    expect(parsed.llm.light.model).toBe('');
-    expect(parsed.codingLlm.light.thinkingLevel).toBe('none');
+    expect(parsed.llm.defaultTier).toBe('powerful');
+    expect(parsed.llm.powerful.model).toBe('claude-sonnet-4-20250514');
+    expect(parsed.llm.versatile.model).toBe('');
+    expect(parsed.llm.lightweight.model).toBe('');
+    expect(parsed.codingLlm.defaultTier).toBe('powerful');
   });
 
-  it('accepts per-model thinking levels', () => {
-    const parsed = settingsSchema.parse({
-      llm: {main: {thinkingLevel: 'minimal'}},
-      codingLlm: {light: {thinkingLevel: 'max'}},
-    });
-    expect(parsed.llm.main.thinkingLevel).toBe('minimal');
-    expect(parsed.codingLlm.light.thinkingLevel).toBe('max');
-  });
-
-  it('rejects a model whose output is not less than its context', () => {
+  it('rejects a blank model on the selected default tier', () => {
     const result = settingsSchema.safeParse({
-      llm: {main: {maxContextTokens: 100_000, maxOutputTokens: 100_000}},
+      llm: {defaultTier: 'versatile', versatile: {model: ''}},
     });
     expect(result.success).toBe(false);
     expect(result.success ? [] : result.error.issues[0]?.path).toEqual([
       'llm',
-      'main',
+      'versatile',
+      'model',
+    ]);
+  });
+
+  it('allows blank non-anchor tiers', () => {
+    const result = settingsSchema.safeParse({
+      llm: {powerful: {model: 'opus'}, versatile: {model: ''}},
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects a tier whose max output is not less than its max context', () => {
+    const result = settingsSchema.safeParse({
+      llm: {
+        powerful: {
+          model: 'opus',
+          maxContextTokens: 100_000,
+          maxOutputTokens: 100_000,
+        },
+      },
+    });
+    expect(result.success).toBe(false);
+    expect(result.success ? [] : result.error.issues[0]?.path).toEqual([
+      'llm',
+      'powerful',
       'maxOutputTokens',
     ]);
   });
