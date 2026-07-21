@@ -6,29 +6,32 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 2px 4px;
+  /* Inset to match the ListBox body's inner padding so the header row and the
+     task rows share the same left/right band; hover fills the whole row. */
+  margin: 0 8px;
+  padding: 6px 8px;
+  border-left: 2px solid transparent;
+  cursor: pointer;
 }
 
-/* Quiet header trigger — no filled "ghost button" background. */
+.heading:hover {
+  background: color-mix(in oklab, var(--foreground) 5%, transparent);
+}
+
+/* Quiet header trigger — the hover surface is the whole .heading row. */
 .trigger {
   flex: 1;
   min-width: 0;
   display: flex;
   align-items: center;
   gap: 7px;
-  padding: 6px 6px 6px 8px;
+  padding: 0;
   background: none;
   border: none;
-  border-radius: 8px;
   color: var(--foreground);
   font: inherit;
   text-align: left;
   cursor: pointer;
-  transition: background 150ms ease;
-}
-
-.trigger:hover {
-  background: color-mix(in oklab, var(--foreground) 5%, transparent);
 }
 
 .trigger:focus-visible {
@@ -77,12 +80,28 @@
 }
 
 .listBox {
-  padding-left: 14px;
+  padding-left: 0;
 }
 
-/* Wrapper only — selected styling lives in TaskListItem. */
+/* The ListBox.Item is the row surface. It owns hover/selected visuals — set on
+   the item's own class + React-Aria state attributes (data-hovered/data-selected),
+   overriding HeroUI's default option background + radius — so the highlight is a
+   straight-edged full-width band aligned with the header row. */
 .item {
   width: 100%;
+  padding: 6px 8px;
+  border-radius: 0;
+  border-left: 2px solid transparent;
+  background: transparent;
+}
+
+.item[data-hovered]:not([data-selected]) {
+  background: color-mix(in oklab, var(--foreground) 5%, transparent);
+}
+
+.item[data-selected] {
+  background: var(--accent-soft);
+  border-left-color: var(--accent);
 }
 
 @media (prefers-reduced-motion: reduce) {
