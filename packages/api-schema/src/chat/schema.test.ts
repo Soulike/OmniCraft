@@ -4,7 +4,11 @@ import {
   chatCompletionsRequestSchema,
   createCodingSessionRequestSchema,
   createSessionRequestSchema,
+  sessionMetadataSchema,
 } from './schema.js';
+
+// valid UUID (sessionIdSchema = z.uuid())
+const ID = '11111111-1111-4111-8111-111111111111';
 
 describe('chat API schemas', () => {
   it('rejects per-message thinking level in completion requests', () => {
@@ -33,5 +37,21 @@ describe('chat API schemas', () => {
         message: 'Run tests',
       }),
     ).toThrow();
+  });
+});
+
+describe('sessionMetadataSchema', () => {
+  it('preserves updatedAt when present', () => {
+    const parsed = sessionMetadataSchema.parse({
+      id: ID,
+      title: 'T',
+      updatedAt: 123,
+    });
+    expect(parsed.updatedAt).toBe(123);
+  });
+
+  it('parses without updatedAt (backward compatible)', () => {
+    const parsed = sessionMetadataSchema.parse({id: ID, title: 'T'});
+    expect(parsed.updatedAt).toBeUndefined();
   });
 });

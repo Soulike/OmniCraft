@@ -96,11 +96,11 @@ export class MainAgentStore extends AgentStore {
 
     // Phase 2: read metadata (or snapshot as fallback) for the requested page.
     const results = await Promise.all(
-      page.map(async ({id}): Promise<SessionMetadata | null> => {
+      page.map(async ({id, mtime}): Promise<SessionMetadata | null> => {
         try {
           const content = await this.readSessionMetadataFile(id);
           const json: unknown = JSON.parse(content);
-          return sessionMetadataSchema.parse(json);
+          return {...sessionMetadataSchema.parse(json), updatedAt: mtime};
         } catch (e) {
           logger.warn({err: e, sessionId: id}, 'Skipping unreadable session');
           return null;
