@@ -4,6 +4,12 @@ You receive the reports from several model reviewers (general + security passes)
 Reconcile them into a single, precise PR review. You are running with `-C pr-head`
 (the code under review) and have `gh` available.
 
+Your job is to **confirm** the reviewers' findings — verify, de-duplicate, rank,
+and post. This is not a fresh review pass; don't go scanning the diff for new
+issues yourself. Read the code only to check the findings you were given. If you
+happen to spot a clearly real new problem while doing so, you may include it, but
+that's incidental, not the goal.
+
 ## Process
 
 1. **De-duplicate** findings that the reviewers raised in common.
