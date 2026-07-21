@@ -1,5 +1,5 @@
 import {toast} from '@heroui/react';
-import {useCallback, useEffect, useMemo, useState} from 'react';
+import {useCallback, useMemo} from 'react';
 import {useNavigate} from 'react-router';
 
 import {useSessionConfig, useSessionId} from '@/modules/chat-session/index.js';
@@ -36,6 +36,7 @@ export function WorkspaceSessionList({
     error: sessionsError,
     reload: reloadSessions,
     removeSession,
+    loadedAt,
   } = useAllCodingSessions();
   const {sessionId, buildSessionRoute, baseRoute} = useSessionId();
   const navigate = useNavigate();
@@ -89,14 +90,6 @@ export function WorkspaceSessionList({
     mostRecentGroupKey,
   );
 
-  // `now` for relative-time labels. React Compiler forbids reading the clock
-  // in render, so capture it here and re-stamp on each list reload (effects run
-  // outside render). Threaded down to each TaskListItem.
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    setNow(Date.now());
-  }, [sessions]);
-
   const handleNewSession = useCallback(
     (workspacePath: string) => {
       expandGroup(workspaceGroupKey(workspacePath));
@@ -139,7 +132,7 @@ export function WorkspaceSessionList({
       workspacesFailed={workspacesError !== null}
       sessionsFailed={sessionsError !== null}
       currentSessionId={sessionId}
-      now={now}
+      now={loadedAt}
       onReloadWorkspaces={() => void reloadWorkspaces()}
       onReloadSessions={() => void reloadSessions(false)}
       onToggle={toggleGroup}

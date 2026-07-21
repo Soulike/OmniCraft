@@ -26,6 +26,8 @@ interface UseAllCodingSessionsResult {
    */
   readonly reload: (background: boolean) => Promise<void>;
   readonly removeSession: (id: string) => Promise<void>;
+  /** Epoch ms of the last successful load; used for relative-time labels. */
+  readonly loadedAt: number;
 }
 
 /**
@@ -39,6 +41,7 @@ export function useAllCodingSessions(): UseAllCodingSessionsResult {
   const [sessions, setSessions] = useState<readonly SessionMetadata[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [loadedAt, setLoadedAt] = useState(() => Date.now());
 
   // Bumped on every reload; a response is applied only if its generation is
   // still current, so a slow earlier load can't overwrite a newer refresh.
@@ -56,6 +59,7 @@ export function useAllCodingSessions(): UseAllCodingSessionsResult {
           return;
         }
         setSessions(result.sessions);
+        setLoadedAt(Date.now());
         setError(null);
       } catch (e) {
         if (generation !== generationRef.current) {
@@ -95,5 +99,5 @@ export function useAllCodingSessions(): UseAllCodingSessionsResult {
     [deleteSession, reload],
   );
 
-  return {sessions, isLoading, error, reload, removeSession};
+  return {sessions, isLoading, error, reload, removeSession, loadedAt};
 }
