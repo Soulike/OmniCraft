@@ -62,8 +62,21 @@ describe('resolveModelConfig', () => {
     const s = build({
       defaultTier: 'lightweight',
       lightweight: {model: 'haiku'},
+      versatile: {model: ''},
+      powerful: {model: ''},
     });
     expect(resolveModelConfig(s, 'powerful').model).toBe('haiku');
     expect(resolveModelConfig(s, 'versatile').model).toBe('haiku');
+  });
+
+  it('respects an explicit powerful model even when it equals the schema default and is not the anchor', () => {
+    const s = build({
+      defaultTier: 'lightweight',
+      lightweight: {model: 'haiku'},
+      powerful: {model: 'claude-sonnet-4-20250514'},
+    });
+    expect(resolveModelConfig(s, 'powerful').model).toBe(
+      'claude-sonnet-4-20250514',
+    );
   });
 });

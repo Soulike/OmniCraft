@@ -16,20 +16,7 @@ function resolveTierName(llmSettings: LlmSettings, tier: ModelTier): ModelTier {
   let index = from;
   for (;;) {
     const name = MODEL_TIER_LADDER[index];
-    const model = llmSettings[name].model.trim();
-
-    // Skip powerful's schema default if it's not the anchor we're walking toward
-    if (
-      name === 'powerful' &&
-      name !== anchor &&
-      model === 'claude-sonnet-4-20250514'
-    ) {
-      if (index === to) return anchor;
-      index += step;
-      continue;
-    }
-
-    if (model.length > 0) return name;
+    if (llmSettings[name].model.trim().length > 0) return name;
     if (index === to) return anchor;
     index += step;
   }
