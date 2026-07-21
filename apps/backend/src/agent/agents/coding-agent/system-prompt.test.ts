@@ -15,4 +15,9 @@ describe('codingAgentSystemPrompt', () => {
   it('includes the shared preamble instructions', () => {
     expect(codingAgentSystemPrompt).toContain(preambleInstructions);
   });
+
+  it('includes tier-aware delegation guidance', () => {
+    expect(codingAgentSystemPrompt).toContain('Delegating Subtasks');
+    expect(codingAgentSystemPrompt).toContain('cheapest tier');
+  });
 });
