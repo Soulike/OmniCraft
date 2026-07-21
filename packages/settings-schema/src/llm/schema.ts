@@ -36,27 +36,24 @@ const baseModelSettingsSchema = z.object({
 const OUTPUT_EXCEEDS_CONTEXT_MESSAGE =
   'Max output tokens must be less than max context tokens';
 
-/** Main model: a name is required. */
-export const mainModelSettingsSchema = baseModelSettingsSchema
-  .extend({
-    model: z
-      .string()
-      .min(1)
-      .describe('Model name to use')
-      .default('claude-sonnet-4-20250514'),
-  })
-  .refine((config) => config.maxContextTokens > config.maxOutputTokens, {
-    error: OUTPUT_EXCEEDS_CONTEXT_MESSAGE,
-    path: ['maxOutputTokens'],
-  });
+/** Model capability tiers, ordered from cheapest/lowest to most capable. */
+export const MODEL_TIER_LADDER = [
+  'lightweight',
+  'versatile',
+  'powerful',
+] as const;
 
-/** Light model: name may be empty (falls back to the main model). */
-export const lightModelSettingsSchema = baseModelSettingsSchema
+export const modelTierSchema = z.enum(MODEL_TIER_LADDER);
+
+export type ModelTier = (typeof MODEL_TIER_LADDER)[number];
+
+/** A single tier's model config. Blank `model` inherits the default tier. */
+export const tierModelSettingsSchema = baseModelSettingsSchema
   .extend({
     model: z
       .string()
       .describe(
-        'Model name for lightweight tasks (e.g. title generation). Falls back to the main model if empty.',
+        'Model name for this tier. Leave empty to inherit the default tier.',
       )
       .default(''),
   })
@@ -65,16 +62,36 @@ export const lightModelSettingsSchema = baseModelSettingsSchema
     path: ['maxOutputTokens'],
   });
 
-export const llmSettingsSchema = z.object({
-  apiFormat: z
-    .enum(['claude', 'openai-responses'])
-    .describe('API protocol format')
-    .default('claude'),
-  apiKey: z.string().describe('API key for the LLM service').default(''),
-  baseUrl: z
-    .url()
-    .describe('Base URL of the LLM API')
-    .default('https://api.anthropic.com'),
-  main: mainModelSettingsSchema.prefault({}),
-  light: lightModelSettingsSchema.prefault({}),
-});
+export const llmSettingsSchema = z
+  .object({
+    apiFormat: z
+      .enum(['claude', 'openai-responses'])
+      .describe('API protocol format')
+      .default('claude'),
+    apiKey: z.string().describe('API key for the LLM service').default(''),
+    baseUrl: z
+      .url()
+      .describe('Base URL of the LLM API')
+      .default('https://api.anthropic.com'),
+    defaultTier: modelTierSchema
+      .describe('Tier the agent runs on; also the fallback for blank tiers')
+      .default('powerful'),
+    powerful: tierModelSettingsSchema.prefault({
+      model: 'claude-sonnet-4-20250514',
+    }),
+    versatile: tierModelSettingsSchema.prefault({}),
+    lightweight: tierModelSettingsSchema.prefault({}),
+  })
+  .check((ctx) => {
+    const settings = ctx.value;
+    if (settings[settings.defaultTier].model.trim().length === 0) {
+      ctx.issues.push({
+        code: 'custom',
+        message: 'The default tier must have a model',
+        path: [settings.defaultTier, 'model'],
+        input: settings,
+      });
+    }
+  });
+
+export type LlmSettings = z.infer<typeof llmSettingsSchema>;

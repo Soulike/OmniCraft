@@ -62,7 +62,7 @@ export function createMockContext(
         maxContextTokens: 200_000,
         maxOutputTokens: 32_000,
       }),
-    getLightConfig: () =>
+    getTierConfig: () =>
       Promise.resolve({
         apiFormat: 'claude' as const,
         apiKey: '',

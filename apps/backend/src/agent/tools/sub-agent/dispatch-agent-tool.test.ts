@@ -4,12 +4,25 @@ import path from 'node:path';
 
 import {SubAgentType} from '@omnicraft/api-schema';
 import type {SseTodoUpdateEvent} from '@omnicraft/sse-events';
-import {afterEach, beforeEach, describe, expect, it} from 'vitest';
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 
 import {ExploreSubAgent, GeneralSubAgent} from '@/agent/agents/index.js';
 import type {Agent} from '@/agent-core/agent/index.js';
+import {llmApi, type LlmEventStream} from '@/agent-core/llm-api/index.js';
 import {createMockContext} from '@/agent-core/tool/testing.js';
 import type {ToolExecutionContext} from '@/agent-core/tool/types.js';
+
+// dispatchAgentTool's real execute() creates a real GeneralSubAgent/
+// ExploreSubAgent, whose getMaxToolRounds reads settingsService — mock the
+// settings-manager module (as web-search.test.ts does) so those tests don't
+// need a real settings file.
+vi.mock('@/models/settings-manager/index.js', () => ({
+  SettingsManager: {
+    getInstance: () => ({
+      getAll: () => Promise.resolve({agent: {maxToolRounds: 1}}),
+    }),
+  },
+}));
 
 import {
   createSubAgent,
@@ -21,6 +34,18 @@ import {
   buildSubagentOutputEvent,
   runSubagentTurn,
 } from './subagent-turn-runner.js';
+
+/** A minimal text-only completion — enough to end a subagent turn in one round. */
+async function* textCompletionStream(): LlmEventStream {
+  yield {type: 'message-start', messageId: 'assistant-message'};
+  await Promise.resolve();
+  yield {type: 'text-delta', content: 'done'};
+  yield {
+    type: 'message-end',
+    stopReason: 'end_turn',
+    usage: {inputTokens: 1, outputTokens: 1, cacheReadInputTokens: 0},
+  };
+}
 
 function emptyUsage() {
   return {
@@ -664,6 +689,67 @@ describe('dispatchAgentTool', () => {
       } finally {
         await fs.rm(sibling, {recursive: true, force: true});
       }
+    });
+  });
+
+  describe('model tier routing', () => {
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    it("defaults the subagent to the 'versatile' tier", async () => {
+      vi.spyOn(llmApi, 'streamCompletion').mockImplementation(() =>
+        textCompletionStream(),
+      );
+      const seen: string[] = [];
+      const dispatchContext = createMockContext({
+        workingDirectory: tmpDir,
+        getTierConfig: (tier) => {
+          seen.push(tier);
+          return Promise.resolve({
+            apiFormat: 'claude' as const,
+            apiKey: '',
+            baseUrl: 'https://api.anthropic.com',
+            model: `model-${tier}`,
+            thinkingLevel: 'none' as const,
+            maxContextTokens: 200_000,
+            maxOutputTokens: 32_000,
+          });
+        },
+      });
+
+      await dispatchAgentTool.execute({task: 'do a thing'}, dispatchContext);
+
+      expect(seen).toContain('versatile');
+    });
+
+    it("routes to the 'powerful' tier when requested", async () => {
+      vi.spyOn(llmApi, 'streamCompletion').mockImplementation(() =>
+        textCompletionStream(),
+      );
+      const seen: string[] = [];
+      const dispatchContext = createMockContext({
+        workingDirectory: tmpDir,
+        getTierConfig: (tier) => {
+          seen.push(tier);
+          return Promise.resolve({
+            apiFormat: 'claude' as const,
+            apiKey: '',
+            baseUrl: 'https://api.anthropic.com',
+            model: `model-${tier}`,
+            thinkingLevel: 'none' as const,
+            maxContextTokens: 200_000,
+            maxOutputTokens: 32_000,
+          });
+        },
+      });
+
+      await dispatchAgentTool.execute(
+        {task: 'do a thing', model: 'powerful'},
+        dispatchContext,
+      );
+
+      expect(seen).toContain('powerful');
     });
   });
 });

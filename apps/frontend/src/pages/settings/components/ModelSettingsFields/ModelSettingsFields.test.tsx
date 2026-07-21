@@ -51,4 +51,21 @@ describe('ModelSettingsFields', () => {
       screen.queryByText('Max output must be less than max context'),
     ).not.toBeInTheDocument();
   });
+
+  it('shows a model error when provided', () => {
+    render(
+      <ModelSettingsFields
+        values={base}
+        setValue={vi.fn()}
+        validationErrors={{}}
+        isDisabled={false}
+        prefix='llm/powerful'
+        title='Powerful model'
+        modelError='The default tier must have a model'
+      />,
+    );
+    expect(
+      screen.getByText('The default tier must have a model'),
+    ).toBeInTheDocument();
+  });
 });

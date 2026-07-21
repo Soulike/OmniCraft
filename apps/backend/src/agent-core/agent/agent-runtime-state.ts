@@ -1,3 +1,4 @@
+import type {ModelTier} from '@omnicraft/settings-schema';
 import type {SseSubAgentEvent, SseTodoItem} from '@omnicraft/sse-events';
 
 import type {LlmConfig} from '../llm-api/index.js';
@@ -23,7 +24,7 @@ export interface BuildToolExecutionContextInput {
   readonly signal: AbortSignal;
   readonly onSubAgentEvent: (event: SseSubAgentEvent) => void;
   readonly getConfig: () => Promise<LlmConfig>;
-  readonly getLightConfig: () => Promise<LlmConfig>;
+  readonly getTierConfig: (tier: ModelTier) => Promise<LlmConfig>;
 }
 
 export class AgentRuntimeState {
@@ -86,7 +87,7 @@ export class AgentRuntimeState {
       todoStore: this.todoStore,
       todoState: this.todoState,
       getConfig: input.getConfig,
-      getLightConfig: input.getLightConfig,
+      getTierConfig: input.getTierConfig,
     };
   }
 }

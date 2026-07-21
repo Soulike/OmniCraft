@@ -16,7 +16,7 @@ import {toNumberFieldValue} from './helpers/to-number-field-value.js';
 import styles from './styles.module.css';
 
 interface ModelSettingsFieldsProps extends SettingSectionRenderProps {
-  /** Key-path prefix for this model's fields, e.g. 'llm/main'. */
+  /** Key-path prefix for this model's fields, e.g. 'llm/powerful'. */
   prefix: string;
   /** Group heading shown above the fields. */
   title: string;
@@ -24,6 +24,8 @@ interface ModelSettingsFieldsProps extends SettingSectionRenderProps {
   modelDescription?: string;
   /** Placeholder for the model-name field. */
   modelPlaceholder?: string;
+  /** Extra error to show on the model-name field alongside validation errors. */
+  modelError?: string;
 }
 
 export function ModelSettingsFields({
@@ -35,11 +37,14 @@ export function ModelSettingsFields({
   title,
   modelDescription = 'Model name to use',
   modelPlaceholder = 'claude-sonnet-4-20250514',
+  modelError,
 }: ModelSettingsFieldsProps) {
   const modelPath = `${prefix}/model`;
   const thinkingLevelPath = `${prefix}/thinkingLevel`;
   const maxContextPath = `${prefix}/maxContextTokens`;
   const maxOutputPath = `${prefix}/maxOutputTokens`;
+
+  const modelFieldError = validationErrors[modelPath] ?? modelError;
 
   const maxContext = toNumberFieldValue(values[maxContextPath]);
   const maxOutput = toNumberFieldValue(values[maxOutputPath]);
@@ -60,7 +65,7 @@ export function ModelSettingsFields({
 
       <TextField
         value={typeof values[modelPath] === 'string' ? values[modelPath] : ''}
-        isInvalid={modelPath in validationErrors}
+        isInvalid={modelPath in validationErrors || modelError !== undefined}
         isDisabled={isDisabled}
         onChange={(val) => {
           setValue(modelPath, val);
@@ -69,9 +74,7 @@ export function ModelSettingsFields({
         <Label>Model</Label>
         <Input placeholder={modelPlaceholder} />
         <Description>{modelDescription}</Description>
-        {validationErrors[modelPath] && (
-          <FieldError>{validationErrors[modelPath]}</FieldError>
-        )}
+        {modelFieldError && <FieldError>{modelFieldError}</FieldError>}
       </TextField>
 
       <Select

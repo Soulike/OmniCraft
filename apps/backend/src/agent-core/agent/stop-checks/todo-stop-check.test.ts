@@ -17,7 +17,7 @@ function runtimeStateWithTodos(
     signal: new AbortController().signal,
     onSubAgentEvent: () => undefined,
     getConfig: () => Promise.reject(new Error('unused')),
-    getLightConfig: () => Promise.reject(new Error('unused')),
+    getTierConfig: () => Promise.reject(new Error('unused')),
   });
   context.todoStore.append(
     todos.map((t) => ({subject: t.subject, description: t.description})),

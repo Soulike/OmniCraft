@@ -1,5 +1,6 @@
 import crypto from 'node:crypto';
 
+import type {ModelTier} from '@omnicraft/settings-schema';
 import type {
   SseEvent,
   SseEventCursorEntry,
@@ -54,7 +55,9 @@ export abstract class Agent {
   private readonly baseSystemPrompt: string;
   private readonly getMaxToolRounds: AgentOptions['getMaxToolRounds'];
   private readonly getConfig: () => Promise<LlmConfig>;
-  private readonly getLightConfig: (() => Promise<LlmConfig>) | null;
+  private readonly getTierConfig:
+    | ((tier: ModelTier) => Promise<LlmConfig>)
+    | null;
 
   private readonly subagentRegistry: SubagentRegistry;
 
@@ -95,7 +98,7 @@ export abstract class Agent {
     this.baseSystemPrompt = options.baseSystemPrompt;
     this.getMaxToolRounds = options.getMaxToolRounds;
     this.getConfig = getConfig;
-    this.getLightConfig = options.getLightConfig ?? null;
+    this.getTierConfig = options.getTierConfig ?? null;
 
     this.sessionsDir = options.sessionsDir ?? null;
 
@@ -309,6 +312,10 @@ export abstract class Agent {
     }
   }
 
+  private resolveTierConfig(tier: ModelTier): Promise<LlmConfig> {
+    return this.getTierConfig ? this.getTierConfig(tier) : this.getConfig();
+  }
+
   protected runAgentLoop(
     userMessage: string,
     signal: AbortSignal,
@@ -327,7 +334,7 @@ export abstract class Agent {
       stopChecks: this.stopChecks,
       baseSystemPrompt: this.baseSystemPrompt,
       getConfig: this.getConfig,
-      getLightConfig: this.getLightConfig ?? this.getConfig,
+      getTierConfig: (tier) => this.resolveTierConfig(tier),
       getMaxToolRounds: this.getMaxToolRounds,
       compactAfterTurn: (tools, systemPrompt) =>
         this.compactAfterTurn(tools, systemPrompt),
@@ -335,13 +342,14 @@ export abstract class Agent {
   }
 
   /**
-   * Generates a session title from the first user message using the light LLM,
+   * Generates a session title from the first user message using the lightweight tier,
    * then appends a `session-title` event to sseLog.
    * Fire-and-forget — errors are swallowed and a fallback title is used.
    */
   private async generateAndEmitTitle(userMessage: string): Promise<void> {
-    const getConfig = this.getLightConfig ?? this.getConfig;
-    this.title = await generateTitle(userMessage, getConfig);
+    this.title = await generateTitle(userMessage, () =>
+      this.resolveTierConfig('lightweight'),
+    );
     if (!this.title) return;
     await this.appendSseEvent({
       type: 'session-title',
