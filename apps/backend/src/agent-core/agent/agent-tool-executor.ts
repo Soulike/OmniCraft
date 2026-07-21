@@ -1,5 +1,6 @@
 import assert from 'node:assert';
 
+import type {ModelTier} from '@omnicraft/settings-schema';
 import type {
   SseSubAgentEvent,
   SseTodoUpdateEvent,
@@ -34,7 +35,7 @@ export interface ExecuteAgentToolInput {
   readonly workingDirectory: string;
   readonly signal: AbortSignal;
   readonly getConfig: () => Promise<LlmConfig>;
-  readonly getLightConfig: () => Promise<LlmConfig>;
+  readonly getTierConfig: (tier: ModelTier) => Promise<LlmConfig>;
 }
 
 export interface ExecuteAgentToolResult {
@@ -73,7 +74,7 @@ export class AgentToolExecutor {
         input.toolSseEventChannel.push(event);
       },
       getConfig: input.getConfig,
-      getLightConfig: input.getLightConfig,
+      getTierConfig: input.getTierConfig,
     });
 
     try {

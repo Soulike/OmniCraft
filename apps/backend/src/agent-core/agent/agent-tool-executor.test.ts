@@ -69,7 +69,7 @@ function executeInput(overrides: {
     workingDirectory: '/workspace/project',
     signal: new AbortController().signal,
     getConfig: () => Promise.resolve(MAIN_CONFIG),
-    getLightConfig: () => Promise.resolve(LIGHT_CONFIG),
+    getTierConfig: () => Promise.resolve(LIGHT_CONFIG),
     channel,
   };
 }

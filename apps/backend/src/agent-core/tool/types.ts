@@ -1,3 +1,4 @@
+import type {ModelTier} from '@omnicraft/settings-schema';
 import type {SseSubAgentEvent} from '@omnicraft/sse-events';
 import type {ToolFailureData} from '@omnicraft/tool-schemas';
 import type {z} from 'zod';
@@ -77,11 +78,8 @@ export interface ToolExecutionContext {
   /** Returns the LLM configuration of the parent agent. */
   readonly getConfig: () => Promise<LlmConfig>;
 
-  /**
-   * Returns the lightweight LLM configuration of the parent agent.
-   * Falls back to getConfig when no light model is configured.
-   */
-  readonly getLightConfig: () => Promise<LlmConfig>;
+  /** Resolves the parent agent's LLM config for a given model tier. */
+  readonly getTierConfig: (tier: ModelTier) => Promise<LlmConfig>;
 }
 
 /** Successful tool execution — carries typed structured data. */

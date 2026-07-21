@@ -146,7 +146,7 @@ function createInput(
     stopChecks: [],
     baseSystemPrompt: '',
     getConfig: () => Promise.resolve(MAIN_CONFIG),
-    getLightConfig: () => Promise.resolve(MAIN_CONFIG),
+    getTierConfig: () => Promise.resolve(MAIN_CONFIG),
     getMaxToolRounds: () => 5,
     compactAfterTurn: () => Promise.resolve(),
   };

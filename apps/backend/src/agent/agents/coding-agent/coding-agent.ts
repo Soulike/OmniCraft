@@ -1,3 +1,4 @@
+import {resolveModelConfig} from '@/agent/model-tier/index.js';
 import {coreSkillRegistry} from '@/agent/skills/index.js';
 import {
   bashToolRegistry,
@@ -32,16 +33,10 @@ export class CodingAgent extends Agent {
     super(
       async () => {
         const settings = await settingsService.getAll();
-        const {apiFormat, apiKey, baseUrl, main} = settings.codingLlm;
-        return {
-          apiFormat,
-          apiKey,
-          baseUrl,
-          model: main.model,
-          thinkingLevel: main.thinkingLevel,
-          maxContextTokens: main.maxContextTokens,
-          maxOutputTokens: main.maxOutputTokens,
-        };
+        return resolveModelConfig(
+          settings.codingLlm,
+          settings.codingLlm.defaultTier,
+        );
       },
       {
         toolRegistries: [
@@ -60,18 +55,9 @@ export class CodingAgent extends Agent {
           const settings = await settingsService.getAll();
           return settings.agent.maxToolRounds;
         },
-        getLightConfig: async () => {
+        getTierConfig: async (tier) => {
           const settings = await settingsService.getAll();
-          const {apiFormat, apiKey, baseUrl, main, light} = settings.codingLlm;
-          return {
-            apiFormat,
-            apiKey,
-            baseUrl,
-            model: light.model || main.model,
-            thinkingLevel: light.thinkingLevel,
-            maxContextTokens: light.maxContextTokens,
-            maxOutputTokens: light.maxOutputTokens,
-          };
+          return resolveModelConfig(settings.codingLlm, tier);
         },
         workingDirectory,
         sessionsDir,
