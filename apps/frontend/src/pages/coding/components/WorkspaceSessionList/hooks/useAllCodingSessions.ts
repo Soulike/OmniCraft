@@ -31,7 +31,11 @@ interface UseAllCodingSessionsResult {
 /**
  * Loads every coding session in a single request (one unbounded page through
  * the shared session API) and keeps it fresh: re-fetches on session-created /
- * session-title events from the chat event bus.
+ * session-title / done events from the chat event bus. The `done` trigger
+ * matters because the backend rewrites a session's snapshot (its mtime, which
+ * drives recency + ordering) after every turn but only emits `session-title`
+ * for the initial title — so without it a row's "time ago" and position would
+ * stay stale after subsequent turns.
  */
 export function useAllCodingSessions(): UseAllCodingSessionsResult {
   const eventBus = useChatEventBus();
@@ -81,9 +85,11 @@ export function useAllCodingSessions(): UseAllCodingSessionsResult {
     };
     eventBus.on('session-created', onRefresh);
     eventBus.on('session-title', onRefresh);
+    eventBus.on('done', onRefresh);
     return () => {
       eventBus.off('session-created', onRefresh);
       eventBus.off('session-title', onRefresh);
+      eventBus.off('done', onRefresh);
     };
   }, [eventBus, reload]);
 

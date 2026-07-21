@@ -6,6 +6,7 @@ import type {ChatSessionApi} from '@/modules/chat-session/index.js';
 import {
   ChatEventBusProvider,
   ChatSessionApiContext,
+  useChatEventBus,
 } from '@/modules/chat-session/index.js';
 
 import {useAllCodingSessions} from './useAllCodingSessions.js';
@@ -42,6 +43,26 @@ describe('useAllCodingSessions', () => {
     expect(listSessions).toHaveBeenCalledWith(0, Number.MAX_SAFE_INTEGER);
     expect(result.current.sessions).toHaveLength(1);
     expect(result.current.error).toBeNull();
+  });
+
+  it('refetches in the background when a turn completes (done)', async () => {
+    listSessions.mockResolvedValue({sessions: [], total: 0});
+    const {result} = renderHook(
+      () => ({list: useAllCodingSessions(), bus: useChatEventBus()}),
+      {wrapper},
+    );
+    await waitFor(() => {
+      expect(result.current.list.isLoading).toBe(false);
+    });
+    expect(listSessions).toHaveBeenCalledTimes(1);
+
+    act(() => {
+      result.current.bus.emit('done', {type: 'done', reason: 'complete'});
+    });
+
+    await waitFor(() => {
+      expect(listSessions).toHaveBeenCalledTimes(2);
+    });
   });
 
   it('removeSession deletes then reloads', async () => {
