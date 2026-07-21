@@ -24,4 +24,30 @@ describe('useTaskDeletion', () => {
     });
     expect(result.current.isDeleting).toBe(false);
   });
+
+  it('recovers from a rejecting onDelete without leaving state stuck', async () => {
+    const consoleError = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+    const onDelete = vi.fn().mockRejectedValue(new Error('boom'));
+    const {result} = renderHook(() => useTaskDeletion(onDelete));
+
+    act(() => {
+      result.current.onDeleteOpenChange(true);
+    });
+    act(() => {
+      result.current.onConfirmDelete();
+    });
+
+    await waitFor(() => {
+      expect(onDelete).toHaveBeenCalledTimes(1);
+    });
+    await waitFor(() => {
+      expect(result.current.isDeleting).toBe(false);
+    });
+    expect(result.current.isDeleteOpen).toBe(false);
+    expect(consoleError).toHaveBeenCalledTimes(1);
+
+    consoleError.mockRestore();
+  });
 });

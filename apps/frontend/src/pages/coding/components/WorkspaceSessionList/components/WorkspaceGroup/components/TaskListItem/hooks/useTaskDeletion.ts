@@ -19,6 +19,10 @@ export function useTaskDeletion(
     void (async () => {
       try {
         await onDelete();
+      } catch (error) {
+        // The caller owns user-facing reporting (e.g. a toast). Catch here so a
+        // rejecting onDelete can't surface as an unhandled promise rejection.
+        console.error('Task deletion failed:', error);
       } finally {
         setIsDeleting(false);
         setIsDeleteOpen(false);
