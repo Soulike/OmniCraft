@@ -70,8 +70,24 @@ export function WorkspaceSessionList({
     return sessionGroupKey(active.workingDirectory, workspaces);
   }, [workspacesLoading, sessionsLoading, sessions, sessionId, workspaces]);
 
-  const {expandedGroups, toggleGroup, expandGroup} =
-    useExpandedGroups(activeKey);
+  // When no session is active, seed expansion with the group holding the most
+  // recently updated session (sessions are returned mtime-desc), so the panel
+  // never opens fully collapsed.
+  const mostRecentGroupKey = useMemo(() => {
+    if (workspacesLoading || sessionsLoading) {
+      return null;
+    }
+    const mostRecent = sessions.at(0);
+    if (mostRecent === undefined) {
+      return null;
+    }
+    return sessionGroupKey(mostRecent.workingDirectory, workspaces);
+  }, [workspacesLoading, sessionsLoading, sessions, workspaces]);
+
+  const {expandedGroups, toggleGroup, expandGroup} = useExpandedGroups(
+    activeKey,
+    mostRecentGroupKey,
+  );
 
   // `now` for relative-time labels. React Compiler forbids reading the clock
   // in render, so capture it here and re-stamp on each list reload (effects run

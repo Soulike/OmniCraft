@@ -31,4 +31,16 @@ describe('useExpandedGroups', () => {
     });
     expect(result.current.expandedGroups.has('/a')).toBe(false);
   });
+
+  it('seeds from the fallback key when the active key is null', () => {
+    const {result} = renderHook(() => useExpandedGroups(null, '/fallback'));
+    expect([...result.current.expandedGroups]).toEqual(['/fallback']);
+  });
+
+  it('prefers the active key over the fallback', () => {
+    const {result} = renderHook(() =>
+      useExpandedGroups('/active', '/fallback'),
+    );
+    expect([...result.current.expandedGroups]).toEqual(['/active']);
+  });
 });
