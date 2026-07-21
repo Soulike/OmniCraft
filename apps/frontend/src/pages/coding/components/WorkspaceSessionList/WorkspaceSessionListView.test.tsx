@@ -17,6 +17,7 @@ const baseProps = {
   workspacesFailed: false,
   sessionsFailed: false,
   currentSessionId: null,
+  now: 1_700_000_000_000,
   onReloadWorkspaces: noop,
   onReloadSessions: noop,
   onToggle: noop,

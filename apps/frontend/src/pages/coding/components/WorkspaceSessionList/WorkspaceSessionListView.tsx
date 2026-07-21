@@ -20,6 +20,7 @@ interface WorkspaceSessionListViewProps {
   readonly workspacesFailed: boolean;
   readonly sessionsFailed: boolean;
   readonly currentSessionId: string | null;
+  readonly now: number;
   readonly onReloadWorkspaces: () => void;
   readonly onReloadSessions: () => void;
   readonly onToggle: (key: string, isExpanded: boolean) => void;
@@ -35,6 +36,7 @@ export function WorkspaceSessionListView({
   workspacesFailed,
   sessionsFailed,
   currentSessionId,
+  now,
   onReloadWorkspaces,
   onReloadSessions,
   onToggle,
@@ -86,6 +88,7 @@ export function WorkspaceSessionListView({
                 onToggle(key, isExpanded);
               }}
               currentSessionId={currentSessionId}
+              now={now}
               onSelectSession={onSelectSession}
               onDeleteSession={onDeleteSession}
               onNewSession={group.workspace ? onNewSession : undefined}

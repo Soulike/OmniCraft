@@ -5,21 +5,35 @@
 .heading {
   display: flex;
   align-items: center;
-  gap: 2px;
-  padding: 1px 2px;
+  gap: 6px;
+  padding: 2px 4px;
 }
 
+/* Quiet header trigger — no filled "ghost button" background. */
 .trigger {
   flex: 1;
   min-width: 0;
   display: flex;
   align-items: center;
-  justify-content: flex-start;
-  gap: 8px;
-  padding: 7px 8px;
-  height: auto;
-  font: inherit;
+  gap: 7px;
+  padding: 6px 6px 6px 8px;
+  background: none;
+  border: none;
+  border-radius: 8px;
   color: var(--foreground);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background 150ms ease;
+}
+
+.trigger:hover {
+  background: color-mix(in oklab, var(--foreground) 5%, transparent);
+}
+
+.trigger:focus-visible {
+  outline: 1px solid color-mix(in srgb, var(--accent) 55%, transparent);
+  outline-offset: 2px;
 }
 
 .indicator {
@@ -27,9 +41,16 @@
   color: var(--muted);
 }
 
+.folder {
+  flex: 0 0 auto;
+  color: var(--muted);
+}
+
 .label {
+  flex: 1;
+  min-width: 0;
   font-weight: 600;
-  font-size: 0.875rem;
+  font-size: 0.8125rem;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -37,8 +58,6 @@
 
 .count {
   flex: 0 0 auto;
-  color: var(--muted);
-  font-size: 0.72rem;
 }
 
 .plus {
@@ -61,7 +80,13 @@
   padding-left: 14px;
 }
 
-.item[data-selected='true'] {
-  background: var(--accent-soft);
-  border-radius: var(--radius-lg);
+/* Wrapper only — selected styling lives in TaskListItem. */
+.item {
+  width: 100%;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .trigger {
+    transition: none;
+  }
 }
