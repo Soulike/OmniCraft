@@ -31,7 +31,7 @@ Key properties:
   tool is a single shared static definition.
 - **`defaultTier` selects the model the agent itself runs on**, and is the
   fallback anchor. It defaults to `powerful` in both blocks (keeps the schema
-  uniform; user-repointable per block).
+  uniform; user-repointable per settings group).
 - **Full-config cascade.** A tier whose `model` is blank inherits the entire
   config (model + thinking level + capacity) of the nearest configured tier
   when stepping toward the anchor. The anchor's `model` is required, so
@@ -45,15 +45,15 @@ favor of one vocabulary everywhere, chosen for maintainability and UI reuse.
 
 ### Resolution (the cascade)
 
-`resolveModelTier(block, tier)` produces a concrete `LlmConfig`:
+`resolveModelConfig(llmSettings, tier)` produces a concrete `LlmConfig`:
 
-1. Connection fields (`apiFormat`, `apiKey`, `baseUrl`) always come from the
-   block.
-2. If `block[tier].model` is non-empty, use `block[tier]`'s model + thinking +
+1. Connection fields (`apiFormat`, `apiKey`, `baseUrl`) always come from
+   `llmSettings`.
+2. If `llmSettings[tier].model` is non-empty, use that tier's model + thinking +
    capacity.
 3. Otherwise walk the ladder one rung at a time **toward the anchor**
-   (`block.defaultTier`) and use the first tier with a non-empty `model`. The
-   anchor is guaranteed non-empty by validation, so this always resolves.
+   (`llmSettings.defaultTier`) and use the first tier with a non-empty `model`.
+   The anchor is guaranteed non-empty by validation, so this always resolves.
 
 Ladder order (low → high): `lightweight` < `versatile` < `powerful`.
 
@@ -76,12 +76,13 @@ toward that anchor instead (a higher tier left blank then falls _down_ to it).
 
 ### Where each resolved tier is used
 
-Per agent, reading its own settings block:
+Per agent, reading its own settings group (`settings.llm` or
+`settings.codingLlm`):
 
-- **Agent's own model**: `resolveModelTier(block, block.defaultTier)`
-- **Title generation** (cheap internal work): `resolveModelTier(block, 'lightweight')`
-- **`dispatch_agent`**: `resolveModelTier(block, chosenTier)` where `chosenTier`
-  defaults to `versatile`
+- **Agent's own model**: `resolveModelConfig(llmSettings, llmSettings.defaultTier)`
+- **Title generation** (cheap internal work): `resolveModelConfig(llmSettings, 'lightweight')`
+- **`dispatch_agent`**: `resolveModelConfig(llmSettings, chosenTier)` where
+  `chosenTier` defaults to `versatile`
 
 ## Changes
 
@@ -101,10 +102,12 @@ In `src/llm/schema.ts`:
     (so a fresh install has a concrete anchor)
   - `versatile: tierModelSettingsSchema.prefault({})` (blank → cascades)
   - `lightweight: tierModelSettingsSchema.prefault({})` (blank → cascades)
-  - add a block-level `.refine(...)` enforcing that the tier named by
+  - add a settings-level `.refine(...)` enforcing that the tier named by
     `defaultTier` has a non-empty `model`, with the error `path` pointing at
     `[defaultTier, 'model']` so the UI attaches it to the right field.
-- Export `modelTierSchema` / `ModelTier` from `src/index.ts`.
+- Export `modelTierSchema` / `ModelTier` from `src/index.ts`, plus
+  `type LlmSettings = z.infer<typeof llmSettingsSchema>` — the type of the
+  resolver's `llmSettings` parameter.
 
 `src/schema.ts` is unchanged — `llm` and `codingLlm` keep reusing
 `llmSettingsSchema`.
@@ -115,9 +118,9 @@ dispatch tool and agent-core type against it.
 
 ### 2. Backend — tier resolver (`apps/backend`)
 
-Add a shared helper `resolveModelTier(block, tier): LlmConfig` (new module under
-`src/agent/`, e.g. `model-tier/resolve-model-tier.ts`) implementing the cascade
-above. Unit-tested directly.
+Add a shared helper `resolveModelConfig(llmSettings, tier): LlmConfig` (new
+module under `src/agent/`, e.g. `model-tier/resolve-model-config.ts`)
+implementing the cascade above. Unit-tested directly.
 
 ### 3. Backend — agent-core config plumbing
 
@@ -156,11 +159,12 @@ Stays a single shared static tool (both agents now expose the same three tiers):
 ### 5. Backend — agents
 
 - `main-agent.ts` and `coding-agent.ts`: each provides
-  - `getConfig` = `resolveModelTier(block, block.defaultTier)`
-  - `getTierConfig(tier)` = `resolveModelTier(block, tier)`
+  - `getConfig` = `resolveModelConfig(llmSettings, llmSettings.defaultTier)`
+  - `getTierConfig(tier)` = `resolveModelConfig(llmSettings, tier)`
 
   reading `settings.llm` and `settings.codingLlm` respectively. The two classes
-  stay near-identical (block + system prompt are the only differences).
+  stay near-identical (the settings group + system prompt are the only
+  differences).
 
 ### 6. Backend — steering (#3)
 
@@ -221,7 +225,7 @@ file at the path `settings-manager` uses. For both `llm` and `codingLlm`:
   event still carries `thinkingLevel` only).
 - Changing subagent classes, `resume`/`list_resumable` tools, session stores, or
   routes.
-- Per-block default divergence (both `defaultTier`s default to `powerful`).
+- Per-group default divergence (both `defaultTier`s default to `powerful`).
 
 ## Files changed
 
@@ -229,7 +233,7 @@ file at the path `settings-manager` uses. For both `llm` and `codingLlm`:
 2. `packages/settings-schema/src/index.ts` — export `modelTierSchema` / `ModelTier`
 3. `packages/settings-schema/src/schema.test.ts` — updated/added cases
 4. `packages/api-schema/src/index.ts` — re-export `modelTierSchema` / `ModelTier`
-5. `apps/backend/src/agent/model-tier/resolve-model-tier.ts` — new resolver (+ test)
+5. `apps/backend/src/agent/model-tier/resolve-model-config.ts` — new resolver (+ test)
 6. `apps/backend/src/agent-core/agent/types.ts` — `getTierConfig` replaces `getLightConfig`
 7. `apps/backend/src/agent-core/agent/agent.ts` — plumb `getTierConfig`; title uses `lightweight`
 8. `apps/backend/src/agent-core/agent/agent-runtime-state.ts` — thread `getTierConfig`
