@@ -67,11 +67,11 @@ export function useTaskStatuses(
     for (const s of sessions) {
       const status: TaskStatus = currentRunning.has(s.id)
         ? 'running'
-        : doneIds.has(s.id)
+        : s.id !== selectedId && doneIds.has(s.id)
           ? 'done'
           : 'idle';
       map.set(s.id, status);
     }
     return map;
-  }, [sessions, currentRunning, doneIds]);
+  }, [sessions, currentRunning, doneIds, selectedId]);
 }
