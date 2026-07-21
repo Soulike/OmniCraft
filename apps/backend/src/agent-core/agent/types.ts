@@ -1,4 +1,5 @@
 import {agentIdSchema} from '@omnicraft/api-schema';
+import type {ModelTier} from '@omnicraft/settings-schema';
 import type {SseErrorEvent, SseEvent} from '@omnicraft/sse-events';
 import {sseTodoItemSchema} from '@omnicraft/sse-events';
 import {z} from 'zod';
@@ -54,7 +55,7 @@ export interface AgentOptions {
   readonly stopChecks: readonly StopCheck[];
   readonly baseSystemPrompt: string;
   readonly getMaxToolRounds: () => Promise<number> | number;
-  readonly getLightConfig?: () => Promise<LlmConfig>;
+  readonly getTierConfig?: (tier: ModelTier) => Promise<LlmConfig>;
   readonly workingDirectory?: string;
   readonly sessionsDir?: string;
 }

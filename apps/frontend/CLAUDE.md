@@ -8,7 +8,6 @@
 # UI Validation
 
 - After introducing any UI change, validate it in a real browser. Start the dev server with the `dev` script defined in the root `package.json`, open the app in a browser, and verify the change renders and behaves correctly in both light and dark themes.
-- If a change introduces or alters UI, the PR description must include screenshots of the affected screens.
 
 ---
 

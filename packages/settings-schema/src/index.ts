@@ -4,7 +4,11 @@ export {
   workspaceSchema,
 } from './file-access/schema.js';
 export {
+  type LlmSettings,
   llmSettingsSchema,
+  MODEL_TIER_LADDER,
+  type ModelTier,
+  modelTierSchema,
   type ThinkingLevel,
   thinkingLevelSchema,
 } from './llm/schema.js';

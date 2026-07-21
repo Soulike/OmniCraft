@@ -6,6 +6,7 @@ import {
   type ThinkingLevel,
   thinkingLevelSchema,
 } from '@omnicraft/api-schema';
+import {type ModelTier, modelTierSchema} from '@omnicraft/settings-schema';
 import {z} from 'zod';
 
 import {ExploreSubAgent, GeneralSubAgent} from '@/agent/agents/index.js';
@@ -45,6 +46,15 @@ const subAgentInfos = {
   },
 } as const satisfies Record<SubAgentType, SubAgentInfo>;
 
+const modelTierInfos = {
+  lightweight:
+    'Cheapest and fastest. Use for trivial, well-defined subtasks where speed matters more than reasoning depth.',
+  versatile:
+    'Balanced default. Use for standard subtasks needing solid competence but not deep reasoning.',
+  powerful:
+    'Most capable and most expensive. Reserve for subtasks needing deep multi-step reasoning or complex analysis.',
+} as const satisfies Record<ModelTier, string>;
+
 function buildToolDescription(): string {
   const header =
     'Dispatches a subagent to handle a subtask autonomously. ' +
@@ -61,7 +71,14 @@ function buildToolDescription(): string {
     .map(([key, info]) => `- ${key} (${info.name}): ${info.description}`)
     .join('\n');
 
-  return `${header}\n\nAvailable agent types:\n${typeDescriptions}`;
+  const tierDescriptions = Object.entries(modelTierInfos)
+    .map(([tier, info]) => `- ${tier}: ${info}`)
+    .join('\n');
+
+  return (
+    `${header}\n\nAvailable agent types:\n${typeDescriptions}` +
+    `\n\nModel tiers (choose the cheapest that can do the job):\n${tierDescriptions}`
+  );
 }
 
 export function createSubAgent(
@@ -107,13 +124,12 @@ const parameters = z.object({
     .describe(
       `Type of subagent to dispatch. Defaults to '${SubAgentType.GENERAL}'.`,
     ),
-  model: z
-    .enum(['default', 'light'])
+  model: modelTierSchema
     .optional()
     .describe(
-      "Which model tier to use. 'default' uses the main model, 'light' uses the lightweight model. Defaults to 'default'. " +
-        "Use 'light' for simple, well-defined subtasks " +
-        'where speed matters more than reasoning depth.',
+      "Which model tier the subagent runs on. Defaults to 'versatile'. " +
+        'Choose the cheapest tier that can do the job: raise it only when the ' +
+        'subtask needs deeper reasoning, lower it when speed matters more.',
     ),
   workingDirectory: z
     .string()
@@ -156,7 +172,7 @@ export const dispatchAgentTool: ToolDefinition<
     const {
       task,
       agentType = SubAgentType.GENERAL,
-      model = 'default',
+      model = 'versatile',
       thinkingLevel = 'none',
     } = args;
 
@@ -179,11 +195,9 @@ export const dispatchAgentTool: ToolDefinition<
       }
     }
 
-    // Build config for the subagent — inherit from the parent agent and override thinking level.
-    const baseGetConfig =
-      model === 'light' ? context.getLightConfig : context.getConfig;
+    // Build config for the subagent — resolve the chosen tier and override thinking level.
     const getConfig = async (): Promise<LlmConfig> => ({
-      ...(await baseGetConfig()),
+      ...(await context.getTierConfig(model)),
       thinkingLevel,
     });
 

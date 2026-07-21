@@ -1,5 +1,6 @@
 import assert from 'node:assert';
 
+import type {ModelTier} from '@omnicraft/settings-schema';
 import type {
   SseDoneEvent,
   SseMessageStartEvent,
@@ -51,7 +52,7 @@ export interface RunAgentTurnInput {
   readonly stopChecks: readonly StopCheck[];
   readonly baseSystemPrompt: string;
   readonly getConfig: () => Promise<LlmConfig>;
-  readonly getLightConfig: () => Promise<LlmConfig>;
+  readonly getTierConfig: (tier: ModelTier) => Promise<LlmConfig>;
   readonly getMaxToolRounds: () => Promise<number> | number;
   readonly compactAfterTurn: (
     tools: readonly ToolDefinition[],
@@ -238,7 +239,7 @@ export class AgentTurnRunner {
             workingDirectory: input.workingDirectory,
             signal: input.signal,
             getConfig: input.getConfig,
-            getLightConfig: input.getLightConfig,
+            getTierConfig: input.getTierConfig,
           });
 
           const tool = availableTools.get(toolCall.toolName);

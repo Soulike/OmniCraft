@@ -74,7 +74,7 @@ function testAgentOptions() {
     stopChecks: [],
     baseSystemPrompt: '',
     getMaxToolRounds: () => 1,
-    getLightConfig: () => Promise.resolve(LIGHT_CONFIG),
+    getTierConfig: () => Promise.resolve(LIGHT_CONFIG),
     workingDirectory,
   };
 }

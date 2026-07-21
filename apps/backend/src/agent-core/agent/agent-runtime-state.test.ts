@@ -37,7 +37,7 @@ describe('AgentRuntimeState', () => {
       signal: new AbortController().signal,
       onSubAgentEvent: () => undefined,
       getConfig: () => Promise.resolve(MAIN_CONFIG),
-      getLightConfig: () => Promise.resolve(LIGHT_CONFIG),
+      getTierConfig: () => Promise.resolve(LIGHT_CONFIG),
     });
     const secondContext = second.buildToolExecutionContext({
       callId: 'call-2',
@@ -49,7 +49,7 @@ describe('AgentRuntimeState', () => {
       signal: new AbortController().signal,
       onSubAgentEvent: () => undefined,
       getConfig: () => Promise.resolve(MAIN_CONFIG),
-      getLightConfig: () => Promise.resolve(LIGHT_CONFIG),
+      getTierConfig: () => Promise.resolve(LIGHT_CONFIG),
     });
 
     firstContext.shellState.cwd = '/workspace/one/subdir';
@@ -90,7 +90,7 @@ describe('AgentRuntimeState', () => {
         subAgentEvents.push(event);
       },
       getConfig: () => Promise.resolve(MAIN_CONFIG),
-      getLightConfig: () => Promise.resolve(LIGHT_CONFIG),
+      getTierConfig: () => Promise.resolve(LIGHT_CONFIG),
     });
 
     context.onSubAgentEvent({
@@ -122,7 +122,7 @@ describe('AgentRuntimeState', () => {
       signal: new AbortController().signal,
       onSubAgentEvent: () => undefined,
       getConfig: () => Promise.resolve(MAIN_CONFIG),
-      getLightConfig: () => Promise.resolve(LIGHT_CONFIG),
+      getTierConfig: () => Promise.resolve(LIGHT_CONFIG),
     });
 
     const responsePromise =
