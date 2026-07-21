@@ -16,6 +16,7 @@ describe('WorkspaceGroupView', () => {
       <WorkspaceGroupView
         workspace={{path: '/home/me/proj'}}
         sessions={[{id: 's1', title: 'One'}]}
+        statuses={new Map()}
         isExpanded
         onExpandedChange={noop}
         currentSessionId={null}
@@ -36,6 +37,7 @@ describe('WorkspaceGroupView', () => {
     render(
       <WorkspaceGroupView
         sessions={[]}
+        statuses={new Map()}
         isExpanded
         onExpandedChange={noop}
         currentSessionId={null}

@@ -13,6 +13,7 @@ import {
 import {useAllCodingSessions} from './hooks/useAllCodingSessions.js';
 import {useExpandedGroups} from './hooks/useExpandedGroups.js';
 import {useSyncSelectedWorkspace} from './hooks/useSyncSelectedWorkspace.js';
+import {useTaskStatuses} from './hooks/useTaskStatuses.js';
 import {useWorkspaceGroups} from './hooks/useWorkspaceGroups.js';
 import type {WorkspaceGroupEntry} from './WorkspaceSessionListView.js';
 import {WorkspaceSessionListView} from './WorkspaceSessionListView.js';
@@ -41,6 +42,8 @@ export function WorkspaceSessionList({
   const {sessionId, buildSessionRoute, baseRoute} = useSessionId();
   const navigate = useNavigate();
   const now = useNow();
+
+  const statuses = useTaskStatuses(sessions, sessionId);
 
   useSyncSelectedWorkspace(sessions, sessionId, setSelectedWorkspace);
 
@@ -134,6 +137,7 @@ export function WorkspaceSessionList({
       sessionsFailed={sessionsError !== null}
       currentSessionId={sessionId}
       now={now}
+      statuses={statuses}
       onReloadWorkspaces={() => void reloadWorkspaces()}
       onReloadSessions={() => void reloadSessions(false)}
       onToggle={toggleGroup}
