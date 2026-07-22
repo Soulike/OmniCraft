@@ -31,4 +31,14 @@ describe('UserInteractionBridge.hasPending', () => {
     await expect(pending).rejects.toThrow();
     expect(bridge.hasPending).toBe(false);
   });
+
+  it('rejects and stores nothing when the signal is already aborted', async () => {
+    const bridge = new UserInteractionBridge();
+    const controller = new AbortController();
+    controller.abort();
+    await expect(
+      bridge.waitForResponse('c1', controller.signal),
+    ).rejects.toThrow();
+    expect(bridge.hasPending).toBe(false);
+  });
 });

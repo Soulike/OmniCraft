@@ -41,6 +41,16 @@ export class UserInteractionBridge {
       throw new Error(`Duplicate interaction ID: ${id}`);
     }
 
+    // A signal already aborted before this call would never fire the 'abort'
+    // listener (AbortSignal does not fire retroactively), so the entry would be
+    // stored and never cleaned up — leaving the turn stuck as waiting/running.
+    // Reject up front and store nothing.
+    if (signal?.aborted) {
+      return Promise.reject(
+        signal.reason instanceof Error ? signal.reason : new Error('Aborted'),
+      );
+    }
+
     const {promise, resolve, reject} = Promise.withResolvers<unknown>();
 
     const onAbort = () => {
