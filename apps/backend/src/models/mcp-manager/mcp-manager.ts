@@ -287,6 +287,13 @@ export class McpManager {
             this.refreshTools(server.name, generation),
           );
         });
+        // Reflect a transport that dies after startup (child exit / stream
+        // drop) by moving the connection to `error` rather than advertising a
+        // dead server. Generation-gated so our own close() during
+        // teardown/supersede — which bumps the generation first — is ignored.
+        client.onclose = () => {
+          this.handleClientClose(server.name, generation);
+        };
         // Read `connection.enabledAgentTypes` rather than the captured value:
         // applyConfig mutates that field on this same object, so an
         // enable/disable applied while connecting is reflected here.
@@ -328,6 +335,26 @@ export class McpManager {
     } catch (e) {
       logger.warn({e, server: serverName}, 'MCP tools/list refresh failed');
     }
+  }
+
+  /**
+   * Handles a connected client's transport closing on its own (child process
+   * exit, HTTP stream drop). Generation-gated so a close triggered by our own
+   * teardown/supersede — which bumps the generation first — is ignored. A live
+   * close replaces the connection with an `error` state (dropping its client
+   * and tools) so the snapshot, agents, and status endpoint stop advertising a
+   * server that is no longer reachable.
+   */
+  private handleClientClose(serverName: string, generation: number): void {
+    if (this.isStale(serverName, generation)) return;
+    const connection = this.serverNameToConnections.get(serverName);
+    if (connection?.status !== 'connected') return;
+    this.serverNameToConnections.set(serverName, {
+      server: connection.server,
+      enabledAgentTypes: connection.enabledAgentTypes,
+      status: 'error',
+      error: 'MCP server transport closed',
+    });
   }
 
   /**

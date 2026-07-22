@@ -329,4 +329,45 @@ describe('McpManager', () => {
       'newest',
     ]);
   });
+
+  it('marks a connected server errored when its transport closes after startup', async () => {
+    const client = fakeClient([tool]);
+    const mgr = McpManager.create(() => Promise.resolve(client));
+    mgr.applyConfig({
+      servers: [stdioServer],
+      enabledByAgent: {chat: ['fs'], coding: []},
+    });
+    await vi.waitFor(() => {
+      expect(mgr.list()[0]?.status).toBe('connected');
+    });
+
+    // Simulate the transport dying on its own after a successful connect.
+    assert(client.onclose);
+    client.onclose();
+
+    expect(mgr.list()[0]?.status).toBe('error');
+    expect(mgr.list()[0]?.error).toContain('transport closed');
+    expect(mgr.getToolsForAgent('chat')).toEqual([]);
+  });
+
+  it('ignores the client close our own teardown triggers', async () => {
+    const client = fakeClient([tool]);
+    const mgr = McpManager.create(() => Promise.resolve(client));
+    mgr.applyConfig({
+      servers: [stdioServer],
+      enabledByAgent: {chat: ['fs'], coding: []},
+    });
+    await vi.waitFor(() => {
+      expect(mgr.list()[0]?.status).toBe('connected');
+    });
+    assert(client.onclose);
+    const onclose = client.onclose;
+
+    // Teardown bumps the generation before close(); the resulting onclose must
+    // not resurrect a spurious error entry for the now-removed server.
+    mgr.applyConfig({servers: [], enabledByAgent: {chat: [], coding: []}});
+    onclose();
+
+    expect(mgr.list()).toHaveLength(0);
+  });
 });

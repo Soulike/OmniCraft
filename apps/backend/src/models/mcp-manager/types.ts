@@ -8,7 +8,7 @@ import type {McpServer} from '@omnicraft/settings-schema';
  */
 export type McpClient = Pick<
   Client,
-  'listTools' | 'callTool' | 'setNotificationHandler' | 'close'
+  'listTools' | 'callTool' | 'setNotificationHandler' | 'close' | 'onclose'
 >;
 
 export type McpClientFactory = (server: McpServer) => Promise<McpClient>;
