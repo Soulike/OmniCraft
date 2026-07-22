@@ -67,6 +67,7 @@ function executeInput(overrides: {
     subagentRegistry: new SubagentRegistry(),
     availableSkills: new Map<string, SkillDefinition>(),
     workingDirectory: '/workspace/project',
+    scratchDirectory: '/scratch',
     signal: new AbortController().signal,
     getConfig: () => Promise.resolve(MAIN_CONFIG),
     getTierConfig: () => Promise.resolve(LIGHT_CONFIG),
@@ -122,6 +123,7 @@ describe('AgentToolExecutor', () => {
       agentId: 'agent-1',
       sessionsDir: '/sessions',
       workingDirectory: '/workspace/project',
+      scratchDirectory: '/scratch',
     });
     expect(events).toEqual([
       {type: 'tool-execute-delta', callId: 'call-1', content: 'value:ok'},

@@ -1,4 +1,5 @@
 import assert from 'node:assert';
+import type {Dirent} from 'node:fs';
 import {access, readdir, readFile, rm, stat} from 'node:fs/promises';
 import path from 'node:path';
 
@@ -65,24 +66,27 @@ export class CodingAgentStore extends AgentStore {
     offset: number,
     limit: number,
   ): Promise<{sessions: SessionMetadata[]; total: number}> {
-    let entries: string[];
+    let entries: Dirent[];
     try {
-      entries = await readdir(this.sessionsDir);
+      entries = await readdir(this.sessionsDir, {withFileTypes: true});
     } catch {
       return {sessions: [], total: 0};
     }
 
+    // A session is a directory; skip stray entries (e.g. macOS `.DS_Store`).
     const statResults: {id: string; mtime: number}[] = [];
     await Promise.all(
       entries.map(async (entry) => {
+        if (!entry.isDirectory()) return;
+        const id = entry.name;
         try {
           const fileStat = await stat(
-            agentPersistence.snapshotPath(this.sessionsDir, entry),
+            agentPersistence.snapshotPath(this.sessionsDir, id),
           );
-          statResults.push({id: entry, mtime: fileStat.mtimeMs});
+          statResults.push({id, mtime: fileStat.mtimeMs});
         } catch (e) {
           logger.warn(
-            {err: e, sessionId: entry},
+            {err: e, sessionId: id},
             'Failed to stat session snapshot',
           );
         }
@@ -94,6 +98,7 @@ export class CodingAgentStore extends AgentStore {
     const page = statResults.slice(offset, offset + limit);
 
     const running = this.getRunningIds();
+    const waiting = this.getWaitingIds();
     const results = await Promise.all(
       page.map(async ({id, mtime}): Promise<SessionMetadata | null> => {
         try {
@@ -103,6 +108,7 @@ export class CodingAgentStore extends AgentStore {
             ...sessionMetadataSchema.parse(json),
             updatedAt: mtime,
             isRunning: running.has(id),
+            isWaitingForInput: waiting.has(id),
           };
         } catch (e) {
           logger.warn({err: e, sessionId: id}, 'Skipping unreadable session');

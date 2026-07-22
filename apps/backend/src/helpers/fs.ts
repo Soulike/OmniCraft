@@ -51,21 +51,25 @@ export async function checkDirectoryAccess(
   return null;
 }
 
-/** Writes content to a temporary file in os.tmpdir() and returns the absolute path. */
+/** Writes content to a temporary file and returns the absolute path. */
 export async function writeToTempFile(
   content: string,
   extension: string,
+  dir: string = os.tmpdir(),
 ): Promise<string> {
-  const filePath = path.join(os.tmpdir(), `${crypto.randomUUID()}${extension}`);
+  const filePath = path.join(dir, `${crypto.randomUUID()}${extension}`);
   await fs.writeFile(filePath, content, 'utf-8');
   return filePath;
 }
 
-/** Creates a writable stream to a new temporary file in os.tmpdir(). */
-export function createTempFileWriteStream(extension: string): {
+/** Creates a writable stream to a new temporary file. */
+export function createTempFileWriteStream(
+  extension: string,
+  dir: string = os.tmpdir(),
+): {
   filePath: string;
   stream: WriteStream;
 } {
-  const filePath = path.join(os.tmpdir(), `${crypto.randomUUID()}${extension}`);
+  const filePath = path.join(dir, `${crypto.randomUUID()}${extension}`);
   return {filePath, stream: createWriteStream(filePath, 'utf-8')};
 }

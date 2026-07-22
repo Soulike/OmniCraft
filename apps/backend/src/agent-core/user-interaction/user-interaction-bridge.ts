@@ -19,6 +19,11 @@ export class UserInteractionBridge {
     }
   >();
 
+  /** Whether any interaction is currently awaiting a user response. */
+  get hasPending(): boolean {
+    return this.pending.size > 0;
+  }
+
   /**
    * Registers a pending interaction and waits for the user's response.
    *
@@ -34,6 +39,16 @@ export class UserInteractionBridge {
   waitForResponse(id: string, signal?: AbortSignal): Promise<unknown> {
     if (this.pending.has(id)) {
       throw new Error(`Duplicate interaction ID: ${id}`);
+    }
+
+    // A signal already aborted before this call would never fire the 'abort'
+    // listener (AbortSignal does not fire retroactively), so the entry would be
+    // stored and never cleaned up — leaving the turn stuck as waiting/running.
+    // Reject up front and store nothing.
+    if (signal?.aborted) {
+      return Promise.reject(
+        signal.reason instanceof Error ? signal.reason : new Error('Aborted'),
+      );
     }
 
     const {promise, resolve, reject} = Promise.withResolvers<unknown>();

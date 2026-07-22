@@ -5,19 +5,51 @@ import type {ToolDefinition} from '../../tool/index.js';
 import type {ToolRegistry} from '../../tool/index.js';
 import {loadSkillTool} from '../../tool/index.js';
 
-function buildEnvironmentSection(workingDirectory: string): string {
+function buildEnvironmentSection(
+  workingDirectory: string,
+  scratchDirectory: string,
+): string {
   const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const distinct = workingDirectory !== scratchDirectory;
 
-  return [
+  const lines = [
     '## Environment',
     '',
     `- OS: ${os.type()} ${os.release()} (${os.platform()}, ${os.arch()})`,
     `- Shell: ${process.env.SHELL ?? 'unknown'}`,
     `- Working directory: ${workingDirectory}`,
+  ];
+  if (distinct) {
+    lines.push(`- Scratch space: ${scratchDirectory}`);
+  }
+  lines.push(
     `- Time zone: ${timeZone}`,
     '',
     'Relative paths in file operations are resolved from the working directory. Shell commands start in the working directory by default, though shell cwd can change between command calls when commands change directories.',
-  ].join('\n');
+  );
+
+  if (distinct) {
+    lines.push(
+      '',
+      '## Working Directory vs Scratch Space',
+      '',
+      'You have access to two locations:',
+      '',
+      `- The working directory (${workingDirectory}) is where the task lives. Everything the user expects as an output of the task — code, docs, and any files that are part of the deliverable — belongs here. Relative paths resolve here.`,
+      `- The scratch space (${scratchDirectory}) is a private area for this session. Use it for files that support your work but are not part of the task's output: temporary notes, plans, intermediate artifacts, downloaded references, and throwaway scripts. Address it by its absolute path. It persists for the life of the session and is discarded when the session is deleted.`,
+      '',
+      'Keep the two separate: do not leave scratch or intermediate files in the working directory, and do not place deliverables in the scratch space. When unsure whether a file is a deliverable, keep it in the scratch space and tell the user.',
+    );
+  } else {
+    lines.push(
+      '',
+      '## Scratch Space',
+      '',
+      `This session has no project repository. Your working directory (${scratchDirectory}) is a private scratch space for this session: use it for any files you need to create while working — notes, drafts, downloaded references, and intermediate artifacts. It persists for the life of the session and is discarded when the session is deleted.`,
+    );
+  }
+
+  return lines.join('\n');
 }
 
 export function buildAvailableSkills(
@@ -77,6 +109,7 @@ export function buildSystemPrompt(
   toolRegistries: readonly ToolRegistry[],
   skillRegistries: readonly SkillRegistry[],
   workingDirectory: string,
+  scratchDirectory: string,
 ): string {
   let prompt = baseSystemPrompt;
 
@@ -103,7 +136,7 @@ export function buildSystemPrompt(
     ].join('\n');
   }
 
-  prompt += `\n\n${buildEnvironmentSection(workingDirectory)}`;
+  prompt += `\n\n${buildEnvironmentSection(workingDirectory, scratchDirectory)}`;
 
   return prompt;
 }

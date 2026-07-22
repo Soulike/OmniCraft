@@ -18,15 +18,23 @@ import {webFetchTool} from './web-fetch.js';
 
 describe('webFetchTool', () => {
   let tmpDir: string;
+  let scratchDir: string;
   let context: ToolExecutionContext;
 
   beforeEach(async () => {
     tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'wf-test-'));
-    context = createMockContext({workingDirectory: tmpDir});
+    scratchDir = await fs.realpath(
+      await fs.mkdtemp(path.join(os.tmpdir(), 'wf-scratch-')),
+    );
+    context = createMockContext({
+      workingDirectory: tmpDir,
+      scratchDirectory: scratchDir,
+    });
   });
 
   afterEach(async () => {
     await fs.rm(tmpDir, {recursive: true, force: true});
+    await fs.rm(scratchDir, {recursive: true, force: true});
   });
 
   it('has the correct name', () => {
@@ -295,6 +303,7 @@ describe('webFetchTool', () => {
         assert(result.status === 'success');
         expect(result.data.url).toBe(serverUrl(server));
         expect(result.data.content).toBeTruthy();
+        expect(result.data.content).toContain(scratchDir);
       } finally {
         await stopServer(server);
       }

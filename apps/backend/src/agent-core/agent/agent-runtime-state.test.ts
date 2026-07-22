@@ -1,3 +1,5 @@
+import os from 'node:os';
+
 import type {SseSubAgentEvent, SseTodoItem} from '@omnicraft/sse-events';
 import {describe, expect, it} from 'vitest';
 
@@ -34,6 +36,7 @@ describe('AgentRuntimeState', () => {
       subagentRegistry: firstSubagentRegistry,
       availableSkills: new Map(),
       workingDirectory: '/workspace/one',
+      scratchDirectory: '/scratch',
       signal: new AbortController().signal,
       onSubAgentEvent: () => undefined,
       getConfig: () => Promise.resolve(MAIN_CONFIG),
@@ -46,6 +49,7 @@ describe('AgentRuntimeState', () => {
       subagentRegistry: secondSubagentRegistry,
       availableSkills: new Map(),
       workingDirectory: '/workspace/two',
+      scratchDirectory: '/scratch',
       signal: new AbortController().signal,
       onSubAgentEvent: () => undefined,
       getConfig: () => Promise.resolve(MAIN_CONFIG),
@@ -85,6 +89,7 @@ describe('AgentRuntimeState', () => {
       subagentRegistry,
       availableSkills: new Map(),
       workingDirectory: '/workspace/project',
+      scratchDirectory: '/scratch',
       signal,
       onSubAgentEvent: (event) => {
         subAgentEvents.push(event);
@@ -119,6 +124,7 @@ describe('AgentRuntimeState', () => {
       subagentRegistry: new SubagentRegistry(),
       availableSkills: new Map(),
       workingDirectory: '/workspace/project',
+      scratchDirectory: '/scratch',
       signal: new AbortController().signal,
       onSubAgentEvent: () => undefined,
       getConfig: () => Promise.resolve(MAIN_CONFIG),
@@ -153,5 +159,33 @@ describe('AgentRuntimeState', () => {
 
     expect(state.listTodos()).toEqual([]);
     expect(state.todoVersion).toBe(0);
+  });
+});
+
+describe('AgentRuntimeState.isWaitingForInput', () => {
+  it('reflects a pending client-tool interaction on its own bridge', async () => {
+    const state = new AgentRuntimeState(os.tmpdir());
+    const context = state.buildToolExecutionContext({
+      callId: 'c1',
+      agentId: 'a1',
+      sessionsDir: null,
+      subagentRegistry: new SubagentRegistry(),
+      availableSkills: new Map(),
+      workingDirectory: os.tmpdir(),
+      scratchDirectory: os.tmpdir(),
+      signal: new AbortController().signal,
+      onSubAgentEvent: () => {
+        // noop — the delegation test ignores subagent events
+      },
+      getConfig: () => Promise.resolve(MAIN_CONFIG),
+      getTierConfig: () => Promise.resolve(MAIN_CONFIG),
+    });
+
+    expect(state.isWaitingForInput).toBe(false);
+    const pending = context.userInteractionBridge.waitForResponse('c1');
+    expect(state.isWaitingForInput).toBe(true);
+    state.submitUserResponse('c1', {ok: true});
+    await pending;
+    expect(state.isWaitingForInput).toBe(false);
   });
 });
