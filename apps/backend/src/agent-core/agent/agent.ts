@@ -355,8 +355,5 @@ export abstract class Agent {
       type: 'session-title',
       title: this.title,
     } satisfies SseSessionTitleEvent);
-    await this.persistSnapshot().catch((err: unknown) => {
-      logger.error({err}, 'Failed to persist snapshot after title generation');
-    });
   }
 }
