@@ -5,6 +5,7 @@ import {router as chatAgentSessionRouter} from './chat-agent-session/index.js';
 import {router as codingAgentSessionRouter} from './coding-agent-session/index.js';
 import {router as fileAccessSettingsRouter} from './file-access-settings/index.js';
 import {router as healthRouter} from './health/index.js';
+import {router as mcpRouter} from './mcp/index.js';
 import {router as settingsRouter} from './settings/index.js';
 import {router as vscodeRouter} from './vscode/index.js';
 
@@ -28,6 +29,7 @@ apiRouter.use(
   fileAccessSettingsRouter.allowedMethods(),
 );
 apiRouter.use(healthRouter.routes(), healthRouter.allowedMethods());
+apiRouter.use(mcpRouter.routes(), mcpRouter.allowedMethods());
 apiRouter.use(settingsRouter.routes(), settingsRouter.allowedMethods());
 apiRouter.use(vscodeRouter.routes(), vscodeRouter.allowedMethods());
 

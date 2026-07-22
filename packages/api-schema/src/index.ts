@@ -35,6 +35,12 @@ export {
   putWorkspacesSuccessResponseSchema,
 } from './file-access/schema.js';
 export {
+  type GetMcpServersResponse,
+  getMcpServersResponseSchema,
+  type McpServerStatusResponse,
+  mcpServerStatusSchema,
+} from './mcp/schema.js';
+export {
   type GetSettingValueResponse,
   getSettingValueResponseSchema,
   type PutSettingsBatchRequest,
