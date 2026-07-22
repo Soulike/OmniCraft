@@ -20,6 +20,17 @@ export class AgentScratchDirectoryService {
       sessionsDir === null
         ? path.join(os.tmpdir(), agentId, 'scratch')
         : agentPersistence.scratchPath(sessionsDir, agentId);
+    // Validate the per-agent directory before descending into `scratch`. A
+    // recursive mkdir of the full path would follow a symlink pre-planted at
+    // the `{agentId}` segment and create `scratch` outside the sessions root;
+    // mkdir on the agent dir alone is a no-op when it already exists (even as a
+    // symlink to a directory), and lstat then reports the symlink itself so we
+    // reject it before creating anything underneath.
+    const agentDir = path.dirname(dir);
+    mkdirSync(agentDir, {recursive: true, mode: 0o700});
+    if (!lstatSync(agentDir).isDirectory()) {
+      throw new Error(`Agent directory is not a real directory: ${agentDir}`);
+    }
     mkdirSync(dir, {recursive: true, mode: 0o700});
     // lstat (not stat) so a pre-planted symlink at `dir` is rejected before
     // chmod/realpath would follow it to a target we don't own.

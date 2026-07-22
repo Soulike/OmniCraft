@@ -1,5 +1,12 @@
 import crypto from 'node:crypto';
-import {mkdtempSync, realpathSync, rmSync, statSync} from 'node:fs';
+import {
+  existsSync,
+  mkdtempSync,
+  realpathSync,
+  rmSync,
+  statSync,
+  symlinkSync,
+} from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -50,5 +57,25 @@ describe('AgentScratchDirectoryService', () => {
     expect(() =>
       agentScratchDirectoryService.createScratchDirectory(null, '../escape'),
     ).toThrow();
+  });
+
+  it('rejects a symlinked agent directory instead of escaping the sessions root', () => {
+    const sessionsDir = realpathSync(
+      mkdtempSync(path.join(os.tmpdir(), 'scratch-svc-')),
+    );
+    tmpDirsToCleanup.add(sessionsDir);
+    const outside = realpathSync(
+      mkdtempSync(path.join(os.tmpdir(), 'scratch-outside-')),
+    );
+    tmpDirsToCleanup.add(outside);
+    const id = crypto.randomUUID();
+    // Pre-plant a symlink at {sessionsDir}/{id} pointing outside the root.
+    symlinkSync(outside, path.join(sessionsDir, id));
+
+    expect(() =>
+      agentScratchDirectoryService.createScratchDirectory(sessionsDir, id),
+    ).toThrow();
+    // The escape target must not have gained a `scratch` directory.
+    expect(existsSync(path.join(outside, 'scratch'))).toBe(false);
   });
 });
