@@ -67,7 +67,7 @@ scheduled for the UX round.
               ┌─────────────────────────────┴──────────────────────────────┐
        getMcpToolRegistry(AgentType.CHAT)               getMcpToolRegistry(AgentType.CODING)
        (shared per-AgentType singleton)                 (shared per-AgentType singleton)
-              │  getAll() ← called per turn by buildAvailableTools()
+              │  getAll() ← called once per user message by buildAvailableTools()
               ▼
        for each server where kinds.has(myKind) and status==='connected':
          map McpToolInfo → McpToolDefinition
@@ -81,12 +81,12 @@ scheduled for the UX round.
 Two facts drive this shape:
 
 - **`ToolRegistry.getAll()` is synchronous** and `buildAvailableTools()` runs it
-  at the start of **every turn**. So the registry cannot `await` settings or the
-  network; it must read an in-memory snapshot. The manager owns that snapshot
-  (both the discovered tools and, from the last `applyConfig`, each server's
-  enabled `kinds`), making `getAll(kind)` a pure sync filter+map. Re-evaluating
-  per turn means toggling a server or a reconnect reflects on the next turn with
-  no restart.
+  **once at the start of each user message** (`AgentTurnRunner.run()`), not per
+  tool-call round. So the registry cannot `await` settings or the network; it
+  reads an in-memory snapshot the manager owns (discovered tools + each server's
+  enabled `kinds` from the last `applyConfig`), making `getAll(kind)` a pure sync
+  filter+map. Because the snapshot is taken per message, toggling a server or a
+  completed (re)connection takes effect on the **next user message** — no restart.
 - **`SettingsManager` emits a `change` event after every successful `save()`**
   — a small, general capability added this round (see "SettingsManager change
   events"), with MCP as its first consumer. McpManager subscribes and calls
@@ -96,6 +96,16 @@ Two facts drive this shape:
 `applyConfig` reconciles desired vs. live state and starts (re)connections in the
 **background**, returning promptly — a settings write must not block on network
 connects. Connection progress is observable via the HTTP status API.
+
+**Availability timing (best-effort).** Because connections complete
+asynchronously and the tool set is frozen per user message, a newly-connected
+server's tools appear on the **next user message**, not mid-message. At boot this
+is a race: a message sent before servers finish connecting runs without their
+tools; they appear on a later message. Conversely, a server that drops
+mid-message stays in that message's snapshot, and a call to it fails gracefully
+(error result). There is **no UI indicator of boot-time connection status** this
+round — tracked as a follow-up
+([#361](https://github.com/Soulike/OmniCraft/issues/361)).
 
 ## Tool type model
 
@@ -459,15 +469,20 @@ no new write endpoint.
 ## Out of scope (follow-ups)
 
 - **Consent gating** — per-server auto-approve or per-call approval via the
-  existing `UserInteractionBridge`. Tracked as a dedicated follow-up issue;
-  this round trusts configured servers.
+  existing `UserInteractionBridge`; this round trusts configured servers.
+  ([#360](https://github.com/Soulike/OmniCraft/issues/360))
+- **Boot-time connection-status indicator** in the UI — the backend already
+  exposes per-server status via `GET /api/mcp/servers`; the frontend affordance
+  is deferred. ([#361](https://github.com/Soulike/OmniCraft/issues/361))
+- **Frontend MCP settings UX** (configure servers + per-agent enable), plus the
+  connected-servers panel and chat tool-call rendering — designed above, built
+  later. ([#362](https://github.com/Soulike/OmniCraft/issues/362))
 - MCP **resources** and **prompts**.
 - **Per-conversation** server selection (this round is global + per-agent).
 - **OAuth** for HTTP servers (static headers only this round).
 - **Legacy standalone SSE** transport.
 - Full MCP **content-block fidelity** in the neutral result layer (text-only for
   now).
-- **Frontend implementation** (designed above; built later).
 
 ## Files changed
 
