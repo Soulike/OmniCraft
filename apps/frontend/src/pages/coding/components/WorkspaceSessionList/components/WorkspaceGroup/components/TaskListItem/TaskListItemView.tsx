@@ -1,11 +1,17 @@
 import {Button, Popover} from '@heroui/react';
 import {Trash2} from 'lucide-react';
 
+import {
+  type TaskStatus,
+  TaskStatusIndicator,
+} from '@/components/TaskStatusIndicator/index.js';
+
 import styles from './styles.module.css';
 
 interface TaskListItemViewProps {
   title: string;
   timeLabel: string | null;
+  status: TaskStatus;
   isSelected: boolean;
   isDeleteOpen: boolean;
   onDeleteOpenChange: (open: boolean) => void;
@@ -16,6 +22,7 @@ interface TaskListItemViewProps {
 export function TaskListItemView({
   title,
   timeLabel,
+  status,
   isSelected,
   isDeleteOpen,
   onDeleteOpenChange,
@@ -27,7 +34,9 @@ export function TaskListItemView({
       className={styles.item}
       data-selected={isSelected ? 'true' : undefined}
     >
-      <span aria-hidden='true' className={styles.dot} />
+      <span className={styles.statusSlot}>
+        <TaskStatusIndicator status={status} />
+      </span>
       <div className={styles.content}>
         <span className={styles.title} title={title}>
           {title}

@@ -18,6 +18,7 @@ const baseProps = {
   sessionsFailed: false,
   currentSessionId: null,
   now: 1_700_000_000_000,
+  statuses: new Map(),
   onReloadWorkspaces: noop,
   onReloadSessions: noop,
   onToggle: noop,

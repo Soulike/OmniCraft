@@ -2,6 +2,7 @@ import {Button, Spinner} from '@heroui/react';
 import {Settings2} from 'lucide-react';
 import {Link} from 'react-router';
 
+import type {TaskStatus} from '@/components/TaskStatusIndicator/index.js';
 import {ROUTES} from '@/routes.js';
 
 import {WorkspaceGroupView} from './components/WorkspaceGroup/index.js';
@@ -21,6 +22,7 @@ interface WorkspaceSessionListViewProps {
   readonly sessionsFailed: boolean;
   readonly currentSessionId: string | null;
   readonly now: number;
+  readonly statuses: ReadonlyMap<string, TaskStatus>;
   readonly onReloadWorkspaces: () => void;
   readonly onReloadSessions: () => void;
   readonly onToggle: (key: string, isExpanded: boolean) => void;
@@ -37,6 +39,7 @@ export function WorkspaceSessionListView({
   sessionsFailed,
   currentSessionId,
   now,
+  statuses,
   onReloadWorkspaces,
   onReloadSessions,
   onToggle,
@@ -83,6 +86,7 @@ export function WorkspaceSessionListView({
               key={key}
               workspace={group.workspace}
               sessions={group.sessions}
+              statuses={statuses}
               isExpanded={expanded.has(key)}
               onExpandedChange={(isExpanded) => {
                 onToggle(key, isExpanded);

@@ -54,4 +54,18 @@ describe('sessionMetadataSchema', () => {
     const parsed = sessionMetadataSchema.parse({id: ID, title: 'T'});
     expect(parsed.updatedAt).toBeUndefined();
   });
+
+  it('preserves isRunning when present', () => {
+    const parsed = sessionMetadataSchema.parse({
+      id: ID,
+      title: 'T',
+      isRunning: true,
+    });
+    expect(parsed.isRunning).toBe(true);
+  });
+
+  it('parses without isRunning (backward compatible)', () => {
+    const parsed = sessionMetadataSchema.parse({id: ID, title: 'T'});
+    expect(parsed.isRunning).toBeUndefined();
+  });
 });
