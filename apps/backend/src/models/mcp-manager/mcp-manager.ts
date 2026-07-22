@@ -16,17 +16,30 @@ import type {
 import {logger} from '@/logger.js';
 
 import {createMcpClient} from './create-mcp-client.js';
-import type {McpClient, McpClientFactory, ServerStatus} from './types.js';
+import type {McpClient, McpClientFactory} from './types.js';
 
-/** A configured MCP server together with its live connection state. */
-interface ServerConnection {
+/** Fields present on an MCP server connection in any state. */
+interface ServerConnectionBase {
   server: McpServer;
   enabledAgentTypes: Set<AgentType>;
-  status: ServerStatus;
-  tools: Tool[];
-  error?: string;
-  client?: McpClient;
 }
+
+/**
+ * A configured MCP server together with its live connection state, modeled as
+ * a discriminated union on `status` so a `connected` connection always carries
+ * its `client` and `tools` and an `error` connection always carries its
+ * message — the fields can no longer be present in the wrong state. A
+ * `disabled` server is represented by absence from the connection map rather
+ * than a status value.
+ */
+type ServerConnection =
+  | (ServerConnectionBase & {status: 'connecting'})
+  | (ServerConnectionBase & {
+      status: 'connected';
+      client: McpClient;
+      tools: Tool[];
+    })
+  | (ServerConnectionBase & {status: 'error'; error: string});
 
 /**
  * Owns MCP server connections, tool discovery, and tool invocation.
@@ -161,7 +174,7 @@ export class McpManager {
     signal: AbortSignal,
   ): Promise<CallToolResult> {
     const connection = this.serverNameToConnections.get(serverName);
-    if (!connection?.client || connection.status !== 'connected') {
+    if (connection?.status !== 'connected') {
       return {
         content: [
           {type: 'text', text: `MCP server "${serverName}" is not connected`},
@@ -185,11 +198,14 @@ export class McpManager {
       name: connection.server.name,
       transportType: connection.server.transport.type,
       status: connection.status,
-      tools: connection.tools.map((tool) => ({
-        name: tool.name,
-        description: tool.description ?? '',
-      })),
-      error: connection.error,
+      tools:
+        connection.status === 'connected'
+          ? connection.tools.map((tool) => ({
+              name: tool.name,
+              description: tool.description ?? '',
+            }))
+          : [],
+      error: connection.status === 'error' ? connection.error : undefined,
     }));
   }
 
@@ -237,27 +253,45 @@ export class McpManager {
       server,
       enabledAgentTypes,
       status: 'connecting',
-      tools: [],
     };
     this.serverNameToConnections.set(server.name, connection);
 
     void (async () => {
       try {
+        // The client stays local until the atomic `connected` publish below,
+        // so no `connecting` connection ever holds a client the union forbids.
+        // If this connect is superseded mid-flight, close the client we own.
         const client = await this.createClient(server);
         if (this.isStale(server.name, generation)) {
           await client.close();
           return;
         }
-        connection.client = client;
-        connection.tools = await this.listAllTools(client);
-        connection.status = 'connected';
+        const tools = await this.listAllTools(client);
+        if (this.isStale(server.name, generation)) {
+          await client.close();
+          return;
+        }
+        // Read `connection.enabledAgentTypes` rather than the captured value:
+        // applyConfig mutates that field on this same object, so an
+        // enable/disable applied while connecting is reflected here.
+        this.serverNameToConnections.set(server.name, {
+          server,
+          enabledAgentTypes: connection.enabledAgentTypes,
+          status: 'connected',
+          client,
+          tools,
+        });
         client.setNotificationHandler(ToolListChangedNotificationSchema, () => {
           void this.refreshTools(server.name, generation);
         });
       } catch (e) {
         if (this.isStale(server.name, generation)) return;
-        connection.status = 'error';
-        connection.error = e instanceof Error ? e.message : String(e);
+        this.serverNameToConnections.set(server.name, {
+          server,
+          enabledAgentTypes: connection.enabledAgentTypes,
+          status: 'error',
+          error: e instanceof Error ? e.message : String(e),
+        });
         logger.warn({e, server: server.name}, 'MCP server connection failed');
       }
     })();
@@ -268,7 +302,11 @@ export class McpManager {
     generation: number,
   ): Promise<void> {
     const connection = this.serverNameToConnections.get(serverName);
-    if (!connection?.client || this.isStale(serverName, generation)) return;
+    if (
+      connection?.status !== 'connected' ||
+      this.isStale(serverName, generation)
+    )
+      return;
     try {
       connection.tools = await this.listAllTools(connection.client);
     } catch (e) {
@@ -306,7 +344,12 @@ export class McpManager {
     // once it resolves, even though its connection is gone by then.
     this.bumpGeneration(serverName);
     this.serverNameToConnections.delete(serverName);
-    await connection.client?.close().catch(() => undefined);
+    // Only a `connected` connection owns a client here; a `connecting` one
+    // keeps its client local until it publishes and closes it itself when
+    // superseded.
+    if (connection.status === 'connected') {
+      await connection.client.close().catch(() => undefined);
+    }
   }
 
   /** Bumps and returns the new generation for `serverName`. Never resets. */
