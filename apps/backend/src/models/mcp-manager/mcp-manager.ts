@@ -157,7 +157,7 @@ export class McpManager {
   async callTool(
     serverName: string,
     toolName: string,
-    args: unknown,
+    args: Record<string, unknown> | undefined,
     signal: AbortSignal,
   ): Promise<CallToolResult> {
     const connection = this.serverNameToConnections.get(serverName);
@@ -174,7 +174,7 @@ export class McpManager {
     // legacy {toolResult} compat union, which the pin rules out — so assert to
     // the modern shape.
     return connection.client.callTool(
-      {name: toolName, arguments: (args ?? {}) as Record<string, unknown>},
+      {name: toolName, arguments: args ?? {}},
       CallToolResultSchema,
       {signal},
     ) as Promise<CallToolResult>;

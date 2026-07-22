@@ -55,7 +55,9 @@ export class McpToolRegistry extends ToolRegistry {
             const result = await this.manager.callTool(
               serverName,
               tool.name,
-              args,
+              // MCP tools are not Zod-validated; the model's arguments arrive
+              // as untyped JSON. Assert the object shape the SDK requires.
+              args as Record<string, unknown> | undefined,
               context.signal,
             );
             // Pass the result through to the model: text blocks as-is, any
