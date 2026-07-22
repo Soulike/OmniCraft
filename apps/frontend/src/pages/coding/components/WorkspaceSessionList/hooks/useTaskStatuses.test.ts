@@ -4,8 +4,12 @@ import {describe, expect, it} from 'vitest';
 
 import {useTaskStatuses} from './useTaskStatuses.js';
 
-function s(id: string, isRunning: boolean): SessionMetadata {
-  return {id, title: id, isRunning};
+function s(
+  id: string,
+  isRunning: boolean,
+  isWaitingForInput = false,
+): SessionMetadata {
+  return {id, title: id, isRunning, isWaitingForInput};
 }
 
 describe('useTaskStatuses', () => {
@@ -78,5 +82,41 @@ describe('useTaskStatuses', () => {
     rerender({sessions: [s('b', false)]});
     expect(result.current.has('a')).toBe(false);
     expect(result.current.get('b')).toBe('idle');
+  });
+
+  it('prefers waiting over running when both flags are set', () => {
+    const {result} = renderHook(() =>
+      useTaskStatuses([s('a', true, true)], null),
+    );
+    expect(result.current.get('a')).toBe('waiting');
+  });
+
+  it('shows waiting even for the selected session', () => {
+    const {result} = renderHook(() =>
+      useTaskStatuses([s('a', true, true)], 'a'),
+    );
+    expect(result.current.get('a')).toBe('waiting');
+  });
+
+  it('reverts to running when it stops waiting but keeps running', () => {
+    const {result, rerender} = renderHook(
+      ({sessions}: {sessions: SessionMetadata[]}) =>
+        useTaskStatuses(sessions, null),
+      {initialProps: {sessions: [s('a', true, true)]}},
+    );
+    expect(result.current.get('a')).toBe('waiting');
+    rerender({sessions: [s('a', true, false)]});
+    expect(result.current.get('a')).toBe('running');
+  });
+
+  it('becomes done when a waiting session finishes (unselected)', () => {
+    const {result, rerender} = renderHook(
+      ({sessions}: {sessions: SessionMetadata[]}) =>
+        useTaskStatuses(sessions, null),
+      {initialProps: {sessions: [s('a', true, true)]}},
+    );
+    expect(result.current.get('a')).toBe('waiting');
+    rerender({sessions: [s('a', false, false)]});
+    expect(result.current.get('a')).toBe('done');
   });
 });
