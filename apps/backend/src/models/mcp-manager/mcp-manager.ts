@@ -25,8 +25,6 @@ interface ServerRecord {
   tools: McpToolInfo[];
   error?: string;
   client?: McpClient;
-  /** Bumped on each (re)connect so stale async completions can be ignored. */
-  generation: number;
 }
 
 /**
@@ -42,6 +40,17 @@ export class McpManager {
   private static instance: McpManager | null = null;
 
   private readonly records = new Map<string, ServerRecord>();
+  /**
+   * Per-server monotonic connect/teardown counter, independent of
+   * `records`. `teardown()` deletes the record for a name, so a
+   * generation kept on the record would reset to `undefined` and could
+   * never distinguish a superseded in-flight `connect()` from the
+   * current one. This map is never cleared, only ever bumped, so an
+   * in-flight `connect()` (or its `onToolsChanged`/`refreshTools`
+   * follow-up) can always tell whether it has been superseded by a
+   * later `connect()` or `teardown()` for the same name.
+   */
+  private readonly generations = new Map<string, number>();
 
   private constructor(private readonly createClient: McpClientFactory) {}
 
@@ -68,11 +77,19 @@ export class McpManager {
   applyConfig(mcp: McpSettings): void {
     const kindsByServer = this.computeKinds(mcp);
     const desired = new Map(mcp.servers.map((s) => [s.name, s]));
+    // Names already acted on (torn down and/or reconnected) this pass.
+    // `teardown()` deletes the record synchronously, so the "add newly
+    // desired" loop below cannot rely on `!this.records.has(name)` alone
+    // to tell a truly-new server from one just torn down/reconnected here
+    // — that gap previously caused a duplicate connect on transport change.
+    const handled = new Set<string>();
 
-    // Remove servers no longer desired or disabled everywhere.
+    // Remove servers no longer desired or disabled everywhere; reconnect
+    // servers whose transport changed.
     for (const [name, record] of this.records) {
       const kinds = kindsByServer.get(name);
       const server = desired.get(name);
+      handled.add(name);
       if (!server || !kinds || kinds.size === 0) {
         void this.teardown(name);
         continue;
@@ -90,21 +107,31 @@ export class McpManager {
       }
     }
 
-    // Add newly desired+enabled servers.
+    // Add newly desired+enabled servers not already handled above.
     for (const server of mcp.servers) {
       const kinds = kindsByServer.get(server.name);
-      if (kinds && kinds.size > 0 && !this.records.has(server.name)) {
+      if (
+        kinds &&
+        kinds.size > 0 &&
+        !this.records.has(server.name) &&
+        !handled.has(server.name)
+      ) {
         this.connect(server, kinds);
       }
     }
   }
 
   /** Synchronous read of the in-memory snapshot for a given agent kind. */
-  getToolsForAgent(kind: AgentType): {server: string; tools: McpToolInfo[]}[] {
-    const out: {server: string; tools: McpToolInfo[]}[] = [];
+  getToolsForAgent(
+    kind: AgentType,
+  ): {server: string; tools: readonly McpToolInfo[]}[] {
+    const out: {server: string; tools: readonly McpToolInfo[]}[] = [];
     for (const record of this.records.values()) {
       if (record.status === 'connected' && record.kinds.has(kind)) {
-        out.push({server: record.server.name, tools: record.tools});
+        // Defensive copy: callers must not be able to mutate the
+        // manager's internal tool-list snapshot through the returned
+        // reference.
+        out.push({server: record.server.name, tools: [...record.tools]});
       }
     }
     return out;
@@ -160,15 +187,14 @@ export class McpManager {
   }
 
   private connect(server: McpServer, kinds: Set<AgentType>): void {
+    const gen = this.bumpGeneration(server.name);
     const record: ServerRecord = {
       server,
       kinds,
       status: 'connecting',
       tools: [],
-      generation: (this.records.get(server.name)?.generation ?? 0) + 1,
     };
     this.records.set(server.name, record);
-    const gen = record.generation;
 
     void (async () => {
       try {
@@ -205,11 +231,22 @@ export class McpManager {
   private async teardown(name: string): Promise<void> {
     const record = this.records.get(name);
     if (!record) return;
+    // Bump before deleting so any in-flight connect() for this name
+    // (captured `gen` from before this teardown) is detected as stale
+    // once it resolves, even though its record is gone by then.
+    this.bumpGeneration(name);
     this.records.delete(name);
     await record.client?.close().catch(() => undefined);
   }
 
+  /** Bumps and returns the new generation for `name`. Never resets. */
+  private bumpGeneration(name: string): number {
+    const next = (this.generations.get(name) ?? 0) + 1;
+    this.generations.set(name, next);
+    return next;
+  }
+
   private isStale(name: string, gen: number): boolean {
-    return this.records.get(name)?.generation !== gen;
+    return this.generations.get(name) !== gen;
   }
 }
