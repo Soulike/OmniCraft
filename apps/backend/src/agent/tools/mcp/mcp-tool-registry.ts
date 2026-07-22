@@ -93,8 +93,16 @@ export class McpToolRegistry extends ToolRegistry {
               context.signal,
             );
             // Render the MCP content blocks to text for the model; media
-            // blocks become placeholders (see renderContentText).
-            const text = renderContentText(result.content);
+            // blocks become placeholders (see renderContentText). Output-schema
+            // tools can return structured-only results (empty content plus
+            // structuredContent), so fall back to the serialized structured
+            // payload when the blocks render empty rather than handing the
+            // model an empty result. Spec-compliant servers also serialize it
+            // into a text block, so the fallback only fires when it is missing.
+            let text = renderContentText(result.content);
+            if (!text && result.structuredContent !== undefined) {
+              text = JSON.stringify(result.structuredContent);
+            }
             if (result.isError) {
               return {content: text, status: 'failure', data: {message: text}};
             }

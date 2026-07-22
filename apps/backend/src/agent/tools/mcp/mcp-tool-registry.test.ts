@@ -139,6 +139,38 @@ describe('McpToolRegistry', () => {
     expect(result.content).not.toContain('BASE64DATA');
   });
 
+  it('falls back to serialized structuredContent when there are no content blocks', async () => {
+    const structuredClient: McpClient = {
+      ...client,
+      callTool: () =>
+        Promise.resolve({
+          content: [],
+          structuredContent: {answer: 42},
+          isError: false,
+        }),
+    };
+    const mgr = McpManager.create(() => Promise.resolve(structuredClient));
+    mgr.applyConfig({
+      servers: [
+        {
+          name: 'fs',
+          transport: {type: 'stdio', command: 'x', args: [], env: {}},
+        },
+      ],
+      enabledByAgent: {chat: ['fs'], coding: []},
+    });
+    await vi.waitFor(() => {
+      expect(mgr.list()[0]?.status).toBe('connected');
+    });
+    const mcpTool = new McpToolRegistry('chat', mgr).get('mcp__fs__read');
+    assert(mcpTool?.kind === 'mcp');
+
+    const result = await mcpTool.execute({}, createMockContext());
+
+    assert(result.status === 'success');
+    expect(result.content).toBe('{"answer":42}');
+  });
+
   it('get() returns a tool by its namespaced name', async () => {
     const mgr = await connectedManager();
     const registry = new McpToolRegistry('chat', mgr);
