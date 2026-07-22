@@ -8,6 +8,7 @@ import {compactionMessageSlimmer} from './compaction-message-slimmer.js';
 const toolCall = {callId: 'call-1', toolName: 'custom_tool', arguments: '{}'};
 
 const customTool: ToolDefinition<z.ZodObject<Record<string, never>>> = {
+  kind: 'internal',
   name: 'custom_tool',
   displayName: 'Custom Tool',
   description: 'Custom tool',

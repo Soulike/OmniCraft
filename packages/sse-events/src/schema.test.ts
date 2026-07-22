@@ -10,6 +10,7 @@ import {
   sseSubagentDispatchEventSchema,
   sseSubagentOutputEventSchema,
   sseSubagentResumeEventSchema,
+  sseToolExecuteStartEventSchema,
 } from './schema.js';
 
 describe('context-compaction-start schema', () => {
@@ -269,5 +270,20 @@ describe('subagent-complete schema', () => {
         status: 'success',
       }),
     ).toThrow();
+  });
+});
+
+describe('tool-execute-start schema', () => {
+  it('accepts an MCP tool with dynamic name format', () => {
+    const event = {
+      type: 'tool-execute-start',
+      callId: 'c',
+      toolName: 'mcp__fs__read',
+      displayName: 'fs: read',
+      arguments: '{}',
+    };
+    expect(sseToolExecuteStartEventSchema.parse(event)).toEqual(event);
+    expect(sseBaseEventSchema.parse(event)).toEqual(event);
+    expect(sseEventSchema.parse(event)).toEqual(event);
   });
 });

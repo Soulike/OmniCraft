@@ -15,6 +15,12 @@ describe('settingsSchema', () => {
     const serialized = JSON.stringify(jsonSchema);
     expect(() => JSON.parse(serialized) as unknown).not.toThrow();
   });
+
+  it('includes mcp defaults and still converts to JSON Schema', () => {
+    const parsed = settingsSchema.parse({});
+    expect(parsed.mcp.servers).toEqual([]);
+    expect(() => z.toJSONSchema(settingsSchema)).not.toThrow();
+  });
 });
 
 describe('model tiers', () => {

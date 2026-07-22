@@ -100,6 +100,7 @@ function createTool({
   readonly onOutput?: string;
 }): ToolDefinition {
   return {
+    kind: 'internal',
     name,
     displayName: `Tool ${name}`,
     description: `Test tool ${name}`,

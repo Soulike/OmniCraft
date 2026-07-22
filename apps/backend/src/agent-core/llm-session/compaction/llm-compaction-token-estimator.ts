@@ -23,7 +23,10 @@ export class LlmCompactionTokenEstimator {
       tools: options.tools.map((tool) => ({
         name: tool.name,
         description: tool.description,
-        parameters: z.toJSONSchema(tool.parameters),
+        parameters:
+          tool.kind === 'mcp'
+            ? tool.inputJsonSchema
+            : z.toJSONSchema(tool.parameters),
       })),
     });
   }

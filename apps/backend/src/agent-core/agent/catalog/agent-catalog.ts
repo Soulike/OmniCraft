@@ -1,7 +1,7 @@
 import os from 'node:os';
 
 import type {SkillDefinition, SkillRegistry} from '../../skill/index.js';
-import type {ToolDefinition} from '../../tool/index.js';
+import type {AnyToolDefinition} from '../../tool/index.js';
 import type {ToolRegistry} from '../../tool/index.js';
 import {loadSkillTool} from '../../tool/index.js';
 
@@ -76,10 +76,10 @@ export function buildAvailableSkills(
 export function buildAvailableTools(
   toolRegistries: readonly ToolRegistry[],
   skillRegistries: readonly SkillRegistry[],
-): ReadonlyMap<string, ToolDefinition> {
-  const toolMap = new Map<string, ToolDefinition>();
+): ReadonlyMap<string, AnyToolDefinition> {
+  const toolMap = new Map<string, AnyToolDefinition>();
 
-  const addTool = (tool: ToolDefinition, source: string): void => {
+  const addTool = (tool: AnyToolDefinition, source: string): void => {
     const existing = toolMap.get(tool.name);
     if (existing) {
       if (existing === tool) return;

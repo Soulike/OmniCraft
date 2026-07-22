@@ -27,6 +27,7 @@ export {
   findFilesResultSchema,
   getCurrentTimeResultSchema,
   loadSkillResultSchema,
+  mcpToolResultSchema,
   readFileResultSchema,
   runCommandResultSchema,
   searchFilesResultSchema,
@@ -36,4 +37,12 @@ export {
   webSearchResultSchema,
   writeFileResultSchema,
 } from './result-schemas.js';
-export {TOOL_NAME, type ToolName, toolNameSchema} from './tool-name.js';
+export {
+  INTERNAL_TOOL_NAME,
+  type InternalToolName,
+  internalToolNameSchema,
+  type McpToolName,
+  mcpToolNameSchema,
+  type ToolName,
+  toolNameSchema,
+} from './tool-name.js';

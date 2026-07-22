@@ -1,5 +1,5 @@
 import type {LlmMessage, LlmToolCall} from '../../llm-api/index.js';
-import type {ToolDefinition} from '../../tool/types.js';
+import type {AnyToolDefinition} from '../../tool/types.js';
 import {
   RECENT_CONTEXT_ENTRY_TRUNCATE_HEAD_CHARS,
   RECENT_CONTEXT_ENTRY_TRUNCATE_LIMIT_CHARS,
@@ -58,7 +58,7 @@ function slimToolCallsForCompaction(
 
 function slimMessages(
   messages: readonly LlmMessage[],
-  tools: readonly ToolDefinition[],
+  tools: readonly AnyToolDefinition[],
   truncation: TruncationConfig,
 ): string[] {
   const toolsByName = new Map(tools.map((tool) => [tool.name, tool]));
@@ -122,14 +122,14 @@ function slimMessages(
 export class CompactionMessageSlimmer {
   slimMessagesForSummary(
     messages: readonly LlmMessage[],
-    tools: readonly ToolDefinition[],
+    tools: readonly AnyToolDefinition[],
   ): string[] {
     return slimMessages(messages, tools, SUMMARY_INPUT_TRUNCATION);
   }
 
   buildRecentContext(
     messages: readonly LlmMessage[],
-    tools: readonly ToolDefinition[],
+    tools: readonly AnyToolDefinition[],
   ): RecentContext {
     const recentMessages = messages.slice(-RECENT_CONTEXT_SOURCE_MESSAGE_COUNT);
     if (recentMessages.length === 0) {

@@ -4,7 +4,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import type {ThinkingLevel} from '@omnicraft/api-schema';
 import {z} from 'zod';
 
-import type {ToolDefinition} from '../../tool/types.js';
+import type {AnyToolDefinition} from '../../tool/types.js';
 import type {LlmMessage} from '../types.js';
 
 type SdkMessageParam = Anthropic.MessageParam;
@@ -96,9 +96,12 @@ export function addCacheBreakpoint(message: SdkMessageParam): SdkMessageParam {
   return message;
 }
 
-/** Converts a ToolDefinition to the Anthropic tool format. */
-export function toClaudeTool(tool: ToolDefinition): Anthropic.Tool {
-  const jsonSchema = z.toJSONSchema(tool.parameters);
+/** Converts an AnyToolDefinition to the Anthropic tool format. */
+export function toClaudeTool(tool: AnyToolDefinition): Anthropic.Tool {
+  const jsonSchema =
+    tool.kind === 'mcp'
+      ? tool.inputJsonSchema
+      : z.toJSONSchema(tool.parameters);
   assert(
     'type' in jsonSchema && jsonSchema.type === 'object',
     `Tool "${tool.name}" parameters must produce a JSON Schema with type: "object"`,

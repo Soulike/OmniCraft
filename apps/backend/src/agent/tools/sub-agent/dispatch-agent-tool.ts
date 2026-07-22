@@ -157,6 +157,7 @@ export const dispatchAgentTool: ToolDefinition<
   typeof parameters,
   SubagentTurnResult
 > = {
+  kind: 'internal',
   name: 'dispatch_agent',
   displayName: 'Dispatch Agent',
   description: buildToolDescription(),

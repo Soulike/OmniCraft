@@ -6,7 +6,7 @@ import path from 'node:path';
 import {
   findFilesParametersSchema,
   findFilesResultSchema,
-  TOOL_NAME,
+  INTERNAL_TOOL_NAME,
 } from '@omnicraft/tool-schemas';
 import fg from 'fast-glob';
 import {z} from 'zod';
@@ -29,7 +29,8 @@ type FindFilesResult = z.infer<typeof findFilesResultSchema>;
 /** Built-in tool that searches for files matching a glob pattern. */
 export const findFilesTool: ToolDefinition<typeof parameters, FindFilesResult> =
   {
-    name: TOOL_NAME.FIND_FILES,
+    kind: 'internal',
+    name: INTERNAL_TOOL_NAME.FIND_FILES,
     displayName: 'Find Files',
     description:
       'Searches for files matching a glob pattern and returns their paths. ' +
@@ -39,9 +40,10 @@ export const findFilesTool: ToolDefinition<typeof parameters, FindFilesResult> =
     suppressToolEvents: false,
     compactResult({content, status}) {
       const lines = content.split('\n').filter(Boolean);
-      return [`${TOOL_NAME.FIND_FILES} ${status}`, ...lines.slice(0, 21)].join(
-        '\n',
-      );
+      return [
+        `${INTERNAL_TOOL_NAME.FIND_FILES} ${status}`,
+        ...lines.slice(0, 21),
+      ].join('\n');
     },
     async execute(args: FindFilesArgs, context: ToolExecutionContext) {
       const {workingDirectory} = context;

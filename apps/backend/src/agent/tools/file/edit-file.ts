@@ -5,7 +5,7 @@ import path from 'node:path';
 import {
   editFileParametersSchema,
   editFileResultSchema,
-  TOOL_NAME,
+  INTERNAL_TOOL_NAME,
 } from '@omnicraft/tool-schemas';
 import {createPatch} from 'diff';
 import {z} from 'zod';
@@ -37,7 +37,8 @@ function countOccurrences(content: string, search: string): number {
 
 /** Built-in tool that makes targeted string replacements in a file. */
 export const editFileTool: ToolDefinition<typeof parameters, EditFileResult> = {
-  name: TOOL_NAME.EDIT_FILE,
+  kind: 'internal',
+  name: INTERNAL_TOOL_NAME.EDIT_FILE,
   displayName: 'Edit File',
   description:
     'Replaces a specific string in a file and returns a diff of the change. ' +

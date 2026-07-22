@@ -1,10 +1,34 @@
 import {describe, expect, it} from 'vitest';
 
+import type {McpToolDefinition} from '../../tool/index.js';
 import {
   addCacheBreakpoint,
+  toClaudeTool,
   toOutputConfig,
   toThinkingConfig,
 } from './helpers.js';
+
+const mcpTool: McpToolDefinition = {
+  kind: 'mcp',
+  name: 'mcp__fs__read',
+  displayName: 'fs: read',
+  description: 'read a file',
+  suppressToolEvents: false,
+  inputJsonSchema: {
+    type: 'object',
+    properties: {path: {type: 'string'}},
+    required: ['path'],
+  },
+  execute: () => ({content: 'ok', status: 'success', data: {}}),
+};
+
+describe('toClaudeTool with an mcp tool', () => {
+  it('uses inputJsonSchema verbatim', () => {
+    const tool = toClaudeTool(mcpTool);
+    expect(tool.name).toBe('mcp__fs__read');
+    expect(tool.input_schema).toEqual(mcpTool.inputJsonSchema);
+  });
+});
 
 describe('addCacheBreakpoint', () => {
   it('converts string content to array with cache_control', () => {

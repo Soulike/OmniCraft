@@ -2,7 +2,7 @@ import {
   askUserBridgeResponseSchema,
   askUserParametersSchema,
   askUserResultSchema,
-  TOOL_NAME,
+  INTERNAL_TOOL_NAME,
   type ToolFailureData,
 } from '@omnicraft/tool-schemas';
 import type {z} from 'zod';
@@ -19,7 +19,8 @@ export const askUserTool: ToolDefinition<
   typeof askUserParametersSchema,
   AskUserResult
 > = {
-  name: TOOL_NAME.ASK_USER,
+  kind: 'internal',
+  name: INTERNAL_TOOL_NAME.ASK_USER,
   displayName: 'Ask User',
   description:
     'Ask the user one or more questions when you need clarification, preferences, or decisions that cannot be inferred from context. Use this tool when the task is ambiguous, multiple valid approaches exist, or user input is required to proceed. Each question can have predefined options for the user to select from, and the user can also type a custom answer. Do not use this tool for rhetorical questions or information you can determine yourself.',
@@ -42,7 +43,7 @@ export const askUserTool: ToolDefinition<
       const data: ToolFailureData = {message: 'User declined to answer.'};
       return {
         data,
-        content: `User declined the questionnaire — they likely want to provide additional context before answering. Respond in one short sentence asking what information they would like to add. Do NOT re-ask the declined questions, do NOT assume any answers, and do NOT proceed with the task. After the user provides more context, you may call ${TOOL_NAME.ASK_USER} again with an improved questionnaire.`,
+        content: `User declined the questionnaire — they likely want to provide additional context before answering. Respond in one short sentence asking what information they would like to add. Do NOT re-ask the declined questions, do NOT assume any answers, and do NOT proceed with the task. After the user provides more context, you may call ${INTERNAL_TOOL_NAME.ASK_USER} again with an improved questionnaire.`,
         status: 'failure',
       };
     }

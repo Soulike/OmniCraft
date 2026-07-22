@@ -3,9 +3,9 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 
 import {
+  INTERNAL_TOOL_NAME,
   readFileParametersSchema,
   readFileResultSchema,
-  TOOL_NAME,
 } from '@omnicraft/tool-schemas';
 import {z} from 'zod';
 
@@ -32,7 +32,8 @@ type ReadFileResult = z.infer<typeof readFileResultSchema>;
 
 /** Built-in tool that reads text file contents with line numbers. */
 export const readFileTool: ToolDefinition<typeof parameters, ReadFileResult> = {
-  name: TOOL_NAME.READ_FILE,
+  kind: 'internal',
+  name: INTERNAL_TOOL_NAME.READ_FILE,
   displayName: 'Read File',
   description:
     'Reads a text file and returns its contents with line numbers. ' +
@@ -52,7 +53,7 @@ export const readFileTool: ToolDefinition<typeof parameters, ReadFileResult> = {
 
     const header = content.split('\n')[0] ?? '';
     return [
-      `${TOOL_NAME.READ_FILE} ${status}`,
+      `${INTERNAL_TOOL_NAME.READ_FILE} ${status}`,
       filePath ? `File: ${filePath}` : header,
       header && header !== filePath ? header : '',
     ]

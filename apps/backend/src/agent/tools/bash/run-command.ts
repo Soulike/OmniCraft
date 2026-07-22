@@ -2,10 +2,10 @@ import {realpathSync} from 'node:fs';
 import fs from 'node:fs/promises';
 
 import {
+  INTERNAL_TOOL_NAME,
   RUN_COMMAND_DEFAULT_TIMEOUT_MS,
   runCommandParametersSchema,
   runCommandResultSchema,
-  TOOL_NAME,
 } from '@omnicraft/tool-schemas';
 import {z} from 'zod';
 
@@ -62,7 +62,8 @@ export const runCommandTool: ToolDefinition<
   typeof parameters,
   RunCommandResult
 > = {
-  name: TOOL_NAME.RUN_COMMAND,
+  kind: 'internal',
+  name: INTERNAL_TOOL_NAME.RUN_COMMAND,
   displayName: 'Run Command',
   description:
     'Executes a shell command and returns its output. ' +
@@ -89,7 +90,7 @@ export const runCommandTool: ToolDefinition<
       );
 
     return [
-      `${TOOL_NAME.RUN_COMMAND} ${status}`,
+      `${INTERNAL_TOOL_NAME.RUN_COMMAND} ${status}`,
       command ? `Command: ${command}` : '',
       ...importantLines.slice(0, 20),
     ]

@@ -100,5 +100,10 @@ export function renderToolParameters(
     case 'get_current_time':
     case 'ask_user':
       return null;
+    default:
+      // Unknown tool name (an MCP tool, typed McpToolName here): no
+      // dedicated widget, fall back to the generic HighlightedJson
+      // rendering handled by the caller.
+      return null;
   }
 }

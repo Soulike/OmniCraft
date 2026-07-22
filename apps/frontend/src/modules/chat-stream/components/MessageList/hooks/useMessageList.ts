@@ -7,11 +7,15 @@ import type {
 } from '@omnicraft/sse-events';
 import type {
   AnyToolResultData,
+  InternalToolName,
+  McpToolName,
+  mcpToolResultSchema,
   ToolFailureData,
   ToolName,
   ToolResultData,
 } from '@omnicraft/tool-schemas';
 import {useMemo} from 'react';
+import type {z} from 'zod';
 
 import type {
   ChatEventBus,
@@ -53,8 +57,13 @@ interface FailedToolExecutionRenderItem {
   data: ToolFailureData;
 }
 
-type DoneToolExecutionRenderItem = {
-  [K in ToolName]: {
+/**
+ * A completed built-in tool execution: `toolName` and `data` are correlated
+ * per built-in tool, restoring the name -> result-data mapping that a bare
+ * `string` toolName lost.
+ */
+type DoneInternalToolExecutionRenderItem = {
+  [K in InternalToolName]: {
     type: 'tool-execution';
     callId: string;
     toolName: K;
@@ -64,7 +73,23 @@ type DoneToolExecutionRenderItem = {
     result: string;
     data: ToolResultData<K>;
   };
-}[ToolName];
+}[InternalToolName];
+
+/** A completed MCP tool execution: the generic `{server, toolName, text}` shape. */
+interface DoneMcpToolExecutionRenderItem {
+  type: 'tool-execution';
+  callId: string;
+  toolName: McpToolName;
+  displayName: string;
+  arguments: string;
+  status: 'done';
+  result: string;
+  data: z.infer<typeof mcpToolResultSchema>;
+}
+
+type DoneToolExecutionRenderItem =
+  | DoneInternalToolExecutionRenderItem
+  | DoneMcpToolExecutionRenderItem;
 
 export type ToolExecutionRenderItem =
   | RunningToolExecutionRenderItem
@@ -205,9 +230,10 @@ export function transformMessages(
                   : 'error',
             result: endEvent.result,
             data: endEvent.data,
-            // Cast required: DoneToolExecutionRenderItem is a mapped type correlating
-            // toolName with data, but we assemble from separate SSE events so
-            // TypeScript cannot verify this correlation statically.
+            // Cast required: `status` and `data` are read from separate SSE
+            // events, so TypeScript cannot verify that a 'failure'/'error'
+            // status pairs with ToolFailureData (as opposed to the broader
+            // AnyToolResultData typing of endEvent.data).
           } as ToolExecutionRenderItem);
         } else {
           items.push({

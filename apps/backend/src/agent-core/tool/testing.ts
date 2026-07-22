@@ -16,6 +16,7 @@ import type {ToolDefinition, ToolExecutionContext} from './types.js';
 /** Creates a minimal mock ToolDefinition. */
 export function createMockTool(name: string): ToolDefinition {
   return {
+    kind: 'internal',
     name,
     displayName: `Mock: ${name}`,
     description: `Mock tool: ${name}`,

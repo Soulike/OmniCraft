@@ -115,32 +115,53 @@ export interface ToolCompactResultInput {
   readonly message: LlmToolResultMessage;
 }
 
-/**
- * A stateless, singleton tool definition.
- *
- * - `parameters`: Zod schema used for type inference, runtime validation,
- *   and JSON Schema generation for LLM APIs.
- * - `execute`: Receives validated args from the LLM and execution context
- *   from the Agent. Returns a structured result with content and status.
- */
-export interface ToolDefinition<
-  TParams extends z.ZodType = z.ZodType,
-  TResult = unknown,
-> {
+/** Fields common to every tool, regardless of origin. */
+interface ToolDefinitionBase {
   readonly name: string;
   /** Human-readable name for UI display. */
   readonly displayName: string;
   readonly description: string;
-  readonly parameters: TParams;
   /**
    * When true, the agent loop skips emitting tool-execute-start/delta/end
    * SSE events for this tool. The tool result is still submitted to the LLM.
    */
   readonly suppressToolEvents: boolean;
   readonly compactResult?: (input: ToolCompactResultInput) => string | null;
+}
+
+/**
+ * An internal, in-repo tool.
+ *
+ * - `parameters`: Zod schema used for type inference, runtime validation,
+ *   and JSON Schema generation for LLM APIs.
+ * - `execute`: Receives validated args and execution context.
+ */
+export interface ToolDefinition<
+  TParams extends z.ZodType = z.ZodType,
+  TResult = unknown,
+> extends ToolDefinitionBase {
+  readonly kind: 'internal';
+  readonly parameters: TParams;
   execute(
     args: z.infer<TParams>,
     context: ToolExecutionContext,
     onOutput?: (chunk: string) => void,
   ): Promise<ToolExecuteResult<TResult>> | ToolExecuteResult<TResult>;
 }
+
+/**
+ * An external MCP tool. Its parameter schema is raw JSON Schema fed straight to
+ * the LLM SDK; args are not locally validated (the MCP server validates).
+ */
+export interface McpToolDefinition extends ToolDefinitionBase {
+  readonly kind: 'mcp';
+  readonly inputJsonSchema: Record<string, unknown>;
+  execute(
+    args: unknown,
+    context: ToolExecutionContext,
+    onOutput?: (chunk: string) => void,
+  ): Promise<ToolExecuteResult<unknown>> | ToolExecuteResult<unknown>;
+}
+
+/** The tool shape the shared machinery operates on. */
+export type AnyToolDefinition = ToolDefinition | McpToolDefinition;

@@ -40,6 +40,7 @@ export const listResumableAgentsTool: ToolDefinition<
   typeof parameters,
   ListResumableAgentsResult
 > = {
+  kind: 'internal',
   name: 'list_resumable_agents',
   displayName: 'List Resumable Agents',
   description:

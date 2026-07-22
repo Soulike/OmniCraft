@@ -5,7 +5,7 @@ import type {
 import {z} from 'zod';
 
 import {llmMessageSchema, type LlmToolCall} from '../llm-api/index.js';
-import type {ToolDefinition} from '../tool/types.js';
+import type {AnyToolDefinition} from '../tool/types.js';
 
 export const llmCompactionMetadataSchema = z.object({
   id: z.string(),
@@ -49,7 +49,7 @@ export interface ToolResult {
 
 export interface LlmCompactionOptions {
   readonly reason: SseCompactionReason;
-  readonly tools: readonly ToolDefinition[];
+  readonly tools: readonly AnyToolDefinition[];
   readonly systemPrompt: string;
   readonly signal?: AbortSignal;
 }

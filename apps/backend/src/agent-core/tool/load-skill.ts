@@ -1,7 +1,7 @@
 import {
+  INTERNAL_TOOL_NAME,
   loadSkillParametersSchema,
   loadSkillResultSchema,
-  TOOL_NAME,
 } from '@omnicraft/tool-schemas';
 import {z} from 'zod';
 
@@ -18,7 +18,8 @@ type LoadSkillResult = z.infer<typeof loadSkillResultSchema>;
 /** Built-in tool that loads a skill's full Markdown content into the conversation. */
 export const loadSkillTool: ToolDefinition<typeof parameters, LoadSkillResult> =
   {
-    name: TOOL_NAME.LOAD_SKILL,
+    kind: 'internal',
+    name: INTERNAL_TOOL_NAME.LOAD_SKILL,
     displayName: 'Load Skill',
     description:
       'Loads the full content of a skill by name. Use this to access detailed instructions for a specific skill listed in the system prompt.',

@@ -55,6 +55,8 @@ export function getToolPillContent(
         return loadSkillToolPillContent(parsed);
       case 'get_current_time':
         return getCurrentTimeToolPillContent(parsed);
+      default:
+        return fallbackToolPillContent(input);
     }
   } catch (error) {
     if (error instanceof SyntaxError || error instanceof ZodError) {

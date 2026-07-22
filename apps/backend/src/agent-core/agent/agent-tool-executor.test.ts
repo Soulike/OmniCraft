@@ -6,7 +6,12 @@ import {AsyncChannel} from '@/helpers/async-channel.js';
 
 import type {LlmConfig, LlmToolCall} from '../llm-api/index.js';
 import type {SkillDefinition} from '../skill/index.js';
-import type {ToolDefinition, ToolExecutionContext} from '../tool/index.js';
+import type {
+  AnyToolDefinition,
+  McpToolDefinition,
+  ToolDefinition,
+  ToolExecutionContext,
+} from '../tool/index.js';
 import {AgentRuntimeState} from './agent-runtime-state.js';
 import {
   agentToolExecutor,
@@ -41,7 +46,7 @@ async function collectChannel(
 
 function executeInput(overrides: {
   readonly toolCall?: LlmToolCall;
-  readonly tool?: ToolDefinition;
+  readonly tool?: AnyToolDefinition;
   readonly channel?: AsyncChannel<AgentToolSseEvent>;
 }) {
   const toolCall =
@@ -52,7 +57,7 @@ function executeInput(overrides: {
       arguments: '{"value":"ok"}',
     } satisfies LlmToolCall);
   const channel = overrides.channel ?? new AsyncChannel<AgentToolSseEvent>();
-  const availableTools = new Map<string, ToolDefinition>();
+  const availableTools = new Map<string, AnyToolDefinition>();
   if (overrides.tool) {
     availableTools.set(overrides.tool.name, overrides.tool);
   }
@@ -85,6 +90,7 @@ describe('AgentToolExecutor', () => {
     };
     const parameters = z.object({value: z.string()});
     const tool: ToolDefinition<typeof parameters> = {
+      kind: 'internal',
       name: 'mock_tool',
       displayName: 'Mock Tool',
       description: 'Tool used by the executor test',
@@ -134,6 +140,7 @@ describe('AgentToolExecutor', () => {
   it('does not create output callbacks for suppressed tools', async () => {
     let onOutputWasProvided = false;
     const tool: ToolDefinition = {
+      kind: 'internal',
       name: 'mock_tool',
       displayName: 'Mock Tool',
       description: 'Suppressed tool used by the executor test',
@@ -157,6 +164,7 @@ describe('AgentToolExecutor', () => {
 
   it('normalizes thrown tool errors into error results', async () => {
     const tool: ToolDefinition = {
+      kind: 'internal',
       name: 'mock_tool',
       displayName: 'Mock Tool',
       description: 'Throwing tool used by the executor test',
@@ -178,5 +186,38 @@ describe('AgentToolExecutor', () => {
       content: 'Error: tool exploded',
       data: {message: 'tool exploded'},
     });
+  });
+
+  it('passes raw parsed arguments to an mcp tool without Zod validation', async () => {
+    let receivedArgs: unknown;
+    const tool: McpToolDefinition = {
+      kind: 'mcp',
+      name: 'mcp__fs__read',
+      displayName: 'fs: read',
+      description: 'Mcp tool used by the executor test',
+      suppressToolEvents: false,
+      inputJsonSchema: {
+        type: 'object',
+        properties: {path: {type: 'string'}},
+        required: ['path'],
+      },
+      execute: (args) => {
+        receivedArgs = args;
+        return {status: 'success', content: 'ok', data: {}};
+      },
+    };
+    const input = executeInput({
+      tool,
+      toolCall: {
+        callId: 'call-1',
+        toolName: 'mcp__fs__read',
+        arguments: '{"path":"/x"}',
+      },
+    });
+
+    const result = await agentToolExecutor.execute(input);
+
+    expect(result.status).toBe('success');
+    expect(receivedArgs).toEqual({path: '/x'});
   });
 });

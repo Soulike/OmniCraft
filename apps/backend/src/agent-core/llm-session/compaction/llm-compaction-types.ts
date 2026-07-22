@@ -1,5 +1,5 @@
 import type {LlmConfig, LlmMessage} from '../../llm-api/index.js';
-import type {ToolDefinition} from '../../tool/types.js';
+import type {AnyToolDefinition} from '../../tool/types.js';
 import type {
   LlmCompactionMetadata,
   LlmCompactionOptions,
@@ -39,7 +39,7 @@ export type LlmCompactDecision = Extract<
 export interface LlmHistoryCompactionInput {
   readonly config: Readonly<LlmConfig>;
   readonly messages: readonly LlmMessage[];
-  readonly tools: readonly ToolDefinition[];
+  readonly tools: readonly AnyToolDefinition[];
   readonly signal?: AbortSignal;
 }
 

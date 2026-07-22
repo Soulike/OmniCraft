@@ -404,4 +404,51 @@ describe('SettingsManager', () => {
       await expect(manager.getAll()).resolves.toEqual(DEFAULTS);
     });
   });
+
+  describe('onChange', () => {
+    it('notifies listeners after a successful setBatch with the new settings', async () => {
+      const filePath = settingsPath();
+      const {manager} = await SettingsManager.create(filePath);
+      const seen: number[] = [];
+      manager.onChange((s) => {
+        seen.push((s as unknown as {section: {count: number}}).section.count);
+      });
+
+      await manager.setBatch([{keyPath: ['section', 'count'], value: 7}]);
+      await Promise.resolve(); // allow the post-save microtask to run
+
+      expect(seen).toEqual([7]);
+    });
+
+    it('stops notifying after unsubscribe', async () => {
+      const filePath = settingsPath();
+      const {manager} = await SettingsManager.create(filePath);
+      const seen: number[] = [];
+      const off = manager.onChange((s) => {
+        seen.push((s as unknown as {section: {count: number}}).section.count);
+      });
+      off();
+
+      await manager.setBatch([{keyPath: ['section', 'count'], value: 5}]);
+      await Promise.resolve();
+
+      expect(seen).toEqual([]);
+    });
+
+    it('isolates a throwing listener so the write still succeeds', async () => {
+      const filePath = settingsPath();
+      const {manager} = await SettingsManager.create(filePath);
+      manager.onChange(() => {
+        throw new Error('boom');
+      });
+
+      await expect(
+        manager.setBatch([{keyPath: ['section', 'count'], value: 9}]),
+      ).resolves.toBeUndefined();
+      const allSettings = await manager.getAll();
+      expect(
+        (allSettings as unknown as {section: {count: number}}).section.count,
+      ).toBe(9);
+    });
+  });
 });

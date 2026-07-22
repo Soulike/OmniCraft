@@ -2,14 +2,14 @@ import crypto from 'node:crypto';
 
 import type {LlmConfig, LlmMessage} from '../../llm-api/index.js';
 import {llmApi} from '../../llm-api/index.js';
-import type {ToolDefinition} from '../../tool/types.js';
+import type {AnyToolDefinition} from '../../tool/types.js';
 import {compactionMessageSlimmer} from './compaction-message-slimmer.js';
 import {compactionPromptBuilder} from './compaction-prompt-builder.js';
 
 export interface GenerateCompactionSummaryOptions {
   readonly config: Readonly<LlmConfig>;
   readonly messages: readonly LlmMessage[];
-  readonly tools: readonly ToolDefinition[];
+  readonly tools: readonly AnyToolDefinition[];
   readonly signal?: AbortSignal;
 }
 

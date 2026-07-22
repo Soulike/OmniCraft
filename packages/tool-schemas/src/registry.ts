@@ -6,6 +6,7 @@ import {
   findFilesResultSchema,
   getCurrentTimeResultSchema,
   loadSkillResultSchema,
+  mcpToolResultSchema,
   readFileResultSchema,
   runCommandResultSchema,
   searchFilesResultSchema,
@@ -15,26 +16,26 @@ import {
   webSearchResultSchema,
   writeFileResultSchema,
 } from './result-schemas.js';
-import {TOOL_NAME, type ToolName} from './tool-name.js';
+import {INTERNAL_TOOL_NAME, type InternalToolName} from './tool-name.js';
 
 /** Maps each tool name to its success result schema. */
 export const toolResultSchemas = {
-  [TOOL_NAME.READ_FILE]: readFileResultSchema,
-  [TOOL_NAME.WRITE_FILE]: writeFileResultSchema,
-  [TOOL_NAME.EDIT_FILE]: editFileResultSchema,
-  [TOOL_NAME.FIND_FILES]: findFilesResultSchema,
-  [TOOL_NAME.SEARCH_FILES]: searchFilesResultSchema,
-  [TOOL_NAME.RUN_COMMAND]: runCommandResultSchema,
-  [TOOL_NAME.GET_CURRENT_TIME]: getCurrentTimeResultSchema,
-  [TOOL_NAME.WEB_FETCH]: webFetchResultSchema,
-  [TOOL_NAME.WEB_FETCH_RAW]: webFetchRawResultSchema,
-  [TOOL_NAME.WEB_SEARCH]: webSearchResultSchema,
-  [TOOL_NAME.LOAD_SKILL]: loadSkillResultSchema,
-  [TOOL_NAME.ASK_USER]: askUserResultSchema,
+  [INTERNAL_TOOL_NAME.READ_FILE]: readFileResultSchema,
+  [INTERNAL_TOOL_NAME.WRITE_FILE]: writeFileResultSchema,
+  [INTERNAL_TOOL_NAME.EDIT_FILE]: editFileResultSchema,
+  [INTERNAL_TOOL_NAME.FIND_FILES]: findFilesResultSchema,
+  [INTERNAL_TOOL_NAME.SEARCH_FILES]: searchFilesResultSchema,
+  [INTERNAL_TOOL_NAME.RUN_COMMAND]: runCommandResultSchema,
+  [INTERNAL_TOOL_NAME.GET_CURRENT_TIME]: getCurrentTimeResultSchema,
+  [INTERNAL_TOOL_NAME.WEB_FETCH]: webFetchResultSchema,
+  [INTERNAL_TOOL_NAME.WEB_FETCH_RAW]: webFetchRawResultSchema,
+  [INTERNAL_TOOL_NAME.WEB_SEARCH]: webSearchResultSchema,
+  [INTERNAL_TOOL_NAME.LOAD_SKILL]: loadSkillResultSchema,
+  [INTERNAL_TOOL_NAME.ASK_USER]: askUserResultSchema,
 } as const;
 
 /** Infer the success result data type for a given tool name. */
-export type ToolResultData<K extends ToolName> = z.infer<
+export type ToolResultData<K extends InternalToolName> = z.infer<
   (typeof toolResultSchemas)[K]
 >;
 
@@ -54,6 +55,7 @@ export const toolResultDataSchema = z.union([
   webSearchResultSchema,
   loadSkillResultSchema,
   askUserResultSchema,
+  mcpToolResultSchema,
   toolFailureDataSchema,
 ]);
 

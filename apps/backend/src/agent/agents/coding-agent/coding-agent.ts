@@ -1,3 +1,5 @@
+import {AgentType} from '@omnicraft/settings-schema';
+
 import {resolveModelConfig} from '@/agent/model-tier/index.js';
 import {coreSkillRegistry} from '@/agent/skills/index.js';
 import {
@@ -9,6 +11,7 @@ import {
   todoToolRegistry,
   webToolRegistry,
 } from '@/agent/tools/index.js';
+import {getMcpToolRegistry} from '@/agent/tools/mcp/index.js';
 import {
   Agent,
   agentPersistence,
@@ -47,6 +50,7 @@ export class CodingAgent extends Agent {
           subAgentToolRegistry,
           clientToolRegistry,
           todoToolRegistry,
+          getMcpToolRegistry(AgentType.CODING),
         ],
         skillRegistries: [coreSkillRegistry],
         stopChecks: [todoStopCheck],

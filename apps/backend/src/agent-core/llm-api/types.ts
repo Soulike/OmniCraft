@@ -1,7 +1,7 @@
 import type {ThinkingLevel} from '@omnicraft/api-schema';
 import {z} from 'zod';
 
-import type {ToolDefinition} from '../tool/types.js';
+import type {AnyToolDefinition} from '../tool/types.js';
 
 // ---------------------------------------------------------------------------
 // Persisted types — Zod schema is the source of truth
@@ -160,7 +160,7 @@ export interface LlmCompletionOptions {
   readonly config: Readonly<LlmConfig>;
   readonly messages: readonly LlmMessage[];
   readonly systemPrompt?: string;
-  readonly tools: readonly ToolDefinition[];
+  readonly tools: readonly AnyToolDefinition[];
   readonly signal?: AbortSignal;
 }
 

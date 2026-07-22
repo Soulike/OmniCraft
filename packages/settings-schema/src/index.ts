@@ -1,3 +1,4 @@
+export {AgentType, agentTypeSchema} from './agent-type/schema.js';
 export {
   fileAccessSettingsSchema,
   type Workspace,
@@ -12,4 +13,10 @@ export {
   type ThinkingLevel,
   thinkingLevelSchema,
 } from './llm/schema.js';
+export {
+  type McpServer,
+  type McpSettings,
+  mcpSettingsSchema,
+  type McpTransport,
+} from './mcp/schema.js';
 export {type Settings, settingsSchema} from './schema.js';

@@ -3,7 +3,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 
 import {
-  TOOL_NAME,
+  INTERNAL_TOOL_NAME,
   writeFileParametersSchema,
   writeFileResultSchema,
 } from '@omnicraft/tool-schemas';
@@ -27,7 +27,8 @@ type WriteFileResult = z.infer<typeof writeFileResultSchema>;
 /** Built-in tool that creates or overwrites a file. */
 export const writeFileTool: ToolDefinition<typeof parameters, WriteFileResult> =
   {
-    name: TOOL_NAME.WRITE_FILE,
+    kind: 'internal',
+    name: INTERNAL_TOOL_NAME.WRITE_FILE,
     displayName: 'Write File',
     description:
       'Creates a new file or overwrites an existing file. ' +

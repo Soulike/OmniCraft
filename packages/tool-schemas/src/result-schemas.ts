@@ -89,5 +89,11 @@ export const askUserResultSchema = z.object({
   ),
 });
 
+export const mcpToolResultSchema = z.object({
+  server: z.string(),
+  toolName: z.string(),
+  text: z.string(),
+});
+
 /** Structured data for failure/error results. */
 export const toolFailureDataSchema = z.object({message: z.string()});

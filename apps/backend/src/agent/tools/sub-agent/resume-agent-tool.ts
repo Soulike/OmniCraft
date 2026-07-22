@@ -32,6 +32,7 @@ export const resumeAgentTool: ToolDefinition<
   typeof parameters,
   SubagentTurnResult
 > = {
+  kind: 'internal',
   name: 'resume_agent',
   displayName: 'Resume Agent',
   description:

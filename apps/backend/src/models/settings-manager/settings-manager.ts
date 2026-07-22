@@ -38,6 +38,7 @@ export class SettingsManager {
 
   private readonly filePath: string;
   private readonly ioQueue = new AsyncQueue();
+  private readonly changeListeners = new Set<(settings: Settings) => void>();
 
   private constructor(filePath: string) {
     this.filePath = filePath;
@@ -57,6 +58,7 @@ export class SettingsManager {
 
   /** Resets the singleton instance. Only for use in tests. */
   static resetInstanceForTesting(): void {
+    SettingsManager.instance?.dispose();
     SettingsManager.instance = null;
   }
 
@@ -205,6 +207,31 @@ export class SettingsManager {
     return settingsSchema;
   }
 
+  /** Subscribes to settings changes; returns an unsubscribe function. */
+  onChange(listener: (settings: Settings) => void): () => void {
+    this.changeListeners.add(listener);
+    return () => this.changeListeners.delete(listener);
+  }
+
+  /** Clears all change listeners. */
+  dispose(): void {
+    this.changeListeners.clear();
+  }
+
+  private notifyChange(settings: Settings): void {
+    // Run after the current ioQueue task to avoid re-entrancy, and isolate
+    // listener failures so a bad subscriber cannot fail the write.
+    queueMicrotask(() => {
+      for (const listener of this.changeListeners) {
+        try {
+          listener(settings);
+        } catch (e) {
+          logger.warn(e, 'settings onChange listener threw');
+        }
+      }
+    });
+  }
+
   private async load(): Promise<Settings> {
     const raw: unknown = JSON.parse(await readFile(this.filePath, 'utf-8'));
     return settingsSchema.parse(raw);
@@ -216,5 +243,6 @@ export class SettingsManager {
     const tmpPath = this.filePath + '.tmp';
     await writeFile(tmpPath, JSON.stringify(settings, null, 2) + '\n');
     await rename(tmpPath, this.filePath);
+    this.notifyChange(settings);
   }
 }

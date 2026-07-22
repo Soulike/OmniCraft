@@ -4,7 +4,6 @@ export {
   type SessionId,
   sessionIdSchema,
 } from './agent-id/schema.js';
-export {AgentType, agentTypeSchema} from './agent-type/schema.js';
 export {
   type ChatCompletionsRequest,
   chatCompletionsRequestSchema,
@@ -35,6 +34,12 @@ export {
   type PutWorkspacesSuccessResponse,
   putWorkspacesSuccessResponseSchema,
 } from './file-access/schema.js';
+export {
+  type GetMcpServersResponse,
+  getMcpServersResponseSchema,
+  type McpServerStatusResponse,
+  mcpServerStatusSchema,
+} from './mcp/schema.js';
 export {
   type GetSettingValueResponse,
   getSettingValueResponseSchema,

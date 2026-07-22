@@ -1,4 +1,4 @@
-import {TOOL_NAME} from '@omnicraft/tool-schemas';
+import {INTERNAL_TOOL_NAME} from '@omnicraft/tool-schemas';
 import clsx from 'clsx';
 import {use} from 'react';
 
@@ -48,7 +48,7 @@ export function RenderItem({item}: RenderItemProps) {
         </div>
       );
     case 'tool-execution': {
-      if (item.toolName === TOOL_NAME.ASK_USER) {
+      if (item.toolName === INTERNAL_TOOL_NAME.ASK_USER) {
         const onAskUserSubmit = use(AskUserSubmitContext);
         if (item.status === 'running') {
           return (

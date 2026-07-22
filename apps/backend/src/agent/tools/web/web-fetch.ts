@@ -1,6 +1,6 @@
 import {Readability} from '@mozilla/readability';
 import {
-  TOOL_NAME,
+  INTERNAL_TOOL_NAME,
   webFetchParametersSchema,
   webFetchResultSchema,
 } from '@omnicraft/tool-schemas';
@@ -101,7 +101,8 @@ function formatResponse(
 type WebFetchResult = z.infer<typeof webFetchResultSchema>;
 
 export const webFetchTool: ToolDefinition<typeof parameters, WebFetchResult> = {
-  name: TOOL_NAME.WEB_FETCH,
+  kind: 'internal',
+  name: INTERNAL_TOOL_NAME.WEB_FETCH,
   displayName: 'Web Fetch',
   description:
     'Fetches a URL and returns its content in a readable format. ' +
@@ -114,9 +115,10 @@ export const webFetchTool: ToolDefinition<typeof parameters, WebFetchResult> = {
   suppressToolEvents: false,
   compactResult({content, status}) {
     const lines = content.split('\n').filter(Boolean);
-    return [`${TOOL_NAME.WEB_FETCH} ${status}`, ...lines.slice(0, 21)].join(
-      '\n',
-    );
+    return [
+      `${INTERNAL_TOOL_NAME.WEB_FETCH} ${status}`,
+      ...lines.slice(0, 21),
+    ].join('\n');
   },
   async execute(args: WebFetchArgs, context: ToolExecutionContext) {
     const urlError = validateUrl(args.url);

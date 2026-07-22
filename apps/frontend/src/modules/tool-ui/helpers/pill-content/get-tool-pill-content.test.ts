@@ -157,6 +157,15 @@ describe('getToolPillContent', () => {
     ).toEqual({target: 'get_current_time', targetKind: 'code'});
   });
 
+  it('returns fallback pill content for an unknown (e.g. MCP) tool name', () => {
+    expect(
+      getToolPillContent({
+        toolName: 'mcp__github__create_issue',
+        toolArguments: JSON.stringify({title: 'Bug'}),
+      }),
+    ).toEqual({target: 'mcp__github__create_issue', targetKind: 'code'});
+  });
+
   it('throws when ask_user reaches tool pill content', () => {
     expect(() =>
       getToolPillContent({
