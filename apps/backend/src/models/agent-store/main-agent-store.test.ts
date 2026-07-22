@@ -313,6 +313,25 @@ describe('MainAgentStore', () => {
       });
     });
 
+    it('ignores non-directory entries (e.g. macOS .DS_Store)', async () => {
+      const store = MainAgentStore.create(sessionsDir);
+      const validId = crypto.randomUUID();
+      await writeSnapshot(sessionsDir, validId, {id: validId, title: 'Valid'});
+      await writeFile(path.join(sessionsDir, '.DS_Store'), 'junk');
+
+      const result = await store.listSessionMetadata(0, 100);
+      expect(result).toEqual({
+        sessions: [
+          {
+            id: validId,
+            title: 'Valid',
+            updatedAt: expect.any(Number) as unknown,
+          },
+        ],
+        total: 1,
+      });
+    });
+
     it('skips snapshots with invalid JSON', async () => {
       const store = MainAgentStore.create(sessionsDir);
       const dir = path.join(sessionsDir, 'bad-json');
