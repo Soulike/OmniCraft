@@ -1,20 +1,21 @@
 import assert from 'node:assert';
 
+import type {Tool} from '@modelcontextprotocol/sdk/types.js';
 import type {McpServer} from '@omnicraft/settings-schema';
 import {afterEach, describe, expect, it, vi} from 'vitest';
 
 import {McpManager} from './mcp-manager.js';
-import type {McpClient, McpToolInfo} from './types.js';
+import type {McpClient} from './types.js';
 
-function fakeClient(tools: McpToolInfo[]): McpClient {
+function fakeClient(tools: Tool[]): McpClient {
   return {
-    listTools: () => Promise.resolve(tools),
-    callTool: (name) =>
+    listTools: () => Promise.resolve({tools}),
+    callTool: (params) =>
       Promise.resolve({
-        content: [{type: 'text', text: `called ${name}`}],
+        content: [{type: 'text', text: `called ${params.name}`}],
         isError: false,
       }),
-    onToolsChanged: () => undefined,
+    setNotificationHandler: () => undefined,
     close: () => Promise.resolve(),
   };
 }
@@ -32,7 +33,7 @@ function deferred<T>(): {
   return {promise, resolve};
 }
 
-const tool: McpToolInfo = {
+const tool: Tool = {
   name: 'read',
   description: 'r',
   inputSchema: {type: 'object'},
@@ -138,8 +139,8 @@ describe('McpManager', () => {
   });
 
   it('closes the superseded client when disabled then re-enabled while the first connect is pending', async () => {
-    const firstTool: McpToolInfo = {...tool, name: 'first'};
-    const secondTool: McpToolInfo = {...tool, name: 'second'};
+    const firstTool: Tool = {...tool, name: 'first'};
+    const secondTool: Tool = {...tool, name: 'second'};
     const closeFirst = vi.fn(() => Promise.resolve());
     const closeSecond = vi.fn(() => Promise.resolve());
     const pending: {resolve: (client: McpClient) => void}[] = [];

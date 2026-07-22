@@ -1,6 +1,11 @@
 import assert from 'node:assert';
 
-import type {CallToolResult} from '@modelcontextprotocol/sdk/types.js';
+import {
+  type CallToolResult,
+  CallToolResultSchema,
+  type Tool,
+  ToolListChangedNotificationSchema,
+} from '@modelcontextprotocol/sdk/types.js';
 import type {
   AgentType,
   McpServer,
@@ -14,7 +19,6 @@ import type {
   McpClient,
   McpClientFactory,
   McpServerStatus,
-  McpToolInfo,
   ServerStatus,
 } from './types.js';
 
@@ -23,7 +27,7 @@ interface ServerConnection {
   server: McpServer;
   enabledAgentTypes: Set<AgentType>;
   status: ServerStatus;
-  tools: McpToolInfo[];
+  tools: Tool[];
   error?: string;
   client?: McpClient;
 }
@@ -50,9 +54,9 @@ export class McpManager {
    * name, so a generation kept on the connection would reset to `undefined`
    * and could never distinguish a superseded in-flight `connect()` from the
    * current one. This map is never cleared, only ever bumped, so an
-   * in-flight `connect()` (or its `onToolsChanged`/`refreshTools`
-   * follow-up) can always tell whether it has been superseded by a
-   * later `connect()` or `teardown()` for the same name.
+   * in-flight `connect()` (or its tools-changed/refresh follow-up) can always
+   * tell whether it has been superseded by a later `connect()` or
+   * `teardown()` for the same name.
    */
   private readonly serverNameToGenerations = new Map<string, number>();
 
@@ -137,16 +141,14 @@ export class McpManager {
   /** Synchronous read of the in-memory snapshot for a given agent type. */
   getToolsForAgent(
     agentType: AgentType,
-  ): {serverName: string; tools: readonly McpToolInfo[]}[] {
-    const result: {serverName: string; tools: readonly McpToolInfo[]}[] = [];
+  ): {serverName: string; tools: readonly Tool[]}[] {
+    const result: {serverName: string; tools: readonly Tool[]}[] = [];
     for (const connection of this.serverNameToConnections.values()) {
       if (
         connection.status === 'connected' &&
         connection.enabledAgentTypes.has(agentType)
       ) {
-        // Defensive copy: callers must not be able to mutate the
-        // manager's internal tool-list snapshot through the returned
-        // reference.
+        // Defensive copy: callers must not mutate the internal snapshot.
         result.push({
           serverName: connection.server.name,
           tools: [...connection.tools],
@@ -171,7 +173,15 @@ export class McpManager {
         isError: true,
       };
     }
-    return connection.client.callTool(toolName, args, signal);
+    // Pin CallToolResultSchema so the SDK validates the response to the modern
+    // CallToolResult at runtime; its static return type still widens to the
+    // legacy {toolResult} compat union, which the pin rules out — so assert to
+    // the modern shape.
+    return connection.client.callTool(
+      {name: toolName, arguments: (args ?? {}) as Record<string, unknown>},
+      CallToolResultSchema,
+      {signal},
+    ) as Promise<CallToolResult>;
   }
 
   list(): McpServerStatus[] {
@@ -181,7 +191,7 @@ export class McpManager {
       status: connection.status,
       tools: connection.tools.map((tool) => ({
         name: tool.name,
-        description: tool.description,
+        description: tool.description ?? '',
       })),
       error: connection.error,
     }));
@@ -243,9 +253,10 @@ export class McpManager {
           return;
         }
         connection.client = client;
-        connection.tools = await client.listTools();
+        const {tools} = await client.listTools();
+        connection.tools = tools;
         connection.status = 'connected';
-        client.onToolsChanged(() => {
+        client.setNotificationHandler(ToolListChangedNotificationSchema, () => {
           void this.refreshTools(server.name, generation);
         });
       } catch (e) {
@@ -264,7 +275,8 @@ export class McpManager {
     const connection = this.serverNameToConnections.get(serverName);
     if (!connection?.client || this.isStale(serverName, generation)) return;
     try {
-      connection.tools = await connection.client.listTools();
+      const {tools} = await connection.client.listTools();
+      connection.tools = tools;
     } catch (e) {
       logger.warn({e, server: serverName}, 'MCP tools/list refresh failed');
     }
@@ -283,10 +295,9 @@ export class McpManager {
 
   /** Bumps and returns the new generation for `serverName`. Never resets. */
   private bumpGeneration(serverName: string): number {
-    const nextGeneration =
-      (this.serverNameToGenerations.get(serverName) ?? 0) + 1;
-    this.serverNameToGenerations.set(serverName, nextGeneration);
-    return nextGeneration;
+    const next = (this.serverNameToGenerations.get(serverName) ?? 0) + 1;
+    this.serverNameToGenerations.set(serverName, next);
+    return next;
   }
 
   private isStale(serverName: string, generation: number): boolean {

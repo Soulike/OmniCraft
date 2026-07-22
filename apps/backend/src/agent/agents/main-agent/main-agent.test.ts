@@ -13,15 +13,17 @@ describe('MCP wiring', () => {
     const mgr = McpManager.create(() =>
       Promise.resolve({
         listTools: () =>
-          Promise.resolve([
-            {name: 'ping', description: 'p', inputSchema: {type: 'object'}},
-          ]),
+          Promise.resolve({
+            tools: [
+              {name: 'ping', description: 'p', inputSchema: {type: 'object'}},
+            ],
+          }),
         callTool: () =>
           Promise.resolve({
             content: [{type: 'text', text: 'pong'}],
             isError: false,
           }),
-        onToolsChanged: () => undefined,
+        setNotificationHandler: () => undefined,
         close: () => Promise.resolve(),
       }),
     );

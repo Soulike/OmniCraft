@@ -1,22 +1,24 @@
 import assert from 'node:assert';
 
+import type {Tool} from '@modelcontextprotocol/sdk/types.js';
 import {afterEach, describe, expect, it, vi} from 'vitest';
 
 import {createMockContext} from '@/agent-core/tool/testing.js';
-import type {McpClient, McpToolInfo} from '@/models/mcp-manager/index.js';
+import type {McpClient} from '@/models/mcp-manager/index.js';
 import {McpManager} from '@/models/mcp-manager/index.js';
 
 import {McpToolRegistry} from './mcp-tool-registry.js';
 
-const tool: McpToolInfo = {
+const tool: Tool = {
   name: 'read',
   description: 'read a file',
   inputSchema: {type: 'object', properties: {path: {type: 'string'}}},
 };
 const client: McpClient = {
-  listTools: () => Promise.resolve([tool]),
-  callTool: () => Promise.resolve({text: 'hello', isError: false}),
-  onToolsChanged: () => undefined,
+  listTools: () => Promise.resolve({tools: [tool]}),
+  callTool: () =>
+    Promise.resolve({content: [{type: 'text', text: 'hello'}], isError: false}),
+  setNotificationHandler: () => undefined,
   close: () => Promise.resolve(),
 };
 
@@ -72,7 +74,11 @@ describe('McpToolRegistry', () => {
   it('maps an error result to a failure', async () => {
     const failingClient: McpClient = {
       ...client,
-      callTool: () => Promise.resolve({text: 'boom', isError: true}),
+      callTool: () =>
+        Promise.resolve({
+          content: [{type: 'text', text: 'boom'}],
+          isError: true,
+        }),
     };
     const mgr = McpManager.create(() => Promise.resolve(failingClient));
     mgr.applyConfig({
@@ -115,19 +121,20 @@ describe('McpToolRegistry', () => {
   });
 
   it('drops duplicate tool names from a single non-compliant server', async () => {
-    const duplicateTool: McpToolInfo = {
+    const duplicateTool: Tool = {
       name: 'read',
       description: 'read a file, again',
       inputSchema: {type: 'object', properties: {}},
     };
-    const otherTool: McpToolInfo = {
+    const otherTool: Tool = {
       name: 'write',
       description: 'write a file',
       inputSchema: {type: 'object', properties: {}},
     };
     const duplicatingClient: McpClient = {
       ...client,
-      listTools: () => Promise.resolve([tool, duplicateTool, otherTool]),
+      listTools: () =>
+        Promise.resolve({tools: [tool, duplicateTool, otherTool]}),
     };
     const mgr = McpManager.create(() => Promise.resolve(duplicatingClient));
     mgr.applyConfig({

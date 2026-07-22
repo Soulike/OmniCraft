@@ -48,7 +48,7 @@ export class McpToolRegistry extends ToolRegistry {
           kind: 'mcp',
           name,
           displayName: tool.title ?? `${serverName}: ${tool.name}`,
-          description: tool.description,
+          description: tool.description ?? '',
           suppressToolEvents: false,
           inputJsonSchema: tool.inputSchema,
           execute: async (args, context) => {
@@ -58,9 +58,11 @@ export class McpToolRegistry extends ToolRegistry {
               args,
               context.signal,
             );
+            // Pass the result through to the model: text blocks as-is, any
+            // non-text block serialized rather than dropped.
             const text = result.content
               .map((block) =>
-                block.type === 'text' ? block.text : `[${block.type} content]`,
+                block.type === 'text' ? block.text : JSON.stringify(block),
               )
               .join('\n');
             if (result.isError) {

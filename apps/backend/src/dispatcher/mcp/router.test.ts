@@ -1,25 +1,26 @@
+import type {Tool} from '@modelcontextprotocol/sdk/types.js';
 import {getMcpServersResponseSchema} from '@omnicraft/api-schema';
 import type {McpServer} from '@omnicraft/settings-schema';
 import {afterEach, describe, expect, it, vi} from 'vitest';
 
-import type {McpClient, McpToolInfo} from '@/models/mcp-manager/index.js';
+import type {McpClient} from '@/models/mcp-manager/index.js';
 import {McpManager} from '@/models/mcp-manager/index.js';
 import {mcpService} from '@/services/mcp/index.js';
 
-function fakeClient(tools: McpToolInfo[]): McpClient {
+function fakeClient(tools: Tool[]): McpClient {
   return {
-    listTools: () => Promise.resolve(tools),
-    callTool: (name) =>
+    listTools: () => Promise.resolve({tools}),
+    callTool: (params) =>
       Promise.resolve({
-        content: [{type: 'text', text: `called ${name}`}],
+        content: [{type: 'text', text: `called ${params.name}`}],
         isError: false,
       }),
-    onToolsChanged: () => undefined,
+    setNotificationHandler: () => undefined,
     close: () => Promise.resolve(),
   };
 }
 
-const tool: McpToolInfo = {
+const tool: Tool = {
   name: 'read',
   description: 'r',
   inputSchema: {type: 'object'},

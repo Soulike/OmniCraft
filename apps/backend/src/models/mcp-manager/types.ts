@@ -1,15 +1,21 @@
-import type {CallToolResult} from '@modelcontextprotocol/sdk/types.js';
+import type {Client} from '@modelcontextprotocol/sdk/client/index.js';
 import type {McpServer} from '@omnicraft/settings-schema';
 
-export interface McpToolInfo {
-  readonly name: string;
-  readonly title?: string;
-  readonly description: string;
-  readonly inputSchema: Record<string, unknown>;
-}
+/**
+ * The subset of the MCP SDK `Client` the manager uses. Declared as a `Pick`
+ * of the real client so `createMcpClient` can return the SDK client unchanged
+ * while tests supply a fake implementing only these methods.
+ */
+export type McpClient = Pick<
+  Client,
+  'listTools' | 'callTool' | 'setNotificationHandler' | 'close'
+>;
+
+export type McpClientFactory = (server: McpServer) => Promise<McpClient>;
 
 export type ServerStatus = 'connecting' | 'connected' | 'error' | 'disabled';
 
+/** Shape returned by the status API (`GET /api/mcp/servers`). */
 export interface McpServerStatus {
   readonly name: string;
   readonly transportType: 'stdio' | 'http';
@@ -17,18 +23,3 @@ export interface McpServerStatus {
   readonly tools: {readonly name: string; readonly description: string}[];
   readonly error?: string;
 }
-
-/** Transport-agnostic handle over one connected MCP server. */
-export interface McpClient {
-  listTools(): Promise<McpToolInfo[]>;
-  /** Invokes a tool and returns the MCP SDK's result unchanged. */
-  callTool(
-    name: string,
-    args: unknown,
-    signal: AbortSignal,
-  ): Promise<CallToolResult>;
-  onToolsChanged(callback: () => void): void;
-  close(): Promise<void>;
-}
-
-export type McpClientFactory = (server: McpServer) => Promise<McpClient>;
