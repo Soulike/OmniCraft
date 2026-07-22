@@ -1,7 +1,6 @@
 import {z} from 'zod';
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-import {AgentType, agentTypeSchema} from '../agent-type/schema.js';
+import {AgentType} from '../agent-type/schema.js';
 
 const mcpTransportSchema = z.discriminatedUnion('type', [
   z.object({
