@@ -10,7 +10,10 @@ function fakeClient(tools: McpToolInfo[]): McpClient {
   return {
     listTools: () => Promise.resolve(tools),
     callTool: (name) =>
-      Promise.resolve({text: `called ${name}`, isError: false}),
+      Promise.resolve({
+        content: [{type: 'text', text: `called ${name}`}],
+        isError: false,
+      }),
     onToolsChanged: () => undefined,
     close: () => Promise.resolve(),
   };

@@ -1,35 +1,14 @@
 import {Client} from '@modelcontextprotocol/sdk/client/index.js';
 import {StdioClientTransport} from '@modelcontextprotocol/sdk/client/stdio.js';
 import {StreamableHTTPClientTransport} from '@modelcontextprotocol/sdk/client/streamableHttp.js';
-import {ToolListChangedNotificationSchema} from '@modelcontextprotocol/sdk/types.js';
+import {
+  type CallToolResult,
+  CallToolResultSchema,
+  ToolListChangedNotificationSchema,
+} from '@modelcontextprotocol/sdk/types.js';
 import type {McpServer} from '@omnicraft/settings-schema';
 
-import type {McpCallResult, McpClient, McpToolInfo} from './types.js';
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
-}
-
-/**
- * `Array.isArray` is typed as `(arg: any) => arg is any[]` in lib.es5, so
- * narrowing through it directly on an `unknown` value leaks `any`. This
- * wrapper re-declares the guard against `unknown` so callers keep an
- * `unknown[]`.
- */
-function isUnknownArray(value: unknown): value is unknown[] {
-  return Array.isArray(value);
-}
-
-/** Renders one MCP tool-result content block as display text. */
-function textOfContentBlock(block: unknown): string {
-  if (!isRecord(block) || typeof block.type !== 'string') {
-    return '[unknown content]';
-  }
-  if (block.type === 'text' && typeof block.text === 'string') {
-    return block.text;
-  }
-  return `[${block.type} content]`;
-}
+import type {McpClient, McpToolInfo} from './types.js';
 
 /** The only module in this subsystem that touches the MCP SDK directly. */
 export async function createMcpClient(server: McpServer): Promise<McpClient> {
@@ -49,26 +28,24 @@ export async function createMcpClient(server: McpServer): Promise<McpClient> {
   return {
     async listTools(): Promise<McpToolInfo[]> {
       const {tools} = await client.listTools();
-      return tools.map((t) => ({
-        name: t.name,
-        title: t.title,
-        description: t.description ?? '',
-        inputSchema: t.inputSchema,
+      return tools.map((tool) => ({
+        name: tool.name,
+        title: tool.title,
+        description: tool.description ?? '',
+        inputSchema: tool.inputSchema,
       }));
     },
-    async callTool(name, args, signal): Promise<McpCallResult> {
-      const result: unknown = await client.callTool(
+    callTool(name, args, signal): Promise<CallToolResult> {
+      // Pinning CallToolResultSchema makes the SDK validate the response to
+      // the CallToolResult shape at runtime; the SDK's static return type
+      // still widens to the legacy {toolResult} compat union, which the pin
+      // rules out — so we assert to CallToolResult and hand it back unchanged
+      // (rendering content is a consumer concern).
+      return client.callTool(
         {name, arguments: (args ?? {}) as Record<string, unknown>},
-        undefined,
+        CallToolResultSchema,
         {signal},
-      );
-      const content =
-        isRecord(result) && isUnknownArray(result.content)
-          ? result.content
-          : [];
-      const text = content.map(textOfContentBlock).join('\n');
-      const isError = isRecord(result) && result.isError === true;
-      return {text, isError};
+      ) as Promise<CallToolResult>;
     },
     onToolsChanged(callback): void {
       client.setNotificationHandler(ToolListChangedNotificationSchema, () => {

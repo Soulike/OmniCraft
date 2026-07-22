@@ -1,5 +1,6 @@
 import assert from 'node:assert';
 
+import type {CallToolResult} from '@modelcontextprotocol/sdk/types.js';
 import type {
   AgentType,
   McpServer,
@@ -10,7 +11,6 @@ import {logger} from '@/logger.js';
 
 import {createMcpClient} from './create-mcp-client.js';
 import type {
-  McpCallResult,
   McpClient,
   McpClientFactory,
   McpServerStatus,
@@ -161,11 +161,13 @@ export class McpManager {
     toolName: string,
     args: unknown,
     signal: AbortSignal,
-  ): Promise<McpCallResult> {
+  ): Promise<CallToolResult> {
     const connection = this.serverNameToConnections.get(serverName);
     if (!connection?.client || connection.status !== 'connected') {
       return {
-        text: `MCP server "${serverName}" is not connected`,
+        content: [
+          {type: 'text', text: `MCP server "${serverName}" is not connected`},
+        ],
         isError: true,
       };
     }

@@ -16,7 +16,11 @@ describe('MCP wiring', () => {
           Promise.resolve([
             {name: 'ping', description: 'p', inputSchema: {type: 'object'}},
           ]),
-        callTool: () => Promise.resolve({text: 'pong', isError: false}),
+        callTool: () =>
+          Promise.resolve({
+            content: [{type: 'text', text: 'pong'}],
+            isError: false,
+          }),
         onToolsChanged: () => undefined,
         close: () => Promise.resolve(),
       }),

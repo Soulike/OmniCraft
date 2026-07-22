@@ -1,3 +1,4 @@
+import type {CallToolResult} from '@modelcontextprotocol/sdk/types.js';
 import type {McpServer} from '@omnicraft/settings-schema';
 
 export interface McpToolInfo {
@@ -5,11 +6,6 @@ export interface McpToolInfo {
   readonly title?: string;
   readonly description: string;
   readonly inputSchema: Record<string, unknown>;
-}
-
-export interface McpCallResult {
-  readonly text: string;
-  readonly isError: boolean;
 }
 
 export type ServerStatus = 'connecting' | 'connected' | 'error' | 'disabled';
@@ -25,11 +21,12 @@ export interface McpServerStatus {
 /** Transport-agnostic handle over one connected MCP server. */
 export interface McpClient {
   listTools(): Promise<McpToolInfo[]>;
+  /** Invokes a tool and returns the MCP SDK's result unchanged. */
   callTool(
     name: string,
     args: unknown,
     signal: AbortSignal,
-  ): Promise<McpCallResult>;
+  ): Promise<CallToolResult>;
   onToolsChanged(callback: () => void): void;
   close(): Promise<void>;
 }

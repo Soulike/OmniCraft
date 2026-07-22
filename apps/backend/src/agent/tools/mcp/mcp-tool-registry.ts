@@ -58,21 +58,18 @@ export class McpToolRegistry extends ToolRegistry {
               args,
               context.signal,
             );
+            const text = result.content
+              .map((block) =>
+                block.type === 'text' ? block.text : `[${block.type} content]`,
+              )
+              .join('\n');
             if (result.isError) {
-              return {
-                content: result.text,
-                status: 'failure',
-                data: {message: result.text},
-              };
+              return {content: text, status: 'failure', data: {message: text}};
             }
             return {
-              content: result.text,
+              content: text,
               status: 'success',
-              data: {
-                server: serverName,
-                toolName: tool.name,
-                text: result.text,
-              },
+              data: {server: serverName, toolName: tool.name, text},
             };
           },
         });
