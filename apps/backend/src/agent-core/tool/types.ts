@@ -47,6 +47,13 @@ export interface ToolExecutionContext {
   /** The Agent's working directory. File tools resolve relative paths against this. */
   readonly workingDirectory: string;
 
+  /**
+   * The Agent's private per-session scratch space for task-support files that
+   * are not part of the task's output. Always an absolute path; equals the
+   * working directory when the agent has no separate repo.
+   */
+  readonly scratchDirectory: string;
+
   /** LRU cache for file contents, scoped to the Agent's lifetime. */
   readonly fileCache: FileContentCache;
 

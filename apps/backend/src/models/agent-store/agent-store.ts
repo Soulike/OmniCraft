@@ -65,6 +65,38 @@ export abstract class AgentStore {
     return this.deleteFromDisk(id);
   }
 
+  /**
+   * Ids of currently-running agents resident in the cache. Running agents are
+   * never evicted (see evictIfNeeded), so this in-memory scan (O(≤50), no disk)
+   * is a complete view of what is running right now. After a process restart the
+   * cache is cold, so this is empty — correct, since a turn cannot survive one.
+   */
+  getRunningIds(): Set<string> {
+    const ids = new Set<string>();
+    for (const [id, entry] of this.cache) {
+      if (entry.agent.isRunning) {
+        ids.add(id);
+      }
+    }
+    return ids;
+  }
+
+  /**
+   * Ids of cached agents currently blocked awaiting a user response to a
+   * client-side tool call. Mirrors {@link getRunningIds}: a blocked agent is
+   * always running, so eviction never removes it and this in-memory scan is a
+   * complete view. Cold cache after a restart ⇒ empty, which is correct.
+   */
+  getWaitingIds(): Set<string> {
+    const ids = new Set<string>();
+    for (const [id, entry] of this.cache) {
+      if (entry.agent.isWaitingForInput) {
+        ids.add(id);
+      }
+    }
+    return ids;
+  }
+
   /** Lists persisted sessions with pagination. */
   abstract listSessionMetadata(
     offset: number,

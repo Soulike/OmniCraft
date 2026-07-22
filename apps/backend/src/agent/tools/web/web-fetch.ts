@@ -120,7 +120,7 @@ export const webFetchTool: ToolDefinition<typeof parameters, WebFetchResult> = {
       ...lines.slice(0, 21),
     ].join('\n');
   },
-  async execute(args: WebFetchArgs, _context: ToolExecutionContext) {
+  async execute(args: WebFetchArgs, context: ToolExecutionContext) {
     const urlError = validateUrl(args.url);
     if (urlError) {
       return {data: {message: urlError}, content: urlError, status: 'failure'};
@@ -188,7 +188,11 @@ export const webFetchTool: ToolDefinition<typeof parameters, WebFetchResult> = {
     if (Buffer.byteLength(content) > MAX_INLINE_SIZE) {
       let filePath: string;
       try {
-        filePath = await writeToTempFile(content, '.md');
+        filePath = await writeToTempFile(
+          content,
+          '.md',
+          context.scratchDirectory,
+        );
       } catch (error: unknown) {
         const message = error instanceof Error ? error.message : String(error);
         return {

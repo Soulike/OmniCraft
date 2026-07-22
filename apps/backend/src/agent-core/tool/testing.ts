@@ -36,6 +36,7 @@ export function createMockContext(
   overrides?: Partial<ToolExecutionContext>,
 ): ToolExecutionContext {
   const workingDirectory = overrides?.workingDirectory ?? os.tmpdir();
+  const scratchDirectory = overrides?.scratchDirectory ?? os.tmpdir();
   return {
     callId: 'mock-call-id',
     agentId: 'mock-agent-id',
@@ -43,6 +44,7 @@ export function createMockContext(
     subagentRegistry: new SubagentRegistry(),
     availableSkills: new Map(),
     workingDirectory,
+    scratchDirectory,
     fileCache: new FileContentCache(),
     fileStatTracker: new FileStatTracker(),
     shellState: {cwd: workingDirectory},

@@ -1,6 +1,6 @@
 import {describe, expect, it} from 'vitest';
 
-import {parseSseResumeCursor} from './cursor.js';
+import {isCursorAheadOfLog, parseSseResumeCursor} from './cursor.js';
 
 describe('parseSseResumeCursor', () => {
   it('defaults a missing cursor to zero', () => {
@@ -17,5 +17,19 @@ describe('parseSseResumeCursor', () => {
 
   it('rejects infinite cursors', () => {
     expect(() => parseSseResumeCursor('Infinity')).toThrow();
+  });
+});
+
+describe('isCursorAheadOfLog', () => {
+  it('is false when the cursor is within the committed log', () => {
+    expect(isCursorAheadOfLog(3, 5)).toBe(false);
+  });
+
+  it('is false when the cursor is exactly caught up', () => {
+    expect(isCursorAheadOfLog(5, 5)).toBe(false);
+  });
+
+  it('is true when the cursor is beyond the committed log', () => {
+    expect(isCursorAheadOfLog(6, 5)).toBe(true);
   });
 });

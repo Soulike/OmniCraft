@@ -5,6 +5,7 @@ import type {Workspace} from '@omnicraft/settings-schema';
 import {Folder, Plus} from 'lucide-react';
 import {useMemo} from 'react';
 
+import type {TaskStatus} from '@/components/TaskStatusIndicator/index.js';
 import {basename} from '@/helpers/path.js';
 
 import {TaskListItem} from './components/TaskListItem/index.js';
@@ -13,6 +14,7 @@ import styles from './styles.module.css';
 interface WorkspaceGroupViewProps {
   readonly workspace?: Workspace;
   readonly sessions: readonly SessionMetadata[];
+  readonly statuses: ReadonlyMap<string, TaskStatus>;
   readonly isExpanded: boolean;
   readonly onExpandedChange: (expanded: boolean) => void;
   readonly currentSessionId: string | null;
@@ -25,6 +27,7 @@ interface WorkspaceGroupViewProps {
 export function WorkspaceGroupView({
   workspace,
   sessions,
+  statuses,
   isExpanded,
   onExpandedChange,
   currentSessionId,
@@ -114,6 +117,7 @@ export function WorkspaceGroupView({
                     <TaskListItem
                       title={session.title}
                       updatedAt={session.updatedAt}
+                      status={statuses.get(session.id) ?? 'idle'}
                       isSelected={isSelected}
                       now={now}
                       onDelete={async () => onDeleteSession(session.id)}

@@ -102,7 +102,7 @@ export const runCommandTool: ToolDefinition<
     context: ToolExecutionContext,
     onOutput?: (chunk: string) => void,
   ) {
-    const {shellState, workingDirectory, signal} = context;
+    const {shellState, workingDirectory, scratchDirectory, signal} = context;
     const timeout = args.timeout ?? RUN_COMMAND_DEFAULT_TIMEOUT_MS;
 
     const result = await new ShellCommandRunner(
@@ -110,20 +110,29 @@ export const runCommandTool: ToolDefinition<
       shellState.cwd,
       timeout,
       signal,
+      scratchDirectory,
     ).run({onStdoutData: onOutput});
 
     // Resolve stdout and stderr temp files
     const stdout = await resolveOutputFile(result.stdoutFile);
     const stderr = await resolveOutputFile(result.stderrFile);
 
-    // CWD enforcement — resolve symlinks since pwd returns real paths
+    // CWD enforcement — resolve symlinks since pwd returns real paths. The shell
+    // may operate within either the working directory or the scratch space.
     let cwdMessage = '';
-    if (result.cwd) {
-      const realWorkingDir = realpathSync(workingDirectory);
-      if (isSubPathOrSelf(realWorkingDir, result.cwd)) {
-        if (result.cwd !== shellState.cwd) {
-          shellState.cwd = result.cwd;
-          cwdMessage = `\n(Working directory: ${result.cwd})`;
+    const {cwd} = result;
+    if (cwd) {
+      const allowedRoots = [
+        realpathSync(workingDirectory),
+        realpathSync(scratchDirectory),
+      ];
+      const withinAllowedRoot = allowedRoots.some((root) =>
+        isSubPathOrSelf(root, cwd),
+      );
+      if (withinAllowedRoot) {
+        if (cwd !== shellState.cwd) {
+          shellState.cwd = cwd;
+          cwdMessage = `\n(Working directory: ${cwd})`;
         }
       } else {
         shellState.cwd = workingDirectory;

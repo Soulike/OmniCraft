@@ -9,16 +9,16 @@
   min-width: 0;
 }
 
-/* Leading status column. Idle bullet in v1; #348 fills it accent for running. */
-.dot {
+/* Leading status column. Fixed box so the row layout is stable across states
+   (the running spinner is larger than the idle/done/waiting dots). */
+.statusSlot {
   flex-shrink: 0;
-  width: 8px;
-  height: 8px;
-  margin-top: 5px;
-  border-radius: 50%;
-  border: 1.5px solid var(--muted);
-  background: transparent;
-  opacity: 0.55;
+  width: 12px;
+  height: 12px;
+  margin-top: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .content {

@@ -1,5 +1,8 @@
 import assert from 'node:assert';
+import fs from 'node:fs/promises';
 import http from 'node:http';
+import os from 'node:os';
+import path from 'node:path';
 
 import {afterAll, beforeAll, describe, expect, it} from 'vitest';
 
@@ -129,11 +132,14 @@ describe('webFetchRawTool', () => {
       const largeBody = 'x'.repeat(40_000);
       const server = createTestServer('text/plain', largeBody);
       await startServer(server);
+      const scratchDir = await fs.realpath(
+        await fs.mkdtemp(path.join(os.tmpdir(), 'wfr-scratch-')),
+      );
 
       try {
         const result = await webFetchRawTool.execute(
           {url: serverUrl(server)},
-          createMockContext(),
+          createMockContext({scratchDirectory: scratchDir}),
         );
         expect(result.content).toContain('Content saved to file:');
         expect(result.content).toContain('URL:');
@@ -141,8 +147,10 @@ describe('webFetchRawTool', () => {
         assert(result.status === 'success');
         expect(result.data.url).toBe(serverUrl(server));
         expect(result.data.content).toBeTruthy();
+        expect(result.data.content).toContain(scratchDir);
       } finally {
         await stopServer(server);
+        await fs.rm(scratchDir, {recursive: true, force: true});
       }
     });
   });
