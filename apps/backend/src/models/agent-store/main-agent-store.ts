@@ -1,4 +1,5 @@
 import assert from 'node:assert';
+import type {Dirent} from 'node:fs';
 import {access, readdir, readFile, rm, stat} from 'node:fs/promises';
 import path from 'node:path';
 
@@ -65,25 +66,28 @@ export class MainAgentStore extends AgentStore {
     offset: number,
     limit: number,
   ): Promise<{sessions: SessionMetadata[]; total: number}> {
-    let entries: string[];
+    let entries: Dirent[];
     try {
-      entries = await readdir(this.sessionsDir);
+      entries = await readdir(this.sessionsDir, {withFileTypes: true});
     } catch {
       return {sessions: [], total: 0};
     }
 
     // Phase 1: stat all snapshot files to get mtime for sorting.
+    // A session is a directory; skip stray entries (e.g. macOS `.DS_Store`).
     const statResults: {id: string; mtime: number}[] = [];
     await Promise.all(
       entries.map(async (entry) => {
+        if (!entry.isDirectory()) return;
+        const id = entry.name;
         try {
           const fileStat = await stat(
-            agentPersistence.snapshotPath(this.sessionsDir, entry),
+            agentPersistence.snapshotPath(this.sessionsDir, id),
           );
-          statResults.push({id: entry, mtime: fileStat.mtimeMs});
+          statResults.push({id, mtime: fileStat.mtimeMs});
         } catch (e) {
           logger.warn(
-            {err: e, sessionId: entry},
+            {err: e, sessionId: id},
             'Failed to stat session snapshot',
           );
         }

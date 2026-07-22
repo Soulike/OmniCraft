@@ -66,6 +66,17 @@ describe('CodingAgentStore.listSessionMetadata isRunning', () => {
     const {sessions} = await store.listSessionMetadata(0, 100);
     expect(sessions[0].isRunning).toBe(false);
   });
+
+  it('ignores non-directory entries (e.g. macOS .DS_Store)', async () => {
+    const store = CodingAgentStore.create(sessionsDir);
+    const id = crypto.randomUUID();
+    await writeSnapshot(sessionsDir, id, {id, title: 'Valid'});
+    await writeFile(path.join(sessionsDir, '.DS_Store'), 'junk');
+
+    const {sessions, total} = await store.listSessionMetadata(0, 100);
+    expect(total).toBe(1);
+    expect(sessions.map((s) => s.id)).toEqual([id]);
+  });
 });
 
 describe('CodingAgentStore waiting status', () => {
