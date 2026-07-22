@@ -70,6 +70,38 @@ describe('McpManager', () => {
     expect(mgr.getToolsForAgent('coding')).toEqual([]);
   });
 
+  it('reads every page of a paginated tool list', async () => {
+    const pageOneTool: Tool = {name: 'a', inputSchema: {type: 'object'}};
+    const pageTwoTool: Tool = {name: 'b', inputSchema: {type: 'object'}};
+    const paginatedClient: McpClient = {
+      ...fakeClient([]),
+      listTools: (params) =>
+        Promise.resolve(
+          params?.cursor === 'page2'
+            ? {tools: [pageTwoTool]}
+            : {tools: [pageOneTool], nextCursor: 'page2'},
+        ),
+    };
+    const mgr = McpManager.create(() => Promise.resolve(paginatedClient));
+    mgr.applyConfig({
+      servers: [
+        {
+          name: 'fs',
+          transport: {type: 'stdio', command: 'x', args: [], env: {}},
+        },
+      ],
+      enabledByAgent: {chat: ['fs'], coding: []},
+    });
+    await vi.waitFor(() => {
+      expect(mgr.list()[0]?.status).toBe('connected');
+    });
+
+    expect(mgr.getToolsForAgent('chat')[0]?.tools).toEqual([
+      pageOneTool,
+      pageTwoTool,
+    ]);
+  });
+
   it('disconnects a server removed from config', async () => {
     const mgr = McpManager.create(() => Promise.resolve(fakeClient([tool])));
     mgr.applyConfig({

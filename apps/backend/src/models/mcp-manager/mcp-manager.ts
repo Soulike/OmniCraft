@@ -249,8 +249,7 @@ export class McpManager {
           return;
         }
         connection.client = client;
-        const {tools} = await client.listTools();
-        connection.tools = tools;
+        connection.tools = await this.listAllTools(client);
         connection.status = 'connected';
         client.setNotificationHandler(ToolListChangedNotificationSchema, () => {
           void this.refreshTools(server.name, generation);
@@ -271,11 +270,32 @@ export class McpManager {
     const connection = this.serverNameToConnections.get(serverName);
     if (!connection?.client || this.isStale(serverName, generation)) return;
     try {
-      const {tools} = await connection.client.listTools();
-      connection.tools = tools;
+      connection.tools = await this.listAllTools(connection.client);
     } catch (e) {
       logger.warn({e, server: serverName}, 'MCP tools/list refresh failed');
     }
+  }
+
+  /**
+   * Reads every page of a server's tool list. `listTools` is paginated via an
+   * opaque cursor; a server with more tools than one page would otherwise be
+   * silently truncated. Guards against a non-advancing cursor to avoid looping
+   * forever on a misbehaving server.
+   */
+  private async listAllTools(client: McpClient): Promise<Tool[]> {
+    const tools: Tool[] = [];
+    const seenCursors = new Set<string>();
+    let cursor: string | undefined;
+    for (;;) {
+      const page = await client.listTools(
+        cursor === undefined ? undefined : {cursor},
+      );
+      tools.push(...page.tools);
+      cursor = page.nextCursor;
+      if (cursor === undefined || seenCursors.has(cursor)) break;
+      seenCursors.add(cursor);
+    }
+    return tools;
   }
 
   private async teardown(serverName: string): Promise<void> {
