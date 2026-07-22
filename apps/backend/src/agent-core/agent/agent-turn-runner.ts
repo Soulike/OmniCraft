@@ -79,6 +79,7 @@ export class AgentTurnRunner {
       input.toolRegistries,
       input.skillRegistries,
       input.workingDirectory,
+      input.scratchDirectory,
     );
 
     const {
