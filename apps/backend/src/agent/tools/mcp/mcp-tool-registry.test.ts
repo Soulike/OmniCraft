@@ -104,6 +104,41 @@ describe('McpToolRegistry', () => {
     expect(result.data).toEqual({message: 'boom'});
   });
 
+  it('renders media content blocks as placeholders, not raw bytes', async () => {
+    const mediaClient: McpClient = {
+      ...client,
+      callTool: () =>
+        Promise.resolve({
+          content: [
+            {type: 'text', text: 'summary'},
+            {type: 'image', data: 'BASE64DATA', mimeType: 'image/png'},
+          ],
+          isError: false,
+        }),
+    };
+    const mgr = McpManager.create(() => Promise.resolve(mediaClient));
+    mgr.applyConfig({
+      servers: [
+        {
+          name: 'fs',
+          transport: {type: 'stdio', command: 'x', args: [], env: {}},
+        },
+      ],
+      enabledByAgent: {chat: ['fs'], coding: []},
+    });
+    await vi.waitFor(() => {
+      expect(mgr.list()[0]?.status).toBe('connected');
+    });
+    const mcpTool = new McpToolRegistry('chat', mgr).get('mcp__fs__read');
+    assert(mcpTool?.kind === 'mcp');
+
+    const result = await mcpTool.execute({path: '/x'}, createMockContext());
+
+    assert(result.status === 'success');
+    expect(result.content).toBe('summary\n[image: image/png]');
+    expect(result.content).not.toContain('BASE64DATA');
+  });
+
   it('get() returns a tool by its namespaced name', async () => {
     const mgr = await connectedManager();
     const registry = new McpToolRegistry('chat', mgr);
