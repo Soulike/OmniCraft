@@ -121,4 +121,21 @@ describe('ShellCommandRunner', () => {
     expect(stat.size).toBeGreaterThan(32_768);
     cleanup();
   });
+
+  it('rejects instead of crashing when the output directory is unavailable', async () => {
+    // The output directory is never created — this mirrors the scratch dir
+    // being removed by a concurrent session deletion, so createWriteStream's
+    // open fails with ENOENT and the stream emits 'error'. run() must reject
+    // rather than let an unhandled 'error' event terminate the process.
+    const missingOutputDir = path.join(tmpDir, 'deleted-scratch');
+    const runner = new ShellCommandRunner(
+      'echo hello',
+      tmpDir,
+      10_000,
+      undefined,
+      missingOutputDir,
+    );
+
+    await expect(runner.run()).rejects.toThrow();
+  });
 });
