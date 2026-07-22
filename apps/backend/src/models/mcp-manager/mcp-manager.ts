@@ -160,12 +160,17 @@ export class McpManager {
     }));
   }
 
-  async reconnect(name: string): Promise<void> {
+  /**
+   * Forces a reconnect of the named server.
+   * @returns `true` if the server exists (reconnect started), `false` if unknown.
+   */
+  async reconnect(name: string): Promise<boolean> {
     const record = this.records.get(name);
-    if (!record) return;
+    if (!record) return false;
     const {server, kinds} = record;
     await this.teardown(name);
     this.connect(server, kinds);
+    return true;
   }
 
   async dispose(): Promise<void> {
