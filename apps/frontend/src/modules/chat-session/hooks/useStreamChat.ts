@@ -5,6 +5,7 @@ import {HttpError} from '@/api/helpers/http-error.js';
 import {abortableSleep} from '@/helpers/abortable-sleep.js';
 import type {ChatEventBus} from '@/modules/chat-events/index.js';
 
+import {isStaleCursorError} from '../helpers/is-stale-cursor-error.js';
 import {routeBaseEventToBus} from '../helpers/route-base-event-to-bus.js';
 import {SubagentEventBus} from '../helpers/subagent-event-bus.js';
 import {useChatEventBus} from './useChatEventBus.js';
@@ -148,6 +149,12 @@ export function useStreamChat({
     },
   );
 
+  // Clears all session-scoped view state via the shared reset broadcast.
+  // Read through useEffectEvent so it always targets the latest event bus.
+  const resetView = useEffectEvent(() => {
+    eventBus.emit('reset-session');
+  });
+
   // Persistent SSE connection — connects when sessionId is set.
   useEffect(() => {
     if (!sessionId) return;
@@ -186,6 +193,17 @@ export function useStreamChat({
           // Stream ended without a terminal event → unexpected disconnect.
         } catch (e: unknown) {
           if (e instanceof DOMException && e.name === 'AbortError') return;
+
+          if (isStaleCursorError(e)) {
+            // The server rolled its event log back beneath our cursor (e.g. it
+            // restarted mid-turn). Discard the local view and replay from the
+            // start. Not a failure — reconnect immediately without backoff.
+            resetView();
+            lastIndex = 0;
+            consecutiveFailures = 0;
+            setIsReconnecting(false);
+            continue;
+          }
 
           if (!isRetriableError(e)) {
             const message =
