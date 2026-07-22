@@ -12,6 +12,7 @@ import {createMockTool} from '../tool/testing.js';
 import {ToolRegistry} from '../tool/tool-registry.js';
 import type {ToolDefinition} from '../tool/types.js';
 import {Agent} from './agent.js';
+import {agentPersistence} from './persistence/agent-persistence.js';
 import type {AgentSnapshot} from './types.js';
 
 const MAIN_CONFIG: LlmConfig = {
@@ -305,6 +306,65 @@ describe('Agent title generation', () => {
       type: 'session-title',
       title: 'Short Title',
     });
+  });
+
+  it('does not persist a mid-turn snapshot during title generation', async () => {
+    const tmpSessionsDir = mkdtempSync(
+      path.join(os.tmpdir(), 'agent-sessions-'),
+    );
+    tmpDirsToCleanup.add(tmpSessionsDir);
+
+    let releaseMain!: () => void;
+    const mainBlocker = new Promise<void>((resolve) => {
+      releaseMain = resolve;
+    });
+    async function* blockingMainStream(): LlmEventStream {
+      yield {type: 'message-start', messageId: 'assistant-message'};
+      yield {type: 'text-delta', content: 'thinking'};
+      await mainBlocker;
+      yield {
+        type: 'message-end',
+        stopReason: 'end_turn',
+        usage: {inputTokens: 1, outputTokens: 1, cacheReadInputTokens: 0},
+      };
+    }
+
+    vi.spyOn(llmApi, 'countToken').mockResolvedValue(1);
+    vi.spyOn(llmApi, 'streamCompletion').mockImplementation((options) =>
+      options.config.model === LIGHT_CONFIG.model
+        ? titleCompletionStream()
+        : blockingMainStream(),
+    );
+
+    const persistSpy = vi.spyOn(agentPersistence, 'persistSnapshot');
+
+    const agent = new TestAgent(() => Promise.resolve(MAIN_CONFIG), {
+      ...testAgentOptions(),
+      sessionsDir: tmpSessionsDir,
+    });
+    // Ignore the synchronous construction persist; only mid-turn persists matter.
+    persistSpy.mockClear();
+
+    const controller = new AbortController();
+    agent.enqueueUserTurn('Please help me rename a component');
+    for await (const entry of agent.subscribe({signal: controller.signal})) {
+      if (entry.event.type === 'session-title') {
+        controller.abort();
+        break;
+      }
+    }
+
+    // The main turn is still blocked, so the only thing that could persist here
+    // is the title path. Give any such persist time to settle, then assert none.
+    await delay(20);
+    expect(persistSpy).not.toHaveBeenCalled();
+
+    // Releasing the main stream lets the turn reach its end, which DOES persist.
+    releaseMain();
+    while (agent.isRunning) {
+      await delay(0);
+    }
+    expect(persistSpy).toHaveBeenCalled();
   });
 });
 

@@ -12,7 +12,7 @@ import {ZodError} from 'zod';
 
 import {chatAgentSessionService} from '@/services/chat-agent-session/index.js';
 
-import {parseSseResumeCursor} from '../helpers/cursor.js';
+import {isCursorAheadOfLog, parseSseResumeCursor} from '../helpers/cursor.js';
 import {parseSessionId} from '../helpers/session-id.js';
 import {pumpSseEvents} from '../helpers/sse.js';
 import {
@@ -122,6 +122,18 @@ router.get(SESSION_EVENTS, async (ctx) => {
     ctx.response.body = {
       error: e instanceof Error ? e.message : 'Invalid SSE resume cursor',
     };
+    return;
+  }
+
+  const committedCount = await chatAgentSessionService.getSseEventCount(id);
+  if (committedCount === undefined) {
+    ctx.response.status = StatusCodes.NOT_FOUND;
+    ctx.response.body = {error: `Session not found: ${id}`};
+    return;
+  }
+  if (isCursorAheadOfLog(from, committedCount)) {
+    ctx.response.status = StatusCodes.CONFLICT;
+    ctx.response.body = {error: 'cursor_ahead_of_log', committedCount};
     return;
   }
 

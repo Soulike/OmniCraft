@@ -10,6 +10,7 @@ import {
 import {useEffect} from 'react';
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 
+import {HttpError} from '@/api/helpers/http-error.js';
 import {ThemeProvider} from '@/contexts/theme/index.js';
 import {StreamingMessageDisplay} from '@/modules/chat-stream/index.js';
 
@@ -168,6 +169,23 @@ function StreamOnlyHarnessContent() {
     sessionId: 'session-1',
     createNewSessionId: () => Promise.resolve('session-1'),
   });
+
+  return null;
+}
+
+function StreamWithResetSpy({onReset}: {onReset: () => void}) {
+  const eventBus = useChatEventBus();
+  useStreamChat({
+    sessionId: 'session-1',
+    createNewSessionId: () => Promise.resolve('session-1'),
+  });
+
+  useEffect(() => {
+    eventBus.on('reset-session', onReset);
+    return () => {
+      eventBus.off('reset-session', onReset);
+    };
+  }, [eventBus, onReset]);
 
   return null;
 }
@@ -635,6 +653,105 @@ describe('useStreamChat', () => {
     // tear it down and reconnect.
     expect(apiB.subscribeEvents).not.toHaveBeenCalled();
     expect(apiA.subscribeEvents).toHaveBeenCalledTimes(1);
+
+    unmount();
+  });
+
+  it('resets the view and replays from cursor 0 when the events endpoint returns 409', async () => {
+    vi.useFakeTimers();
+    const onReset = vi.fn();
+    const subscribeEvents = vi
+      .fn()
+      .mockImplementationOnce(async function* () {
+        await Promise.resolve();
+        // Advance the cursor past the checkpoint, then the server rolls its
+        // log back (e.g. it restarted) and answers the reconnect with 409.
+        yield {event: {type: 'text-delta', content: 'partial'}, nextIndex: 7};
+        throw new HttpError(409, 'cursor_ahead_of_log');
+      })
+      .mockImplementationOnce(async function* (
+        _sessionId: string,
+        _from: number,
+        signal?: AbortSignal,
+      ) {
+        yield* [];
+        await new Promise<void>((resolve) => {
+          signal?.addEventListener(
+            'abort',
+            () => {
+              resolve();
+            },
+            {once: true},
+          );
+        });
+      });
+
+    const {unmount} = render(
+      <ChatSessionApiContext
+        value={createApiWithSubscribeEvents(
+          subscribeEvents as unknown as ChatSessionApi['subscribeEvents'],
+        )}
+      >
+        <ChatEventBusProvider>
+          <StreamWithResetSpy onReset={onReset} />
+        </ChatEventBusProvider>
+      </ChatSessionApiContext>,
+      {wrapper: ThemeProvider},
+    );
+
+    await flushAsyncWork();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1000);
+    });
+
+    expect(subscribeEvents).toHaveBeenCalledTimes(2);
+    // Reconnected from the start, discarding the stale cursor (7).
+    expect(subscribeEvents).toHaveBeenNthCalledWith(
+      2,
+      'session-1',
+      0,
+      expect.any(AbortSignal),
+    );
+    // The view was discarded via the shared reset broadcast.
+    expect(onReset).toHaveBeenCalled();
+
+    unmount();
+  });
+
+  it('does not reset the view for a non-stale error', async () => {
+    vi.useFakeTimers();
+    const onReset = vi.fn();
+    const subscribeEvents = vi.fn(async function* (
+      _sessionId: string,
+      _from: number,
+      _signal?: AbortSignal,
+    ) {
+      yield* [];
+      await Promise.resolve();
+      throw new HttpError(500, 'server error');
+    });
+
+    const {unmount} = render(
+      <ChatSessionApiContext
+        value={createApiWithSubscribeEvents(
+          subscribeEvents as unknown as ChatSessionApi['subscribeEvents'],
+        )}
+      >
+        <ChatEventBusProvider>
+          <StreamWithResetSpy onReset={onReset} />
+        </ChatEventBusProvider>
+      </ChatSessionApiContext>,
+      {wrapper: ThemeProvider},
+    );
+
+    await flushAsyncWork();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1000);
+    });
+
+    // A 500 is retriable, not a stale-cursor rollback — it must never reset.
+    expect(subscribeEvents).toHaveBeenCalled();
+    expect(onReset).not.toHaveBeenCalled();
 
     unmount();
   });
