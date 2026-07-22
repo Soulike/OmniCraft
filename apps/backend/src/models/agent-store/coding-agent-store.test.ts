@@ -10,10 +10,14 @@ import type {Agent} from '@/agent-core/agent/index.js';
 
 import {CodingAgentStore} from './coding-agent-store.js';
 
-function createMockAgent(id: string, isRunning: boolean): Agent {
+function createMockAgent(
+  id: string,
+  isRunning: boolean,
+  isWaitingForInput = false,
+): Agent {
   const sseLog = new AgentSseLog();
   Object.defineProperty(sseLog, 'activeReaderCount', {get: () => 0});
-  return {id, isRunning, sseLog} as Agent;
+  return {id, isRunning, isWaitingForInput, sseLog} as Agent;
 }
 
 async function writeSnapshot(
@@ -61,5 +65,55 @@ describe('CodingAgentStore.listSessionMetadata isRunning', () => {
 
     const {sessions} = await store.listSessionMetadata(0, 100);
     expect(sessions[0].isRunning).toBe(false);
+  });
+});
+
+describe('CodingAgentStore waiting status', () => {
+  let sessionsDir: string;
+
+  beforeEach(async () => {
+    CodingAgentStore.resetInstance();
+    sessionsDir = await mkdtemp(path.join(os.tmpdir(), 'coding-store-wait-'));
+  });
+
+  afterEach(async () => {
+    CodingAgentStore.resetInstance();
+    await rm(sessionsDir, {recursive: true, force: true});
+  });
+
+  it('getWaitingIds returns exactly the waiting agents', () => {
+    const store = CodingAgentStore.create(sessionsDir);
+    const waitingId = crypto.randomUUID();
+    const runningId = crypto.randomUUID();
+    const idleId = crypto.randomUUID();
+    store.set(createMockAgent(waitingId, true, true));
+    store.set(createMockAgent(runningId, true, false));
+    store.set(createMockAgent(idleId, false, false));
+
+    expect(store.getWaitingIds()).toEqual(new Set([waitingId]));
+  });
+
+  it('marks isWaitingForInput true only for cached waiting agents', async () => {
+    const store = CodingAgentStore.create(sessionsDir);
+    const waitingId = crypto.randomUUID();
+    const runningId = crypto.randomUUID();
+    await writeSnapshot(sessionsDir, waitingId, {id: waitingId, title: 'Wait'});
+    await writeSnapshot(sessionsDir, runningId, {id: runningId, title: 'Run'});
+    store.set(createMockAgent(waitingId, true, true));
+    store.set(createMockAgent(runningId, true, false));
+
+    const {sessions} = await store.listSessionMetadata(0, 100);
+    const byId = new Map(sessions.map((s) => [s.id, s.isWaitingForInput]));
+    expect(byId.get(waitingId)).toBe(true);
+    expect(byId.get(runningId)).toBe(false);
+  });
+
+  it('marks isWaitingForInput false when the session has no cached agent', async () => {
+    const store = CodingAgentStore.create(sessionsDir);
+    const id = crypto.randomUUID();
+    await writeSnapshot(sessionsDir, id, {id, title: 'Cold'});
+
+    const {sessions} = await store.listSessionMetadata(0, 100);
+    expect(sessions[0].isWaitingForInput).toBe(false);
   });
 });

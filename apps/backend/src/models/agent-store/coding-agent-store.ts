@@ -94,6 +94,7 @@ export class CodingAgentStore extends AgentStore {
     const page = statResults.slice(offset, offset + limit);
 
     const running = this.getRunningIds();
+    const waiting = this.getWaitingIds();
     const results = await Promise.all(
       page.map(async ({id, mtime}): Promise<SessionMetadata | null> => {
         try {
@@ -103,6 +104,7 @@ export class CodingAgentStore extends AgentStore {
             ...sessionMetadataSchema.parse(json),
             updatedAt: mtime,
             isRunning: running.has(id),
+            isWaitingForInput: waiting.has(id),
           };
         } catch (e) {
           logger.warn({err: e, sessionId: id}, 'Skipping unreadable session');

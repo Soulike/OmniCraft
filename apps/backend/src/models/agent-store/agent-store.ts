@@ -81,6 +81,22 @@ export abstract class AgentStore {
     return ids;
   }
 
+  /**
+   * Ids of cached agents currently blocked awaiting a user response to a
+   * client-side tool call. Mirrors {@link getRunningIds}: a blocked agent is
+   * always running, so eviction never removes it and this in-memory scan is a
+   * complete view. Cold cache after a restart ⇒ empty, which is correct.
+   */
+  getWaitingIds(): Set<string> {
+    const ids = new Set<string>();
+    for (const [id, entry] of this.cache) {
+      if (entry.agent.isWaitingForInput) {
+        ids.add(id);
+      }
+    }
+    return ids;
+  }
+
   /** Lists persisted sessions with pagination. */
   abstract listSessionMetadata(
     offset: number,
