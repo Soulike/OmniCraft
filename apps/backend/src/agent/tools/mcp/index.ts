@@ -1,1 +1,1 @@
-export {getMcpToolRegistry, McpToolRegistry} from './mcp-tool-registry.js';
+export {getMcpToolRegistry} from './mcp-tool-registry.js';
