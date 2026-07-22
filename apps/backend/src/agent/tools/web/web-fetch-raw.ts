@@ -44,7 +44,7 @@ export const webFetchRawTool: ToolDefinition<
       '\n',
     );
   },
-  async execute(args: WebFetchRawArgs, _context: ToolExecutionContext) {
+  async execute(args: WebFetchRawArgs, context: ToolExecutionContext) {
     const urlError = validateUrl(args.url);
     if (urlError) {
       return {data: {message: urlError}, content: urlError, status: 'failure'};
@@ -83,7 +83,7 @@ export const webFetchRawTool: ToolDefinition<
     if (Buffer.byteLength(body) > MAX_INLINE_SIZE) {
       let filePath: string;
       try {
-        filePath = await writeToTempFile(body, '.md');
+        filePath = await writeToTempFile(body, '.md', context.scratchDirectory);
       } catch (error: unknown) {
         const message = error instanceof Error ? error.message : String(error);
         return {

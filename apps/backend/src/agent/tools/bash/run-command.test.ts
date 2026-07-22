@@ -152,9 +152,23 @@ describe('runCommandTool', () => {
     });
 
     it('resets cwd when a command navigates outside both roots', async () => {
-      const result = await runCommandTool.execute({command: 'cd /'}, context);
-      expect(context.shellState.cwd).toBe(tmpDir);
-      expect(result.content).toContain('Working directory reset to:');
+      const outsideDir = await fs.realpath(
+        await fs.mkdtemp(path.join(os.tmpdir(), 'rct-outside-')),
+      );
+
+      try {
+        const result = await runCommandTool.execute(
+          {command: `cd ${outsideDir}`},
+          context,
+        );
+        expect(context.shellState.cwd).toBe(tmpDir);
+        expect(result.content).toContain('Working directory reset to:');
+        expect(result.status).toBe('success');
+        assert(result.status === 'success');
+        expect(result.data.cwd).toBe(tmpDir);
+      } finally {
+        await fs.rm(outsideDir, {recursive: true, force: true});
+      }
     });
   });
 });
