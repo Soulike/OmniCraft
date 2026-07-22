@@ -109,6 +109,7 @@ export const runCommandTool: ToolDefinition<
       shellState.cwd,
       timeout,
       signal,
+      scratchDirectory,
     ).run({onStdoutData: onOutput});
 
     // Resolve stdout and stderr temp files

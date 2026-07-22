@@ -55,6 +55,7 @@ export class ShellCommandRunner {
   private readonly cwd: string;
   private readonly timeout: number;
   private readonly signal?: AbortSignal;
+  private readonly outputDir: string;
   private readonly cwdFilePath: string;
 
   private executed = false;
@@ -64,11 +65,13 @@ export class ShellCommandRunner {
     cwd: string,
     timeout: number,
     signal?: AbortSignal,
+    outputDir: string = os.tmpdir(),
   ) {
     this.command = command;
     this.cwd = cwd;
     this.timeout = timeout;
     this.signal = signal;
+    this.outputDir = outputDir;
     this.cwdFilePath = path.join(
       os.tmpdir(),
       `omni-cwd-${crypto.randomUUID()}.txt`,
@@ -80,8 +83,8 @@ export class ShellCommandRunner {
     assert(!this.executed, 'run() can only be called once');
     this.executed = true;
 
-    const stdoutFile = createTempFileWriteStream('.txt');
-    const stderrFile = createTempFileWriteStream('.txt');
+    const stdoutFile = createTempFileWriteStream('.txt', this.outputDir);
+    const stderrFile = createTempFileWriteStream('.txt', this.outputDir);
 
     const stdoutFinished = new Promise<void>((resolve) => {
       stdoutFile.stream.on('finish', resolve);
