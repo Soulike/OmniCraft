@@ -13,7 +13,7 @@ import {logger} from '@/logger.js';
 import {agentEventBus} from '../events/index.js';
 import type {LlmConfig} from '../llm-api/index.js';
 import {LlmSession} from '../llm-session/index.js';
-import type {ToolDefinition} from '../tool/index.js';
+import type {AnyToolDefinition} from '../tool/index.js';
 import {AgentRuntimeState} from './agent-runtime-state.js';
 import {agentTurnRunner} from './agent-turn-runner.js';
 import {agentWorkingDirectoryService} from './agent-working-directory-service.js';
@@ -294,7 +294,7 @@ export abstract class Agent {
   }
 
   private async compactAfterTurn(
-    tools: readonly ToolDefinition[],
+    tools: readonly AnyToolDefinition[],
     systemPrompt: string,
   ): Promise<void> {
     try {

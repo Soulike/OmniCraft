@@ -13,7 +13,7 @@ import type {AsyncChannel} from '@/helpers/async-channel.js';
 
 import type {LlmConfig, LlmToolCall} from '../llm-api/index.js';
 import type {SkillDefinition} from '../skill/index.js';
-import type {ToolDefinition} from '../tool/index.js';
+import type {AnyToolDefinition} from '../tool/index.js';
 import type {AgentRuntimeState} from './agent-runtime-state.js';
 import type {SubagentRegistry} from './state/subagent-registry.js';
 
@@ -25,7 +25,7 @@ export type AgentToolSseEvent =
 
 export interface ExecuteAgentToolInput {
   readonly toolCall: LlmToolCall;
-  readonly availableTools: ReadonlyMap<string, ToolDefinition>;
+  readonly availableTools: ReadonlyMap<string, AnyToolDefinition>;
   readonly toolSseEventChannel: AsyncChannel<AgentToolSseEvent>;
   readonly runtimeState: AgentRuntimeState;
   readonly agentId: string;
@@ -78,9 +78,9 @@ export class AgentToolExecutor {
     });
 
     try {
-      const parsedArgs: unknown = tool.parameters.parse(
-        JSON.parse(input.toolCall.arguments),
-      );
+      const raw: unknown = JSON.parse(input.toolCall.arguments);
+      const parsedArgs: unknown =
+        tool.kind === 'mcp' ? raw : tool.parameters.parse(raw);
       const result = await tool.execute(parsedArgs, context, onOutput);
       return {
         content: result.content,

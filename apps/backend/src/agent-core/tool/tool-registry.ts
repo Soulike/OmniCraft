@@ -1,4 +1,4 @@
-import type {ToolDefinition} from './types.js';
+import type {AnyToolDefinition} from './types.js';
 
 /**
  * Abstract base class for tool registries.
@@ -8,10 +8,10 @@ import type {ToolDefinition} from './types.js';
  * directly when they need isolation.
  */
 export abstract class ToolRegistry {
-  private readonly tools = new Map<string, ToolDefinition>();
+  private readonly tools = new Map<string, AnyToolDefinition>();
 
   /** Registers a tool. Throws if a different tool with the same name exists. */
-  protected register(tool: ToolDefinition): void {
+  protected register(tool: AnyToolDefinition): void {
     const existing = this.tools.get(tool.name);
     if (existing) {
       if (existing === tool) return;
@@ -21,12 +21,12 @@ export abstract class ToolRegistry {
   }
 
   /** Retrieves a tool by name, or undefined if not found. */
-  get(name: string): ToolDefinition | undefined {
+  get(name: string): AnyToolDefinition | undefined {
     return this.tools.get(name);
   }
 
   /** Returns all registered tools. */
-  getAll(): ToolDefinition[] {
+  getAll(): AnyToolDefinition[] {
     return [...this.tools.values()];
   }
 

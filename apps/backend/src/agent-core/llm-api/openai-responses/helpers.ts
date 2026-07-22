@@ -2,7 +2,7 @@ import type {ThinkingLevel} from '@omnicraft/api-schema';
 import type OpenAI from 'openai';
 import {z} from 'zod';
 
-import type {ToolDefinition} from '../../tool/types.js';
+import type {AnyToolDefinition} from '../../tool/types.js';
 import type {LlmMessage} from '../types.js';
 
 type ResponseInputItem = OpenAI.Responses.ResponseInputItem;
@@ -56,15 +56,18 @@ export function toInputItems(
   return items;
 }
 
-/** Converts a ToolDefinition to the OpenAI Responses API function tool format. */
+/** Converts an AnyToolDefinition to the OpenAI Responses API function tool format. */
 export function toFunctionTool(
-  tool: ToolDefinition,
+  tool: AnyToolDefinition,
 ): OpenAI.Responses.FunctionTool {
   return {
     type: 'function',
     name: tool.name,
     description: tool.description,
-    parameters: z.toJSONSchema(tool.parameters),
+    parameters:
+      tool.kind === 'mcp'
+        ? tool.inputJsonSchema
+        : z.toJSONSchema(tool.parameters),
     strict: false,
   };
 }

@@ -13,7 +13,7 @@ import type {
   LlmToolCall,
 } from '../llm-api/index.js';
 import {llmApi} from '../llm-api/index.js';
-import type {ToolDefinition} from '../tool/types.js';
+import type {AnyToolDefinition} from '../tool/types.js';
 import {
   type LlmSessionCompactionPatch,
   llmSessionCompactor,
@@ -97,7 +97,7 @@ export class LlmSession {
    */
   sendUserMessage(
     content: string,
-    tools: readonly ToolDefinition[],
+    tools: readonly AnyToolDefinition[],
     systemPrompt: string,
     signal?: AbortSignal,
   ): SendUserMessageResult {
@@ -131,7 +131,7 @@ export class LlmSession {
    */
   sendReminder(
     content: string,
-    tools: readonly ToolDefinition[],
+    tools: readonly AnyToolDefinition[],
     systemPrompt: string,
     signal?: AbortSignal,
   ): SendReminderResult {
@@ -159,7 +159,7 @@ export class LlmSession {
    */
   async *submitToolResults(
     results: ToolResult[],
-    tools: readonly ToolDefinition[],
+    tools: readonly AnyToolDefinition[],
     systemPrompt: string,
     signal?: AbortSignal,
   ): LlmSessionEventStream {
@@ -209,7 +209,7 @@ export class LlmSession {
    */
   private async *sendMessages(
     messages: LlmMessage[],
-    tools: readonly ToolDefinition[],
+    tools: readonly AnyToolDefinition[],
     systemPrompt: string,
     signal?: AbortSignal,
   ): LlmSessionEventStream {
@@ -247,7 +247,7 @@ export class LlmSession {
   }
 
   private async *compactBeforeModelCall(
-    tools: readonly ToolDefinition[],
+    tools: readonly AnyToolDefinition[],
     systemPrompt: string,
     signal?: AbortSignal,
   ): AsyncGenerator<SseContextCompactionEvent, void, undefined> {
@@ -302,7 +302,7 @@ export class LlmSession {
    * Records the assistant message in history when done.
    */
   private async *streamCompletion(
-    tools: readonly ToolDefinition[],
+    tools: readonly AnyToolDefinition[],
     systemPrompt: string,
     signal?: AbortSignal,
   ): LlmSessionEventStream {

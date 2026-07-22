@@ -21,7 +21,7 @@ import type {
   ToolResult,
 } from '../llm-session/index.js';
 import type {SkillRegistry} from '../skill/index.js';
-import type {ToolDefinition, ToolRegistry} from '../tool/index.js';
+import type {AnyToolDefinition, ToolRegistry} from '../tool/index.js';
 import {agentLlmStreamTranslator} from './agent-llm-stream-translator.js';
 import type {AgentRuntimeState} from './agent-runtime-state.js';
 import {
@@ -55,7 +55,7 @@ export interface RunAgentTurnInput {
   readonly getTierConfig: (tier: ModelTier) => Promise<LlmConfig>;
   readonly getMaxToolRounds: () => Promise<number> | number;
   readonly compactAfterTurn: (
-    tools: readonly ToolDefinition[],
+    tools: readonly AnyToolDefinition[],
     systemPrompt: string,
   ) => Promise<void>;
 }
@@ -407,7 +407,7 @@ export class AgentTurnRunner {
     input,
   }: {
     readonly inFlightToolCalls: Set<string>;
-    readonly tools: readonly ToolDefinition[];
+    readonly tools: readonly AnyToolDefinition[];
     readonly systemPrompt: string;
     readonly input: RunAgentTurnInput;
   }): AgentEventStream {
@@ -435,7 +435,7 @@ export class AgentTurnRunner {
     input,
   }: {
     readonly reason: SseDoneEvent['reason'];
-    readonly tools: readonly ToolDefinition[];
+    readonly tools: readonly AnyToolDefinition[];
     readonly systemPrompt: string;
     readonly input: RunAgentTurnInput;
   }): AgentEventStream {
