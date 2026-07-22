@@ -1,5 +1,5 @@
 import {Disclosure, ScrollShadow, Spinner} from '@heroui/react';
-import type {AnyToolResultData, ToolName} from '@omnicraft/tool-schemas';
+import type {AnyToolResultData} from '@omnicraft/tool-schemas';
 import {CircleAlert, CircleCheck, CircleX} from 'lucide-react';
 
 import {ParametersSection} from './components/ParametersSection/index.js';
@@ -8,7 +8,7 @@ import {getToolPillContent} from './helpers/pill-content/get-tool-pill-content.j
 import styles from './styles.module.css';
 
 interface ToolExecutionCardViewProps {
-  toolName: ToolName;
+  toolName: string;
   displayName: string;
   arguments: string;
   status: 'running' | 'done' | 'failure' | 'error';

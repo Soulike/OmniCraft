@@ -5,12 +5,7 @@ import type {
   SseContextCompactionErrorEvent,
   SseTodoItem,
 } from '@omnicraft/sse-events';
-import type {
-  AnyToolResultData,
-  ToolFailureData,
-  ToolName,
-  ToolResultData,
-} from '@omnicraft/tool-schemas';
+import type {AnyToolResultData, ToolFailureData} from '@omnicraft/tool-schemas';
 import {useMemo} from 'react';
 
 import type {
@@ -36,7 +31,7 @@ export interface AssistantTextRenderItem {
 interface RunningToolExecutionRenderItem {
   type: 'tool-execution';
   callId: string;
-  toolName: ToolName;
+  toolName: string;
   displayName: string;
   arguments: string;
   status: 'running';
@@ -45,7 +40,7 @@ interface RunningToolExecutionRenderItem {
 interface FailedToolExecutionRenderItem {
   type: 'tool-execution';
   callId: string;
-  toolName: ToolName;
+  toolName: string;
   displayName: string;
   arguments: string;
   status: 'failure' | 'error';
@@ -53,18 +48,16 @@ interface FailedToolExecutionRenderItem {
   data: ToolFailureData;
 }
 
-type DoneToolExecutionRenderItem = {
-  [K in ToolName]: {
-    type: 'tool-execution';
-    callId: string;
-    toolName: K;
-    displayName: string;
-    arguments: string;
-    status: 'done';
-    result: string;
-    data: ToolResultData<K>;
-  };
-}[ToolName];
+interface DoneToolExecutionRenderItem {
+  type: 'tool-execution';
+  callId: string;
+  toolName: string;
+  displayName: string;
+  arguments: string;
+  status: 'done';
+  result: string;
+  data: AnyToolResultData;
+}
 
 export type ToolExecutionRenderItem =
   | RunningToolExecutionRenderItem
@@ -205,9 +198,10 @@ export function transformMessages(
                   : 'error',
             result: endEvent.result,
             data: endEvent.data,
-            // Cast required: DoneToolExecutionRenderItem is a mapped type correlating
-            // toolName with data, but we assemble from separate SSE events so
-            // TypeScript cannot verify this correlation statically.
+            // Cast required: `status` and `data` are read from separate SSE
+            // events, so TypeScript cannot verify that a 'failure'/'error'
+            // status pairs with ToolFailureData (as opposed to the broader
+            // AnyToolResultData typing of endEvent.data).
           } as ToolExecutionRenderItem);
         } else {
           items.push({

@@ -1,4 +1,3 @@
-import type {ToolName} from '@omnicraft/tool-schemas';
 import {
   editFileParametersSchema,
   findFilesParametersSchema,
@@ -25,7 +24,7 @@ import {WebSearchParameters} from '../components/WebSearchParameters/index.js';
 import {WriteFileParameters} from '../components/WriteFileParameters/index.js';
 
 export function renderToolParameters(
-  toolName: ToolName,
+  toolName: string,
   parsed: unknown,
 ): ReactNode | null {
   switch (toolName) {
@@ -99,6 +98,10 @@ export function renderToolParameters(
     }
     case 'get_current_time':
     case 'ask_user':
+      return null;
+    default:
+      // Unknown tool name (e.g. an MCP tool): no dedicated widget, fall back
+      // to the generic HighlightedJson rendering handled by the caller.
       return null;
   }
 }

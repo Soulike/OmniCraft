@@ -1,4 +1,3 @@
-import type {ToolName} from '@omnicraft/tool-schemas';
 import {ZodError} from 'zod';
 
 import {editFileToolPillContent} from './adapters/edit-file.js';
@@ -16,7 +15,7 @@ import {fallbackToolPillContent} from './fallback-tool-pill-content.js';
 import type {ToolExecutionPillContent} from './types.js';
 
 interface GetToolPillContentInput {
-  toolName: ToolName;
+  toolName: string;
   toolArguments: string;
 }
 
@@ -55,6 +54,8 @@ export function getToolPillContent(
         return loadSkillToolPillContent(parsed);
       case 'get_current_time':
         return getCurrentTimeToolPillContent(parsed);
+      default:
+        return fallbackToolPillContent(input);
     }
   } catch (error) {
     if (error instanceof SyntaxError || error instanceof ZodError) {

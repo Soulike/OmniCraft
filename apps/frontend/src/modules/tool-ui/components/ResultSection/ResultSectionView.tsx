@@ -1,5 +1,5 @@
 import {ScrollShadow} from '@heroui/react';
-import type {AnyToolResultData, ToolName} from '@omnicraft/tool-schemas';
+import type {AnyToolResultData} from '@omnicraft/tool-schemas';
 import {toolFailureDataSchema} from '@omnicraft/tool-schemas';
 import clsx from 'clsx';
 
@@ -7,7 +7,7 @@ import {renderToolResult} from './helpers/renderToolResult.js';
 import styles from './styles.module.css';
 
 interface ResultSectionViewProps {
-  toolName: ToolName;
+  toolName: string;
   status: 'running' | 'done' | 'failure' | 'error';
   result?: string;
   data?: AnyToolResultData;

@@ -1,4 +1,4 @@
-import type {AnyToolResultData, ToolName} from '@omnicraft/tool-schemas';
+import type {AnyToolResultData} from '@omnicraft/tool-schemas';
 import {
   editFileResultSchema,
   findFilesResultSchema,
@@ -26,7 +26,7 @@ import {WebSearchResult} from '../../WebSearchResult/index.js';
 import {WriteFileResult} from '../../WriteFileResult/index.js';
 
 export function renderToolResult(
-  toolName: ToolName,
+  toolName: string,
   result: string,
   data: AnyToolResultData | undefined,
   toolArguments: string,
@@ -43,7 +43,7 @@ export function renderToolResult(
 }
 
 function renderToolResultUnsafe(
-  toolName: ToolName,
+  toolName: string,
   data: AnyToolResultData,
   toolArguments: string,
 ): ReactNode {
@@ -138,5 +138,9 @@ function renderToolResultUnsafe(
       throw new Error(
         'ask_user is a client-side tool and should not reach renderToolResult',
       );
+    default:
+      // Unknown tool name (e.g. an MCP tool): no dedicated widget, throw so
+      // the outer renderToolResult falls back to HighlightedJson(result).
+      throw new Error(`No renderer registered for tool "${toolName}"`);
   }
 }
