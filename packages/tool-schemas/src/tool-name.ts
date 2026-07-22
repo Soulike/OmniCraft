@@ -1,6 +1,6 @@
 import {z} from 'zod';
 
-/** Canonical tool name constants — single source of truth. */
+/** Canonical built-in tool name constants — single source of truth. */
 export const TOOL_NAME = {
   READ_FILE: 'read_file',
   WRITE_FILE: 'write_file',
@@ -16,10 +16,11 @@ export const TOOL_NAME = {
   ASK_USER: 'ask_user',
 } as const;
 
-export type ToolName = (typeof TOOL_NAME)[keyof typeof TOOL_NAME];
+/** A built-in tool's name — the closed catalog defined by {@link TOOL_NAME}. */
+export type InternalToolName = (typeof TOOL_NAME)[keyof typeof TOOL_NAME];
 
-/** Zod schema for runtime validation of tool names. */
-export const toolNameSchema = z.enum([
+/** Zod schema for the closed set of built-in tool names. */
+export const internalToolNameSchema = z.enum([
   TOOL_NAME.READ_FILE,
   TOOL_NAME.WRITE_FILE,
   TOOL_NAME.EDIT_FILE,
@@ -33,3 +34,23 @@ export const toolNameSchema = z.enum([
   TOOL_NAME.LOAD_SKILL,
   TOOL_NAME.ASK_USER,
 ]);
+
+/** Zod schema matching an external MCP tool's namespaced name. */
+export const mcpToolNameSchema = z.templateLiteral(['mcp__', z.string()]);
+
+/** An external MCP tool's namespaced name: `mcp__<server>__<tool>`. */
+export type McpToolName = z.infer<typeof mcpToolNameSchema>;
+
+/**
+ * Any tool name the system can emit — a built-in tool name or an MCP tool name.
+ * Because {@link mcpToolNameSchema} is a template literal (a proper subtype of
+ * `string`), this union does NOT collapse to `string`: built-in names stay a
+ * closed set that exhaustive switches can narrow.
+ */
+export const toolNameSchema = z.union([
+  internalToolNameSchema,
+  mcpToolNameSchema,
+]);
+
+/** A built-in tool name (`InternalToolName`) or an MCP tool name (`McpToolName`). */
+export type ToolName = z.infer<typeof toolNameSchema>;

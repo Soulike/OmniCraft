@@ -3,7 +3,7 @@ import {
   subAgentTypeSchema,
   thinkingLevelSchema,
 } from '@omnicraft/api-schema';
-import {toolResultDataSchema} from '@omnicraft/tool-schemas';
+import {toolNameSchema, toolResultDataSchema} from '@omnicraft/tool-schemas';
 import {z} from 'zod';
 
 /** A text content delta from the LLM. */
@@ -17,7 +17,7 @@ export type SseTextDeltaEvent = z.infer<typeof sseTextDeltaEventSchema>;
 export const sseToolExecuteStartEventSchema = z.object({
   type: z.literal('tool-execute-start'),
   callId: z.string(),
-  toolName: z.string(),
+  toolName: toolNameSchema,
   displayName: z.string(),
   arguments: z.string(),
 });

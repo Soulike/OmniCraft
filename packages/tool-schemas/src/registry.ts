@@ -16,7 +16,7 @@ import {
   webSearchResultSchema,
   writeFileResultSchema,
 } from './result-schemas.js';
-import {TOOL_NAME, type ToolName} from './tool-name.js';
+import {type InternalToolName, TOOL_NAME} from './tool-name.js';
 
 /** Maps each tool name to its success result schema. */
 export const toolResultSchemas = {
@@ -35,7 +35,7 @@ export const toolResultSchemas = {
 } as const;
 
 /** Infer the success result data type for a given tool name. */
-export type ToolResultData<K extends ToolName> = z.infer<
+export type ToolResultData<K extends InternalToolName> = z.infer<
   (typeof toolResultSchemas)[K]
 >;
 

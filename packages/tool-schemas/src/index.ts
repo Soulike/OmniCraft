@@ -37,4 +37,12 @@ export {
   webSearchResultSchema,
   writeFileResultSchema,
 } from './result-schemas.js';
-export {TOOL_NAME, type ToolName, toolNameSchema} from './tool-name.js';
+export {
+  type InternalToolName,
+  internalToolNameSchema,
+  type McpToolName,
+  mcpToolNameSchema,
+  TOOL_NAME,
+  type ToolName,
+  toolNameSchema,
+} from './tool-name.js';
