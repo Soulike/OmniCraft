@@ -172,6 +172,7 @@ describe('AgentRuntimeState.isWaitingForInput', () => {
       subagentRegistry: new SubagentRegistry(),
       availableSkills: new Map(),
       workingDirectory: os.tmpdir(),
+      scratchDirectory: os.tmpdir(),
       signal: new AbortController().signal,
       onSubAgentEvent: () => {
         // noop — the delegation test ignores subagent events
