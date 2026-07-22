@@ -18,9 +18,10 @@ import type {
   ServerStatus,
 } from './types.js';
 
-interface ServerRecord {
+/** A configured MCP server together with its live connection state. */
+interface ServerConnection {
   server: McpServer;
-  kinds: Set<AgentType>;
+  enabledAgentTypes: Set<AgentType>;
   status: ServerStatus;
   tools: McpToolInfo[];
   error?: string;
@@ -39,18 +40,21 @@ interface ServerRecord {
 export class McpManager {
   private static instance: McpManager | null = null;
 
-  private readonly records = new Map<string, ServerRecord>();
+  private readonly serverNameToConnections = new Map<
+    string,
+    ServerConnection
+  >();
   /**
    * Per-server monotonic connect/teardown counter, independent of
-   * `records`. `teardown()` deletes the record for a name, so a
-   * generation kept on the record would reset to `undefined` and could
-   * never distinguish a superseded in-flight `connect()` from the
+   * `serverNameToConnections`. `teardown()` deletes the connection for a
+   * name, so a generation kept on the connection would reset to `undefined`
+   * and could never distinguish a superseded in-flight `connect()` from the
    * current one. This map is never cleared, only ever bumped, so an
    * in-flight `connect()` (or its `onToolsChanged`/`refreshTools`
    * follow-up) can always tell whether it has been superseded by a
    * later `connect()` or `teardown()` for the same name.
    */
-  private readonly generations = new Map<string, number>();
+  private readonly serverNameToGenerations = new Map<string, number>();
 
   private constructor(private readonly createClient: McpClientFactory) {}
 
@@ -75,88 +79,109 @@ export class McpManager {
 
   /** Reconciles live connections to the desired config. Returns promptly. */
   applyConfig(mcp: McpSettings): void {
-    const kindsByServer = this.computeKinds(mcp);
-    const desired = new Map(mcp.servers.map((s) => [s.name, s]));
+    const serverNameToEnabledAgentTypes =
+      this.computeEnabledAgentTypesByServerName(mcp);
+    const serverNameToDesiredConfigs = new Map(
+      mcp.servers.map((server) => [server.name, server]),
+    );
     // Names already acted on (torn down and/or reconnected) this pass.
-    // `teardown()` deletes the record synchronously, so the "add newly
-    // desired" loop below cannot rely on `!this.records.has(name)` alone
-    // to tell a truly-new server from one just torn down/reconnected here
-    // — that gap previously caused a duplicate connect on transport change.
-    const handled = new Set<string>();
+    // `teardown()` deletes the connection synchronously, so the "add newly
+    // desired" loop below cannot rely on `!this.serverNameToConnections.has()`
+    // alone to tell a truly-new server from one just torn down/reconnected
+    // here — that gap previously caused a duplicate connect on transport
+    // change.
+    const handledServerNames = new Set<string>();
 
     // Remove servers no longer desired or disabled everywhere; reconnect
     // servers whose transport changed.
-    for (const [name, record] of this.records) {
-      const kinds = kindsByServer.get(name);
-      const server = desired.get(name);
-      handled.add(name);
-      if (!server || !kinds || kinds.size === 0) {
-        void this.teardown(name);
+    for (const [serverName, connection] of this.serverNameToConnections) {
+      const enabledAgentTypes = serverNameToEnabledAgentTypes.get(serverName);
+      const desiredConfig = serverNameToDesiredConfigs.get(serverName);
+      handledServerNames.add(serverName);
+      if (
+        !desiredConfig ||
+        !enabledAgentTypes ||
+        enabledAgentTypes.size === 0
+      ) {
+        void this.teardown(serverName);
         continue;
       }
-      // Reconnect if the transport definition changed; else just update kinds.
+      // Reconnect if the transport definition changed; otherwise just update
+      // which agent types the (still-connected) server is enabled for.
       if (
-        JSON.stringify(record.server.transport) !==
-        JSON.stringify(server.transport)
+        JSON.stringify(connection.server.transport) !==
+        JSON.stringify(desiredConfig.transport)
       ) {
-        void this.teardown(name).then(() => {
-          this.connect(server, kinds);
+        void this.teardown(serverName).then(() => {
+          this.connect(desiredConfig, enabledAgentTypes);
         });
       } else {
-        record.kinds = kinds;
+        connection.enabledAgentTypes = enabledAgentTypes;
       }
     }
 
     // Add newly desired+enabled servers not already handled above.
     for (const server of mcp.servers) {
-      const kinds = kindsByServer.get(server.name);
+      const enabledAgentTypes = serverNameToEnabledAgentTypes.get(server.name);
       if (
-        kinds &&
-        kinds.size > 0 &&
-        !this.records.has(server.name) &&
-        !handled.has(server.name)
+        enabledAgentTypes &&
+        enabledAgentTypes.size > 0 &&
+        !this.serverNameToConnections.has(server.name) &&
+        !handledServerNames.has(server.name)
       ) {
-        this.connect(server, kinds);
+        this.connect(server, enabledAgentTypes);
       }
     }
   }
 
-  /** Synchronous read of the in-memory snapshot for a given agent kind. */
+  /** Synchronous read of the in-memory snapshot for a given agent type. */
   getToolsForAgent(
-    kind: AgentType,
-  ): {server: string; tools: readonly McpToolInfo[]}[] {
-    const out: {server: string; tools: readonly McpToolInfo[]}[] = [];
-    for (const record of this.records.values()) {
-      if (record.status === 'connected' && record.kinds.has(kind)) {
+    agentType: AgentType,
+  ): {serverName: string; tools: readonly McpToolInfo[]}[] {
+    const result: {serverName: string; tools: readonly McpToolInfo[]}[] = [];
+    for (const connection of this.serverNameToConnections.values()) {
+      if (
+        connection.status === 'connected' &&
+        connection.enabledAgentTypes.has(agentType)
+      ) {
         // Defensive copy: callers must not be able to mutate the
         // manager's internal tool-list snapshot through the returned
         // reference.
-        out.push({server: record.server.name, tools: [...record.tools]});
+        result.push({
+          serverName: connection.server.name,
+          tools: [...connection.tools],
+        });
       }
     }
-    return out;
+    return result;
   }
 
   async callTool(
-    server: string,
-    tool: string,
+    serverName: string,
+    toolName: string,
     args: unknown,
     signal: AbortSignal,
   ): Promise<McpCallResult> {
-    const record = this.records.get(server);
-    if (!record?.client || record.status !== 'connected') {
-      return {text: `MCP server "${server}" is not connected`, isError: true};
+    const connection = this.serverNameToConnections.get(serverName);
+    if (!connection?.client || connection.status !== 'connected') {
+      return {
+        text: `MCP server "${serverName}" is not connected`,
+        isError: true,
+      };
     }
-    return record.client.callTool(tool, args, signal);
+    return connection.client.callTool(toolName, args, signal);
   }
 
   list(): McpServerStatus[] {
-    return [...this.records.values()].map((r) => ({
-      name: r.server.name,
-      transportType: r.server.transport.type,
-      status: r.status,
-      tools: r.tools.map((t) => ({name: t.name, description: t.description})),
-      error: r.error,
+    return [...this.serverNameToConnections.values()].map((connection) => ({
+      name: connection.server.name,
+      transportType: connection.server.transport.type,
+      status: connection.status,
+      tools: connection.tools.map((tool) => ({
+        name: tool.name,
+        description: tool.description,
+      })),
+      error: connection.error,
     }));
   }
 
@@ -164,94 +189,105 @@ export class McpManager {
    * Forces a reconnect of the named server.
    * @returns `true` if the server exists (reconnect started), `false` if unknown.
    */
-  async reconnect(name: string): Promise<boolean> {
-    const record = this.records.get(name);
-    if (!record) return false;
-    const {server, kinds} = record;
-    await this.teardown(name);
-    this.connect(server, kinds);
+  async reconnect(serverName: string): Promise<boolean> {
+    const connection = this.serverNameToConnections.get(serverName);
+    if (!connection) return false;
+    const {server, enabledAgentTypes} = connection;
+    await this.teardown(serverName);
+    this.connect(server, enabledAgentTypes);
     return true;
   }
 
   async dispose(): Promise<void> {
     await Promise.all(
-      [...this.records.keys()].map((name) => this.teardown(name)),
+      [...this.serverNameToConnections.keys()].map((serverName) =>
+        this.teardown(serverName),
+      ),
     );
   }
 
-  private computeKinds(mcp: McpSettings): Map<string, Set<AgentType>> {
-    const map = new Map<string, Set<AgentType>>();
-    for (const server of mcp.servers) map.set(server.name, new Set());
-    for (const [kind, names] of Object.entries(mcp.enabledByAgent) as [
-      AgentType,
-      string[],
-    ][]) {
-      for (const name of names) map.get(name)?.add(kind);
+  private computeEnabledAgentTypesByServerName(
+    mcp: McpSettings,
+  ): Map<string, Set<AgentType>> {
+    const serverNameToEnabledAgentTypes = new Map<string, Set<AgentType>>();
+    for (const server of mcp.servers) {
+      serverNameToEnabledAgentTypes.set(server.name, new Set());
     }
-    return map;
+    for (const [agentType, serverNames] of Object.entries(
+      mcp.enabledByAgent,
+    ) as [AgentType, string[]][]) {
+      for (const serverName of serverNames) {
+        serverNameToEnabledAgentTypes.get(serverName)?.add(agentType);
+      }
+    }
+    return serverNameToEnabledAgentTypes;
   }
 
-  private connect(server: McpServer, kinds: Set<AgentType>): void {
-    const gen = this.bumpGeneration(server.name);
-    const record: ServerRecord = {
+  private connect(server: McpServer, enabledAgentTypes: Set<AgentType>): void {
+    const generation = this.bumpGeneration(server.name);
+    const connection: ServerConnection = {
       server,
-      kinds,
+      enabledAgentTypes,
       status: 'connecting',
       tools: [],
     };
-    this.records.set(server.name, record);
+    this.serverNameToConnections.set(server.name, connection);
 
     void (async () => {
       try {
         const client = await this.createClient(server);
-        if (this.isStale(server.name, gen)) {
+        if (this.isStale(server.name, generation)) {
           await client.close();
           return;
         }
-        record.client = client;
-        record.tools = await client.listTools();
-        record.status = 'connected';
+        connection.client = client;
+        connection.tools = await client.listTools();
+        connection.status = 'connected';
         client.onToolsChanged(() => {
-          void this.refreshTools(server.name, gen);
+          void this.refreshTools(server.name, generation);
         });
       } catch (e) {
-        if (this.isStale(server.name, gen)) return;
-        record.status = 'error';
-        record.error = e instanceof Error ? e.message : String(e);
+        if (this.isStale(server.name, generation)) return;
+        connection.status = 'error';
+        connection.error = e instanceof Error ? e.message : String(e);
         logger.warn({e, server: server.name}, 'MCP server connection failed');
       }
     })();
   }
 
-  private async refreshTools(name: string, gen: number): Promise<void> {
-    const record = this.records.get(name);
-    if (!record?.client || this.isStale(name, gen)) return;
+  private async refreshTools(
+    serverName: string,
+    generation: number,
+  ): Promise<void> {
+    const connection = this.serverNameToConnections.get(serverName);
+    if (!connection?.client || this.isStale(serverName, generation)) return;
     try {
-      record.tools = await record.client.listTools();
+      connection.tools = await connection.client.listTools();
     } catch (e) {
-      logger.warn({e, server: name}, 'MCP tools/list refresh failed');
+      logger.warn({e, server: serverName}, 'MCP tools/list refresh failed');
     }
   }
 
-  private async teardown(name: string): Promise<void> {
-    const record = this.records.get(name);
-    if (!record) return;
+  private async teardown(serverName: string): Promise<void> {
+    const connection = this.serverNameToConnections.get(serverName);
+    if (!connection) return;
     // Bump before deleting so any in-flight connect() for this name
-    // (captured `gen` from before this teardown) is detected as stale
-    // once it resolves, even though its record is gone by then.
-    this.bumpGeneration(name);
-    this.records.delete(name);
-    await record.client?.close().catch(() => undefined);
+    // (captured `generation` from before this teardown) is detected as stale
+    // once it resolves, even though its connection is gone by then.
+    this.bumpGeneration(serverName);
+    this.serverNameToConnections.delete(serverName);
+    await connection.client?.close().catch(() => undefined);
   }
 
-  /** Bumps and returns the new generation for `name`. Never resets. */
-  private bumpGeneration(name: string): number {
-    const next = (this.generations.get(name) ?? 0) + 1;
-    this.generations.set(name, next);
-    return next;
+  /** Bumps and returns the new generation for `serverName`. Never resets. */
+  private bumpGeneration(serverName: string): number {
+    const nextGeneration =
+      (this.serverNameToGenerations.get(serverName) ?? 0) + 1;
+    this.serverNameToGenerations.set(serverName, nextGeneration);
+    return nextGeneration;
   }
 
-  private isStale(name: string, gen: number): boolean {
-    return this.generations.get(name) !== gen;
+  private isStale(serverName: string, generation: number): boolean {
+    return this.serverNameToGenerations.get(serverName) !== generation;
   }
 }

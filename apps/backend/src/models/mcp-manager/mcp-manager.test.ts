@@ -61,7 +61,7 @@ describe('McpManager', () => {
     });
 
     expect(mgr.getToolsForAgent('chat')).toEqual([
-      {server: 'fs', tools: [tool]},
+      {serverName: 'fs', tools: [tool]},
     ]);
     expect(mgr.getToolsForAgent('coding')).toEqual([]);
   });
@@ -170,7 +170,7 @@ describe('McpManager', () => {
     });
     expect(closeSecond).not.toHaveBeenCalled();
     expect(mgr.getToolsForAgent('chat')).toEqual([
-      {server: 'fs', tools: [secondTool]},
+      {serverName: 'fs', tools: [secondTool]},
     ]);
   });
 
