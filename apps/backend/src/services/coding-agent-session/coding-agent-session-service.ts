@@ -68,6 +68,16 @@ export const codingAgentSessionService = {
     return agent.subscribe(options);
   },
 
+  /**
+   * Returns the agent's committed SSE event count, or undefined if the session
+   * does not exist. Used to detect a resume cursor that outran a rolled-back log.
+   */
+  async getSseEventCount(agentId: string): Promise<number | undefined> {
+    const agent = await CodingAgentStore.getInstance().get(agentId);
+    if (!agent) return undefined;
+    return agent.getSseEventCount();
+  },
+
   /** Aborts the currently running turn. Returns false if agent not found. */
   async abortCompletion(agentId: string): Promise<boolean> {
     const agent = await CodingAgentStore.getInstance().get(agentId);
