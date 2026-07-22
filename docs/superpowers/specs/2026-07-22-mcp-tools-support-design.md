@@ -49,8 +49,8 @@ scheduled for the UX round.
 ## Architecture
 
 ```
-              boot (init-services)  ─┐          after any settings write ─┐
-              settings.mcp           │          settings.mcp             │
+              boot (init-services)  ─┐   SettingsManager onChange ────────┐
+              initial applyConfig    │   (emitted after each save())      │
                                      ▼                                    ▼
                             ┌──────────────────────────────────────────────┐
                             │                 McpManager                    │
@@ -87,9 +87,11 @@ Two facts drive this shape:
   enabled `kinds`), making `getAll(kind)` a pure sync filter+map. Re-evaluating
   per turn means toggling a server or a reconnect reflects on the next turn with
   no restart.
-- **`SettingsManager` has no change events** and reads from disk on each call.
-  So config is **pushed** into the manager via `applyConfig(settings.mcp)` at
-  boot and after each settings write, rather than pulled.
+- **`SettingsManager` emits a `change` event after every successful `save()`**
+  — a small, general capability added this round (see "SettingsManager change
+  events"), with MCP as its first consumer. McpManager subscribes and calls
+  `applyConfig(settings.mcp)` on each change, plus once at boot for the initial
+  state. Config is pushed by the manager, never polled.
 
 `applyConfig` reconciles desired vs. live state and starts (re)connections in the
 **background**, returning promptly — a settings write must not block on network
@@ -163,6 +165,35 @@ export type AnyToolDefinition = ToolDefinition | McpToolDefinition;
 no behavior change): `ToolRegistry` (`register`/`get`/`getAll`), `agent-catalog`,
 `llm-session` + compaction modules, `agent-turn-runner`, `agent`, `llm-api/types`,
 the two provider adapters, and `tool/testing.ts`.
+
+## SettingsManager change events
+
+`McpManager` needs to react when settings change. Rather than couple the settings
+service to MCP, `SettingsManager` gains a small, general change-notification
+capability this round (MCP is its first consumer):
+
+- **Typed subscription.**
+  `onChange(listener: (settings: Settings) => void): () => void` registers a
+  listener and returns an unsubscribe function, backed by an internal `Set`.
+  (Kept typed rather than a stringly-typed `EventEmitter` to avoid `any`.)
+- **Emit after `save()`.** `save()` is the single persistence choke-point (used
+  by `set`, `setBatch`, and the create-time reset). After the atomic `tmp+rename`
+  completes it notifies listeners with the **validated `Settings` just written** —
+  so the payload is complete, never a half-written file, and no subscriber
+  re-reads from disk. Notification runs **after** the `ioQueue` critical section
+  (via a microtask) to avoid re-entrancy, and each listener is wrapped so a
+  throwing listener is logged and cannot fail the write.
+- **Cleanup.** A `dispose()` clears listeners and is invoked by
+  `resetInstanceForTesting()`.
+
+Chosen over a filesystem watcher for simplicity and correctness: emitting from
+`save()` fires only on our own completed writes, sidestepping `fs.watch`'s
+atomic-rename/inode pitfalls, event debouncing, and half-written-file reads.
+
+**Known limitation (accepted):** direct hand-edits to `settings.json` on disk are
+**not** reactive — they take effect on the next restart, matching the app's
+current behavior (nothing reacts to live external edits today). A file watcher
+can be layered on later if that need arises.
 
 ## Changes
 
@@ -364,13 +395,13 @@ no new write endpoint.
   to `toolRegistries`.
 - `agent/agents/coding-agent/coding-agent.ts`: add
   `new McpToolRegistry(AgentType.CODING)`.
-- `startup/init-services.ts`: create the `McpManager` singleton and call
-  `applyConfig(settings.mcp)` after the settings manager is ready.
-- Settings write path (`services/settings/settings-service.ts` — both `set` and
-  `setBatch`, the two write entry points): after a successful write, call
-  `mcpManager.applyConfig((await getAll()).mcp)` so server changes take effect
-  without a restart. The manager receives config as an argument (no import of the
-  settings service → no cycle; `services → models` is the allowed direction).
+- `startup/init-services.ts`: after the settings manager is ready, create the
+  `McpManager` singleton, subscribe it to settings changes
+  (`settingsManager.onChange(s => mcpManager.applyConfig(s.mcp))`), and run the
+  initial `applyConfig(settings.mcp)` (the event only fires on subsequent saves).
+- `services/settings/settings-service.ts` is **unchanged** — no MCP coupling in
+  the service layer. Server-config changes reach the manager purely through the
+  `SettingsManager` change event.
 
 ## UX (designed now, built in a later round)
 
@@ -387,11 +418,15 @@ no new write endpoint.
 
 - **settings-schema** (`schema.test.ts`): `mcp` defaults; schema still converts
   via `z.toJSONSchema`; the `enabledByAgent` keys cover every `AgentType`.
+- **SettingsManager** (`settings-manager.test.ts`): `onChange` fires after a
+  successful `save()` (`set`/`setBatch`) with the validated settings; multiple
+  listeners each notified; unsubscribe stops delivery; a listener that throws is
+  isolated (logged, write still succeeds); `dispose()` clears listeners.
 - **McpManager**: unit tests against a fake MCP client/transport — connect →
   tools populate; `applyConfig` reconciles (connect new, disconnect removed,
-  update `kinds`); `getToolsForAgent` filters by kind + status; `callTool`
-  success and `isError` mapping; connection failure sets `status: 'error'` and
-  never throws.
+  update `kinds`); a settings `change` event triggers reconciliation;
+  `getToolsForAgent` filters by kind + status; `callTool` success and `isError`
+  mapping; connection failure sets `status: 'error'` and never throws.
 - **McpToolRegistry**: kind filtering; dangling-reference skip; `mcp__…`
   namespacing; result → `ToolExecuteResult` mapping; empty when no servers.
 - **executor**: `kind: 'mcp'` path skips Zod parse and passes raw args;
@@ -442,11 +477,12 @@ no new write endpoint.
 25. `apps/backend/src/agent-core/llm-api/claude/helpers.ts` — kind discrimination
 26. `apps/backend/src/agent-core/llm-api/openai-responses/helpers.ts` — kind discrimination
 27. `apps/backend/src/agent-core/agent/agent-tool-executor.ts` — kind discrimination
-28. `apps/backend/src/models/mcp-manager/**` — new manager subsystem
-29. `apps/backend/src/agent/tools/mcp/**` — `McpToolRegistry`
-30. `apps/backend/src/dispatcher/mcp/**` — HTTP status/reconnect API
-31. `apps/backend/src/dispatcher/index.ts` — mount the `mcp` router
-32. `apps/backend/src/agent/agents/main-agent/main-agent.ts` — register MCP tools
-33. `apps/backend/src/agent/agents/coding-agent/coding-agent.ts` — register MCP tools
-34. `apps/backend/src/startup/init-services.ts` — create manager + `applyConfig`
-35. `apps/backend/src/services/settings/settings-service.ts` — re-apply on write
+28. `apps/backend/src/models/settings-manager/settings-manager.ts` — `onChange` subscription, emit after `save()`, `dispose()`
+29. `apps/backend/src/models/settings-manager/settings-manager.test.ts` — change-event tests
+30. `apps/backend/src/models/mcp-manager/**` — new manager subsystem
+31. `apps/backend/src/agent/tools/mcp/**` — `McpToolRegistry`
+32. `apps/backend/src/dispatcher/mcp/**` — HTTP status/reconnect API
+33. `apps/backend/src/dispatcher/index.ts` — mount the `mcp` router
+34. `apps/backend/src/agent/agents/main-agent/main-agent.ts` — register MCP tools
+35. `apps/backend/src/agent/agents/coding-agent/coding-agent.ts` — register MCP tools
+36. `apps/backend/src/startup/init-services.ts` — create manager, subscribe to settings changes, initial `applyConfig`
