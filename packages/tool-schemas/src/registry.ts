@@ -6,6 +6,7 @@ import {
   findFilesResultSchema,
   getCurrentTimeResultSchema,
   loadSkillResultSchema,
+  mcpToolResultSchema,
   readFileResultSchema,
   runCommandResultSchema,
   searchFilesResultSchema,
@@ -54,6 +55,7 @@ export const toolResultDataSchema = z.union([
   webSearchResultSchema,
   loadSkillResultSchema,
   askUserResultSchema,
+  mcpToolResultSchema,
   toolFailureDataSchema,
 ]);
 

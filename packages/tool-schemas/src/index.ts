@@ -27,6 +27,7 @@ export {
   findFilesResultSchema,
   getCurrentTimeResultSchema,
   loadSkillResultSchema,
+  mcpToolResultSchema,
   readFileResultSchema,
   runCommandResultSchema,
   searchFilesResultSchema,
