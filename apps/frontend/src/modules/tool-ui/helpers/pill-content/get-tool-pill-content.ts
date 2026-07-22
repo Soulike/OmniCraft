@@ -1,3 +1,4 @@
+import type {ToolName} from '@omnicraft/tool-schemas';
 import {ZodError} from 'zod';
 
 import {editFileToolPillContent} from './adapters/edit-file.js';
@@ -15,7 +16,7 @@ import {fallbackToolPillContent} from './fallback-tool-pill-content.js';
 import type {ToolExecutionPillContent} from './types.js';
 
 interface GetToolPillContentInput {
-  toolName: string;
+  toolName: ToolName;
   toolArguments: string;
 }
 

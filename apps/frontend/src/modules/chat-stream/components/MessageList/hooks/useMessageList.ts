@@ -5,8 +5,17 @@ import type {
   SseContextCompactionErrorEvent,
   SseTodoItem,
 } from '@omnicraft/sse-events';
-import type {AnyToolResultData, ToolFailureData} from '@omnicraft/tool-schemas';
+import type {
+  AnyToolResultData,
+  InternalToolName,
+  McpToolName,
+  mcpToolResultSchema,
+  ToolFailureData,
+  ToolName,
+  ToolResultData,
+} from '@omnicraft/tool-schemas';
 import {useMemo} from 'react';
+import type {z} from 'zod';
 
 import type {
   ChatEventBus,
@@ -31,7 +40,7 @@ export interface AssistantTextRenderItem {
 interface RunningToolExecutionRenderItem {
   type: 'tool-execution';
   callId: string;
-  toolName: string;
+  toolName: ToolName;
   displayName: string;
   arguments: string;
   status: 'running';
@@ -40,7 +49,7 @@ interface RunningToolExecutionRenderItem {
 interface FailedToolExecutionRenderItem {
   type: 'tool-execution';
   callId: string;
-  toolName: string;
+  toolName: ToolName;
   displayName: string;
   arguments: string;
   status: 'failure' | 'error';
@@ -48,16 +57,39 @@ interface FailedToolExecutionRenderItem {
   data: ToolFailureData;
 }
 
-interface DoneToolExecutionRenderItem {
+/**
+ * A completed built-in tool execution: `toolName` and `data` are correlated
+ * per built-in tool, restoring the name -> result-data mapping that a bare
+ * `string` toolName lost.
+ */
+type DoneInternalToolExecutionRenderItem = {
+  [K in InternalToolName]: {
+    type: 'tool-execution';
+    callId: string;
+    toolName: K;
+    displayName: string;
+    arguments: string;
+    status: 'done';
+    result: string;
+    data: ToolResultData<K>;
+  };
+}[InternalToolName];
+
+/** A completed MCP tool execution: the generic `{server, toolName, text}` shape. */
+interface DoneMcpToolExecutionRenderItem {
   type: 'tool-execution';
   callId: string;
-  toolName: string;
+  toolName: McpToolName;
   displayName: string;
   arguments: string;
   status: 'done';
   result: string;
-  data: AnyToolResultData;
+  data: z.infer<typeof mcpToolResultSchema>;
 }
+
+type DoneToolExecutionRenderItem =
+  | DoneInternalToolExecutionRenderItem
+  | DoneMcpToolExecutionRenderItem;
 
 export type ToolExecutionRenderItem =
   | RunningToolExecutionRenderItem

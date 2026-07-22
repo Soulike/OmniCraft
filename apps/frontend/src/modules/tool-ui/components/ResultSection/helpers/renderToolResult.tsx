@@ -1,4 +1,4 @@
-import type {AnyToolResultData} from '@omnicraft/tool-schemas';
+import type {AnyToolResultData, ToolName} from '@omnicraft/tool-schemas';
 import {
   editFileResultSchema,
   findFilesResultSchema,
@@ -26,7 +26,7 @@ import {WebSearchResult} from '../../WebSearchResult/index.js';
 import {WriteFileResult} from '../../WriteFileResult/index.js';
 
 export function renderToolResult(
-  toolName: string,
+  toolName: ToolName,
   result: string,
   data: AnyToolResultData | undefined,
   toolArguments: string,
@@ -43,7 +43,7 @@ export function renderToolResult(
 }
 
 function renderToolResultUnsafe(
-  toolName: string,
+  toolName: ToolName,
   data: AnyToolResultData,
   toolArguments: string,
 ): ReactNode {

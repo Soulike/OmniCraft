@@ -1,4 +1,3 @@
-import type {ToolResultData} from '@omnicraft/tool-schemas';
 import {TOOL_NAME} from '@omnicraft/tool-schemas';
 import clsx from 'clsx';
 import {use} from 'react';
@@ -71,10 +70,7 @@ export function RenderItem({item}: RenderItemProps) {
                 callId={item.callId}
                 arguments={item.arguments}
                 status='done'
-                // Cast required: toolName is now a plain string, so the
-                // runtime check above no longer statically narrows `data`
-                // (typed as AnyToolResultData) down to the ask_user shape.
-                data={item.data as ToolResultData<'ask_user'>}
+                data={item.data}
               />
             </div>
           );

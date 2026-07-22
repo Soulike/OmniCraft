@@ -1,10 +1,11 @@
+import type {ToolName} from '@omnicraft/tool-schemas';
 import {useMemo} from 'react';
 
 import {HighlightedJson} from '../HighlightedJson/index.js';
 import {renderToolParameters} from './helpers/renderToolParameters.js';
 
 interface ParametersSectionProps {
-  toolName: string;
+  toolName: ToolName;
   toolArguments: string;
 }
 

@@ -1,7 +1,9 @@
+import type {ToolName} from '@omnicraft/tool-schemas';
+
 import type {ToolExecutionPillContent} from './types.js';
 
 interface FallbackToolPillContentInput {
-  toolName: string;
+  toolName: ToolName;
 }
 
 export function fallbackToolPillContent({

@@ -1,10 +1,11 @@
+import type {ToolName} from '@omnicraft/tool-schemas';
 import {describe, expect, it} from 'vitest';
 
 import {getToolPillContent} from './get-tool-pill-content.js';
 import type {ToolExecutionPillContent} from './types.js';
 
 interface TestCase {
-  toolName: string;
+  toolName: ToolName;
   toolArguments: string;
   expected: ToolExecutionPillContent;
 }

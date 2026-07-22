@@ -1,4 +1,4 @@
-import type {AnyToolResultData} from '@omnicraft/tool-schemas';
+import type {AnyToolResultData, ToolName} from '@omnicraft/tool-schemas';
 
 import {ToolExecutionCardView} from '@/modules/tool-ui/index.js';
 
@@ -6,7 +6,7 @@ import {useToolOutput} from '../../../../contexts/ToolOutputContext/index.js';
 
 interface ToolExecutionCardProps {
   callId: string;
-  toolName: string;
+  toolName: ToolName;
   displayName: string;
   arguments: string;
   status: 'running' | 'done' | 'failure' | 'error';
