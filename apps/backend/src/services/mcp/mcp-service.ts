@@ -14,7 +14,7 @@ export const mcpService = {
    * @param name - The configured server name.
    * @returns `true` if the server exists (reconnect started), `false` if unknown.
    */
-  async reconnectServer(name: string): Promise<boolean> {
+  reconnectServer(name: string): boolean {
     return McpManager.getInstance().reconnect(name);
   },
 };

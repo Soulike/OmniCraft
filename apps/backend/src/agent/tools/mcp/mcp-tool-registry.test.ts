@@ -22,8 +22,8 @@ const client: McpClient = {
   close: () => Promise.resolve(),
 };
 
-afterEach(async () => {
-  await McpManager.resetInstanceForTesting();
+afterEach(() => {
+  McpManager.resetInstanceForTesting();
 });
 
 async function connectedManager(): Promise<McpManager> {

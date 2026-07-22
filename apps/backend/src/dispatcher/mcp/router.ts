@@ -14,8 +14,8 @@ router.get(MCP_SERVERS, (ctx) => {
 });
 
 /** POST /mcp/servers/:name/reconnect — force a single server reconnect. */
-router.post(MCP_SERVER_RECONNECT, async (ctx) => {
-  const reconnected = await mcpService.reconnectServer(ctx.params.name);
+router.post(MCP_SERVER_RECONNECT, (ctx) => {
+  const reconnected = mcpService.reconnectServer(ctx.params.name);
   if (!reconnected) {
     ctx.response.status = StatusCodes.NOT_FOUND;
     ctx.response.body = {error: `MCP server not found: ${ctx.params.name}`};

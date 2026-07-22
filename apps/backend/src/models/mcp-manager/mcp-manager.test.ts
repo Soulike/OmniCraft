@@ -44,8 +44,8 @@ const stdioServer: McpServer = {
   transport: {type: 'stdio', command: 'x', args: [], env: {}},
 };
 
-afterEach(async () => {
-  await McpManager.resetInstanceForTesting();
+afterEach(() => {
+  McpManager.resetInstanceForTesting();
 });
 
 describe('McpManager', () => {
@@ -237,5 +237,34 @@ describe('McpManager', () => {
 
     expect(createClient).toHaveBeenCalledTimes(1);
     expect(createClient).toHaveBeenCalledWith(changedServer);
+  });
+
+  it('does not resurrect a server removed during a transport-change reconnect', async () => {
+    const mgr = McpManager.create(() => Promise.resolve(fakeClient([tool])));
+    mgr.applyConfig({
+      servers: [stdioServer],
+      enabledByAgent: {chat: ['fs'], coding: []},
+    });
+    await vi.waitFor(() => {
+      expect(mgr.list()[0]?.status).toBe('connected');
+    });
+
+    // A transport change starts a reconnect; the very next reconciliation
+    // removes the server before that reconnect can settle.
+    const changedServer: McpServer = {
+      name: 'fs',
+      transport: {type: 'stdio', command: 'y', args: [], env: {}},
+    };
+    mgr.applyConfig({
+      servers: [changedServer],
+      enabledByAgent: {chat: ['fs'], coding: []},
+    });
+    mgr.applyConfig({servers: [], enabledByAgent: {chat: [], coding: []}});
+
+    // Let every pending reconnect microtask settle, then confirm the removed
+    // server did not come back.
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    expect(mgr.list()).toHaveLength(0);
+    expect(mgr.getToolsForAgent('chat')).toEqual([]);
   });
 });

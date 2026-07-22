@@ -85,8 +85,8 @@ export class McpManager {
   }
 
   /** Resets the singleton instance. Only for use in tests. */
-  static async resetInstanceForTesting(): Promise<void> {
-    await McpManager.instance?.dispose();
+  static resetInstanceForTesting(): void {
+    McpManager.instance?.dispose();
     McpManager.instance = null;
   }
 
@@ -107,7 +107,10 @@ export class McpManager {
 
     // Remove servers no longer desired or disabled everywhere; reconnect
     // servers whose transport changed.
-    for (const [serverName, connection] of this.serverNameToConnections) {
+    // Snapshot entries: the transport-change branch below tears down and
+    // reconnects synchronously (deleting then re-adding the same key), which
+    // would otherwise make the live Map iterator revisit that key this pass.
+    for (const [serverName, connection] of [...this.serverNameToConnections]) {
       const enabledAgentTypes = serverNameToEnabledAgentTypes.get(serverName);
       const desiredConfig = serverNameToDesiredConfigs.get(serverName);
       handledServerNames.add(serverName);
@@ -116,7 +119,7 @@ export class McpManager {
         !enabledAgentTypes ||
         enabledAgentTypes.size === 0
       ) {
-        void this.teardown(serverName);
+        this.teardown(serverName);
         continue;
       }
       // Reconnect if the transport definition changed; otherwise just update
@@ -125,9 +128,16 @@ export class McpManager {
         JSON.stringify(connection.server.transport) !==
         JSON.stringify(desiredConfig.transport)
       ) {
-        void this.teardown(serverName).then(() => {
-          this.connect(desiredConfig, enabledAgentTypes);
-        });
+        // Tear down and reconnect synchronously so the fresh `connecting`
+        // entry is visible to any later applyConfig in this same tick. A
+        // deferred reconnect (`teardown().then(connect)`) would let a later
+        // applyConfig that removes this server slip through — it would not see
+        // the already-deleted record — and the deferred connect would then
+        // resurrect the removed server with stale config. The old client
+        // closes in the background; the generation guard fences its in-flight
+        // connect.
+        this.teardown(serverName);
+        this.connect(desiredConfig, enabledAgentTypes);
       } else {
         connection.enabledAgentTypes = enabledAgentTypes;
       }
@@ -213,21 +223,19 @@ export class McpManager {
    * Forces a reconnect of the named server.
    * @returns `true` if the server exists (reconnect started), `false` if unknown.
    */
-  async reconnect(serverName: string): Promise<boolean> {
+  reconnect(serverName: string): boolean {
     const connection = this.serverNameToConnections.get(serverName);
     if (!connection) return false;
     const {server, enabledAgentTypes} = connection;
-    await this.teardown(serverName);
+    this.teardown(serverName);
     this.connect(server, enabledAgentTypes);
     return true;
   }
 
-  async dispose(): Promise<void> {
-    await Promise.all(
-      [...this.serverNameToConnections.keys()].map((serverName) =>
-        this.teardown(serverName),
-      ),
-    );
+  dispose(): void {
+    for (const serverName of [...this.serverNameToConnections.keys()]) {
+      this.teardown(serverName);
+    }
   }
 
   private computeEnabledAgentTypesByServerName(
@@ -336,7 +344,7 @@ export class McpManager {
     return tools;
   }
 
-  private async teardown(serverName: string): Promise<void> {
+  private teardown(serverName: string): void {
     const connection = this.serverNameToConnections.get(serverName);
     if (!connection) return;
     // Bump before deleting so any in-flight connect() for this name
@@ -344,11 +352,13 @@ export class McpManager {
     // once it resolves, even though its connection is gone by then.
     this.bumpGeneration(serverName);
     this.serverNameToConnections.delete(serverName);
-    // Only a `connected` connection owns a client here; a `connecting` one
-    // keeps its client local until it publishes and closes it itself when
-    // superseded.
+    // Closing the client is fire-and-forget: the state that matters (the bump
+    // and delete above) is already applied synchronously, so nothing needs to
+    // wait for the socket/process to finish tearing down. Only a `connected`
+    // connection owns a client here; a `connecting` one keeps its client local
+    // until it publishes and closes it itself when superseded.
     if (connection.status === 'connected') {
-      await connection.client.close().catch(() => undefined);
+      void connection.client.close().catch(() => undefined);
     }
   }
 

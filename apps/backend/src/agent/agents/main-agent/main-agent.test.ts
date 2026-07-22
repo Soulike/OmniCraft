@@ -4,8 +4,8 @@ import {afterEach, describe, expect, it, vi} from 'vitest';
 import {getMcpToolRegistry} from '@/agent/tools/mcp/index.js';
 import {McpManager} from '@/models/mcp-manager/index.js';
 
-afterEach(async () => {
-  await McpManager.resetInstanceForTesting();
+afterEach(() => {
+  McpManager.resetInstanceForTesting();
 });
 
 describe('MCP wiring', () => {

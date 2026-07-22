@@ -31,8 +31,8 @@ const stdioServer: McpServer = {
   transport: {type: 'stdio', command: 'x', args: [], env: {}},
 };
 
-afterEach(async () => {
-  await McpManager.resetInstanceForTesting();
+afterEach(() => {
+  McpManager.resetInstanceForTesting();
 });
 
 // The repo has no dispatcher HTTP-test harness (only helper tests), so these
@@ -93,7 +93,7 @@ describe('POST /mcp/servers/:name/reconnect contract', () => {
     });
 
     createClient.mockClear();
-    const reconnected = await mcpService.reconnectServer('fs');
+    const reconnected = mcpService.reconnectServer('fs');
 
     expect(reconnected).toBe(true);
     expect(createClient).toHaveBeenCalledTimes(1);
@@ -102,8 +102,8 @@ describe('POST /mcp/servers/:name/reconnect contract', () => {
     });
   });
 
-  it('reports false for an unknown server (router maps this to 404)', async () => {
+  it('reports false for an unknown server (router maps this to 404)', () => {
     McpManager.create(() => Promise.resolve(fakeClient([tool])));
-    expect(await mcpService.reconnectServer('absent')).toBe(false);
+    expect(mcpService.reconnectServer('absent')).toBe(false);
   });
 });
