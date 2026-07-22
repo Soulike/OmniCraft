@@ -196,9 +196,12 @@ export function useStreamChat({
 
           if (isStaleCursorError(e)) {
             // The server rolled its event log back beneath our cursor (e.g. it
-            // restarted mid-turn). Discard the local view and replay from the
-            // start. Not a failure — reconnect immediately without backoff.
+            // restarted mid-turn). Discard the local view — including any
+            // subagent buses whose matching completion was rolled away — and
+            // replay from the start. Not a failure — reconnect immediately
+            // without backoff.
             resetView();
+            subagentBusMap.clear();
             lastIndex = 0;
             consecutiveFailures = 0;
             setIsReconnecting(false);
