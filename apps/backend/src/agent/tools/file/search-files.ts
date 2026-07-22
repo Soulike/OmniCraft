@@ -6,9 +6,9 @@ import path from 'node:path';
 import readline from 'node:readline';
 
 import {
+  INTERNAL_TOOL_NAME,
   searchFilesParametersSchema,
   searchFilesResultSchema,
-  TOOL_NAME,
 } from '@omnicraft/tool-schemas';
 import fg from 'fast-glob';
 import isSafeRegex from 'safe-regex2';
@@ -82,7 +82,7 @@ export const searchFilesTool: ToolDefinition<
   SearchFilesResult
 > = {
   kind: 'internal',
-  name: TOOL_NAME.SEARCH_FILES,
+  name: INTERNAL_TOOL_NAME.SEARCH_FILES,
   displayName: 'Search Files',
   description:
     'Searches file contents for a regex pattern and returns matching lines with file paths and line numbers. ' +
@@ -91,9 +91,10 @@ export const searchFilesTool: ToolDefinition<
   suppressToolEvents: false,
   compactResult({content, status}) {
     const lines = content.split('\n').filter(Boolean);
-    return [`${TOOL_NAME.SEARCH_FILES} ${status}`, ...lines.slice(0, 21)].join(
-      '\n',
-    );
+    return [
+      `${INTERNAL_TOOL_NAME.SEARCH_FILES} ${status}`,
+      ...lines.slice(0, 21),
+    ].join('\n');
   },
   async execute(args: SearchFilesArgs, context: ToolExecutionContext) {
     const {workingDirectory} = context;

@@ -38,11 +38,11 @@ export {
   writeFileResultSchema,
 } from './result-schemas.js';
 export {
+  INTERNAL_TOOL_NAME,
   type InternalToolName,
   internalToolNameSchema,
   type McpToolName,
   mcpToolNameSchema,
-  TOOL_NAME,
   type ToolName,
   toolNameSchema,
 } from './tool-name.js';

@@ -1,5 +1,5 @@
 import {
-  TOOL_NAME,
+  INTERNAL_TOOL_NAME,
   webFetchRawParametersSchema,
   webFetchRawResultSchema,
 } from '@omnicraft/tool-schemas';
@@ -31,7 +31,7 @@ export const webFetchRawTool: ToolDefinition<
   WebFetchRawResult
 > = {
   kind: 'internal',
-  name: TOOL_NAME.WEB_FETCH_RAW,
+  name: INTERNAL_TOOL_NAME.WEB_FETCH_RAW,
   displayName: 'Web Fetch Raw',
   description:
     'Fetches a URL and returns the raw text content with no conversion. ' +
@@ -41,9 +41,10 @@ export const webFetchRawTool: ToolDefinition<
   suppressToolEvents: false,
   compactResult({content, status}) {
     const lines = content.split('\n').filter(Boolean);
-    return [`${TOOL_NAME.WEB_FETCH_RAW} ${status}`, ...lines.slice(0, 21)].join(
-      '\n',
-    );
+    return [
+      `${INTERNAL_TOOL_NAME.WEB_FETCH_RAW} ${status}`,
+      ...lines.slice(0, 21),
+    ].join('\n');
   },
   async execute(args: WebFetchRawArgs, _context: ToolExecutionContext) {
     const urlError = validateUrl(args.url);

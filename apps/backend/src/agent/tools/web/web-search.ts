@@ -1,5 +1,5 @@
 import {
-  TOOL_NAME,
+  INTERNAL_TOOL_NAME,
   webSearchParametersSchema,
   webSearchResultSchema,
 } from '@omnicraft/tool-schemas';
@@ -34,7 +34,7 @@ function formatResult(
 export const webSearchTool: ToolDefinition<typeof parameters, WebSearchResult> =
   {
     kind: 'internal',
-    name: TOOL_NAME.WEB_SEARCH,
+    name: INTERNAL_TOOL_NAME.WEB_SEARCH,
     displayName: 'Web Search',
     description:
       'Searches the web and returns relevant results with titles, URLs, and content summaries. ' +
@@ -45,9 +45,10 @@ export const webSearchTool: ToolDefinition<typeof parameters, WebSearchResult> =
     suppressToolEvents: false,
     compactResult({content, status}) {
       const lines = content.split('\n').filter(Boolean);
-      return [`${TOOL_NAME.WEB_SEARCH} ${status}`, ...lines.slice(0, 21)].join(
-        '\n',
-      );
+      return [
+        `${INTERNAL_TOOL_NAME.WEB_SEARCH} ${status}`,
+        ...lines.slice(0, 21),
+      ].join('\n');
     },
     async execute(args: WebSearchArgs, _context: ToolExecutionContext) {
       // 1. Read API key from settings

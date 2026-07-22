@@ -1,4 +1,7 @@
-import {getCurrentTimeResultSchema, TOOL_NAME} from '@omnicraft/tool-schemas';
+import {
+  getCurrentTimeResultSchema,
+  INTERNAL_TOOL_NAME,
+} from '@omnicraft/tool-schemas';
 import {z} from 'zod';
 
 import type {ToolDefinition} from '@/agent-core/tool/index.js';
@@ -13,7 +16,7 @@ export const getCurrentTimeTool: ToolDefinition<
   GetCurrentTimeResult
 > = {
   kind: 'internal',
-  name: TOOL_NAME.GET_CURRENT_TIME,
+  name: INTERNAL_TOOL_NAME.GET_CURRENT_TIME,
   displayName: 'Get Current Time',
   description:
     'Returns the current date and time in ISO 8601 format. ' +
