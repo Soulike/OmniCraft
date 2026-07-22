@@ -34,6 +34,7 @@ describe('AgentRuntimeState', () => {
       subagentRegistry: firstSubagentRegistry,
       availableSkills: new Map(),
       workingDirectory: '/workspace/one',
+      scratchDirectory: '/scratch',
       signal: new AbortController().signal,
       onSubAgentEvent: () => undefined,
       getConfig: () => Promise.resolve(MAIN_CONFIG),
@@ -46,6 +47,7 @@ describe('AgentRuntimeState', () => {
       subagentRegistry: secondSubagentRegistry,
       availableSkills: new Map(),
       workingDirectory: '/workspace/two',
+      scratchDirectory: '/scratch',
       signal: new AbortController().signal,
       onSubAgentEvent: () => undefined,
       getConfig: () => Promise.resolve(MAIN_CONFIG),
@@ -85,6 +87,7 @@ describe('AgentRuntimeState', () => {
       subagentRegistry,
       availableSkills: new Map(),
       workingDirectory: '/workspace/project',
+      scratchDirectory: '/scratch',
       signal,
       onSubAgentEvent: (event) => {
         subAgentEvents.push(event);
@@ -119,6 +122,7 @@ describe('AgentRuntimeState', () => {
       subagentRegistry: new SubagentRegistry(),
       availableSkills: new Map(),
       workingDirectory: '/workspace/project',
+      scratchDirectory: '/scratch',
       signal: new AbortController().signal,
       onSubAgentEvent: () => undefined,
       getConfig: () => Promise.resolve(MAIN_CONFIG),

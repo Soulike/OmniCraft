@@ -21,6 +21,7 @@ export interface BuildToolExecutionContextInput {
   readonly subagentRegistry: SubagentRegistry;
   readonly availableSkills: ReadonlyMap<string, SkillDefinition>;
   readonly workingDirectory: string;
+  readonly scratchDirectory: string;
   readonly signal: AbortSignal;
   readonly onSubAgentEvent: (event: SseSubAgentEvent) => void;
   readonly getConfig: () => Promise<LlmConfig>;
@@ -78,6 +79,7 @@ export class AgentRuntimeState {
       subagentRegistry: input.subagentRegistry,
       availableSkills: input.availableSkills,
       workingDirectory: input.workingDirectory,
+      scratchDirectory: input.scratchDirectory,
       fileCache: this.fileCache,
       fileStatTracker: this.fileStatTracker,
       shellState: this.shellState,
