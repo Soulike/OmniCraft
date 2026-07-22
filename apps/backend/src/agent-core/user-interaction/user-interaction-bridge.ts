@@ -19,6 +19,11 @@ export class UserInteractionBridge {
     }
   >();
 
+  /** Whether any interaction is currently awaiting a user response. */
+  get hasPending(): boolean {
+    return this.pending.size > 0;
+  }
+
   /**
    * Registers a pending interaction and waits for the user's response.
    *
