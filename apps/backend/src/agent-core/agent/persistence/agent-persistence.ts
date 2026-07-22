@@ -27,6 +27,10 @@ class AgentPersistence {
     return path.join(sessionsDir, id, 'sse-events.jsonl');
   }
 
+  scratchPath(sessionsDir: string, id: string): string {
+    return path.join(sessionsDir, id, 'scratch');
+  }
+
   persistSnapshot(
     sessionsDir: string,
     id: string,
