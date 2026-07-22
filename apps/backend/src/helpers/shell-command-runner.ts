@@ -2,11 +2,31 @@ import assert from 'node:assert';
 import type {ChildProcess} from 'node:child_process';
 import {spawn} from 'node:child_process';
 import crypto from 'node:crypto';
+import type {WriteStream} from 'node:fs';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
 import {createTempFileWriteStream} from './fs.js';
+
+/**
+ * Resolves when the stream finishes writing OR errors; a stream error is
+ * reported through `onError` instead of rejecting, so a failure that happens
+ * before the caller awaits the promise cannot surface as an early unhandled
+ * rejection.
+ */
+function settleStream(
+  stream: WriteStream,
+  onError: (error: Error) => void,
+): Promise<void> {
+  return new Promise((resolve) => {
+    stream.on('finish', resolve);
+    stream.on('error', (error: Error) => {
+      onError(error);
+      resolve();
+    });
+  });
+}
 
 /** Result returned by {@link ShellCommandRunner.run}. */
 export interface ShellCommandResult {
@@ -55,6 +75,7 @@ export class ShellCommandRunner {
   private readonly cwd: string;
   private readonly timeout: number;
   private readonly signal?: AbortSignal;
+  private readonly outputDir: string;
   private readonly cwdFilePath: string;
 
   private executed = false;
@@ -64,11 +85,13 @@ export class ShellCommandRunner {
     cwd: string,
     timeout: number,
     signal?: AbortSignal,
+    outputDir: string = os.tmpdir(),
   ) {
     this.command = command;
     this.cwd = cwd;
     this.timeout = timeout;
     this.signal = signal;
+    this.outputDir = outputDir;
     this.cwdFilePath = path.join(
       os.tmpdir(),
       `omni-cwd-${crypto.randomUUID()}.txt`,
@@ -80,15 +103,23 @@ export class ShellCommandRunner {
     assert(!this.executed, 'run() can only be called once');
     this.executed = true;
 
-    const stdoutFile = createTempFileWriteStream('.txt');
-    const stderrFile = createTempFileWriteStream('.txt');
+    const stdoutFile = createTempFileWriteStream('.txt', this.outputDir);
+    const stderrFile = createTempFileWriteStream('.txt', this.outputDir);
 
-    const stdoutFinished = new Promise<void>((resolve) => {
-      stdoutFile.stream.on('finish', resolve);
-    });
-    const stderrFinished = new Promise<void>((resolve) => {
-      stderrFile.stream.on('finish', resolve);
-    });
+    // Capture the first output-stream error instead of letting it surface as an
+    // unhandled 'error' event (which would terminate the process — e.g. when the
+    // scratch directory is removed by a concurrent session deletion and the open
+    // fails with ENOENT). The promises resolve on either `finish` or `error`, so
+    // a failure before we await them cannot become an early unhandled rejection;
+    // the captured error is re-thrown after both settle so run() fails cleanly.
+    // Held in an object so the assignment inside the callback is visible to the
+    // check below (a plain `let` would be narrowed to `null`).
+    const streamErrorRef: {current: Error | null} = {current: null};
+    const captureStreamError = (error: Error): void => {
+      streamErrorRef.current ??= error;
+    };
+    const stdoutFinished = settleStream(stdoutFile.stream, captureStreamError);
+    const stderrFinished = settleStream(stderrFile.stream, captureStreamError);
 
     let childPid: number | undefined;
 
@@ -114,6 +145,9 @@ export class ShellCommandRunner {
       stdoutFile.stream.end();
       stderrFile.stream.end();
       await Promise.all([stdoutFinished, stderrFinished]);
+      if (streamErrorRef.current) {
+        throw streamErrorRef.current;
+      }
 
       const cwd = await this.readCwdFile();
 

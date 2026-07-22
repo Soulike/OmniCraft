@@ -33,6 +33,7 @@ export interface ExecuteAgentToolInput {
   readonly subagentRegistry: SubagentRegistry;
   readonly availableSkills: ReadonlyMap<string, SkillDefinition>;
   readonly workingDirectory: string;
+  readonly scratchDirectory: string;
   readonly signal: AbortSignal;
   readonly getConfig: () => Promise<LlmConfig>;
   readonly getTierConfig: (tier: ModelTier) => Promise<LlmConfig>;
@@ -69,6 +70,7 @@ export class AgentToolExecutor {
       subagentRegistry: input.subagentRegistry,
       availableSkills: input.availableSkills,
       workingDirectory: input.workingDirectory,
+      scratchDirectory: input.scratchDirectory,
       signal: input.signal,
       onSubAgentEvent: (event) => {
         input.toolSseEventChannel.push(event);

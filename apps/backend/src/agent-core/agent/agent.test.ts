@@ -79,6 +79,11 @@ function testAgentOptions() {
   };
 }
 
+function track<T extends Agent>(agent: T): T {
+  tmpDirsToCleanup.add(path.dirname(agent.getScratchDirectory()));
+  return agent;
+}
+
 const tmpDirsToCleanup = new Set<string>();
 
 afterEach(() => {
@@ -263,9 +268,11 @@ describe('Agent title generation', () => {
       return mainCompletionStream();
     });
 
-    const agent = new TestAgent(() => Promise.resolve(MAIN_CONFIG), {
-      ...testAgentOptions(),
-    });
+    const agent = track(
+      new TestAgent(() => Promise.resolve(MAIN_CONFIG), {
+        ...testAgentOptions(),
+      }),
+    );
 
     const eventsPromise = collectUntilDone(agent);
     agent.enqueueUserTurn('Please help me rename a component');
@@ -323,9 +330,11 @@ describe('Agent usage reporting', () => {
           cacheReadInputTokens: 5,
         }),
       );
-    const agent = new UsageTestAgent(
-      () => Promise.resolve(MAIN_CONFIG),
-      testAgentOptions(),
+    const agent = track(
+      new UsageTestAgent(
+        () => Promise.resolve(MAIN_CONFIG),
+        testAgentOptions(),
+      ),
     );
 
     await collectAll(agent.streamForTest('first'));
@@ -362,9 +371,11 @@ describe('Agent usage reporting', () => {
         cacheReadInputTokens: 3,
       });
     });
-    const agent = new UsageTestAgent(
-      () => Promise.resolve(MAIN_CONFIG),
-      testAgentOptions(),
+    const agent = track(
+      new UsageTestAgent(
+        () => Promise.resolve(MAIN_CONFIG),
+        testAgentOptions(),
+      ),
     );
 
     const events = await collectAll(agent.streamForTest('compact this turn'));
@@ -395,9 +406,11 @@ describe('Agent usage reporting', () => {
         cacheReadInputTokens: 0,
       }),
     );
-    const agent = new UsageTestAgent(
-      () => Promise.resolve(MAIN_CONFIG),
-      testAgentOptions(),
+    const agent = track(
+      new UsageTestAgent(
+        () => Promise.resolve(MAIN_CONFIG),
+        testAgentOptions(),
+      ),
     );
 
     const events = await collectAll(agent.streamForTest('one round'));
@@ -439,11 +452,13 @@ describe('Agent usage reporting', () => {
     const registry = TestToolRegistry.createForTest();
     registry.register(createMockTool('mock_tool'));
 
-    const agent = new UsageTestAgent(() => Promise.resolve(MAIN_CONFIG), {
-      ...testAgentOptions(),
-      toolRegistries: [registry],
-      getMaxToolRounds: () => 5,
-    });
+    const agent = track(
+      new UsageTestAgent(() => Promise.resolve(MAIN_CONFIG), {
+        ...testAgentOptions(),
+        toolRegistries: [registry],
+        getMaxToolRounds: () => 5,
+      }),
+    );
 
     const events = await collectAll(agent.streamForTest('use the tool'));
 
@@ -487,9 +502,11 @@ describe('Agent compaction lifecycle', () => {
       .mockImplementation(async function* () {
         order.push('compact');
       });
-    const agent = new UsageTestAgent(
-      () => Promise.resolve(MAIN_CONFIG),
-      testAgentOptions(),
+    const agent = track(
+      new UsageTestAgent(
+        () => Promise.resolve(MAIN_CONFIG),
+        testAgentOptions(),
+      ),
     );
 
     for await (const event of agent.streamForTest('Finish the task')) {
@@ -507,10 +524,8 @@ describe('Agent compaction lifecycle', () => {
 
   it('emits a clear error when pre-call compaction fails', async () => {
     vi.spyOn(llmApi, 'streamCompletion').mockReturnValue(failingStream());
-    const agent = new TestAgent(
-      () => Promise.resolve(MAIN_CONFIG),
-      testAgentOptions(),
-      {
+    const agent = track(
+      new TestAgent(() => Promise.resolve(MAIN_CONFIG), testAgentOptions(), {
         id: crypto.randomUUID(),
         title: 'Existing Title',
         sseEventCount: 0,
@@ -528,7 +543,7 @@ describe('Agent compaction lifecycle', () => {
         },
         todos: [],
         options: {},
-      },
+      }),
     );
 
     const eventsPromise = collectUntilError(agent);
@@ -580,9 +595,8 @@ describe('Agent compaction lifecycle', () => {
         yield fakeEnd;
       });
 
-    const agent = new TestAgent(
-      () => Promise.resolve(MAIN_CONFIG),
-      testAgentOptions(),
+    const agent = track(
+      new TestAgent(() => Promise.resolve(MAIN_CONFIG), testAgentOptions()),
     );
     const eventsPromise = collectUntilDone(agent);
     agent.enqueueUserTurn('hi');
@@ -625,9 +639,8 @@ describe('Agent compaction lifecycle', () => {
         throw new Error('provider failed');
       });
 
-    const agent = new TestAgent(
-      () => Promise.resolve(MAIN_CONFIG),
-      testAgentOptions(),
+    const agent = track(
+      new TestAgent(() => Promise.resolve(MAIN_CONFIG), testAgentOptions()),
     );
     const eventsPromise = collectUntilDone(agent);
     agent.enqueueUserTurn('hi');
@@ -658,9 +671,8 @@ describe('Agent abort flow', () => {
       streamUntilAbortedThenThrow(options.signal),
     );
 
-    const agent = new TestAgent(
-      () => Promise.resolve(MAIN_CONFIG),
-      testAgentOptions(),
+    const agent = track(
+      new TestAgent(() => Promise.resolve(MAIN_CONFIG), testAgentOptions()),
     );
 
     const eventsPromise = collectUntilTerminal(agent);
@@ -682,9 +694,8 @@ describe('Agent abort flow', () => {
       failingStreamAfterStart(),
     );
 
-    const agent = new TestAgent(
-      () => Promise.resolve(MAIN_CONFIG),
-      testAgentOptions(),
+    const agent = track(
+      new TestAgent(() => Promise.resolve(MAIN_CONFIG), testAgentOptions()),
     );
 
     const eventsPromise = collectUntilTerminal(agent);
@@ -718,10 +729,8 @@ describe('Agent abort flow', () => {
         return mainCompletionStream();
       });
 
-    const agent = new TestAgent(
-      () => Promise.resolve(MAIN_CONFIG),
-      testAgentOptions(),
-      {
+    const agent = track(
+      new TestAgent(() => Promise.resolve(MAIN_CONFIG), testAgentOptions(), {
         id: crypto.randomUUID(),
         title: 'Existing Title',
         sseEventCount: 0,
@@ -739,7 +748,7 @@ describe('Agent abort flow', () => {
         },
         todos: [],
         options: {},
-      },
+      }),
     );
 
     const firstTurn = collectUntilTerminal(agent);
@@ -801,11 +810,13 @@ describe('Agent abort flow', () => {
     const registry = TestToolRegistry.createForTest();
     registry.register(createMockTool('mock_tool'));
 
-    const agent = new TestAgent(() => Promise.resolve(MAIN_CONFIG), {
-      ...testAgentOptions(),
-      toolRegistries: [registry],
-      getMaxToolRounds: () => 5,
-    });
+    const agent = track(
+      new TestAgent(() => Promise.resolve(MAIN_CONFIG), {
+        ...testAgentOptions(),
+        toolRegistries: [registry],
+        getMaxToolRounds: () => 5,
+      }),
+    );
 
     const eventsPromise = collectUntilTerminal(agent);
     agent.enqueueUserTurn('Use the tool then abort');
@@ -828,7 +839,9 @@ describe('Agent snapshot restore', () => {
 
   it('exposes working directory for live subagent events', () => {
     const options = testAgentOptions();
-    const agent = new TestAgent(() => Promise.resolve(MAIN_CONFIG), options);
+    const agent = track(
+      new TestAgent(() => Promise.resolve(MAIN_CONFIG), options),
+    );
 
     expect(agent.getWorkingDirectory()).toBe(options.workingDirectory);
     expect(agent.getSseEventCount()).toBe(0);
@@ -855,10 +868,12 @@ describe('Agent snapshot restore', () => {
       },
     };
 
-    const agent = new TestAgent(
-      () => Promise.resolve(MAIN_CONFIG),
-      testAgentOptions(),
-      snapshot,
+    const agent = track(
+      new TestAgent(
+        () => Promise.resolve(MAIN_CONFIG),
+        testAgentOptions(),
+        snapshot,
+      ),
     );
 
     expect(agent.toSnapshot().todos).toEqual(snapshot.todos);
@@ -882,21 +897,19 @@ describe('Agent snapshot restore', () => {
       },
     };
 
-    const agent = new TestAgent(
-      () => Promise.resolve(MAIN_CONFIG),
-      testAgentOptions(),
-      snapshot,
+    const agent = track(
+      new TestAgent(
+        () => Promise.resolve(MAIN_CONFIG),
+        testAgentOptions(),
+        snapshot,
+      ),
     );
 
     expect(agent.toSnapshot().todos).toEqual([]);
   });
 });
 
-describe('Agent default working directory', () => {
-  // Helpers: these tests intentionally exercise the constructor's default
-  // path (no workingDirectory passed), which creates `<tmpdir>/<agent-id>`.
-  // We register that path for cleanup ourselves since testAgentOptions()'s
-  // default workingDirectory is what we're trying to bypass here.
+describe('Agent scratch directory', () => {
   function defaultedOptions() {
     const {workingDirectory: _omit, ...rest} = testAgentOptions();
     return rest;
@@ -907,22 +920,22 @@ describe('Agent default working directory', () => {
     return dir;
   }
 
-  it('creates a per-id tmp directory for a fresh agent', () => {
+  it('creates a per-id scratch dir and uses it as the working directory when none is provided', () => {
     const agent = new TestAgent(
       () => Promise.resolve(MAIN_CONFIG),
       defaultedOptions(),
     );
+    registerAgentTmpDir(agent.id);
 
-    const expected = registerAgentTmpDir(agent.id);
-    const {workingDirectory} = agent.toSnapshot().options;
-    expect(workingDirectory).toBe(expected);
+    const expected = path.join(realpathSync(os.tmpdir()), agent.id, 'scratch');
+    expect(agent.getScratchDirectory()).toBe(expected);
+    expect(agent.getWorkingDirectory()).toBe(expected);
+    expect(agent.toSnapshot().options.workingDirectory).toBeUndefined();
     expect(statSync(expected).isDirectory()).toBe(true);
-    // Owner-only access. On macOS the parent tmp dir is already 0o700, but
-    // we still assert the per-agent dir landed on the mode we asked for.
     expect(statSync(expected).mode & 0o777).toBe(0o700);
   });
 
-  it('creates a per-id tmp directory when restoring a snapshot without workingDirectory', () => {
+  it('derives scratch from a restored snapshot without a working directory', () => {
     const id = crypto.randomUUID();
     const snapshot: AgentSnapshot = {
       id,
@@ -938,16 +951,17 @@ describe('Agent default working directory', () => {
       todos: [],
       options: {},
     };
-
     const agent = new TestAgent(
       () => Promise.resolve(MAIN_CONFIG),
       defaultedOptions(),
       snapshot,
     );
+    registerAgentTmpDir(id);
 
-    const expected = registerAgentTmpDir(id);
-    expect(agent.toSnapshot().options.workingDirectory).toBe(expected);
-    expect(statSync(expected).isDirectory()).toBe(true);
+    const expected = path.join(realpathSync(os.tmpdir()), id, 'scratch');
+    expect(agent.getScratchDirectory()).toBe(expected);
+    expect(agent.getWorkingDirectory()).toBe(expected);
+    expect(agent.toSnapshot().options.workingDirectory).toBeUndefined();
   });
 
   it('rejects snapshots whose id is not a UUID', () => {
@@ -975,12 +989,21 @@ describe('Agent default working directory', () => {
     ).toThrow();
   });
 
-  it('respects an explicit workingDirectory and skips tmp dir creation', () => {
+  it('keeps an explicit working directory and still creates a separate scratch dir', () => {
     const explicit = realpathSync(os.tmpdir());
     const agent = new TestAgent(() => Promise.resolve(MAIN_CONFIG), {
       ...defaultedOptions(),
       workingDirectory: explicit,
     });
+    registerAgentTmpDir(agent.id);
+
+    const expectedScratch = path.join(
+      realpathSync(os.tmpdir()),
+      agent.id,
+      'scratch',
+    );
+    expect(agent.getWorkingDirectory()).toBe(explicit);
+    expect(agent.getScratchDirectory()).toBe(expectedScratch);
     expect(agent.toSnapshot().options.workingDirectory).toBe(explicit);
   });
 });
@@ -995,9 +1018,8 @@ describe('Agent turn scheduling', () => {
     vi.spyOn(llmApi, 'streamCompletion').mockImplementation(() =>
       mainCompletionStream(),
     );
-    const agent = new TestAgent(
-      () => Promise.resolve(MAIN_CONFIG),
-      testAgentOptions(),
+    const agent = track(
+      new TestAgent(() => Promise.resolve(MAIN_CONFIG), testAgentOptions()),
     );
 
     expect(agent.isRunning).toBe(false);
@@ -1012,9 +1034,8 @@ describe('Agent turn scheduling', () => {
     vi.spyOn(llmApi, 'streamCompletion').mockImplementation(() =>
       mainCompletionStream(),
     );
-    const agent = new TestAgent(
-      () => Promise.resolve(MAIN_CONFIG),
-      testAgentOptions(),
+    const agent = track(
+      new TestAgent(() => Promise.resolve(MAIN_CONFIG), testAgentOptions()),
     );
 
     agent.enqueueUserTurn('first');
@@ -1045,9 +1066,8 @@ describe('Agent turn scheduling', () => {
     vi.spyOn(llmApi, 'streamCompletion').mockImplementation(() =>
       mainCompletionStream(),
     );
-    const agent = new TestAgent(
-      () => Promise.resolve(MAIN_CONFIG),
-      testAgentOptions(),
+    const agent = track(
+      new TestAgent(() => Promise.resolve(MAIN_CONFIG), testAgentOptions()),
     );
 
     expect(agent.tryStartUserTurn('first')).toBe(true);
@@ -1061,9 +1081,8 @@ describe('Agent turn scheduling', () => {
     vi.spyOn(llmApi, 'streamCompletion').mockImplementation(() =>
       mainCompletionStream(),
     );
-    const agent = new TestAgent(
-      () => Promise.resolve(MAIN_CONFIG),
-      testAgentOptions(),
+    const agent = track(
+      new TestAgent(() => Promise.resolve(MAIN_CONFIG), testAgentOptions()),
     );
 
     expect(agent.tryStartUserTurn('first')).toBe(true);
@@ -1096,9 +1115,8 @@ describe('Agent turn scheduling', () => {
       }
       return mainCompletionStream();
     });
-    const agent = new TestAgent(
-      () => Promise.resolve(MAIN_CONFIG),
-      testAgentOptions(),
+    const agent = track(
+      new TestAgent(() => Promise.resolve(MAIN_CONFIG), testAgentOptions()),
     );
 
     agent.enqueueUserTurn('first');

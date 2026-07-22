@@ -126,6 +126,14 @@ describe('agentPersistence', () => {
     });
   });
 
+  describe('scratchPath', () => {
+    it('returns the scratch subdirectory of the session directory', () => {
+      expect(agentPersistence.scratchPath('/sessions', 'abc')).toBe(
+        path.join('/sessions', 'abc', 'scratch'),
+      );
+    });
+  });
+
   describe('reconcileEventsFile', () => {
     it('keeps events up to sseEventCount', async () => {
       const events = [

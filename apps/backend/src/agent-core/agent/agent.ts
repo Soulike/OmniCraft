@@ -15,8 +15,8 @@ import type {LlmConfig} from '../llm-api/index.js';
 import {LlmSession} from '../llm-session/index.js';
 import type {ToolDefinition} from '../tool/index.js';
 import {AgentRuntimeState} from './agent-runtime-state.js';
+import {agentScratchDirectoryService} from './agent-scratch-directory-service.js';
 import {agentTurnRunner} from './agent-turn-runner.js';
-import {agentWorkingDirectoryService} from './agent-working-directory-service.js';
 import type {AgentSseLogReaderOptions} from './events/agent-sse-log.js';
 import {AgentSseLog} from './events/agent-sse-log.js';
 import {agentPersistence} from './persistence/agent-persistence.js';
@@ -63,6 +63,8 @@ export abstract class Agent {
 
   private readonly workingDirectory: string;
 
+  private readonly scratchDirectory: string;
+
   private readonly sessionsDir: string | null;
 
   private sseEventCount = 0;
@@ -102,23 +104,28 @@ export abstract class Agent {
 
     this.sessionsDir = options.sessionsDir ?? null;
 
+    let providedWorkingDirectory: string | undefined;
     if (snapshot) {
       this.id = snapshot.id;
       this.title = snapshot.title;
       this.sseEventCount = snapshot.sseEventCount;
-      this.workingDirectory =
-        snapshot.options.workingDirectory ??
-        agentWorkingDirectoryService.createDefaultWorkingDirectory(this.id);
+      providedWorkingDirectory = snapshot.options.workingDirectory;
       this.llmSession = new LlmSession(getConfig, snapshot.llmSession);
       this.subagentRegistry = new SubagentRegistry();
     } else {
       this.id = crypto.randomUUID();
-      this.workingDirectory =
-        options.workingDirectory ??
-        agentWorkingDirectoryService.createDefaultWorkingDirectory(this.id);
+      providedWorkingDirectory = options.workingDirectory;
       this.llmSession = new LlmSession(getConfig);
       this.subagentRegistry = new SubagentRegistry();
     }
+
+    this.scratchDirectory = agentScratchDirectoryService.createScratchDirectory(
+      this.sessionsDir,
+      this.id,
+    );
+    // A caller that provides no working directory has no project of its own, so
+    // the agent works directly in its scratch space.
+    this.workingDirectory = providedWorkingDirectory ?? this.scratchDirectory;
 
     this.sseLog = this.sessionsDir
       ? new AgentSseLog(agentPersistence.eventsPath(this.sessionsDir, this.id))
@@ -156,6 +163,11 @@ export abstract class Agent {
     return this.workingDirectory;
   }
 
+  /** Returns the Agent's per-session scratch directory. */
+  getScratchDirectory(): string {
+    return this.scratchDirectory;
+  }
+
   /** Returns the number of SSE events emitted by this Agent. */
   getSseEventCount(): number {
     return this.sseEventCount;
@@ -170,7 +182,13 @@ export abstract class Agent {
       llmSession: this.llmSession.toSnapshot(),
       todos: this.runtimeState.todosToSnapshot(),
       options: {
-        workingDirectory: this.workingDirectory,
+        // Persist only a real project directory. When the working directory is
+        // the scratch space (the caller provided none), store nothing so a
+        // restored agent re-derives its scratch-backed working directory.
+        workingDirectory:
+          this.workingDirectory === this.scratchDirectory
+            ? undefined
+            : this.workingDirectory,
       },
     };
   }
@@ -331,6 +349,7 @@ export abstract class Agent {
       sessionsDir: this.sessionsDir,
       subagentRegistry: this.subagentRegistry,
       workingDirectory: this.workingDirectory,
+      scratchDirectory: this.scratchDirectory,
       signal,
       llmSession: this.llmSession,
       runtimeState: this.runtimeState,

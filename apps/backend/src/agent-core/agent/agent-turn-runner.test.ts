@@ -138,6 +138,7 @@ function createInput(
     sessionsDir: null,
     subagentRegistry,
     workingDirectory,
+    scratchDirectory: overrides.scratchDirectory ?? '/scratch',
     signal: new AbortController().signal,
     llmSession,
     runtimeState: new AgentRuntimeState(workingDirectory),

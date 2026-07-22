@@ -14,6 +14,7 @@ function runtimeStateWithTodos(
     subagentRegistry: {} as never,
     availableSkills: new Map(),
     workingDirectory: '/workspace/project',
+    scratchDirectory: '/scratch',
     signal: new AbortController().signal,
     onSubAgentEvent: () => undefined,
     getConfig: () => Promise.reject(new Error('unused')),

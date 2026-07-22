@@ -44,6 +44,7 @@ export interface RunAgentTurnInput {
   readonly sessionsDir: string | null;
   readonly subagentRegistry: SubagentRegistry;
   readonly workingDirectory: string;
+  readonly scratchDirectory: string;
   readonly signal: AbortSignal;
   readonly llmSession: LlmSession;
   readonly runtimeState: AgentRuntimeState;
@@ -78,6 +79,7 @@ export class AgentTurnRunner {
       input.toolRegistries,
       input.skillRegistries,
       input.workingDirectory,
+      input.scratchDirectory,
     );
 
     const {
@@ -237,6 +239,7 @@ export class AgentTurnRunner {
             subagentRegistry: input.subagentRegistry,
             availableSkills,
             workingDirectory: input.workingDirectory,
+            scratchDirectory: input.scratchDirectory,
             signal: input.signal,
             getConfig: input.getConfig,
             getTierConfig: input.getTierConfig,
