@@ -4,6 +4,7 @@ import {
   chatCompletionsRequestSchema,
   createCodingSessionRequestSchema,
   createSessionRequestSchema,
+  listSessionsResponseSchema,
   sessionMetadataSchema,
 } from './schema.js';
 
@@ -67,5 +68,27 @@ describe('sessionMetadataSchema', () => {
   it('parses without isRunning (backward compatible)', () => {
     const parsed = sessionMetadataSchema.parse({id: ID, title: 'T'});
     expect(parsed.isRunning).toBeUndefined();
+  });
+
+  it('preserves isWaitingForInput when present', () => {
+    const parsed = sessionMetadataSchema.parse({
+      id: ID,
+      title: 'T',
+      isWaitingForInput: true,
+    });
+    expect(parsed.isWaitingForInput).toBe(true);
+  });
+
+  it('parses without isWaitingForInput (backward compatible)', () => {
+    const parsed = sessionMetadataSchema.parse({id: ID, title: 'T'});
+    expect(parsed.isWaitingForInput).toBeUndefined();
+  });
+
+  it('round-trips isWaitingForInput through listSessionsResponseSchema', () => {
+    const parsed = listSessionsResponseSchema.parse({
+      sessions: [{id: ID, title: 'T', isWaitingForInput: true}],
+      total: 1,
+    });
+    expect(parsed.sessions[0].isWaitingForInput).toBe(true);
   });
 });
