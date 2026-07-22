@@ -47,12 +47,29 @@ const enabledByAgentSchema = z.object({
     .default([]),
 } satisfies Record<AgentType, z.ZodType>);
 
-export const mcpSettingsSchema = z.object({
-  servers: z
-    .array(mcpServerSchema)
-    .describe('Configured MCP servers')
-    .default([]),
-  enabledByAgent: enabledByAgentSchema.prefault({}),
-});
+export const mcpSettingsSchema = z
+  .object({
+    servers: z
+      .array(mcpServerSchema)
+      .describe('Configured MCP servers')
+      .default([]),
+    enabledByAgent: enabledByAgentSchema.prefault({}),
+  })
+  .check((ctx) => {
+    const seen = new Set<string>();
+    for (const server of ctx.value.servers) {
+      if (!seen.has(server.name)) {
+        seen.add(server.name);
+        continue;
+      }
+      ctx.issues.push({
+        code: 'custom',
+        message: `Duplicate MCP server name: ${server.name}`,
+        input: ctx.value,
+        path: ['servers'],
+      });
+      break;
+    }
+  });
 
 export type McpSettings = z.infer<typeof mcpSettingsSchema>;

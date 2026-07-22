@@ -113,4 +113,41 @@ describe('McpToolRegistry', () => {
       '',
     );
   });
+
+  it('drops duplicate tool names from a single non-compliant server', async () => {
+    const duplicateTool: McpToolInfo = {
+      name: 'read',
+      description: 'read a file, again',
+      inputSchema: {type: 'object', properties: {}},
+    };
+    const otherTool: McpToolInfo = {
+      name: 'write',
+      description: 'write a file',
+      inputSchema: {type: 'object', properties: {}},
+    };
+    const duplicatingClient: McpClient = {
+      ...client,
+      listTools: () => Promise.resolve([tool, duplicateTool, otherTool]),
+    };
+    const mgr = McpManager.create(() => Promise.resolve(duplicatingClient));
+    mgr.applyConfig({
+      servers: [
+        {
+          name: 'fs',
+          transport: {type: 'stdio', command: 'x', args: [], env: {}},
+        },
+      ],
+      enabledByAgent: {chat: ['fs'], coding: []},
+    });
+    await vi.waitFor(() => {
+      expect(mgr.list()[0]?.status).toBe('connected');
+    });
+
+    const tools = new McpToolRegistry('chat', mgr).getAll();
+
+    expect(tools.map((t) => t.name).sort()).toEqual([
+      'mcp__fs__read',
+      'mcp__fs__write',
+    ]);
+  });
 });

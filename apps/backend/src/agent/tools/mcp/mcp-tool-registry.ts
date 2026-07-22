@@ -5,6 +5,7 @@ import type {
   McpToolDefinition,
 } from '@/agent-core/tool/index.js';
 import {ToolRegistry} from '@/agent-core/tool/index.js';
+import {logger} from '@/logger.js';
 import {McpManager} from '@/models/mcp-manager/index.js';
 
 const NAMESPACE_SEPARATOR = '__';
@@ -24,13 +25,27 @@ export class McpToolRegistry extends ToolRegistry {
 
   override getAll(): AnyToolDefinition[] {
     const out: McpToolDefinition[] = [];
+    const seenNames = new Set<string>();
     for (const {server, tools} of this.manager.getToolsForAgent(
       this.agentType,
     )) {
       for (const tool of tools) {
+        const name = toolName(server, tool.name);
+        // A non-compliant MCP server can list the same tool name twice.
+        // Keep the first occurrence and drop the rest so a single malformed
+        // server can't make buildAvailableTools() throw on a duplicate name
+        // and block every turn.
+        if (seenNames.has(name)) {
+          logger.warn(
+            {server, tool: tool.name},
+            'MCP server returned a duplicate tool name; dropping the duplicate',
+          );
+          continue;
+        }
+        seenNames.add(name);
         out.push({
           kind: 'mcp',
-          name: toolName(server, tool.name),
+          name,
           displayName: tool.title ?? `${server}: ${tool.name}`,
           description: tool.description,
           suppressToolEvents: false,

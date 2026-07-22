@@ -8,7 +8,10 @@ takes the tool execution as plain props and renders it.
 
 ```ts
 ToolExecutionCardView({
-  toolName, // ToolName — selects the per-tool parameter/result renderer
+  toolName, // string — selects the per-tool renderer. Built-in tools use
+  // ToolName values from @omnicraft/tool-schemas; external MCP
+  // tools use `mcp__<server>__<tool>` and fall back to a generic
+  // renderer.
   displayName, // label shown in the header
   arguments, // raw JSON arguments string (parsed per the tool's schema)
   status, // 'running' | 'done' | 'failure' | 'error'

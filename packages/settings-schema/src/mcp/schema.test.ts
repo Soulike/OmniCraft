@@ -45,6 +45,26 @@ describe('mcpSettingsSchema', () => {
     expect(result.success).toBe(false);
   });
 
+  it('rejects duplicate server names', () => {
+    const result = mcpSettingsSchema.safeParse({
+      servers: [
+        {name: 'fs', transport: {type: 'stdio', command: 'x'}},
+        {name: 'fs', transport: {type: 'stdio', command: 'y'}},
+      ],
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('accepts distinct server names', () => {
+    const result = mcpSettingsSchema.safeParse({
+      servers: [
+        {name: 'fs', transport: {type: 'stdio', command: 'x'}},
+        {name: 'remote', transport: {type: 'http', url: 'https://x.example'}},
+      ],
+    });
+    expect(result.success).toBe(true);
+  });
+
   it('is convertible to JSON Schema', () => {
     expect(() => z.toJSONSchema(mcpSettingsSchema)).not.toThrow();
   });

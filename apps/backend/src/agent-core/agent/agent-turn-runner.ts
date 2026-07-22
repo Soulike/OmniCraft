@@ -9,7 +9,6 @@ import type {
   SseToolExecuteEndEvent,
   SseToolExecuteStartEvent,
 } from '@omnicraft/sse-events';
-import type {ToolName} from '@omnicraft/tool-schemas';
 
 import {AsyncChannel} from '@/helpers/async-channel.js';
 import {logger} from '@/logger.js';
@@ -204,7 +203,7 @@ export class AgentTurnRunner {
         yield {
           type: 'tool-execute-start',
           callId: toolCall.callId,
-          toolName: tool.name as ToolName,
+          toolName: tool.name,
           displayName: tool.displayName,
           arguments: toolCall.arguments,
         } satisfies SseToolExecuteStartEvent;
