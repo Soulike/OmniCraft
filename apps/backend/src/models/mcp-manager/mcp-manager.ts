@@ -6,6 +6,7 @@ import {
   type Tool,
   ToolListChangedNotificationSchema,
 } from '@modelcontextprotocol/sdk/types.js';
+import type {McpServerStatusResponse} from '@omnicraft/api-schema';
 import type {
   AgentType,
   McpServer,
@@ -15,12 +16,7 @@ import type {
 import {logger} from '@/logger.js';
 
 import {createMcpClient} from './create-mcp-client.js';
-import type {
-  McpClient,
-  McpClientFactory,
-  McpServerStatus,
-  ServerStatus,
-} from './types.js';
+import type {McpClient, McpClientFactory, ServerStatus} from './types.js';
 
 /** A configured MCP server together with its live connection state. */
 interface ServerConnection {
@@ -184,7 +180,7 @@ export class McpManager {
     ) as Promise<CallToolResult>;
   }
 
-  list(): McpServerStatus[] {
+  list(): McpServerStatusResponse[] {
     return [...this.serverNameToConnections.values()].map((connection) => ({
       name: connection.server.name,
       transportType: connection.server.transport.type,

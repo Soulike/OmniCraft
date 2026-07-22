@@ -1,10 +1,11 @@
-import type {McpServerStatus} from '@/models/mcp-manager/index.js';
+import type {McpServerStatusResponse} from '@omnicraft/api-schema';
+
 import {McpManager} from '@/models/mcp-manager/index.js';
 
 /** Service layer for MCP server operations. */
 export const mcpService = {
   /** Returns connection status and discovered tools for each configured server. */
-  listServers(): McpServerStatus[] {
+  listServers(): McpServerStatusResponse[] {
     return McpManager.getInstance().list();
   },
 

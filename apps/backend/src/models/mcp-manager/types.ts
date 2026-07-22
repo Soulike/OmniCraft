@@ -1,4 +1,5 @@
 import type {Client} from '@modelcontextprotocol/sdk/client/index.js';
+import type {McpServerStatusResponse} from '@omnicraft/api-schema';
 import type {McpServer} from '@omnicraft/settings-schema';
 
 /**
@@ -13,13 +14,8 @@ export type McpClient = Pick<
 
 export type McpClientFactory = (server: McpServer) => Promise<McpClient>;
 
-export type ServerStatus = 'connecting' | 'connected' | 'error' | 'disabled';
-
-/** Shape returned by the status API (`GET /api/mcp/servers`). */
-export interface McpServerStatus {
-  readonly name: string;
-  readonly transportType: 'stdio' | 'http';
-  readonly status: ServerStatus;
-  readonly tools: {readonly name: string; readonly description: string}[];
-  readonly error?: string;
-}
+/**
+ * Connection lifecycle status. The source of truth is the API response schema
+ * (`mcpServerStatusSchema` in `@omnicraft/api-schema`), which this mirrors.
+ */
+export type ServerStatus = McpServerStatusResponse['status'];
