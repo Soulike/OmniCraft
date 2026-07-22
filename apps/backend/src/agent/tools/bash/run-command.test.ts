@@ -13,14 +13,19 @@ import {runCommandTool} from './run-command.js';
 
 describe('runCommandTool', () => {
   let tmpDir: string;
+  let scratchDir: string;
   let context: ToolExecutionContext;
 
   beforeEach(async () => {
     tmpDir = await fs.realpath(
       await fs.mkdtemp(path.join(os.tmpdir(), 'rct-test-')),
     );
+    scratchDir = await fs.realpath(
+      await fs.mkdtemp(path.join(os.tmpdir(), 'rct-scratch-')),
+    );
     context = createMockContext({
       workingDirectory: tmpDir,
+      scratchDirectory: scratchDir,
       fileCache: new FileContentCache(),
       shellState: {cwd: tmpDir},
     });
@@ -28,6 +33,7 @@ describe('runCommandTool', () => {
 
   afterEach(async () => {
     await fs.rm(tmpDir, {recursive: true, force: true});
+    await fs.rm(scratchDir, {recursive: true, force: true});
   });
 
   it('has the correct name', () => {
@@ -132,6 +138,23 @@ describe('runCommandTool', () => {
       expect(result.status).toBe('success');
       assert(result.status === 'success');
       expect(result.data.cwd).toBe(subDir);
+    });
+
+    it('persists cwd when a command navigates into the scratch directory', async () => {
+      const result = await runCommandTool.execute(
+        {command: `cd ${scratchDir}`},
+        context,
+      );
+      expect(context.shellState.cwd).toBe(scratchDir);
+      expect(result.status).toBe('success');
+      assert(result.status === 'success');
+      expect(result.data.cwd).toBe(scratchDir);
+    });
+
+    it('resets cwd when a command navigates outside both roots', async () => {
+      const result = await runCommandTool.execute({command: 'cd /'}, context);
+      expect(context.shellState.cwd).toBe(tmpDir);
+      expect(result.content).toContain('Working directory reset to:');
     });
   });
 });
