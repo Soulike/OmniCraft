@@ -153,4 +153,42 @@ describe('useAllCodingSessions', () => {
       vi.useRealTimers();
     }
   });
+
+  it('does not start overlapping polls while a request is in flight', async () => {
+    vi.useFakeTimers();
+    try {
+      // A load that stays pending — simulates response latency >= the interval.
+      let resolvePending!: (value: unknown) => void;
+      listSessions.mockReturnValueOnce(
+        new Promise((resolve) => {
+          resolvePending = resolve;
+        }),
+      );
+
+      renderHook(() => useAllCodingSessions(), {wrapper});
+      // The mount load fires once and stays pending.
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
+      expect(listSessions).toHaveBeenCalledTimes(1);
+
+      // Several poll intervals elapse while that request is still pending; the
+      // poll must skip its ticks rather than pile up overlapping requests (which
+      // would also bump generationRef and starve every response).
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(9000);
+      });
+      expect(listSessions).toHaveBeenCalledTimes(1);
+
+      // Once the pending request settles, the next tick polls again.
+      listSessions.mockResolvedValue({sessions: [], total: 0});
+      await act(async () => {
+        resolvePending({sessions: [], total: 0});
+        await vi.advanceTimersByTimeAsync(3000);
+      });
+      expect(listSessions).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });
