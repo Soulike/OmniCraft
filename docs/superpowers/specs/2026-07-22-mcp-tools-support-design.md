@@ -65,8 +65,8 @@ scheduled for the UX round.
                             └───────────────┬───────────────────────────────┘
                                             │ synchronous reads (no await, no disk)
               ┌─────────────────────────────┴──────────────────────────────┐
-       new McpToolRegistry(AgentType.CHAT)              new McpToolRegistry(AgentType.CODING)
-       (in MainAgent.toolRegistries)                    (in CodingAgent.toolRegistries)
+       getMcpToolRegistry(AgentType.CHAT)               getMcpToolRegistry(AgentType.CODING)
+       (shared per-AgentType singleton)                 (shared per-AgentType singleton)
               │  getAll() ← called per turn by buildAvailableTools()
               ▼
        for each server where kinds.has(myKind) and status==='connected':
@@ -322,7 +322,26 @@ Connection uses `Client` + `StdioClientTransport` (command/args/env) or
 
 ### 5. Tool bridging (`apps/backend/src/agent/tools/mcp/`)
 
-`McpToolRegistry extends ToolRegistry`, one instance per `AgentType`. Overrides:
+`McpToolRegistry extends ToolRegistry`, parameterized by `AgentType`. It is
+**stateless** — it reads the shared `McpManager` snapshot on every call — so a
+single instance is shared **per agent type**, not one per agent/session instance
+(matching the module-level singleton pattern of the other registries). A lazy,
+memoized factory keyed by `AgentType` provides them:
+
+```ts
+const registries = new Map<AgentType, McpToolRegistry>();
+
+/** Shared, lazily-created MCP tool registry for an agent type. */
+export function getMcpToolRegistry(agentType: AgentType): McpToolRegistry {
+  const existing = registries.get(agentType);
+  if (existing) return existing;
+  const registry = new McpToolRegistry(agentType);
+  registries.set(agentType, registry);
+  return registry;
+}
+```
+
+Overrides:
 
 - `getAll(): AnyToolDefinition[]` — `mcpManager.getToolsForAgent(this.kind)`,
   mapping each `McpToolInfo` to an `McpToolDefinition`:
@@ -339,7 +358,9 @@ Connection uses `Client` + `StdioClientTransport` (command/args/env) or
   servers and tool counts (empty string when none).
 
 Because the base `register()`/private map is for static tools, this registry
-does not use them; it computes tools live from the manager.
+does not use them; it computes tools live from the manager. Production wiring
+goes through `getMcpToolRegistry`; tests construct `new McpToolRegistry(kind)`
+directly for isolation (per the base class's testing note).
 
 **Result mapping** (`McpCallResult` → `ToolExecuteResult`): concatenate MCP text
 content blocks into `content` (non-text blocks summarized as a short placeholder
@@ -391,10 +412,10 @@ no new write endpoint.
 
 ### 9. Wiring
 
-- `agent/agents/main-agent/main-agent.ts`: add `new McpToolRegistry(AgentType.CHAT)`
+- `agent/agents/main-agent/main-agent.ts`: add `getMcpToolRegistry(AgentType.CHAT)`
   to `toolRegistries`.
 - `agent/agents/coding-agent/coding-agent.ts`: add
-  `new McpToolRegistry(AgentType.CODING)`.
+  `getMcpToolRegistry(AgentType.CODING)`.
 - `startup/init-services.ts`: after the settings manager is ready, create the
   `McpManager` singleton, subscribe it to settings changes
   (`settingsManager.onChange(s => mcpManager.applyConfig(s.mcp))`), and run the
