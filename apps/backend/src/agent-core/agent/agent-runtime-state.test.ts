@@ -22,16 +22,6 @@ const LIGHT_CONFIG: LlmConfig = {
   model: 'light-model',
 };
 
-const CONFIG: LlmConfig = {
-  apiFormat: 'claude',
-  apiKey: '',
-  baseUrl: 'https://api.anthropic.com',
-  model: 'mock-model',
-  thinkingLevel: 'none',
-  maxContextTokens: 200_000,
-  maxOutputTokens: 32_000,
-};
-
 describe('AgentRuntimeState', () => {
   it('keeps shell and todo state isolated per agent instance', () => {
     const first = new AgentRuntimeState('/workspace/one');
@@ -182,8 +172,8 @@ describe('AgentRuntimeState.isWaitingForInput', () => {
       onSubAgentEvent: () => {
         // noop — the delegation test ignores subagent events
       },
-      getConfig: () => Promise.resolve(CONFIG),
-      getTierConfig: () => Promise.resolve(CONFIG),
+      getConfig: () => Promise.resolve(MAIN_CONFIG),
+      getTierConfig: () => Promise.resolve(MAIN_CONFIG),
     });
 
     expect(state.isWaitingForInput).toBe(false);

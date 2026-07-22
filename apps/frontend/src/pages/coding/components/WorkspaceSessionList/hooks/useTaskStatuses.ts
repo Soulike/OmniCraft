@@ -67,16 +67,16 @@ export function useTaskStatuses(
   }, [currentRunning, presentIds, selectedId]);
 
   return useMemo(() => {
+    const deriveStatus = (s: SessionMetadata): TaskStatus => {
+      if (currentWaiting.has(s.id)) return 'waiting';
+      if (currentRunning.has(s.id)) return 'running';
+      if (s.id !== selectedId && doneIds.has(s.id)) return 'done';
+      return 'idle';
+    };
+
     const map = new Map<string, TaskStatus>();
     for (const s of sessions) {
-      const status: TaskStatus = currentWaiting.has(s.id)
-        ? 'waiting'
-        : currentRunning.has(s.id)
-          ? 'running'
-          : s.id !== selectedId && doneIds.has(s.id)
-            ? 'done'
-            : 'idle';
-      map.set(s.id, status);
+      map.set(s.id, deriveStatus(s));
     }
     return map;
   }, [sessions, currentWaiting, currentRunning, doneIds, selectedId]);
