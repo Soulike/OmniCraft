@@ -14,6 +14,9 @@ import {
  */
 const FETCH_ALL_LIMIT = Number.MAX_SAFE_INTEGER;
 
+/** Unconditional background poll cadence for running/idle + recency freshness. */
+const POLL_INTERVAL_MS = 3000;
+
 interface UseAllCodingSessionsResult {
   readonly sessions: readonly SessionMetadata[];
   readonly isLoading: boolean;
@@ -44,12 +47,18 @@ export function useAllCodingSessions(): UseAllCodingSessionsResult {
   // still current, so a slow earlier load can't overwrite a newer refresh.
   const generationRef = useRef(0);
 
+  // Count of reloads currently awaiting a response. The background poll skips a
+  // tick while this is non-zero, so a response slower than the poll interval can
+  // never accumulate overlapping requests or be starved by a newer generation.
+  const inFlightRef = useRef(0);
+
   const reload = useCallback(
     async (background: boolean) => {
       const generation = (generationRef.current += 1);
       if (!background) {
         setIsLoading(true);
       }
+      inFlightRef.current += 1;
       try {
         const result = await listSessions(0, FETCH_ALL_LIMIT);
         if (generation !== generationRef.current) {
@@ -63,6 +72,7 @@ export function useAllCodingSessions(): UseAllCodingSessionsResult {
         }
         setError(e instanceof Error ? e.message : 'Failed to load sessions');
       } finally {
+        inFlightRef.current -= 1;
         if (generation === generationRef.current) {
           setIsLoading(false);
         }
@@ -86,6 +96,20 @@ export function useAllCodingSessions(): UseAllCodingSessionsResult {
       eventBus.off('session-title', onRefresh);
     };
   }, [eventBus, reload]);
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      // Skip this tick if a request is already in flight, so responses slower
+      // than the interval don't overlap or starve one another.
+      if (inFlightRef.current > 0) {
+        return;
+      }
+      void reload(true);
+    }, POLL_INTERVAL_MS);
+    return () => {
+      clearInterval(id);
+    };
+  }, [reload]);
 
   const removeSession = useCallback(
     async (id: string) => {

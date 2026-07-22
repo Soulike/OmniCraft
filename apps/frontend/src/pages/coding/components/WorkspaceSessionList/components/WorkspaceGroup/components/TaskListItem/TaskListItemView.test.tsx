@@ -1,6 +1,8 @@
 import {cleanup, render, screen} from '@testing-library/react';
 import {afterEach, describe, expect, it} from 'vitest';
 
+import type {TaskStatus} from '@/components/TaskStatusIndicator/index.js';
+
 import {TaskListItemView} from './TaskListItemView.js';
 
 afterEach(() => {
@@ -10,6 +12,7 @@ afterEach(() => {
 const baseProps = {
   title: 'Fix the thing',
   timeLabel: '2h ago' as string | null,
+  status: 'idle' as TaskStatus,
   isSelected: false,
   isDeleteOpen: false,
   onDeleteOpenChange: () => undefined,
@@ -35,5 +38,13 @@ describe('TaskListItemView', () => {
     expect(
       screen.getByRole('button', {name: 'Delete task'}),
     ).toBeInTheDocument();
+  });
+
+  it('renders the status indicator', () => {
+    render(<TaskListItemView {...baseProps} status='running' />);
+    expect(screen.getByTestId('task-status-indicator')).toHaveAttribute(
+      'data-status',
+      'running',
+    );
   });
 });

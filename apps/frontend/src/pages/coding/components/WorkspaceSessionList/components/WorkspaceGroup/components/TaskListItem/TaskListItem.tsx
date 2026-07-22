@@ -1,3 +1,4 @@
+import type {TaskStatus} from '@/components/TaskStatusIndicator/index.js';
 import {formatRelativeTime} from '@/helpers/format-relative-time.js';
 
 import {useTaskDeletion} from './hooks/useTaskDeletion.js';
@@ -6,6 +7,7 @@ import {TaskListItemView} from './TaskListItemView.js';
 interface TaskListItemProps {
   title: string;
   updatedAt?: number;
+  status: TaskStatus;
   isSelected: boolean;
   now: number;
   onDelete: () => Promise<void>;
@@ -14,6 +16,7 @@ interface TaskListItemProps {
 export function TaskListItem({
   title,
   updatedAt,
+  status,
   isSelected,
   now,
   onDelete,
@@ -27,6 +30,7 @@ export function TaskListItem({
     <TaskListItemView
       title={title}
       timeLabel={timeLabel}
+      status={status}
       isSelected={isSelected}
       isDeleteOpen={isDeleteOpen}
       onDeleteOpenChange={onDeleteOpenChange}
