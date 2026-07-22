@@ -7,6 +7,7 @@ export const todoListTool: ToolDefinition<
   typeof todoListParametersSchema,
   TodoResult
 > = {
+  kind: 'internal',
   name: 'todo_list',
   displayName: 'Todo List',
   description:

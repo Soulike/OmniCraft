@@ -84,6 +84,7 @@ describe('AgentToolExecutor', () => {
     };
     const parameters = z.object({value: z.string()});
     const tool: ToolDefinition<typeof parameters> = {
+      kind: 'internal',
       name: 'mock_tool',
       displayName: 'Mock Tool',
       description: 'Tool used by the executor test',
@@ -132,6 +133,7 @@ describe('AgentToolExecutor', () => {
   it('does not create output callbacks for suppressed tools', async () => {
     let onOutputWasProvided = false;
     const tool: ToolDefinition = {
+      kind: 'internal',
       name: 'mock_tool',
       displayName: 'Mock Tool',
       description: 'Suppressed tool used by the executor test',
@@ -155,6 +157,7 @@ describe('AgentToolExecutor', () => {
 
   it('normalizes thrown tool errors into error results', async () => {
     const tool: ToolDefinition = {
+      kind: 'internal',
       name: 'mock_tool',
       displayName: 'Mock Tool',
       description: 'Throwing tool used by the executor test',

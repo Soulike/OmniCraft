@@ -32,6 +32,7 @@ type ReadFileResult = z.infer<typeof readFileResultSchema>;
 
 /** Built-in tool that reads text file contents with line numbers. */
 export const readFileTool: ToolDefinition<typeof parameters, ReadFileResult> = {
+  kind: 'internal',
   name: TOOL_NAME.READ_FILE,
   displayName: 'Read File',
   description:

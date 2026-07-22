@@ -21,6 +21,7 @@ const messages: LlmMessage[] = [
 
 const tools: ToolDefinition[] = [
   {
+    kind: 'internal',
     name: 'read_file',
     displayName: 'Read File',
     description: 'Read a file',

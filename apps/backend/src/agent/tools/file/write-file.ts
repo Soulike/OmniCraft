@@ -27,6 +27,7 @@ type WriteFileResult = z.infer<typeof writeFileResultSchema>;
 /** Built-in tool that creates or overwrites a file. */
 export const writeFileTool: ToolDefinition<typeof parameters, WriteFileResult> =
   {
+    kind: 'internal',
     name: TOOL_NAME.WRITE_FILE,
     displayName: 'Write File',
     description:

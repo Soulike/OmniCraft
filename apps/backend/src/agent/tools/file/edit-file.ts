@@ -37,6 +37,7 @@ function countOccurrences(content: string, search: string): number {
 
 /** Built-in tool that makes targeted string replacements in a file. */
 export const editFileTool: ToolDefinition<typeof parameters, EditFileResult> = {
+  kind: 'internal',
   name: TOOL_NAME.EDIT_FILE,
   displayName: 'Edit File',
   description:

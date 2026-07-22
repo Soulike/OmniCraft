@@ -7,6 +7,7 @@ export const todoClearTool: ToolDefinition<
   typeof todoClearParametersSchema,
   TodoResult
 > = {
+  kind: 'internal',
   name: 'todo_clear',
   displayName: 'Todo Clear',
   description:

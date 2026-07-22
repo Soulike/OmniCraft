@@ -30,6 +30,7 @@ export const webFetchRawTool: ToolDefinition<
   typeof parameters,
   WebFetchRawResult
 > = {
+  kind: 'internal',
   name: TOOL_NAME.WEB_FETCH_RAW,
   displayName: 'Web Fetch Raw',
   description:

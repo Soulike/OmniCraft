@@ -101,6 +101,7 @@ function formatResponse(
 type WebFetchResult = z.infer<typeof webFetchResultSchema>;
 
 export const webFetchTool: ToolDefinition<typeof parameters, WebFetchResult> = {
+  kind: 'internal',
   name: TOOL_NAME.WEB_FETCH,
   displayName: 'Web Fetch',
   description:

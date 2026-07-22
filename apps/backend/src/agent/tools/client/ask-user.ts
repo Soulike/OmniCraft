@@ -19,6 +19,7 @@ export const askUserTool: ToolDefinition<
   typeof askUserParametersSchema,
   AskUserResult
 > = {
+  kind: 'internal',
   name: TOOL_NAME.ASK_USER,
   displayName: 'Ask User',
   description:

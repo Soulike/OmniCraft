@@ -62,6 +62,7 @@ export const runCommandTool: ToolDefinition<
   typeof parameters,
   RunCommandResult
 > = {
+  kind: 'internal',
   name: TOOL_NAME.RUN_COMMAND,
   displayName: 'Run Command',
   description:

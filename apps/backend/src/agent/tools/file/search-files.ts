@@ -81,6 +81,7 @@ export const searchFilesTool: ToolDefinition<
   typeof parameters,
   SearchFilesResult
 > = {
+  kind: 'internal',
   name: TOOL_NAME.SEARCH_FILES,
   displayName: 'Search Files',
   description:

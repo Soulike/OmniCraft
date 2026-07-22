@@ -29,6 +29,7 @@ type FindFilesResult = z.infer<typeof findFilesResultSchema>;
 /** Built-in tool that searches for files matching a glob pattern. */
 export const findFilesTool: ToolDefinition<typeof parameters, FindFilesResult> =
   {
+    kind: 'internal',
     name: TOOL_NAME.FIND_FILES,
     displayName: 'Find Files',
     description:

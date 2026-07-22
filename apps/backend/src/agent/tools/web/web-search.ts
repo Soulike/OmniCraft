@@ -33,6 +33,7 @@ function formatResult(
 /** Tool that searches the web via Tavily. */
 export const webSearchTool: ToolDefinition<typeof parameters, WebSearchResult> =
   {
+    kind: 'internal',
     name: TOOL_NAME.WEB_SEARCH,
     displayName: 'Web Search',
     description:

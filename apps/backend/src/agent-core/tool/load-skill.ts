@@ -18,6 +18,7 @@ type LoadSkillResult = z.infer<typeof loadSkillResultSchema>;
 /** Built-in tool that loads a skill's full Markdown content into the conversation. */
 export const loadSkillTool: ToolDefinition<typeof parameters, LoadSkillResult> =
   {
+    kind: 'internal',
     name: TOOL_NAME.LOAD_SKILL,
     displayName: 'Load Skill',
     description:

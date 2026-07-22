@@ -7,6 +7,7 @@ export const todoUpdateTool: ToolDefinition<
   typeof todoUpdateParametersSchema,
   TodoResult
 > = {
+  kind: 'internal',
   name: 'todo_update',
   displayName: 'Todo Update',
   description:

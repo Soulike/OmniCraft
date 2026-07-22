@@ -7,6 +7,7 @@ export const todoAppendTool: ToolDefinition<
   typeof todoAppendParametersSchema,
   TodoResult
 > = {
+  kind: 'internal',
   name: 'todo_append',
   displayName: 'Todo Append',
   description:

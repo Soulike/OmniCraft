@@ -12,6 +12,7 @@ export const getCurrentTimeTool: ToolDefinition<
   typeof parameters,
   GetCurrentTimeResult
 > = {
+  kind: 'internal',
   name: TOOL_NAME.GET_CURRENT_TIME,
   displayName: 'Get Current Time',
   description:
