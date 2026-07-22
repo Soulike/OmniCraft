@@ -267,4 +267,66 @@ describe('McpManager', () => {
     expect(mgr.list()).toHaveLength(0);
     expect(mgr.getToolsForAgent('chat')).toEqual([]);
   });
+
+  it('closes the client when initial tool discovery fails', async () => {
+    const close = vi.fn(() => Promise.resolve());
+    const client: McpClient = {
+      ...fakeClient([]),
+      listTools: () => Promise.reject(new Error('discovery boom')),
+      close,
+    };
+    const mgr = McpManager.create(() => Promise.resolve(client));
+    mgr.applyConfig({
+      servers: [stdioServer],
+      enabledByAgent: {chat: ['fs'], coding: []},
+    });
+    await vi.waitFor(() => {
+      expect(mgr.list()[0]?.status).toBe('error');
+    });
+
+    expect(close).toHaveBeenCalledTimes(1);
+    expect(mgr.list()[0]?.error).toContain('discovery boom');
+  });
+
+  it('serializes tool refreshes so a slow earlier refresh cannot clobber a newer one', async () => {
+    const staleRefresh = deferred<{tools: Tool[]}>();
+    let notify: () => void = () => undefined;
+    let listCall = 0;
+    const client: McpClient = {
+      listTools: () => {
+        listCall += 1;
+        if (listCall === 1) {
+          return Promise.resolve({tools: [{...tool, name: 'initial'}]});
+        }
+        // The first refresh (call 2) is slow and carries older data; the
+        // second (call 3) is fast and carries the newest data.
+        if (listCall === 2) return staleRefresh.promise;
+        return Promise.resolve({tools: [{...tool, name: 'newest'}]});
+      },
+      callTool: () => Promise.resolve({content: [], isError: false}),
+      setNotificationHandler: (_schema, handler) => {
+        notify = handler as () => void;
+      },
+      close: () => Promise.resolve(),
+    };
+    const mgr = McpManager.create(() => Promise.resolve(client));
+    mgr.applyConfig({
+      servers: [stdioServer],
+      enabledByAgent: {chat: ['fs'], coding: []},
+    });
+    await vi.waitFor(() => {
+      expect(mgr.list()[0]?.status).toBe('connected');
+    });
+
+    // Two notifications arrive back to back; the earlier refresh resolves last
+    // with stale data. Serialization must still leave the newest snapshot.
+    notify();
+    notify();
+    staleRefresh.resolve({tools: [{...tool, name: 'stale'}]});
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
+    expect(mgr.getToolsForAgent('chat')[0]?.tools.map((t) => t.name)).toEqual([
+      'newest',
+    ]);
+  });
 });

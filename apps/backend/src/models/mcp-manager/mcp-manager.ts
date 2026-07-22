@@ -13,6 +13,7 @@ import type {
   McpSettings,
 } from '@omnicraft/settings-schema';
 
+import {AsyncQueue} from '@/helpers/async-queue.js';
 import {logger} from '@/logger.js';
 
 import {createMcpClient} from './create-mcp-client.js';
@@ -265,20 +266,27 @@ export class McpManager {
     this.serverNameToConnections.set(server.name, connection);
 
     void (async () => {
+      // The client stays local until the atomic `connected` publish below, so
+      // no `connecting` connection ever holds a client the union forbids. The
+      // `finally` closes the client whenever we still own it — a stale
+      // supersede, a discovery/handler rejection, or an error publish — so no
+      // failed connect leaks a transport. Ownership transfers to the
+      // connection at publish, where `client` is cleared so `finally` becomes a
+      // no-op and never closes a live connection.
+      let client: McpClient | undefined;
       try {
-        // The client stays local until the atomic `connected` publish below,
-        // so no `connecting` connection ever holds a client the union forbids.
-        // If this connect is superseded mid-flight, close the client we own.
-        const client = await this.createClient(server);
-        if (this.isStale(server.name, generation)) {
-          await client.close();
-          return;
-        }
+        client = await this.createClient(server);
+        if (this.isStale(server.name, generation)) return;
         const tools = await this.listAllTools(client);
-        if (this.isStale(server.name, generation)) {
-          await client.close();
-          return;
-        }
+        if (this.isStale(server.name, generation)) return;
+        // Serialize this connection's tools/list refreshes so a slow earlier
+        // refresh cannot overwrite a newer snapshot when notifications race.
+        const refreshQueue = new AsyncQueue();
+        client.setNotificationHandler(ToolListChangedNotificationSchema, () => {
+          void refreshQueue.enqueue(() =>
+            this.refreshTools(server.name, generation),
+          );
+        });
         // Read `connection.enabledAgentTypes` rather than the captured value:
         // applyConfig mutates that field on this same object, so an
         // enable/disable applied while connecting is reflected here.
@@ -289,9 +297,7 @@ export class McpManager {
           client,
           tools,
         });
-        client.setNotificationHandler(ToolListChangedNotificationSchema, () => {
-          void this.refreshTools(server.name, generation);
-        });
+        client = undefined; // ownership transferred to the connection
       } catch (e) {
         if (this.isStale(server.name, generation)) return;
         this.serverNameToConnections.set(server.name, {
@@ -301,6 +307,8 @@ export class McpManager {
           error: e instanceof Error ? e.message : String(e),
         });
         logger.warn({e, server: server.name}, 'MCP server connection failed');
+      } finally {
+        await client?.close().catch(() => undefined);
       }
     })();
   }
