@@ -63,8 +63,6 @@ export abstract class Agent {
 
   private readonly workingDirectory: string;
 
-  private readonly primaryWorkingDirectory: string | undefined;
-
   private readonly scratchDirectory: string;
 
   private readonly sessionsDir: string | null;
@@ -106,27 +104,28 @@ export abstract class Agent {
 
     this.sessionsDir = options.sessionsDir ?? null;
 
-    let primaryWorkingDirectory: string | undefined;
+    let providedWorkingDirectory: string | undefined;
     if (snapshot) {
       this.id = snapshot.id;
       this.title = snapshot.title;
       this.sseEventCount = snapshot.sseEventCount;
-      primaryWorkingDirectory = snapshot.options.workingDirectory;
+      providedWorkingDirectory = snapshot.options.workingDirectory;
       this.llmSession = new LlmSession(getConfig, snapshot.llmSession);
       this.subagentRegistry = new SubagentRegistry();
     } else {
       this.id = crypto.randomUUID();
-      primaryWorkingDirectory = options.workingDirectory;
+      providedWorkingDirectory = options.workingDirectory;
       this.llmSession = new LlmSession(getConfig);
       this.subagentRegistry = new SubagentRegistry();
     }
 
-    this.primaryWorkingDirectory = primaryWorkingDirectory;
     this.scratchDirectory = agentScratchDirectoryService.createScratchDirectory(
       this.sessionsDir,
       this.id,
     );
-    this.workingDirectory = primaryWorkingDirectory ?? this.scratchDirectory;
+    // A caller that provides no working directory has no project of its own, so
+    // the agent works directly in its scratch space.
+    this.workingDirectory = providedWorkingDirectory ?? this.scratchDirectory;
 
     this.sseLog = this.sessionsDir
       ? new AgentSseLog(agentPersistence.eventsPath(this.sessionsDir, this.id))
@@ -183,7 +182,13 @@ export abstract class Agent {
       llmSession: this.llmSession.toSnapshot(),
       todos: this.runtimeState.todosToSnapshot(),
       options: {
-        workingDirectory: this.primaryWorkingDirectory,
+        // Persist only a real project directory. When the working directory is
+        // the scratch space (the caller provided none), store nothing so a
+        // restored agent re-derives its scratch-backed working directory.
+        workingDirectory:
+          this.workingDirectory === this.scratchDirectory
+            ? undefined
+            : this.workingDirectory,
       },
     };
   }
