@@ -493,13 +493,6 @@ function s(
 Then add these tests inside the existing `describe('useTaskStatuses', ...)` block:
 
 ```ts
-it('reports waiting when a session is blocked on input', () => {
-  const {result} = renderHook(() =>
-    useTaskStatuses([s('a', true, true)], null),
-  );
-  expect(result.current.get('a')).toBe('waiting');
-});
-
 it('prefers waiting over running when both flags are set', () => {
   const {result} = renderHook(() =>
     useTaskStatuses([s('a', true, true)], null),
@@ -581,7 +574,7 @@ Also update the hook's doc comment: change the sentence about `waiting` not bein
 - [ ] **Step 4: Run the tests to verify they pass**
 
 Run: `pnpm --filter @omnicraft/frontend test src/pages/coding/components/WorkspaceSessionList/hooks/useTaskStatuses.test.ts`
-Expected: PASS (existing tests + 5 new waiting tests).
+Expected: PASS (existing tests + 4 new waiting tests).
 
 - [ ] **Step 5: Commit**
 
