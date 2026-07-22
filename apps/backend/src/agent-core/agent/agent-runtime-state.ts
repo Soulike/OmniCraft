@@ -69,6 +69,11 @@ export class AgentRuntimeState {
     return this.userInteractionBridge.submitResponse(id, result);
   }
 
+  /** Whether a client-side tool call is currently blocked awaiting the user. */
+  get isWaitingForInput(): boolean {
+    return this.userInteractionBridge.hasPending;
+  }
+
   buildToolExecutionContext(
     input: BuildToolExecutionContextInput,
   ): ToolExecutionContext {

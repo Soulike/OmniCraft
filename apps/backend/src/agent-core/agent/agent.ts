@@ -252,6 +252,11 @@ export abstract class Agent {
     return this.pendingTurnCount > 0 || this.isGeneratingTitle;
   }
 
+  /** Whether a client-side tool call is blocked awaiting the user's response. */
+  get isWaitingForInput(): boolean {
+    return this.runtimeState.isWaitingForInput;
+  }
+
   // -------------------------------------------------------------------------
   // Private helpers
   // -------------------------------------------------------------------------
