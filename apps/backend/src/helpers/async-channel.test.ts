@@ -306,7 +306,7 @@ describe('AsyncChannel', () => {
       expect(results).toEqual([]);
     });
 
-    it('drains values buffered before the abort, then ends iteration', async () => {
+    it('drops buffered values on abort instead of draining them', async () => {
       const controller = new AbortController();
       const channel = new AsyncChannel<number>(controller.signal);
 
@@ -325,7 +325,7 @@ describe('AsyncChannel', () => {
       controller.abort();
 
       const results = await resultPromise;
-      expect(results).toEqual([1, 2]);
+      expect(results).toEqual([]);
     });
 
     it('ends iteration immediately when the signal is already aborted', async () => {
@@ -356,26 +356,24 @@ describe('AsyncChannel', () => {
       expect(results).toEqual([]);
     });
 
-    it('delivers values buffered before the abort but drops those pushed after', async () => {
+    it('does not drain a queued backlog before ending on abort', async () => {
       const controller = new AbortController();
       const channel = new AsyncChannel<number>(controller.signal);
 
-      const resultPromise = (async () => {
-        const results: number[] = [];
-        for await (const value of channel) {
-          results.push(value);
-        }
-        return results;
-      })();
-
-      await Promise.resolve();
-
-      channel.push(1);
+      // A high-volume producer queues faster than the consumer drains it; on
+      // abort the whole backlog must be dropped rather than delivered first,
+      // so cancellation latency does not scale with the queue length.
+      for (let i = 0; i < 1000; i++) {
+        channel.push(i);
+      }
       controller.abort();
-      channel.push(2);
 
-      const results = await resultPromise;
-      expect(results).toEqual([1]);
+      const results: number[] = [];
+      for await (const value of channel) {
+        results.push(value);
+      }
+
+      expect(results).toEqual([]);
     });
 
     it('does not buffer values pushed after the abort', async () => {
