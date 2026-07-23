@@ -1,3 +1,4 @@
+import {Alert} from '@heroui/react';
 import type {AgentType} from '@omnicraft/settings-schema';
 
 import type {McpServerRow} from '../../helpers/merge-servers.js';
@@ -22,7 +23,18 @@ export function ServerList({
   onReconnect,
 }: ServerListProps) {
   if (rows.length === 0) {
-    return <p className={styles.empty}>No MCP servers configured yet.</p>;
+    return (
+      <Alert>
+        <Alert.Indicator />
+        <Alert.Content>
+          <Alert.Title>No MCP servers configured yet</Alert.Title>
+          <Alert.Description>
+            Add a server to make its tools available to the chat and coding
+            agents.
+          </Alert.Description>
+        </Alert.Content>
+      </Alert>
+    );
   }
 
   return (
