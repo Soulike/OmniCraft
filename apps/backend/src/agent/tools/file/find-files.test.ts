@@ -6,6 +6,7 @@ import path from 'node:path';
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 
 import {FileContentCache} from '@/agent-core/agent/state/file-content-cache.js';
+import {toolResultBlocksToText} from '@/agent-core/llm-api/index.js';
 import {createMockContext} from '@/agent-core/tool/testing.js';
 import type {ToolExecutionContext} from '@/agent-core/tool/types.js';
 
@@ -46,10 +47,10 @@ describe('findFilesTool', () => {
 
       const result = await findFilesTool.execute({pattern: '**/*.ts'}, context);
 
-      expect(result.content).toContain('Found 2 files');
-      expect(result.content).toContain('a.ts');
-      expect(result.content).toContain('b.ts');
-      expect(result.content).not.toContain('c.js');
+      expect(toolResultBlocksToText(result.content)).toContain('Found 2 files');
+      expect(toolResultBlocksToText(result.content)).toContain('a.ts');
+      expect(toolResultBlocksToText(result.content)).toContain('b.ts');
+      expect(toolResultBlocksToText(result.content)).not.toContain('c.js');
       expect(result.status).toBe('success');
       assert(result.status === 'success');
       expect(result.data.pattern).toBe('**/*.ts');
@@ -67,9 +68,11 @@ describe('findFilesTool', () => {
         context,
       );
 
-      expect(result.content).toContain('Found 2 files');
-      expect(result.content).toContain('src/foo.ts');
-      expect(result.content).toContain('src/bar/baz.ts');
+      expect(toolResultBlocksToText(result.content)).toContain('Found 2 files');
+      expect(toolResultBlocksToText(result.content)).toContain('src/foo.ts');
+      expect(toolResultBlocksToText(result.content)).toContain(
+        'src/bar/baz.ts',
+      );
       expect(result.status).toBe('success');
       assert(result.status === 'success');
       expect(result.data.files).toHaveLength(2);
@@ -82,7 +85,7 @@ describe('findFilesTool', () => {
 
       const result = await findFilesTool.execute({pattern: '**/*.ts'}, context);
 
-      const lines = result.content.split('\n');
+      const lines = toolResultBlocksToText(result.content).split('\n');
       const filePaths = lines.filter((l) => l.endsWith('.ts'));
       expect(filePaths).toEqual(['a.ts', 'b.ts', 'c.ts']);
       expect(result.status).toBe('success');
@@ -99,9 +102,9 @@ describe('findFilesTool', () => {
 
       const result = await findFilesTool.execute({pattern: '.*'}, context);
 
-      expect(result.content).toContain('.env');
-      expect(result.content).toContain('.gitignore');
-      expect(result.content).not.toContain('readme.md');
+      expect(toolResultBlocksToText(result.content)).toContain('.env');
+      expect(toolResultBlocksToText(result.content)).toContain('.gitignore');
+      expect(toolResultBlocksToText(result.content)).not.toContain('readme.md');
       expect(result.status).toBe('success');
       assert(result.status === 'success');
       expect(result.data.files).toHaveLength(2);
@@ -116,8 +119,8 @@ describe('findFilesTool', () => {
         context,
       );
 
-      expect(result.content).toContain('a.ts');
-      expect(result.content).not.toContain('b.ts');
+      expect(toolResultBlocksToText(result.content)).toContain('a.ts');
+      expect(toolResultBlocksToText(result.content)).not.toContain('b.ts');
       expect(result.status).toBe('success');
       assert(result.status === 'success');
       expect(result.data.files).toHaveLength(1);
@@ -132,8 +135,8 @@ describe('findFilesTool', () => {
         context,
       );
 
-      expect(result.content).toContain('a.ts');
-      expect(result.content).not.toContain('b.ts');
+      expect(toolResultBlocksToText(result.content)).toContain('a.ts');
+      expect(toolResultBlocksToText(result.content)).not.toContain('b.ts');
       expect(result.status).toBe('success');
       assert(result.status === 'success');
       expect(result.data.files).toHaveLength(1);
@@ -149,9 +152,9 @@ describe('findFilesTool', () => {
         context,
       );
 
-      expect(result.content).toContain('a.ts');
-      expect(result.content).toContain('b.tsx');
-      expect(result.content).not.toContain('c.js');
+      expect(toolResultBlocksToText(result.content)).toContain('a.ts');
+      expect(toolResultBlocksToText(result.content)).toContain('b.tsx');
+      expect(toolResultBlocksToText(result.content)).not.toContain('c.js');
       expect(result.status).toBe('success');
       assert(result.status === 'success');
       expect(result.data.files).toHaveLength(2);
@@ -163,7 +166,9 @@ describe('findFilesTool', () => {
         context,
       );
 
-      expect(result.content).toContain('No files found matching');
+      expect(toolResultBlocksToText(result.content)).toContain(
+        'No files found matching',
+      );
       expect(result.status).toBe('success');
       assert(result.status === 'success');
       expect(result.data.pattern).toBe('**/*.xyz');
@@ -179,9 +184,15 @@ describe('findFilesTool', () => {
 
       const result = await findFilesTool.execute({pattern: '**/*.ts'}, context);
 
-      expect(result.content).toContain('Found 100+ files');
-      expect(result.content).toContain('showing first 100');
-      expect(result.content).toContain('Use a more specific pattern');
+      expect(toolResultBlocksToText(result.content)).toContain(
+        'Found 100+ files',
+      );
+      expect(toolResultBlocksToText(result.content)).toContain(
+        'showing first 100',
+      );
+      expect(toolResultBlocksToText(result.content)).toContain(
+        'Use a more specific pattern',
+      );
       expect(result.status).toBe('success');
       assert(result.status === 'success');
       expect(result.data.files).toHaveLength(100);
@@ -207,10 +218,14 @@ describe('findFilesTool', () => {
 
       vi.restoreAllMocks();
 
-      expect(result.content).toContain('search timed out after 30s');
-      expect(result.content).toContain('Results may be incomplete');
+      expect(toolResultBlocksToText(result.content)).toContain(
+        'search timed out after 30s',
+      );
+      expect(toolResultBlocksToText(result.content)).toContain(
+        'Results may be incomplete',
+      );
       // Should have collected at least 1 file before timeout
-      expect(result.content).toContain('.ts');
+      expect(toolResultBlocksToText(result.content)).toContain('.ts');
       expect(result.status).toBe('failure');
       assert(result.status === 'failure');
       expect(result.data.message).toBeTruthy();
@@ -222,7 +237,9 @@ describe('findFilesTool', () => {
         context,
       );
 
-      expect(result.content).toContain('Error: Directory not found');
+      expect(toolResultBlocksToText(result.content)).toContain(
+        'Error: Directory not found',
+      );
       expect(result.status).toBe('failure');
       assert(result.status === 'failure');
       expect(result.data.message).toBeTruthy();
@@ -236,7 +253,9 @@ describe('findFilesTool', () => {
         context,
       );
 
-      expect(result.content).toContain('Error: Not a directory');
+      expect(toolResultBlocksToText(result.content)).toContain(
+        'Error: Not a directory',
+      );
       expect(result.status).toBe('failure');
       assert(result.status === 'failure');
       expect(result.data.message).toBeTruthy();

@@ -27,7 +27,7 @@ export const todoUpdateTool: ToolDefinition<
     if (staleMessage) {
       return {
         data: {message: staleMessage},
-        content: staleMessage,
+        content: [{type: 'text', text: staleMessage}],
         status: 'failure',
       };
     }
@@ -39,12 +39,16 @@ export const todoUpdateTool: ToolDefinition<
       markObserved(todoStore, todoState);
       return {
         data: {items},
-        content: formatTodoContent(items),
+        content: [{type: 'text', text: formatTodoContent(items)}],
         status: 'success',
       };
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
-      return {data: {message}, content: message, status: 'failure'};
+      return {
+        data: {message},
+        content: [{type: 'text', text: message}],
+        status: 'failure',
+      };
     }
   },
 };

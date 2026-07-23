@@ -45,7 +45,12 @@ export const writeFileTool: ToolDefinition<typeof parameters, WriteFileResult> =
       if (Buffer.byteLength(args.content) > MAX_CONTENT_SIZE) {
         return {
           data: {message: `Content exceeds ${MAX_CONTENT_SIZE} byte limit`},
-          content: `Error: Content exceeds ${MAX_CONTENT_SIZE} byte limit`,
+          content: [
+            {
+              type: 'text',
+              text: `Error: Content exceeds ${MAX_CONTENT_SIZE} byte limit`,
+            },
+          ],
           status: 'failure',
         };
       }
@@ -70,7 +75,9 @@ export const writeFileTool: ToolDefinition<typeof parameters, WriteFileResult> =
         if (checkResult === FileStatCheckResult.NOT_READ) {
           return {
             data: {message: 'Read the file before modifying it'},
-            content: 'Error: Read the file before modifying it',
+            content: [
+              {type: 'text', text: 'Error: Read the file before modifying it'},
+            ],
             status: 'failure',
           };
         }
@@ -80,8 +87,12 @@ export const writeFileTool: ToolDefinition<typeof parameters, WriteFileResult> =
               message:
                 'File has been modified since last read. Read the file again before modifying it',
             },
-            content:
-              'Error: File has been modified since last read. Read the file again before modifying it',
+            content: [
+              {
+                type: 'text',
+                text: 'Error: File has been modified since last read. Read the file again before modifying it',
+              },
+            ],
             status: 'failure',
           };
         }
@@ -97,8 +108,12 @@ export const writeFileTool: ToolDefinition<typeof parameters, WriteFileResult> =
               message:
                 'File has been deleted since last read. Verify that the write is still intended after deletion, then retry.',
             },
-            content:
-              'Error: File has been deleted since last read. Verify that the write is still intended after deletion, then retry.',
+            content: [
+              {
+                type: 'text',
+                text: 'Error: File has been deleted since last read. Verify that the write is still intended after deletion, then retry.',
+              },
+            ],
             status: 'failure',
           };
         }
@@ -114,7 +129,7 @@ export const writeFileTool: ToolDefinition<typeof parameters, WriteFileResult> =
         const message = error instanceof Error ? error.message : String(error);
         return {
           data: {message},
-          content: `Error: ${message}`,
+          content: [{type: 'text', text: `Error: ${message}`}],
           status: 'failure',
         };
       }
@@ -129,7 +144,12 @@ export const writeFileTool: ToolDefinition<typeof parameters, WriteFileResult> =
       const data: WriteFileResult = {filePath: args.filePath, lineCount};
       return {
         data,
-        content: `File written: ${args.filePath} (${lineCount} lines)`,
+        content: [
+          {
+            type: 'text',
+            text: `File written: ${args.filePath} (${lineCount} lines)`,
+          },
+        ],
         status: 'success',
       };
     },

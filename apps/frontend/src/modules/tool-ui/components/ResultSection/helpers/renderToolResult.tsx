@@ -18,6 +18,7 @@ import {FindFilesResult} from '../../FindFilesResult/index.js';
 import {GetCurrentTimeResult} from '../../GetCurrentTimeResult/index.js';
 import {HighlightedJson} from '../../HighlightedJson/index.js';
 import {LoadSkillResult} from '../../LoadSkillResult/index.js';
+import {ReadFileMediaResult} from '../../ReadFileMediaResult/index.js';
 import {ReadFileResult} from '../../ReadFileResult/index.js';
 import {RunCommandResult} from '../../RunCommandResult/index.js';
 import {SearchFilesResult} from '../../SearchFilesResult/index.js';
@@ -50,13 +51,23 @@ function renderToolResultUnsafe(
   switch (toolName) {
     case 'read_file': {
       const d = readFileResultSchema.parse(data);
+      if (d.kind === 'text') {
+        return (
+          <ReadFileResult
+            content={d.content}
+            endLine={d.endLine}
+            filePath={d.filePath}
+            startLine={d.startLine}
+            totalLines={d.totalLines}
+          />
+        );
+      }
       return (
-        <ReadFileResult
-          content={d.content}
-          endLine={d.endLine}
+        <ReadFileMediaResult
+          byteSize={d.byteSize}
           filePath={d.filePath}
-          startLine={d.startLine}
-          totalLines={d.totalLines}
+          kind={d.kind}
+          mediaType={d.mediaType}
         />
       );
     }

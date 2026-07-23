@@ -27,7 +27,7 @@ export const todoClearTool: ToolDefinition<
     if (staleMessage) {
       return {
         data: {message: staleMessage},
-        content: staleMessage,
+        content: [{type: 'text', text: staleMessage}],
         status: 'failure',
       };
     }
@@ -37,7 +37,7 @@ export const todoClearTool: ToolDefinition<
     markObserved(todoStore, todoState);
     return {
       data: {items},
-      content: formatTodoContent(items),
+      content: [{type: 'text', text: formatTodoContent(items)}],
       status: 'success',
     };
   },

@@ -26,6 +26,10 @@ export const getCurrentTimeTool: ToolDefinition<
   suppressToolEvents: false,
   execute() {
     const iso = new Date().toISOString();
-    return {data: {iso}, content: iso, status: 'success'};
+    return {
+      data: {iso},
+      content: [{type: 'text', text: iso}],
+      status: 'success',
+    };
   },
 };

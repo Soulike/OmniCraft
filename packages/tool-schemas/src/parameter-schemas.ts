@@ -14,7 +14,8 @@ export const readFileParametersSchema = z.object({
     .describe(
       'Start line number (1-based), defaults to 1. ' +
         'Use this to resume reading from a specific line after a previous partial read, ' +
-        'or to jump directly to a known region of interest.',
+        'or to jump directly to a known region of interest. ' +
+        'Applies to text reads only; ignored when the file is an image or PDF.',
     ),
   lineCount: z
     .number()
@@ -24,7 +25,8 @@ export const readFileParametersSchema = z.object({
     .describe(
       'Number of lines to read from startLine, defaults to end of file. ' +
         'Use this to read a specific portion of a large file ' +
-        'when you only need a particular section rather than the entire content.',
+        'when you only need a particular section rather than the entire content. ' +
+        'Applies to text reads only; ignored when the file is an image or PDF.',
     ),
 });
 

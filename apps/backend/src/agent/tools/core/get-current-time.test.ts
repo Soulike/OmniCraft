@@ -17,8 +17,10 @@ describe('getCurrentTimeTool', () => {
 
     expect(result.status).toBe('success');
     assert(result.status === 'success');
-    expect(new Date(result.content).toISOString()).toBe(result.content);
-    expect(result.data.iso).toBe(result.content);
+    const [block] = result.content;
+    assert(block.type === 'text');
+    expect(new Date(block.text).toISOString()).toBe(block.text);
+    expect(result.data.iso).toBe(block.text);
   });
 
   it('returns approximately the current time', async () => {
@@ -26,10 +28,12 @@ describe('getCurrentTimeTool', () => {
     const result = await getCurrentTimeTool.execute({}, createMockContext());
     const after = Date.now();
 
-    const resultTime = new Date(result.content).getTime();
+    assert(result.status === 'success');
+    const [block] = result.content;
+    assert(block.type === 'text');
+    const resultTime = new Date(block.text).getTime();
     expect(resultTime).toBeGreaterThanOrEqual(before);
     expect(resultTime).toBeLessThanOrEqual(after);
-    assert(result.status === 'success');
-    expect(result.data.iso).toBe(result.content);
+    expect(result.data.iso).toBe(block.text);
   });
 });

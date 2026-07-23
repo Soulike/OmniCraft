@@ -33,12 +33,18 @@ export const loadSkillTool: ToolDefinition<typeof parameters, LoadSkillResult> =
       if (!skill) {
         return {
           data: {message: `Skill "${args.name}" not found.`},
-          content: `Error: Skill "${args.name}" not found.`,
+          content: [
+            {type: 'text', text: `Error: Skill "${args.name}" not found.`},
+          ],
           status: 'failure',
         };
       }
       const content = await skill.getContent();
       const data: LoadSkillResult = {name: args.name, content};
-      return {data, content, status: 'success'};
+      return {
+        data,
+        content: [{type: 'text', text: content}],
+        status: 'success',
+      };
     },
   };

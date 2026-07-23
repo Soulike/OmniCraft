@@ -27,7 +27,11 @@ const tools: ToolDefinition[] = [
     description: 'Read a file',
     parameters: z.object({path: z.string()}),
     suppressToolEvents: false,
-    execute: () => ({data: {}, content: 'ok', status: 'success'}),
+    execute: () => ({
+      data: {},
+      content: [{type: 'text', text: 'ok'}],
+      status: 'success',
+    }),
   },
 ];
 
@@ -52,7 +56,9 @@ describe('LlmCompactionTokenEstimator', () => {
       },
     });
 
-    expect(currentTokens).toBe(112 + estimatePromptTokens(messages.slice(2)));
+    expect(currentTokens).toBe(
+      112 + estimatePromptTokens({messages: messages.slice(2)}),
+    );
   });
 
   it('falls back to local prompt estimation when latest usage is unavailable', () => {
@@ -79,11 +85,7 @@ describe('LlmCompactionTokenEstimator', () => {
       estimatePromptTokens({
         messages,
         systemPrompt: 'System prompt',
-        tools: tools.map((tool) => ({
-          name: tool.name,
-          description: tool.description,
-          parameters: z.toJSONSchema(tool.parameters),
-        })),
+        tools,
       }),
     );
   });
@@ -107,11 +109,7 @@ describe('LlmCompactionTokenEstimator', () => {
       estimatePromptTokens({
         messages: replacementMessages,
         systemPrompt: 'Replacement system prompt',
-        tools: tools.map((tool) => ({
-          name: tool.name,
-          description: tool.description,
-          parameters: z.toJSONSchema(tool.parameters),
-        })),
+        tools,
       }),
     );
   });

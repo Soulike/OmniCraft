@@ -16,6 +16,8 @@ import type {
   ToolExecutionContext,
 } from '@/agent-core/tool/index.js';
 
+import {isBinaryFile} from './helpers.js';
+
 const MAX_DIFF_SIZE = 4_096; // 4KB
 const MAX_FILE_SIZE = 10_485_760; // 10MB
 
@@ -44,6 +46,7 @@ export const editFileTool: ToolDefinition<typeof parameters, EditFileResult> = {
     'Replaces a specific string in a file and returns a diff of the change. ' +
     'Use this to make targeted modifications to an existing file ' +
     'without rewriting the entire file. ' +
+    'Only supports text files; binary files such as images or PDFs cannot be edited. ' +
     'Requires the old string to uniquely match unless replaceAll is set.',
   parameters,
   suppressToolEvents: false,
@@ -60,7 +63,9 @@ export const editFileTool: ToolDefinition<typeof parameters, EditFileResult> = {
     } catch {
       return {
         data: {message: `File not found: ${args.filePath}`},
-        content: `Error: File not found: ${args.filePath}`,
+        content: [
+          {type: 'text', text: `Error: File not found: ${args.filePath}`},
+        ],
         status: 'failure',
       };
     }
@@ -68,7 +73,7 @@ export const editFileTool: ToolDefinition<typeof parameters, EditFileResult> = {
     if (!stat.isFile()) {
       return {
         data: {message: `Not a file: ${args.filePath}`},
-        content: `Error: Not a file: ${args.filePath}`,
+        content: [{type: 'text', text: `Error: Not a file: ${args.filePath}`}],
         status: 'failure',
       };
     }
@@ -76,7 +81,38 @@ export const editFileTool: ToolDefinition<typeof parameters, EditFileResult> = {
     if (stat.size > MAX_FILE_SIZE) {
       return {
         data: {message: `File exceeds ${MAX_FILE_SIZE} byte limit`},
-        content: `Error: File exceeds ${MAX_FILE_SIZE} byte limit`,
+        content: [
+          {
+            type: 'text',
+            text: `Error: File exceeds ${MAX_FILE_SIZE} byte limit`,
+          },
+        ],
+        status: 'failure',
+      };
+    }
+
+    // Reject binary files: a targeted string replacement on a binary reads and
+    // rewrites it as UTF-8, corrupting it.
+    let binary: boolean;
+    try {
+      binary = await isBinaryFile(absolutePath);
+    } catch {
+      return {
+        data: {message: `Unable to check if file is binary: ${args.filePath}`},
+        content: [
+          {
+            type: 'text',
+            text: `Error: Unable to check if file is binary: ${args.filePath}`,
+          },
+        ],
+        status: 'failure',
+      };
+    }
+    if (binary) {
+      const message = `Cannot edit a binary file: ${args.filePath}. edit_file only supports text files.`;
+      return {
+        data: {message},
+        content: [{type: 'text', text: `Error: ${message}`}],
         status: 'failure',
       };
     }
@@ -89,7 +125,9 @@ export const editFileTool: ToolDefinition<typeof parameters, EditFileResult> = {
     if (checkResult === FileStatCheckResult.NOT_READ) {
       return {
         data: {message: 'Read the file before modifying it'},
-        content: 'Error: Read the file before modifying it',
+        content: [
+          {type: 'text', text: 'Error: Read the file before modifying it'},
+        ],
         status: 'failure',
       };
     }
@@ -99,8 +137,12 @@ export const editFileTool: ToolDefinition<typeof parameters, EditFileResult> = {
           message:
             'File has been modified since last read. Read the file again before modifying it',
         },
-        content:
-          'Error: File has been modified since last read. Read the file again before modifying it',
+        content: [
+          {
+            type: 'text',
+            text: 'Error: File has been modified since last read. Read the file again before modifying it',
+          },
+        ],
         status: 'failure',
       };
     }
@@ -110,7 +152,11 @@ export const editFileTool: ToolDefinition<typeof parameters, EditFileResult> = {
       oldContent = await fs.readFile(absolutePath, 'utf-8');
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
-      return {data: {message}, content: `Error: ${message}`, status: 'failure'};
+      return {
+        data: {message},
+        content: [{type: 'text', text: `Error: ${message}`}],
+        status: 'failure',
+      };
     }
 
     // 3. Check for no-op replacement
@@ -119,8 +165,12 @@ export const editFileTool: ToolDefinition<typeof parameters, EditFileResult> = {
         data: {
           message: 'oldString and newString are identical. No changes needed.',
         },
-        content:
-          'Error: oldString and newString are identical. No changes needed.',
+        content: [
+          {
+            type: 'text',
+            text: 'Error: oldString and newString are identical. No changes needed.',
+          },
+        ],
         status: 'failure',
       };
     }
@@ -131,7 +181,12 @@ export const editFileTool: ToolDefinition<typeof parameters, EditFileResult> = {
     if (matchCount === 0) {
       return {
         data: {message: `old string not found in ${args.filePath}`},
-        content: `Error: old string not found in ${args.filePath}`,
+        content: [
+          {
+            type: 'text',
+            text: `Error: old string not found in ${args.filePath}`,
+          },
+        ],
         status: 'failure',
       };
     }
@@ -143,9 +198,14 @@ export const editFileTool: ToolDefinition<typeof parameters, EditFileResult> = {
             `Found ${matchCount} matches in ${args.filePath}. ` +
             'Provide more context to make a unique match, or set replaceAll to replace all occurrences.',
         },
-        content:
-          `Error: Found ${matchCount} matches in ${args.filePath}. ` +
-          'Provide more context to make a unique match, or set replaceAll to replace all occurrences.',
+        content: [
+          {
+            type: 'text',
+            text:
+              `Error: Found ${matchCount} matches in ${args.filePath}. ` +
+              'Provide more context to make a unique match, or set replaceAll to replace all occurrences.',
+          },
+        ],
         status: 'failure',
       };
     }
@@ -160,7 +220,11 @@ export const editFileTool: ToolDefinition<typeof parameters, EditFileResult> = {
       await fs.writeFile(absolutePath, newContent, 'utf-8');
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
-      return {data: {message}, content: `Error: ${message}`, status: 'failure'};
+      return {
+        data: {message},
+        content: [{type: 'text', text: `Error: ${message}`}],
+        status: 'failure',
+      };
     }
 
     // Track new file stat
@@ -182,7 +246,12 @@ export const editFileTool: ToolDefinition<typeof parameters, EditFileResult> = {
       };
       return {
         data,
-        content: `${header}\n${truncated}\n... Diff truncated. Read the file to review the modified sections.`,
+        content: [
+          {
+            type: 'text',
+            text: `${header}\n${truncated}\n... Diff truncated. Read the file to review the modified sections.`,
+          },
+        ],
         status: 'success',
       };
     }
@@ -193,6 +262,10 @@ export const editFileTool: ToolDefinition<typeof parameters, EditFileResult> = {
       diff,
       truncated: false,
     };
-    return {data, content: `${header}\n${diff}`, status: 'success'};
+    return {
+      data,
+      content: [{type: 'text', text: `${header}\n${diff}`}],
+      status: 'success',
+    };
   },
 };

@@ -62,6 +62,7 @@ export const readFileArgs = JSON.stringify({
   filePath: 'apps/frontend/src/main.tsx',
 });
 export const readFileData: ToolResultData<'read_file'> = {
+  kind: 'text',
   filePath: 'apps/frontend/src/main.tsx',
   totalLines: 23,
   startLine: 1,
@@ -69,6 +70,17 @@ export const readFileData: ToolResultData<'read_file'> = {
   content:
     "import {StrictMode} from 'react';\nimport {createRoot} from 'react-dom/client';\n// ...",
 };
+
+export const readFileMediaArgs = JSON.stringify({
+  filePath: 'apps/frontend/src/assets/logo.png',
+});
+export const readFileMediaData: ToolResultData<'read_file'> = {
+  kind: 'image',
+  filePath: 'apps/frontend/src/assets/logo.png',
+  mediaType: 'image/png',
+  byteSize: 245_760,
+};
+export const readFileMediaResult = JSON.stringify(readFileMediaData);
 
 export const writeFileArgs = JSON.stringify({
   filePath: 'apps/frontend/src/new-file.ts',

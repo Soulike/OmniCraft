@@ -7,6 +7,7 @@ import type {FileContentCache} from '../agent/state/file-content-cache.js';
 import type {FileStatTracker} from '../agent/state/file-stat-tracker.js';
 import type {SubagentRegistry} from '../agent/state/subagent-registry.js';
 import type {TodoStore} from '../agent/state/todo-store.js';
+import type {ToolResultBlock} from '../llm-api/types.js';
 import type {
   LlmConfig,
   LlmToolCall,
@@ -92,14 +93,14 @@ export interface ToolExecutionContext {
 /** Successful tool execution — carries typed structured data. */
 export interface ToolExecuteSuccessResult<T> {
   readonly data: T;
-  readonly content: string;
+  readonly content: ToolResultBlock[];
   readonly status: 'success';
 }
 
 /** Failed tool execution — carries an error message. */
 export interface ToolExecuteFailureResult {
   readonly data: ToolFailureData;
-  readonly content: string;
+  readonly content: ToolResultBlock[];
   readonly status: 'failure';
 }
 

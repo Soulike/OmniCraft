@@ -15,7 +15,11 @@ const customTool: ToolDefinition<z.ZodObject<Record<string, never>>> = {
   parameters: z.object({}),
   suppressToolEvents: false,
   compactResult: () => 'compact custom result',
-  execute: () => ({status: 'success', content: 'ok', data: {}}),
+  execute: () => ({
+    status: 'success',
+    content: [{type: 'text', text: 'ok'}],
+    data: {},
+  }),
 };
 
 describe('slimMessagesForSummary', () => {
@@ -119,7 +123,7 @@ describe('slimMessagesForSummary', () => {
         createdAt: 1,
         role: 'tool',
         callId: 'call-1',
-        content: 'raw result',
+        content: [{type: 'text', text: 'raw result'}],
         status: 'success',
       },
     ];
@@ -152,7 +156,7 @@ describe('slimMessagesForSummary', () => {
         createdAt: 1,
         role: 'tool',
         callId: 'call-1',
-        content: 'raw result',
+        content: [{type: 'text', text: 'raw result'}],
         status: 'success',
       },
     ];
