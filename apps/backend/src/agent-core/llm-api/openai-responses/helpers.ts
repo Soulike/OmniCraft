@@ -3,8 +3,8 @@ import type OpenAI from 'openai';
 import {z} from 'zod';
 
 import type {AnyToolDefinition} from '../../tool/types.js';
-import type {ToolResultBlock} from '../tool-result-block.js';
-import {toolResultBlocksToText} from '../tool-result-block.js';
+import {toolResultBlocksToText} from '../helpers/tool-result-blocks-to-text.js';
+import type {ToolResultBlock} from '../types.js';
 import type {LlmMessage} from '../types.js';
 
 type ResponseInputItem = OpenAI.Responses.ResponseInputItem;

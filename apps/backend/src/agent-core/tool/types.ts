@@ -7,7 +7,7 @@ import type {FileContentCache} from '../agent/state/file-content-cache.js';
 import type {FileStatTracker} from '../agent/state/file-stat-tracker.js';
 import type {SubagentRegistry} from '../agent/state/subagent-registry.js';
 import type {TodoStore} from '../agent/state/todo-store.js';
-import type {ToolResultBlock} from '../llm-api/tool-result-block.js';
+import type {ToolResultBlock} from '../llm-api/types.js';
 import type {
   LlmConfig,
   LlmToolCall,

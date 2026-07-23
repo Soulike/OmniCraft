@@ -2,7 +2,7 @@ import assert from 'node:assert';
 
 import {describe, expect, it} from 'vitest';
 
-import {toolResultBlocksToText} from '@/agent-core/llm-api/tool-result-block.js';
+import {toolResultBlocksToText} from '@/agent-core/llm-api/helpers/tool-result-blocks-to-text.js';
 import {createMockContext} from '@/agent-core/tool/testing.js';
 
 import {todoAppendTool} from './todo-append.js';

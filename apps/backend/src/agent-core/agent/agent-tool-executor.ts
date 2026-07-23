@@ -12,7 +12,7 @@ import type {AnyToolResultData} from '@omnicraft/tool-schemas';
 import type {AsyncChannel} from '@/helpers/async-channel.js';
 
 import type {LlmConfig, LlmToolCall} from '../llm-api/index.js';
-import type {ToolResultBlock} from '../llm-api/tool-result-block.js';
+import type {ToolResultBlock} from '../llm-api/types.js';
 import type {SkillDefinition} from '../skill/index.js';
 import type {AnyToolDefinition} from '../tool/index.js';
 import type {AgentRuntimeState} from './agent-runtime-state.js';

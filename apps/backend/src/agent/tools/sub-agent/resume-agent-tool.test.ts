@@ -4,7 +4,7 @@ import {SubAgentType} from '@omnicraft/api-schema';
 import {describe, expect, it, vi} from 'vitest';
 
 import type {Agent} from '@/agent-core/agent/index.js';
-import {toolResultBlocksToText} from '@/agent-core/llm-api/tool-result-block.js';
+import {toolResultBlocksToText} from '@/agent-core/llm-api/helpers/tool-result-blocks-to-text.js';
 import {createMockContext} from '@/agent-core/tool/testing.js';
 import type {ToolExecutionContext} from '@/agent-core/tool/types.js';
 

@@ -5,7 +5,7 @@ import type {
 import {z} from 'zod';
 
 import {llmMessageSchema, type LlmToolCall} from '../llm-api/index.js';
-import type {ToolResultBlock} from '../llm-api/tool-result-block.js';
+import type {ToolResultBlock} from '../llm-api/types.js';
 import type {AnyToolDefinition} from '../tool/types.js';
 
 export const llmCompactionMetadataSchema = z.object({

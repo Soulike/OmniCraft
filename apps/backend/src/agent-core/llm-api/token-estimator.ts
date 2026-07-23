@@ -1,7 +1,7 @@
 import {z} from 'zod';
 
 import type {AnyToolDefinition} from '../tool/types.js';
-import type {ToolResultBlock} from './tool-result-block.js';
+import type {ToolResultBlock} from './types.js';
 import type {LlmMessage} from './types.js';
 
 const CHARS_PER_TOKEN = 3;

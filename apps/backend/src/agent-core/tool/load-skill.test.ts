@@ -4,7 +4,7 @@ import path from 'node:path';
 
 import {afterEach, beforeEach, describe, expect, it} from 'vitest';
 
-import {toolResultBlocksToText} from '@/agent-core/llm-api/tool-result-block.js';
+import {toolResultBlocksToText} from '@/agent-core/llm-api/helpers/tool-result-blocks-to-text.js';
 
 import {SkillDefinition} from '../skill/skill-definition.js';
 import {loadSkillTool} from './load-skill.js';

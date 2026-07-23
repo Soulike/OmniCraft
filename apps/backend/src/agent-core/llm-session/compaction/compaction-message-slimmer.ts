@@ -1,5 +1,5 @@
+import {toolResultBlocksToText} from '../../llm-api/helpers/tool-result-blocks-to-text.js';
 import type {LlmMessage, LlmToolCall} from '../../llm-api/index.js';
-import {toolResultBlocksToText} from '../../llm-api/tool-result-block.js';
 import type {AnyToolDefinition} from '../../tool/types.js';
 import {
   RECENT_CONTEXT_ENTRY_TRUNCATE_HEAD_CHARS,

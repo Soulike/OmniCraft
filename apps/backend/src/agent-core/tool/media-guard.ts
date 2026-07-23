@@ -1,6 +1,6 @@
 import type {DocumentMediaType, ImageMediaType} from '@omnicraft/tool-schemas';
 
-import type {ToolResultBlock} from '../llm-api/tool-result-block.js';
+import type {ToolResultBlock} from '../llm-api/types.js';
 
 /** Max decoded media bytes inlined into a tool result (persisted + re-sent each turn). */
 export const MAX_INLINE_MEDIA_BYTES = 1 * 1024 * 1024;

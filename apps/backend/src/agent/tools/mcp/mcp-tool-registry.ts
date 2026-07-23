@@ -5,8 +5,8 @@ import {
   imageMediaTypeSchema,
 } from '@omnicraft/tool-schemas';
 
-import type {ToolResultBlock} from '@/agent-core/llm-api/tool-result-block.js';
-import {toolResultBlocksToText} from '@/agent-core/llm-api/tool-result-block.js';
+import {toolResultBlocksToText} from '@/agent-core/llm-api/helpers/tool-result-blocks-to-text.js';
+import type {ToolResultBlock} from '@/agent-core/llm-api/types.js';
 import type {
   AnyToolDefinition,
   McpToolDefinition,
