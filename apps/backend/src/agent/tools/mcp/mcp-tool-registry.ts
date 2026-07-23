@@ -1,11 +1,18 @@
 import type {CallToolResult} from '@modelcontextprotocol/sdk/types.js';
 import type {AgentType} from '@omnicraft/settings-schema';
+import {
+  documentMediaTypeSchema,
+  imageMediaTypeSchema,
+} from '@omnicraft/tool-schemas';
 
+import type {ToolResultBlock} from '@/agent-core/llm-api/tool-result-block.js';
+import {toolResultBlocksToText} from '@/agent-core/llm-api/tool-result-block.js';
 import type {
   AnyToolDefinition,
   McpToolDefinition,
 } from '@/agent-core/tool/index.js';
 import {ToolRegistry} from '@/agent-core/tool/index.js';
+import {guardMedia} from '@/agent-core/tool/media-guard.js';
 import {logger} from '@/logger.js';
 import {McpManager} from '@/models/mcp-manager/index.js';
 
@@ -17,34 +24,87 @@ function namespacedToolName(serverName: string, toolName: string): string {
 }
 
 /**
- * Renders an MCP tool result's content blocks into text for the model. The
- * tool-result channel is text-only, so text (and embedded-resource text) pass
- * through, while media/link blocks become compact placeholders — their bytes
- * are deliberately not dumped into the model's context. Blocks are joined with
- * newlines (the spec does not prescribe a separator; this is a client choice).
- *
- * Delivering non-text content to the model is tracked in
- * https://github.com/Soulike/OmniCraft/issues/368.
+ * Builds neutral tool-result blocks from MCP content. Text and embedded-resource
+ * text pass through; supported image/PDF media become media blocks (size-guarded);
+ * audio and unsupported types become placeholder text blocks. Delivering audio is
+ * intentionally unsupported (see https://github.com/Soulike/OmniCraft/issues/368).
  */
-function renderContentText(content: CallToolResult['content']): string {
-  return content
-    .map((block) => {
-      switch (block.type) {
-        case 'text':
-          return block.text;
-        case 'resource':
-          return 'text' in block.resource &&
-            typeof block.resource.text === 'string'
-            ? block.resource.text
-            : `[resource: ${block.resource.uri}]`;
-        case 'resource_link':
-          return `[resource: ${block.uri}]`;
-        case 'image':
-        case 'audio':
-          return `[${block.type}: ${block.mimeType}]`;
+export async function buildMcpToolResultBlocks(
+  content: CallToolResult['content'],
+  scratchDirectory: string,
+): Promise<ToolResultBlock[]> {
+  const blocks: ToolResultBlock[] = [];
+  for (const block of content) {
+    switch (block.type) {
+      case 'text':
+        blocks.push({type: 'text', text: block.text});
+        break;
+      case 'image': {
+        const parsed = imageMediaTypeSchema.safeParse(block.mimeType);
+        if (parsed.success) {
+          blocks.push(
+            await guardMedia({
+              data: block.data,
+              mediaType: parsed.data,
+              scratchDirectory,
+            }),
+          );
+        } else {
+          blocks.push({
+            type: 'text',
+            text: `[unsupported image type: ${block.mimeType}]`,
+          });
+        }
+        break;
       }
-    })
-    .join('\n');
+      case 'audio':
+        blocks.push({
+          type: 'text',
+          text: `[unsupported audio content (${block.mimeType}): not delivered to the model]`,
+        });
+        break;
+      case 'resource':
+        if (
+          'text' in block.resource &&
+          typeof block.resource.text === 'string'
+        ) {
+          blocks.push({type: 'text', text: block.resource.text});
+        } else {
+          blocks.push(
+            await blobResourceBlock(block.resource, scratchDirectory),
+          );
+        }
+        break;
+      case 'resource_link':
+        blocks.push({type: 'text', text: `[resource: ${block.uri}]`});
+        break;
+    }
+  }
+  return blocks;
+}
+
+async function blobResourceBlock(
+  resource: {uri: string; mimeType?: string; blob?: string},
+  scratchDirectory: string,
+): Promise<ToolResultBlock> {
+  const image = imageMediaTypeSchema.safeParse(resource.mimeType);
+  const doc = documentMediaTypeSchema.safeParse(resource.mimeType);
+  if (typeof resource.blob === 'string' && image.success) {
+    return guardMedia({
+      data: resource.blob,
+      mediaType: image.data,
+      scratchDirectory,
+    });
+  }
+  if (typeof resource.blob === 'string' && doc.success) {
+    return guardMedia({
+      data: resource.blob,
+      mediaType: doc.data,
+      name: resource.uri,
+      scratchDirectory,
+    });
+  }
+  return {type: 'text', text: `[resource: ${resource.uri}]`};
 }
 
 /** Presents a manager's MCP tools as ToolDefinitions for one agent type. */
@@ -92,26 +152,26 @@ export class McpToolRegistry extends ToolRegistry {
               args as Record<string, unknown> | undefined,
               context.signal,
             );
-            // Render the MCP content blocks to text for the model; media
-            // blocks become placeholders (see renderContentText). Output-schema
-            // tools can return structured-only results (empty content plus
-            // structuredContent), so fall back to the serialized structured
-            // payload when the blocks render empty rather than handing the
-            // model an empty result. Spec-compliant servers also serialize it
-            // into a text block, so the fallback only fires when it is missing.
-            let text = renderContentText(result.content);
+            const blocks = await buildMcpToolResultBlocks(
+              result.content,
+              context.scratchDirectory,
+            );
+            let text = toolResultBlocksToText(blocks);
+            // Output-schema tools can return structured-only results (empty content plus
+            // structuredContent); fall back to the serialized structured payload.
             if (!text && result.structuredContent !== undefined) {
               text = JSON.stringify(result.structuredContent);
+              blocks.push({type: 'text', text});
             }
             if (result.isError) {
               return {
-                content: [{type: 'text', text}],
+                content: blocks,
                 status: 'failure',
                 data: {message: text},
               };
             }
             return {
-              content: [{type: 'text', text}],
+              content: blocks,
               status: 'success',
               data: {server: serverName, toolName: tool.name, text},
             };

@@ -8,7 +8,10 @@ import {createMockContext} from '@/agent-core/tool/testing.js';
 import type {McpClient} from '@/models/mcp-manager/index.js';
 import {McpManager} from '@/models/mcp-manager/index.js';
 
-import {McpToolRegistry} from './mcp-tool-registry.js';
+import {
+  buildMcpToolResultBlocks,
+  McpToolRegistry,
+} from './mcp-tool-registry.js';
 
 const tool: Tool = {
   name: 'read',
@@ -225,6 +228,47 @@ describe('McpToolRegistry', () => {
     expect(tools.map((t) => t.name).sort()).toEqual([
       'mcp__fs__read',
       'mcp__fs__write',
+    ]);
+  });
+});
+
+describe('buildMcpToolResultBlocks', () => {
+  const scratch = '/tmp'; // small media stays inline; no spill exercised here
+
+  it('passes text and a supported image through as blocks', async () => {
+    const blocks = await buildMcpToolResultBlocks(
+      [
+        {type: 'text', text: 'result'},
+        {type: 'image', data: 'AAAA', mimeType: 'image/png'},
+      ],
+      scratch,
+    );
+    expect(blocks).toEqual([
+      {type: 'text', text: 'result'},
+      {type: 'image', mediaType: 'image/png', data: 'AAAA'},
+    ]);
+  });
+
+  it('renders audio as an unsupported placeholder', async () => {
+    const blocks = await buildMcpToolResultBlocks(
+      [{type: 'audio', data: 'AAAA', mimeType: 'audio/wav'}],
+      scratch,
+    );
+    expect(blocks).toEqual([
+      {
+        type: 'text',
+        text: '[unsupported audio content (audio/wav): not delivered to the model]',
+      },
+    ]);
+  });
+
+  it('renders an unsupported image type as a placeholder', async () => {
+    const blocks = await buildMcpToolResultBlocks(
+      [{type: 'image', data: 'AAAA', mimeType: 'image/tiff'}],
+      scratch,
+    );
+    expect(blocks).toEqual([
+      {type: 'text', text: '[unsupported image type: image/tiff]'},
     ]);
   });
 });
