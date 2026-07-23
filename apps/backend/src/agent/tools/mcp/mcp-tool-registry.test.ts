@@ -297,27 +297,21 @@ describe('McpToolRegistry', () => {
 });
 
 describe('buildMcpToolResultBlocks', () => {
-  const scratch = '/tmp'; // small media stays inline; no spill exercised here
-
-  it('passes text and a supported image through as blocks', async () => {
-    const blocks = await buildMcpToolResultBlocks(
-      [
-        {type: 'text', text: 'result'},
-        {type: 'image', data: 'AAAA', mimeType: 'image/png'},
-      ],
-      scratch,
-    );
+  it('passes text and a supported image through as blocks', () => {
+    const blocks = buildMcpToolResultBlocks([
+      {type: 'text', text: 'result'},
+      {type: 'image', data: 'AAAA', mimeType: 'image/png'},
+    ]);
     expect(blocks).toEqual([
       {type: 'text', text: 'result'},
       {type: 'image', mediaType: 'image/png', data: 'AAAA'},
     ]);
   });
 
-  it('renders audio as an unsupported placeholder', async () => {
-    const blocks = await buildMcpToolResultBlocks(
-      [{type: 'audio', data: 'AAAA', mimeType: 'audio/wav'}],
-      scratch,
-    );
+  it('renders audio as an unsupported placeholder', () => {
+    const blocks = buildMcpToolResultBlocks([
+      {type: 'audio', data: 'AAAA', mimeType: 'audio/wav'},
+    ]);
     expect(blocks).toEqual([
       {
         type: 'text',
@@ -326,11 +320,10 @@ describe('buildMcpToolResultBlocks', () => {
     ]);
   });
 
-  it('renders an unsupported image type as a placeholder', async () => {
-    const blocks = await buildMcpToolResultBlocks(
-      [{type: 'image', data: 'AAAA', mimeType: 'image/tiff'}],
-      scratch,
-    );
+  it('renders an unsupported image type as a placeholder', () => {
+    const blocks = buildMcpToolResultBlocks([
+      {type: 'image', data: 'AAAA', mimeType: 'image/tiff'},
+    ]);
     expect(blocks).toEqual([
       {type: 'text', text: '[unsupported image type: image/tiff]'},
     ]);

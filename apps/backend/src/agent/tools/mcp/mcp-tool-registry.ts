@@ -29,10 +29,9 @@ function namespacedToolName(serverName: string, toolName: string): string {
  * audio and unsupported types become placeholder text blocks. Delivering audio is
  * intentionally unsupported (see https://github.com/Soulike/OmniCraft/issues/368).
  */
-export async function buildMcpToolResultBlocks(
+export function buildMcpToolResultBlocks(
   content: CallToolResult['content'],
-  scratchDirectory: string,
-): Promise<ToolResultBlock[]> {
+): ToolResultBlock[] {
   const blocks: ToolResultBlock[] = [];
   for (const block of content) {
     switch (block.type) {
@@ -42,13 +41,7 @@ export async function buildMcpToolResultBlocks(
       case 'image': {
         const parsed = imageMediaTypeSchema.safeParse(block.mimeType);
         if (parsed.success) {
-          blocks.push(
-            await guardMedia({
-              data: block.data,
-              mediaType: parsed.data,
-              scratchDirectory,
-            }),
-          );
+          blocks.push(guardMedia({data: block.data, mediaType: parsed.data}));
         } else {
           blocks.push({
             type: 'text',
@@ -70,9 +63,7 @@ export async function buildMcpToolResultBlocks(
         ) {
           blocks.push({type: 'text', text: block.resource.text});
         } else {
-          blocks.push(
-            await blobResourceBlock(block.resource, scratchDirectory),
-          );
+          blocks.push(blobResourceBlock(block.resource));
         }
         break;
       case 'resource_link':
@@ -83,25 +74,21 @@ export async function buildMcpToolResultBlocks(
   return blocks;
 }
 
-async function blobResourceBlock(
-  resource: {uri: string; mimeType?: string; blob?: string},
-  scratchDirectory: string,
-): Promise<ToolResultBlock> {
+function blobResourceBlock(resource: {
+  uri: string;
+  mimeType?: string;
+  blob?: string;
+}): ToolResultBlock {
   const image = imageMediaTypeSchema.safeParse(resource.mimeType);
   const doc = documentMediaTypeSchema.safeParse(resource.mimeType);
   if (typeof resource.blob === 'string' && image.success) {
-    return guardMedia({
-      data: resource.blob,
-      mediaType: image.data,
-      scratchDirectory,
-    });
+    return guardMedia({data: resource.blob, mediaType: image.data});
   }
   if (typeof resource.blob === 'string' && doc.success) {
     return guardMedia({
       data: resource.blob,
       mediaType: doc.data,
       name: resource.uri,
-      scratchDirectory,
     });
   }
   return {type: 'text', text: `[resource: ${resource.uri}]`};
@@ -152,10 +139,7 @@ export class McpToolRegistry extends ToolRegistry {
               args as Record<string, unknown> | undefined,
               context.signal,
             );
-            const blocks = await buildMcpToolResultBlocks(
-              result.content,
-              context.scratchDirectory,
-            );
+            const blocks = buildMcpToolResultBlocks(result.content);
             let text = toolResultBlocksToText(blocks);
             // Output-schema tools can return structured-only results (empty content plus
             // structuredContent); fall back to the serialized structured payload.

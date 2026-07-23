@@ -1,65 +1,48 @@
 import type {DocumentMediaType, ImageMediaType} from '@omnicraft/tool-schemas';
 
-import {writeBufferToTempFile} from '@/helpers/fs.js';
-
 import type {ToolResultBlock} from '../llm-api/tool-result-block.js';
 
 /** Max decoded media bytes inlined into a tool result (persisted + re-sent each turn). */
 export const MAX_INLINE_MEDIA_BYTES = 1 * 1024 * 1024;
-
-const MEDIA_TYPE_EXTENSION: Record<ImageMediaType | DocumentMediaType, string> =
-  {
-    'image/png': '.png',
-    'image/jpeg': '.jpg',
-    'image/gif': '.gif',
-    'image/webp': '.webp',
-    'application/pdf': '.pdf',
-  };
 
 interface GuardMediaInput {
   /** Base64-encoded media bytes. */
   readonly data: string;
   readonly mediaType: ImageMediaType | DocumentMediaType;
   readonly name?: string;
-  /** Directory oversize media spills to. */
-  readonly scratchDirectory: string;
 }
 
 /**
- * Returns an inline media block when the decoded bytes are within the cap, or spills
- * to a scratch file and returns a text block with the path when oversize.
+ * Returns an inline media block when the decoded payload is within the cap, or a
+ * placeholder text block when it is oversize. The size check reads the decoded
+ * length from the base64 string without allocating a buffer, so an oversized or
+ * malicious payload (e.g. from a compromised MCP server) is never fully decoded
+ * or written to disk.
  */
-export async function guardMedia(
-  input: GuardMediaInput,
-): Promise<ToolResultBlock> {
-  const buffer = Buffer.from(input.data, 'base64');
+export function guardMedia(input: GuardMediaInput): ToolResultBlock {
+  const byteSize = Buffer.byteLength(input.data, 'base64');
   const isImage = input.mediaType.startsWith('image/');
 
-  if (buffer.length <= MAX_INLINE_MEDIA_BYTES) {
-    if (isImage) {
-      return {
-        type: 'image',
-        mediaType: input.mediaType as ImageMediaType,
-        data: input.data,
-      };
-    }
+  if (byteSize > MAX_INLINE_MEDIA_BYTES) {
+    const label = isImage ? 'image' : 'document';
+    const sizeMb = (byteSize / 1024 / 1024).toFixed(1);
     return {
-      type: 'document',
-      mediaType: input.mediaType as DocumentMediaType,
-      data: input.data,
-      ...(input.name === undefined ? {} : {name: input.name}),
+      type: 'text',
+      text: `[${label} too large (${sizeMb} MB), not delivered]`,
     };
   }
 
-  const spilledPath = await writeBufferToTempFile(
-    buffer,
-    MEDIA_TYPE_EXTENSION[input.mediaType],
-    input.scratchDirectory,
-  );
-  const label = isImage ? 'image' : 'document';
-  const sizeMb = (buffer.length / 1024 / 1024).toFixed(1);
+  if (isImage) {
+    return {
+      type: 'image',
+      mediaType: input.mediaType as ImageMediaType,
+      data: input.data,
+    };
+  }
   return {
-    type: 'text',
-    text: `[${label} too large (${sizeMb} MB), saved to ${spilledPath}]`,
+    type: 'document',
+    mediaType: input.mediaType as DocumentMediaType,
+    data: input.data,
+    ...(input.name === undefined ? {} : {name: input.name}),
   };
 }

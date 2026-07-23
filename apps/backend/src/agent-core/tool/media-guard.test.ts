@@ -1,46 +1,37 @@
-import {mkdtempSync, rmSync} from 'node:fs';
-import {readFile} from 'node:fs/promises';
-import os from 'node:os';
-import path from 'node:path';
-
-import {afterAll, describe, expect, it} from 'vitest';
+import {describe, expect, it} from 'vitest';
 
 import {guardMedia, MAX_INLINE_MEDIA_BYTES} from './media-guard.js';
 
-const scratch = mkdtempSync(path.join(os.tmpdir(), 'media-guard-'));
-
-afterAll(() => {
-  rmSync(scratch, {recursive: true, force: true});
-});
-
 describe('guardMedia', () => {
-  it('inlines media under the cap as a media block', async () => {
+  it('inlines an image under the cap as an image block', () => {
     const data = Buffer.from('small png bytes').toString('base64');
-    const block = await guardMedia({
-      data,
+    expect(guardMedia({data, mediaType: 'image/png'})).toEqual({
+      type: 'image',
       mediaType: 'image/png',
-      scratchDirectory: scratch,
+      data,
     });
-    expect(block).toEqual({type: 'image', mediaType: 'image/png', data});
   });
 
-  it('spills oversize media to a scratch file and returns a text block with the path', async () => {
-    const big = Buffer.alloc(MAX_INLINE_MEDIA_BYTES + 1, 1);
-    const data = big.toString('base64');
-    const block = await guardMedia({
+  it('inlines a document under the cap as a document block with its name', () => {
+    const data = Buffer.from('small pdf bytes').toString('base64');
+    expect(
+      guardMedia({data, mediaType: 'application/pdf', name: 'r.pdf'}),
+    ).toEqual({
+      type: 'document',
+      mediaType: 'application/pdf',
       data,
-      mediaType: 'image/png',
-      name: 'huge.png',
-      scratchDirectory: scratch,
+      name: 'r.pdf',
     });
+  });
+
+  it('rejects oversize media as a placeholder without spilling to disk', () => {
+    const data = Buffer.alloc(MAX_INLINE_MEDIA_BYTES + 1, 1).toString('base64');
+    const block = guardMedia({data, mediaType: 'image/png', name: 'huge.png'});
+
     expect(block.type).toBe('text');
     if (block.type !== 'text') throw new Error('expected text block');
     expect(block.text).toContain('too large');
-    const match = /saved to (.+)]/.exec(block.text);
-    expect(match).not.toBeNull();
-    if (match) {
-      const spilled = await readFile(match[1]);
-      expect(spilled.equals(big)).toBe(true);
-    }
+    expect(block.text).toContain('not delivered');
+    expect(block.text).not.toContain('saved to');
   });
 });
