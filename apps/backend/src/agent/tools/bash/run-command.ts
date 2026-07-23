@@ -175,14 +175,18 @@ export const runCommandTool: ToolDefinition<
         stdout: '',
         stderr: '',
       };
-      return {data, content: '(No output)', status: 'success'};
+      return {
+        data,
+        content: [{type: 'text', text: '(No output)'}],
+        status: 'success',
+      };
     }
 
     const failed = result.timedOut || result.exitCode !== 0;
     if (failed) {
       return {
         data: {message: output},
-        content: output,
+        content: [{type: 'text', text: output}],
         status: 'failure',
       };
     }
@@ -195,6 +199,6 @@ export const runCommandTool: ToolDefinition<
       stdout: resolvedOutputToString(stdout),
       stderr: resolvedOutputToString(stderr),
     };
-    return {data, content: output, status: 'success'};
+    return {data, content: [{type: 'text', text: output}], status: 'success'};
   },
 };

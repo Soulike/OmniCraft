@@ -1,12 +1,30 @@
 import {z} from 'zod';
 
-export const readFileResultSchema = z.object({
+import {
+  documentMediaTypeSchema,
+  imageMediaTypeSchema,
+} from './media-type-schemas.js';
+
+export const readFileTextResultSchema = z.object({
+  kind: z.literal('text'),
   filePath: z.string(),
   totalLines: z.number(),
   startLine: z.number(),
   endLine: z.number(),
   content: z.string(),
 });
+
+export const readFileMediaResultSchema = z.object({
+  kind: z.enum(['image', 'document']),
+  filePath: z.string(),
+  mediaType: z.union([imageMediaTypeSchema, documentMediaTypeSchema]),
+  byteSize: z.number(),
+});
+
+export const readFileResultSchema = z.discriminatedUnion('kind', [
+  readFileTextResultSchema,
+  readFileMediaResultSchema,
+]);
 
 export const writeFileResultSchema = z.object({
   filePath: z.string(),

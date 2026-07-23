@@ -3,11 +3,15 @@ import assert from 'node:assert';
 import type {Tool} from '@modelcontextprotocol/sdk/types.js';
 import {afterEach, describe, expect, it, vi} from 'vitest';
 
+import {toolResultBlocksToText} from '@/agent-core/llm-api/index.js';
 import {createMockContext} from '@/agent-core/tool/testing.js';
 import type {McpClient} from '@/models/mcp-manager/index.js';
 import {McpManager} from '@/models/mcp-manager/index.js';
 
-import {McpToolRegistry} from './mcp-tool-registry.js';
+import {
+  buildMcpToolResultBlocks,
+  McpToolRegistry,
+} from './mcp-tool-registry.js';
 
 const tool: Tool = {
   name: 'read',
@@ -135,8 +139,10 @@ describe('McpToolRegistry', () => {
     const result = await mcpTool.execute({path: '/x'}, createMockContext());
 
     assert(result.status === 'success');
-    expect(result.content).toBe('summary\n[image: image/png]');
-    expect(result.content).not.toContain('BASE64DATA');
+    expect(toolResultBlocksToText(result.content)).toBe(
+      'summary\n[image: image/png]',
+    );
+    expect(toolResultBlocksToText(result.content)).not.toContain('BASE64DATA');
   });
 
   it('falls back to serialized structuredContent when there are no content blocks', async () => {
@@ -168,7 +174,100 @@ describe('McpToolRegistry', () => {
     const result = await mcpTool.execute({}, createMockContext());
 
     assert(result.status === 'success');
-    expect(result.content).toBe('{"answer":42}');
+    expect(toolResultBlocksToText(result.content)).toBe('{"answer":42}');
+  });
+
+  it('guards against empty content with no structuredContent by inserting a placeholder block', async () => {
+    const emptyClient: McpClient = {
+      ...client,
+      callTool: () => Promise.resolve({content: [], isError: false}),
+    };
+    const mgr = McpManager.create(() => Promise.resolve(emptyClient));
+    mgr.applyConfig({
+      servers: [
+        {
+          name: 'fs',
+          transport: {type: 'stdio', command: 'x', args: [], env: {}},
+        },
+      ],
+      enabledByAgent: {chat: ['fs'], coding: []},
+    });
+    await vi.waitFor(() => {
+      expect(mgr.list()[0]?.status).toBe('connected');
+    });
+    const mcpTool = new McpToolRegistry('chat', mgr).get('mcp__fs__read');
+    assert(mcpTool?.kind === 'mcp');
+
+    const result = await mcpTool.execute({path: '/x'}, createMockContext());
+
+    expect(result.status).toBe('success');
+    assert(result.status === 'success');
+    expect(result.content).toEqual([{type: 'text', text: '[no content]'}]);
+    // data.text must agree with the model-facing content, not be blank.
+    expect(result.data).toEqual({
+      server: 'fs',
+      toolName: 'read',
+      text: '[no content]',
+    });
+  });
+
+  it('keeps the failure message in sync with the placeholder for an empty error result', async () => {
+    const emptyErrorClient: McpClient = {
+      ...client,
+      callTool: () => Promise.resolve({content: [], isError: true}),
+    };
+    const mgr = McpManager.create(() => Promise.resolve(emptyErrorClient));
+    mgr.applyConfig({
+      servers: [
+        {
+          name: 'fs',
+          transport: {type: 'stdio', command: 'x', args: [], env: {}},
+        },
+      ],
+      enabledByAgent: {chat: ['fs'], coding: []},
+    });
+    await vi.waitFor(() => {
+      expect(mgr.list()[0]?.status).toBe('connected');
+    });
+    const mcpTool = new McpToolRegistry('chat', mgr).get('mcp__fs__read');
+    assert(mcpTool?.kind === 'mcp');
+
+    const result = await mcpTool.execute({path: '/x'}, createMockContext());
+
+    expect(result.status).toBe('failure');
+    assert(result.status === 'failure');
+    expect(result.content).toEqual([{type: 'text', text: '[no content]'}]);
+    // A contentless error must not surface a blank diagnostic to the frontend.
+    expect(result.data).toEqual({message: '[no content]'});
+  });
+
+  it('replaces a spec-valid empty text result with a placeholder, not an empty block', async () => {
+    const emptyTextClient: McpClient = {
+      ...client,
+      callTool: () =>
+        Promise.resolve({content: [{type: 'text', text: ''}], isError: false}),
+    };
+    const mgr = McpManager.create(() => Promise.resolve(emptyTextClient));
+    mgr.applyConfig({
+      servers: [
+        {
+          name: 'fs',
+          transport: {type: 'stdio', command: 'x', args: [], env: {}},
+        },
+      ],
+      enabledByAgent: {chat: ['fs'], coding: []},
+    });
+    await vi.waitFor(() => {
+      expect(mgr.list()[0]?.status).toBe('connected');
+    });
+    const mcpTool = new McpToolRegistry('chat', mgr).get('mcp__fs__read');
+    assert(mcpTool?.kind === 'mcp');
+
+    const result = await mcpTool.execute({path: '/x'}, createMockContext());
+
+    // Must not forward `{type:'text', text:''}` — Anthropic rejects it.
+    assert(result.status === 'success');
+    expect(result.content).toEqual([{type: 'text', text: '[no content]'}]);
   });
 
   it('get() returns a tool by its namespaced name', async () => {
@@ -223,5 +322,47 @@ describe('McpToolRegistry', () => {
       'mcp__fs__read',
       'mcp__fs__write',
     ]);
+  });
+});
+
+describe('buildMcpToolResultBlocks', () => {
+  it('passes text and a supported image through as blocks', () => {
+    const blocks = buildMcpToolResultBlocks([
+      {type: 'text', text: 'result'},
+      {type: 'image', data: 'AAAA', mimeType: 'image/png'},
+    ]);
+    expect(blocks).toEqual([
+      {type: 'text', text: 'result'},
+      {type: 'image', mediaType: 'image/png', data: 'AAAA'},
+    ]);
+  });
+
+  it('renders audio as an unsupported placeholder', () => {
+    const blocks = buildMcpToolResultBlocks([
+      {type: 'audio', data: 'AAAA', mimeType: 'audio/wav'},
+    ]);
+    expect(blocks).toEqual([
+      {
+        type: 'text',
+        text: '[unsupported audio content (audio/wav): not delivered to the model]',
+      },
+    ]);
+  });
+
+  it('renders an unsupported image type as a placeholder', () => {
+    const blocks = buildMcpToolResultBlocks([
+      {type: 'image', data: 'AAAA', mimeType: 'image/tiff'},
+    ]);
+    expect(blocks).toEqual([
+      {type: 'text', text: '[unsupported image type: image/tiff]'},
+    ]);
+  });
+
+  it('drops empty text blocks (Anthropic rejects them)', () => {
+    const blocks = buildMcpToolResultBlocks([
+      {type: 'text', text: ''},
+      {type: 'text', text: 'kept'},
+    ]);
+    expect(blocks).toEqual([{type: 'text', text: 'kept'}]);
   });
 });

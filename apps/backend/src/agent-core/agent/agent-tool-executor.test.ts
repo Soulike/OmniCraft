@@ -102,7 +102,7 @@ describe('AgentToolExecutor', () => {
         context.onSubAgentEvent(subAgentEvent);
         return {
           status: 'success',
-          content: `result:${args.value}`,
+          content: [{type: 'text', text: `result:${args.value}`}],
           data: {message: 'ok'},
         };
       },
@@ -116,7 +116,7 @@ describe('AgentToolExecutor', () => {
 
     expect(result).toEqual({
       status: 'success',
-      content: 'result:ok',
+      content: [{type: 'text', text: 'result:ok'}],
       data: {message: 'ok'},
     });
     if (!receivedContext.current) {
@@ -148,7 +148,11 @@ describe('AgentToolExecutor', () => {
       suppressToolEvents: true,
       execute: (_args, _context, onOutput) => {
         onOutputWasProvided = onOutput !== undefined;
-        return {status: 'success', content: 'ok', data: {message: 'ok'}};
+        return {
+          status: 'success',
+          content: [{type: 'text', text: 'ok'}],
+          data: {message: 'ok'},
+        };
       },
     };
     const input = executeInput({
@@ -183,7 +187,7 @@ describe('AgentToolExecutor', () => {
 
     expect(result).toEqual({
       status: 'error',
-      content: 'Error: tool exploded',
+      content: [{type: 'text', text: 'Error: tool exploded'}],
       data: {message: 'tool exploded'},
     });
   });
@@ -203,7 +207,11 @@ describe('AgentToolExecutor', () => {
       },
       execute: (args) => {
         receivedArgs = args;
-        return {status: 'success', content: 'ok', data: {}};
+        return {
+          status: 'success',
+          content: [{type: 'text', text: 'ok'}],
+          data: {},
+        };
       },
     };
     const input = executeInput({

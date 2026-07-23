@@ -1,5 +1,3 @@
-import {z} from 'zod';
-
 import {estimatePromptTokens} from '../../llm-api/token-estimator.js';
 import type {
   EstimateCurrentTokensInput,
@@ -20,14 +18,7 @@ export class LlmCompactionTokenEstimator {
     return estimatePromptTokens({
       messages,
       ...(options.systemPrompt ? {systemPrompt: options.systemPrompt} : {}),
-      tools: options.tools.map((tool) => ({
-        name: tool.name,
-        description: tool.description,
-        parameters:
-          tool.kind === 'mcp'
-            ? tool.inputJsonSchema
-            : z.toJSONSchema(tool.parameters),
-      })),
+      tools: options.tools,
     });
   }
 
@@ -43,7 +34,9 @@ export class LlmCompactionTokenEstimator {
 
     const pendingMessages = messages.slice(pendingStart);
     const pendingInputTokens =
-      pendingMessages.length > 0 ? estimatePromptTokens(pendingMessages) : 0;
+      pendingMessages.length > 0
+        ? estimatePromptTokens({messages: pendingMessages})
+        : 0;
 
     return (
       usage.currentContextInputTokens +

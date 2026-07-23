@@ -6,6 +6,7 @@ import path from 'node:path';
 import {afterEach, beforeEach, describe, expect, it} from 'vitest';
 
 import {FileContentCache} from '@/agent-core/agent/state/file-content-cache.js';
+import {toolResultBlocksToText} from '@/agent-core/llm-api/index.js';
 import {createMockContext} from '@/agent-core/tool/testing.js';
 import type {ToolExecutionContext} from '@/agent-core/tool/types.js';
 
@@ -38,6 +39,28 @@ describe('editFileTool', () => {
     expect(editFileTool.name).toBe('edit_file');
   });
 
+  it('rejects a binary file even when its stat is registered', async () => {
+    const filePath = path.join(tmpDir, 'image.png');
+    // PNG header bytes plus a null byte make this a binary file.
+    await fs.writeFile(
+      filePath,
+      Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x00, 0x01, 0x02]),
+    );
+    const stat = await fs.stat(filePath);
+    // Registering the stat would normally satisfy read-before-modify; the binary
+    // guard must still reject the edit.
+    context.fileStatTracker.set(filePath, stat.size, stat.mtimeMs);
+
+    const result = await editFileTool.execute(
+      {filePath: 'image.png', oldString: 'PNG', newString: 'XXX'},
+      context,
+    );
+
+    expect(result.status).toBe('failure');
+    assert(result.status === 'failure');
+    expect(toolResultBlocksToText(result.content)).toContain('binary');
+  });
+
   describe('success cases', () => {
     it('succeeds when file was read first', async () => {
       const filePath = path.join(tmpDir, 'tracked.ts');
@@ -50,7 +73,7 @@ describe('editFileTool', () => {
         context,
       );
 
-      expect(result.content).toContain('File edited:');
+      expect(toolResultBlocksToText(result.content)).toContain('File edited:');
       expect(result.status).toBe('success');
       assert(result.status === 'success');
       expect(result.data.filePath).toBe('tracked.ts');
@@ -77,10 +100,16 @@ describe('editFileTool', () => {
         context,
       );
 
-      expect(result.content).toContain('File edited: test.ts');
-      expect(result.content).toContain('1 replacement(s)');
-      expect(result.content).toContain('-const x = 1;');
-      expect(result.content).toContain('+const x = 42;');
+      expect(toolResultBlocksToText(result.content)).toContain(
+        'File edited: test.ts',
+      );
+      expect(toolResultBlocksToText(result.content)).toContain(
+        '1 replacement(s)',
+      );
+      expect(toolResultBlocksToText(result.content)).toContain('-const x = 1;');
+      expect(toolResultBlocksToText(result.content)).toContain(
+        '+const x = 42;',
+      );
       expect(result.status).toBe('success');
       assert(result.status === 'success');
       expect(result.data.filePath).toBe('test.ts');
@@ -110,7 +139,9 @@ describe('editFileTool', () => {
         context,
       );
 
-      expect(result.content).toContain('3 replacement(s)');
+      expect(toolResultBlocksToText(result.content)).toContain(
+        '3 replacement(s)',
+      );
       expect(result.status).toBe('success');
       assert(result.status === 'success');
       expect(result.data.matchCount).toBe(3);
@@ -133,10 +164,10 @@ describe('editFileTool', () => {
         context,
       );
 
-      expect(result.content).toContain('---');
-      expect(result.content).toContain('+++');
-      expect(result.content).toContain('-old line');
-      expect(result.content).toContain('+new line');
+      expect(toolResultBlocksToText(result.content)).toContain('---');
+      expect(toolResultBlocksToText(result.content)).toContain('+++');
+      expect(toolResultBlocksToText(result.content)).toContain('-old line');
+      expect(toolResultBlocksToText(result.content)).toContain('+new line');
       expect(result.status).toBe('success');
       assert(result.status === 'success');
       expect(result.data.diff).toBeTruthy();
@@ -159,9 +190,15 @@ describe('editFileTool', () => {
         context,
       );
 
-      expect(result.content).toContain('File edited: big.ts');
-      expect(result.content).toContain('Diff truncated');
-      expect(result.content).toContain('Read the file to review');
+      expect(toolResultBlocksToText(result.content)).toContain(
+        'File edited: big.ts',
+      );
+      expect(toolResultBlocksToText(result.content)).toContain(
+        'Diff truncated',
+      );
+      expect(toolResultBlocksToText(result.content)).toContain(
+        'Read the file to review',
+      );
       expect(result.status).toBe('success');
       assert(result.status === 'success');
       expect(result.data.truncated).toBe(true);
@@ -178,7 +215,7 @@ describe('editFileTool', () => {
         context,
       );
 
-      expect(result.content).toContain('File edited:');
+      expect(toolResultBlocksToText(result.content)).toContain('File edited:');
       expect(result.status).toBe('success');
       assert(result.status === 'success');
       expect(result.data.filePath).toBeTruthy();
@@ -193,7 +230,9 @@ describe('editFileTool', () => {
         context,
       );
 
-      expect(result.content).toContain('Error: File not found');
+      expect(toolResultBlocksToText(result.content)).toContain(
+        'Error: File not found',
+      );
       expect(result.status).toBe('failure');
       assert(result.status === 'failure');
       expect(result.data.message).toBeTruthy();
@@ -207,7 +246,9 @@ describe('editFileTool', () => {
         context,
       );
 
-      expect(result.content).toContain('Error: Not a file');
+      expect(toolResultBlocksToText(result.content)).toContain(
+        'Error: Not a file',
+      );
       expect(result.status).toBe('failure');
       assert(result.status === 'failure');
       expect(result.data.message).toBeTruthy();
@@ -227,7 +268,9 @@ describe('editFileTool', () => {
         context,
       );
 
-      expect(result.content).toContain('Error: old string not found');
+      expect(toolResultBlocksToText(result.content)).toContain(
+        'Error: old string not found',
+      );
       expect(result.status).toBe('failure');
       assert(result.status === 'failure');
       expect(result.data.message).toBeTruthy();
@@ -243,7 +286,7 @@ describe('editFileTool', () => {
         context,
       );
 
-      expect(result.content).toContain(
+      expect(toolResultBlocksToText(result.content)).toContain(
         'Error: oldString and newString are identical',
       );
       expect(result.status).toBe('failure');
@@ -265,8 +308,10 @@ describe('editFileTool', () => {
         context,
       );
 
-      expect(result.content).toContain('Error: Found 2 matches');
-      expect(result.content).toContain('replaceAll');
+      expect(toolResultBlocksToText(result.content)).toContain(
+        'Error: Found 2 matches',
+      );
+      expect(toolResultBlocksToText(result.content)).toContain('replaceAll');
       expect(result.status).toBe('failure');
       assert(result.status === 'failure');
       expect(result.data.message).toBeTruthy();
@@ -283,7 +328,9 @@ describe('editFileTool', () => {
         context,
       );
 
-      expect(result.content).toContain('Error: File exceeds');
+      expect(toolResultBlocksToText(result.content)).toContain(
+        'Error: File exceeds',
+      );
       expect(result.status).toBe('failure');
       assert(result.status === 'failure');
       expect(result.data.message).toBeTruthy();
@@ -297,7 +344,7 @@ describe('editFileTool', () => {
         context,
       );
 
-      expect(result.content).toContain(
+      expect(toolResultBlocksToText(result.content)).toContain(
         'Error: Read the file before modifying it',
       );
       expect(result.status).toBe('failure');
@@ -315,7 +362,7 @@ describe('editFileTool', () => {
         context,
       );
 
-      expect(result.content).toContain(
+      expect(toolResultBlocksToText(result.content)).toContain(
         'Error: File has been modified since last read',
       );
       expect(result.status).toBe('failure');

@@ -3,16 +3,20 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 
 import {
+  documentMediaTypeSchema,
+  imageMediaTypeSchema,
   INTERNAL_TOOL_NAME,
   readFileParametersSchema,
   readFileResultSchema,
 } from '@omnicraft/tool-schemas';
+import {fileTypeFromFile} from 'file-type';
 import {z} from 'zod';
 
 import type {
   ToolDefinition,
   ToolExecutionContext,
 } from '@/agent-core/tool/index.js';
+import {MAX_INLINE_MEDIA_BYTES} from '@/agent-core/tool/index.js';
 
 import {
   countLines,
@@ -36,10 +40,13 @@ export const readFileTool: ToolDefinition<typeof parameters, ReadFileResult> = {
   name: INTERNAL_TOOL_NAME.READ_FILE,
   displayName: 'Read File',
   description:
-    'Reads a text file and returns its contents with line numbers. ' +
-    'Supports partial reads via startLine and lineCount parameters. ' +
-    'Use this whenever you need to see the current content of a file ' +
-    'or review a specific section of it.',
+    'Reads a file and returns its contents. ' +
+    'Text files are returned with line numbers in chunks up to ' +
+    `${MAX_RETURN_SIZE / 1024} KB per read (use startLine and lineCount to page through larger files). ` +
+    'Images (PNG, JPEG, GIF, WEBP) and PDFs are returned to the model as media when under ' +
+    `${MAX_INLINE_MEDIA_BYTES / 1024 / 1024} MB; larger media cannot be returned and must be reduced first ` +
+    '(for example, downsample an image or extract pages or text from a PDF). ' +
+    'Use this whenever you need to see the current content of a file or review a specific section of it.',
   parameters,
   suppressToolEvents: false,
   compactResult({content, status, toolCall}) {
@@ -73,7 +80,9 @@ export const readFileTool: ToolDefinition<typeof parameters, ReadFileResult> = {
     } catch {
       return {
         data: {message: `File not found: ${args.filePath}`},
-        content: `Error: File not found: ${args.filePath}`,
+        content: [
+          {type: 'text', text: `Error: File not found: ${args.filePath}`},
+        ],
         status: 'failure',
       };
     }
@@ -81,19 +90,98 @@ export const readFileTool: ToolDefinition<typeof parameters, ReadFileResult> = {
     if (!stat.isFile()) {
       return {
         data: {message: `Not a file: ${args.filePath}`},
-        content: `Error: Not a file: ${args.filePath}`,
+        content: [{type: 'text', text: `Error: Not a file: ${args.filePath}`}],
         status: 'failure',
       };
     }
 
-    // 3. Binary check
+    // 3. Detect media (image/PDF) via content sniffing; otherwise fall through.
+    let detected: {ext: string; mime: string} | undefined;
+    try {
+      detected = await fileTypeFromFile(absolutePath);
+    } catch {
+      detected = undefined;
+    }
+
+    const imageType = detected
+      ? imageMediaTypeSchema.safeParse(detected.mime)
+      : undefined;
+    const docType = detected
+      ? documentMediaTypeSchema.safeParse(detected.mime)
+      : undefined;
+
+    if (imageType?.success || docType?.success) {
+      if (stat.size > MAX_INLINE_MEDIA_BYTES) {
+        const limitMb = MAX_INLINE_MEDIA_BYTES / 1024 / 1024;
+        const sizeMb = (stat.size / 1024 / 1024).toFixed(1);
+        const message =
+          `${args.filePath} is ${sizeMb} MB, over the ${limitMb} MB inline limit for media. ` +
+          'Reduce it first with a shell command (for example, downsample/resize an image, ' +
+          'or extract specific pages or text from a PDF) and read the smaller file.';
+        return {
+          data: {message},
+          content: [{type: 'text', text: `Error: ${message}`}],
+          status: 'failure',
+        };
+      }
+
+      const base64 = (await fs.readFile(absolutePath)).toString('base64');
+      // Deliberately do NOT register the file with fileStatTracker here: a media
+      // read is not a text read, and registering it would satisfy edit_file's
+      // read-before-modify check and let it rewrite the binary as UTF-8.
+
+      // Two narrowed branches so `mediaType` carries the exact literal type each block
+      // requires (no re-parse, no non-null assertion).
+      if (imageType?.success) {
+        const mediaType = imageType.data;
+        const data: ReadFileResult = {
+          kind: 'image',
+          filePath: args.filePath,
+          mediaType,
+          byteSize: stat.size,
+        };
+        return {
+          data,
+          content: [{type: 'image', mediaType, data: base64}],
+          status: 'success',
+        };
+      }
+      if (docType?.success) {
+        const mediaType = docType.data;
+        const data: ReadFileResult = {
+          kind: 'document',
+          filePath: args.filePath,
+          mediaType,
+          byteSize: stat.size,
+        };
+        return {
+          data,
+          content: [
+            {
+              type: 'document',
+              mediaType,
+              data: base64,
+              name: path.basename(absolutePath),
+            },
+          ],
+          status: 'success',
+        };
+      }
+    }
+
+    // Not media — reject other binaries (unchanged behavior).
     try {
       if (await isBinaryFile(absolutePath)) {
         return {
           data: {
             message: `Binary file detected: ${args.filePath}. Only text files are supported.`,
           },
-          content: `Error: Binary file detected: ${args.filePath}. Only text files are supported.`,
+          content: [
+            {
+              type: 'text',
+              text: `Error: Binary file detected: ${args.filePath}. Only text files are supported.`,
+            },
+          ],
           status: 'failure',
         };
       }
@@ -102,7 +190,12 @@ export const readFileTool: ToolDefinition<typeof parameters, ReadFileResult> = {
         data: {
           message: `Unable to check if file is binary: ${args.filePath}`,
         },
-        content: `Error: Unable to check if file is binary: ${args.filePath}`,
+        content: [
+          {
+            type: 'text',
+            text: `Error: Unable to check if file is binary: ${args.filePath}`,
+          },
+        ],
         status: 'failure',
       };
     }
@@ -150,14 +243,23 @@ export const readFileTool: ToolDefinition<typeof parameters, ReadFileResult> = {
               `${error.message}. ` +
               `Use startLine and lineCount to read a smaller portion.`,
           },
-          content:
-            `Error: ${error.message}. ` +
-            `Use startLine and lineCount to read a smaller portion.`,
+          content: [
+            {
+              type: 'text',
+              text:
+                `Error: ${error.message}. ` +
+                `Use startLine and lineCount to read a smaller portion.`,
+            },
+          ],
           status: 'failure',
         };
       }
       const message = error instanceof Error ? error.message : String(error);
-      return {data: {message}, content: `Error: ${message}`, status: 'failure'};
+      return {
+        data: {message},
+        content: [{type: 'text', text: `Error: ${message}`}],
+        status: 'failure',
+      };
     }
 
     const endLine = args.lineCount
@@ -181,6 +283,7 @@ export const readFileTool: ToolDefinition<typeof parameters, ReadFileResult> = {
     context.fileStatTracker.set(absolutePath, stat.size, stat.mtimeMs);
 
     const data: ReadFileResult = {
+      kind: 'text',
       filePath: args.filePath,
       totalLines,
       startLine,
@@ -188,6 +291,10 @@ export const readFileTool: ToolDefinition<typeof parameters, ReadFileResult> = {
       content: selectedLines.join('\n'),
     };
 
-    return {data, content: `${header}\n${formatted}`, status: 'success'};
+    return {
+      data,
+      content: [{type: 'text', text: `${header}\n${formatted}`}],
+      status: 'success',
+    };
   },
 };

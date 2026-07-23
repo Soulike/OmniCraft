@@ -1,3 +1,4 @@
+export {toolResultBlocksToText} from './helpers/tool-result-blocks-to-text.js';
 export {llmApi} from './llm-api.js';
 export type {
   LlmAssistantMessage,
@@ -21,6 +22,7 @@ export type {
   LlmToolCallStartEvent,
   LlmToolResultMessage,
   LlmUserMessage,
+  ToolResultBlock,
 } from './types.js';
 export {
   llmAssistantMessageSchema,
@@ -29,4 +31,5 @@ export {
   llmToolCallSchema,
   llmToolResultMessageSchema,
   llmUserMessageSchema,
+  toolResultBlockSchema,
 } from './types.js';

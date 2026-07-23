@@ -6,6 +6,8 @@ import path from 'node:path';
 import {afterEach, beforeEach, describe, expect, it} from 'vitest';
 
 import {FileContentCache} from '@/agent-core/agent/state/file-content-cache.js';
+import {toolResultBlocksToText} from '@/agent-core/llm-api/index.js';
+import {MAX_INLINE_MEDIA_BYTES} from '@/agent-core/tool/index.js';
 import {createMockContext} from '@/agent-core/tool/testing.js';
 import type {ToolExecutionContext} from '@/agent-core/tool/types.js';
 
@@ -46,12 +48,15 @@ describe('readFileTool', () => {
         context,
       );
 
-      expect(result.content).toContain('File: hello.txt (3 lines)');
-      expect(result.content).toContain('1\tline1');
-      expect(result.content).toContain('2\tline2');
-      expect(result.content).toContain('3\tline3');
+      expect(toolResultBlocksToText(result.content)).toContain(
+        'File: hello.txt (3 lines)',
+      );
+      expect(toolResultBlocksToText(result.content)).toContain('1\tline1');
+      expect(toolResultBlocksToText(result.content)).toContain('2\tline2');
+      expect(toolResultBlocksToText(result.content)).toContain('3\tline3');
       expect(result.status).toBe('success');
       assert(result.status === 'success');
+      assert(result.data.kind === 'text');
       expect(result.data.filePath).toBe('hello.txt');
       expect(result.data.totalLines).toBe(3);
       expect(result.data.startLine).toBe(1);
@@ -66,12 +71,15 @@ describe('readFileTool', () => {
         context,
       );
 
-      expect(result.content).toContain('(5 lines, showing lines 3-5)');
-      expect(result.content).toContain('3\tc');
-      expect(result.content).toContain('5\te');
-      expect(result.content).not.toContain('1\ta');
+      expect(toolResultBlocksToText(result.content)).toContain(
+        '(5 lines, showing lines 3-5)',
+      );
+      expect(toolResultBlocksToText(result.content)).toContain('3\tc');
+      expect(toolResultBlocksToText(result.content)).toContain('5\te');
+      expect(toolResultBlocksToText(result.content)).not.toContain('1\ta');
       expect(result.status).toBe('success');
       assert(result.status === 'success');
+      assert(result.data.kind === 'text');
       expect(result.data.totalLines).toBe(5);
       expect(result.data.startLine).toBe(3);
       expect(result.data.endLine).toBe(5);
@@ -84,12 +92,15 @@ describe('readFileTool', () => {
         context,
       );
 
-      expect(result.content).toContain('(5 lines, showing lines 2-3)');
-      expect(result.content).toContain('2\tb');
-      expect(result.content).toContain('3\tc');
-      expect(result.content).not.toContain('4\td');
+      expect(toolResultBlocksToText(result.content)).toContain(
+        '(5 lines, showing lines 2-3)',
+      );
+      expect(toolResultBlocksToText(result.content)).toContain('2\tb');
+      expect(toolResultBlocksToText(result.content)).toContain('3\tc');
+      expect(toolResultBlocksToText(result.content)).not.toContain('4\td');
       expect(result.status).toBe('success');
       assert(result.status === 'success');
+      assert(result.data.kind === 'text');
       expect(result.data.totalLines).toBe(5);
       expect(result.data.startLine).toBe(2);
       expect(result.data.endLine).toBe(3);
@@ -102,10 +113,13 @@ describe('readFileTool', () => {
         context,
       );
 
-      expect(result.content).toContain('File: sub/file.txt');
-      expect(result.content).toContain('content');
+      expect(toolResultBlocksToText(result.content)).toContain(
+        'File: sub/file.txt',
+      );
+      expect(toolResultBlocksToText(result.content)).toContain('content');
       expect(result.status).toBe('success');
       assert(result.status === 'success');
+      assert(result.data.kind === 'text');
       expect(result.data.filePath).toContain('sub/file.txt');
       expect(result.data.content).toBeTruthy();
     });
@@ -114,9 +128,10 @@ describe('readFileTool', () => {
       const absPath = await writeFile('abs.txt', 'data');
       const result = await readFileTool.execute({filePath: absPath}, context);
 
-      expect(result.content).toContain('data');
+      expect(toolResultBlocksToText(result.content)).toContain('data');
       expect(result.status).toBe('success');
       assert(result.status === 'success');
+      assert(result.data.kind === 'text');
       expect(result.data.filePath).toBeTruthy();
       expect(result.data.content).toBeTruthy();
     });
@@ -131,10 +146,11 @@ describe('readFileTool', () => {
         context,
       );
 
-      expect(result.content).toContain('  1\tline1');
-      expect(result.content).toContain('  2\tline2');
+      expect(toolResultBlocksToText(result.content)).toContain('  1\tline1');
+      expect(toolResultBlocksToText(result.content)).toContain('  2\tline2');
       expect(result.status).toBe('success');
       assert(result.status === 'success');
+      assert(result.data.kind === 'text');
       expect(result.data.totalLines).toBe(100);
       expect(result.data.startLine).toBe(1);
       expect(result.data.endLine).toBe(2);
@@ -146,9 +162,12 @@ describe('readFileTool', () => {
         context,
       );
 
-      expect(result.content).toContain('File: empty.txt (0 lines)');
+      expect(toolResultBlocksToText(result.content)).toContain(
+        'File: empty.txt (0 lines)',
+      );
       expect(result.status).toBe('success');
       assert(result.status === 'success');
+      assert(result.data.kind === 'text');
       expect(result.data.totalLines).toBe(0);
     });
 
@@ -159,9 +178,12 @@ describe('readFileTool', () => {
         context,
       );
 
-      expect(result.content).toContain('(3 lines, showing lines 100-3)');
+      expect(toolResultBlocksToText(result.content)).toContain(
+        '(3 lines, showing lines 100-3)',
+      );
       expect(result.status).toBe('success');
       assert(result.status === 'success');
+      assert(result.data.kind === 'text');
       expect(result.data.totalLines).toBe(3);
       expect(result.data.startLine).toBe(100);
       expect(result.data.endLine).toBe(3);
@@ -180,16 +202,71 @@ describe('readFileTool', () => {
       );
       expect(checkResult).toBe('ok');
     });
+
+    it('returns an image file as an image block with a media result', async () => {
+      // 1x1 transparent PNG
+      const pngBase64 =
+        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+      const png = Buffer.from(pngBase64, 'base64');
+      await fs.writeFile(path.join(tmpDir, 'pixel.png'), png);
+
+      const result = await readFileTool.execute(
+        {filePath: 'pixel.png'},
+        context,
+      );
+
+      expect(result.status).toBe('success');
+      expect(result.content).toEqual([
+        {type: 'image', mediaType: 'image/png', data: pngBase64},
+      ]);
+      expect(result.data).toEqual({
+        kind: 'image',
+        filePath: 'pixel.png',
+        mediaType: 'image/png',
+        byteSize: png.length,
+      });
+    });
   });
 
   describe('error cases', () => {
+    it('rejects an oversized media file instead of inlining it', async () => {
+      // A real PNG signature followed by padding so file-type sniffing still
+      // detects it as image/png, while the on-disk size exceeds the inline cap.
+      const pngBase64 =
+        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+      const pngHeader = Buffer.from(pngBase64, 'base64');
+      const oversized = Buffer.concat([
+        pngHeader,
+        Buffer.alloc(MAX_INLINE_MEDIA_BYTES - pngHeader.length + 1),
+      ]);
+      await fs.writeFile(path.join(tmpDir, 'huge.png'), oversized);
+
+      const result = await readFileTool.execute(
+        {filePath: 'huge.png'},
+        context,
+      );
+
+      expect(result.status).toBe('failure');
+      assert(result.status === 'failure');
+      expect(result.data.message).toContain('over the');
+      expect(result.data.message).toContain('MB inline limit for media');
+      expect(toolResultBlocksToText(result.content)).toContain('Error:');
+      // No base64 media payload leaks into the failure result: content is a
+      // single text block, not an image/document block carrying `data`.
+      expect(result.content).toHaveLength(1);
+      expect(result.content[0]?.type).toBe('text');
+      expect(JSON.stringify(result.content)).not.toContain(pngBase64);
+    });
+
     it('returns error for nonexistent file', async () => {
       const result = await readFileTool.execute(
         {filePath: 'nope.txt'},
         context,
       );
 
-      expect(result.content).toContain('Error: File not found');
+      expect(toolResultBlocksToText(result.content)).toContain(
+        'Error: File not found',
+      );
       expect(result.status).toBe('failure');
       assert(result.status === 'failure');
       expect(result.data.message).toBeTruthy();
@@ -199,7 +276,9 @@ describe('readFileTool', () => {
       await fs.mkdir(path.join(tmpDir, 'adir'));
       const result = await readFileTool.execute({filePath: 'adir'}, context);
 
-      expect(result.content).toContain('Error: Not a file');
+      expect(toolResultBlocksToText(result.content)).toContain(
+        'Error: Not a file',
+      );
       expect(result.status).toBe('failure');
       assert(result.status === 'failure');
       expect(result.data.message).toBeTruthy();
@@ -216,7 +295,9 @@ describe('readFileTool', () => {
         context,
       );
 
-      expect(result.content).toContain('Error: Binary file detected');
+      expect(toolResultBlocksToText(result.content)).toContain(
+        'Error: Binary file detected',
+      );
       expect(result.status).toBe('failure');
       assert(result.status === 'failure');
       expect(result.data.message).toBeTruthy();
@@ -232,9 +313,13 @@ describe('readFileTool', () => {
         context,
       );
 
-      expect(result.content).toContain('Error: Read result exceeds');
-      expect(result.content).toContain('byte limit');
-      expect(result.content).toContain('Use startLine and lineCount');
+      expect(toolResultBlocksToText(result.content)).toContain(
+        'Error: Read result exceeds',
+      );
+      expect(toolResultBlocksToText(result.content)).toContain('byte limit');
+      expect(toolResultBlocksToText(result.content)).toContain(
+        'Use startLine and lineCount',
+      );
       expect(result.status).toBe('failure');
       assert(result.status === 'failure');
       expect(result.data.message).toBeTruthy();

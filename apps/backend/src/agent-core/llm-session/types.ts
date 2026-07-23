@@ -4,6 +4,7 @@ import type {
 } from '@omnicraft/sse-events';
 import {z} from 'zod';
 
+import type {ToolResultBlock} from '../llm-api/index.js';
 import {llmMessageSchema, type LlmToolCall} from '../llm-api/index.js';
 import type {AnyToolDefinition} from '../tool/types.js';
 
@@ -43,7 +44,7 @@ export type LlmSessionSnapshot = z.infer<typeof llmSessionSnapshotSchema>;
 /** A tool execution result to submit back to the LLM. */
 export interface ToolResult {
   callId: string;
-  content: string;
+  content: ToolResultBlock[];
   status: 'success' | 'failure';
 }
 

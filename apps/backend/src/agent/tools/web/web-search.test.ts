@@ -2,6 +2,7 @@ import assert from 'node:assert';
 
 import {describe, expect, it, vi} from 'vitest';
 
+import {toolResultBlocksToText} from '@/agent-core/llm-api/index.js';
 import {createMockContext} from '@/agent-core/tool/testing.js';
 
 vi.mock('@/models/settings-manager/index.js', () => ({
@@ -24,8 +25,10 @@ describe('webSearchTool', () => {
       {query: 'test query'},
       createMockContext(),
     );
-    expect(result.content).toContain('Error:');
-    expect(result.content).toContain('Tavily API key is not configured');
+    expect(toolResultBlocksToText(result.content)).toContain('Error:');
+    expect(toolResultBlocksToText(result.content)).toContain(
+      'Tavily API key is not configured',
+    );
     expect(result.status).toBe('failure');
     assert(result.status === 'failure');
     expect(result.data.message).toBeTruthy();

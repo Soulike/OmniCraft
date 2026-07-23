@@ -123,7 +123,11 @@ export const webFetchTool: ToolDefinition<typeof parameters, WebFetchResult> = {
   async execute(args: WebFetchArgs, context: ToolExecutionContext) {
     const urlError = validateUrl(args.url);
     if (urlError) {
-      return {data: {message: urlError}, content: urlError, status: 'failure'};
+      return {
+        data: {message: urlError},
+        content: [{type: 'text', text: urlError}],
+        status: 'failure',
+      };
     }
 
     let bodyBytes: Buffer;
@@ -144,7 +148,9 @@ export const webFetchTool: ToolDefinition<typeof parameters, WebFetchResult> = {
       const message = error instanceof Error ? error.message : String(error);
       return {
         data: {message: `Failed to fetch URL: ${message}`},
-        content: `Error: Failed to fetch URL: ${message}`,
+        content: [
+          {type: 'text', text: `Error: Failed to fetch URL: ${message}`},
+        ],
         status: 'failure',
       };
     }
@@ -170,7 +176,7 @@ export const webFetchTool: ToolDefinition<typeof parameters, WebFetchResult> = {
         const message = error instanceof Error ? error.message : String(error);
         return {
           data: {message},
-          content: `Error: ${message}`,
+          content: [{type: 'text', text: `Error: ${message}`}],
           status: 'failure',
         };
       }
@@ -180,7 +186,7 @@ export const webFetchTool: ToolDefinition<typeof parameters, WebFetchResult> = {
       const message = `Unsupported content type: ${contentType}`;
       return {
         data: {message},
-        content: `Error: ${message}`,
+        content: [{type: 'text', text: `Error: ${message}`}],
         status: 'failure',
       };
     }
@@ -199,7 +205,12 @@ export const webFetchTool: ToolDefinition<typeof parameters, WebFetchResult> = {
           data: {
             message: `Failed to save content to temporary file: ${message}`,
           },
-          content: `Error: Failed to save content to temporary file: ${message}`,
+          content: [
+            {
+              type: 'text',
+              text: `Error: Failed to save content to temporary file: ${message}`,
+            },
+          ],
           status: 'failure',
         };
       }
@@ -211,7 +222,12 @@ export const webFetchTool: ToolDefinition<typeof parameters, WebFetchResult> = {
       };
       return {
         data,
-        content: formatResponse(args.url, title, fileMessage, note),
+        content: [
+          {
+            type: 'text',
+            text: formatResponse(args.url, title, fileMessage, note),
+          },
+        ],
         status: 'success',
       };
     }
@@ -219,7 +235,9 @@ export const webFetchTool: ToolDefinition<typeof parameters, WebFetchResult> = {
     const data: WebFetchResult = {url: args.url, title, content};
     return {
       data,
-      content: formatResponse(args.url, title, content, note),
+      content: [
+        {type: 'text', text: formatResponse(args.url, title, content, note)},
+      ],
       status: 'success',
     };
   },

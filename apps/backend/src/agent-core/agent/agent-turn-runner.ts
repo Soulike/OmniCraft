@@ -15,6 +15,7 @@ import {AsyncChannel} from '@/helpers/async-channel.js';
 import {logger} from '@/logger.js';
 
 import type {LlmConfig, LlmToolCall} from '../llm-api/index.js';
+import {toolResultBlocksToText} from '../llm-api/index.js';
 import type {
   LlmSession,
   LlmSessionEventStream,
@@ -223,7 +224,9 @@ export class AgentTurnRunner {
         if (availableTools.has(toolCall.toolName)) continue;
         toolResults.set(toolCall.callId, {
           callId: toolCall.callId,
-          content: `Error: Unknown tool: ${toolCall.toolName}`,
+          content: [
+            {type: 'text', text: `Error: Unknown tool: ${toolCall.toolName}`},
+          ],
           status: 'failure',
         });
       }
@@ -254,7 +257,7 @@ export class AgentTurnRunner {
             toolSseEventChannel.push({
               type: 'tool-execute-end',
               callId: toolCall.callId,
-              result: result.content,
+              result: toolResultBlocksToText(result.content),
               status: result.status,
               data: result.data,
             } satisfies SseToolExecuteEndEvent);

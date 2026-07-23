@@ -3,6 +3,8 @@ import type OpenAI from 'openai';
 import {z} from 'zod';
 
 import type {AnyToolDefinition} from '../../tool/types.js';
+import {toolResultBlocksToText} from '../helpers/tool-result-blocks-to-text.js';
+import type {ToolResultBlock} from '../types.js';
 import type {LlmMessage} from '../types.js';
 
 type ResponseInputItem = OpenAI.Responses.ResponseInputItem;
@@ -47,13 +49,48 @@ export function toInputItems(
         items.push({
           type: 'function_call_output',
           call_id: message.callId,
-          output: message.content,
+          output: toOpenAIToolResultOutput(message.content),
         });
         break;
     }
   }
 
   return items;
+}
+
+/**
+ * Maps neutral tool-result blocks to an OpenAI function_call_output `output`.
+ * All-text results stay a plain string (matches prior behavior); media results
+ * become a content-item array.
+ */
+export function toOpenAIToolResultOutput(
+  blocks: readonly ToolResultBlock[],
+): string | OpenAI.Responses.ResponseFunctionCallOutputItemList {
+  if (blocks.every((block) => block.type === 'text')) {
+    return toolResultBlocksToText(blocks);
+  }
+  return blocks.map((block) => {
+    switch (block.type) {
+      case 'text':
+        return {type: 'input_text', text: block.text};
+      case 'image':
+        return {
+          type: 'input_image',
+          detail: 'auto',
+          image_url: `data:${block.mediaType};base64,${block.data}`,
+        };
+      case 'document':
+        // OpenAI's Responses API takes an inline file as `file_data` (a base64
+        // data URL) plus a `filename` — see the input_file reference and the
+        // official SDK examples. `filename` is always set so the model can
+        // infer the file type.
+        return {
+          type: 'input_file',
+          filename: block.name ?? 'document.pdf',
+          file_data: `data:${block.mediaType};base64,${block.data}`,
+        };
+    }
+  });
 }
 
 /** Converts an AnyToolDefinition to the OpenAI Responses API function tool format. */

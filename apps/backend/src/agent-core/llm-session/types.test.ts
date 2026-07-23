@@ -120,7 +120,7 @@ describe('llmSessionSnapshotSchema', () => {
           createdAt: 1,
           role: 'tool',
           callId: 'call-1',
-          content: 'done',
+          content: [{type: 'text', text: 'done'}],
           status: 'success',
         },
       ],
@@ -202,7 +202,13 @@ describe('LlmSession snapshot metadata', () => {
 
     await consume(
       session.submitToolResults(
-        [{callId: 'call-1', content: 'done', status: 'success'}],
+        [
+          {
+            callId: 'call-1',
+            content: [{type: 'text', text: 'done'}],
+            status: 'success',
+          },
+        ],
         [],
         '',
       ),
@@ -211,7 +217,7 @@ describe('LlmSession snapshot metadata', () => {
     expect(session.getMessages()[0]).toMatchObject({
       role: 'tool',
       callId: 'call-1',
-      content: 'done',
+      content: [{type: 'text', text: 'done'}],
       status: 'success',
     });
   });

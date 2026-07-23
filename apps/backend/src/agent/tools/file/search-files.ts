@@ -109,7 +109,9 @@ export const searchFilesTool: ToolDefinition<
     } catch {
       return {
         data: {message: `Directory not found: ${args.path}`},
-        content: `Error: Directory not found: ${args.path}`,
+        content: [
+          {type: 'text', text: `Error: Directory not found: ${args.path}`},
+        ],
         status: 'failure',
       };
     }
@@ -117,7 +119,7 @@ export const searchFilesTool: ToolDefinition<
     if (!stat.isDirectory()) {
       return {
         data: {message: `Not a directory: ${args.path}`},
-        content: `Error: Not a directory: ${args.path}`,
+        content: [{type: 'text', text: `Error: Not a directory: ${args.path}`}],
         status: 'failure',
       };
     }
@@ -129,8 +131,12 @@ export const searchFilesTool: ToolDefinition<
           message:
             'Regex pattern rejected — potential catastrophic backtracking',
         },
-        content:
-          'Error: Regex pattern rejected — potential catastrophic backtracking',
+        content: [
+          {
+            type: 'text',
+            text: 'Error: Regex pattern rejected — potential catastrophic backtracking',
+          },
+        ],
         status: 'failure',
       };
     }
@@ -142,7 +148,9 @@ export const searchFilesTool: ToolDefinition<
       const message = error instanceof Error ? error.message : String(error);
       return {
         data: {message: `Invalid regex pattern: ${message}`},
-        content: `Error: Invalid regex pattern: ${message}`,
+        content: [
+          {type: 'text', text: `Error: Invalid regex pattern: ${message}`},
+        ],
         status: 'failure',
       };
     }
@@ -212,7 +220,7 @@ export const searchFilesTool: ToolDefinition<
         const message = error instanceof Error ? error.message : String(error);
         return {
           data: {message},
-          content: `Error: ${message}`,
+          content: [{type: 'text', text: `Error: ${message}`}],
           status: 'failure',
         };
       }
@@ -247,7 +255,12 @@ export const searchFilesTool: ToolDefinition<
         data: {
           message: `No matches found for /${args.pattern}/ in ${displayPath} (search timed out after 30s).`,
         },
-        content: `No matches found for /${args.pattern}/ in ${displayPath} (search timed out after 30s).`,
+        content: [
+          {
+            type: 'text',
+            text: `No matches found for /${args.pattern}/ in ${displayPath} (search timed out after 30s).`,
+          },
+        ],
         status: 'failure',
       };
     }
@@ -261,7 +274,12 @@ export const searchFilesTool: ToolDefinition<
       };
       return {
         data,
-        content: `No matches found for /${args.pattern}/ in ${displayPath}.`,
+        content: [
+          {
+            type: 'text',
+            text: `No matches found for /${args.pattern}/ in ${displayPath}.`,
+          },
+        ],
         status: 'success',
       };
     }
@@ -285,7 +303,12 @@ export const searchFilesTool: ToolDefinition<
         data: {
           message: `${header} Results may be incomplete. Use a more specific pattern to narrow down.`,
         },
-        content: `${header}\n${body}\nResults may be incomplete. Use a more specific pattern to narrow down.`,
+        content: [
+          {
+            type: 'text',
+            text: `${header}\n${body}\nResults may be incomplete. Use a more specific pattern to narrow down.`,
+          },
+        ],
         status: 'failure',
       };
     }
@@ -300,7 +323,12 @@ export const searchFilesTool: ToolDefinition<
       };
       return {
         data,
-        content: `${header}\n${body}\nUse a more specific pattern to narrow down.`,
+        content: [
+          {
+            type: 'text',
+            text: `${header}\n${body}\nUse a more specific pattern to narrow down.`,
+          },
+        ],
         status: 'success',
       };
     }
@@ -312,6 +340,10 @@ export const searchFilesTool: ToolDefinition<
       matches: flatMatches,
       truncated: false,
     };
-    return {data, content: `${header}\n${body}`, status: 'success'};
+    return {
+      data,
+      content: [{type: 'text', text: `${header}\n${body}`}],
+      status: 'success',
+    };
   },
 };
