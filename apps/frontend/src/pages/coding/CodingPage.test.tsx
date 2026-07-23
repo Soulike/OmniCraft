@@ -1,7 +1,13 @@
 import type {SseEventCursorEntry} from '@omnicraft/sse-events';
-import {fireEvent, render, screen, waitFor} from '@testing-library/react';
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react';
 import {MemoryRouter, Route, Routes} from 'react-router';
-import {beforeEach, describe, expect, it, vi} from 'vitest';
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 
 import {ThemeProvider} from '@/contexts/theme/index.js';
 
@@ -16,6 +22,14 @@ class ResizeObserverStub implements ResizeObserver {
 }
 
 globalThis.ResizeObserver = ResizeObserverStub;
+
+// CodingPage mounts useStreamChat, whose subscribe/sleep loop is torn down
+// only on unmount. Without cleanup the tree stays mounted after the test, and
+// pending React scheduler work can fire after jsdom teardown ("window is not
+// defined"). Unmount after each test to keep the suite leak-free.
+afterEach(() => {
+  cleanup();
+});
 
 const mocks = vi.hoisted(() => ({
   abortCompletion: vi.fn(),
