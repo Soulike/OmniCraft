@@ -15,8 +15,10 @@ export {
 } from './llm/schema.js';
 export {
   type McpServer,
+  mcpServerSchema,
   type McpSettings,
   mcpSettingsSchema,
   type McpTransport,
+  mcpTransportSchema,
 } from './mcp/schema.js';
 export {type Settings, settingsSchema} from './schema.js';
