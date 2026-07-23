@@ -9,4 +9,8 @@ describe('settings routes', () => {
       '/settings/coding/workspaces',
     );
   });
+
+  it('nests Servers under /settings/mcp', () => {
+    expect(ROUTES.settings.mcp.servers()).toBe('/settings/mcp/servers');
+  });
 });
