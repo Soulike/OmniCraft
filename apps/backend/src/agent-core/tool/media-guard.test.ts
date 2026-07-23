@@ -34,4 +34,16 @@ describe('guardMedia', () => {
     expect(block.text).toContain('not delivered');
     expect(block.text).not.toContain('saved to');
   });
+
+  it('accepts MIME-wrapped base64 within the cap and normalizes the whitespace', () => {
+    const bytes = Buffer.alloc(MAX_INLINE_MEDIA_BYTES, 1); // exactly at the cap
+    const wrapped = bytes.toString('base64').replace(/(.{76})/g, '$1\r\n');
+    const block = guardMedia({data: wrapped, mediaType: 'image/png'});
+
+    // Wrapping whitespace must not push a within-cap payload over the limit.
+    expect(block.type).toBe('image');
+    if (block.type !== 'image') throw new Error('expected image block');
+    // Delivered base64 is unwrapped.
+    expect(block.data).not.toMatch(/\s/);
+  });
 });

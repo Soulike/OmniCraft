@@ -39,6 +39,28 @@ describe('editFileTool', () => {
     expect(editFileTool.name).toBe('edit_file');
   });
 
+  it('rejects a binary file even when its stat is registered', async () => {
+    const filePath = path.join(tmpDir, 'image.png');
+    // PNG header bytes plus a null byte make this a binary file.
+    await fs.writeFile(
+      filePath,
+      Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x00, 0x01, 0x02]),
+    );
+    const stat = await fs.stat(filePath);
+    // Registering the stat would normally satisfy read-before-modify; the binary
+    // guard must still reject the edit.
+    context.fileStatTracker.set(filePath, stat.size, stat.mtimeMs);
+
+    const result = await editFileTool.execute(
+      {filePath: 'image.png', oldString: 'PNG', newString: 'XXX'},
+      context,
+    );
+
+    expect(result.status).toBe('failure');
+    assert(result.status === 'failure');
+    expect(toolResultBlocksToText(result.content)).toContain('binary');
+  });
+
   describe('success cases', () => {
     it('succeeds when file was read first', async () => {
       const filePath = path.join(tmpDir, 'tracked.ts');

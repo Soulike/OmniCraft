@@ -16,6 +16,8 @@ import type {
   ToolExecutionContext,
 } from '@/agent-core/tool/index.js';
 
+import {isBinaryFile} from './helpers.js';
+
 const MAX_DIFF_SIZE = 4_096; // 4KB
 const MAX_FILE_SIZE = 10_485_760; // 10MB
 
@@ -44,6 +46,7 @@ export const editFileTool: ToolDefinition<typeof parameters, EditFileResult> = {
     'Replaces a specific string in a file and returns a diff of the change. ' +
     'Use this to make targeted modifications to an existing file ' +
     'without rewriting the entire file. ' +
+    'Only supports text files; binary files such as images or PDFs cannot be edited. ' +
     'Requires the old string to uniquely match unless replaceAll is set.',
   parameters,
   suppressToolEvents: false,
@@ -84,6 +87,32 @@ export const editFileTool: ToolDefinition<typeof parameters, EditFileResult> = {
             text: `Error: File exceeds ${MAX_FILE_SIZE} byte limit`,
           },
         ],
+        status: 'failure',
+      };
+    }
+
+    // Reject binary files: a targeted string replacement on a binary reads and
+    // rewrites it as UTF-8, corrupting it.
+    let binary: boolean;
+    try {
+      binary = await isBinaryFile(absolutePath);
+    } catch {
+      return {
+        data: {message: `Unable to check if file is binary: ${args.filePath}`},
+        content: [
+          {
+            type: 'text',
+            text: `Error: Unable to check if file is binary: ${args.filePath}`,
+          },
+        ],
+        status: 'failure',
+      };
+    }
+    if (binary) {
+      const message = `Cannot edit a binary file: ${args.filePath}. edit_file only supports text files.`;
+      return {
+        data: {message},
+        content: [{type: 'text', text: `Error: ${message}`}],
         status: 'failure',
       };
     }

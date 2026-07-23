@@ -126,7 +126,9 @@ export const readFileTool: ToolDefinition<typeof parameters, ReadFileResult> = {
       }
 
       const base64 = (await fs.readFile(absolutePath)).toString('base64');
-      context.fileStatTracker.set(absolutePath, stat.size, stat.mtimeMs);
+      // Deliberately do NOT register the file with fileStatTracker here: a media
+      // read is not a text read, and registering it would satisfy edit_file's
+      // read-before-modify check and let it rewrite the binary as UTF-8.
 
       // Two narrowed branches so `mediaType` carries the exact literal type each block
       // requires (no re-parse, no non-null assertion).
