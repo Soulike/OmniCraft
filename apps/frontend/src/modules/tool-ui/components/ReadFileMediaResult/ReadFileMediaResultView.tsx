@@ -1,3 +1,5 @@
+import {FileImage, FileText} from 'lucide-react';
+
 import styles from './styles.module.css';
 
 interface ReadFileMediaResultViewProps {
@@ -19,10 +21,13 @@ export function ReadFileMediaResultView({
   byteSize,
   kind,
 }: ReadFileMediaResultViewProps) {
+  const Icon = kind === 'image' ? FileImage : FileText;
   return (
     <div className={styles.chip}>
-      <span aria-hidden='true'>{kind === 'image' ? '🖼' : '📄'}</span>
-      <code className={styles.filePath}>{filePath}</code>
+      <Icon aria-hidden='true' className={styles.icon} size={14} />
+      <code className={styles.filePath} title={filePath}>
+        {filePath}
+      </code>
       <span className={styles.meta}>
         {mediaType} · {formatBytes(byteSize)}
       </span>
