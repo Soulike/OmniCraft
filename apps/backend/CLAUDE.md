@@ -30,6 +30,7 @@ Layers only depend on downward: Dispatcher → Service → Model/API. Never reve
 - Import order enforced
 - Relative imports use `.js` extension (nodenext resolution)
 - Use `@/*` alias for `src/` when importing across modules. In-module imports use relative paths.
+- `index.ts` is a module's outward-facing facade, kept to the minimal public surface — export a symbol only when another module needs it. Import another module's exports through its `index.ts`, not its internal files (`@/agent-core/tool/index.js`, not `.../tool/media-guard.js`). Within a module, import the specific files relatively; do not import your own module's `index.ts`.
 - No `console` usage. Use `ctx.log` in request context, or import `logger` from `@/logger.js` outside of requests.
 - Use `assert` from `node:assert` for runtime invariants (e.g. required env vars). No non-null assertions (`!`) — use `assert` to narrow instead.
 - Commit messages follow Conventional Commits (`feat:`, `fix:`, `chore:`, etc.)
