@@ -27,14 +27,19 @@ Create `helpers/merge-servers.test.ts`:
 
 ```ts
 import type {McpServerStatusResponse} from '@omnicraft/api-schema';
+import type {McpTransport} from '@omnicraft/settings-schema';
 import {describe, expect, it} from 'vitest';
 
 import type {McpConfig} from '@/api/settings/mcp/index.js';
 
 import {mergeServers} from './merge-servers.js';
 
-const stdio = (command: string) =>
-  ({type: 'stdio', command, args: [], env: {}}) as const;
+const stdio = (command: string): McpTransport => ({
+  type: 'stdio',
+  command,
+  args: [],
+  env: {},
+});
 
 const config: McpConfig = {
   servers: [

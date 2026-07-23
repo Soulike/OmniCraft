@@ -232,7 +232,11 @@ Create `hooks/useMcpConfig.test.ts`:
 
 ```ts
 import {act, renderHook, waitFor} from '@testing-library/react';
-import {AgentType} from '@omnicraft/settings-schema';
+import {
+  AgentType,
+  type McpServer,
+  type McpTransport,
+} from '@omnicraft/settings-schema';
 import {beforeEach, describe, expect, it, vi} from 'vitest';
 
 import {getMcpConfig, putMcpConfig} from '@/api/settings/mcp/index.js';
@@ -244,7 +248,7 @@ vi.mock('@/api/settings/mcp/index.js');
 const mockedGet = vi.mocked(getMcpConfig);
 const mockedPut = vi.mocked(putMcpConfig);
 
-const stdio = {type: 'stdio', command: 'npx', args: [], env: {}} as const;
+const stdio: McpTransport = {type: 'stdio', command: 'npx', args: [], env: {}};
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -286,9 +290,9 @@ describe('useMcpConfig', () => {
 
   it('replaces the matching server on update', async () => {
     const {result} = await mountLoaded();
-    const updated = {
+    const updated: McpServer = {
       name: 'fs',
-      transport: {type: 'stdio', command: 'node', args: [], env: {}} as const,
+      transport: {type: 'stdio', command: 'node', args: [], env: {}},
     };
     await act(async () => {
       await result.current.updateServer(updated);
@@ -504,15 +508,16 @@ function useServerFormModal(): UseServerFormModal;
 Create `hooks/useServerFormModal.test.ts`:
 
 ```ts
+import type {McpServer} from '@omnicraft/settings-schema';
 import {act, renderHook} from '@testing-library/react';
 import {describe, expect, it} from 'vitest';
 
 import {useServerFormModal} from './useServerFormModal.js';
 
-const server = {
+const server: McpServer = {
   name: 'fs',
   transport: {type: 'stdio', command: 'npx', args: [], env: {}},
-} as const;
+};
 
 describe('useServerFormModal', () => {
   it('starts closed in add mode', () => {

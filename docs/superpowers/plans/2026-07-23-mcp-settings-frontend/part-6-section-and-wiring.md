@@ -26,6 +26,7 @@ The composition point: combines `useMcpConfig`, `useMcpStatus`, `useServerFormMo
 Create `McpServersSection.test.tsx`:
 
 ```tsx
+import type {McpTransport} from '@omnicraft/settings-schema';
 import {fireEvent, render, screen} from '@testing-library/react';
 import {beforeEach, describe, expect, it, vi} from 'vitest';
 
@@ -37,7 +38,7 @@ import {McpServersSection} from './index.js';
 vi.mock('@/api/mcp/index.js');
 vi.mock('@/api/settings/mcp/index.js');
 
-const stdio = {type: 'stdio', command: 'npx', args: [], env: {}} as const;
+const stdio: McpTransport = {type: 'stdio', command: 'npx', args: [], env: {}};
 
 beforeEach(() => {
   vi.clearAllMocks();
