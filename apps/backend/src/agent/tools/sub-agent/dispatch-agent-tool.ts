@@ -190,7 +190,7 @@ export const dispatchAgentTool: ToolDefinition<
           `"${context.workingDirectory}"`;
         return {
           data: {message},
-          content: `Error: ${message}`,
+          content: [{type: 'text', text: `Error: ${message}`}],
           status: 'failure',
         };
       }

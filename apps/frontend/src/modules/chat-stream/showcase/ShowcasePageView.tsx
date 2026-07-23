@@ -162,6 +162,17 @@ export function ShowcasePageView({subagentEventBus}: ShowcasePageViewProps) {
               data={mock.readFileData}
             />
           </Specimen>
+          <Specimen label='read_file · media · done'>
+            <ToolExecutionCard
+              callId='t-read-media'
+              toolName='read_file'
+              displayName='Read File'
+              arguments={mock.readFileMediaArgs}
+              status='done'
+              result={mock.readFileMediaResult}
+              data={mock.readFileMediaData}
+            />
+          </Specimen>
           <Specimen label='write_file · done'>
             <ToolExecutionCard
               callId='t-write'

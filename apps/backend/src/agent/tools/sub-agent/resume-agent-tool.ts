@@ -24,7 +24,11 @@ const parameters = z.object({
 });
 
 function failure(message: string): ToolExecuteFailureResult {
-  return {data: {message}, content: message, status: 'failure'};
+  return {
+    data: {message},
+    content: [{type: 'text', text: message}],
+    status: 'failure',
+  };
 }
 
 /** Tool that resumes an idle live subagent with a follow-up task. */

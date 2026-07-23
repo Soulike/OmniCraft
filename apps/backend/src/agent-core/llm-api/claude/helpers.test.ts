@@ -4,6 +4,7 @@ import type {McpToolDefinition} from '../../tool/index.js';
 import {
   addCacheBreakpoint,
   toClaudeTool,
+  toClaudeToolResultContent,
   toOutputConfig,
   toThinkingConfig,
 } from './helpers.js';
@@ -19,7 +20,11 @@ const mcpTool: McpToolDefinition = {
     properties: {path: {type: 'string'}},
     required: ['path'],
   },
-  execute: () => ({content: 'ok', status: 'success', data: {}}),
+  execute: () => ({
+    content: [{type: 'text', text: 'ok'}],
+    status: 'success',
+    data: {},
+  }),
 };
 
 describe('toClaudeTool with an mcp tool', () => {
@@ -137,5 +142,32 @@ describe('toOutputConfig', () => {
     expect(toOutputConfig('high')).toEqual({effort: 'high'});
     expect(toOutputConfig('xhigh')).toEqual({effort: 'xhigh'});
     expect(toOutputConfig('max')).toEqual({effort: 'max'});
+  });
+});
+
+describe('toClaudeToolResultContent', () => {
+  it('maps text/image/document blocks to Anthropic content', () => {
+    const content = toClaudeToolResultContent([
+      {type: 'text', text: 'hello'},
+      {type: 'image', mediaType: 'image/png', data: 'AAAA'},
+      {
+        type: 'document',
+        mediaType: 'application/pdf',
+        data: 'BBBB',
+        name: 'r.pdf',
+      },
+    ]);
+    expect(content).toEqual([
+      {type: 'text', text: 'hello'},
+      {
+        type: 'image',
+        source: {type: 'base64', media_type: 'image/png', data: 'AAAA'},
+      },
+      {
+        type: 'document',
+        source: {type: 'base64', media_type: 'application/pdf', data: 'BBBB'},
+        title: 'r.pdf',
+      },
+    ]);
   });
 });

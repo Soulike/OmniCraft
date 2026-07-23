@@ -33,6 +33,12 @@ export async function countOpenAIResponsesTokens(
       {err, model: config.model, baseUrl: config.baseUrl},
       'Failed to count OpenAI Responses tokens, using local estimate',
     );
-    return estimatePromptTokens(request);
+    // Estimate from the neutral request inputs (not the provider-shaped `request`),
+    // so media is counted by bounded per-type cost rather than base64 length.
+    return estimatePromptTokens({
+      messages,
+      ...(systemPrompt ? {systemPrompt} : {}),
+      tools: options.tools,
+    });
   }
 }

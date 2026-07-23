@@ -111,7 +111,7 @@ function createTool({
       if (onOutput) output?.(onOutput);
       return {
         status: 'success',
-        content,
+        content: [{type: 'text', text: content}],
         data: {message: content},
       };
     },
@@ -238,7 +238,7 @@ describe('AgentTurnRunner', () => {
         role: 'tool',
         callId: 'call-missing',
         status: 'failure',
-        content: 'Error: Unknown tool: missing_tool',
+        content: [{type: 'text', text: 'Error: Unknown tool: missing_tool'}],
       },
     ]);
     expect(events.some((event) => event.type === 'tool-execute-start')).toBe(
@@ -281,8 +281,8 @@ describe('AgentTurnRunner', () => {
       'call-fast',
     ]);
     expect(toolMessages.map((message) => message.content)).toEqual([
-      'slow result',
-      'fast result',
+      [{type: 'text', text: 'slow result'}],
+      [{type: 'text', text: 'fast result'}],
     ]);
     expect(events.at(-1)).toMatchObject({type: 'done', reason: 'complete'});
   });
@@ -312,7 +312,9 @@ describe('AgentTurnRunner', () => {
       }
     }
 
-    expect(events).toContainEqual({
+    // Abort stops the turn promptly: output the tool emits after the abort
+    // (its delayed 'still running' delta) is dropped rather than waited for.
+    expect(events).not.toContainEqual({
       type: 'tool-execute-delta',
       callId: 'call-1',
       content: 'still running',
@@ -324,6 +326,94 @@ describe('AgentTurnRunner', () => {
       status: 'error',
       data: {message: 'Aborted'},
     });
+    expect(events.at(-1)).toMatchObject({type: 'done', reason: 'aborted'});
+  });
+
+  it('ends the turn on abort even when a tool never settles', async () => {
+    vi.spyOn(llmApi, 'countToken').mockResolvedValue(1);
+    vi.spyOn(llmApi, 'streamCompletion').mockReturnValue(
+      toolCallCompletionStream([{callId: 'call-1', toolName: 'hang_tool'}]),
+    );
+    const controller = new AbortController();
+    // A tool whose execution never settles and ignores the abort signal. The
+    // tool-results channel would block the turn forever without abort support.
+    const hangingTool: ToolDefinition = {
+      kind: 'internal',
+      name: 'hang_tool',
+      displayName: 'Tool hang_tool',
+      description: 'A tool that never settles',
+      parameters: z.object({}),
+      suppressToolEvents: false,
+      execute: () =>
+        new Promise<never>(() => {
+          /* never resolves: simulates a hung tool */
+        }),
+    };
+    const events: Exclude<SseEvent, {type: 'error'}>[] = [];
+
+    for await (const event of agentTurnRunner.run(
+      createInput({
+        signal: controller.signal,
+        toolRegistries: [toolRegistryWith(hangingTool)],
+      }),
+    )) {
+      events.push(event);
+      if (event.type === 'tool-execute-start') {
+        controller.abort();
+      }
+    }
+
+    // The hung tool call is flushed with a synthetic aborted end so the UI
+    // never shows a perpetually-running tool.
+    expect(events).toContainEqual({
+      type: 'tool-execute-end',
+      callId: 'call-1',
+      result: 'Aborted',
+      status: 'error',
+      data: {message: 'Aborted'},
+    });
+    expect(events.at(-1)).toMatchObject({type: 'done', reason: 'aborted'});
+  });
+
+  it('emits done on abort without waiting for after-turn compaction', async () => {
+    vi.spyOn(llmApi, 'countToken').mockResolvedValue(1);
+    vi.spyOn(llmApi, 'streamCompletion').mockReturnValue(
+      toolCallCompletionStream([{callId: 'call-1', toolName: 'hang_tool'}]),
+    );
+    const controller = new AbortController();
+    const hangingTool: ToolDefinition = {
+      kind: 'internal',
+      name: 'hang_tool',
+      displayName: 'Tool hang_tool',
+      description: 'A tool that never settles',
+      parameters: z.object({}),
+      suppressToolEvents: false,
+      execute: () =>
+        new Promise<never>(() => {
+          /* never resolves: simulates a hung tool */
+        }),
+    };
+    const events: Exclude<SseEvent, {type: 'error'}>[] = [];
+
+    for await (const event of agentTurnRunner.run(
+      createInput({
+        signal: controller.signal,
+        toolRegistries: [toolRegistryWith(hangingTool)],
+        // Best-effort after-turn compaction runs an unbounded, signal-less LLM
+        // call. It must not gate the terminal done: an aborted turn has to end
+        // even if compaction would hang.
+        compactAfterTurn: () =>
+          new Promise<void>(() => {
+            /* never resolves: simulates hung after-turn compaction */
+          }),
+      }),
+    )) {
+      events.push(event);
+      if (event.type === 'tool-execute-start') {
+        controller.abort();
+      }
+    }
+
     expect(events.at(-1)).toMatchObject({type: 'done', reason: 'aborted'});
   });
 

@@ -15,6 +15,7 @@ import {AsyncChannel} from '@/helpers/async-channel.js';
 import {logger} from '@/logger.js';
 
 import type {LlmConfig, LlmToolCall} from '../llm-api/index.js';
+import {toolResultBlocksToText} from '../llm-api/index.js';
 import type {
   LlmSession,
   LlmSessionEventStream,
@@ -214,14 +215,18 @@ export class AgentTurnRunner {
         } satisfies SseToolExecuteStartEvent;
       }
 
-      const toolSseEventChannel = new AsyncChannel<AgentToolSseEvent>();
+      const toolSseEventChannel = new AsyncChannel<AgentToolSseEvent>(
+        input.signal,
+      );
       const toolResults = new Map<string, ToolResult>();
 
       for (const toolCall of toolCalls) {
         if (availableTools.has(toolCall.toolName)) continue;
         toolResults.set(toolCall.callId, {
           callId: toolCall.callId,
-          content: `Error: Unknown tool: ${toolCall.toolName}`,
+          content: [
+            {type: 'text', text: `Error: Unknown tool: ${toolCall.toolName}`},
+          ],
           status: 'failure',
         });
       }
@@ -252,7 +257,7 @@ export class AgentTurnRunner {
             toolSseEventChannel.push({
               type: 'tool-execute-end',
               callId: toolCall.callId,
-              result: result.content,
+              result: toolResultBlocksToText(result.content),
               status: result.status,
               data: result.data,
             } satisfies SseToolExecuteEndEvent);
@@ -280,15 +285,19 @@ export class AgentTurnRunner {
           toolSseEventChannel.close();
         });
 
+      // The channel ends when every tool settles (its producer closes it) or
+      // when the turn is aborted (it observes `input.signal`) — so a tool that
+      // never settles can no longer block the turn forever.
       for await (const event of toolSseEventChannel) {
         if (event.type === 'tool-execute-end') {
           inFlightToolCalls.delete(event.callId);
         }
         yield event;
-        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-        if (input.signal.aborted) break;
       }
 
+      // On abort, any tool calls still in flight never produced an end event.
+      // Flush a synthetic aborted end for each so the UI never strands a
+      // perpetually-running tool, then close the turn.
       // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
       if (input.signal.aborted) {
         yield* this.emitAbortCompletion({
@@ -444,7 +453,12 @@ export class AgentTurnRunner {
     readonly systemPrompt: string;
     readonly input: RunAgentTurnInput;
   }): AgentEventStream {
-    await input.compactAfterTurn(tools, systemPrompt);
+    // After-turn compaction is best-effort cleanup that runs an unbounded,
+    // signal-less LLM call. On abort the turn must reach `done` promptly, so
+    // skip it rather than gate the terminal event on work that could hang.
+    if (reason !== 'aborted') {
+      await input.compactAfterTurn(tools, systemPrompt);
+    }
     yield await agentUsageReporter.buildUsageUpdateEvent(input);
     yield {type: 'done', reason} satisfies SseDoneEvent;
   }

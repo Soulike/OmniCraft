@@ -1,4 +1,8 @@
 import type {ThinkingLevel} from '@omnicraft/api-schema';
+import {
+  documentMediaTypeSchema,
+  imageMediaTypeSchema,
+} from '@omnicraft/tool-schemas';
 import {z} from 'zod';
 
 import type {AnyToolDefinition} from '../tool/types.js';
@@ -48,11 +52,33 @@ export const llmAssistantMessageSchema = llmMessageBaseSchema.extend({
 
 export type LlmAssistantMessage = z.infer<typeof llmAssistantMessageSchema>;
 
+/**
+ * A single block of tool-result content. `data` is base64. The neutral shape both
+ * provider adapters map onto their native tool-result content arrays.
+ */
+export const toolResultBlockSchema = z.discriminatedUnion('type', [
+  z.object({type: z.literal('text'), text: z.string()}),
+  z.object({
+    type: z.literal('image'),
+    mediaType: imageMediaTypeSchema,
+    data: z.string(),
+  }),
+  z.object({
+    type: z.literal('document'),
+    mediaType: documentMediaTypeSchema,
+    data: z.string(),
+    name: z.string().optional(),
+  }),
+]);
+
+export type ToolResultBlock = z.infer<typeof toolResultBlockSchema>;
+
 /** A tool execution result, linked to a specific tool call. */
 export const llmToolResultMessageSchema = llmMessageBaseSchema.extend({
   role: z.literal('tool'),
   callId: z.string(),
   status: z.enum(['success', 'failure']),
+  content: z.array(toolResultBlockSchema),
 });
 
 export type LlmToolResultMessage = z.infer<typeof llmToolResultMessageSchema>;

@@ -1,3 +1,9 @@
+export {
+  type DocumentMediaType,
+  documentMediaTypeSchema,
+  type ImageMediaType,
+  imageMediaTypeSchema,
+} from './media-type-schemas.js';
 export type {AskUserBridgeResponse} from './parameter-schemas.js';
 export {
   askUserBridgeResponseSchema,

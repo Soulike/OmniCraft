@@ -2,9 +2,11 @@ import assert from 'node:assert';
 
 import Anthropic from '@anthropic-ai/sdk';
 import type {ThinkingLevel} from '@omnicraft/api-schema';
+import type {ImageMediaType} from '@omnicraft/tool-schemas';
 import {z} from 'zod';
 
 import type {AnyToolDefinition} from '../../tool/types.js';
+import type {ToolResultBlock} from '../types.js';
 import type {LlmMessage} from '../types.js';
 
 type SdkMessageParam = Anthropic.MessageParam;
@@ -16,6 +18,14 @@ type _CheckText = AssertCacheControl<Anthropic.TextBlockParam>;
 type _CheckToolUse = AssertCacheControl<Anthropic.ToolUseBlockParam>;
 type _CheckToolResult = AssertCacheControl<Anthropic.ToolResultBlockParam>;
 type _CheckTool = AssertCacheControl<Anthropic.Tool>;
+
+// Compile-time check: our image media types stay a subset of what the SDK accepts.
+// If the SDK narrows the set, this alias fails to compile.
+type AssertAssignable<T extends U, U> = T;
+type _CheckImageMediaType = AssertAssignable<
+  ImageMediaType,
+  Anthropic.Base64ImageSource['media_type']
+>;
 
 /** Converts our unified LlmMessage to the Anthropic SDK message format. */
 export function toSdkMessage(message: LlmMessage): SdkMessageParam {
@@ -60,11 +70,42 @@ export function toSdkMessage(message: LlmMessage): SdkMessageParam {
           {
             type: 'tool_result',
             tool_use_id: message.callId,
-            content: message.content,
+            content: toClaudeToolResultContent(message.content),
           },
         ],
       };
   }
+}
+
+/** Maps neutral tool-result blocks to Anthropic tool_result content. */
+export function toClaudeToolResultContent(
+  blocks: readonly ToolResultBlock[],
+): Anthropic.ToolResultBlockParam['content'] {
+  return blocks.map((block) => {
+    switch (block.type) {
+      case 'text':
+        return {type: 'text', text: block.text};
+      case 'image':
+        return {
+          type: 'image',
+          source: {
+            type: 'base64',
+            media_type: block.mediaType,
+            data: block.data,
+          },
+        };
+      case 'document':
+        return {
+          type: 'document',
+          source: {
+            type: 'base64',
+            media_type: block.mediaType,
+            data: block.data,
+          },
+          ...(block.name === undefined ? {} : {title: block.name}),
+        };
+    }
+  });
 }
 
 /**

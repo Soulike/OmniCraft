@@ -28,7 +28,7 @@ export const todoAppendTool: ToolDefinition<
     markObserved(todoStore, todoState);
     return {
       data: {items},
-      content: formatTodoContent(items),
+      content: [{type: 'text', text: formatTodoContent(items)}],
       status: 'success',
     };
   },

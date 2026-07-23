@@ -61,8 +61,12 @@ export const webSearchTool: ToolDefinition<typeof parameters, WebSearchResult> =
             message:
               'Tavily API key is not configured. Set it in Settings > Search.',
           },
-          content:
-            'Error: Tavily API key is not configured. Set it in Settings > Search.',
+          content: [
+            {
+              type: 'text',
+              text: 'Error: Tavily API key is not configured. Set it in Settings > Search.',
+            },
+          ],
           status: 'failure',
         };
       }
@@ -83,7 +87,7 @@ export const webSearchTool: ToolDefinition<typeof parameters, WebSearchResult> =
         const message = error instanceof Error ? error.message : String(error);
         return {
           data: {message: `Search failed: ${message}`},
-          content: `Error: Search failed: ${message}`,
+          content: [{type: 'text', text: `Error: Search failed: ${message}`}],
           status: 'failure',
         };
       }
@@ -93,7 +97,9 @@ export const webSearchTool: ToolDefinition<typeof parameters, WebSearchResult> =
         const data: WebSearchResult = {results: []};
         return {
           data,
-          content: `No results found for "${args.query}"`,
+          content: [
+            {type: 'text', text: `No results found for "${args.query}"`},
+          ],
           status: 'success',
         };
       }
@@ -110,6 +116,10 @@ export const webSearchTool: ToolDefinition<typeof parameters, WebSearchResult> =
           content: r.content,
         })),
       };
-      return {data, content: `${header}\n\n${formatted}`, status: 'success'};
+      return {
+        data,
+        content: [{type: 'text', text: `${header}\n\n${formatted}`}],
+        status: 'success',
+      };
     },
   };
