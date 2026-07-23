@@ -7,6 +7,7 @@ import {afterEach, beforeEach, describe, expect, it} from 'vitest';
 
 import {FileContentCache} from '@/agent-core/agent/state/file-content-cache.js';
 import {toolResultBlocksToText} from '@/agent-core/llm-api/tool-result-block.js';
+import {MAX_INLINE_MEDIA_BYTES} from '@/agent-core/tool/media-guard.js';
 import {createMockContext} from '@/agent-core/tool/testing.js';
 import type {ToolExecutionContext} from '@/agent-core/tool/types.js';
 
@@ -228,6 +229,35 @@ describe('readFileTool', () => {
   });
 
   describe('error cases', () => {
+    it('rejects an oversized media file instead of inlining it', async () => {
+      // A real PNG signature followed by padding so file-type sniffing still
+      // detects it as image/png, while the on-disk size exceeds the inline cap.
+      const pngBase64 =
+        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+      const pngHeader = Buffer.from(pngBase64, 'base64');
+      const oversized = Buffer.concat([
+        pngHeader,
+        Buffer.alloc(MAX_INLINE_MEDIA_BYTES - pngHeader.length + 1),
+      ]);
+      await fs.writeFile(path.join(tmpDir, 'huge.png'), oversized);
+
+      const result = await readFileTool.execute(
+        {filePath: 'huge.png'},
+        context,
+      );
+
+      expect(result.status).toBe('failure');
+      assert(result.status === 'failure');
+      expect(result.data.message).toContain('over the');
+      expect(result.data.message).toContain('MB inline limit for media');
+      expect(toolResultBlocksToText(result.content)).toContain('Error:');
+      // No base64 media payload leaks into the failure result: content is a
+      // single text block, not an image/document block carrying `data`.
+      expect(result.content).toHaveLength(1);
+      expect(result.content[0]?.type).toBe('text');
+      expect(JSON.stringify(result.content)).not.toContain(pngBase64);
+    });
+
     it('returns error for nonexistent file', async () => {
       const result = await readFileTool.execute(
         {filePath: 'nope.txt'},

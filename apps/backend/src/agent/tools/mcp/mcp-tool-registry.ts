@@ -163,6 +163,13 @@ export class McpToolRegistry extends ToolRegistry {
               text = JSON.stringify(result.structuredContent);
               blocks.push({type: 'text', text});
             }
+            // Some MCP tools return neither content blocks nor structuredContent.
+            // An empty tool_result.content array can be rejected by the LLM API
+            // (Claude's Messages API previously accepted an empty string), so
+            // guarantee at least one block is always sent.
+            if (blocks.length === 0) {
+              blocks.push({type: 'text', text: '[no content]'});
+            }
             if (result.isError) {
               return {
                 content: blocks,

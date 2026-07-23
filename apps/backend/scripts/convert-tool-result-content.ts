@@ -11,16 +11,26 @@ interface ConversionResult {
   value: unknown;
 }
 
-/** Rewrites string tool-message content to a single text block. Pure + idempotent. */
+/**
+ * Rewrites string tool-message content to a single text block. Tool messages
+ * live in the persisted `AgentSnapshot` at `snapshot.llmSession.messages`
+ * (see `agentSnapshotSchema` / `llmSessionSnapshotSchema`) — NOT at a
+ * top-level `messages` field. Pure + idempotent.
+ */
 export function convertSnapshotJson(json: unknown): ConversionResult {
-  if (typeof json !== 'object' || json === null || !('messages' in json)) {
+  if (typeof json !== 'object' || json === null) {
     return {changed: false, value: json};
   }
-  const snapshot = json as {messages: unknown[]};
-  if (!Array.isArray(snapshot.messages)) return {changed: false, value: json};
+  const snapshot = json as {llmSession?: unknown};
+  const llmSession = snapshot.llmSession;
+  if (typeof llmSession !== 'object' || llmSession === null) {
+    return {changed: false, value: json};
+  }
+  const session = llmSession as {messages?: unknown};
+  if (!Array.isArray(session.messages)) return {changed: false, value: json};
 
   let changed = false;
-  const messages = snapshot.messages.map((message) => {
+  const messages = session.messages.map((message) => {
     if (
       typeof message === 'object' &&
       message !== null &&
@@ -34,9 +44,12 @@ export function convertSnapshotJson(json: unknown): ConversionResult {
     return message;
   });
 
-  return changed
-    ? {changed, value: {...snapshot, messages}}
-    : {changed: false, value: json};
+  if (!changed) return {changed: false, value: json};
+
+  return {
+    changed: true,
+    value: {...snapshot, llmSession: {...session, messages}},
+  };
 }
 
 async function convertFile(filePath: string): Promise<boolean> {

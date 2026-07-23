@@ -177,6 +177,34 @@ describe('McpToolRegistry', () => {
     expect(toolResultBlocksToText(result.content)).toBe('{"answer":42}');
   });
 
+  it('guards against empty content with no structuredContent by inserting a placeholder block', async () => {
+    const emptyClient: McpClient = {
+      ...client,
+      callTool: () => Promise.resolve({content: [], isError: false}),
+    };
+    const mgr = McpManager.create(() => Promise.resolve(emptyClient));
+    mgr.applyConfig({
+      servers: [
+        {
+          name: 'fs',
+          transport: {type: 'stdio', command: 'x', args: [], env: {}},
+        },
+      ],
+      enabledByAgent: {chat: ['fs'], coding: []},
+    });
+    await vi.waitFor(() => {
+      expect(mgr.list()[0]?.status).toBe('connected');
+    });
+    const mcpTool = new McpToolRegistry('chat', mgr).get('mcp__fs__read');
+    assert(mcpTool?.kind === 'mcp');
+
+    const result = await mcpTool.execute({path: '/x'}, createMockContext());
+
+    expect(result.status).toBe('success');
+    assert(result.status === 'success');
+    expect(result.content).toEqual([{type: 'text', text: '[no content]'}]);
+  });
+
   it('get() returns a tool by its namespaced name', async () => {
     const mgr = await connectedManager();
     const registry = new McpToolRegistry('chat', mgr);

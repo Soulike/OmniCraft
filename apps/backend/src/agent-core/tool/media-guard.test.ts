@@ -1,13 +1,17 @@
-import {mkdtempSync} from 'node:fs';
+import {mkdtempSync, rmSync} from 'node:fs';
 import {readFile} from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
-import {describe, expect, it} from 'vitest';
+import {afterAll, describe, expect, it} from 'vitest';
 
 import {guardMedia, MAX_INLINE_MEDIA_BYTES} from './media-guard.js';
 
 const scratch = mkdtempSync(path.join(os.tmpdir(), 'media-guard-'));
+
+afterAll(() => {
+  rmSync(scratch, {recursive: true, force: true});
+});
 
 describe('guardMedia', () => {
   it('inlines media under the cap as a media block', async () => {

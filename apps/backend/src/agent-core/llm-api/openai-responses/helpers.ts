@@ -80,6 +80,12 @@ export function toOpenAIToolResultOutput(
           image_url: `data:${block.mediaType};base64,${block.data}`,
         };
       case 'document':
+        // `file_data` as a data URL matches image delivery's shape. Image
+        // delivery (input_image) has been confirmed against a live OpenAI
+        // Responses call; the exact format `file_data` expects (data URL vs.
+        // raw base64) has NOT been verified live yet. Tracked in
+        // https://github.com/Soulike/OmniCraft/issues/371 — do not change
+        // this without confirming against a real call.
         return {
           type: 'input_file',
           file_data: `data:${block.mediaType};base64,${block.data}`,
