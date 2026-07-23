@@ -56,7 +56,9 @@ describe('LlmCompactionTokenEstimator', () => {
       },
     });
 
-    expect(currentTokens).toBe(112 + estimatePromptTokens(messages.slice(2)));
+    expect(currentTokens).toBe(
+      112 + estimatePromptTokens({messages: messages.slice(2)}),
+    );
   });
 
   it('falls back to local prompt estimation when latest usage is unavailable', () => {
@@ -83,11 +85,7 @@ describe('LlmCompactionTokenEstimator', () => {
       estimatePromptTokens({
         messages,
         systemPrompt: 'System prompt',
-        tools: tools.map((tool) => ({
-          name: tool.name,
-          description: tool.description,
-          parameters: z.toJSONSchema(tool.parameters),
-        })),
+        tools,
       }),
     );
   });
@@ -111,11 +109,7 @@ describe('LlmCompactionTokenEstimator', () => {
       estimatePromptTokens({
         messages: replacementMessages,
         systemPrompt: 'Replacement system prompt',
-        tools: tools.map((tool) => ({
-          name: tool.name,
-          description: tool.description,
-          parameters: z.toJSONSchema(tool.parameters),
-        })),
+        tools,
       }),
     );
   });
