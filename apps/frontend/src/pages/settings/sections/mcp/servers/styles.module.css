@@ -1,0 +1,42 @@
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  max-width: 100%;
+}
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.title {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--foreground);
+}
+
+.subtitle {
+  margin-top: 4px;
+  font-size: 14px;
+  color: var(--muted);
+  max-width: 52ch;
+}
+
+.skeletons {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.skeletonRow {
+  height: 96px;
+  border-radius: 8px;
+}
+
+.statusNote {
+  font-size: 13px;
+  color: var(--muted);
+}

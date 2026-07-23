@@ -2,7 +2,7 @@ import {z} from 'zod';
 
 import {AgentType} from '../agent-type/schema.js';
 
-const mcpTransportSchema = z.discriminatedUnion('type', [
+export const mcpTransportSchema = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('stdio'),
     command: z.string().describe('Executable to spawn'),
@@ -24,7 +24,7 @@ const mcpTransportSchema = z.discriminatedUnion('type', [
 
 export type McpTransport = z.infer<typeof mcpTransportSchema>;
 
-const mcpServerSchema = z.object({
+export const mcpServerSchema = z.object({
   name: z
     .string()
     .regex(/^[a-z0-9][a-z0-9-]*$/)

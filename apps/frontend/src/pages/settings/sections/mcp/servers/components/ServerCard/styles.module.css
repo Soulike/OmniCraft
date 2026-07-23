@@ -1,0 +1,63 @@
+.content {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.headerRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.name {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-weight: 600;
+}
+
+.headerActions {
+  margin-left: auto;
+  display: flex;
+  gap: 8px;
+}
+
+.transport {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 13px;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.enableRow {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.enableLabel {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+
+.reconnect {
+  margin-left: auto;
+}
+
+.toolsTrigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.toolName {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.toolDesc {
+  margin-left: 8px;
+  color: var(--muted);
+}

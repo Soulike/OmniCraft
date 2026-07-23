@@ -50,3 +50,9 @@ export const WorkspacesSection = lazy(async () => {
     await import('@/pages/settings/sections/coding/workspaces/index.js');
   return {default: WorkspacesSection};
 });
+
+export const McpServersSection = lazy(async () => {
+  const {McpServersSection} =
+    await import('@/pages/settings/sections/mcp/servers/index.js');
+  return {default: McpServersSection};
+});

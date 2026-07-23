@@ -4,7 +4,7 @@ import {z} from 'zod';
 export const mcpServerStatusSchema = z.object({
   name: z.string(),
   transportType: z.enum(['stdio', 'http']),
-  status: z.enum(['connecting', 'connected', 'error', 'disabled']),
+  status: z.enum(['connecting', 'connected', 'error']),
   tools: z.array(z.object({name: z.string(), description: z.string()})),
   error: z.string().optional(),
 });

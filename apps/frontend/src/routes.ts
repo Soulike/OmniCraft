@@ -11,5 +11,6 @@ export const ROUTES = defineRoutes({
     coding: {agent: {}, workspaces: {}},
     agent: {runtime: {}},
     tools: {search: {}},
+    mcp: {servers: {}},
   },
 });

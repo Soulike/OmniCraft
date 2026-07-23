@@ -9,6 +9,7 @@ import {
   ChatPage,
   CodingLlmSection,
   CodingPage,
+  McpServersSection,
   SearchSection,
   SettingsPage,
   ShowcasePage,
@@ -63,6 +64,10 @@ export const router = createBrowserRouter([
           {
             path: ROUTES.settings.tools.search(),
             element: <SearchSection />,
+          },
+          {
+            path: ROUTES.settings.mcp.servers(),
+            element: <McpServersSection />,
           },
           {
             path: ROUTES.settings.coding.workspaces(),

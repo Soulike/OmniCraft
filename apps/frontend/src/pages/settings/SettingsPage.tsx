@@ -56,6 +56,17 @@ const SETTINGS_NAV_ITEMS: readonly SettingsNavItem[] = [
       },
     ],
   },
+  {
+    id: 'mcp',
+    label: 'MCP',
+    children: [
+      {
+        id: 'mcp.servers',
+        label: 'Servers',
+        path: ROUTES.settings.mcp.servers(),
+      },
+    ],
+  },
 ];
 
 export function SettingsPage() {
