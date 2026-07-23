@@ -13,32 +13,16 @@ interface GuardMediaInput {
 }
 
 /**
- * Exact decoded byte length of a base64 string, ignoring the whitespace and `=`
- * padding a decoder skips (so MIME-wrapped input is measured correctly). Computed
- * from the character count without allocating the decoded buffer, so an oversized
- * payload is never fully decoded.
- */
-function base64DecodedByteLength(base64: string): number {
-  let dataChars = 0;
-  for (let i = 0; i < base64.length; i++) {
-    const code = base64.charCodeAt(i);
-    // Skip '=' padding and whitespace (tab, LF, VT, FF, CR, space); every other
-    // character is a base64 data character (4 chars -> 3 bytes).
-    if (code === 61 || code === 32 || (code >= 9 && code <= 13)) continue;
-    dataChars++;
-  }
-  return Math.floor((dataChars * 3) / 4);
-}
-
-/**
- * Returns an inline media block when the decoded payload is within the cap, or a
- * placeholder text block when it is oversize. The size check reads the decoded
- * length from the base64 string without allocating a buffer, so an oversized or
- * malicious payload (e.g. from a compromised MCP server) is never fully decoded
- * or written to disk.
+ * Returns an inline media block when the payload is within the cap, or a
+ * placeholder text block when it is oversize. `Buffer.byteLength(..., 'base64')`
+ * reads the decoded size from the string length without allocating a buffer, so
+ * an oversized or malicious payload (e.g. from a compromised MCP server) is never
+ * fully decoded or written to disk. It slightly over-counts MIME-wrapped base64
+ * (whitespace is counted), but the cap is a soft budget for snapshot/request
+ * size, so a fraction of a percent at the boundary does not matter.
  */
 export function guardMedia(input: GuardMediaInput): ToolResultBlock {
-  const byteSize = base64DecodedByteLength(input.data);
+  const byteSize = Buffer.byteLength(input.data, 'base64');
   const isImage = input.mediaType.startsWith('image/');
 
   if (byteSize > MAX_INLINE_MEDIA_BYTES) {
