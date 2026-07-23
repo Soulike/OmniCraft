@@ -27,7 +27,11 @@ const tools: ToolDefinition[] = [
     description: 'Read a file',
     parameters: z.object({path: z.string()}),
     suppressToolEvents: false,
-    execute: () => ({data: {}, content: 'ok', status: 'success'}),
+    execute: () => ({
+      data: {},
+      content: [{type: 'text', text: 'ok'}],
+      status: 'success',
+    }),
   },
 ];
 

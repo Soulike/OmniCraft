@@ -4,6 +4,8 @@ import path from 'node:path';
 
 import {afterEach, beforeEach, describe, expect, it} from 'vitest';
 
+import {toolResultBlocksToText} from '@/agent-core/llm-api/tool-result-block.js';
+
 import {SkillDefinition} from '../skill/skill-definition.js';
 import {loadSkillTool} from './load-skill.js';
 import {createMockContext} from './testing.js';
@@ -40,8 +42,8 @@ describe('loadSkillTool', () => {
       }),
     );
 
-    expect(result.content).toContain('# Test Skill');
-    expect(result.content).toContain('Do this.');
+    expect(toolResultBlocksToText(result.content)).toContain('# Test Skill');
+    expect(toolResultBlocksToText(result.content)).toContain('Do this.');
     expect(result.status).toBe('success');
   });
 
@@ -51,8 +53,8 @@ describe('loadSkillTool', () => {
       createMockContext(),
     );
 
-    expect(result.content).toContain('not found');
-    expect(result.content).toContain('nonexistent');
+    expect(toolResultBlocksToText(result.content)).toContain('not found');
+    expect(toolResultBlocksToText(result.content)).toContain('nonexistent');
     expect(result.status).toBe('failure');
   });
 });

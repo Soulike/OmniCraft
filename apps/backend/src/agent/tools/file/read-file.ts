@@ -73,7 +73,9 @@ export const readFileTool: ToolDefinition<typeof parameters, ReadFileResult> = {
     } catch {
       return {
         data: {message: `File not found: ${args.filePath}`},
-        content: `Error: File not found: ${args.filePath}`,
+        content: [
+          {type: 'text', text: `Error: File not found: ${args.filePath}`},
+        ],
         status: 'failure',
       };
     }
@@ -81,7 +83,7 @@ export const readFileTool: ToolDefinition<typeof parameters, ReadFileResult> = {
     if (!stat.isFile()) {
       return {
         data: {message: `Not a file: ${args.filePath}`},
-        content: `Error: Not a file: ${args.filePath}`,
+        content: [{type: 'text', text: `Error: Not a file: ${args.filePath}`}],
         status: 'failure',
       };
     }
@@ -93,7 +95,12 @@ export const readFileTool: ToolDefinition<typeof parameters, ReadFileResult> = {
           data: {
             message: `Binary file detected: ${args.filePath}. Only text files are supported.`,
           },
-          content: `Error: Binary file detected: ${args.filePath}. Only text files are supported.`,
+          content: [
+            {
+              type: 'text',
+              text: `Error: Binary file detected: ${args.filePath}. Only text files are supported.`,
+            },
+          ],
           status: 'failure',
         };
       }
@@ -102,7 +109,12 @@ export const readFileTool: ToolDefinition<typeof parameters, ReadFileResult> = {
         data: {
           message: `Unable to check if file is binary: ${args.filePath}`,
         },
-        content: `Error: Unable to check if file is binary: ${args.filePath}`,
+        content: [
+          {
+            type: 'text',
+            text: `Error: Unable to check if file is binary: ${args.filePath}`,
+          },
+        ],
         status: 'failure',
       };
     }
@@ -150,14 +162,23 @@ export const readFileTool: ToolDefinition<typeof parameters, ReadFileResult> = {
               `${error.message}. ` +
               `Use startLine and lineCount to read a smaller portion.`,
           },
-          content:
-            `Error: ${error.message}. ` +
-            `Use startLine and lineCount to read a smaller portion.`,
+          content: [
+            {
+              type: 'text',
+              text:
+                `Error: ${error.message}. ` +
+                `Use startLine and lineCount to read a smaller portion.`,
+            },
+          ],
           status: 'failure',
         };
       }
       const message = error instanceof Error ? error.message : String(error);
-      return {data: {message}, content: `Error: ${message}`, status: 'failure'};
+      return {
+        data: {message},
+        content: [{type: 'text', text: `Error: ${message}`}],
+        status: 'failure',
+      };
     }
 
     const endLine = args.lineCount
@@ -188,6 +209,10 @@ export const readFileTool: ToolDefinition<typeof parameters, ReadFileResult> = {
       content: selectedLines.join('\n'),
     };
 
-    return {data, content: `${header}\n${formatted}`, status: 'success'};
+    return {
+      data,
+      content: [{type: 'text', text: `${header}\n${formatted}`}],
+      status: 'success',
+    };
   },
 };

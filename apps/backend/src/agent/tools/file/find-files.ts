@@ -58,7 +58,9 @@ export const findFilesTool: ToolDefinition<typeof parameters, FindFilesResult> =
       } catch {
         return {
           data: {message: `Directory not found: ${args.path}`},
-          content: `Error: Directory not found: ${args.path}`,
+          content: [
+            {type: 'text', text: `Error: Directory not found: ${args.path}`},
+          ],
           status: 'failure',
         };
       }
@@ -66,7 +68,9 @@ export const findFilesTool: ToolDefinition<typeof parameters, FindFilesResult> =
       if (!stat.isDirectory()) {
         return {
           data: {message: `Not a directory: ${args.path}`},
-          content: `Error: Not a directory: ${args.path}`,
+          content: [
+            {type: 'text', text: `Error: Not a directory: ${args.path}`},
+          ],
           status: 'failure',
         };
       }
@@ -100,7 +104,7 @@ export const findFilesTool: ToolDefinition<typeof parameters, FindFilesResult> =
             error instanceof Error ? error.message : String(error);
           return {
             data: {message},
-            content: `Error: ${message}`,
+            content: [{type: 'text', text: `Error: ${message}`}],
             status: 'failure',
           };
         }
@@ -118,7 +122,12 @@ export const findFilesTool: ToolDefinition<typeof parameters, FindFilesResult> =
           data: {
             message: `No files found matching "${args.pattern}" in ${displayPath} (search timed out after 30s).`,
           },
-          content: `No files found matching "${args.pattern}" in ${displayPath} (search timed out after 30s).`,
+          content: [
+            {
+              type: 'text',
+              text: `No files found matching "${args.pattern}" in ${displayPath} (search timed out after 30s).`,
+            },
+          ],
           status: 'failure',
         };
       }
@@ -132,7 +141,12 @@ export const findFilesTool: ToolDefinition<typeof parameters, FindFilesResult> =
         };
         return {
           data,
-          content: `No files found matching "${args.pattern}" in ${displayPath}.`,
+          content: [
+            {
+              type: 'text',
+              text: `No files found matching "${args.pattern}" in ${displayPath}.`,
+            },
+          ],
           status: 'success',
         };
       }
@@ -145,7 +159,12 @@ export const findFilesTool: ToolDefinition<typeof parameters, FindFilesResult> =
           data: {
             message: `${header} Results may be incomplete. Use a more specific pattern to narrow down.`,
           },
-          content: `${header}\n${body}\nResults may be incomplete. Use a more specific pattern to narrow down.`,
+          content: [
+            {
+              type: 'text',
+              text: `${header}\n${body}\nResults may be incomplete. Use a more specific pattern to narrow down.`,
+            },
+          ],
           status: 'failure',
         };
       }
@@ -160,7 +179,12 @@ export const findFilesTool: ToolDefinition<typeof parameters, FindFilesResult> =
         };
         return {
           data,
-          content: `${header}\n${body}\nUse a more specific pattern to narrow down.`,
+          content: [
+            {
+              type: 'text',
+              text: `${header}\n${body}\nUse a more specific pattern to narrow down.`,
+            },
+          ],
           status: 'success',
         };
       }
@@ -172,6 +196,10 @@ export const findFilesTool: ToolDefinition<typeof parameters, FindFilesResult> =
         files: entries,
         truncated: false,
       };
-      return {data, content: `${header}\n${body}`, status: 'success'};
+      return {
+        data,
+        content: [{type: 'text', text: `${header}\n${body}`}],
+        status: 'success',
+      };
     },
   };

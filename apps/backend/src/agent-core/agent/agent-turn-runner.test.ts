@@ -111,7 +111,7 @@ function createTool({
       if (onOutput) output?.(onOutput);
       return {
         status: 'success',
-        content,
+        content: [{type: 'text', text: content}],
         data: {message: content},
       };
     },
@@ -238,7 +238,7 @@ describe('AgentTurnRunner', () => {
         role: 'tool',
         callId: 'call-missing',
         status: 'failure',
-        content: 'Error: Unknown tool: missing_tool',
+        content: [{type: 'text', text: 'Error: Unknown tool: missing_tool'}],
       },
     ]);
     expect(events.some((event) => event.type === 'tool-execute-start')).toBe(
@@ -281,8 +281,8 @@ describe('AgentTurnRunner', () => {
       'call-fast',
     ]);
     expect(toolMessages.map((message) => message.content)).toEqual([
-      'slow result',
-      'fast result',
+      [{type: 'text', text: 'slow result'}],
+      [{type: 'text', text: 'fast result'}],
     ]);
     expect(events.at(-1)).toMatchObject({type: 'done', reason: 'complete'});
   });

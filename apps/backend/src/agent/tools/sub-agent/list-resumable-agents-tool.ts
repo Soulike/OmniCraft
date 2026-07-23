@@ -59,7 +59,7 @@ export const listResumableAgentsTool: ToolDefinition<
 
     return {
       data: {agents},
-      content: formatListResumableAgentsContent(agents),
+      content: [{type: 'text', text: formatListResumableAgentsContent(agents)}],
       status: 'success',
     };
   },

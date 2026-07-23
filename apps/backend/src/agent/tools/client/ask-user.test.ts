@@ -2,6 +2,7 @@ import assert from 'node:assert';
 
 import {describe, expect, it} from 'vitest';
 
+import {toolResultBlocksToText} from '@/agent-core/llm-api/tool-result-block.js';
 import {createMockContext} from '@/agent-core/tool/testing.js';
 
 import {askUserTool} from './ask-user.js';
@@ -42,8 +43,8 @@ describe('askUserTool', () => {
       {question: 'What city?', answer: 'SF'},
       {question: 'Your name?', answer: 'Alice'},
     ]);
-    expect(result.content).toContain('What city?');
-    expect(result.content).toContain('SF');
+    expect(toolResultBlocksToText(result.content)).toContain('What city?');
+    expect(toolResultBlocksToText(result.content)).toContain('SF');
   });
 
   it('returns failure when user cancels', async () => {

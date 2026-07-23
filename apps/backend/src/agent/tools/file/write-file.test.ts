@@ -6,6 +6,7 @@ import path from 'node:path';
 import {afterEach, beforeEach, describe, expect, it} from 'vitest';
 
 import {FileContentCache} from '@/agent-core/agent/state/file-content-cache.js';
+import {toolResultBlocksToText} from '@/agent-core/llm-api/tool-result-block.js';
 import {createMockContext} from '@/agent-core/tool/testing.js';
 import type {ToolExecutionContext} from '@/agent-core/tool/types.js';
 
@@ -38,8 +39,10 @@ describe('writeFileTool', () => {
         context,
       );
 
-      expect(result.content).toContain('File written: hello.txt');
-      expect(result.content).toContain('1 lines');
+      expect(toolResultBlocksToText(result.content)).toContain(
+        'File written: hello.txt',
+      );
+      expect(toolResultBlocksToText(result.content)).toContain('1 lines');
       expect(result.status).toBe('success');
       assert(result.status === 'success');
       expect(result.data.filePath).toBe('hello.txt');
@@ -62,7 +65,9 @@ describe('writeFileTool', () => {
         context,
       );
 
-      expect(result.content).toContain('File written: existing.txt');
+      expect(toolResultBlocksToText(result.content)).toContain(
+        'File written: existing.txt',
+      );
       expect(result.status).toBe('success');
       assert(result.status === 'success');
       expect(result.data.filePath).toBe('existing.txt');
@@ -77,7 +82,7 @@ describe('writeFileTool', () => {
         context,
       );
 
-      expect(result.content).toContain(
+      expect(toolResultBlocksToText(result.content)).toContain(
         'File written: deep/nested/dir/file.txt',
       );
       expect(result.status).toBe('success');
@@ -97,7 +102,7 @@ describe('writeFileTool', () => {
         context,
       );
 
-      expect(result.content).toContain('3 lines');
+      expect(toolResultBlocksToText(result.content)).toContain('3 lines');
       expect(result.status).toBe('success');
       assert(result.status === 'success');
       expect(result.data.lineCount).toBe(3);
@@ -109,8 +114,10 @@ describe('writeFileTool', () => {
         context,
       );
 
-      expect(result.content).toContain('File written: empty.txt');
-      expect(result.content).toContain('0 lines');
+      expect(toolResultBlocksToText(result.content)).toContain(
+        'File written: empty.txt',
+      );
+      expect(toolResultBlocksToText(result.content)).toContain('0 lines');
       expect(result.status).toBe('success');
       assert(result.status === 'success');
       expect(result.data.filePath).toBe('empty.txt');
@@ -124,7 +131,7 @@ describe('writeFileTool', () => {
         context,
       );
 
-      expect(result.content).toContain('File written:');
+      expect(toolResultBlocksToText(result.content)).toContain('File written:');
       expect(result.status).toBe('success');
       assert(result.status === 'success');
       expect(result.data.filePath).toBeTruthy();
@@ -143,7 +150,7 @@ describe('writeFileTool', () => {
         context,
       );
 
-      expect(result.content).toContain('File written:');
+      expect(toolResultBlocksToText(result.content)).toContain('File written:');
       expect(result.status).toBe('success');
       assert(result.status === 'success');
       expect(result.data.filePath).toBeTruthy();
@@ -158,7 +165,9 @@ describe('writeFileTool', () => {
         context,
       );
 
-      expect(result.content).toContain('Error: Content exceeds');
+      expect(toolResultBlocksToText(result.content)).toContain(
+        'Error: Content exceeds',
+      );
       expect(result.status).toBe('failure');
       assert(result.status === 'failure');
       expect(result.data.message).toBeTruthy();
@@ -172,7 +181,7 @@ describe('writeFileTool', () => {
         context,
       );
 
-      expect(result.content).toContain(
+      expect(toolResultBlocksToText(result.content)).toContain(
         'Error: Read the file before modifying it',
       );
       expect(result.status).toBe('failure');
@@ -191,7 +200,7 @@ describe('writeFileTool', () => {
         context,
       );
 
-      expect(result.content).toContain(
+      expect(toolResultBlocksToText(result.content)).toContain(
         'Error: File has been modified since last read',
       );
       expect(result.status).toBe('failure');
@@ -205,7 +214,7 @@ describe('writeFileTool', () => {
         context,
       );
 
-      expect(result.content).toContain('File written:');
+      expect(toolResultBlocksToText(result.content)).toContain('File written:');
       expect(result.status).toBe('success');
       assert(result.status === 'success');
       expect(result.data.filePath).toBe('brand-new.txt');
@@ -223,7 +232,7 @@ describe('writeFileTool', () => {
         context,
       );
 
-      expect(result.content).toContain(
+      expect(toolResultBlocksToText(result.content)).toContain(
         'Error: File has been deleted since last read',
       );
       expect(result.status).toBe('failure');

@@ -49,7 +49,11 @@ export const webFetchRawTool: ToolDefinition<
   async execute(args: WebFetchRawArgs, context: ToolExecutionContext) {
     const urlError = validateUrl(args.url);
     if (urlError) {
-      return {data: {message: urlError}, content: urlError, status: 'failure'};
+      return {
+        data: {message: urlError},
+        content: [{type: 'text', text: urlError}],
+        status: 'failure',
+      };
     }
 
     let body: string;
@@ -66,7 +70,7 @@ export const webFetchRawTool: ToolDefinition<
         const message = `Unsupported content type: ${result.contentType}`;
         return {
           data: {message},
-          content: `Error: ${message}`,
+          content: [{type: 'text', text: `Error: ${message}`}],
           status: 'failure',
         };
       }
@@ -75,7 +79,9 @@ export const webFetchRawTool: ToolDefinition<
       const message = error instanceof Error ? error.message : String(error);
       return {
         data: {message: `Failed to fetch URL: ${message}`},
-        content: `Error: Failed to fetch URL: ${message}`,
+        content: [
+          {type: 'text', text: `Error: Failed to fetch URL: ${message}`},
+        ],
         status: 'failure',
       };
     }
@@ -92,7 +98,12 @@ export const webFetchRawTool: ToolDefinition<
           data: {
             message: `Failed to save content to temporary file: ${message}`,
           },
-          content: `Error: Failed to save content to temporary file: ${message}`,
+          content: [
+            {
+              type: 'text',
+              text: `Error: Failed to save content to temporary file: ${message}`,
+            },
+          ],
           status: 'failure',
         };
       }
@@ -100,12 +111,16 @@ export const webFetchRawTool: ToolDefinition<
       const data: WebFetchRawResult = {url: args.url, content: fileMessage};
       return {
         data,
-        content: `${header}\n${fileMessage}`,
+        content: [{type: 'text', text: `${header}\n${fileMessage}`}],
         status: 'success',
       };
     }
 
     const data: WebFetchRawResult = {url: args.url, content: body};
-    return {data, content: `${header}\n\n${body}`, status: 'success'};
+    return {
+      data,
+      content: [{type: 'text', text: `${header}\n\n${body}`}],
+      status: 'success',
+    };
   },
 };

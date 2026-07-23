@@ -49,7 +49,7 @@ export function toInputItems(
         items.push({
           type: 'function_call_output',
           call_id: message.callId,
-          output: message.content,
+          output: toOpenAIToolResultOutput(message.content),
         });
         break;
     }

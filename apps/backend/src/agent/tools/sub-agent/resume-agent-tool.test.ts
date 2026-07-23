@@ -4,6 +4,7 @@ import {SubAgentType} from '@omnicraft/api-schema';
 import {describe, expect, it, vi} from 'vitest';
 
 import type {Agent} from '@/agent-core/agent/index.js';
+import {toolResultBlocksToText} from '@/agent-core/llm-api/tool-result-block.js';
 import {createMockContext} from '@/agent-core/tool/testing.js';
 import type {ToolExecutionContext} from '@/agent-core/tool/types.js';
 
@@ -88,8 +89,12 @@ describe('resumeAgentTool', () => {
     );
 
     expect(result.status).toBe('failure');
-    expect(result.content).toContain('Invalid subagent name');
-    expect(result.content).toContain('no surrounding whitespace');
+    expect(toolResultBlocksToText(result.content)).toContain(
+      'Invalid subagent name',
+    );
+    expect(toolResultBlocksToText(result.content)).toContain(
+      'no surrounding whitespace',
+    );
   });
 
   it('rejects a whitespace-only name', async () => {
@@ -100,7 +105,9 @@ describe('resumeAgentTool', () => {
     );
 
     expect(result.status).toBe('failure');
-    expect(result.content).toContain('Invalid subagent name');
+    expect(toolResultBlocksToText(result.content)).toContain(
+      'Invalid subagent name',
+    );
   });
 
   it('documents that the result includes the subagent name', () => {
@@ -121,7 +128,9 @@ describe('resumeAgentTool', () => {
     );
 
     expect(result.status).toBe('failure');
-    expect(result.content).toContain('not available to resume');
+    expect(toolResultBlocksToText(result.content)).toContain(
+      'not available to resume',
+    );
   });
 
   it('returns a busy failure for running subagents', async () => {
@@ -140,7 +149,7 @@ describe('resumeAgentTool', () => {
     );
 
     expect(result.status).toBe('failure');
-    expect(result.content).toContain('already running');
+    expect(toolResultBlocksToText(result.content)).toContain('already running');
   });
 
   it('runs a follow-up turn on a registered idle subagent', async () => {
@@ -161,7 +170,12 @@ describe('resumeAgentTool', () => {
     expect(result).toMatchObject({
       status: 'success',
       data: {summary: 'follow-up result', agentId: subagent.id},
-      content: `<subagent_name>crimson-otter</subagent_name>\n\nfollow-up result`,
+      content: [
+        {
+          type: 'text',
+          text: `<subagent_name>crimson-otter</subagent_name>\n\nfollow-up result`,
+        },
+      ],
     });
     expect(subagent.handledMessages).toEqual(['Continue analysis']);
     expect(context.events).toEqual([
@@ -242,7 +256,7 @@ describe('resumeAgentTool', () => {
     await first;
 
     expect(second.status).toBe('failure');
-    expect(second.content).toContain('already running');
+    expect(toolResultBlocksToText(second.content)).toContain('already running');
     expect(handledMessages).toEqual(['First']);
   });
 });

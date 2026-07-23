@@ -70,7 +70,7 @@ export async function runSubagentTurn({
 
       return {
         data: {message: 'Subagent was aborted'},
-        content: 'Subagent was aborted.',
+        content: [{type: 'text', text: 'Subagent was aborted.'}],
         status: 'failure',
       };
     }
@@ -79,7 +79,11 @@ export async function runSubagentTurn({
       const message =
         `Subagent ${nickname} is already running. ` +
         'Wait for it to finish before resuming it.';
-      return {data: {message}, content: message, status: 'failure'};
+      return {
+        data: {message},
+        content: [{type: 'text', text: message}],
+        status: 'failure',
+      };
     }
 
     context.onSubAgentEvent(startEvent);
@@ -129,7 +133,7 @@ export async function runSubagentTurn({
       const content = `<subagent_name>${nickname}</subagent_name>\n\n${summary}`;
       return {
         data: {summary, agentId: subagent.id},
-        content,
+        content: [{type: 'text', text: content}],
         status: 'success',
       };
     }
@@ -137,14 +141,14 @@ export async function runSubagentTurn({
     if (failureMessage) {
       return {
         data: {message: `Subagent error: ${failureMessage}`},
-        content: `Subagent error: ${failureMessage}`,
+        content: [{type: 'text', text: `Subagent error: ${failureMessage}`}],
         status: 'failure',
       };
     }
 
     return {
       data: {message: 'Subagent was aborted'},
-      content: 'Subagent was aborted.',
+      content: [{type: 'text', text: 'Subagent was aborted.'}],
       status: 'failure',
     };
   } catch (error: unknown) {
@@ -157,7 +161,7 @@ export async function runSubagentTurn({
     const message = error instanceof Error ? error.message : String(error);
     return {
       data: {message: `Subagent error: ${message}`},
-      content: `Subagent error: ${message}`,
+      content: [{type: 'text', text: `Subagent error: ${message}`}],
       status: 'failure',
     };
   } finally {

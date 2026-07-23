@@ -104,10 +104,14 @@ export class McpToolRegistry extends ToolRegistry {
               text = JSON.stringify(result.structuredContent);
             }
             if (result.isError) {
-              return {content: text, status: 'failure', data: {message: text}};
+              return {
+                content: [{type: 'text', text}],
+                status: 'failure',
+                data: {message: text},
+              };
             }
             return {
-              content: text,
+              content: [{type: 'text', text}],
               status: 'success',
               data: {server: serverName, toolName: tool.name, text},
             };

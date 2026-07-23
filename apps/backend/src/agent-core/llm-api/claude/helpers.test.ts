@@ -20,7 +20,11 @@ const mcpTool: McpToolDefinition = {
     properties: {path: {type: 'string'}},
     required: ['path'],
   },
-  execute: () => ({content: 'ok', status: 'success', data: {}}),
+  execute: () => ({
+    content: [{type: 'text', text: 'ok'}],
+    status: 'success',
+    data: {},
+  }),
 };
 
 describe('toClaudeTool with an mcp tool', () => {

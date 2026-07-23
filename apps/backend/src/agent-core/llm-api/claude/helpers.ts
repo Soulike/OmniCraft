@@ -70,7 +70,7 @@ export function toSdkMessage(message: LlmMessage): SdkMessageParam {
           {
             type: 'tool_result',
             tool_use_id: message.callId,
-            content: message.content,
+            content: toClaudeToolResultContent(message.content),
           },
         ],
       };

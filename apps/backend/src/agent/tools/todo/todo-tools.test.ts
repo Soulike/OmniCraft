@@ -2,6 +2,7 @@ import assert from 'node:assert';
 
 import {describe, expect, it} from 'vitest';
 
+import {toolResultBlocksToText} from '@/agent-core/llm-api/tool-result-block.js';
 import {createMockContext} from '@/agent-core/tool/testing.js';
 
 import {todoAppendTool} from './todo-append.js';
@@ -232,16 +233,20 @@ describe('todo tools', () => {
 
       const result = await todoListTool.execute({}, ctx);
 
-      expect(result.content).toContain('1/2 completed');
-      expect(result.content).toContain('[completed] #0: Task A - Do A');
-      expect(result.content).toContain('[pending] #1: Task B - Do B');
+      expect(toolResultBlocksToText(result.content)).toContain('1/2 completed');
+      expect(toolResultBlocksToText(result.content)).toContain(
+        '[completed] #0: Task A - Do A',
+      );
+      expect(toolResultBlocksToText(result.content)).toContain(
+        '[pending] #1: Task B - Do B',
+      );
     });
 
     it('shows empty message for empty list', async () => {
       const ctx = createMockContext();
       const result = await todoListTool.execute({}, ctx);
 
-      expect(result.content).toContain('empty');
+      expect(toolResultBlocksToText(result.content)).toContain('empty');
     });
   });
 });

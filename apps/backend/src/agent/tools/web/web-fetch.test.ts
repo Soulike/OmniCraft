@@ -5,6 +5,7 @@ import path from 'node:path';
 
 import {afterEach, beforeEach, describe, expect, it} from 'vitest';
 
+import {toolResultBlocksToText} from '@/agent-core/llm-api/tool-result-block.js';
 import {createMockContext} from '@/agent-core/tool/testing.js';
 import type {ToolExecutionContext} from '@/agent-core/tool/types.js';
 
@@ -62,8 +63,8 @@ describe('webFetchTool', () => {
           {url: serverUrl(server), includeFullPage: false},
           context,
         );
-        expect(result.content).toContain('URL:');
-        expect(result.content).toContain('Hello World');
+        expect(toolResultBlocksToText(result.content)).toContain('URL:');
+        expect(toolResultBlocksToText(result.content)).toContain('Hello World');
         expect(result.status).toBe('success');
         assert(result.status === 'success');
         expect(result.data.url).toBe(serverUrl(server));
@@ -94,8 +95,10 @@ describe('webFetchTool', () => {
           {url: serverUrl(server), includeFullPage: true},
           context,
         );
-        expect(result.content).toContain('URL:');
-        expect(result.content).toContain('Main Content');
+        expect(toolResultBlocksToText(result.content)).toContain('URL:');
+        expect(toolResultBlocksToText(result.content)).toContain(
+          'Main Content',
+        );
         expect(result.status).toBe('success');
         assert(result.status === 'success');
         expect(result.data.url).toBe(serverUrl(server));
@@ -117,10 +120,10 @@ describe('webFetchTool', () => {
           {url: serverUrl(server)},
           context,
         );
-        expect(result.content).toContain('URL:');
-        expect(result.content).not.toContain('Title:');
-        expect(result.content).toContain('"key"');
-        expect(result.content).toContain('"value"');
+        expect(toolResultBlocksToText(result.content)).toContain('URL:');
+        expect(toolResultBlocksToText(result.content)).not.toContain('Title:');
+        expect(toolResultBlocksToText(result.content)).toContain('"key"');
+        expect(toolResultBlocksToText(result.content)).toContain('"value"');
         expect(result.status).toBe('success');
         assert(result.status === 'success');
         expect(result.data.url).toBe(serverUrl(server));
@@ -192,8 +195,8 @@ describe('webFetchTool', () => {
         );
         expect(result.status).toBe('success');
         assert(result.status === 'success');
-        expect(result.content).toContain('URL:');
-        expect(result.content).toContain('Hello PDF');
+        expect(toolResultBlocksToText(result.content)).toContain('URL:');
+        expect(toolResultBlocksToText(result.content)).toContain('Hello PDF');
         expect(result.data.url).toBe(serverUrl(server));
         expect(result.data.content).toContain('Hello PDF');
       } finally {
@@ -236,7 +239,9 @@ describe('webFetchTool', () => {
         );
         expect(result.status).toBe('success');
         assert(result.status === 'success');
-        expect(result.content).toContain('Content saved to file:');
+        expect(toolResultBlocksToText(result.content)).toContain(
+          'Content saved to file:',
+        );
       } finally {
         await stopServer(server);
       }
@@ -249,7 +254,7 @@ describe('webFetchTool', () => {
         {url: 'ftp://files.example.com/data'},
         context,
       );
-      expect(result.content).toContain('ftp:');
+      expect(toolResultBlocksToText(result.content)).toContain('ftp:');
       expect(result.status).toBe('failure');
       assert(result.status === 'failure');
       expect(result.data.message).toBeTruthy();
@@ -264,7 +269,9 @@ describe('webFetchTool', () => {
           {url: serverUrl(server)},
           context,
         );
-        expect(result.content).toContain('Unsupported content type');
+        expect(toolResultBlocksToText(result.content)).toContain(
+          'Unsupported content type',
+        );
         expect(result.status).toBe('failure');
         assert(result.status === 'failure');
         expect(result.data.message).toBeTruthy();
@@ -278,7 +285,9 @@ describe('webFetchTool', () => {
         {url: 'http://127.0.0.1:1'},
         context,
       );
-      expect(result.content).toContain('Failed to fetch URL');
+      expect(toolResultBlocksToText(result.content)).toContain(
+        'Failed to fetch URL',
+      );
       expect(result.status).toBe('failure');
       assert(result.status === 'failure');
       expect(result.data.message).toBeTruthy();
@@ -297,8 +306,10 @@ describe('webFetchTool', () => {
           {url: serverUrl(server)},
           context,
         );
-        expect(result.content).toContain('Content saved to file:');
-        expect(result.content).toContain('URL:');
+        expect(toolResultBlocksToText(result.content)).toContain(
+          'Content saved to file:',
+        );
+        expect(toolResultBlocksToText(result.content)).toContain('URL:');
         expect(result.status).toBe('success');
         assert(result.status === 'success');
         expect(result.data.url).toBe(serverUrl(server));
@@ -321,7 +332,9 @@ describe('webFetchTool', () => {
           {url: serverUrl(server)},
           context,
         );
-        expect(result.content).toContain('Note: Article extraction failed');
+        expect(toolResultBlocksToText(result.content)).toContain(
+          'Note: Article extraction failed',
+        );
         expect(result.status).toBe('success');
         assert(result.status === 'success');
         expect(result.data.url).toBe(serverUrl(server));

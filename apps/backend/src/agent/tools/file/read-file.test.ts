@@ -6,6 +6,7 @@ import path from 'node:path';
 import {afterEach, beforeEach, describe, expect, it} from 'vitest';
 
 import {FileContentCache} from '@/agent-core/agent/state/file-content-cache.js';
+import {toolResultBlocksToText} from '@/agent-core/llm-api/tool-result-block.js';
 import {createMockContext} from '@/agent-core/tool/testing.js';
 import type {ToolExecutionContext} from '@/agent-core/tool/types.js';
 
@@ -46,10 +47,12 @@ describe('readFileTool', () => {
         context,
       );
 
-      expect(result.content).toContain('File: hello.txt (3 lines)');
-      expect(result.content).toContain('1\tline1');
-      expect(result.content).toContain('2\tline2');
-      expect(result.content).toContain('3\tline3');
+      expect(toolResultBlocksToText(result.content)).toContain(
+        'File: hello.txt (3 lines)',
+      );
+      expect(toolResultBlocksToText(result.content)).toContain('1\tline1');
+      expect(toolResultBlocksToText(result.content)).toContain('2\tline2');
+      expect(toolResultBlocksToText(result.content)).toContain('3\tline3');
       expect(result.status).toBe('success');
       assert(result.status === 'success');
       expect(result.data.filePath).toBe('hello.txt');
@@ -66,10 +69,12 @@ describe('readFileTool', () => {
         context,
       );
 
-      expect(result.content).toContain('(5 lines, showing lines 3-5)');
-      expect(result.content).toContain('3\tc');
-      expect(result.content).toContain('5\te');
-      expect(result.content).not.toContain('1\ta');
+      expect(toolResultBlocksToText(result.content)).toContain(
+        '(5 lines, showing lines 3-5)',
+      );
+      expect(toolResultBlocksToText(result.content)).toContain('3\tc');
+      expect(toolResultBlocksToText(result.content)).toContain('5\te');
+      expect(toolResultBlocksToText(result.content)).not.toContain('1\ta');
       expect(result.status).toBe('success');
       assert(result.status === 'success');
       expect(result.data.totalLines).toBe(5);
@@ -84,10 +89,12 @@ describe('readFileTool', () => {
         context,
       );
 
-      expect(result.content).toContain('(5 lines, showing lines 2-3)');
-      expect(result.content).toContain('2\tb');
-      expect(result.content).toContain('3\tc');
-      expect(result.content).not.toContain('4\td');
+      expect(toolResultBlocksToText(result.content)).toContain(
+        '(5 lines, showing lines 2-3)',
+      );
+      expect(toolResultBlocksToText(result.content)).toContain('2\tb');
+      expect(toolResultBlocksToText(result.content)).toContain('3\tc');
+      expect(toolResultBlocksToText(result.content)).not.toContain('4\td');
       expect(result.status).toBe('success');
       assert(result.status === 'success');
       expect(result.data.totalLines).toBe(5);
@@ -102,8 +109,10 @@ describe('readFileTool', () => {
         context,
       );
 
-      expect(result.content).toContain('File: sub/file.txt');
-      expect(result.content).toContain('content');
+      expect(toolResultBlocksToText(result.content)).toContain(
+        'File: sub/file.txt',
+      );
+      expect(toolResultBlocksToText(result.content)).toContain('content');
       expect(result.status).toBe('success');
       assert(result.status === 'success');
       expect(result.data.filePath).toContain('sub/file.txt');
@@ -114,7 +123,7 @@ describe('readFileTool', () => {
       const absPath = await writeFile('abs.txt', 'data');
       const result = await readFileTool.execute({filePath: absPath}, context);
 
-      expect(result.content).toContain('data');
+      expect(toolResultBlocksToText(result.content)).toContain('data');
       expect(result.status).toBe('success');
       assert(result.status === 'success');
       expect(result.data.filePath).toBeTruthy();
@@ -131,8 +140,8 @@ describe('readFileTool', () => {
         context,
       );
 
-      expect(result.content).toContain('  1\tline1');
-      expect(result.content).toContain('  2\tline2');
+      expect(toolResultBlocksToText(result.content)).toContain('  1\tline1');
+      expect(toolResultBlocksToText(result.content)).toContain('  2\tline2');
       expect(result.status).toBe('success');
       assert(result.status === 'success');
       expect(result.data.totalLines).toBe(100);
@@ -146,7 +155,9 @@ describe('readFileTool', () => {
         context,
       );
 
-      expect(result.content).toContain('File: empty.txt (0 lines)');
+      expect(toolResultBlocksToText(result.content)).toContain(
+        'File: empty.txt (0 lines)',
+      );
       expect(result.status).toBe('success');
       assert(result.status === 'success');
       expect(result.data.totalLines).toBe(0);
@@ -159,7 +170,9 @@ describe('readFileTool', () => {
         context,
       );
 
-      expect(result.content).toContain('(3 lines, showing lines 100-3)');
+      expect(toolResultBlocksToText(result.content)).toContain(
+        '(3 lines, showing lines 100-3)',
+      );
       expect(result.status).toBe('success');
       assert(result.status === 'success');
       expect(result.data.totalLines).toBe(3);
@@ -189,7 +202,9 @@ describe('readFileTool', () => {
         context,
       );
 
-      expect(result.content).toContain('Error: File not found');
+      expect(toolResultBlocksToText(result.content)).toContain(
+        'Error: File not found',
+      );
       expect(result.status).toBe('failure');
       assert(result.status === 'failure');
       expect(result.data.message).toBeTruthy();
@@ -199,7 +214,9 @@ describe('readFileTool', () => {
       await fs.mkdir(path.join(tmpDir, 'adir'));
       const result = await readFileTool.execute({filePath: 'adir'}, context);
 
-      expect(result.content).toContain('Error: Not a file');
+      expect(toolResultBlocksToText(result.content)).toContain(
+        'Error: Not a file',
+      );
       expect(result.status).toBe('failure');
       assert(result.status === 'failure');
       expect(result.data.message).toBeTruthy();
@@ -216,7 +233,9 @@ describe('readFileTool', () => {
         context,
       );
 
-      expect(result.content).toContain('Error: Binary file detected');
+      expect(toolResultBlocksToText(result.content)).toContain(
+        'Error: Binary file detected',
+      );
       expect(result.status).toBe('failure');
       assert(result.status === 'failure');
       expect(result.data.message).toBeTruthy();
@@ -232,9 +251,13 @@ describe('readFileTool', () => {
         context,
       );
 
-      expect(result.content).toContain('Error: Read result exceeds');
-      expect(result.content).toContain('byte limit');
-      expect(result.content).toContain('Use startLine and lineCount');
+      expect(toolResultBlocksToText(result.content)).toContain(
+        'Error: Read result exceeds',
+      );
+      expect(toolResultBlocksToText(result.content)).toContain('byte limit');
+      expect(toolResultBlocksToText(result.content)).toContain(
+        'Use startLine and lineCount',
+      );
       expect(result.status).toBe('failure');
       assert(result.status === 'failure');
       expect(result.data.message).toBeTruthy();

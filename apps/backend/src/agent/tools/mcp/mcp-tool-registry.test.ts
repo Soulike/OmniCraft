@@ -3,6 +3,7 @@ import assert from 'node:assert';
 import type {Tool} from '@modelcontextprotocol/sdk/types.js';
 import {afterEach, describe, expect, it, vi} from 'vitest';
 
+import {toolResultBlocksToText} from '@/agent-core/llm-api/tool-result-block.js';
 import {createMockContext} from '@/agent-core/tool/testing.js';
 import type {McpClient} from '@/models/mcp-manager/index.js';
 import {McpManager} from '@/models/mcp-manager/index.js';
@@ -135,8 +136,10 @@ describe('McpToolRegistry', () => {
     const result = await mcpTool.execute({path: '/x'}, createMockContext());
 
     assert(result.status === 'success');
-    expect(result.content).toBe('summary\n[image: image/png]');
-    expect(result.content).not.toContain('BASE64DATA');
+    expect(toolResultBlocksToText(result.content)).toBe(
+      'summary\n[image: image/png]',
+    );
+    expect(toolResultBlocksToText(result.content)).not.toContain('BASE64DATA');
   });
 
   it('falls back to serialized structuredContent when there are no content blocks', async () => {
@@ -168,7 +171,7 @@ describe('McpToolRegistry', () => {
     const result = await mcpTool.execute({}, createMockContext());
 
     assert(result.status === 'success');
-    expect(result.content).toBe('{"answer":42}');
+    expect(toolResultBlocksToText(result.content)).toBe('{"answer":42}');
   });
 
   it('get() returns a tool by its namespaced name', async () => {

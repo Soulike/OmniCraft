@@ -25,7 +25,7 @@ export function createMockTool(name: string): ToolDefinition {
     execute: () =>
       Promise.resolve({
         data: {mock: true},
-        content: 'ok',
+        content: [{type: 'text' as const, text: 'ok'}],
         status: 'success' as const,
       }),
   };

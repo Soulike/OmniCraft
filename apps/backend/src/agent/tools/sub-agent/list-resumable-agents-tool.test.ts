@@ -8,6 +8,7 @@ import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 
 import type {Agent} from '@/agent-core/agent/index.js';
 import {agentPersistence} from '@/agent-core/agent/index.js';
+import {toolResultBlocksToText} from '@/agent-core/llm-api/tool-result-block.js';
 import {createMockContext} from '@/agent-core/tool/testing.js';
 import type {ToolExecutionContext} from '@/agent-core/tool/types.js';
 
@@ -74,7 +75,9 @@ describe('listResumableAgentsTool', () => {
       status: 'success',
       data: {agents: []},
     });
-    expect(result.content).toContain('No subagents are available to resume');
+    expect(toolResultBlocksToText(result.content)).toContain(
+      'No subagents are available to resume',
+    );
   });
 
   it('lists resumable subagents from the registry', async () => {
@@ -119,12 +122,12 @@ describe('listResumableAgentsTool', () => {
         ],
       },
     });
-    expect(result.content).toContain('crimson-otter');
-    expect(result.content).toContain('Build Summary');
-    expect(result.content).toContain('idle');
-    expect(result.content).toContain('silver-wren');
-    expect(result.content).toContain('Explore Report');
-    expect(result.content).toContain('running');
+    expect(toolResultBlocksToText(result.content)).toContain('crimson-otter');
+    expect(toolResultBlocksToText(result.content)).toContain('Build Summary');
+    expect(toolResultBlocksToText(result.content)).toContain('idle');
+    expect(toolResultBlocksToText(result.content)).toContain('silver-wren');
+    expect(toolResultBlocksToText(result.content)).toContain('Explore Report');
+    expect(toolResultBlocksToText(result.content)).toContain('running');
   });
 
   it('does not read persisted metadata or snapshots', async () => {

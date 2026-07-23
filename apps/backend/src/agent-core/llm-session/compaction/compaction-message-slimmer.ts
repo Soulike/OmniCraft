@@ -1,4 +1,5 @@
 import type {LlmMessage, LlmToolCall} from '../../llm-api/index.js';
+import {toolResultBlocksToText} from '../../llm-api/tool-result-block.js';
 import type {AnyToolDefinition} from '../../tool/types.js';
 import {
   RECENT_CONTEXT_ENTRY_TRUNCATE_HEAD_CHARS,
@@ -83,9 +84,11 @@ function slimMessages(
     if (message.role === 'tool') {
       const toolCall = toolCallsById.get(message.callId);
       const tool = toolCall ? toolsByName.get(toolCall.toolName) : undefined;
+      // Project blocks to text (media → placeholder) before any compaction work.
+      const projected = toolResultBlocksToText(message.content);
       const content = toolCall
         ? tool?.compactResult?.({
-            content: message.content,
+            content: projected,
             status: message.status,
             toolCall,
             message,
@@ -101,7 +104,7 @@ function slimMessages(
           status: message.status,
           content:
             content === undefined
-              ? truncateForCompaction(message.content, truncation)
+              ? truncateForCompaction(projected, truncation)
               : truncateForCompaction(content, truncation),
         }),
       );

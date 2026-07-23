@@ -12,6 +12,7 @@ import type {AnyToolResultData} from '@omnicraft/tool-schemas';
 import type {AsyncChannel} from '@/helpers/async-channel.js';
 
 import type {LlmConfig, LlmToolCall} from '../llm-api/index.js';
+import type {ToolResultBlock} from '../llm-api/tool-result-block.js';
 import type {SkillDefinition} from '../skill/index.js';
 import type {AnyToolDefinition} from '../tool/index.js';
 import type {AgentRuntimeState} from './agent-runtime-state.js';
@@ -40,7 +41,7 @@ export interface ExecuteAgentToolInput {
 }
 
 export interface ExecuteAgentToolResult {
-  readonly content: string;
+  readonly content: ToolResultBlock[];
   readonly status: 'success' | 'failure' | 'error';
   readonly data: AnyToolResultData;
 }
@@ -91,7 +92,11 @@ export class AgentToolExecutor {
       };
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
-      return {content: `Error: ${message}`, status: 'error', data: {message}};
+      return {
+        content: [{type: 'text', text: `Error: ${message}`}],
+        status: 'error',
+        data: {message},
+      };
     }
   }
 }

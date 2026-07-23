@@ -2,6 +2,7 @@ import type {ThinkingLevel} from '@omnicraft/api-schema';
 import {z} from 'zod';
 
 import type {AnyToolDefinition} from '../tool/types.js';
+import {toolResultBlockSchema} from './tool-result-block.js';
 
 // ---------------------------------------------------------------------------
 // Persisted types — Zod schema is the source of truth
@@ -53,6 +54,7 @@ export const llmToolResultMessageSchema = llmMessageBaseSchema.extend({
   role: z.literal('tool'),
   callId: z.string(),
   status: z.enum(['success', 'failure']),
+  content: z.array(toolResultBlockSchema),
 });
 
 export type LlmToolResultMessage = z.infer<typeof llmToolResultMessageSchema>;

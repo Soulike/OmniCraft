@@ -6,6 +6,7 @@ import path from 'node:path';
 
 import {afterAll, beforeAll, describe, expect, it} from 'vitest';
 
+import {toolResultBlocksToText} from '@/agent-core/llm-api/tool-result-block.js';
 import {createMockContext} from '@/agent-core/tool/testing.js';
 
 import {
@@ -40,8 +41,10 @@ describe('webFetchRawTool', () => {
         {url: serverUrl(server)},
         createMockContext(),
       );
-      expect(result.content).toContain('<html>');
-      expect(result.content).toContain('<h1>Hello World</h1>');
+      expect(toolResultBlocksToText(result.content)).toContain('<html>');
+      expect(toolResultBlocksToText(result.content)).toContain(
+        '<h1>Hello World</h1>',
+      );
       expect(result.status).toBe('success');
       assert(result.status === 'success');
       expect(result.data.url).toBe(serverUrl(server));
@@ -53,7 +56,7 @@ describe('webFetchRawTool', () => {
         {url: serverUrl(server)},
         createMockContext(),
       );
-      expect(result.content).not.toMatch(/^Title:/m);
+      expect(toolResultBlocksToText(result.content)).not.toMatch(/^Title:/m);
       expect(result.status).toBe('success');
       assert(result.status === 'success');
       expect(result.data.content).toBeTruthy();
@@ -78,7 +81,7 @@ describe('webFetchRawTool', () => {
         {url: serverUrl(server)},
         createMockContext(),
       );
-      expect(result.content).toContain(jsonBody);
+      expect(toolResultBlocksToText(result.content)).toContain(jsonBody);
       expect(result.status).toBe('success');
       assert(result.status === 'success');
       expect(result.data.url).toBe(serverUrl(server));
@@ -92,8 +95,8 @@ describe('webFetchRawTool', () => {
         {url: 'ftp://files.example.com/data'},
         createMockContext(),
       );
-      expect(result.content).toMatch(/Error/i);
-      expect(result.content).toContain('ftp:');
+      expect(toolResultBlocksToText(result.content)).toMatch(/Error/i);
+      expect(toolResultBlocksToText(result.content)).toContain('ftp:');
       expect(result.status).toBe('failure');
       assert(result.status === 'failure');
       expect(result.data.message).toBeTruthy();
@@ -120,7 +123,7 @@ describe('webFetchRawTool', () => {
         {url: serverUrl(server)},
         createMockContext(),
       );
-      expect(result.content).toMatch(/Error/i);
+      expect(toolResultBlocksToText(result.content)).toMatch(/Error/i);
       expect(result.status).toBe('failure');
       assert(result.status === 'failure');
       expect(result.data.message).toBeTruthy();
@@ -141,8 +144,10 @@ describe('webFetchRawTool', () => {
           {url: serverUrl(server)},
           createMockContext({scratchDirectory: scratchDir}),
         );
-        expect(result.content).toContain('Content saved to file:');
-        expect(result.content).toContain('URL:');
+        expect(toolResultBlocksToText(result.content)).toContain(
+          'Content saved to file:',
+        );
+        expect(toolResultBlocksToText(result.content)).toContain('URL:');
         expect(result.status).toBe('success');
         assert(result.status === 'success');
         expect(result.data.url).toBe(serverUrl(server));

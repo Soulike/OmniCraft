@@ -9,6 +9,7 @@ import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 import {ExploreSubAgent, GeneralSubAgent} from '@/agent/agents/index.js';
 import type {Agent} from '@/agent-core/agent/index.js';
 import {llmApi, type LlmEventStream} from '@/agent-core/llm-api/index.js';
+import {toolResultBlocksToText} from '@/agent-core/llm-api/tool-result-block.js';
 import {createMockContext} from '@/agent-core/tool/testing.js';
 import type {ToolExecutionContext} from '@/agent-core/tool/types.js';
 
@@ -437,7 +438,12 @@ describe('dispatchAgentTool', () => {
     expect(result).toMatchObject({
       status: 'success',
       data: {summary: 'done', agentId: subagent.id},
-      content: `<subagent_name>crimson-otter</subagent_name>\n\ndone`,
+      content: [
+        {
+          type: 'text',
+          text: `<subagent_name>crimson-otter</subagent_name>\n\ndone`,
+        },
+      ],
     });
     expect(subagent.handledMessages).toEqual(['Inspect the code']);
     expect(order).toEqual(['enqueueUserTurn', 'onTurnStarted']);
@@ -485,7 +491,12 @@ describe('dispatchAgentTool', () => {
     expect(result).toMatchObject({
       status: 'success',
       data: {summary: 'new summary', agentId: subagent.id},
-      content: `<subagent_name>crimson-otter</subagent_name>\n\nnew summary`,
+      content: [
+        {
+          type: 'text',
+          text: `<subagent_name>crimson-otter</subagent_name>\n\nnew summary`,
+        },
+      ],
     });
     expect(subagent.handledMessages).toEqual(['Continue the work']);
     expect(subagent.subscribedStartIndexes).toEqual([3]);
@@ -548,7 +559,7 @@ describe('dispatchAgentTool', () => {
     expect(result).toMatchObject({
       status: 'failure',
       data: {message: 'Subagent was aborted'},
-      content: 'Subagent was aborted.',
+      content: [{type: 'text', text: 'Subagent was aborted.'}],
     });
     expect(subagent.handledMessages).toEqual([]);
     expect(subagent.subscribedStartIndexes).toEqual([]);
@@ -585,7 +596,7 @@ describe('dispatchAgentTool', () => {
     });
 
     expect(result.status).toBe('failure');
-    expect(result.content).toContain('already running');
+    expect(toolResultBlocksToText(result.content)).toContain('already running');
     expect(subagent.handledMessages).toEqual([]);
     expect(events).toEqual([]);
   });
@@ -652,7 +663,7 @@ describe('dispatchAgentTool', () => {
         );
 
         expect(result.status).toBe('failure');
-        expect(result.content).toContain(
+        expect(toolResultBlocksToText(result.content)).toContain(
           `is outside the parent agent's working directory`,
         );
       } finally {
@@ -667,7 +678,7 @@ describe('dispatchAgentTool', () => {
       );
 
       expect(result.status).toBe('failure');
-      expect(result.content).toContain(
+      expect(toolResultBlocksToText(result.content)).toContain(
         `is outside the parent agent's working directory`,
       );
     });
@@ -683,7 +694,7 @@ describe('dispatchAgentTool', () => {
         );
 
         expect(result.status).toBe('failure');
-        expect(result.content).toContain(
+        expect(toolResultBlocksToText(result.content)).toContain(
           `is outside the parent agent's working directory`,
         );
       } finally {

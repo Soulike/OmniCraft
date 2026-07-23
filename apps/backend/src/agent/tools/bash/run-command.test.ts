@@ -6,6 +6,7 @@ import path from 'node:path';
 import {afterEach, beforeEach, describe, expect, it} from 'vitest';
 
 import {FileContentCache} from '@/agent-core/agent/state/file-content-cache.js';
+import {toolResultBlocksToText} from '@/agent-core/llm-api/tool-result-block.js';
 import {createMockContext} from '@/agent-core/tool/testing.js';
 import type {ToolExecutionContext} from '@/agent-core/tool/types.js';
 
@@ -43,7 +44,7 @@ describe('runCommandTool', () => {
   describe('output formatting', () => {
     it('returns "(No output)" for silent successful commands', async () => {
       const result = await runCommandTool.execute({command: 'true'}, context);
-      expect(result.content).toBe('(No output)');
+      expect(toolResultBlocksToText(result.content)).toBe('(No output)');
       expect(result.status).toBe('success');
       assert(result.status === 'success');
       expect(result.data.command).toBe('true');
@@ -55,7 +56,7 @@ describe('runCommandTool', () => {
         {command: 'exit 42'},
         context,
       );
-      expect(result.content).toContain('Exit code: 42');
+      expect(toolResultBlocksToText(result.content)).toContain('Exit code: 42');
       expect(result.status).toBe('failure');
       assert(result.status === 'failure');
       expect(result.data.message).toBeTruthy();
@@ -66,8 +67,8 @@ describe('runCommandTool', () => {
         {command: 'echo error >&2'},
         context,
       );
-      expect(result.content).toContain('(stderr)');
-      expect(result.content).toContain('error');
+      expect(toolResultBlocksToText(result.content)).toContain('(stderr)');
+      expect(toolResultBlocksToText(result.content)).toContain('error');
       expect(result.status).toBe('success');
       assert(result.status === 'success');
       expect(result.data.exitCode).toBe(0);
@@ -79,7 +80,9 @@ describe('runCommandTool', () => {
         {command: 'sleep 30', timeout: 500},
         context,
       );
-      expect(result.content).toContain('Command timed out');
+      expect(toolResultBlocksToText(result.content)).toContain(
+        'Command timed out',
+      );
       expect(result.status).toBe('failure');
       assert(result.status === 'failure');
       expect(result.data.message).toBeTruthy();
@@ -90,7 +93,9 @@ describe('runCommandTool', () => {
         {command: 'head -c 41000 /dev/urandom | base64'},
         context,
       );
-      expect(result.content).toContain('Output saved to file:');
+      expect(toolResultBlocksToText(result.content)).toContain(
+        'Output saved to file:',
+      );
       expect(result.status).toBe('success');
       assert(result.status === 'success');
       expect(result.data.exitCode).toBe(0);
@@ -111,8 +116,10 @@ describe('runCommandTool', () => {
       await fs.mkdir(subDir);
 
       const result = await runCommandTool.execute({command: 'cd sub'}, context);
-      expect(result.content).toContain('Working directory:');
-      expect(result.content).toContain(subDir);
+      expect(toolResultBlocksToText(result.content)).toContain(
+        'Working directory:',
+      );
+      expect(toolResultBlocksToText(result.content)).toContain(subDir);
       expect(result.status).toBe('success');
       assert(result.status === 'success');
       expect(result.data.cwd).toBe(subDir);
@@ -122,7 +129,9 @@ describe('runCommandTool', () => {
       const result = await runCommandTool.execute({command: 'cd /'}, context);
 
       expect(context.shellState.cwd).toBe(tmpDir);
-      expect(result.content).toContain('Working directory reset to:');
+      expect(toolResultBlocksToText(result.content)).toContain(
+        'Working directory reset to:',
+      );
       expect(result.status).toBe('success');
       assert(result.status === 'success');
       expect(result.data.cwd).toBe(tmpDir);
@@ -134,7 +143,7 @@ describe('runCommandTool', () => {
 
       await runCommandTool.execute({command: 'cd sub'}, context);
       const result = await runCommandTool.execute({command: 'pwd'}, context);
-      expect(result.content).toContain(subDir);
+      expect(toolResultBlocksToText(result.content)).toContain(subDir);
       expect(result.status).toBe('success');
       assert(result.status === 'success');
       expect(result.data.cwd).toBe(subDir);
@@ -162,7 +171,9 @@ describe('runCommandTool', () => {
           context,
         );
         expect(context.shellState.cwd).toBe(tmpDir);
-        expect(result.content).toContain('Working directory reset to:');
+        expect(toolResultBlocksToText(result.content)).toContain(
+          'Working directory reset to:',
+        );
         expect(result.status).toBe('success');
         assert(result.status === 'success');
         expect(result.data.cwd).toBe(tmpDir);

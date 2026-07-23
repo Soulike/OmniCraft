@@ -6,6 +6,7 @@ import path from 'node:path';
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 
 import {FileContentCache} from '@/agent-core/agent/state/file-content-cache.js';
+import {toolResultBlocksToText} from '@/agent-core/llm-api/tool-result-block.js';
 import {createMockContext} from '@/agent-core/tool/testing.js';
 import type {ToolExecutionContext} from '@/agent-core/tool/types.js';
 
@@ -127,9 +128,15 @@ describe('searchFilesTool', () => {
         context,
       );
 
-      expect(result.content).toContain('Found 2 matches');
-      expect(result.content).toContain('a.ts:1: import foo');
-      expect(result.content).toContain('b.ts:1: import baz');
+      expect(toolResultBlocksToText(result.content)).toContain(
+        'Found 2 matches',
+      );
+      expect(toolResultBlocksToText(result.content)).toContain(
+        'a.ts:1: import foo',
+      );
+      expect(toolResultBlocksToText(result.content)).toContain(
+        'b.ts:1: import baz',
+      );
       expect(result.status).toBe('success');
       assert(result.status === 'success');
       expect(result.data.pattern).toBe('import');
@@ -146,8 +153,8 @@ describe('searchFilesTool', () => {
         context,
       );
 
-      expect(result.content).toContain('a.ts');
-      expect(result.content).not.toContain('b.js');
+      expect(toolResultBlocksToText(result.content)).toContain('a.ts');
+      expect(toolResultBlocksToText(result.content)).not.toContain('b.js');
       expect(result.status).toBe('success');
       assert(result.status === 'success');
       expect(result.data.matches).toHaveLength(1);
@@ -162,8 +169,8 @@ describe('searchFilesTool', () => {
         context,
       );
 
-      expect(result.content).toContain('a.ts');
-      expect(result.content).not.toContain('b.ts');
+      expect(toolResultBlocksToText(result.content)).toContain('a.ts');
+      expect(toolResultBlocksToText(result.content)).not.toContain('b.ts');
       expect(result.status).toBe('success');
       assert(result.status === 'success');
       expect(result.data.matches).toHaveLength(1);
@@ -174,7 +181,9 @@ describe('searchFilesTool', () => {
 
       const result = await searchFilesTool.execute({pattern: 'xyz'}, context);
 
-      expect(result.content).toContain('No matches found');
+      expect(toolResultBlocksToText(result.content)).toContain(
+        'No matches found',
+      );
       expect(result.status).toBe('success');
       assert(result.status === 'success');
       expect(result.data.matches).toHaveLength(0);
@@ -192,8 +201,10 @@ describe('searchFilesTool', () => {
 
       const result = await searchFilesTool.execute({pattern: 'A'}, context);
 
-      expect(result.content).toContain('text.ts');
-      expect(result.content).not.toContain('binary.bin');
+      expect(toolResultBlocksToText(result.content)).toContain('text.ts');
+      expect(toolResultBlocksToText(result.content)).not.toContain(
+        'binary.bin',
+      );
       expect(result.status).toBe('success');
       assert(result.status === 'success');
       expect(result.data.matches).toHaveLength(1);
@@ -206,7 +217,9 @@ describe('searchFilesTool', () => {
 
       const result = await searchFilesTool.execute({pattern: 'match'}, context);
 
-      const lines = result.content.split('\n').filter((l) => /:\d+:/.test(l));
+      const lines = toolResultBlocksToText(result.content)
+        .split('\n')
+        .filter((l) => /:\d+:/.test(l));
       expect(lines[0]).toContain('a.ts');
       expect(lines[1]).toContain('b.ts');
       expect(lines[2]).toContain('c.ts');
@@ -228,8 +241,10 @@ describe('searchFilesTool', () => {
 
       const result = await searchFilesTool.execute({pattern: 'match'}, context);
 
-      expect(result.content).toContain('100+');
-      expect(result.content).toContain('showing first 100');
+      expect(toolResultBlocksToText(result.content)).toContain('100+');
+      expect(toolResultBlocksToText(result.content)).toContain(
+        'showing first 100',
+      );
       expect(result.status).toBe('success');
       assert(result.status === 'success');
       expect(result.data.matches).toHaveLength(100);
@@ -250,7 +265,9 @@ describe('searchFilesTool', () => {
 
       vi.restoreAllMocks();
 
-      expect(result.content).toContain('timed out after 30s');
+      expect(toolResultBlocksToText(result.content)).toContain(
+        'timed out after 30s',
+      );
       expect(result.status).toBe('failure');
       assert(result.status === 'failure');
       expect(result.data.message).toBeTruthy();
@@ -264,7 +281,9 @@ describe('searchFilesTool', () => {
         context,
       );
 
-      expect(result.content).toContain('Error: Directory not found');
+      expect(toolResultBlocksToText(result.content)).toContain(
+        'Error: Directory not found',
+      );
       expect(result.status).toBe('failure');
       assert(result.status === 'failure');
       expect(result.data.message).toBeTruthy();
@@ -275,7 +294,9 @@ describe('searchFilesTool', () => {
 
       const result = await searchFilesTool.execute({pattern: 'a**'}, context);
 
-      expect(result.content).toContain('Error: Invalid regex pattern');
+      expect(toolResultBlocksToText(result.content)).toContain(
+        'Error: Invalid regex pattern',
+      );
       expect(result.status).toBe('failure');
       assert(result.status === 'failure');
       expect(result.data.message).toBeTruthy();
@@ -289,7 +310,9 @@ describe('searchFilesTool', () => {
         context,
       );
 
-      expect(result.content).toContain('Error: Regex pattern rejected');
+      expect(toolResultBlocksToText(result.content)).toContain(
+        'Error: Regex pattern rejected',
+      );
       expect(result.status).toBe('failure');
       assert(result.status === 'failure');
       expect(result.data.message).toBeTruthy();
@@ -303,7 +326,9 @@ describe('searchFilesTool', () => {
         context,
       );
 
-      expect(result.content).toContain('Error: Not a directory');
+      expect(toolResultBlocksToText(result.content)).toContain(
+        'Error: Not a directory',
+      );
       expect(result.status).toBe('failure');
       assert(result.status === 'failure');
       expect(result.data.message).toBeTruthy();
