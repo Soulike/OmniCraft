@@ -55,6 +55,7 @@ describe('readFileTool', () => {
       expect(toolResultBlocksToText(result.content)).toContain('3\tline3');
       expect(result.status).toBe('success');
       assert(result.status === 'success');
+      assert(result.data.kind === 'text');
       expect(result.data.filePath).toBe('hello.txt');
       expect(result.data.totalLines).toBe(3);
       expect(result.data.startLine).toBe(1);
@@ -77,6 +78,7 @@ describe('readFileTool', () => {
       expect(toolResultBlocksToText(result.content)).not.toContain('1\ta');
       expect(result.status).toBe('success');
       assert(result.status === 'success');
+      assert(result.data.kind === 'text');
       expect(result.data.totalLines).toBe(5);
       expect(result.data.startLine).toBe(3);
       expect(result.data.endLine).toBe(5);
@@ -97,6 +99,7 @@ describe('readFileTool', () => {
       expect(toolResultBlocksToText(result.content)).not.toContain('4\td');
       expect(result.status).toBe('success');
       assert(result.status === 'success');
+      assert(result.data.kind === 'text');
       expect(result.data.totalLines).toBe(5);
       expect(result.data.startLine).toBe(2);
       expect(result.data.endLine).toBe(3);
@@ -115,6 +118,7 @@ describe('readFileTool', () => {
       expect(toolResultBlocksToText(result.content)).toContain('content');
       expect(result.status).toBe('success');
       assert(result.status === 'success');
+      assert(result.data.kind === 'text');
       expect(result.data.filePath).toContain('sub/file.txt');
       expect(result.data.content).toBeTruthy();
     });
@@ -126,6 +130,7 @@ describe('readFileTool', () => {
       expect(toolResultBlocksToText(result.content)).toContain('data');
       expect(result.status).toBe('success');
       assert(result.status === 'success');
+      assert(result.data.kind === 'text');
       expect(result.data.filePath).toBeTruthy();
       expect(result.data.content).toBeTruthy();
     });
@@ -144,6 +149,7 @@ describe('readFileTool', () => {
       expect(toolResultBlocksToText(result.content)).toContain('  2\tline2');
       expect(result.status).toBe('success');
       assert(result.status === 'success');
+      assert(result.data.kind === 'text');
       expect(result.data.totalLines).toBe(100);
       expect(result.data.startLine).toBe(1);
       expect(result.data.endLine).toBe(2);
@@ -160,6 +166,7 @@ describe('readFileTool', () => {
       );
       expect(result.status).toBe('success');
       assert(result.status === 'success');
+      assert(result.data.kind === 'text');
       expect(result.data.totalLines).toBe(0);
     });
 
@@ -175,6 +182,7 @@ describe('readFileTool', () => {
       );
       expect(result.status).toBe('success');
       assert(result.status === 'success');
+      assert(result.data.kind === 'text');
       expect(result.data.totalLines).toBe(3);
       expect(result.data.startLine).toBe(100);
       expect(result.data.endLine).toBe(3);
@@ -192,6 +200,30 @@ describe('readFileTool', () => {
         stat.mtimeMs,
       );
       expect(checkResult).toBe('ok');
+    });
+
+    it('returns an image file as an image block with a media result', async () => {
+      // 1x1 transparent PNG
+      const pngBase64 =
+        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+      const png = Buffer.from(pngBase64, 'base64');
+      await fs.writeFile(path.join(tmpDir, 'pixel.png'), png);
+
+      const result = await readFileTool.execute(
+        {filePath: 'pixel.png'},
+        context,
+      );
+
+      expect(result.status).toBe('success');
+      expect(result.content).toEqual([
+        {type: 'image', mediaType: 'image/png', data: pngBase64},
+      ]);
+      expect(result.data).toEqual({
+        kind: 'image',
+        filePath: 'pixel.png',
+        mediaType: 'image/png',
+        byteSize: png.length,
+      });
     });
   });
 
