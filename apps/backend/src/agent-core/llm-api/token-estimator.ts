@@ -74,9 +74,14 @@ function estimateMessageTokens(message: LlmMessage): number {
 }
 
 function estimateBlockTokens(block: ToolResultBlock): number {
-  if (block.type === 'text') return estimateText(block.text);
-  if (block.type === 'image') return IMAGE_TOKEN_ESTIMATE;
-  return DOCUMENT_TOKEN_ESTIMATE;
+  switch (block.type) {
+    case 'text':
+      return estimateText(block.text);
+    case 'image':
+      return IMAGE_TOKEN_ESTIMATE;
+    case 'document':
+      return DOCUMENT_TOKEN_ESTIMATE;
+  }
 }
 
 function estimateToolTokens(tool: AnyToolDefinition): number {
