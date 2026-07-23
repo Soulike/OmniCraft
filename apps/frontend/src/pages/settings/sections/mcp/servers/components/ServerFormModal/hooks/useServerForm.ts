@@ -65,7 +65,7 @@ export function useServerForm({
   const [args, setArgs] = useState<string[]>(
     initialTransport?.type === 'stdio' ? initialTransport.args : [],
   );
-  const [envEntries, setEnvEntries] = useState<[string, string][]>(
+  const [envEntries, setEnvEntries] = useState<[string, string][]>(() =>
     initialTransport?.type === 'stdio'
       ? recordToPairs(initialTransport.env)
       : [],
@@ -73,7 +73,7 @@ export function useServerForm({
   const [url, setUrl] = useState(
     initialTransport?.type === 'http' ? initialTransport.url : '',
   );
-  const [headerEntries, setHeaderEntries] = useState<[string, string][]>(
+  const [headerEntries, setHeaderEntries] = useState<[string, string][]>(() =>
     initialTransport?.type === 'http'
       ? recordToPairs(initialTransport.headers)
       : [],
