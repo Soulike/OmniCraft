@@ -7,7 +7,7 @@
     "start": "NODE_ENV=production tsx --env-file-if-exists=.env src/index.ts",
     "lint": "eslint src",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit && tsc -p scripts/tsconfig.json"
   },
   "devDependencies": {
     "@config/eslint": "workspace:^",

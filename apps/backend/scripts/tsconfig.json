@@ -1,0 +1,10 @@
+{
+  "extends": "@config/typescript/node",
+  "compilerOptions": {
+    "noEmit": true,
+    "paths": {
+      "@/*": ["../src/*"]
+    }
+  },
+  "include": ["."]
+}

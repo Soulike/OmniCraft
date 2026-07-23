@@ -1,8 +1,9 @@
-import {readdir, readFile, rename, writeFile} from 'node:fs/promises';
 import crypto from 'node:crypto';
+import {readdir, readFile, rename, writeFile} from 'node:fs/promises';
 import path from 'node:path';
 
 import {getDataDir} from '@/helpers/env.js';
+import {isFileNotFoundError} from '@/helpers/fs.js';
 import {logger} from '@/logger.js';
 
 interface ConversionResult {
@@ -48,7 +49,8 @@ async function convertFile(filePath: string): Promise<boolean> {
   return true;
 }
 
-async function convertRoot(root: string): Promise<number> {
+/** Walks a sessions root, converting each session's `snapshot.json` in place. */
+export async function convertRoot(root: string): Promise<number> {
   let count = 0;
   let entries;
   try {
@@ -62,6 +64,10 @@ async function convertRoot(root: string): Promise<number> {
     try {
       if (await convertFile(snapshot)) count++;
     } catch (error: unknown) {
+      if (isFileNotFoundError(error)) {
+        logger.debug({snapshot}, 'No snapshot.json for session, skipping');
+        continue;
+      }
       logger.warn(
         {err: error, snapshot},
         'Skipping snapshot that could not be converted',
