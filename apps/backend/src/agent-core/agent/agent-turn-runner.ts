@@ -14,8 +14,8 @@ import type {ToolName} from '@omnicraft/tool-schemas';
 import {AsyncChannel} from '@/helpers/async-channel.js';
 import {logger} from '@/logger.js';
 
-import {toolResultBlocksToText} from '../llm-api/helpers/tool-result-blocks-to-text.js';
 import type {LlmConfig, LlmToolCall} from '../llm-api/index.js';
+import {toolResultBlocksToText} from '../llm-api/index.js';
 import type {
   LlmSession,
   LlmSessionEventStream,

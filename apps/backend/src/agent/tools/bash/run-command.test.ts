@@ -6,7 +6,7 @@ import path from 'node:path';
 import {afterEach, beforeEach, describe, expect, it} from 'vitest';
 
 import {FileContentCache} from '@/agent-core/agent/state/file-content-cache.js';
-import {toolResultBlocksToText} from '@/agent-core/llm-api/helpers/tool-result-blocks-to-text.js';
+import {toolResultBlocksToText} from '@/agent-core/llm-api/index.js';
 import {createMockContext} from '@/agent-core/tool/testing.js';
 import type {ToolExecutionContext} from '@/agent-core/tool/types.js';
 

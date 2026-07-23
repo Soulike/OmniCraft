@@ -4,8 +4,8 @@ import type {
 } from '@omnicraft/sse-events';
 import {z} from 'zod';
 
+import type {ToolResultBlock} from '../llm-api/index.js';
 import {llmMessageSchema, type LlmToolCall} from '../llm-api/index.js';
-import type {ToolResultBlock} from '../llm-api/types.js';
 import type {AnyToolDefinition} from '../tool/types.js';
 
 export const llmCompactionMetadataSchema = z.object({

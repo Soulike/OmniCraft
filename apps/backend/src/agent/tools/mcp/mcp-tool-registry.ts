@@ -5,14 +5,14 @@ import {
   imageMediaTypeSchema,
 } from '@omnicraft/tool-schemas';
 
-import {toolResultBlocksToText} from '@/agent-core/llm-api/helpers/tool-result-blocks-to-text.js';
-import type {ToolResultBlock} from '@/agent-core/llm-api/types.js';
+import type {ToolResultBlock} from '@/agent-core/llm-api/index.js';
+import {toolResultBlocksToText} from '@/agent-core/llm-api/index.js';
 import type {
   AnyToolDefinition,
   McpToolDefinition,
 } from '@/agent-core/tool/index.js';
 import {ToolRegistry} from '@/agent-core/tool/index.js';
-import {guardMedia} from '@/agent-core/tool/media-guard.js';
+import {guardMedia} from '@/agent-core/tool/index.js';
 import {logger} from '@/logger.js';
 import {McpManager} from '@/models/mcp-manager/index.js';
 

@@ -3,7 +3,7 @@ import assert from 'node:assert';
 import type {Tool} from '@modelcontextprotocol/sdk/types.js';
 import {afterEach, describe, expect, it, vi} from 'vitest';
 
-import {toolResultBlocksToText} from '@/agent-core/llm-api/helpers/tool-result-blocks-to-text.js';
+import {toolResultBlocksToText} from '@/agent-core/llm-api/index.js';
 import {createMockContext} from '@/agent-core/tool/testing.js';
 import type {McpClient} from '@/models/mcp-manager/index.js';
 import {McpManager} from '@/models/mcp-manager/index.js';

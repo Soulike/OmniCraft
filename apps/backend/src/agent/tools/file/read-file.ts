@@ -16,7 +16,7 @@ import type {
   ToolDefinition,
   ToolExecutionContext,
 } from '@/agent-core/tool/index.js';
-import {MAX_INLINE_MEDIA_BYTES} from '@/agent-core/tool/media-guard.js';
+import {MAX_INLINE_MEDIA_BYTES} from '@/agent-core/tool/index.js';
 
 import {
   countLines,
