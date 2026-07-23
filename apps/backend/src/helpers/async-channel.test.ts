@@ -341,7 +341,7 @@ describe('AsyncChannel', () => {
       expect(results).toEqual([]);
     });
 
-    it('drains buffered values even when the signal is already aborted', async () => {
+    it('ignores values pushed after the signal has aborted', async () => {
       const controller = new AbortController();
       controller.abort();
       const channel = new AsyncChannel<number>(controller.signal);
@@ -353,7 +353,48 @@ describe('AsyncChannel', () => {
         results.push(value);
       }
 
-      expect(results).toEqual([1, 2]);
+      expect(results).toEqual([]);
+    });
+
+    it('delivers values buffered before the abort but drops those pushed after', async () => {
+      const controller = new AbortController();
+      const channel = new AsyncChannel<number>(controller.signal);
+
+      const resultPromise = (async () => {
+        const results: number[] = [];
+        for await (const value of channel) {
+          results.push(value);
+        }
+        return results;
+      })();
+
+      await Promise.resolve();
+
+      channel.push(1);
+      controller.abort();
+      channel.push(2);
+
+      const results = await resultPromise;
+      expect(results).toEqual([1]);
+    });
+
+    it('does not buffer values pushed after the abort', async () => {
+      const controller = new AbortController();
+      const channel = new AsyncChannel<number>(controller.signal);
+      controller.abort();
+
+      // A leaked producer keeps pushing after the consumer is gone; none of it
+      // should accumulate in the channel's buffer.
+      for (let i = 0; i < 100; i++) {
+        channel.push(i);
+      }
+
+      const results: number[] = [];
+      for await (const value of channel) {
+        results.push(value);
+      }
+
+      expect(results).toEqual([]);
     });
 
     it('ends iteration on close as before when no signal is provided', async () => {

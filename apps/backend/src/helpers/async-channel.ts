@@ -8,7 +8,9 @@
  * When an {@link AbortSignal} is provided, iteration ends once the signal
  * aborts even if the channel is never closed — after first draining any
  * values already buffered. This lets a consumer stop waiting on a producer
- * that may never settle (e.g. a tool call that hangs).
+ * that may never settle (e.g. a tool call that hangs). Once aborted, further
+ * `push`es are dropped (like pushing after `close`), so a leaked producer
+ * cannot accumulate values in a channel no consumer will drain.
  */
 export class AsyncChannel<T> implements AsyncIterable<T> {
   private buffer: T[] = [];
@@ -21,7 +23,7 @@ export class AsyncChannel<T> implements AsyncIterable<T> {
   }
 
   push(value: T): void {
-    if (this.closed) return;
+    if (this.closed || this.signal?.aborted) return;
     this.buffer.push(value);
     this.notify?.();
   }
