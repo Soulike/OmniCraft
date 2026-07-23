@@ -166,9 +166,12 @@ export class McpToolRegistry extends ToolRegistry {
             // Some MCP tools return neither content blocks nor structuredContent.
             // An empty tool_result.content array can be rejected by the LLM API
             // (Claude's Messages API previously accepted an empty string), so
-            // guarantee at least one block is always sent.
+            // guarantee at least one block is always sent. Keep `text` in sync so
+            // the frontend-facing data.message/data.text matches the model content
+            // (an error result must not surface a blank diagnostic).
             if (blocks.length === 0) {
-              blocks.push({type: 'text', text: '[no content]'});
+              text = '[no content]';
+              blocks.push({type: 'text', text});
             }
             if (result.isError) {
               return {

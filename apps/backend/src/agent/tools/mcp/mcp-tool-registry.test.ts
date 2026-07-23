@@ -203,6 +203,42 @@ describe('McpToolRegistry', () => {
     expect(result.status).toBe('success');
     assert(result.status === 'success');
     expect(result.content).toEqual([{type: 'text', text: '[no content]'}]);
+    // data.text must agree with the model-facing content, not be blank.
+    expect(result.data).toEqual({
+      server: 'fs',
+      toolName: 'read',
+      text: '[no content]',
+    });
+  });
+
+  it('keeps the failure message in sync with the placeholder for an empty error result', async () => {
+    const emptyErrorClient: McpClient = {
+      ...client,
+      callTool: () => Promise.resolve({content: [], isError: true}),
+    };
+    const mgr = McpManager.create(() => Promise.resolve(emptyErrorClient));
+    mgr.applyConfig({
+      servers: [
+        {
+          name: 'fs',
+          transport: {type: 'stdio', command: 'x', args: [], env: {}},
+        },
+      ],
+      enabledByAgent: {chat: ['fs'], coding: []},
+    });
+    await vi.waitFor(() => {
+      expect(mgr.list()[0]?.status).toBe('connected');
+    });
+    const mcpTool = new McpToolRegistry('chat', mgr).get('mcp__fs__read');
+    assert(mcpTool?.kind === 'mcp');
+
+    const result = await mcpTool.execute({path: '/x'}, createMockContext());
+
+    expect(result.status).toBe('failure');
+    assert(result.status === 'failure');
+    expect(result.content).toEqual([{type: 'text', text: '[no content]'}]);
+    // A contentless error must not surface a blank diagnostic to the frontend.
+    expect(result.data).toEqual({message: '[no content]'});
   });
 
   it('get() returns a tool by its namespaced name', async () => {
