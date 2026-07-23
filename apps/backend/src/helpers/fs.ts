@@ -62,6 +62,17 @@ export async function writeToTempFile(
   return filePath;
 }
 
+/** Writes binary content to a temporary file and returns the absolute path. */
+export async function writeBufferToTempFile(
+  content: Buffer,
+  extension: string,
+  dir: string = os.tmpdir(),
+): Promise<string> {
+  const filePath = path.join(dir, `${crypto.randomUUID()}${extension}`);
+  await fs.writeFile(filePath, content);
+  return filePath;
+}
+
 /** Creates a writable stream to a new temporary file. */
 export function createTempFileWriteStream(
   extension: string,
