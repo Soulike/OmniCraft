@@ -5,6 +5,5 @@
 }
 
 .empty {
-  color: var(--foreground);
-  opacity: 0.65;
+  color: var(--muted);
 }

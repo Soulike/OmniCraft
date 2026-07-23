@@ -13,7 +13,10 @@ export function McpServersSection() {
   const status = useMcpStatus();
   const modal = useServerFormModal();
 
-  const rows = mergeServers(config.config, status.statuses);
+  const rows = useMemo(
+    () => mergeServers(config.config, status.statuses),
+    [config.config, status.statuses],
+  );
 
   const existingNames = useMemo(() => {
     const names = config.config.servers.map((server) => server.name);
