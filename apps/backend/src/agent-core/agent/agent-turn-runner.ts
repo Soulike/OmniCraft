@@ -453,7 +453,12 @@ export class AgentTurnRunner {
     readonly systemPrompt: string;
     readonly input: RunAgentTurnInput;
   }): AgentEventStream {
-    await input.compactAfterTurn(tools, systemPrompt);
+    // After-turn compaction is best-effort cleanup that runs an unbounded,
+    // signal-less LLM call. On abort the turn must reach `done` promptly, so
+    // skip it rather than gate the terminal event on work that could hang.
+    if (reason !== 'aborted') {
+      await input.compactAfterTurn(tools, systemPrompt);
+    }
     yield await agentUsageReporter.buildUsageUpdateEvent(input);
     yield {type: 'done', reason} satisfies SseDoneEvent;
   }

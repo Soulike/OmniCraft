@@ -375,6 +375,48 @@ describe('AgentTurnRunner', () => {
     expect(events.at(-1)).toMatchObject({type: 'done', reason: 'aborted'});
   });
 
+  it('emits done on abort without waiting for after-turn compaction', async () => {
+    vi.spyOn(llmApi, 'countToken').mockResolvedValue(1);
+    vi.spyOn(llmApi, 'streamCompletion').mockReturnValue(
+      toolCallCompletionStream([{callId: 'call-1', toolName: 'hang_tool'}]),
+    );
+    const controller = new AbortController();
+    const hangingTool: ToolDefinition = {
+      kind: 'internal',
+      name: 'hang_tool',
+      displayName: 'Tool hang_tool',
+      description: 'A tool that never settles',
+      parameters: z.object({}),
+      suppressToolEvents: false,
+      execute: () =>
+        new Promise<never>(() => {
+          /* never resolves: simulates a hung tool */
+        }),
+    };
+    const events: Exclude<SseEvent, {type: 'error'}>[] = [];
+
+    for await (const event of agentTurnRunner.run(
+      createInput({
+        signal: controller.signal,
+        toolRegistries: [toolRegistryWith(hangingTool)],
+        // Best-effort after-turn compaction runs an unbounded, signal-less LLM
+        // call. It must not gate the terminal done: an aborted turn has to end
+        // even if compaction would hang.
+        compactAfterTurn: () =>
+          new Promise<void>(() => {
+            /* never resolves: simulates hung after-turn compaction */
+          }),
+      }),
+    )) {
+      events.push(event);
+      if (event.type === 'tool-execute-start') {
+        controller.abort();
+      }
+    }
+
+    expect(events.at(-1)).toMatchObject({type: 'done', reason: 'aborted'});
+  });
+
   it('emits a stop-check-reminder and continues when a check fires', async () => {
     vi.spyOn(llmApi, 'countToken').mockResolvedValue(1);
     vi.spyOn(llmApi, 'streamCompletion')
