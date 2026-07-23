@@ -3,6 +3,8 @@ import type OpenAI from 'openai';
 import {z} from 'zod';
 
 import type {AnyToolDefinition} from '../../tool/types.js';
+import type {ToolResultBlock} from '../tool-result-block.js';
+import {toolResultBlocksToText} from '../tool-result-block.js';
 import type {LlmMessage} from '../types.js';
 
 type ResponseInputItem = OpenAI.Responses.ResponseInputItem;
@@ -54,6 +56,37 @@ export function toInputItems(
   }
 
   return items;
+}
+
+/**
+ * Maps neutral tool-result blocks to an OpenAI function_call_output `output`.
+ * All-text results stay a plain string (matches prior behavior); media results
+ * become a content-item array.
+ */
+export function toOpenAIToolResultOutput(
+  blocks: readonly ToolResultBlock[],
+): string | OpenAI.Responses.ResponseFunctionCallOutputItemList {
+  if (blocks.every((block) => block.type === 'text')) {
+    return toolResultBlocksToText(blocks);
+  }
+  return blocks.map((block) => {
+    switch (block.type) {
+      case 'text':
+        return {type: 'input_text', text: block.text};
+      case 'image':
+        return {
+          type: 'input_image',
+          detail: 'auto',
+          image_url: `data:${block.mediaType};base64,${block.data}`,
+        };
+      case 'document':
+        return {
+          type: 'input_file',
+          file_data: `data:${block.mediaType};base64,${block.data}`,
+          ...(block.name === undefined ? {} : {filename: block.name}),
+        };
+    }
+  });
 }
 
 /** Converts an AnyToolDefinition to the OpenAI Responses API function tool format. */
