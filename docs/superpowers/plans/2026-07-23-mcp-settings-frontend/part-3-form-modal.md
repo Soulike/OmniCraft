@@ -780,7 +780,7 @@ Create `styles.module.css`:
 
 .note {
   font-size: 12px;
-  color: var(--foreground-secondary, var(--foreground));
+  color: var(--muted);
   opacity: 0.7;
 }
 ```
