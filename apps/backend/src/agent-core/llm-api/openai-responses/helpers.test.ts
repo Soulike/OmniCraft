@@ -59,4 +59,18 @@ describe('toOpenAIToolResultOutput', () => {
       },
     ]);
   });
+
+  it('defaults the filename for a document without a name', () => {
+    expect(
+      toOpenAIToolResultOutput([
+        {type: 'document', mediaType: 'application/pdf', data: 'BBBB'},
+      ]),
+    ).toEqual([
+      {
+        type: 'input_file',
+        filename: 'document.pdf',
+        file_data: 'data:application/pdf;base64,BBBB',
+      },
+    ]);
+  });
 });
