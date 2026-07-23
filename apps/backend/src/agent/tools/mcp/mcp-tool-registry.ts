@@ -71,7 +71,13 @@ export function buildMcpToolResultBlocks(
         break;
     }
   }
-  return blocks;
+  // Anthropic rejects an empty text block, so drop empty text (which an MCP text
+  // or embedded-resource block may legitimately carry, e.g. a side-effect-only
+  // tool). If that leaves nothing, the caller's empty-content guard substitutes a
+  // placeholder rather than failing the turn.
+  return blocks.filter(
+    (block) => !(block.type === 'text' && block.text === ''),
+  );
 }
 
 function blobResourceBlock(resource: {

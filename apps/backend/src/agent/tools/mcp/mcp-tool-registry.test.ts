@@ -241,6 +241,35 @@ describe('McpToolRegistry', () => {
     expect(result.data).toEqual({message: '[no content]'});
   });
 
+  it('replaces a spec-valid empty text result with a placeholder, not an empty block', async () => {
+    const emptyTextClient: McpClient = {
+      ...client,
+      callTool: () =>
+        Promise.resolve({content: [{type: 'text', text: ''}], isError: false}),
+    };
+    const mgr = McpManager.create(() => Promise.resolve(emptyTextClient));
+    mgr.applyConfig({
+      servers: [
+        {
+          name: 'fs',
+          transport: {type: 'stdio', command: 'x', args: [], env: {}},
+        },
+      ],
+      enabledByAgent: {chat: ['fs'], coding: []},
+    });
+    await vi.waitFor(() => {
+      expect(mgr.list()[0]?.status).toBe('connected');
+    });
+    const mcpTool = new McpToolRegistry('chat', mgr).get('mcp__fs__read');
+    assert(mcpTool?.kind === 'mcp');
+
+    const result = await mcpTool.execute({path: '/x'}, createMockContext());
+
+    // Must not forward `{type:'text', text:''}` — Anthropic rejects it.
+    assert(result.status === 'success');
+    expect(result.content).toEqual([{type: 'text', text: '[no content]'}]);
+  });
+
   it('get() returns a tool by its namespaced name', async () => {
     const mgr = await connectedManager();
     const registry = new McpToolRegistry('chat', mgr);
@@ -327,5 +356,13 @@ describe('buildMcpToolResultBlocks', () => {
     expect(blocks).toEqual([
       {type: 'text', text: '[unsupported image type: image/tiff]'},
     ]);
+  });
+
+  it('drops empty text blocks (Anthropic rejects them)', () => {
+    const blocks = buildMcpToolResultBlocks([
+      {type: 'text', text: ''},
+      {type: 'text', text: 'kept'},
+    ]);
+    expect(blocks).toEqual([{type: 'text', text: 'kept'}]);
   });
 });
