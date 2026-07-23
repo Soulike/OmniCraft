@@ -214,7 +214,9 @@ export class AgentTurnRunner {
         } satisfies SseToolExecuteStartEvent;
       }
 
-      const toolSseEventChannel = new AsyncChannel<AgentToolSseEvent>();
+      const toolSseEventChannel = new AsyncChannel<AgentToolSseEvent>(
+        input.signal,
+      );
       const toolResults = new Map<string, ToolResult>();
 
       for (const toolCall of toolCalls) {
@@ -280,15 +282,19 @@ export class AgentTurnRunner {
           toolSseEventChannel.close();
         });
 
+      // The channel ends when every tool settles (its producer closes it) or
+      // when the turn is aborted (it observes `input.signal`) — so a tool that
+      // never settles can no longer block the turn forever.
       for await (const event of toolSseEventChannel) {
         if (event.type === 'tool-execute-end') {
           inFlightToolCalls.delete(event.callId);
         }
         yield event;
-        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-        if (input.signal.aborted) break;
       }
 
+      // On abort, any tool calls still in flight never produced an end event.
+      // Flush a synthetic aborted end for each so the UI never strands a
+      // perpetually-running tool, then close the turn.
       // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
       if (input.signal.aborted) {
         yield* this.emitAbortCompletion({

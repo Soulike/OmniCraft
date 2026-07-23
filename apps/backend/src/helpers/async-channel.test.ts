@@ -283,4 +283,96 @@ describe('AsyncChannel', () => {
       expect(results).toEqual([1, 2, 3]);
     });
   });
+
+  describe('abort signal support', () => {
+    it('ends iteration when the signal aborts while the consumer is waiting', async () => {
+      const controller = new AbortController();
+      const channel = new AsyncChannel<number>(controller.signal);
+
+      const resultPromise = (async () => {
+        const results: number[] = [];
+        for await (const value of channel) {
+          results.push(value);
+        }
+        return results;
+      })();
+
+      // Let the consumer start waiting: the channel is never closed and no
+      // value is ever pushed, so only the abort can end iteration.
+      await Promise.resolve();
+      controller.abort();
+
+      const results = await resultPromise;
+      expect(results).toEqual([]);
+    });
+
+    it('drains values buffered before the abort, then ends iteration', async () => {
+      const controller = new AbortController();
+      const channel = new AsyncChannel<number>(controller.signal);
+
+      const resultPromise = (async () => {
+        const results: number[] = [];
+        for await (const value of channel) {
+          results.push(value);
+        }
+        return results;
+      })();
+
+      await Promise.resolve();
+
+      channel.push(1);
+      channel.push(2);
+      controller.abort();
+
+      const results = await resultPromise;
+      expect(results).toEqual([1, 2]);
+    });
+
+    it('ends iteration immediately when the signal is already aborted', async () => {
+      const controller = new AbortController();
+      controller.abort();
+      const channel = new AsyncChannel<number>(controller.signal);
+
+      const results: number[] = [];
+      for await (const value of channel) {
+        results.push(value);
+      }
+
+      expect(results).toEqual([]);
+    });
+
+    it('drains buffered values even when the signal is already aborted', async () => {
+      const controller = new AbortController();
+      controller.abort();
+      const channel = new AsyncChannel<number>(controller.signal);
+      channel.push(1);
+      channel.push(2);
+
+      const results: number[] = [];
+      for await (const value of channel) {
+        results.push(value);
+      }
+
+      expect(results).toEqual([1, 2]);
+    });
+
+    it('ends iteration on close as before when no signal is provided', async () => {
+      const channel = new AsyncChannel<number>();
+
+      const resultPromise = (async () => {
+        const results: number[] = [];
+        for await (const value of channel) {
+          results.push(value);
+        }
+        return results;
+      })();
+
+      await Promise.resolve();
+      channel.push(7);
+      channel.close();
+
+      const results = await resultPromise;
+      expect(results).toEqual([7]);
+    });
+  });
 });

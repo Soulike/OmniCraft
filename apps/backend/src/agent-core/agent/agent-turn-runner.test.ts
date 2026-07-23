@@ -312,11 +312,59 @@ describe('AgentTurnRunner', () => {
       }
     }
 
-    expect(events).toContainEqual({
+    // Abort stops the turn promptly: output the tool emits after the abort
+    // (its delayed 'still running' delta) is dropped rather than waited for.
+    expect(events).not.toContainEqual({
       type: 'tool-execute-delta',
       callId: 'call-1',
       content: 'still running',
     });
+    expect(events).toContainEqual({
+      type: 'tool-execute-end',
+      callId: 'call-1',
+      result: 'Aborted',
+      status: 'error',
+      data: {message: 'Aborted'},
+    });
+    expect(events.at(-1)).toMatchObject({type: 'done', reason: 'aborted'});
+  });
+
+  it('ends the turn on abort even when a tool never settles', async () => {
+    vi.spyOn(llmApi, 'countToken').mockResolvedValue(1);
+    vi.spyOn(llmApi, 'streamCompletion').mockReturnValue(
+      toolCallCompletionStream([{callId: 'call-1', toolName: 'hang_tool'}]),
+    );
+    const controller = new AbortController();
+    // A tool whose execution never settles and ignores the abort signal. The
+    // tool-results channel would block the turn forever without abort support.
+    const hangingTool: ToolDefinition = {
+      kind: 'internal',
+      name: 'hang_tool',
+      displayName: 'Tool hang_tool',
+      description: 'A tool that never settles',
+      parameters: z.object({}),
+      suppressToolEvents: false,
+      execute: () =>
+        new Promise<never>(() => {
+          /* never resolves: simulates a hung tool */
+        }),
+    };
+    const events: Exclude<SseEvent, {type: 'error'}>[] = [];
+
+    for await (const event of agentTurnRunner.run(
+      createInput({
+        signal: controller.signal,
+        toolRegistries: [toolRegistryWith(hangingTool)],
+      }),
+    )) {
+      events.push(event);
+      if (event.type === 'tool-execute-start') {
+        controller.abort();
+      }
+    }
+
+    // The hung tool call is flushed with a synthetic aborted end so the UI
+    // never shows a perpetually-running tool.
     expect(events).toContainEqual({
       type: 'tool-execute-end',
       callId: 'call-1',
