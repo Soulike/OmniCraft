@@ -57,9 +57,8 @@ export function ServerFormModalView({
               <TextField
                 className={styles.field}
                 value={form.name}
-                isReadOnly={mode === 'edit'}
                 isInvalid={form.errors.name !== undefined}
-                isDisabled={isSaving}
+                isDisabled={mode === 'edit' || isSaving}
                 onChange={form.setName}
               >
                 <Label>Name</Label>
