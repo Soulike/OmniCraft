@@ -5,7 +5,7 @@ import {AgentType} from '../agent-type/schema.js';
 export const mcpTransportSchema = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('stdio'),
-    command: z.string().describe('Executable to spawn'),
+    command: z.string().min(1).describe('Executable to spawn'),
     args: z.array(z.string()).describe('Command arguments').default([]),
     env: z
       .record(z.string(), z.string())

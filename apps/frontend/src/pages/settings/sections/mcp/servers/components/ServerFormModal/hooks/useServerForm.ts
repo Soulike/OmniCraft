@@ -1,7 +1,6 @@
 import type {McpServer, McpTransport} from '@omnicraft/settings-schema';
 import {mcpServerSchema} from '@omnicraft/settings-schema';
 import {useCallback, useState} from 'react';
-import {z} from 'zod';
 
 import type {KeyValueEntry} from '@/components/KeyValueEditor/index.js';
 
@@ -94,46 +93,47 @@ export function useServerForm({
   }, []);
 
   const validate = useCallback((): McpServer | null => {
-    const nextErrors: FormErrors = {};
     const trimmedName = name.trim();
+    const transport: McpTransport =
+      transportType === 'stdio'
+        ? {
+            type: 'stdio',
+            command: command.trim(),
+            args: args.filter((arg) => arg !== ''),
+            env: pairsToRecord(envEntries),
+          }
+        : {
+            type: 'http',
+            url: url.trim(),
+            headers: pairsToRecord(headerEntries),
+          };
 
-    if (!mcpServerSchema.shape.name.safeParse(trimmedName).success) {
-      nextErrors.name =
-        'Use lowercase letters, digits, and dashes; start with a letter or digit.';
+    // Let the shared schema decide what is structurally valid; the hook only
+    // owns the friendly copy and the cross-server duplicate check (which the
+    // single-server schema cannot know about).
+    const result = mcpServerSchema.safeParse({name: trimmedName, transport});
+    const nextErrors: FormErrors = {};
+    if (!result.success) {
+      for (const issue of result.error.issues) {
+        const [field, subField] = issue.path;
+        if (field === 'name') {
+          nextErrors.name =
+            'Use lowercase letters, digits, and dashes; start with a letter or digit.';
+        } else if (subField === 'command') {
+          nextErrors.command = 'Command is required.';
+        } else if (subField === 'url') {
+          nextErrors.url = 'Enter a valid URL (https://…).';
+        }
+      }
     } else if (existingNames.includes(trimmedName)) {
       nextErrors.name = `A server named "${trimmedName}" already exists.`;
     }
 
-    let transport: McpTransport | null = null;
-    if (transportType === 'stdio') {
-      if (command.trim() === '') {
-        nextErrors.command = 'Command is required.';
-      } else {
-        transport = {
-          type: 'stdio',
-          command: command.trim(),
-          args: args.filter((arg) => arg !== ''),
-          env: pairsToRecord(envEntries),
-        };
-      }
-    } else {
-      const parsedUrl = z.url().safeParse(url.trim());
-      if (!parsedUrl.success) {
-        nextErrors.url = 'Enter a valid URL (https://…).';
-      } else {
-        transport = {
-          type: 'http',
-          url: parsedUrl.data,
-          headers: pairsToRecord(headerEntries),
-        };
-      }
-    }
-
     setErrors(nextErrors);
-    if (Object.keys(nextErrors).length > 0 || transport === null) {
+    if (!result.success || Object.keys(nextErrors).length > 0) {
       return null;
     }
-    return {name: trimmedName, transport};
+    return result.data;
   }, [
     name,
     existingNames,

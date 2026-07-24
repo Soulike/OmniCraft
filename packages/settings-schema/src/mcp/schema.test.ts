@@ -83,4 +83,12 @@ describe('mcpServerSchema (package export)', () => {
     });
     expect(result.success).toBe(false);
   });
+
+  it('rejects an empty stdio command', () => {
+    const result = mcpServerSchema.safeParse({
+      name: 'fs',
+      transport: {type: 'stdio', command: ''},
+    });
+    expect(result.success).toBe(false);
+  });
 });
