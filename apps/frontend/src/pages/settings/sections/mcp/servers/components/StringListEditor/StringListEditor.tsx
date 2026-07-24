@@ -1,5 +1,5 @@
 import {Button, Input, TextField} from '@heroui/react';
-import {Trash2} from 'lucide-react';
+import {Plus, Trash2} from 'lucide-react';
 
 import styles from './styles.module.css';
 
@@ -55,13 +55,15 @@ export function StringListEditor({
         </div>
       ))}
       <Button
+        fullWidth
         size='sm'
-        variant='ghost'
+        variant='outline'
         isDisabled={isDisabled}
         onPress={() => {
           onChange([...items, '']);
         }}
       >
+        <Plus size={16} />
         {addLabel}
       </Button>
     </div>
