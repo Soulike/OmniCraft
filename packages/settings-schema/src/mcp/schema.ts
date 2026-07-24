@@ -24,6 +24,8 @@ export const mcpTransportSchema = z.discriminatedUnion('type', [
 
 export type McpTransport = z.infer<typeof mcpTransportSchema>;
 
+export type McpTransportType = McpTransport['type'];
+
 export const mcpServerSchema = z.object({
   name: z
     .string()

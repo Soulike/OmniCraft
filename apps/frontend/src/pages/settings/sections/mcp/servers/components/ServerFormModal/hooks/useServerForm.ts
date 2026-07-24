@@ -1,4 +1,8 @@
-import type {McpServer, McpTransport} from '@omnicraft/settings-schema';
+import type {
+  McpServer,
+  McpTransport,
+  McpTransportType,
+} from '@omnicraft/settings-schema';
 import {mcpServerSchema} from '@omnicraft/settings-schema';
 import {useCallback, useState} from 'react';
 
@@ -13,8 +17,8 @@ interface FormErrors {
 export interface UseServerForm {
   name: string;
   setName: (value: string) => void;
-  transportType: 'stdio' | 'http';
-  setTransportType: (type: 'stdio' | 'http') => void;
+  transportType: McpTransportType;
+  setTransportType: (type: McpTransportType) => void;
   command: string;
   setCommand: (value: string) => void;
   args: string[];
@@ -56,7 +60,7 @@ export function useServerForm({
 }: UseServerFormParams): UseServerForm {
   const initialTransport = initial?.transport;
   const [name, setName] = useState(initial?.name ?? '');
-  const [transportType, setTransportType] = useState<'stdio' | 'http'>(
+  const [transportType, setTransportType] = useState<McpTransportType>(
     initialTransport?.type ?? 'stdio',
   );
   const [command, setCommand] = useState(
@@ -80,7 +84,7 @@ export function useServerForm({
   );
   const [errors, setErrors] = useState<FormErrors>({});
 
-  const changeTransportType = useCallback((type: 'stdio' | 'http') => {
+  const changeTransportType = useCallback((type: McpTransportType) => {
     setTransportType(type);
     if (type === 'stdio') {
       setUrl('');
