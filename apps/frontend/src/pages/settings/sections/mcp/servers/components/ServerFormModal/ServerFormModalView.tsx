@@ -11,6 +11,8 @@ import {
   ToggleButtonGroup,
 } from '@heroui/react';
 
+import {AnimateHeight} from '@/components/AnimateHeight/index.js';
+
 import {KeyValueEditor} from '../KeyValueEditor/index.js';
 import {StringListEditor} from '../StringListEditor/index.js';
 import type {UseServerForm} from './hooks/useServerForm.js';
@@ -92,77 +94,79 @@ export function ServerFormModalView({
                 </ToggleButtonGroup>
               </div>
 
-              {form.transportType === 'stdio' ? (
-                <>
-                  <TextField
-                    className={styles.field}
-                    value={form.command}
-                    isInvalid={form.errors.command !== undefined}
-                    isDisabled={isSaving}
-                    onChange={form.setCommand}
-                  >
-                    <Label>Command</Label>
-                    <Input placeholder='npx' />
-                    {form.errors.command !== undefined && (
-                      <FieldError>{form.errors.command}</FieldError>
-                    )}
-                  </TextField>
-
-                  <div className={styles.field}>
-                    <Label>Arguments</Label>
-                    <StringListEditor
-                      items={form.args}
-                      onChange={form.setArgs}
-                      addLabel='Add argument'
-                      placeholder='-y'
+              <AnimateHeight>
+                {form.transportType === 'stdio' ? (
+                  <div className={styles.transportFields}>
+                    <TextField
+                      className={styles.field}
+                      value={form.command}
+                      isInvalid={form.errors.command !== undefined}
                       isDisabled={isSaving}
-                    />
-                  </div>
+                      onChange={form.setCommand}
+                    >
+                      <Label>Command</Label>
+                      <Input placeholder='npx' />
+                      {form.errors.command !== undefined && (
+                        <FieldError>{form.errors.command}</FieldError>
+                      )}
+                    </TextField>
 
-                  <div className={styles.field}>
-                    <Label>Environment variables</Label>
-                    <KeyValueEditor
-                      entries={form.envEntries}
-                      onChange={form.setEnvEntries}
-                      addLabel='Add variable'
-                      keyPlaceholder='NAME'
-                      valuePlaceholder='value'
-                      isDisabled={isSaving}
-                    />
-                  </div>
-                </>
-              ) : (
-                <>
-                  <TextField
-                    className={styles.field}
-                    value={form.url}
-                    isInvalid={form.errors.url !== undefined}
-                    isDisabled={isSaving}
-                    onChange={form.setUrl}
-                  >
-                    <Label>URL</Label>
-                    <Input placeholder='https://mcp.example.com/mcp' />
-                    {form.errors.url !== undefined && (
-                      <FieldError>{form.errors.url}</FieldError>
-                    )}
-                  </TextField>
+                    <div className={styles.field}>
+                      <Label>Arguments</Label>
+                      <StringListEditor
+                        items={form.args}
+                        onChange={form.setArgs}
+                        addLabel='Add argument'
+                        placeholder='-y'
+                        isDisabled={isSaving}
+                      />
+                    </div>
 
-                  <div className={styles.field}>
-                    <Label>Headers</Label>
-                    <KeyValueEditor
-                      entries={form.headerEntries}
-                      onChange={form.setHeaderEntries}
-                      addLabel='Add header'
-                      keyPlaceholder='Authorization'
-                      valuePlaceholder='Bearer …'
-                      isDisabled={isSaving}
-                    />
-                    <p className={styles.note}>
-                      Static headers only (bearer token / API key). No OAuth.
-                    </p>
+                    <div className={styles.field}>
+                      <Label>Environment variables</Label>
+                      <KeyValueEditor
+                        entries={form.envEntries}
+                        onChange={form.setEnvEntries}
+                        addLabel='Add variable'
+                        keyPlaceholder='NAME'
+                        valuePlaceholder='value'
+                        isDisabled={isSaving}
+                      />
+                    </div>
                   </div>
-                </>
-              )}
+                ) : (
+                  <div className={styles.transportFields}>
+                    <TextField
+                      className={styles.field}
+                      value={form.url}
+                      isInvalid={form.errors.url !== undefined}
+                      isDisabled={isSaving}
+                      onChange={form.setUrl}
+                    >
+                      <Label>URL</Label>
+                      <Input placeholder='https://mcp.example.com/mcp' />
+                      {form.errors.url !== undefined && (
+                        <FieldError>{form.errors.url}</FieldError>
+                      )}
+                    </TextField>
+
+                    <div className={styles.field}>
+                      <Label>Headers</Label>
+                      <KeyValueEditor
+                        entries={form.headerEntries}
+                        onChange={form.setHeaderEntries}
+                        addLabel='Add header'
+                        keyPlaceholder='Authorization'
+                        valuePlaceholder='Bearer …'
+                        isDisabled={isSaving}
+                      />
+                      <p className={styles.note}>
+                        Static headers only (bearer token / API key). No OAuth.
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </AnimateHeight>
             </div>
           </Modal.Body>
           <Modal.Footer>
