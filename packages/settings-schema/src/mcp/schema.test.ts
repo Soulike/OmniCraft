@@ -76,6 +76,14 @@ describe('mcpServerSchema (package export)', () => {
     expect(result.success).toBe(true);
   });
 
+  it('rejects a non-http(s) transport url', () => {
+    const result = mcpServerSchema.safeParse({
+      name: 'remote',
+      transport: {type: 'http', url: 'ftp://mcp.example.com/mcp'},
+    });
+    expect(result.success).toBe(false);
+  });
+
   it('rejects a non-kebab-case name', () => {
     const result = mcpServerSchema.safeParse({
       name: 'Bad Name',

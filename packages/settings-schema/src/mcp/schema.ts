@@ -14,7 +14,9 @@ export const mcpTransportSchema = z.discriminatedUnion('type', [
   }),
   z.object({
     type: z.literal('http'),
-    url: z.url().describe('Streamable HTTP endpoint URL'),
+    url: z
+      .url({protocol: /^https?$/})
+      .describe('Streamable HTTP(S) endpoint URL'),
     headers: z
       .record(z.string(), z.string())
       .describe('Extra request headers')
