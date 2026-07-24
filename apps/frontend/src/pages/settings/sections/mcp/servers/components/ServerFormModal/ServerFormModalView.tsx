@@ -13,8 +13,8 @@ import {
 
 import {AnimateHeight} from '@/components/AnimateHeight/index.js';
 import {KeyValueEditor} from '@/components/KeyValueEditor/index.js';
+import {StringListEditor} from '@/components/StringListEditor/index.js';
 
-import {StringListEditor} from '../StringListEditor/index.js';
 import type {UseServerForm} from './hooks/useServerForm.js';
 import styles from './styles.module.css';
 
@@ -117,6 +117,7 @@ export function ServerFormModalView({
                         items={form.args}
                         onChange={form.setArgs}
                         addLabel='Add argument'
+                        itemLabel='Argument'
                         placeholder='-y'
                         isDisabled={isSaving}
                       />
