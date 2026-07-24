@@ -1,10 +1,9 @@
 import type {McpServer, McpTransport} from '@omnicraft/settings-schema';
+import {mcpServerSchema} from '@omnicraft/settings-schema';
 import {useCallback, useState} from 'react';
 import {z} from 'zod';
 
 import type {KeyValueEntry} from '@/components/KeyValueEditor/index.js';
-
-const NAME_PATTERN = /^[a-z0-9][a-z0-9-]*$/;
 
 interface FormErrors {
   name?: string;
@@ -98,7 +97,7 @@ export function useServerForm({
     const nextErrors: FormErrors = {};
     const trimmedName = name.trim();
 
-    if (!NAME_PATTERN.test(trimmedName)) {
+    if (!mcpServerSchema.shape.name.safeParse(trimmedName).success) {
       nextErrors.name =
         'Use lowercase letters, digits, and dashes; start with a letter or digit.';
     } else if (existingNames.includes(trimmedName)) {
