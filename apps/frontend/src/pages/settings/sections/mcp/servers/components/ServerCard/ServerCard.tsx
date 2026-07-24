@@ -1,17 +1,10 @@
-import {
-  Alert,
-  Button,
-  Card,
-  Disclosure,
-  DisclosureGroup,
-  Switch,
-} from '@heroui/react';
+import {Alert, Button, Card, Switch} from '@heroui/react';
 import {AgentType} from '@omnicraft/settings-schema';
-import {Wrench} from 'lucide-react';
 
 import {formatTransportSummary} from '../../helpers/format-transport-summary.js';
 import type {McpServerRow} from '../../helpers/merge-servers.js';
 import {RemoveServerButton} from '../RemoveServerButton/index.js';
+import {ServerToolList} from '../ServerToolList/index.js';
 import {StatusChip} from '../StatusChip/index.js';
 import styles from './styles.module.css';
 
@@ -32,8 +25,6 @@ export function ServerCard({
   onRemove,
   onReconnect,
 }: ServerCardProps) {
-  const toolCount = row.tools.length;
-
   return (
     <Card>
       <Card.Content>
@@ -113,44 +104,7 @@ export function ServerCard({
             </Switch>
           </div>
 
-          {toolCount > 0 && (
-            <div className={styles.tools}>
-              <span className={styles.toolsLabel}>
-                {toolCount} {toolCount === 1 ? 'tool' : 'tools'}
-              </span>
-              <DisclosureGroup
-                allowsMultipleExpanded
-                className={styles.toolList}
-              >
-                {row.tools.map((tool) => (
-                  <Disclosure
-                    key={tool.name}
-                    id={tool.name}
-                    className={styles.tool}
-                  >
-                    <Disclosure.Heading>
-                      <Disclosure.Trigger className={styles.toolTrigger}>
-                        <Wrench size={14} className={styles.toolIcon} />
-                        <span className={styles.toolName}>{tool.name}</span>
-                        <Disclosure.Indicator
-                          className={styles.toolIndicator}
-                        />
-                      </Disclosure.Trigger>
-                    </Disclosure.Heading>
-                    <Disclosure.Content>
-                      <Disclosure.Body className={styles.toolBody}>
-                        <p className={styles.toolDesc}>
-                          {tool.description === ''
-                            ? 'No description provided.'
-                            : tool.description}
-                        </p>
-                      </Disclosure.Body>
-                    </Disclosure.Content>
-                  </Disclosure>
-                ))}
-              </DisclosureGroup>
-            </div>
-          )}
+          <ServerToolList tools={row.tools} />
         </div>
       </Card.Content>
     </Card>
