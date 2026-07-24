@@ -61,13 +61,12 @@ describe('ServerCard', () => {
     expect(onToggle).toHaveBeenCalledWith(AgentType.CHAT, true);
   });
 
-  it('lists discovered tools when expanded', () => {
+  it('lists discovered tools', () => {
     renderCard({
       status: 'connected',
       enabledChat: true,
       tools: [{name: 'read_file', description: 'Read a file'}],
     });
-    fireEvent.click(screen.getByRole('button', {name: /tool/}));
     expect(screen.getByText('read_file')).toBeInTheDocument();
   });
 

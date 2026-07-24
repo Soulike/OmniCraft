@@ -1,5 +1,13 @@
-import {Alert, Button, Card, Disclosure, ListBox, Switch} from '@heroui/react';
+import {
+  Alert,
+  Button,
+  Card,
+  Disclosure,
+  DisclosureGroup,
+  Switch,
+} from '@heroui/react';
 import {AgentType} from '@omnicraft/settings-schema';
+import {Wrench} from 'lucide-react';
 
 import {formatTransportSummary} from '../../helpers/format-transport-summary.js';
 import type {McpServerRow} from '../../helpers/merge-servers.js';
@@ -41,6 +49,16 @@ export function ServerCard({
               >
                 Edit
               </Button>
+              {row.status !== 'not-enabled' && (
+                <Button
+                  size='sm'
+                  variant='outline'
+                  isDisabled={isSaving}
+                  onPress={onReconnect}
+                >
+                  Reconnect
+                </Button>
+              )}
               <Button
                 size='sm'
                 variant='danger'
@@ -95,46 +113,45 @@ export function ServerCard({
                 Coding
               </Switch.Content>
             </Switch>
-            {row.status !== 'not-enabled' && (
-              <Button
-                className={styles.reconnect}
-                size='sm'
-                variant='ghost'
-                isDisabled={isSaving}
-                onPress={onReconnect}
-              >
-                Reconnect
-              </Button>
-            )}
           </div>
 
           {toolCount > 0 && (
-            <Disclosure>
-              <Disclosure.Heading>
-                <Disclosure.Trigger className={styles.toolsTrigger}>
-                  {toolCount} {toolCount === 1 ? 'tool' : 'tools'}
-                  <Disclosure.Indicator />
-                </Disclosure.Trigger>
-              </Disclosure.Heading>
-              <Disclosure.Content>
-                <ListBox aria-label={`${row.name} tools`} selectionMode='none'>
-                  {row.tools.map((tool) => (
-                    <ListBox.Item
-                      key={tool.name}
-                      id={tool.name}
-                      textValue={tool.name}
-                    >
-                      <span className={styles.toolName}>{tool.name}</span>
-                      {tool.description !== '' && (
-                        <span className={styles.toolDesc}>
-                          {tool.description}
-                        </span>
-                      )}
-                    </ListBox.Item>
-                  ))}
-                </ListBox>
-              </Disclosure.Content>
-            </Disclosure>
+            <div className={styles.tools}>
+              <span className={styles.toolsLabel}>
+                {toolCount} {toolCount === 1 ? 'tool' : 'tools'}
+              </span>
+              <DisclosureGroup
+                allowsMultipleExpanded
+                className={styles.toolList}
+              >
+                {row.tools.map((tool) => (
+                  <Disclosure
+                    key={tool.name}
+                    id={tool.name}
+                    className={styles.tool}
+                  >
+                    <Disclosure.Heading>
+                      <Disclosure.Trigger className={styles.toolTrigger}>
+                        <Wrench size={14} className={styles.toolIcon} />
+                        <span className={styles.toolName}>{tool.name}</span>
+                        <Disclosure.Indicator
+                          className={styles.toolIndicator}
+                        />
+                      </Disclosure.Trigger>
+                    </Disclosure.Heading>
+                    <Disclosure.Content>
+                      <Disclosure.Body className={styles.toolBody}>
+                        <p className={styles.toolDesc}>
+                          {tool.description === ''
+                            ? 'No description provided.'
+                            : tool.description}
+                        </p>
+                      </Disclosure.Body>
+                    </Disclosure.Content>
+                  </Disclosure>
+                ))}
+              </DisclosureGroup>
+            </div>
           )}
         </div>
       </Card.Content>
