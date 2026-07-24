@@ -11,6 +11,7 @@ import {Wrench} from 'lucide-react';
 
 import {formatTransportSummary} from '../../helpers/format-transport-summary.js';
 import type {McpServerRow} from '../../helpers/merge-servers.js';
+import {RemoveServerButton} from '../RemoveServerButton/index.js';
 import {StatusChip} from '../StatusChip/index.js';
 import styles from './styles.module.css';
 
@@ -59,14 +60,11 @@ export function ServerCard({
                   Reconnect
                 </Button>
               )}
-              <Button
-                size='sm'
-                variant='danger'
+              <RemoveServerButton
+                serverName={row.name}
                 isDisabled={isSaving}
-                onPress={onRemove}
-              >
-                Remove
-              </Button>
+                onConfirm={onRemove}
+              />
             </div>
           </div>
 
