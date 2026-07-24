@@ -39,6 +39,8 @@ export {
   getMcpServersResponseSchema,
   type McpServerStatusResponse,
   mcpServerStatusSchema,
+  type PutMcpSettingsRequest,
+  putMcpSettingsRequestSchema,
 } from './mcp/schema.js';
 export {
   type GetSettingValueResponse,
