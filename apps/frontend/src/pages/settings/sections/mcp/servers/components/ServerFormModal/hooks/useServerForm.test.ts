@@ -11,8 +11,8 @@ describe('useServerForm', () => {
       result.current.setCommand('npx');
       result.current.setArgs(['-y', '']);
       result.current.setEnvEntries([
-        ['NODE_ENV', 'production'],
-        ['', 'ignored'],
+        {key: 'NODE_ENV', value: 'production'},
+        {key: '', value: 'ignored'},
       ]);
     });
     let server: unknown;
@@ -36,7 +36,9 @@ describe('useServerForm', () => {
       result.current.setName('remote');
       result.current.setTransportType('http');
       result.current.setUrl('https://mcp.example.com/mcp');
-      result.current.setHeaderEntries([['Authorization', 'Bearer x']]);
+      result.current.setHeaderEntries([
+        {key: 'Authorization', value: 'Bearer x'},
+      ]);
     });
     let server: unknown;
     act(() => {
@@ -132,6 +134,6 @@ describe('useServerForm', () => {
     expect(result.current.name).toBe('fs');
     expect(result.current.command).toBe('node');
     expect(result.current.args).toEqual(['a']);
-    expect(result.current.envEntries).toEqual([['K', 'v']]);
+    expect(result.current.envEntries).toEqual([{key: 'K', value: 'v'}]);
   });
 });

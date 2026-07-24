@@ -2,6 +2,8 @@ import type {McpServer, McpTransport} from '@omnicraft/settings-schema';
 import {useCallback, useState} from 'react';
 import {z} from 'zod';
 
+import type {KeyValueEntry} from '@/components/KeyValueEditor/index.js';
+
 const NAME_PATTERN = /^[a-z0-9][a-z0-9-]*$/;
 
 interface FormErrors {
@@ -19,12 +21,12 @@ export interface UseServerForm {
   setCommand: (value: string) => void;
   args: string[];
   setArgs: (value: string[]) => void;
-  envEntries: [string, string][];
-  setEnvEntries: (value: [string, string][]) => void;
+  envEntries: KeyValueEntry[];
+  setEnvEntries: (value: KeyValueEntry[]) => void;
   url: string;
   setUrl: (value: string) => void;
-  headerEntries: [string, string][];
-  setHeaderEntries: (value: [string, string][]) => void;
+  headerEntries: KeyValueEntry[];
+  setHeaderEntries: (value: KeyValueEntry[]) => void;
   errors: FormErrors;
   isEdit: boolean;
   validate: () => McpServer | null;
@@ -35,9 +37,9 @@ interface UseServerFormParams {
   existingNames: string[];
 }
 
-function pairsToRecord(entries: [string, string][]): Record<string, string> {
+function pairsToRecord(entries: KeyValueEntry[]): Record<string, string> {
   const record: Record<string, string> = {};
-  for (const [key, value] of entries) {
+  for (const {key, value} of entries) {
     const trimmed = key.trim();
     if (trimmed !== '') {
       record[trimmed] = value;
@@ -46,8 +48,8 @@ function pairsToRecord(entries: [string, string][]): Record<string, string> {
   return record;
 }
 
-function recordToPairs(record: Record<string, string>): [string, string][] {
-  return Object.entries(record);
+function recordToPairs(record: Record<string, string>): KeyValueEntry[] {
+  return Object.entries(record).map(([key, value]) => ({key, value}));
 }
 
 export function useServerForm({
@@ -65,7 +67,7 @@ export function useServerForm({
   const [args, setArgs] = useState<string[]>(
     initialTransport?.type === 'stdio' ? initialTransport.args : [],
   );
-  const [envEntries, setEnvEntries] = useState<[string, string][]>(() =>
+  const [envEntries, setEnvEntries] = useState<KeyValueEntry[]>(() =>
     initialTransport?.type === 'stdio'
       ? recordToPairs(initialTransport.env)
       : [],
@@ -73,7 +75,7 @@ export function useServerForm({
   const [url, setUrl] = useState(
     initialTransport?.type === 'http' ? initialTransport.url : '',
   );
-  const [headerEntries, setHeaderEntries] = useState<[string, string][]>(() =>
+  const [headerEntries, setHeaderEntries] = useState<KeyValueEntry[]>(() =>
     initialTransport?.type === 'http'
       ? recordToPairs(initialTransport.headers)
       : [],

@@ -12,8 +12,8 @@ import {
 } from '@heroui/react';
 
 import {AnimateHeight} from '@/components/AnimateHeight/index.js';
+import {KeyValueEditor} from '@/components/KeyValueEditor/index.js';
 
-import {KeyValueEditor} from '../KeyValueEditor/index.js';
 import {StringListEditor} from '../StringListEditor/index.js';
 import type {UseServerForm} from './hooks/useServerForm.js';
 import styles from './styles.module.css';

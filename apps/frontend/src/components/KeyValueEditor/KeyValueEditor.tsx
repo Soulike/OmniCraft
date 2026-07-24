@@ -3,9 +3,19 @@ import {Plus, Trash2} from 'lucide-react';
 
 import styles from './styles.module.css';
 
+/**
+ * An ordered key/value pair. Kept as a list (not a `Record`) because the editor
+ * must preserve row order and tolerate transient empty or duplicate keys while
+ * the user is still typing.
+ */
+export interface KeyValueEntry {
+  key: string;
+  value: string;
+}
+
 interface KeyValueEditorProps {
-  entries: [string, string][];
-  onChange: (entries: [string, string][]) => void;
+  entries: KeyValueEntry[];
+  onChange: (entries: KeyValueEntry[]) => void;
   addLabel: string;
   keyPlaceholder?: string;
   valuePlaceholder?: string;
@@ -22,12 +32,12 @@ export function KeyValueEditor({
 }: KeyValueEditorProps) {
   const setKey = (index: number, key: string) => {
     onChange(
-      entries.map((entry, i) => (i === index ? [key, entry[1]] : entry)),
+      entries.map((entry, i) => (i === index ? {...entry, key} : entry)),
     );
   };
   const setValue = (index: number, value: string) => {
     onChange(
-      entries.map((entry, i) => (i === index ? [entry[0], value] : entry)),
+      entries.map((entry, i) => (i === index ? {...entry, value} : entry)),
     );
   };
   const removeAt = (index: number) => {
@@ -36,7 +46,7 @@ export function KeyValueEditor({
 
   return (
     <div className={styles.list}>
-      {entries.map(([key, value], index) => (
+      {entries.map(({key, value}, index) => (
         // Row identity is positional; index key is intentional here.
         <div className={styles.row} key={index}>
           <TextField
@@ -80,7 +90,7 @@ export function KeyValueEditor({
         variant='outline'
         isDisabled={isDisabled}
         onPress={() => {
-          onChange([...entries, ['', '']]);
+          onChange([...entries, {key: '', value: ''}]);
         }}
       >
         <Plus size={16} />
