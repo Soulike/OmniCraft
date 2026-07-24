@@ -76,10 +76,26 @@ describe('mcpServerSchema (package export)', () => {
     expect(result.success).toBe(true);
   });
 
+  it('rejects a non-http(s) transport url', () => {
+    const result = mcpServerSchema.safeParse({
+      name: 'remote',
+      transport: {type: 'http', url: 'ftp://mcp.example.com/mcp'},
+    });
+    expect(result.success).toBe(false);
+  });
+
   it('rejects a non-kebab-case name', () => {
     const result = mcpServerSchema.safeParse({
       name: 'Bad Name',
       transport: {type: 'stdio', command: 'x'},
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects an empty stdio command', () => {
+    const result = mcpServerSchema.safeParse({
+      name: 'fs',
+      transport: {type: 'stdio', command: ''},
     });
     expect(result.success).toBe(false);
   });

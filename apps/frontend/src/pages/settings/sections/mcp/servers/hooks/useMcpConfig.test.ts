@@ -52,6 +52,8 @@ describe('useMcpConfig', () => {
         {name: 'fs', transport: stdio},
         {name: 'two', transport: stdio},
       ],
+      enabledChat: ['fs'],
+      enabledCoding: [],
     });
   });
 
@@ -64,7 +66,11 @@ describe('useMcpConfig', () => {
     await act(async () => {
       await result.current.updateServer(updated);
     });
-    expect(mockedPut).toHaveBeenCalledWith({servers: [updated]});
+    expect(mockedPut).toHaveBeenCalledWith({
+      servers: [updated],
+      enabledChat: ['fs'],
+      enabledCoding: [],
+    });
   });
 
   it('strips the name from servers and both arrays on remove', async () => {
@@ -84,7 +90,11 @@ describe('useMcpConfig', () => {
     await act(async () => {
       await result.current.setEnabled('fs', AgentType.CODING, true);
     });
-    expect(mockedPut).toHaveBeenCalledWith({enabledCoding: ['fs']});
+    expect(mockedPut).toHaveBeenCalledWith({
+      servers: [{name: 'fs', transport: stdio}],
+      enabledChat: ['fs'],
+      enabledCoding: ['fs'],
+    });
   });
 
   it('removes a name from the chat array on disable', async () => {
@@ -92,6 +102,10 @@ describe('useMcpConfig', () => {
     await act(async () => {
       await result.current.setEnabled('fs', AgentType.CHAT, false);
     });
-    expect(mockedPut).toHaveBeenCalledWith({enabledChat: []});
+    expect(mockedPut).toHaveBeenCalledWith({
+      servers: [{name: 'fs', transport: stdio}],
+      enabledChat: [],
+      enabledCoding: [],
+    });
   });
 });

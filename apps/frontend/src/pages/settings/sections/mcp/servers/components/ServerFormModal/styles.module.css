@@ -15,6 +15,13 @@
   gap: 6px;
 }
 
+/* Transport-specific fields; wrapped in AnimateHeight, so they own their spacing. */
+.transportFields {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
 .note {
   font-size: 12px;
   color: var(--muted);

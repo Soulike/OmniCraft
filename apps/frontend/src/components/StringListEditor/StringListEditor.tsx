@@ -1,5 +1,5 @@
 import {Button, Input, TextField} from '@heroui/react';
-import {Trash2} from 'lucide-react';
+import {Plus, Trash2} from 'lucide-react';
 
 import styles from './styles.module.css';
 
@@ -7,6 +7,8 @@ interface StringListEditorProps {
   items: string[];
   onChange: (items: string[]) => void;
   addLabel: string;
+  /** Singular noun for one row, used to build accessibility labels. */
+  itemLabel: string;
   placeholder?: string;
   isDisabled?: boolean;
 }
@@ -15,6 +17,7 @@ export function StringListEditor({
   items,
   onChange,
   addLabel,
+  itemLabel,
   placeholder,
   isDisabled,
 }: StringListEditorProps) {
@@ -31,7 +34,7 @@ export function StringListEditor({
         // Row identity is positional; index key is intentional here.
         <div className={styles.row} key={index}>
           <TextField
-            aria-label={`Argument ${(index + 1).toString()}`}
+            aria-label={`${itemLabel} ${(index + 1).toString()}`}
             className={styles.input}
             value={item}
             isDisabled={isDisabled}
@@ -42,7 +45,7 @@ export function StringListEditor({
             <Input placeholder={placeholder} />
           </TextField>
           <Button
-            aria-label={`Remove argument ${(index + 1).toString()}`}
+            aria-label={`Remove ${itemLabel} ${(index + 1).toString()}`}
             size='sm'
             variant='ghost'
             isDisabled={isDisabled}
@@ -55,13 +58,15 @@ export function StringListEditor({
         </div>
       ))}
       <Button
+        fullWidth
         size='sm'
-        variant='ghost'
+        variant='outline'
         isDisabled={isDisabled}
         onPress={() => {
           onChange([...items, '']);
         }}
       >
+        <Plus size={16} />
         {addLabel}
       </Button>
     </div>

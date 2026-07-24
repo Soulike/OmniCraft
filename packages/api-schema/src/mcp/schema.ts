@@ -1,3 +1,4 @@
+import {mcpSettingsSchema} from '@omnicraft/settings-schema';
 import {z} from 'zod';
 
 /** Schema for a single MCP server's connection status and discovered tools. */
@@ -17,3 +18,14 @@ export const getMcpServersResponseSchema = z.object({
 });
 
 export type GetMcpServersResponse = z.infer<typeof getMcpServersResponseSchema>;
+
+/**
+ * Schema for the PUT /settings/mcp request body. The whole `mcp` settings
+ * section is written at once through a dedicated endpoint, because the generic
+ * settings API only accepts scalar leaf values (arrays/objects go here).
+ */
+export const putMcpSettingsRequestSchema = z.object({
+  mcp: mcpSettingsSchema,
+});
+
+export type PutMcpSettingsRequest = z.infer<typeof putMcpSettingsRequestSchema>;

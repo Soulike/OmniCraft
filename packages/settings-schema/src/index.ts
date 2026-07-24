@@ -20,5 +20,6 @@ export {
   mcpSettingsSchema,
   type McpTransport,
   mcpTransportSchema,
+  type McpTransportType,
 } from './mcp/schema.js';
 export {type Settings, settingsSchema} from './schema.js';

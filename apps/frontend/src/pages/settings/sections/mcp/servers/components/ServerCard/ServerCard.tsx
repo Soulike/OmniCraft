@@ -1,8 +1,10 @@
-import {Alert, Button, Card, Disclosure, ListBox, Switch} from '@heroui/react';
+import {Alert, Button, Card, Switch} from '@heroui/react';
 import {AgentType} from '@omnicraft/settings-schema';
 
 import {formatTransportSummary} from '../../helpers/format-transport-summary.js';
 import type {McpServerRow} from '../../helpers/merge-servers.js';
+import {RemoveServerButton} from '../RemoveServerButton/index.js';
+import {ServerToolList} from '../ServerToolList/index.js';
 import {StatusChip} from '../StatusChip/index.js';
 import styles from './styles.module.css';
 
@@ -23,8 +25,6 @@ export function ServerCard({
   onRemove,
   onReconnect,
 }: ServerCardProps) {
-  const toolCount = row.tools.length;
-
   return (
     <Card>
       <Card.Content>
@@ -41,14 +41,21 @@ export function ServerCard({
               >
                 Edit
               </Button>
-              <Button
-                size='sm'
-                variant='danger'
+              {row.status !== 'not-enabled' && (
+                <Button
+                  size='sm'
+                  variant='outline'
+                  isDisabled={isSaving}
+                  onPress={onReconnect}
+                >
+                  Reconnect
+                </Button>
+              )}
+              <RemoveServerButton
+                serverName={row.name}
                 isDisabled={isSaving}
-                onPress={onRemove}
-              >
-                Remove
-              </Button>
+                onConfirm={onRemove}
+              />
             </div>
           </div>
 
@@ -95,47 +102,9 @@ export function ServerCard({
                 Coding
               </Switch.Content>
             </Switch>
-            {row.status !== 'not-enabled' && (
-              <Button
-                className={styles.reconnect}
-                size='sm'
-                variant='ghost'
-                isDisabled={isSaving}
-                onPress={onReconnect}
-              >
-                Reconnect
-              </Button>
-            )}
           </div>
 
-          {toolCount > 0 && (
-            <Disclosure>
-              <Disclosure.Heading>
-                <Disclosure.Trigger className={styles.toolsTrigger}>
-                  {toolCount} {toolCount === 1 ? 'tool' : 'tools'}
-                  <Disclosure.Indicator />
-                </Disclosure.Trigger>
-              </Disclosure.Heading>
-              <Disclosure.Content>
-                <ListBox aria-label={`${row.name} tools`} selectionMode='none'>
-                  {row.tools.map((tool) => (
-                    <ListBox.Item
-                      key={tool.name}
-                      id={tool.name}
-                      textValue={tool.name}
-                    >
-                      <span className={styles.toolName}>{tool.name}</span>
-                      {tool.description !== '' && (
-                        <span className={styles.toolDesc}>
-                          {tool.description}
-                        </span>
-                      )}
-                    </ListBox.Item>
-                  ))}
-                </ListBox>
-              </Disclosure.Content>
-            </Disclosure>
-          )}
+          <ServerToolList tools={row.tools} />
         </div>
       </Card.Content>
     </Card>

@@ -4,7 +4,6 @@ import {useCallback, useEffect, useState} from 'react';
 import {
   getMcpConfig,
   type McpConfig,
-  type McpConfigUpdate,
   putMcpConfig,
 } from '@/api/settings/mcp/index.js';
 
@@ -53,10 +52,10 @@ export function useMcpConfig(): UseMcpConfig {
   }, [load]);
 
   const save = useCallback(
-    async (update: McpConfigUpdate): Promise<boolean> => {
+    async (next: McpConfig): Promise<boolean> => {
       setIsSaving(true);
       try {
-        await putMcpConfig(update);
+        await putMcpConfig(next);
         await load();
         return true;
       } catch {
@@ -69,18 +68,20 @@ export function useMcpConfig(): UseMcpConfig {
   );
 
   const addServer = useCallback(
-    (server: McpServer) => save({servers: [...config.servers, server]}),
-    [config.servers, save],
+    (server: McpServer) =>
+      save({...config, servers: [...config.servers, server]}),
+    [config, save],
   );
 
   const updateServer = useCallback(
     (server: McpServer) =>
       save({
+        ...config,
         servers: config.servers.map((existing) =>
           existing.name === server.name ? server : existing,
         ),
       }),
-    [config.servers, save],
+    [config, save],
   );
 
   const removeServer = useCallback(
@@ -99,12 +100,12 @@ export function useMcpConfig(): UseMcpConfig {
         const next = enabled
           ? Array.from(new Set([...config.enabledChat, name]))
           : config.enabledChat.filter((n) => n !== name);
-        return save({enabledChat: next});
+        return save({...config, enabledChat: next});
       }
       const next = enabled
         ? Array.from(new Set([...config.enabledCoding, name]))
         : config.enabledCoding.filter((n) => n !== name);
-      return save({enabledCoding: next});
+      return save({...config, enabledCoding: next});
     },
     [config, save],
   );

@@ -12,15 +12,15 @@ describe('KeyValueEditor', () => {
     const onChange = vi.fn();
     render(
       <KeyValueEditor
-        entries={[['NODE_ENV', 'production']]}
+        entries={[{key: 'NODE_ENV', value: 'production'}]}
         addLabel='Add variable'
         onChange={onChange}
       />,
     );
     fireEvent.click(screen.getByRole('button', {name: 'Add variable'}));
     expect(onChange).toHaveBeenCalledWith([
-      ['NODE_ENV', 'production'],
-      ['', ''],
+      {key: 'NODE_ENV', value: 'production'},
+      {key: '', value: ''},
     ]);
   });
 
@@ -28,7 +28,7 @@ describe('KeyValueEditor', () => {
     const onChange = vi.fn();
     render(
       <KeyValueEditor
-        entries={[['A', 'b']]}
+        entries={[{key: 'A', value: 'b'}]}
         addLabel='Add'
         onChange={onChange}
       />,
@@ -36,11 +36,11 @@ describe('KeyValueEditor', () => {
     fireEvent.change(screen.getByRole('textbox', {name: 'Key 1'}), {
       target: {value: 'TOKEN'},
     });
-    expect(onChange).toHaveBeenLastCalledWith([['TOKEN', 'b']]);
+    expect(onChange).toHaveBeenLastCalledWith([{key: 'TOKEN', value: 'b'}]);
     fireEvent.change(screen.getByRole('textbox', {name: 'Value 1'}), {
       target: {value: 'secret'},
     });
-    expect(onChange).toHaveBeenLastCalledWith([['A', 'secret']]);
+    expect(onChange).toHaveBeenLastCalledWith([{key: 'A', value: 'secret'}]);
   });
 
   it('removes a pair', () => {
@@ -48,14 +48,14 @@ describe('KeyValueEditor', () => {
     render(
       <KeyValueEditor
         entries={[
-          ['A', 'b'],
-          ['C', 'd'],
+          {key: 'A', value: 'b'},
+          {key: 'C', value: 'd'},
         ]}
         addLabel='Add'
         onChange={onChange}
       />,
     );
     fireEvent.click(screen.getByRole('button', {name: 'Remove pair 1'}));
-    expect(onChange).toHaveBeenCalledWith([['C', 'd']]);
+    expect(onChange).toHaveBeenCalledWith([{key: 'C', value: 'd'}]);
   });
 });

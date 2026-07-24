@@ -25,7 +25,7 @@ describe('ServerList', () => {
   it('shows an empty state when there are no servers', () => {
     render(<ServerList {...props([])} />);
     expect(
-      screen.getByText('No MCP servers configured yet.'),
+      screen.getByText('No MCP servers configured yet'),
     ).toBeInTheDocument();
   });
 

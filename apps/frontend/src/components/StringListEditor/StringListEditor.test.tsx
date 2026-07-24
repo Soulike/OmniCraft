@@ -14,6 +14,7 @@ describe('StringListEditor', () => {
       <StringListEditor
         items={['-y']}
         addLabel='Add argument'
+        itemLabel='Argument'
         onChange={onChange}
       />,
     );
@@ -24,7 +25,12 @@ describe('StringListEditor', () => {
   it('edits a row', () => {
     const onChange = vi.fn();
     render(
-      <StringListEditor items={['-y']} addLabel='Add' onChange={onChange} />,
+      <StringListEditor
+        items={['-y']}
+        addLabel='Add'
+        itemLabel='Argument'
+        onChange={onChange}
+      />,
     );
     fireEvent.change(screen.getByRole('textbox', {name: 'Argument 1'}), {
       target: {value: '-x'},
@@ -38,10 +44,11 @@ describe('StringListEditor', () => {
       <StringListEditor
         items={['-y', '-x']}
         addLabel='Add'
+        itemLabel='Argument'
         onChange={onChange}
       />,
     );
-    fireEvent.click(screen.getByRole('button', {name: 'Remove argument 1'}));
+    fireEvent.click(screen.getByRole('button', {name: 'Remove Argument 1'}));
     expect(onChange).toHaveBeenCalledWith(['-x']);
   });
 });

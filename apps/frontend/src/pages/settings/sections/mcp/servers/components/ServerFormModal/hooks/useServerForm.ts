@@ -1,8 +1,12 @@
-import type {McpServer, McpTransport} from '@omnicraft/settings-schema';
+import type {
+  McpServer,
+  McpTransport,
+  McpTransportType,
+} from '@omnicraft/settings-schema';
+import {mcpServerSchema} from '@omnicraft/settings-schema';
 import {useCallback, useState} from 'react';
-import {z} from 'zod';
 
-const NAME_PATTERN = /^[a-z0-9][a-z0-9-]*$/;
+import type {KeyValueEntry} from '@/components/KeyValueEditor/index.js';
 
 interface FormErrors {
   name?: string;
@@ -13,18 +17,18 @@ interface FormErrors {
 export interface UseServerForm {
   name: string;
   setName: (value: string) => void;
-  transportType: 'stdio' | 'http';
-  setTransportType: (type: 'stdio' | 'http') => void;
+  transportType: McpTransportType;
+  setTransportType: (type: McpTransportType) => void;
   command: string;
   setCommand: (value: string) => void;
   args: string[];
   setArgs: (value: string[]) => void;
-  envEntries: [string, string][];
-  setEnvEntries: (value: [string, string][]) => void;
+  envEntries: KeyValueEntry[];
+  setEnvEntries: (value: KeyValueEntry[]) => void;
   url: string;
   setUrl: (value: string) => void;
-  headerEntries: [string, string][];
-  setHeaderEntries: (value: [string, string][]) => void;
+  headerEntries: KeyValueEntry[];
+  setHeaderEntries: (value: KeyValueEntry[]) => void;
   errors: FormErrors;
   isEdit: boolean;
   validate: () => McpServer | null;
@@ -35,9 +39,9 @@ interface UseServerFormParams {
   existingNames: string[];
 }
 
-function pairsToRecord(entries: [string, string][]): Record<string, string> {
+function pairsToRecord(entries: KeyValueEntry[]): Record<string, string> {
   const record: Record<string, string> = {};
-  for (const [key, value] of entries) {
+  for (const {key, value} of entries) {
     const trimmed = key.trim();
     if (trimmed !== '') {
       record[trimmed] = value;
@@ -46,8 +50,8 @@ function pairsToRecord(entries: [string, string][]): Record<string, string> {
   return record;
 }
 
-function recordToPairs(record: Record<string, string>): [string, string][] {
-  return Object.entries(record);
+function recordToPairs(record: Record<string, string>): KeyValueEntry[] {
+  return Object.entries(record).map(([key, value]) => ({key, value}));
 }
 
 export function useServerForm({
@@ -56,7 +60,7 @@ export function useServerForm({
 }: UseServerFormParams): UseServerForm {
   const initialTransport = initial?.transport;
   const [name, setName] = useState(initial?.name ?? '');
-  const [transportType, setTransportType] = useState<'stdio' | 'http'>(
+  const [transportType, setTransportType] = useState<McpTransportType>(
     initialTransport?.type ?? 'stdio',
   );
   const [command, setCommand] = useState(
@@ -65,7 +69,7 @@ export function useServerForm({
   const [args, setArgs] = useState<string[]>(
     initialTransport?.type === 'stdio' ? initialTransport.args : [],
   );
-  const [envEntries, setEnvEntries] = useState<[string, string][]>(() =>
+  const [envEntries, setEnvEntries] = useState<KeyValueEntry[]>(() =>
     initialTransport?.type === 'stdio'
       ? recordToPairs(initialTransport.env)
       : [],
@@ -73,14 +77,14 @@ export function useServerForm({
   const [url, setUrl] = useState(
     initialTransport?.type === 'http' ? initialTransport.url : '',
   );
-  const [headerEntries, setHeaderEntries] = useState<[string, string][]>(() =>
+  const [headerEntries, setHeaderEntries] = useState<KeyValueEntry[]>(() =>
     initialTransport?.type === 'http'
       ? recordToPairs(initialTransport.headers)
       : [],
   );
   const [errors, setErrors] = useState<FormErrors>({});
 
-  const changeTransportType = useCallback((type: 'stdio' | 'http') => {
+  const changeTransportType = useCallback((type: McpTransportType) => {
     setTransportType(type);
     if (type === 'stdio') {
       setUrl('');
@@ -93,46 +97,47 @@ export function useServerForm({
   }, []);
 
   const validate = useCallback((): McpServer | null => {
-    const nextErrors: FormErrors = {};
     const trimmedName = name.trim();
+    const transport: McpTransport =
+      transportType === 'stdio'
+        ? {
+            type: 'stdio',
+            command: command.trim(),
+            args: args.filter((arg) => arg !== ''),
+            env: pairsToRecord(envEntries),
+          }
+        : {
+            type: 'http',
+            url: url.trim(),
+            headers: pairsToRecord(headerEntries),
+          };
 
-    if (!NAME_PATTERN.test(trimmedName)) {
-      nextErrors.name =
-        'Use lowercase letters, digits, and dashes; start with a letter or digit.';
+    // Let the shared schema decide what is structurally valid; the hook only
+    // owns the friendly copy and the cross-server duplicate check (which the
+    // single-server schema cannot know about).
+    const result = mcpServerSchema.safeParse({name: trimmedName, transport});
+    const nextErrors: FormErrors = {};
+    if (!result.success) {
+      for (const issue of result.error.issues) {
+        const [field, subField] = issue.path;
+        if (field === 'name') {
+          nextErrors.name =
+            'Use lowercase letters, digits, and dashes; start with a letter or digit.';
+        } else if (subField === 'command') {
+          nextErrors.command = 'Command is required.';
+        } else if (subField === 'url') {
+          nextErrors.url = 'Enter a valid URL (https://…).';
+        }
+      }
     } else if (existingNames.includes(trimmedName)) {
       nextErrors.name = `A server named "${trimmedName}" already exists.`;
     }
 
-    let transport: McpTransport | null = null;
-    if (transportType === 'stdio') {
-      if (command.trim() === '') {
-        nextErrors.command = 'Command is required.';
-      } else {
-        transport = {
-          type: 'stdio',
-          command: command.trim(),
-          args: args.filter((arg) => arg !== ''),
-          env: pairsToRecord(envEntries),
-        };
-      }
-    } else {
-      const parsedUrl = z.url().safeParse(url.trim());
-      if (!parsedUrl.success) {
-        nextErrors.url = 'Enter a valid URL (https://…).';
-      } else {
-        transport = {
-          type: 'http',
-          url: parsedUrl.data,
-          headers: pairsToRecord(headerEntries),
-        };
-      }
-    }
-
     setErrors(nextErrors);
-    if (Object.keys(nextErrors).length > 0 || transport === null) {
+    if (!result.success || Object.keys(nextErrors).length > 0) {
       return null;
     }
-    return {name: trimmedName, transport};
+    return result.data;
   }, [
     name,
     existingNames,

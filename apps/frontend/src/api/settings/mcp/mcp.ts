@@ -1,18 +1,16 @@
-import {type McpServer, mcpServerSchema} from '@omnicraft/settings-schema';
+import {
+  AgentType,
+  type McpServer,
+  mcpServerSchema,
+} from '@omnicraft/settings-schema';
 import {z} from 'zod';
 
-import {getSettingValue, putSettingValues} from '@/api/settings/index.js';
+import {getSettingValue} from '@/api/settings/index.js';
 
 export interface McpConfig {
   servers: McpServer[];
   enabledChat: string[];
   enabledCoding: string[];
-}
-
-export interface McpConfigUpdate {
-  servers?: McpServer[];
-  enabledChat?: string[];
-  enabledCoding?: string[];
 }
 
 const SERVERS_PATH = 'mcp/servers';
@@ -36,20 +34,26 @@ export async function getMcpConfig(): Promise<McpConfig> {
   };
 }
 
-/** Atomically writes whichever MCP leaves are present in `update`. */
-export async function putMcpConfig(update: McpConfigUpdate): Promise<void> {
-  const entries: {path: string; value: unknown}[] = [];
-  if (update.servers !== undefined) {
-    entries.push({path: SERVERS_PATH, value: update.servers});
+/**
+ * Writes the whole MCP config through the dedicated `/settings/mcp` endpoint.
+ * The generic settings API only accepts scalar leaf values, so the array-valued
+ * MCP section (servers + per-agent enablement) needs this endpoint.
+ */
+export async function putMcpConfig(config: McpConfig): Promise<void> {
+  const res = await fetch('/api/settings/mcp', {
+    method: 'PUT',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({
+      mcp: {
+        servers: config.servers,
+        enabledByAgent: {
+          [AgentType.CHAT]: config.enabledChat,
+          [AgentType.CODING]: config.enabledCoding,
+        },
+      },
+    }),
+  });
+  if (!res.ok) {
+    throw new Error(`Failed to save MCP settings: ${res.status.toString()}`);
   }
-  if (update.enabledChat !== undefined) {
-    entries.push({path: CHAT_PATH, value: update.enabledChat});
-  }
-  if (update.enabledCoding !== undefined) {
-    entries.push({path: CODING_PATH, value: update.enabledCoding});
-  }
-  if (entries.length === 0) {
-    return;
-  }
-  await putSettingValues(entries);
 }

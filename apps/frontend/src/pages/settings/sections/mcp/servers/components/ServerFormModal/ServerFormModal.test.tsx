@@ -60,7 +60,7 @@ describe('ServerFormModal', () => {
     expect(screen.getByText(/already exists/)).toBeInTheDocument();
   });
 
-  it('makes the name read-only in edit mode', () => {
+  it('disables the name field in edit mode', () => {
     render(
       <ServerFormModal
         isOpen
@@ -76,8 +76,6 @@ describe('ServerFormModal', () => {
       />,
     );
 
-    expect(screen.getByRole('textbox', {name: 'Name'})).toHaveAttribute(
-      'readonly',
-    );
+    expect(screen.getByRole('textbox', {name: 'Name'})).toBeDisabled();
   });
 });

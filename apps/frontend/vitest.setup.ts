@@ -13,6 +13,17 @@ Object.defineProperty(window, 'matchMedia', {
   }),
 });
 
+// jsdom does not implement ResizeObserver; stub it so components that observe
+// element size (e.g. AutoHeight) render without throwing.
+class ResizeObserverMock implements ResizeObserver {
+  constructor(_callback: ResizeObserverCallback) {}
+  observe(): void {}
+  unobserve(): void {}
+  disconnect(): void {}
+}
+
+globalThis.ResizeObserver = ResizeObserverMock;
+
 class LocalStorageMock implements Storage {
   #store = new Map<string, string>();
 

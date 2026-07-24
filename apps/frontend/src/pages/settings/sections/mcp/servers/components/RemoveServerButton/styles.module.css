@@ -1,0 +1,27 @@
+.content {
+  max-width: 260px;
+}
+
+.dialog {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.text {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--foreground);
+}
+
+.name {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-weight: 600;
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}

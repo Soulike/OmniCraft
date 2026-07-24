@@ -5,7 +5,7 @@ import {AgentType} from '../agent-type/schema.js';
 export const mcpTransportSchema = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('stdio'),
-    command: z.string().describe('Executable to spawn'),
+    command: z.string().min(1).describe('Executable to spawn'),
     args: z.array(z.string()).describe('Command arguments').default([]),
     env: z
       .record(z.string(), z.string())
@@ -14,7 +14,9 @@ export const mcpTransportSchema = z.discriminatedUnion('type', [
   }),
   z.object({
     type: z.literal('http'),
-    url: z.url().describe('Streamable HTTP endpoint URL'),
+    url: z
+      .url({protocol: /^https?$/})
+      .describe('Streamable HTTP(S) endpoint URL'),
     headers: z
       .record(z.string(), z.string())
       .describe('Extra request headers')
@@ -23,6 +25,8 @@ export const mcpTransportSchema = z.discriminatedUnion('type', [
 ]);
 
 export type McpTransport = z.infer<typeof mcpTransportSchema>;
+
+export type McpTransportType = McpTransport['type'];
 
 export const mcpServerSchema = z.object({
   name: z

@@ -9,30 +9,40 @@ import {useServerFormModal} from './hooks/useServerFormModal.js';
 import {McpServersSectionView} from './McpServersSectionView.js';
 
 export function McpServersSection() {
-  const config = useMcpConfig();
+  const {
+    config,
+    isLoading,
+    loadError,
+    isSaving,
+    addServer,
+    updateServer,
+    removeServer,
+    setEnabled,
+    reload,
+  } = useMcpConfig();
   const status = useMcpStatus();
   const modal = useServerFormModal();
 
   const rows = useMemo(
-    () => mergeServers(config.config, status.statuses),
-    [config.config, status.statuses],
+    () => mergeServers(config, status.statuses),
+    [config, status.statuses],
   );
 
   const existingNames = useMemo(() => {
-    const names = config.config.servers.map((server) => server.name);
+    const names = config.servers.map((server) => server.name);
     if (modal.mode === 'edit' && modal.target) {
       const editedName = modal.target.name;
       return names.filter((name) => name !== editedName);
     }
     return names;
-  }, [config.config.servers, modal.mode, modal.target]);
+  }, [config.servers, modal.mode, modal.target]);
 
   const handleSubmit = useCallback(
     async (server: McpServer) => {
       const ok =
         modal.mode === 'edit'
-          ? await config.updateServer(server)
-          : await config.addServer(server);
+          ? await updateServer(server)
+          : await addServer(server);
       if (ok) {
         toast.success(
           modal.mode === 'edit' ? 'Server updated' : 'Server added',
@@ -43,24 +53,24 @@ export function McpServersSection() {
         toast.danger('Failed to save server');
       }
     },
-    [modal, config, status],
+    [modal, addServer, updateServer, status],
   );
 
   const handleToggle = useCallback(
     async (name: string, agentType: AgentType, enabled: boolean) => {
-      const ok = await config.setEnabled(name, agentType, enabled);
+      const ok = await setEnabled(name, agentType, enabled);
       if (ok) {
         void status.refetch();
       } else {
         toast.danger('Failed to update enablement');
       }
     },
-    [config, status],
+    [setEnabled, status],
   );
 
   const handleRemove = useCallback(
     async (name: string) => {
-      const ok = await config.removeServer(name);
+      const ok = await removeServer(name);
       if (ok) {
         toast.success('Server removed');
         void status.refetch();
@@ -68,7 +78,7 @@ export function McpServersSection() {
         toast.danger('Failed to remove server');
       }
     },
-    [config, status],
+    [removeServer, status],
   );
 
   const handleReconnect = useCallback(
@@ -84,26 +94,26 @@ export function McpServersSection() {
 
   const handleEdit = useCallback(
     (name: string) => {
-      const server = config.config.servers.find((s) => s.name === name);
+      const server = config.servers.find((s) => s.name === name);
       if (server) {
         modal.openEdit(server);
       }
     },
-    [config.config.servers, modal],
+    [config.servers, modal],
   );
 
   return (
     <McpServersSectionView
-      isLoading={config.isLoading}
-      loadError={config.loadError}
+      isLoading={isLoading}
+      loadError={loadError}
       statusUnavailable={status.loadError}
-      isSaving={config.isSaving}
+      isSaving={isSaving}
       rows={rows}
       modal={modal}
       existingNames={existingNames}
       onAddClick={modal.openAdd}
       onReload={() => {
-        void config.reload();
+        void reload();
       }}
       onSubmitServer={(server) => {
         void handleSubmit(server);
