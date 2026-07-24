@@ -1,5 +1,11 @@
 .outer {
-  overflow: hidden;
+  /*
+   * `clip` (not `hidden`) so the height animation still hides overflow while
+   * `overflow-clip-margin` leaves room for children to paint focus rings and
+   * shadows just outside their box without being sliced off at the edges.
+   */
+  overflow: clip;
+  overflow-clip-margin: 6px;
   transition: height 200ms ease;
 }
 
