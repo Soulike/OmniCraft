@@ -137,7 +137,7 @@ describe('agentPersistence', () => {
   describe('attachmentsPath', () => {
     it('nests the attachments directory inside the session scratch space', () => {
       expect(agentPersistence.attachmentsPath('/data/sessions', 'abc')).toBe(
-        '/data/sessions/abc/scratch/attachments',
+        path.join('/data/sessions', 'abc', 'scratch', 'attachments'),
       );
     });
   });

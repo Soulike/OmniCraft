@@ -1,4 +1,12 @@
-import {mkdtemp, readFile, rm, symlink, writeFile} from 'node:fs/promises';
+import {
+  access,
+  mkdir,
+  mkdtemp,
+  readFile,
+  rm,
+  symlink,
+  writeFile,
+} from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import {Readable} from 'node:stream';
@@ -153,17 +161,75 @@ describe('save', () => {
   });
 
   it('aborts a stream past the largest cap without buffering it', async () => {
+    const stream = streamOf(
+      Buffer.concat([
+        PDF_HEADER,
+        Buffer.alloc(MAX_DOCUMENT_ATTACHMENT_BYTES + 1),
+      ]),
+    );
     const result = await agentAttachmentStore.save(
       scratchDirectory,
       'huge.pdf',
-      streamOf(
-        Buffer.concat([
-          PDF_HEADER,
-          Buffer.alloc(MAX_DOCUMENT_ATTACHMENT_BYTES + 1),
-        ]),
-      ),
+      stream,
     );
     expect(result).toEqual({ok: false, reason: 'too-large'});
+    expect(stream.destroyed).toBe(true);
+  });
+
+  it('stores an over-long, mostly multi-byte name without throwing ENAMETOOLONG', async () => {
+    const desiredName = `${'あ'.repeat(90)}.png`;
+    const result = await agentAttachmentStore.save(
+      scratchDirectory,
+      desiredName,
+      streamOf(pngOf(64)),
+    );
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(Buffer.byteLength(result.attachment.fileName)).toBeLessThanOrEqual(
+      255,
+    );
+
+    const stored = await readFile(
+      path.join(scratchDirectory, 'attachments', result.attachment.fileName),
+    );
+    expect(stored.length).toBe(64);
+  });
+
+  // Regression test for the lstat-probe-then-rename race: two concurrent
+  // callers is not enough to reliably lose a writer under Vitest's runtime,
+  // so this uses a wider fan-out to make the collision window hit every run.
+  it('gives concurrent saves of the same desired name distinct files, each with its own bytes', async () => {
+    const CONCURRENT_SAVES = 10;
+    const payloads = Array.from({length: CONCURRENT_SAVES}, (_, index) =>
+      pngOf(64 + index),
+    );
+
+    const results = await Promise.all(
+      payloads.map((bytes) =>
+        agentAttachmentStore.save(
+          scratchDirectory,
+          'shot.png',
+          streamOf(bytes),
+        ),
+      ),
+    );
+
+    for (const result of results) {
+      expect(result.ok).toBe(true);
+    }
+    const fileNames = results.map((result) =>
+      result.ok ? result.attachment.fileName : null,
+    );
+    expect(new Set(fileNames).size).toBe(CONCURRENT_SAVES);
+
+    for (const [index, result] of results.entries()) {
+      if (!result.ok) continue;
+      const stored = await readFile(
+        path.join(scratchDirectory, 'attachments', result.attachment.fileName),
+      );
+      expect(stored.equals(payloads[index])).toBe(true);
+    }
   });
 });
 
@@ -225,6 +291,24 @@ describe('describe / readBase64 / remove', () => {
       await agentAttachmentStore.remove(scratchDirectory, 'shot.png'),
     ).toBe(false);
   });
+
+  it('removes a file that no longer sniffs as a supported media type', async () => {
+    const attachmentsDirectory =
+      agentAttachmentStore.directory(scratchDirectory);
+    await mkdir(attachmentsDirectory, {recursive: true});
+    const truncatedPath = path.join(attachmentsDirectory, 'truncated.png');
+    await writeFile(truncatedPath, Buffer.from('not actually a png'));
+
+    // describe refuses it — it no longer sniffs as anything deliverable —
+    // but remove must still be able to delete it.
+    expect(
+      await agentAttachmentStore.describe(scratchDirectory, 'truncated.png'),
+    ).toBeNull();
+    expect(
+      await agentAttachmentStore.remove(scratchDirectory, 'truncated.png'),
+    ).toBe(true);
+    await expect(access(truncatedPath)).rejects.toThrow();
+  });
 });
 
 describe('path safety', () => {
@@ -236,9 +320,13 @@ describe('path safety', () => {
     ['a dot name', '.'],
     ['a dot-dot name', '..'],
     ['an empty name', ''],
+    ['a name with a control character', `sh${NUL}ot.png`],
   ])('rejects %s on read', async (_label, fileName) => {
     expect(
       await agentAttachmentStore.describe(scratchDirectory, fileName),
+    ).toBeNull();
+    expect(
+      await agentAttachmentStore.readBase64(scratchDirectory, fileName),
     ).toBeNull();
     expect(await agentAttachmentStore.remove(scratchDirectory, fileName)).toBe(
       false,

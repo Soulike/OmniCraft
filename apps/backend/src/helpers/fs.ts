@@ -11,6 +11,11 @@ export function isFileNotFoundError(error: unknown): boolean {
   return error instanceof Error && 'code' in error && error.code === 'ENOENT';
 }
 
+/** Checks whether an error is a file-already-exists (EEXIST) error. */
+export function isFileExistsError(error: unknown): boolean {
+  return error instanceof Error && 'code' in error && error.code === 'EEXIST';
+}
+
 /** Checks whether a file exists at the given path. */
 export async function fileExists(filePath: string): Promise<boolean> {
   try {

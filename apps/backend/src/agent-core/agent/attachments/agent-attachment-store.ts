@@ -1,8 +1,9 @@
 import crypto from 'node:crypto';
-import {createWriteStream} from 'node:fs';
-import {lstat, mkdir, readFile, rename, rm, unlink} from 'node:fs/promises';
+import {createWriteStream, type Stats} from 'node:fs';
+import {link, lstat, mkdir, readFile, rm, unlink} from 'node:fs/promises';
 import path from 'node:path';
-import type {Readable} from 'node:stream';
+import {type Readable, Transform} from 'node:stream';
+import {pipeline} from 'node:stream/promises';
 
 import type {
   DocumentMediaType,
@@ -15,7 +16,7 @@ import {
 } from '@omnicraft/tool-schemas';
 import {fileTypeFromFile} from 'file-type';
 
-import {isFileNotFoundError} from '@/helpers/fs.js';
+import {isFileExistsError, isFileNotFoundError} from '@/helpers/fs.js';
 
 /** Max bytes for an image attachment. Anthropic's own per-image limit is 5 MB,
  *  and image token cost is flat regardless of file size, so a larger cap costs
@@ -34,6 +35,20 @@ const MAX_ANY_ATTACHMENT_BYTES = Math.max(
 
 const MAX_FILE_NAME_LENGTH = 255;
 
+/** Placement attempts before a save gives up. Bounded so a directory another
+ *  writer is filling fails cleanly instead of spinning forever. */
+const MAX_PLACEMENT_ATTEMPTS = 100;
+
+/** Conservative NAME_MAX for typical filesystems (ext4, APFS, ...). Bounds
+ *  how long a stored file name is allowed to be in bytes, as opposed to the
+ *  character count `MAX_FILE_NAME_LENGTH` bounds. */
+const NAME_MAX_BYTES = 255;
+
+/** The longest suffix `placeUniquely` can append, e.g. ` (100)` when
+ *  `MAX_PLACEMENT_ATTEMPTS` is 100. Reserved up front so the stem is budgeted
+ *  for the worst case rather than just the first candidate. */
+const LONGEST_PLACEMENT_SUFFIX = ` (${MAX_PLACEMENT_ATTEMPTS})`;
+
 /** The extension each deliverable media type is stored under. The stored name
  *  always matches the sniffed type, so a path list never misdescribes a file. */
 const EXTENSION_BY_MEDIA_TYPE: Readonly<
@@ -49,7 +64,8 @@ const EXTENSION_BY_MEDIA_TYPE: Readonly<
 export type SaveAttachmentFailureReason =
   | 'invalid-name'
   | 'unsupported-type'
-  | 'too-large';
+  | 'too-large'
+  | 'name-unavailable';
 
 export type SaveAttachmentResult =
   | {readonly ok: true; readonly attachment: LlmAttachment}
@@ -61,18 +77,33 @@ export interface OpenedAttachment {
 }
 
 /**
+ * Whether `character` is a C0 control character or DEL. Checked by code point
+ * rather than a regex: a control-character class in a regex literal trips
+ * eslint's `no-control-regex` and is easy to corrupt when the source is
+ * copied around.
+ */
+function isControlCharacter(character: string): boolean {
+  const code = character.codePointAt(0) ?? 0;
+  return code < 0x20 || code === 0x7f;
+}
+
+/** Whether any code point in `raw` is a control character. */
+function hasControlCharacter(raw: string): boolean {
+  for (const character of raw) {
+    if (isControlCharacter(character)) return true;
+  }
+  return false;
+}
+
+/**
  * Reduces a client-supplied name to a bare, printable file name. Returns `null`
  * when nothing usable survives. Never used to build a path on its own — the
  * result is re-checked by {@link resolveInside}.
  */
 function sanitizeFileName(raw: string): string | null {
-  // Checked by code point rather than a regex: a control-character class in a
-  // regex literal trips eslint's `no-control-regex` and is easy to corrupt when
-  // the source is copied around. Same approach as parseAttachmentFileName.
   let printable = '';
   for (const character of raw) {
-    const code = character.codePointAt(0) ?? 0;
-    if (code < 0x20 || code === 0x7f) continue;
+    if (isControlCharacter(character)) continue;
     printable += character;
   }
   printable = printable.trim();
@@ -84,15 +115,40 @@ function sanitizeFileName(raw: string): string | null {
 }
 
 /**
- * Resolves `fileName` inside `directory`, or `null` when it is not a bare name.
- * A bare name cannot escape via `path.join`; the remaining risk is a symlink
+ * Resolves `fileName` inside `directory`, or `null` when it is not a bare
+ * name. A bare name cannot escape via `path.join`; the remaining risks are a
+ * control character (which some fs calls reject with a throw rather than
+ * `ENOENT`, breaking the read paths' "returns null" contract) and a symlink
  * planted at the leaf, which the `lstat` in the read paths rejects.
  */
 function resolveInside(directory: string, fileName: string): string | null {
   if (fileName === '' || fileName === '.' || fileName === '..') return null;
+  if (hasControlCharacter(fileName)) return null;
   if (fileName !== path.basename(fileName)) return null;
   if (fileName.includes('/') || fileName.includes('\\')) return null;
   return path.join(directory, fileName);
+}
+
+/**
+ * Trims `stem` — by code point, never inside a multi-byte character — so
+ * that `stem` plus the longest possible uniquify suffix plus `extension`
+ * fits within `NAME_MAX_BYTES`. `sanitizeFileName` only bounds the name by
+ * character count, which a name made mostly of multi-byte characters can
+ * still blow past in bytes, turning `placeUniquely`'s `link` into an
+ * unhandled `ENAMETOOLONG`.
+ */
+function budgetStem(stem: string, extension: string): string {
+  const budget =
+    NAME_MAX_BYTES -
+    Buffer.byteLength(LONGEST_PLACEMENT_SUFFIX) -
+    Buffer.byteLength(extension);
+
+  const codePoints = Array.from(stem);
+  while (Buffer.byteLength(codePoints.join('')) > budget) {
+    codePoints.pop();
+  }
+  const budgeted = codePoints.join('');
+  return budgeted === '' ? 'attachment' : budgeted;
 }
 
 function capFor(mediaType: ImageMediaType | DocumentMediaType): number {
@@ -101,37 +157,55 @@ function capFor(mediaType: ImageMediaType | DocumentMediaType): number {
     : MAX_IMAGE_ATTACHMENT_BYTES;
 }
 
+/** Thrown by `writeCapped`'s capping transform to unwind out of `pipeline`
+ *  once `cap` is exceeded — distinguished from a genuine filesystem failure
+ *  so the two are never confused with one another. */
+class AttachmentTooLargeError extends Error {}
+
 /**
- * Streams `body` to `destination`, aborting once `cap` is exceeded. Returns the
- * byte count, or `null` when the cap was blown. The payload is never fully
- * buffered, so an oversized upload costs bounded memory.
+ * Streams `body` to `destination`, aborting once `cap` is exceeded. Returns
+ * the byte count, or `null` when the cap was blown. `pipeline` owns error
+ * propagation and teardown for every stream in the chain — including the
+ * destination file's open and flush — so a failed open or a mid-write
+ * failure rejects instead of surfacing as an unhandled `'error'` event, and a
+ * flush failure rejects instead of being reported as a successful write. The
+ * payload is never fully buffered, so an oversized upload costs bounded
+ * memory.
  */
 async function writeCapped(
   body: Readable,
   destination: string,
   cap: number,
 ): Promise<number | null> {
-  const out = createWriteStream(destination, {mode: 0o600});
   let byteSize = 0;
-  try {
-    for await (const chunk of body) {
-      const buffer = chunk as Buffer;
+  const capping = new Transform({
+    transform(
+      chunk: unknown,
+      _encoding: BufferEncoding,
+      callback: (error?: Error | null, data?: Buffer) => void,
+    ) {
+      const buffer = Buffer.isBuffer(chunk)
+        ? chunk
+        : Buffer.from(chunk as string);
       byteSize += buffer.length;
-      if (byteSize > cap) return null;
-      if (!out.write(buffer)) {
-        await new Promise<void>((resolve, reject) => {
-          out.once('drain', resolve);
-          out.once('error', reject);
-        });
+      if (byteSize > cap) {
+        callback(new AttachmentTooLargeError());
+        return;
       }
-    }
-    await new Promise<void>((resolve, reject) => {
-      out.end(resolve);
-      out.once('error', reject);
-    });
+      callback(null, buffer);
+    },
+  });
+
+  try {
+    await pipeline(
+      body,
+      capping,
+      createWriteStream(destination, {mode: 0o600}),
+    );
     return byteSize;
-  } finally {
-    out.destroy();
+  } catch (error: unknown) {
+    if (error instanceof AttachmentTooLargeError) return null;
+    throw error;
   }
 }
 
@@ -145,6 +219,22 @@ function toMediaType(
   const document = documentMediaTypeSchema.safeParse(mime);
   if (document.success) return document.data;
   return null;
+}
+
+/**
+ * lstat's `absolutePath`, returning its stats when it is a regular file and
+ * `null` when it is missing or something else. `lstat`, never `stat`: a
+ * symlink planted at the leaf must be rejected rather than followed to a
+ * target outside the session.
+ */
+async function statRegularFile(absolutePath: string): Promise<Stats | null> {
+  try {
+    const stats = await lstat(absolutePath);
+    return stats.isFile() ? stats : null;
+  } catch (error: unknown) {
+    if (isFileNotFoundError(error)) return null;
+    throw error;
+  }
 }
 
 class AgentAttachmentStore {
@@ -192,6 +282,7 @@ class AgentAttachmentStore {
         sanitized,
         mediaType,
       );
+      if (fileName === null) return {ok: false, reason: 'name-unavailable'};
       return {ok: true, attachment: {fileName, mediaType, byteSize}};
     } finally {
       await rm(temporaryPath, {force: true});
@@ -209,22 +300,16 @@ class AgentAttachmentStore {
     );
     if (absolutePath === null) return null;
 
-    // lstat, not stat: a symlink planted at the leaf must be rejected rather
-    // than followed to a target outside the session.
-    let byteSize: number;
-    try {
-      const stats = await lstat(absolutePath);
-      if (!stats.isFile()) return null;
-      byteSize = stats.size;
-    } catch (error: unknown) {
-      if (isFileNotFoundError(error)) return null;
-      throw error;
-    }
+    const stats = await statRegularFile(absolutePath);
+    if (stats === null) return null;
 
     const mediaType = toMediaType((await fileTypeFromFile(absolutePath))?.mime);
     if (mediaType === null) return null;
 
-    return {attachment: {fileName, mediaType, byteSize}, absolutePath};
+    return {
+      attachment: {fileName, mediaType, byteSize: stats.size},
+      absolutePath,
+    };
   }
 
   /** Reads an attachment's bytes as base64, or `null` when it is gone. */
@@ -237,44 +322,65 @@ class AgentAttachmentStore {
     return (await readFile(found.absolutePath)).toString('base64');
   }
 
-  /** Deletes an attachment. Returns whether it existed. */
+  /**
+   * Deletes an attachment. Returns whether it existed. Validates the path and
+   * stats the file directly rather than delegating to {@link describe} —
+   * deletion must still work on a file that no longer sniffs as a supported
+   * media type (for example, one truncated mid-write), which `describe`
+   * refuses to touch.
+   */
   async remove(scratchDirectory: string, fileName: string): Promise<boolean> {
-    const found = await this.describe(scratchDirectory, fileName);
-    if (found === null) return false;
-    await unlink(found.absolutePath);
+    const absolutePath = resolveInside(
+      this.directory(scratchDirectory),
+      fileName,
+    );
+    if (absolutePath === null) return false;
+
+    const stats = await statRegularFile(absolutePath);
+    if (stats === null) return false;
+
+    await unlink(absolutePath);
     return true;
   }
 
   /**
-   * Moves the temp file to `<stem><suffix><ext>`, picking the first free suffix.
-   * `rename` would clobber an existing file, so this probes with `lstat` and
-   * retries — a benign race in a single-process local server.
+   * Hard-links the temp file to the first free `<stem><suffix><ext>`, then
+   * lets `save()`'s `finally` remove the temp file.
+   *
+   * `link` fails atomically with EEXIST when the name is taken, so neither a
+   * concurrent save nor a writer outside this process can clobber another's
+   * bytes — and there IS such a writer: `run_command`'s realpath allowlist
+   * covers the scratch space, which is deliberate (it is how an oversized
+   * image gets downsampled). A mutex would only serialize our own saves.
+   *
+   * Returns `null` when every candidate is taken, which the caller surfaces
+   * as a `name-unavailable` failure rather than spinning forever.
    */
   private async placeUniquely(
     directory: string,
     temporaryPath: string,
     sanitized: string,
     mediaType: ImageMediaType | DocumentMediaType,
-  ): Promise<string> {
+  ): Promise<string | null> {
     const extension = EXTENSION_BY_MEDIA_TYPE[mediaType];
     const existing = path.extname(sanitized);
     const stem =
       existing === '' ? sanitized : sanitized.slice(0, -existing.length);
-    const base = stem === '' ? 'attachment' : stem;
+    const base = budgetStem(stem, extension);
 
-    for (let index = 1; ; index++) {
+    for (let index = 1; index <= MAX_PLACEMENT_ATTEMPTS; index++) {
       const candidate =
         index === 1 ? `${base}${extension}` : `${base} (${index})${extension}`;
-      const candidatePath = path.join(directory, candidate);
       try {
-        await lstat(candidatePath);
-        continue;
+        await link(temporaryPath, path.join(directory, candidate));
+        return candidate;
       } catch (error: unknown) {
-        if (!isFileNotFoundError(error)) throw error;
+        // Anything other than "name taken" is a real filesystem failure and
+        // must not be disguised as a business-level result.
+        if (!isFileExistsError(error)) throw error;
       }
-      await rename(temporaryPath, candidatePath);
-      return candidate;
     }
+    return null;
   }
 }
 
