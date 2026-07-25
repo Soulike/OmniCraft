@@ -1,5 +1,6 @@
 export type {
   OpenedAttachment,
+  ResolveAttachmentsResult,
   SaveAttachmentFailureReason,
   SaveAttachmentResult,
 } from './agent-attachment-store.js';

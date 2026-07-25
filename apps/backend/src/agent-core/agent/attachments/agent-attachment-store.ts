@@ -76,6 +76,12 @@ export interface OpenedAttachment {
   readonly absolutePath: string;
 }
 
+/** Result of resolving caller-supplied file names to attachment descriptors,
+ *  as returned by `Agent.resolveAttachments`. */
+export type ResolveAttachmentsResult =
+  | {readonly ok: true; readonly attachments: LlmAttachment[]}
+  | {readonly ok: false; readonly missing: string[]};
+
 /**
  * Whether `character` is a C0 control character or DEL. Checked by code point
  * rather than a regex: a control-character class in a regex literal trips

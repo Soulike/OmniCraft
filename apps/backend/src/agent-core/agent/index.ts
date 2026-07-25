@@ -1,6 +1,7 @@
 export {Agent} from './agent.js';
 export type {
   OpenedAttachment,
+  ResolveAttachmentsResult,
   SaveAttachmentResult,
 } from './attachments/index.js';
 export {

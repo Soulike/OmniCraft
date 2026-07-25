@@ -1,16 +1,11 @@
 import type {Readable} from 'node:stream';
 
-import type {LlmAttachment} from '@omnicraft/tool-schemas';
-
 import type {
   OpenedAttachment,
+  ResolveAttachmentsResult,
   SaveAttachmentResult,
 } from '@/agent-core/agent/index.js';
 import type {AgentStore} from '@/models/agent-store/index.js';
-
-export type ResolveAttachmentsResult =
-  | {readonly ok: true; readonly attachments: LlmAttachment[]}
-  | {readonly ok: false; readonly missing: string[]};
 
 export interface AgentAttachmentService {
   save(

@@ -11,7 +11,6 @@ import type {LlmAttachment} from '@omnicraft/tool-schemas';
 
 import {Mutex} from '@/helpers/mutex.js';
 import {logger} from '@/logger.js';
-import type {ResolveAttachmentsResult} from '@/services/agent-attachments/index.js';
 
 import {agentEventBus} from '../events/index.js';
 import type {LlmConfig} from '../llm-api/index.js';
@@ -23,6 +22,7 @@ import {agentTurnRunner} from './agent-turn-runner.js';
 import {
   agentAttachmentStore,
   type OpenedAttachment,
+  type ResolveAttachmentsResult,
   type SaveAttachmentResult,
 } from './attachments/index.js';
 import type {AgentSseLogReaderOptions} from './events/agent-sse-log.js';
