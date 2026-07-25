@@ -106,6 +106,7 @@ export class LlmSession {
       createdAt: Date.now(),
       role: 'user' as const,
       content,
+      attachments: [],
     };
     return {
       stream: this.sendMessages([userMessage], tools, systemPrompt, signal),
@@ -141,6 +142,7 @@ export class LlmSession {
       createdAt: Date.now(),
       role: 'user' as const,
       content: `<system-reminder>\n${safeContent}\n</system-reminder>`,
+      attachments: [],
     };
     return {
       stream: this.sendMessages([reminderMessage], tools, systemPrompt, signal),

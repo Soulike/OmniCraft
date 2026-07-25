@@ -24,6 +24,7 @@ export async function generateTitle(
             '',
             `User: ${userMessage}`,
           ].join('\n'),
+          attachments: [],
         },
       ],
       tools: [],

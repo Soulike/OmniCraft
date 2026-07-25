@@ -27,6 +27,7 @@ export class CompactionSummaryGenerator {
         createdAt: Date.now(),
         role: 'user',
         content: prompt,
+        attachments: [],
       },
     ];
     const stream = llmApi.streamCompletion({

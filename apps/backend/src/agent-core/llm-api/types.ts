@@ -2,6 +2,7 @@ import type {ThinkingLevel} from '@omnicraft/api-schema';
 import {
   documentMediaTypeSchema,
   imageMediaTypeSchema,
+  llmAttachmentSchema,
 } from '@omnicraft/tool-schemas';
 import {z} from 'zod';
 
@@ -39,6 +40,9 @@ const llmMessageBaseSchema = z.object({
 /** A message from the user. */
 export const llmUserMessageSchema = llmMessageBaseSchema.extend({
   role: z.literal('user'),
+  // Defaulted so snapshots written before attachments still validate, restoring
+  // as an empty list — same convention as `todos` in agentSnapshotSchema.
+  attachments: z.array(llmAttachmentSchema).default([]),
 });
 
 export type LlmUserMessage = z.infer<typeof llmUserMessageSchema>;

@@ -25,7 +25,15 @@ const customTool: ToolDefinition<z.ZodObject<Record<string, never>>> = {
 describe('slimMessagesForSummary', () => {
   it('keeps short user content unchanged', () => {
     const result = compactionMessageSlimmer.slimMessagesForSummary(
-      [{id: 'user', createdAt: 1, role: 'user', content: 'short'}],
+      [
+        {
+          id: 'user',
+          createdAt: 1,
+          role: 'user',
+          content: 'short',
+          attachments: [],
+        },
+      ],
       [],
     );
 
@@ -41,6 +49,7 @@ describe('slimMessagesForSummary', () => {
             createdAt: 1,
             role: 'user',
             content: 'a'.repeat(9000),
+            attachments: [],
           },
         ],
         [],
@@ -177,6 +186,7 @@ describe('slimMessagesForSummary', () => {
       createdAt: index,
       role: 'user' as const,
       content: `message ${index.toString()}`,
+      attachments: [],
     }));
 
     const result = compactionMessageSlimmer.buildRecentContext(messages, []);

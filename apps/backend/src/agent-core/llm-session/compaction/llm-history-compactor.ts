@@ -66,6 +66,7 @@ export class LlmHistoryCompactor {
           summary,
           recentContext: recentContext.content,
         }),
+        attachments: [],
       },
     ];
 

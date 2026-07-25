@@ -53,6 +53,7 @@ function createPatch(): LlmSessionCompactionPatch {
         createdAt: 10,
         role: 'user',
         content: 'compacted history',
+        attachments: [],
       },
     ],
     latestUsageInputMessageCount: null,
@@ -221,7 +222,15 @@ describe('LlmSession compaction', () => {
       id: 'session-1',
       compactions: [],
       latestUsageInputMessageCount: 1,
-      messages: [{id: 'user-1', createdAt: 1, role: 'user', content: 'first'}],
+      messages: [
+        {
+          id: 'user-1',
+          createdAt: 1,
+          role: 'user',
+          content: 'first',
+          attachments: [],
+        },
+      ],
       usage: emptyUsage(),
     });
 
@@ -260,7 +269,13 @@ describe('LlmSession compaction', () => {
     );
     vi.spyOn(llmApi, 'streamCompletion').mockReturnValue(failingStream());
     const messages: LlmMessage[] = [
-      {id: 'user-1', createdAt: 1, role: 'user', content: 'first'},
+      {
+        id: 'user-1',
+        createdAt: 1,
+        role: 'user',
+        content: 'first',
+        attachments: [],
+      },
     ];
     const usage = {
       currentContextInputTokens: 5,
@@ -293,7 +308,15 @@ describe('LlmSession compaction', () => {
   it('restores latest usage input message count in snapshots', () => {
     const session = new LlmSession(() => Promise.resolve(CONFIG), {
       id: 'session-1',
-      messages: [{id: 'user-1', createdAt: 1, role: 'user', content: 'first'}],
+      messages: [
+        {
+          id: 'user-1',
+          createdAt: 1,
+          role: 'user',
+          content: 'first',
+          attachments: [],
+        },
+      ],
       compactions: [],
       latestUsageInputMessageCount: 1,
       usage: emptyUsage(),

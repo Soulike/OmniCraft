@@ -7,7 +7,7 @@ import type {ToolDefinition} from '../../tool/types.js';
 import {LlmCompactionTokenEstimator} from './llm-compaction-token-estimator.js';
 
 const messages: LlmMessage[] = [
-  {id: 'user-1', createdAt: 1, role: 'user', content: 'hello'},
+  {id: 'user-1', createdAt: 1, role: 'user', content: 'hello', attachments: []},
   {
     id: 'assistant-1',
     createdAt: 2,
@@ -16,7 +16,13 @@ const messages: LlmMessage[] = [
     toolCalls: [],
     thinking: [],
   },
-  {id: 'user-2', createdAt: 3, role: 'user', content: 'pending follow up'},
+  {
+    id: 'user-2',
+    createdAt: 3,
+    role: 'user',
+    content: 'pending follow up',
+    attachments: [],
+  },
 ];
 
 const tools: ToolDefinition[] = [
@@ -93,7 +99,13 @@ describe('LlmCompactionTokenEstimator', () => {
   it('estimates an arbitrary replacement message array with system prompt, tools, and thinking level', () => {
     const estimator = new LlmCompactionTokenEstimator();
     const replacementMessages = [
-      {id: 'summary', createdAt: 4, role: 'user' as const, content: 'summary'},
+      {
+        id: 'summary',
+        createdAt: 4,
+        role: 'user' as const,
+        content: 'summary',
+        attachments: [],
+      },
     ];
 
     const currentTokens = estimator.estimateTokensFromMessages({

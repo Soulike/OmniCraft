@@ -1,3 +1,4 @@
+export {type LlmAttachment, llmAttachmentSchema} from './attachment-schemas.js';
 export {
   type DocumentMediaType,
   documentMediaTypeSchema,

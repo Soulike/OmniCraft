@@ -19,7 +19,7 @@ const config: LlmConfig = {
 };
 
 const messages: LlmMessage[] = [
-  {id: 'user-1', createdAt: 1, role: 'user', content: 'hello'},
+  {id: 'user-1', createdAt: 1, role: 'user', content: 'hello', attachments: []},
   {
     id: 'assistant-1',
     createdAt: 2,

@@ -4,7 +4,7 @@ import {estimatePromptTokens} from './token-estimator.js';
 import type {LlmMessage} from './types.js';
 
 function userMessage(content: string): LlmMessage {
-  return {id: 'u', createdAt: 0, role: 'user', content};
+  return {id: 'u', createdAt: 0, role: 'user', content, attachments: []};
 }
 
 function imageResult(data: string): LlmMessage {

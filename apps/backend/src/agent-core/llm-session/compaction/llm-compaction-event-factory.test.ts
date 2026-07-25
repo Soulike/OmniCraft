@@ -18,7 +18,13 @@ const decision: Extract<LlmCompactionDecision, {type: 'compact'}> = {
 const historyResult: LlmHistoryCompactionResult = {
   summary: 'summary text',
   replacementMessages: [
-    {id: 'summary', createdAt: 2, role: 'user', content: 'compacted'},
+    {
+      id: 'summary',
+      createdAt: 2,
+      role: 'user',
+      content: 'compacted',
+      attachments: [],
+    },
   ],
   metadataInput: {
     recentContextMessageCount: 2,

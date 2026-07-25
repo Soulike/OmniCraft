@@ -42,7 +42,15 @@ describe('compactionSummaryGenerator', () => {
 
     const summary = await compactionSummaryGenerator.generate({
       config: CONFIG,
-      messages: [{id: 'user', createdAt: 1, role: 'user', content: 'hello'}],
+      messages: [
+        {
+          id: 'user',
+          createdAt: 1,
+          role: 'user',
+          content: 'hello',
+          attachments: [],
+        },
+      ],
       tools: [],
     });
 
@@ -69,7 +77,15 @@ describe('compactionSummaryGenerator', () => {
 
     await compactionSummaryGenerator.generate({
       config: CONFIG,
-      messages: [{id: 'user', createdAt: 1, role: 'user', content: 'hello'}],
+      messages: [
+        {
+          id: 'user',
+          createdAt: 1,
+          role: 'user',
+          content: 'hello',
+          attachments: [],
+        },
+      ],
       tools: [],
       signal: controller.signal,
     });

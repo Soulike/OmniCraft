@@ -25,7 +25,7 @@ const config: LlmConfig = {
 };
 
 const messages: LlmMessage[] = [
-  {id: 'user-1', createdAt: 1, role: 'user', content: 'hello'},
+  {id: 'user-1', createdAt: 1, role: 'user', content: 'hello', attachments: []},
   {
     id: 'assistant-1',
     createdAt: 2,
@@ -37,7 +37,13 @@ const messages: LlmMessage[] = [
 ];
 
 const replacementMessages: LlmMessage[] = [
-  {id: 'summary-1', createdAt: 3, role: 'user', content: 'compacted'},
+  {
+    id: 'summary-1',
+    createdAt: 3,
+    role: 'user',
+    content: 'compacted',
+    attachments: [],
+  },
 ];
 
 const usage: LlmSessionUsage = {
