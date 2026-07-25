@@ -29,8 +29,10 @@ export const chatCompletionsRequestSchema = z.strictObject({
   message: z.string().min(1),
   // Names only. The server re-stats and re-sniffs each file, so a client cannot
   // misreport a media type or size. Text is always required — an attachment
-  // never substitutes for it.
-  attachmentFileNames: z.array(z.string().min(1)).default([]),
+  // never substitutes for it. Capped at 10 to bound how many stat+sniff
+  // operations one request can force; the byte total itself is enforced
+  // after resolution, in the completions handler.
+  attachmentFileNames: z.array(z.string().min(1)).max(10).default([]),
 });
 
 export type ChatCompletionsRequest = z.infer<

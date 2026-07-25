@@ -124,8 +124,10 @@ function sanitizeFileName(raw: string): string | null {
  * Resolves `fileName` inside `directory`, or `null` when it is not a bare
  * name. A bare name cannot escape via `path.join`; the remaining risks are a
  * control character (which some fs calls reject with a throw rather than
- * `ENOENT`, breaking the read paths' "returns null" contract) and a symlink
- * planted at the leaf, which the `lstat` in the read paths rejects.
+ * `ENOENT`, breaking the read paths' "returns null" contract) and `fileName`
+ * itself being a symlink, which the `lstat` in the read paths rejects. This
+ * does not guard `directory` (the session's `attachments` folder) itself
+ * being a symlink — see the comment on `mkdir` in `save()`.
  */
 function resolveInside(directory: string, fileName: string): string | null {
   if (fileName === '' || fileName === '.' || fileName === '..') return null;
@@ -229,9 +231,10 @@ function toMediaType(
 
 /**
  * lstat's `absolutePath`, returning its stats when it is a regular file and
- * `null` when it is missing or something else. `lstat`, never `stat`: a
- * symlink planted at the leaf must be rejected rather than followed to a
- * target outside the session.
+ * `null` when it is missing or something else. `lstat`, never `stat`:
+ * `absolutePath` itself being a symlink must be rejected rather than
+ * followed. This says nothing about a symlink earlier in the path — see the
+ * comment on `mkdir` in `save()`.
  */
 async function statRegularFile(absolutePath: string): Promise<Stats | null> {
   try {
@@ -263,6 +266,11 @@ class AgentAttachmentStore {
     if (sanitized === null) return {ok: false, reason: 'invalid-name'};
 
     const directory = this.directory(scratchDirectory);
+    // Known, unaddressed gap: `mkdir(recursive)` succeeds through a symlink
+    // planted at the `attachments` segment itself (unlike a symlink at a leaf
+    // file name, which `lstat` in the read paths rejects), and every
+    // subsequent open-by-path under `directory` would follow it. Closing this
+    // is a separate decision, not made here.
     await mkdir(directory, {recursive: true, mode: 0o700});
 
     const temporaryPath = path.join(directory, `.${crypto.randomUUID()}.tmp`);

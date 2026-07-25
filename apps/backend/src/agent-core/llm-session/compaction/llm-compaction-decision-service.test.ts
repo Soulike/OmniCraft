@@ -1,12 +1,13 @@
 import crypto from 'node:crypto';
 
-import {afterEach, describe, expect, it, vi} from 'vitest';
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 
 import type {LlmConfig, LlmMessage} from '../../llm-api/index.js';
 import {modelCapacity} from '../../model-capacity/index.js';
 import type {LlmSessionUsage} from '../types.js';
 import {LlmCompactionDecisionService} from './llm-compaction-decision-service.js';
 import {LlmCompactionTokenEstimator} from './llm-compaction-token-estimator.js';
+import type {LlmCompactionDecisionInput} from './llm-compaction-types.js';
 
 const config: LlmConfig = {
   apiFormat: 'openai-responses',
@@ -112,5 +113,107 @@ describe('LlmCompactionDecisionService', () => {
       coveredMessageCount: 2,
       startedAt: 12345,
     });
+  });
+});
+
+describe('attachment byte pressure', () => {
+  const bigAttachment = (fileName: string, mb: number) => ({
+    fileName,
+    mediaType: 'application/pdf' as const,
+    byteSize: mb * 1024 * 1024,
+  });
+
+  function inputWith(userMessages: LlmMessage[]): LlmCompactionDecisionInput {
+    return {
+      config,
+      messages: userMessages,
+      usage,
+      latestUsageInputMessageCount: null,
+      options,
+    };
+  }
+
+  let service: LlmCompactionDecisionService;
+
+  beforeEach(() => {
+    // High enough that none of these cases come close on the token ratio —
+    // only attachment byte pressure can force a decision below.
+    vi.spyOn(modelCapacity, 'getMaxPromptTokens').mockReturnValue(1_000_000);
+    service = createService(0);
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('compacts when history attachment bytes reach the threshold, even far below the token ratio', () => {
+    const decision = service.decide(
+      inputWith([
+        {
+          id: 'u1',
+          createdAt: 1,
+          role: 'user',
+          content: 'a',
+          attachments: [bigAttachment('a.pdf', 9)],
+        },
+        {
+          id: 'u2',
+          createdAt: 2,
+          role: 'user',
+          content: 'b',
+          attachments: [bigAttachment('b.pdf', 7)],
+        },
+      ]),
+    );
+    expect(decision.type).toBe('compact');
+  });
+
+  it('skips when attachment bytes are below the threshold and tokens are low', () => {
+    const decision = service.decide(
+      inputWith([
+        {
+          id: 'u1',
+          createdAt: 1,
+          role: 'user',
+          content: 'a',
+          attachments: [bigAttachment('a.pdf', 9)],
+        },
+      ]),
+    );
+    expect(decision.type).toBe('skip');
+  });
+
+  it('counts exactly at the threshold as pressure', () => {
+    const decision = service.decide(
+      inputWith([
+        {
+          id: 'u1',
+          createdAt: 1,
+          role: 'user',
+          content: 'a',
+          attachments: [bigAttachment('a.pdf', 16)],
+        },
+      ]),
+    );
+    expect(decision.type).toBe('compact');
+  });
+
+  it('ignores attachments on non-user messages and counts none for a compacted history', () => {
+    const decision = service.decide(
+      inputWith([
+        {
+          id: 's1',
+          createdAt: 1,
+          role: 'user',
+          content: 'summary',
+          attachments: [],
+        },
+      ]),
+    );
+    expect(decision.type).toBe('skip');
+  });
+
+  it('still skips an empty history regardless of byte pressure', () => {
+    expect(service.decide(inputWith([])).type).toBe('skip');
   });
 });

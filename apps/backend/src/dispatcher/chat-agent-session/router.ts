@@ -13,6 +13,7 @@ import {ZodError} from 'zod';
 import {
   chatAgentAttachments,
   chatAgentSessionService,
+  MAX_MESSAGE_ATTACHMENT_BYTES,
 } from '@/services/chat-agent-session/index.js';
 
 import {registerAttachmentRoutes} from '../helpers/attachment-routes.js';
@@ -118,6 +119,20 @@ router.post(SESSION_COMPLETIONS, async (ctx) => {
     return;
   }
 
+  const totalAttachmentBytes = resolved.attachments.reduce(
+    (total, attachment) => total + attachment.byteSize,
+    0,
+  );
+  if (totalAttachmentBytes > MAX_MESSAGE_ATTACHMENT_BYTES) {
+    ctx.response.status = StatusCodes.REQUEST_TOO_LONG;
+    ctx.response.body = {
+      error: 'ATTACHMENTS_TOO_LARGE',
+      limitBytes: MAX_MESSAGE_ATTACHMENT_BYTES,
+      totalBytes: totalAttachmentBytes,
+    };
+    return;
+  }
+
   const found = await chatAgentSessionService.sendCompletion(
     id,
     message,
@@ -176,7 +191,9 @@ router.get(SESSION_EVENTS, async (ctx) => {
   }
 
   ctx.response.type = 'text/event-stream';
-  ctx.response.set('Cache-Control', 'no-cache');
+  // Explicit no-store: an SSE conversation stream must never be cached or
+  // stored, unlike no-cache which merely forces revalidation before reuse.
+  ctx.response.set('Cache-Control', 'no-store');
   ctx.response.set('Connection', 'keep-alive');
   ctx.response.set('X-Accel-Buffering', 'no');
 

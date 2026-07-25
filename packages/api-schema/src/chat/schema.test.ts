@@ -125,6 +125,26 @@ describe('chatCompletionsRequestSchema attachments', () => {
       }),
     ).toThrow();
   });
+
+  it('rejects more than ten attachment file names', () => {
+    const names = Array.from({length: 11}, (_, i) => `f${i.toString()}.png`);
+    expect(() =>
+      chatCompletionsRequestSchema.parse({
+        message: 'x',
+        attachmentFileNames: names,
+      }),
+    ).toThrow();
+  });
+
+  it('accepts exactly ten', () => {
+    const names = Array.from({length: 10}, (_, i) => `f${i.toString()}.png`);
+    expect(
+      chatCompletionsRequestSchema.parse({
+        message: 'x',
+        attachmentFileNames: names,
+      }).attachmentFileNames,
+    ).toHaveLength(10);
+  });
 });
 
 describe('uploadAttachmentQuerySchema', () => {
