@@ -174,9 +174,17 @@ eight layers is a rename through the whole stack.
 
 ## Types
 
-### Persisted (`agent-core/llm-api/types.ts`)
+### Persisted (`@omnicraft/tool-schemas`)
+
+`llmAttachmentSchema` is referenced from three packages — the backend's message
+schema, the SSE event schema, and the HTTP upload response — so it lives in the
+neutral leaf package next to `media-type-schemas.ts`, exactly where #372 put the
+media-type enums and for the same reason. `packages/sse-events` already depends on
+`@omnicraft/tool-schemas`; `packages/api-schema` gains that dependency (it is a
+leaf with only a `zod` dependency, so no cycle is possible).
 
 ```ts
+// packages/tool-schemas/src/attachment-schemas.ts
 export const llmAttachmentSchema = z.object({
   fileName: z.string().min(1),
   mediaType: z.union([imageMediaTypeSchema, documentMediaTypeSchema]),
@@ -184,7 +192,11 @@ export const llmAttachmentSchema = z.object({
 });
 
 export type LlmAttachment = z.infer<typeof llmAttachmentSchema>;
+```
 
+### Persisted (`agent-core/llm-api/types.ts`)
+
+```ts
 export const llmUserMessageSchema = llmMessageBaseSchema.extend({
   role: z.literal('user'),
   // Defaulted so snapshots written before attachments still validate, restoring
@@ -474,14 +486,16 @@ is tracked in [#373](https://github.com/Soulike/OmniCraft/issues/373).
 
 **Schemas**
 
-- `agent-core/llm-api/types.ts` — `llmAttachmentSchema`, `llmUserMessageSchema.attachments`,
+- `packages/tool-schemas/src/attachment-schemas.ts` — new: `llmAttachmentSchema`,
+  `LlmAttachment` (the cross-package contract)
+- `packages/api-schema` — gains a `@omnicraft/tool-schemas` dependency;
+  `attachmentFileNames` on the completions request; upload response schema
+- `packages/sse-events/src/schema.ts` — `attachments` on `sseMessageStartEventSchema`
+- `agent-core/llm-api/types.ts` — `llmUserMessageSchema.attachments`,
   `LlmRequestMessage`, `LlmCompletionOptions` / `LlmTokenCountOptions`
 - `agent-core/llm-api/token-estimator.ts` — `PromptTokenInput.messages` widened to the
   `LlmMessage | LlmRequestMessage` union; user-message attachment term
 - `agent-core/llm-api/index.ts` — export surface
-- `packages/api-schema/src/chat/schema.ts` — `attachmentFileNames` on the completions
-  request; upload request/response schemas
-- `packages/sse-events/src/schema.ts` — `attachments` on `sseMessageStartEventSchema`
 
 **Adapters**
 
