@@ -395,19 +395,29 @@ to the synthetic message:
 ## Attachments you saw earlier in this conversation
 
 You have already seen these files. They were dropped from the context by
-compaction, but they are still on disk — re-read any of them with read_file if you
-need them again (media over 1 MB must be reduced with a shell command first).
+compaction, but they are still on disk — read them again if you need them.
 
 - /abs/…/scratch/attachments/invoice.pdf — application/pdf, 235 KB
 - /abs/…/scratch/attachments/shot.png — image/png, 812 KB
 ```
 
-**The wording deliberately says nothing about where the files came from.** What the
-model needs to act correctly is that it has seen them, that they are gone from
-context, and that they are still readable — not who produced them. Attributing them
-to the user would also go stale the moment
-[#388](https://github.com/Soulike/OmniCraft/issues/388) lets a tool result land in
-the same list, and would mislead the model about a tool-produced file.
+**The wording names neither the source nor a tool.** Two deliberate omissions:
+
+- **No source attribution.** What the model needs to act correctly is that it has
+  seen the files, that they are gone from context, and that they are still
+  readable — not who produced them. Attributing them to the user would also go
+  stale the moment [#388](https://github.com/Soulike/OmniCraft/issues/388) lets a
+  tool result land in the same list, and would mislead the model about a
+  tool-produced file.
+- **No tool name and no size caveat.** Hardcoding `read_file` couples this string
+  to one built-in tool's existence and name, across agents whose tool catalogs
+  differ. Restating the 1 MB media limit would duplicate a number that
+  `read_file`'s own description and failure message already interpolate from
+  `MAX_INLINE_MEDIA_BYTES` — a second source of truth that silently goes stale when
+  the constant changes (and it will change; see
+  [#388](https://github.com/Soulike/OmniCraft/issues/388)). The model has each
+  file's size in the list, and an over-cap read fails with an actionable message
+  telling it exactly how to proceed.
 
 Absolute paths, because in a coding session `workingDirectory` is the workspace and
 the scratch space is elsewhere. (In a chat session `workingDirectory` _is_ the
