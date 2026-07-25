@@ -1,4 +1,5 @@
 import type {ThinkingLevel} from '@omnicraft/api-schema';
+import type {LlmAttachment} from '@omnicraft/tool-schemas';
 import {
   documentMediaTypeSchema,
   imageMediaTypeSchema,
@@ -96,6 +97,31 @@ export const llmMessageSchema = z.discriminatedUnion('role', [
 
 export type LlmMessage = z.infer<typeof llmMessageSchema>;
 
+// ---------------------------------------------------------------------------
+// Request-time types — not persisted, so no schema. Disk stores attachment
+// references; the wire carries bytes.
+// ---------------------------------------------------------------------------
+
+/** An attachment with its bytes materialized for a provider call. */
+export interface ResolvedLlmAttachment extends LlmAttachment {
+  /** base64 of the file; `null` when the file is no longer on disk. */
+  readonly data: string | null;
+}
+
+/** A user message whose attachments have been resolved to bytes. */
+export interface LlmRequestUserMessage extends Omit<
+  LlmUserMessage,
+  'attachments'
+> {
+  readonly attachments: readonly ResolvedLlmAttachment[];
+}
+
+/** A message as handed to a provider adapter. */
+export type LlmRequestMessage =
+  | LlmRequestUserMessage
+  | LlmAssistantMessage
+  | LlmToolResultMessage;
+
 /** Configuration needed to call an LLM API. */
 export interface LlmConfig {
   apiFormat: 'claude' | 'openai-responses';
@@ -188,7 +214,7 @@ export type LlmEventStream = AsyncGenerator<LlmEvent, void, undefined>;
 /** Options for a streaming LLM completion request. */
 export interface LlmCompletionOptions {
   readonly config: Readonly<LlmConfig>;
-  readonly messages: readonly LlmMessage[];
+  readonly messages: readonly LlmRequestMessage[];
   readonly systemPrompt?: string;
   readonly tools: readonly AnyToolDefinition[];
   readonly signal?: AbortSignal;

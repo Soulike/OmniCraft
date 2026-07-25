@@ -1,6 +1,10 @@
 import crypto from 'node:crypto';
 
-import type {LlmConfig, LlmMessage} from '../../llm-api/index.js';
+import type {
+  LlmConfig,
+  LlmMessage,
+  LlmRequestMessage,
+} from '../../llm-api/index.js';
 import {llmApi} from '../../llm-api/index.js';
 import type {AnyToolDefinition} from '../../tool/types.js';
 import {compactionMessageSlimmer} from './compaction-message-slimmer.js';
@@ -21,7 +25,7 @@ export class CompactionSummaryGenerator {
         options.tools,
       ),
     );
-    const messages: LlmMessage[] = [
+    const messages: LlmRequestMessage[] = [
       {
         id: crypto.randomUUID(),
         createdAt: Date.now(),

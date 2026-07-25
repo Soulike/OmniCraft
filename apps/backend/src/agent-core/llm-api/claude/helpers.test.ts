@@ -6,6 +6,7 @@ import {
   toClaudeTool,
   toClaudeToolResultContent,
   toOutputConfig,
+  toSdkMessage,
   toThinkingConfig,
 } from './helpers.js';
 
@@ -169,5 +170,91 @@ describe('toClaudeToolResultContent', () => {
         title: 'r.pdf',
       },
     ]);
+  });
+});
+
+describe('toSdkMessage user attachments', () => {
+  const base = {id: 'u1', createdAt: 1, role: 'user' as const, content: 'look'};
+
+  it('keeps bare string content when there are no attachments', () => {
+    expect(toSdkMessage({...base, attachments: []})).toEqual({
+      role: 'user',
+      content: 'look',
+    });
+  });
+
+  it('emits media before the text block', () => {
+    const result = toSdkMessage({
+      ...base,
+      attachments: [
+        {
+          fileName: 'shot.png',
+          mediaType: 'image/png',
+          byteSize: 3,
+          data: 'AAA=',
+        },
+      ],
+    });
+
+    expect(result).toEqual({
+      role: 'user',
+      content: [
+        {
+          type: 'image',
+          source: {type: 'base64', media_type: 'image/png', data: 'AAA='},
+        },
+        {type: 'text', text: 'look'},
+      ],
+    });
+  });
+
+  it('emits a document block with a title for a PDF', () => {
+    const result = toSdkMessage({
+      ...base,
+      attachments: [
+        {
+          fileName: 'invoice.pdf',
+          mediaType: 'application/pdf',
+          byteSize: 3,
+          data: 'BBB=',
+        },
+      ],
+    });
+
+    expect(result.content).toEqual([
+      {
+        type: 'document',
+        source: {
+          type: 'base64',
+          media_type: 'application/pdf',
+          data: 'BBB=',
+        },
+        title: 'invoice.pdf',
+      },
+      {type: 'text', text: 'look'},
+    ]);
+  });
+
+  it('puts the cache breakpoint on the text block, not the media block', () => {
+    const message = toSdkMessage({
+      ...base,
+      attachments: [
+        {
+          fileName: 'shot.png',
+          mediaType: 'image/png',
+          byteSize: 3,
+          data: 'AAA=',
+        },
+      ],
+    });
+    const marked = addCacheBreakpoint(message);
+
+    expect(Array.isArray(marked.content)).toBe(true);
+    if (!Array.isArray(marked.content)) return;
+    expect(marked.content[0]).not.toHaveProperty('cache_control');
+    expect(marked.content[1]).toMatchObject({
+      type: 'text',
+      cache_control: {type: 'ephemeral'},
+    });
   });
 });

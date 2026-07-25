@@ -9,6 +9,7 @@ import type {
   LlmAssistantMessage,
   LlmConfig,
   LlmMessage,
+  LlmRequestMessage,
   LlmThinkingBlock,
   LlmToolCall,
 } from '../llm-api/index.js';
@@ -299,6 +300,23 @@ export class LlmSession {
   }
 
   /**
+   * Projects persisted history onto the request-time shape. Attachment bytes are
+   * materialized here and never stored, so the snapshot stays free of base64.
+   */
+  private toRequestMessages(): LlmRequestMessage[] {
+    return this.messages.map((message) => {
+      if (message.role !== 'user') return message;
+      return {
+        ...message,
+        attachments: message.attachments.map((attachment) => ({
+          ...attachment,
+          data: null,
+        })),
+      };
+    });
+  }
+
+  /**
    * Streams a completion from the LLM using the current message history.
    * Yields text deltas in real-time, then fully assembled tool calls.
    * Records the assistant message in history when done.
@@ -312,7 +330,7 @@ export class LlmSession {
     const inputMessageCount = this.messages.length;
     const eventStream = llmApi.streamCompletion({
       config: llmConfig,
-      messages: this.messages,
+      messages: this.toRequestMessages(),
       systemPrompt: systemPrompt || undefined,
       tools,
       signal,
