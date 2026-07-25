@@ -10,14 +10,20 @@ import {
 import {StatusCodes} from 'http-status-codes';
 import {ZodError} from 'zod';
 
-import {codingAgentSessionService} from '@/services/coding-agent-session/index.js';
+import {
+  codingAgentAttachments,
+  codingAgentSessionService,
+} from '@/services/coding-agent-session/index.js';
 
+import {registerAttachmentRoutes} from '../helpers/attachment-routes.js';
 import {isCursorAheadOfLog, parseSseResumeCursor} from '../helpers/cursor.js';
 import {parseSessionId} from '../helpers/session-id.js';
 import {pumpSseEvents} from '../helpers/sse.js';
 import {
   SESSION,
   SESSION_ABORT,
+  SESSION_ATTACHMENT_BY_NAME,
+  SESSION_ATTACHMENTS,
   SESSION_BY_ID,
   SESSION_COMPLETIONS,
   SESSION_EVENTS,
@@ -85,9 +91,11 @@ router.post(SESSION_COMPLETIONS, async (ctx) => {
   }
 
   let message: string;
+  let attachmentFileNames: string[];
   try {
     const body = chatCompletionsRequestSchema.parse(ctx.request.body);
     message = body.message;
+    attachmentFileNames = body.attachmentFileNames;
   } catch (e) {
     if (e instanceof ZodError) {
       ctx.response.status = StatusCodes.BAD_REQUEST;
@@ -97,7 +105,29 @@ router.post(SESSION_COMPLETIONS, async (ctx) => {
     throw e;
   }
 
-  const found = await codingAgentSessionService.sendCompletion(id, message);
+  const resolved = await codingAgentAttachments.resolve(
+    id,
+    attachmentFileNames,
+  );
+  if (resolved === null) {
+    ctx.response.status = StatusCodes.NOT_FOUND;
+    ctx.response.body = {error: `Session not found: ${id}`};
+    return;
+  }
+  if (!resolved.ok) {
+    ctx.response.status = StatusCodes.BAD_REQUEST;
+    ctx.response.body = {
+      error: 'UNKNOWN_ATTACHMENTS',
+      missing: resolved.missing,
+    };
+    return;
+  }
+
+  const found = await codingAgentSessionService.sendCompletion(
+    id,
+    message,
+    resolved.attachments,
+  );
   if (!found) {
     ctx.response.status = StatusCodes.NOT_FOUND;
     ctx.response.body = {error: `Session not found: ${id}`};
@@ -236,5 +266,11 @@ router.delete(SESSION_BY_ID, async (ctx) => {
 
   ctx.response.status = StatusCodes.NO_CONTENT;
 });
+
+registerAttachmentRoutes(
+  router,
+  {collection: SESSION_ATTACHMENTS, byName: SESSION_ATTACHMENT_BY_NAME},
+  codingAgentAttachments,
+);
 
 export {router};
