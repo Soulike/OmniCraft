@@ -392,14 +392,22 @@ binary.
 to the synthetic message:
 
 ```
-## Files the user uploaded earlier in this conversation
+## Attachments you saw earlier in this conversation
 
-These are still on disk. Re-read any of them with read_file if you need them again
-(media over 1 MB must be reduced with a shell command first).
+You have already seen these files. They were dropped from the context by
+compaction, but they are still on disk — re-read any of them with read_file if you
+need them again (media over 1 MB must be reduced with a shell command first).
 
 - /abs/…/scratch/attachments/invoice.pdf — application/pdf, 235 KB
 - /abs/…/scratch/attachments/shot.png — image/png, 812 KB
 ```
+
+**The wording deliberately says nothing about where the files came from.** What the
+model needs to act correctly is that it has seen them, that they are gone from
+context, and that they are still readable — not who produced them. Attributing them
+to the user would also go stale the moment
+[#388](https://github.com/Soulike/OmniCraft/issues/388) lets a tool result land in
+the same list, and would mislead the model about a tool-produced file.
 
 Absolute paths, because in a coding session `workingDirectory` is the workspace and
 the scratch space is elsewhere. (In a chat session `workingDirectory` _is_ the
