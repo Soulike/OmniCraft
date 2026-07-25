@@ -1,5 +1,6 @@
 import {
   access,
+  lstat,
   mkdir,
   mkdtemp,
   readFile,
@@ -253,6 +254,28 @@ describe('describe / readBase64 / remove', () => {
     expect(found?.absolutePath).toBe(
       path.join(scratchDirectory, 'attachments', 'shot.png'),
     );
+  });
+
+  it('reports the stored file mtime, matching a direct lstat', async () => {
+    await agentAttachmentStore.save(
+      scratchDirectory,
+      'shot.png',
+      streamOf(pngOf(64)),
+    );
+
+    const found = await agentAttachmentStore.describe(
+      scratchDirectory,
+      'shot.png',
+    );
+    const stats = await lstat(
+      path.join(scratchDirectory, 'attachments', 'shot.png'),
+    );
+
+    expect(found?.mtimeMs).toBe(stats.mtimeMs);
+    // Sanity-checks that the value is a real, recent timestamp rather than a
+    // constant or a stat of the wrong file.
+    expect(found?.mtimeMs).toBeGreaterThan(Date.now() - 60_000);
+    expect(found?.mtimeMs).toBeLessThanOrEqual(Date.now());
   });
 
   it('returns null for a missing file', async () => {

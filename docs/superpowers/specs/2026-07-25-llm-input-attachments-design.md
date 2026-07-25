@@ -539,9 +539,22 @@ delays compaction rather than losing data, and the ~2× headroom between the 16 
 trigger and the 32 MB limit absorbs it. Re-`stat`ing every attachment on every
 compaction decision would trade that headroom for I/O on the hot path.
 
-**Out of scope:** tool-result media still inlines base64 in message content
-(see [#388](https://github.com/Soulike/OmniCraft/issues/388)) and is not counted
-here. It is separately capped at 1 MB per block.
+**Out of scope, and not a small gap:** tool-result media still inlines base64 in
+message content (see [#388](https://github.com/Soulike/OmniCraft/issues/388)) and
+`COMPACTION_TRIGGER_ATTACHMENT_BYTES` does not count it — that sum only walks
+`role: 'user'` messages' `attachments` (`sumUserAttachmentBytes` in
+`llm-compaction-decision-service.ts`). This is not merely inert: the compaction
+notice above (`## Attachments you saw earlier…`) actively **invites** the model to
+re-read those files, and each re-read comes back as a tool-result media block —
+capped at 1 MB per block by `MAX_INLINE_MEDIA_BYTES`, but invisible to the byte
+trigger regardless of how many blocks accumulate. A model that repeatedly re-reads
+files after compaction can still grow a request without ever tripping
+`COMPACTION_TRIGGER_ATTACHMENT_BYTES`. Do not read the byte trigger as a bound on
+_all_ request media — it only bounds upload attachments. What actually bounds the
+re-read loop is the **token** trigger: `estimateTokensFromLatestUsage` prefers the
+provider's own `usage.currentContextInputTokens`, which reflects every token
+actually sent, tool-result media included, so `COMPACTION_TRIGGER_PROMPT_TOKEN_RATIO`
+still catches the growth even though the byte sum does not.
 
 ## Change-site checklist
 

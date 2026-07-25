@@ -53,16 +53,16 @@ describe('defaultCacheControl', () => {
     const ctx = createFakeContext();
     const middleware = defaultCacheControl();
 
-    // Handler that sets its own caching policy (e.g. for immutable resources)
+    // Handler that sets its own caching policy (e.g. for a validated resource)
     const next = vi.fn(() => {
-      ctx.set('Cache-Control', 'private, max-age=31536000, immutable');
+      ctx.set('Cache-Control', 'private, max-age=0, must-revalidate');
       return Promise.resolve();
     });
 
     await middleware(ctx as never, next);
 
     expect(ctx.headers.get('Cache-Control')).toBe(
-      'private, max-age=31536000, immutable',
+      'private, max-age=0, must-revalidate',
     );
     expect(next).toHaveBeenCalledOnce();
   });

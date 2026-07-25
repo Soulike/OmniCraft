@@ -88,13 +88,25 @@ export function registerAttachmentRoutes(
       return;
     }
 
+    // Bytes are NOT immutable for a given name: `remove` frees the name, and
+    // the very next upload of the same desired name reclaims it via
+    // `placeUniquely` (which always starts at the bare, unsuffixed name),
+    // with different bytes. So this must revalidate on every request rather
+    // than caching for a year — a strong `ETag` derived from the file's size
+    // and mtime lets that revalidation cost a 304 instead of a re-download.
+    // Set explicitly so the /api default of `no-store` does not apply (see
+    // the conditional middleware in dispatcher/index.ts).
     ctx.response.status = StatusCodes.OK;
+    ctx.response.set('Cache-Control', 'private, max-age=0, must-revalidate');
+    ctx.response.etag = `${found.attachment.byteSize}-${found.mtimeMs}`;
+
+    if (ctx.fresh) {
+      ctx.response.status = StatusCodes.NOT_MODIFIED;
+      return;
+    }
+
     ctx.response.type = found.attachment.mediaType;
     ctx.response.length = found.attachment.byteSize;
-    // Bytes are immutable for a given name — the store uniquifies rather than
-    // overwriting. Set explicitly so the /api default of `no-store` does not
-    // apply (see the conditional middleware in dispatcher/index.ts).
-    ctx.response.set('Cache-Control', 'private, max-age=31536000, immutable');
     ctx.body = createReadStream(found.absolutePath);
   });
 

@@ -74,6 +74,12 @@ export type SaveAttachmentResult =
 export interface OpenedAttachment {
   readonly attachment: LlmAttachment;
   readonly absolutePath: string;
+  /** The file's last-modified time, in milliseconds since the epoch, from the
+   *  same `lstat` `describe` already performs. Exposed so callers can build a
+   *  validator (e.g. an `ETag`) without a second stat — a name is not a
+   *  stable identifier for a file's bytes here, since `remove` frees it for
+   *  reuse by a later, different upload. */
+  readonly mtimeMs: number;
 }
 
 /** Result of resolving caller-supplied file names to attachment descriptors,
@@ -323,6 +329,7 @@ class AgentAttachmentStore {
     return {
       attachment: {fileName, mediaType, byteSize: stats.size},
       absolutePath,
+      mtimeMs: stats.mtimeMs,
     };
   }
 
