@@ -764,7 +764,7 @@ Create `apps/backend/src/agent-core/agent/attachments/agent-attachment-store.ts`
 ```ts
 import crypto from 'node:crypto';
 import {createWriteStream} from 'node:fs';
-import {lstat, mkdir, readFile, rename, rm, unlink} from 'node:fs/promises';
+import {link, lstat, mkdir, readFile, rm, unlink} from 'node:fs/promises';
 import path from 'node:path';
 import type {Readable} from 'node:stream';
 
@@ -779,7 +779,7 @@ import {
 } from '@omnicraft/tool-schemas';
 import {fileTypeFromFile} from 'file-type';
 
-import {isFileNotFoundError} from '@/helpers/fs.js';
+import {isFileExistsError, isFileNotFoundError} from '@/helpers/fs.js';
 
 /** Max bytes for an image attachment. Anthropic's own per-image limit is 5 MB,
  *  and image token cost is flat regardless of file size, so a larger cap costs
@@ -798,6 +798,10 @@ const MAX_ANY_ATTACHMENT_BYTES = Math.max(
 
 const MAX_FILE_NAME_LENGTH = 255;
 
+/** Placement attempts before a save gives up. Bounded so a directory another
+ *  writer is filling fails cleanly instead of spinning forever. */
+const MAX_PLACEMENT_ATTEMPTS = 100;
+
 /** The extension each deliverable media type is stored under. The stored name
  *  always matches the sniffed type, so a path list never misdescribes a file. */
 const EXTENSION_BY_MEDIA_TYPE: Readonly<
@@ -813,7 +817,8 @@ const EXTENSION_BY_MEDIA_TYPE: Readonly<
 export type SaveAttachmentFailureReason =
   | 'invalid-name'
   | 'unsupported-type'
-  | 'too-large';
+  | 'too-large'
+  | 'name-unavailable';
 
 export type SaveAttachmentResult =
   | {readonly ok: true; readonly attachment: LlmAttachment}
@@ -956,6 +961,7 @@ class AgentAttachmentStore {
         sanitized,
         mediaType,
       );
+      if (fileName === null) return {ok: false, reason: 'name-unavailable'};
       return {ok: true, attachment: {fileName, mediaType, byteSize}};
     } finally {
       await rm(temporaryPath, {force: true});
@@ -1010,35 +1016,43 @@ class AgentAttachmentStore {
   }
 
   /**
-   * Moves the temp file to `<stem><suffix><ext>`, picking the first free suffix.
-   * `rename` would clobber an existing file, so this probes with `lstat` and
-   * retries — a benign race in a single-process local server.
+   * Hard-links the temp file to the first free `<stem><suffix><ext>`, then lets
+   * save()'s `finally` remove the temp file.
+   *
+   * `link` fails atomically with EEXIST when the name is taken, so neither a
+   * concurrent save nor a writer outside this process can be clobbered — and
+   * there IS such a writer: `run_command`'s realpath allowlist covers the
+   * scratch space, which is deliberate (it is how an oversized image gets
+   * downsampled). A mutex would only serialize our own saves.
+   *
+   * Returns `null` when every candidate is taken, which the caller surfaces as
+   * a `name-unavailable` failure rather than spinning.
    */
   private async placeUniquely(
     directory: string,
     temporaryPath: string,
     sanitized: string,
     mediaType: ImageMediaType | DocumentMediaType,
-  ): Promise<string> {
+  ): Promise<string | null> {
     const extension = EXTENSION_BY_MEDIA_TYPE[mediaType];
     const existing = path.extname(sanitized);
     const stem =
       existing === '' ? sanitized : sanitized.slice(0, -existing.length);
     const base = stem === '' ? 'attachment' : stem;
 
-    for (let index = 1; ; index++) {
+    for (let index = 1; index <= MAX_PLACEMENT_ATTEMPTS; index++) {
       const candidate =
         index === 1 ? `${base}${extension}` : `${base} (${index})${extension}`;
-      const candidatePath = path.join(directory, candidate);
       try {
-        await lstat(candidatePath);
-        continue;
+        await link(temporaryPath, path.join(directory, candidate));
+        return candidate;
       } catch (error: unknown) {
-        if (!isFileNotFoundError(error)) throw error;
+        // Anything other than "name taken" is a real filesystem failure and
+        // must not be disguised as a business-level result.
+        if (!isFileExistsError(error)) throw error;
       }
-      await rename(temporaryPath, candidatePath);
-      return candidate;
     }
+    return null;
   }
 }
 
