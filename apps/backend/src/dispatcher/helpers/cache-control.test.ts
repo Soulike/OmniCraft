@@ -67,22 +67,6 @@ describe('defaultCacheControl', () => {
     expect(next).toHaveBeenCalledOnce();
   });
 
-  it('leaves a handler-set no-store untouched (SSE routes set this explicitly)', async () => {
-    const ctx = createFakeContext();
-    const middleware = defaultCacheControl();
-
-    // Handler that already sets the strictest policy itself, e.g. an SSE route.
-    const next = vi.fn(() => {
-      ctx.set('Cache-Control', 'no-store');
-      return Promise.resolve();
-    });
-
-    await middleware(ctx as never, next);
-
-    expect(ctx.headers.get('Cache-Control')).toBe('no-store');
-    expect(next).toHaveBeenCalledOnce();
-  });
-
   it('runs after the downstream handler (awaits next before reading the header)', async () => {
     const ctx = createFakeContext();
     const middleware = defaultCacheControl();

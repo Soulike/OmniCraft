@@ -513,7 +513,7 @@ Two constants, and the relationship between them is load-bearing:
 
 | Constant                              | Value | Enforced at                                                           |
 | ------------------------------------- | ----- | --------------------------------------------------------------------- |
-| `MAX_MESSAGE_ATTACHMENT_BYTES`        | 12 MB | the completions endpoint — over it is a 400 and the turn never starts |
+| `MAX_MESSAGE_ATTACHMENT_BYTES`        | 12 MB | the completions endpoint — over it is a 413 and the turn never starts |
 | `COMPACTION_TRIGGER_ATTACHMENT_BYTES` | 16 MB | the compaction decision, alongside the existing token ratio           |
 
 **`MAX_MESSAGE_ATTACHMENT_BYTES` must stay strictly below

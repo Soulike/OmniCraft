@@ -5,6 +5,7 @@ import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 import type {LlmConfig, LlmMessage} from '../../llm-api/index.js';
 import {modelCapacity} from '../../model-capacity/index.js';
 import type {LlmSessionUsage} from '../types.js';
+import {COMPACTION_TRIGGER_ATTACHMENT_BYTES} from './compaction-constants.js';
 import {LlmCompactionDecisionService} from './llm-compaction-decision-service.js';
 import {LlmCompactionTokenEstimator} from './llm-compaction-token-estimator.js';
 import type {LlmCompactionDecisionInput} from './llm-compaction-types.js';
@@ -198,7 +199,28 @@ describe('attachment byte pressure', () => {
     expect(decision.type).toBe('compact');
   });
 
-  it('ignores attachments on non-user messages and counts none for a compacted history', () => {
+  it('skips one byte below the threshold', () => {
+    const decision = service.decide(
+      inputWith([
+        {
+          id: 'u1',
+          createdAt: 1,
+          role: 'user',
+          content: 'a',
+          attachments: [
+            {
+              fileName: 'a.pdf',
+              mediaType: 'application/pdf',
+              byteSize: COMPACTION_TRIGGER_ATTACHMENT_BYTES - 1,
+            },
+          ],
+        },
+      ]),
+    );
+    expect(decision.type).toBe('skip');
+  });
+
+  it('counts zero bytes for a message with no attachments (e.g. a post-compaction synthetic message)', () => {
     const decision = service.decide(
       inputWith([
         {
