@@ -492,6 +492,57 @@ lower relative to the provider limit (32 MB) because PDF token cost scales with 
 count while `DOCUMENT_TOKEN_ESTIMATE` is a flat 3000; accurate page-based estimation
 is tracked in [#373](https://github.com/Soulike/OmniCraft/issues/373).
 
+## Bounding total request bytes
+
+Per-file caps bound one attachment; they do not bound a **request**, which carries
+every attachment still in history. Four 10 MB PDFs accumulated over a session are
+~53 MB of base64 in every subsequent request — past the provider's 32 MB request
+limit — and the token estimator cannot detect it, because image and document
+estimates are deliberately flat (a correct choice for tokens; useless as a byte
+backstop). Without a bound, such a session wedges permanently: every turn fails at
+the provider and no amount of waiting clears it.
+
+**Compaction is the existing lever, so byte pressure triggers compaction.** It
+already exists for "context grew too large", it already emits the SSE event the
+frontend renders, and it already ends with the attachment file list telling the
+model the files are still on disk. Crucially it also _works_: compaction replaces
+the whole history with one synthetic message carrying `attachments: []`, so
+attachment bytes drop to whatever the newest message carries.
+
+Two constants, and the relationship between them is load-bearing:
+
+| Constant                              | Value | Enforced at                                                           |
+| ------------------------------------- | ----- | --------------------------------------------------------------------- |
+| `MAX_MESSAGE_ATTACHMENT_BYTES`        | 12 MB | the completions endpoint — over it is a 400 and the turn never starts |
+| `COMPACTION_TRIGGER_ATTACHMENT_BYTES` | 16 MB | the compaction decision, alongside the existing token ratio           |
+
+**`MAX_MESSAGE_ATTACHMENT_BYTES` must stay strictly below
+`COMPACTION_TRIGGER_ATTACHMENT_BYTES`, and at or above the largest per-file cap.**
+Both bounds are real constraints, not tuning:
+
+- **Below the trigger.** `LlmSession.sendMessages` appends the new message to
+  history _before_ `compactBeforeModelCall` runs. If one legal message could reach
+  the trigger on its own, compaction would fire on the very turn the attachment
+  arrived — the model would never see the image, only a summary of it — and after
+  compaction that same message would still sit above the trigger, re-firing
+  compaction on every following turn.
+- **At or above the largest per-file cap** (10 MB, for PDFs), or a single legal PDF
+  could never be sent.
+
+12 MB decoded is ~16.5 MB as base64; 16 MB is ~22 MB, leaving ~10 MB of the
+provider's 32 MB for text, tool definitions, and the system prompt.
+
+**Known imprecision, accepted.** The sum uses each descriptor's recorded `byteSize`,
+not a fresh `stat`. The agent can overwrite a file in its scratch space (that is the
+designed downsampling escape hatch), so a recorded size can be stale. Under-reporting
+delays compaction rather than losing data, and the ~2× headroom between the 16 MB
+trigger and the 32 MB limit absorbs it. Re-`stat`ing every attachment on every
+compaction decision would trade that headroom for I/O on the hot path.
+
+**Out of scope:** tool-result media still inlines base64 in message content
+(see [#388](https://github.com/Soulike/OmniCraft/issues/388)) and is not counted
+here. It is separately capped at 1 MB per block.
+
 ## Change-site checklist
 
 **Schemas**

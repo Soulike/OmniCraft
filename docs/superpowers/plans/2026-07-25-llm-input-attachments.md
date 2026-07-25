@@ -3778,3 +3778,225 @@ Checked against the spec after writing:
 - **Type consistency.** `LlmAttachment` (`{fileName, mediaType, byteSize}`) is used unchanged from Task 1 through Task 11. `ResolvedLlmAttachment` adds only `data: string | null`. `SaveAttachmentResult` / `OpenedAttachment` keep the shapes declared in Task 2 through the service and router layers. Every `agentAttachmentStore` method takes `scratchDirectory` first.
 - **Duplication removed after a design challenge.** The plan originally mandated copying the attachment service and the three route handlers into the coding module, justified by the existing `*-agent-session-service.ts` pair. That analogy was wrong: those two differ in real logic (coding validates a workspace), whereas the attachment paths differ only in which store resolves the id. The operations now live on `Agent` — which already owns the scratch directory and, per Task 4, already reads attachments for the LLM — with one shared service factory and one shared route registrar. The two thin bindings stay separate on purpose: they are the access boundary that stops a coding session id from reaching a chat session's attachments.
 - **No silent caps.** The 5 MB / 10 MB limits surface to the client as `413` with a reason, and to the model as a size in the compaction file list.
+
+## Task 12: Bound total request bytes (post-review)
+
+Added after the whole-branch review found that per-file caps do not bound a
+**request**, which carries every attachment still in history. See the spec's
+"Bounding total request bytes" section for the full reasoning.
+
+**Files:**
+
+- Modify: `apps/backend/src/agent-core/llm-session/compaction/compaction-constants.ts`
+- Modify: `apps/backend/src/agent-core/llm-session/compaction/llm-compaction-decision-service.ts` + its test
+- Modify: `packages/api-schema/src/chat/schema.ts` + its test
+- Modify: `apps/backend/src/dispatcher/helpers/attachment-routes.ts` (no change expected — read it to confirm the per-message check does not belong there)
+- Modify: `apps/backend/src/dispatcher/chat-agent-session/router.ts` and `coding-agent-session/router.ts`
+- Modify: `apps/backend/src/dispatcher/helpers/cache-control.ts` (the F3 SSE regression, below)
+- Modify: `apps/backend/src/agent-core/agent/attachments/agent-attachment-store.ts` (comment only, the F2-carried finding)
+
+**Interfaces:**
+
+```ts
+// compaction-constants.ts
+/** A single message's attachments may not exceed this. Strictly below
+ *  COMPACTION_TRIGGER_ATTACHMENT_BYTES, and at or above the largest per-file cap. */
+export const MAX_MESSAGE_ATTACHMENT_BYTES = 12 * 1024 * 1024;
+
+/** Total attachment bytes in history that force a compaction. */
+export const COMPACTION_TRIGGER_ATTACHMENT_BYTES = 16 * 1024 * 1024;
+```
+
+### The invariant
+
+`MAX_MESSAGE_ATTACHMENT_BYTES < COMPACTION_TRIGGER_ATTACHMENT_BYTES`, and
+`MAX_MESSAGE_ATTACHMENT_BYTES >= MAX_DOCUMENT_ATTACHMENT_BYTES` (10 MB).
+
+`LlmSession.sendMessages` appends the new message _before_ `compactBeforeModelCall`
+runs. If one legal message could reach the trigger alone, compaction would fire on
+the turn the attachment arrived (the model would see a summary, never the image),
+and would keep re-firing every turn afterwards because that message still exceeds
+the trigger. Encode the invariant as a compile-time or startup assertion so a future
+tuning edit cannot silently break it.
+
+- [ ] **Step 1: Write the failing decision-service tests**
+
+Append to `llm-compaction-decision-service.test.ts`. Use the file's existing fixture
+style; attachments carry only `{fileName, mediaType, byteSize}`.
+
+```ts
+describe('attachment byte pressure', () => {
+  const bigAttachment = (fileName: string, mb: number) => ({
+    fileName,
+    mediaType: 'application/pdf' as const,
+    byteSize: mb * 1024 * 1024,
+  });
+
+  it('compacts when history attachment bytes reach the threshold, even far below the token ratio', () => {
+    const decision = service.decide(
+      inputWith([
+        {
+          id: 'u1',
+          createdAt: 1,
+          role: 'user',
+          content: 'a',
+          attachments: [bigAttachment('a.pdf', 9)],
+        },
+        {
+          id: 'u2',
+          createdAt: 2,
+          role: 'user',
+          content: 'b',
+          attachments: [bigAttachment('b.pdf', 7)],
+        },
+      ]),
+    );
+    expect(decision.type).toBe('compact');
+  });
+
+  it('skips when attachment bytes are below the threshold and tokens are low', () => {
+    const decision = service.decide(
+      inputWith([
+        {
+          id: 'u1',
+          createdAt: 1,
+          role: 'user',
+          content: 'a',
+          attachments: [bigAttachment('a.pdf', 9)],
+        },
+      ]),
+    );
+    expect(decision.type).toBe('skip');
+  });
+
+  it('counts exactly at the threshold as pressure', () => {
+    const decision = service.decide(
+      inputWith([
+        {
+          id: 'u1',
+          createdAt: 1,
+          role: 'user',
+          content: 'a',
+          attachments: [bigAttachment('a.pdf', 16)],
+        },
+      ]),
+    );
+    expect(decision.type).toBe('compact');
+  });
+
+  it('ignores attachments on non-user messages and counts none for a compacted history', () => {
+    const decision = service.decide(
+      inputWith([
+        {
+          id: 's1',
+          createdAt: 1,
+          role: 'user',
+          content: 'summary',
+          attachments: [],
+        },
+      ]),
+    );
+    expect(decision.type).toBe('skip');
+  });
+
+  it('still skips an empty history regardless of byte pressure', () => {
+    expect(service.decide(inputWith([])).type).toBe('skip');
+  });
+});
+```
+
+- [ ] **Step 2: Run them to verify they fail**
+
+Run: `pnpm --filter @omnicraft/backend test src/agent-core/llm-session/compaction/llm-compaction-decision-service.test.ts`
+Expected: FAIL — the byte-pressure cases return `skip`.
+
+- [ ] **Step 3: Add the constants and the trigger**
+
+In `compaction-constants.ts`, add both constants with the doc comments from the
+Interfaces block above, plus a comment naming the invariant and why it exists.
+
+In `llm-compaction-decision-service.ts`, sum attachment bytes across `role: 'user'`
+messages and treat reaching `COMPACTION_TRIGGER_ATTACHMENT_BYTES` as pressure,
+alongside the existing token ratio. Keep the existing `messages.length === 0` guard
+ahead of returning `compact` — an empty history must still skip.
+
+- [ ] **Step 4: Run them to verify they pass**
+
+Run the same command. Expected: PASS.
+
+- [ ] **Step 5: Write the failing per-message cap tests**
+
+The cap is enforced where descriptors are resolved — the completions handler — so it
+sees real `byteSize` values from disk rather than client claims. Add a schema-level
+count guard too (`attachmentFileNames` gains `.max(10)`), which bounds the number of
+stat+sniff operations one request can force.
+
+Append to `packages/api-schema/src/chat/schema.test.ts`:
+
+```ts
+it('rejects more than ten attachment file names', () => {
+  const names = Array.from({length: 11}, (_, i) => `f${i.toString()}.png`);
+  expect(() =>
+    chatCompletionsRequestSchema.parse({
+      message: 'x',
+      attachmentFileNames: names,
+    }),
+  ).toThrow();
+});
+
+it('accepts exactly ten', () => {
+  const names = Array.from({length: 10}, (_, i) => `f${i.toString()}.png`);
+  expect(
+    chatCompletionsRequestSchema.parse({
+      message: 'x',
+      attachmentFileNames: names,
+    }).attachmentFileNames,
+  ).toHaveLength(10);
+});
+```
+
+- [ ] **Step 6: Enforce the per-message cap in both routers**
+
+After `resolve(...)` succeeds and before `sendCompletion`, sum
+`resolved.attachments[].byteSize`. Over `MAX_MESSAGE_ATTACHMENT_BYTES` →
+`StatusCodes.REQUEST_TOO_LONG` (413) with a body naming the limit and the actual
+total, and **do not start the turn**. Apply to both `chat-agent-session/router.ts`
+and `coding-agent-session/router.ts`.
+
+413 rather than 400: the request is well-formed, it is too large — the same code the
+upload endpoint already uses for an over-cap file.
+
+- [ ] **Step 7: Fix the F3 SSE Cache-Control regression**
+
+Making the `/api` middleware conditional let the two SSE routes' pre-existing
+`Cache-Control: no-cache` survive, where the old unconditional `ctx.set` had been
+silently upgrading them to `no-store`. Nobody asked for that downgrade — `no-cache`
+permits storing the conversation stream, `no-store` forbids it.
+
+Set `no-store` explicitly on the SSE routes in both
+`chat-agent-session/router.ts` and `coding-agent-session/router.ts` (replacing their
+`no-cache`), and add a case to `dispatcher/helpers/cache-control.test.ts` pinning
+that a handler-set `no-store` is left alone.
+
+- [ ] **Step 8: Fix the store's inaccurate security comment**
+
+`agent-attachment-store.ts` claims the residual risk is "a symlink planted at the
+leaf". That is not the full picture: `mkdir(recursive)` succeeds through a symlink at
+the `attachments` **directory** itself, and every subsequent open-by-path follows it.
+Reword to state what the code actually enforces. Do not add the directory check in
+this task — it is a separate decision.
+
+- [ ] **Step 9: Verify**
+
+Run: `pnpm typecheck:all && pnpm lint:all`
+Run: `pnpm --filter @omnicraft/backend test && pnpm --filter @omnicraft/api-schema test`
+Expected: all green.
+
+- [ ] **Step 10: Commit**
+
+```bash
+git add apps/backend/src packages/api-schema
+git commit -m "fix(agent-core): bound total attachment bytes per request"
+```
+
+---
