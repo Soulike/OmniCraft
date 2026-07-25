@@ -31,6 +31,10 @@ class AgentPersistence {
     return path.join(sessionsDir, id, 'scratch');
   }
 
+  attachmentsPath(sessionsDir: string, id: string): string {
+    return path.join(this.scratchPath(sessionsDir, id), 'attachments');
+  }
+
   persistSnapshot(
     sessionsDir: string,
     id: string,
