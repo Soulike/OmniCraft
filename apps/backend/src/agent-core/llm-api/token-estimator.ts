@@ -1,3 +1,4 @@
+import type {LlmAttachment} from '@omnicraft/tool-schemas';
 import {z} from 'zod';
 
 import type {AnyToolDefinition} from '../tool/types.js';
@@ -62,7 +63,13 @@ function estimateMessageTokens(
   message: LlmMessage | LlmRequestMessage,
 ): number {
   if (message.role === 'user') {
-    return estimateText(message.content);
+    return (
+      estimateText(message.content) +
+      message.attachments.reduce(
+        (sum, attachment) => sum + estimateAttachmentTokens(attachment),
+        0,
+      )
+    );
   }
   if (message.role === 'assistant') {
     let total = estimateText(message.content);
@@ -89,6 +96,12 @@ function estimateBlockTokens(block: ToolResultBlock): number {
     case 'document':
       return DOCUMENT_TOKEN_ESTIMATE;
   }
+}
+
+function estimateAttachmentTokens(attachment: LlmAttachment): number {
+  return attachment.mediaType === 'application/pdf'
+    ? DOCUMENT_TOKEN_ESTIMATE
+    : IMAGE_TOKEN_ESTIMATE;
 }
 
 function estimateToolTokens(tool: AnyToolDefinition): number {
