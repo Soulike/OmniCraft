@@ -2978,7 +2978,12 @@ Do not make the service layer its first one.
   ): AgentAttachmentService;
   ```
 
-  `ResolveAttachmentsResult` lives in `services/agent-attachments/` and is imported by `Agent`. Every service method returns `null` when the session does not exist, which the routers map to 404.
+  `ResolveAttachmentsResult` lives in **`agent-core/agent/attachments/`**, not in
+  `services/`: it is the return type of an `Agent` method, and the repo's layering
+  rule is Dispatcher → Service → Model/API, never reversed — `agent-core` importing
+  from `services/` would invert it. The service re-exports nothing; it imports the
+  type from `@/agent-core/agent/index.js` like any other consumer. Every service
+  method returns `null` when the session does not exist, which the routers map to 404.
 
 - [ ] **Step 1: Write the failing `Agent` tests**
 
@@ -3117,6 +3122,9 @@ import type {
   SaveAttachmentResult,
 } from '@/agent-core/agent/index.js';
 import type {AgentStore} from '@/models/agent-store/index.js';
+
+// ResolveAttachmentsResult comes from agent-core, not the other way round —
+// agent-core must never import from services/.
 
 export interface AgentAttachmentService {
   save(
