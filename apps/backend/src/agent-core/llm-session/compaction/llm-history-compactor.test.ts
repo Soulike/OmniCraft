@@ -50,6 +50,7 @@ describe('LlmHistoryCompactor', () => {
       config,
       messages,
       tools: [],
+      attachmentsDirectory: null,
     });
 
     expect(result.summary).toBe('summary text');
@@ -73,7 +74,12 @@ describe('LlmHistoryCompactor', () => {
     const compactor = createCompactor('');
 
     await expect(
-      compactor.compact({config, messages, tools: []}),
+      compactor.compact({
+        config,
+        messages,
+        tools: [],
+        attachmentsDirectory: null,
+      }),
     ).rejects.toThrow('Compaction summary is empty');
   });
 
@@ -86,8 +92,62 @@ describe('LlmHistoryCompactor', () => {
       config,
       messages: inputMessages,
       tools: [],
+      attachmentsDirectory: null,
     });
 
     expect(inputMessages).toEqual(originalMessages);
+  });
+
+  it('carries deduped attachments from the compacted history into the replacement', async () => {
+    // The recent-context slimmer already projects attachments into its own
+    // placeholders (covered by compaction-message-slimmer.test.ts) — stubbed
+    // here, same as `createCompactor` above, so this test isolates the
+    // attachment-section dedup behavior instead of re-asserting the slimmer's.
+    const messageSlimmer = new CompactionMessageSlimmer();
+    vi.spyOn(messageSlimmer, 'buildRecentContext').mockReturnValue({
+      content: 'recent context text',
+      sourceMessageCount: 2,
+    });
+    const compactor = new LlmHistoryCompactor({
+      summaryGenerator: {generate: () => Promise.resolve('summary')},
+      messageSlimmer,
+    });
+
+    const result = await compactor.compact({
+      messages: [
+        {
+          id: 'u1',
+          createdAt: 1,
+          role: 'user',
+          content: 'first',
+          attachments: [
+            {fileName: 'shot.png', mediaType: 'image/png', byteSize: 831_488},
+          ],
+        },
+        {
+          id: 'u2',
+          createdAt: 2,
+          role: 'user',
+          content: 'again',
+          attachments: [
+            {fileName: 'shot.png', mediaType: 'image/png', byteSize: 831_488},
+            {
+              fileName: 'invoice.pdf',
+              mediaType: 'application/pdf',
+              byteSize: 240_640,
+            },
+          ],
+        },
+      ],
+      tools: [],
+      attachmentsDirectory: '/data/sessions/x/scratch/attachments',
+    } as never);
+
+    const content = (result.replacementMessages[0]?.content ?? '') as string;
+    expect(content.match(/shot\.png/g)).toHaveLength(1);
+    expect(content).toContain('invoice.pdf');
+    // The replacement message itself carries no attachments — the model re-reads
+    // from disk rather than having them re-attached.
+    expect(result.replacementMessages[0]).toMatchObject({attachments: []});
   });
 });

@@ -106,29 +106,36 @@ export abstract class Agent {
 
     this.sessionsDir = options.sessionsDir ?? null;
 
+    const id = snapshot ? snapshot.id : crypto.randomUUID();
+    const scratchDirectory =
+      agentScratchDirectoryService.createScratchDirectory(this.sessionsDir, id);
+
     let providedWorkingDirectory: string | undefined;
     if (snapshot) {
       this.id = snapshot.id;
       this.title = snapshot.title;
       this.sseEventCount = snapshot.sseEventCount;
       providedWorkingDirectory = snapshot.options.workingDirectory;
-      this.llmSession = new LlmSession(getConfig, snapshot.llmSession, (a) =>
-        this.resolveAttachmentData(a),
+      this.llmSession = new LlmSession(
+        getConfig,
+        snapshot.llmSession,
+        (a) => this.resolveAttachmentData(a),
+        agentAttachmentStore.directory(scratchDirectory),
       );
       this.subagentRegistry = new SubagentRegistry();
     } else {
-      this.id = crypto.randomUUID();
+      this.id = id;
       providedWorkingDirectory = options.workingDirectory;
-      this.llmSession = new LlmSession(getConfig, undefined, (a) =>
-        this.resolveAttachmentData(a),
+      this.llmSession = new LlmSession(
+        getConfig,
+        undefined,
+        (a) => this.resolveAttachmentData(a),
+        agentAttachmentStore.directory(scratchDirectory),
       );
       this.subagentRegistry = new SubagentRegistry();
     }
 
-    this.scratchDirectory = agentScratchDirectoryService.createScratchDirectory(
-      this.sessionsDir,
-      this.id,
-    );
+    this.scratchDirectory = scratchDirectory;
     // A caller that provides no working directory has no project of its own, so
     // the agent works directly in its scratch space.
     this.workingDirectory = providedWorkingDirectory ?? this.scratchDirectory;

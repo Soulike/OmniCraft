@@ -1,6 +1,15 @@
+import path from 'node:path';
+
+import type {LlmAttachment} from '@omnicraft/tool-schemas';
+
+import {formatAttachmentSize} from './compaction-message-slimmer.js';
+
 export interface BuildCompactedMessageContentOptions {
   readonly summary: string;
   readonly recentContext: string;
+  readonly attachments: readonly LlmAttachment[];
+  /** Absolute attachments directory, or null when the session has no store. */
+  readonly attachmentsDirectory: string | null;
 }
 
 const CONTINUATION_INSTRUCTIONS =
@@ -21,6 +30,33 @@ export class CompactionPromptBuilder {
     ].join('\n');
   }
 
+  /**
+   * Tells the model the files it already saw are still readable. Names neither
+   * the source (a tool result lands in the same list once
+   * https://github.com/Soulike/OmniCraft/issues/388 ships) nor a specific tool
+   * (catalogs differ per agent, and restating the media size limit would
+   * duplicate a number read_file already interpolates from its own constant).
+   */
+  private buildAttachmentSection(
+    attachments: readonly LlmAttachment[],
+    attachmentsDirectory: string | null,
+  ): string[] {
+    if (attachments.length === 0 || attachmentsDirectory === null) return [];
+
+    return [
+      '',
+      '## Attachments you saw earlier in this conversation',
+      '',
+      'You have already seen these files. They were dropped from the context by',
+      'compaction, but they are still on disk — read them again if you need them.',
+      '',
+      ...attachments.map(
+        (attachment) =>
+          `- ${path.join(attachmentsDirectory, attachment.fileName)} — ${attachment.mediaType}, ${formatAttachmentSize(attachment.byteSize)}`,
+      ),
+    ];
+  }
+
   buildCompactedMessageContent(
     options: BuildCompactedMessageContentOptions,
   ): string {
@@ -32,6 +68,10 @@ export class CompactionPromptBuilder {
       '<recent_context>',
       options.recentContext,
       '</recent_context>',
+      ...this.buildAttachmentSection(
+        options.attachments,
+        options.attachmentsDirectory,
+      ),
       '',
       '<continuation_instructions>',
       CONTINUATION_INSTRUCTIONS,

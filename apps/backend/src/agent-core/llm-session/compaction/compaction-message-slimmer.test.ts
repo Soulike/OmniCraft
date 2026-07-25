@@ -205,4 +205,31 @@ describe('slimMessagesForSummary', () => {
       sourceMessageCount: 0,
     });
   });
+
+  it('projects user attachments to placeholders alongside the text', () => {
+    const result = compactionMessageSlimmer.slimMessagesForSummary(
+      [
+        {
+          id: 'u1',
+          createdAt: 1,
+          role: 'user',
+          content: 'what is this',
+          attachments: [
+            {
+              fileName: 'invoice.pdf',
+              mediaType: 'application/pdf',
+              byteSize: 240_640,
+            },
+          ],
+        },
+      ],
+      [],
+    );
+
+    const parsed = JSON.parse(result[0] ?? '{}') as {content: string};
+    expect(parsed.content).toContain('what is this');
+    expect(parsed.content).toContain(
+      '[attachment: invoice.pdf (application/pdf, 235 KB)]',
+    );
+  });
 });

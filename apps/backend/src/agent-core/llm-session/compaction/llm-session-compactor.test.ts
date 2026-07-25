@@ -121,6 +121,7 @@ function createInput(commit = vi.fn()) {
     messages,
     usage,
     latestUsageInputMessageCount: 2,
+    attachmentsDirectory: null,
     options,
     commit,
   };
@@ -198,6 +199,7 @@ describe('LlmSessionCompactor', () => {
       config,
       messages,
       tools: options.tools,
+      attachmentsDirectory: null,
       signal: controller.signal,
     });
     expect(estimateTokensSpy).toHaveBeenCalledWith({

@@ -40,6 +40,8 @@ export interface LlmHistoryCompactionInput {
   readonly config: Readonly<LlmConfig>;
   readonly messages: readonly LlmMessage[];
   readonly tools: readonly AnyToolDefinition[];
+  /** Absolute attachments directory, or null when the session has no store. */
+  readonly attachmentsDirectory: string | null;
   readonly signal?: AbortSignal;
 }
 
@@ -63,5 +65,7 @@ export interface LlmSessionCompactionPatch {
 }
 
 export interface CompactLlmSessionIfNeededInput extends LlmCompactionDecisionInput {
+  /** Absolute attachments directory, or null when the session has no store. */
+  readonly attachmentsDirectory: string | null;
   commit(patch: LlmSessionCompactionPatch): void | Promise<void>;
 }

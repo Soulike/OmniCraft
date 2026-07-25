@@ -60,15 +60,18 @@ export class LlmSession {
   private latestUsageInputMessageCount: number | null = null;
   private readonly getConfig: () => Promise<LlmConfig>;
   private readonly resolveAttachment: AttachmentResolver | null;
+  private readonly attachmentsDirectory: string | null;
   private readonly mutex = new Mutex();
 
   constructor(
     getConfig: () => Promise<LlmConfig>,
     snapshot?: LlmSessionSnapshot,
     resolveAttachment?: AttachmentResolver,
+    attachmentsDirectory?: string,
   ) {
     this.getConfig = getConfig;
     this.resolveAttachment = resolveAttachment ?? null;
+    this.attachmentsDirectory = attachmentsDirectory ?? null;
 
     if (snapshot) {
       this.id = snapshot.id;
@@ -290,6 +293,7 @@ export class LlmSession {
       messages: this.messages,
       usage: this.usage,
       latestUsageInputMessageCount: this.latestUsageInputMessageCount,
+      attachmentsDirectory: this.attachmentsDirectory,
       options,
       commit: (patch) => {
         this.applyCompactionPatch(patch);
