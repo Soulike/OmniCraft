@@ -1,8 +1,14 @@
-# User-uploaded images and PDFs (backend)
+# Image and PDF attachments for LLM input (backend)
 
 - **Issue:** [#378 — Image / PDF Support in Chat Input](https://github.com/Soulike/OmniCraft/issues/378)
+- **Follow-up (tool results adopt the same store):** [#388](https://github.com/Soulike/OmniCraft/issues/388)
 - **Date:** 2026-07-25
 - **Status:** Approved design, ready for implementation plan
+
+This spec builds a **general mechanism for attaching binary input to an LLM
+request**, and wires up its first producer: a user uploading a file in the chat
+input. The store, the schema, and the resolution seam are deliberately
+source-agnostic — see [The attachment store is source-agnostic](#the-attachment-store-is-source-agnostic).
 
 ## Problem
 
@@ -53,6 +59,10 @@ entirely the user-message side of our own code.
   assumption a self-hosted deploy may not satisfy).
 - **Cross-session attachment dedup (content-addressed store)** — no evidence it is
   needed.
+- **Migrating tool-result media onto this store** — [#388](https://github.com/Soulike/OmniCraft/issues/388).
+  The right end state, but it changes shipped code and needs a second snapshot
+  migration. Sequenced after this spec so the store is first proven on a path with
+  no migration and no existing behavior at risk.
 - **Scheduled orphan collection** — an explicit `DELETE` endpoint plus the existing
   recursive session delete cover the realistic cases.
 
@@ -134,24 +144,52 @@ detail. The frontend only receives descriptors and builds
 Session deletion already does `rm -rf` on the session directory
 (`main-agent-store.ts` `deleteFromDisk`), so attachment lifecycle closes for free.
 
+## The attachment store is source-agnostic
+
+The store is **not** a user-upload feature that happens to be reusable. It is the
+session's blob store for anything destined to become binary LLM input, and a user
+upload is simply its first producer. Concretely, this constrains the
+implementation:
+
+- **The store knows only `{fileName, mediaType, byteSize}`.** No `uploadedBy`, no
+  `source`, no user-specific field anywhere in `LlmAttachment` or in the store's
+  API. If a later producer needs provenance, it belongs on the message, not on the
+  attachment.
+- **Naming carries no "user".** The module is
+  `agent-core/agent/attachments/agent-attachment-store.ts`, alongside
+  `agent-persistence.ts` and `agent-scratch-directory-service.ts`; the type is
+  `LlmAttachment`, not `UserAttachment`.
+- **The store's write API takes a stream and a desired name**, not an HTTP request.
+  The HTTP upload endpoint is a thin caller. A producer holding in-memory bytes
+  (an MCP tool result) must be able to use the same API without going through HTTP.
+- **Name collisions are resolved by the store, not the caller** — every producer
+  writes into one flat namespace per session, so uniquifying has to live at the
+  bottom.
+
+Anticipated producers beyond user upload: tool results
+([#388](https://github.com/Soulike/OmniCraft/issues/388)), and any future
+"attach a workspace file" or MCP-resource path. Building these constraints in now
+costs nothing; retrofitting them after a `UserAttachment` type has spread across
+eight layers is a rename through the whole stack.
+
 ## Types
 
 ### Persisted (`agent-core/llm-api/types.ts`)
 
 ```ts
-export const userAttachmentSchema = z.object({
+export const llmAttachmentSchema = z.object({
   fileName: z.string().min(1),
   mediaType: z.union([imageMediaTypeSchema, documentMediaTypeSchema]),
   byteSize: z.number().int().nonnegative(),
 });
 
-export type UserAttachment = z.infer<typeof userAttachmentSchema>;
+export type LlmAttachment = z.infer<typeof llmAttachmentSchema>;
 
 export const llmUserMessageSchema = llmMessageBaseSchema.extend({
   role: z.literal('user'),
   // Defaulted so snapshots written before attachments still validate, restoring
   // as an empty list — same convention as `todos` in agentSnapshotSchema.
-  attachments: z.array(userAttachmentSchema).default([]),
+  attachments: z.array(llmAttachmentSchema).default([]),
 });
 ```
 
@@ -161,7 +199,7 @@ messages.
 ### Request-time (not persisted, no schema needed)
 
 ```ts
-export interface ResolvedUserAttachment extends UserAttachment {
+export interface ResolvedLlmAttachment extends LlmAttachment {
   /** base64 of the file; `null` when the file is no longer on disk. */
   readonly data: string | null;
 }
@@ -170,7 +208,7 @@ export interface LlmRequestUserMessage extends Omit<
   LlmUserMessage,
   'attachments'
 > {
-  readonly attachments: readonly ResolvedUserAttachment[];
+  readonly attachments: readonly ResolvedLlmAttachment[];
 }
 
 export type LlmRequestMessage =
@@ -192,7 +230,7 @@ as the failure fallback inside both `token-count.ts` adapters with **resolved**
 messages. It only ever reads `mediaType`, never `data`. So
 `PromptTokenInput.messages` becomes
 `readonly (LlmMessage | LlmRequestMessage)[]` — a union, because neither type is
-assignable to the other (`data` is required on `ResolvedUserAttachment`, and a
+assignable to the other (`data` is required on `ResolvedLlmAttachment`, and a
 `readonly` element-type widening does not hold in the other direction). Resolving
 attachments merely to count tokens would be pointless work: the estimate is a
 bounded per-type constant.
@@ -202,15 +240,15 @@ bounded per-type constant.
 `LlmSession` takes an injected resolver:
 
 ```ts
-type AttachmentResolver = (
-  attachment: UserAttachment,
-) => Promise<string | null>; // base64, or null when missing
+type AttachmentResolver = (attachment: LlmAttachment) => Promise<string | null>; // base64, or null when missing
 ```
 
 `Agent` binds one to its own attachments directory and passes it down.
 `agent-core` therefore never reaches up into `services/`, and tests inject a fake.
-A `LlmSession` with no resolver (e.g. a sub-agent, which cannot receive uploads)
-resolves everything to `null` — and its user messages have no attachments anyway.
+A `LlmSession` constructed without a resolver resolves everything to `null`. In this
+spec that covers sub-agents, which have no producer wired up — but the resolver is a
+constructor parameter rather than a `MainAgent`-only concern precisely so #388 can
+give sub-agents one without reshaping the seam.
 
 `data === null` renders as a text block `[attachment missing: invoice.pdf]` rather
 than being silently dropped, so the model is told rather than confused.
@@ -274,7 +312,7 @@ POST   /api/chat/session/:id/completions
 ```
 
 **`completions` takes file names, not descriptors.** The **service layer** turns
-each name into a `UserAttachment` by re-stating and re-sniffing the file on disk
+each name into a `LlmAttachment` by re-stating and re-sniffing the file on disk
 before calling `Agent.enqueueUserTurn`, so a client cannot misreport `mediaType` or
 `byteSize`, and the descriptor persisted in the snapshot always matches the bytes.
 An unknown or unreadable name is a 400 and the turn does not start.
@@ -327,7 +365,7 @@ placeholder. Guarding against this is not worth the complexity.
 - `Agent.enqueueUserTurn(userMessage, attachments)` → `AgentTurnRunner` →
   `LlmSession.sendUserMessage(content, attachments, …)`
 - `sseMessageStartEventSchema` gains
-  `attachments: z.array(userAttachmentSchema).default([])`. Old event-log lines keep
+  `attachments: z.array(llmAttachmentSchema).default([])`. Old event-log lines keep
   parsing. No base64 and no absolute paths cross this boundary.
 - Title generation is unaffected: it reads `event.content`, which is still plain
   text, and `message` is still `.min(1)`.
@@ -350,7 +388,7 @@ Base64 never enters a compaction summary, and character-based truncation never s
 binary.
 
 **`llm-history-compactor.ts`** — before replacing history, collect every
-`UserAttachment` from the messages being compacted, dedupe by `fileName`, and append
+`LlmAttachment` from the messages being compacted, dedupe by `fileName`, and append
 to the synthetic message:
 
 ```
@@ -381,7 +419,7 @@ Reference storage already keeps base64 out of `content`, so the pathological
 "1 MB PDF estimated as 350 000 tokens" case cannot arise — but without this the
 estimate under-counts and compaction fires too late.
 
-## Two caps, deliberately different
+## Two caps, deliberately different (until #388)
 
 | Cap                                         | Value | Protects                                       |
 | ------------------------------------------- | ----- | ---------------------------------------------- |
@@ -390,14 +428,22 @@ estimate under-counts and compaction fires too late.
 | Upload cap (PDF)                            | 10 MB | Per-request bytes only                         |
 
 Raising `MAX_INLINE_MEDIA_BYTES` to match would let a 5 MB MCP tool image inline
-itself into every snapshot write — precisely what that cap exists to prevent. They
-protect different things and stay different.
+itself into every snapshot write — precisely what that cap exists to prevent. As
+long as tool-result media stays inline, the two protect different things and stay
+different.
 
 The consequence is explicit and acceptable: an attachment over 1 MB **cannot be
 re-read directly** after compaction; `read_file` fails with its existing actionable
 message telling the agent to downsample or extract pages first, which it can do with
 `run_command` inside the scratch space. The compaction path list carries each
 file's size so the model knows before it tries.
+
+**This whole section is temporary.** Once
+[#388](https://github.com/Soulike/OmniCraft/issues/388) moves tool-result media onto
+this store, no persisted base64 remains, `MAX_INLINE_MEDIA_BYTES` loses its
+snapshot-protecting job, and the caps collapse into a single per-request budget —
+taking the "cannot be re-read after compaction" wart with them. It is the main
+reason #388 is worth doing.
 
 Image sizing rationale: Anthropic's per-image limit is 5 MB, and image token cost is
 already flat (`IMAGE_TOKEN_ESTIMATE = 1600`) because providers downsample anything
@@ -410,7 +456,7 @@ is tracked in [#373](https://github.com/Soulike/OmniCraft/issues/373).
 
 **Schemas**
 
-- `agent-core/llm-api/types.ts` — `userAttachmentSchema`, `llmUserMessageSchema.attachments`,
+- `agent-core/llm-api/types.ts` — `llmAttachmentSchema`, `llmUserMessageSchema.attachments`,
   `LlmRequestMessage`, `LlmCompletionOptions` / `LlmTokenCountOptions`
 - `agent-core/llm-api/token-estimator.ts` — `PromptTokenInput.messages` widened to the
   `LlmMessage | LlmRequestMessage` union; user-message attachment term
@@ -428,9 +474,11 @@ is tracked in [#373](https://github.com/Soulike/OmniCraft/issues/373).
 **Storage + service**
 
 - `agent-core/agent/persistence/agent-persistence.ts` — `attachmentsPath`
-- new `agent-core/agent/attachments/` — save from stream, resolve to base64, delete,
-  path safety
-- `services/{chat,coding}-agent-session/` — upload / download / delete delegation
+- new `agent-core/agent/attachments/agent-attachment-store.ts` — save from a stream,
+  resolve to base64, delete, uniquify, path safety. Source-agnostic (see
+  [The attachment store is source-agnostic](#the-attachment-store-is-source-agnostic)).
+- `services/{chat,coding}-agent-session/` — upload / download / delete delegation,
+  and name → `LlmAttachment` resolution for the completions request
 
 **Dispatcher**
 
@@ -443,7 +491,6 @@ is tracked in [#373](https://github.com/Soulike/OmniCraft/issues/373).
 - `llm-session/llm-session.ts` — `sendUserMessage` signature, resolver, resolution
   before `streamCompletion`
 - `agent-core/agent/agent.ts`, `agent-turn-runner.ts` — thread `attachments`
-- `llm-api/token-estimator.ts` — user-message attachment term
 - `llm-session/compaction/compaction-message-slimmer.ts`, `llm-history-compactor.ts`
 
 ## Testing strategy
