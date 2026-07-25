@@ -2333,7 +2333,9 @@ In `apps/backend/src/agent-core/agent/agent.ts`, widen the four methods that car
   }
 ```
 
-`runAgentLoop` is `protected` — grep for overrides (`grep -rn "runAgentLoop" apps/backend/src`) and update every subclass signature to match, or the override silently stops matching.
+**Nothing overrides `runAgentLoop`.** It is `protected` solely so the `UsageTestAgent` subclass in `agent-core/agent/agent.test.ts:50-54` can call it. Adding `attachments` as the **middle**, required parameter therefore breaks exactly one other call site — that test's `this.runAgentLoop(userMessage, new AbortController().signal)` — as a loud type error, not a silent mismatch. Update it to pass `[]`.
+
+Middle-and-required rather than trailing-with-a-default is deliberate: with only two call sites, a future caller silently sending no attachments costs more than editing one test line.
 
 - [ ] **Step 9: Run the agent tests to verify they pass**
 
