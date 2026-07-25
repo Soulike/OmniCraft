@@ -2,6 +2,7 @@ import type {
   SseCompactionReason,
   SseContextCompactionEvent,
 } from '@omnicraft/sse-events';
+import type {LlmAttachment} from '@omnicraft/tool-schemas';
 import {z} from 'zod';
 
 import type {ToolResultBlock} from '../llm-api/index.js';
@@ -47,6 +48,15 @@ export interface ToolResult {
   content: ToolResultBlock[];
   status: 'success' | 'failure';
 }
+
+/**
+ * Materializes an attachment's bytes as base64 for a provider call, or `null`
+ * when the file is no longer on disk. Injected so `agent-core` never reaches
+ * up into the service layer, and so tests can supply a fake.
+ */
+export type AttachmentResolver = (
+  attachment: LlmAttachment,
+) => Promise<string | null>;
 
 export interface LlmCompactionOptions {
   readonly reason: SseCompactionReason;

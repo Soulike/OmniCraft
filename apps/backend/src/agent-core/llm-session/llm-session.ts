@@ -2,6 +2,7 @@ import assert from 'node:assert';
 import crypto from 'node:crypto';
 
 import type {SseContextCompactionEvent} from '@omnicraft/sse-events';
+import type {LlmAttachment} from '@omnicraft/tool-schemas';
 
 import {Mutex} from '@/helpers/mutex.js';
 
@@ -22,6 +23,7 @@ import {
 import {createEmptyLlmSessionUsage} from './helpers.js';
 import {sanitizeReminderContent} from './sanitize-reminder.js';
 import type {
+  AttachmentResolver,
   LlmCompactionMetadata,
   LlmCompactionOptions,
   LlmSessionEventStream,
@@ -57,13 +59,16 @@ export class LlmSession {
   /** Number of messages covered by the latest provider input-token usage. */
   private latestUsageInputMessageCount: number | null = null;
   private readonly getConfig: () => Promise<LlmConfig>;
+  private readonly resolveAttachment: AttachmentResolver | null;
   private readonly mutex = new Mutex();
 
   constructor(
     getConfig: () => Promise<LlmConfig>,
     snapshot?: LlmSessionSnapshot,
+    resolveAttachment?: AttachmentResolver,
   ) {
     this.getConfig = getConfig;
+    this.resolveAttachment = resolveAttachment ?? null;
 
     if (snapshot) {
       this.id = snapshot.id;
@@ -101,13 +106,14 @@ export class LlmSession {
     tools: readonly AnyToolDefinition[],
     systemPrompt: string,
     signal?: AbortSignal,
+    attachments: readonly LlmAttachment[] = [],
   ): SendUserMessageResult {
     const userMessage = {
       id: crypto.randomUUID(),
       createdAt: Date.now(),
       role: 'user' as const,
       content,
-      attachments: [],
+      attachments: [...attachments],
     };
     return {
       stream: this.sendMessages([userMessage], tools, systemPrompt, signal),
@@ -300,20 +306,26 @@ export class LlmSession {
   }
 
   /**
-   * Projects persisted history onto the request-time shape. Attachment bytes are
-   * materialized here and never stored, so the snapshot stays free of base64.
+   * Projects persisted history onto the request-time shape, materializing
+   * attachment bytes. Nothing here is stored, so the snapshot stays free of
+   * base64. History is re-sent on every tool round, so this re-reads each
+   * attachment per round — see the plan's "Tunables" note before adding a cache.
    */
-  private toRequestMessages(): LlmRequestMessage[] {
-    return this.messages.map((message) => {
-      if (message.role !== 'user') return message;
-      return {
-        ...message,
-        attachments: message.attachments.map((attachment) => ({
-          ...attachment,
-          data: null,
-        })),
-      };
-    });
+  private async toRequestMessages(): Promise<LlmRequestMessage[]> {
+    return Promise.all(
+      this.messages.map(async (message): Promise<LlmRequestMessage> => {
+        if (message.role !== 'user') return message;
+        const attachments = await Promise.all(
+          message.attachments.map(async (attachment) => ({
+            ...attachment,
+            data: this.resolveAttachment
+              ? await this.resolveAttachment(attachment)
+              : null,
+          })),
+        );
+        return {...message, attachments};
+      }),
+    );
   }
 
   /**
@@ -328,9 +340,10 @@ export class LlmSession {
   ): LlmSessionEventStream {
     const llmConfig = await this.getConfig();
     const inputMessageCount = this.messages.length;
+    const messages = await this.toRequestMessages();
     const eventStream = llmApi.streamCompletion({
       config: llmConfig,
-      messages: this.toRequestMessages(),
+      messages,
       systemPrompt: systemPrompt || undefined,
       tools,
       signal,

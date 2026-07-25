@@ -6,6 +6,7 @@ import type {
   SseEventCursorEntry,
   SseSessionTitleEvent,
 } from '@omnicraft/sse-events';
+import type {LlmAttachment} from '@omnicraft/tool-schemas';
 
 import {Mutex} from '@/helpers/mutex.js';
 import {logger} from '@/logger.js';
@@ -17,6 +18,7 @@ import type {AnyToolDefinition} from '../tool/index.js';
 import {AgentRuntimeState} from './agent-runtime-state.js';
 import {agentScratchDirectoryService} from './agent-scratch-directory-service.js';
 import {agentTurnRunner} from './agent-turn-runner.js';
+import {agentAttachmentStore} from './attachments/index.js';
 import type {AgentSseLogReaderOptions} from './events/agent-sse-log.js';
 import {AgentSseLog} from './events/agent-sse-log.js';
 import {agentPersistence} from './persistence/agent-persistence.js';
@@ -110,12 +112,16 @@ export abstract class Agent {
       this.title = snapshot.title;
       this.sseEventCount = snapshot.sseEventCount;
       providedWorkingDirectory = snapshot.options.workingDirectory;
-      this.llmSession = new LlmSession(getConfig, snapshot.llmSession);
+      this.llmSession = new LlmSession(getConfig, snapshot.llmSession, (a) =>
+        this.resolveAttachmentData(a),
+      );
       this.subagentRegistry = new SubagentRegistry();
     } else {
       this.id = crypto.randomUUID();
       providedWorkingDirectory = options.workingDirectory;
-      this.llmSession = new LlmSession(getConfig);
+      this.llmSession = new LlmSession(getConfig, undefined, (a) =>
+        this.resolveAttachmentData(a),
+      );
       this.subagentRegistry = new SubagentRegistry();
     }
 
@@ -337,6 +343,20 @@ export abstract class Agent {
 
   private resolveTierConfig(tier: ModelTier): Promise<LlmConfig> {
     return this.getTierConfig ? this.getTierConfig(tier) : this.getConfig();
+  }
+
+  /**
+   * Reads an attachment's bytes from this session's store. An arrow closure is
+   * used at the LlmSession call sites because `scratchDirectory` is assigned
+   * after the session is constructed — resolution only ever happens later.
+   */
+  private resolveAttachmentData(
+    attachment: LlmAttachment,
+  ): Promise<string | null> {
+    return agentAttachmentStore.readBase64(
+      this.scratchDirectory,
+      attachment.fileName,
+    );
   }
 
   protected runAgentLoop(

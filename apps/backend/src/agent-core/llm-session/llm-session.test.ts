@@ -1,8 +1,12 @@
+import assert from 'node:assert';
+
 import type {SseContextCompactionEvent} from '@omnicraft/sse-events';
-import {afterEach, describe, expect, it, vi} from 'vitest';
+import type {LlmAttachment} from '@omnicraft/tool-schemas';
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 
 import {
   llmApi,
+  type LlmCompletionOptions,
   type LlmConfig,
   type LlmEventStream,
   type LlmMessage,
@@ -26,6 +30,8 @@ const CONFIG: LlmConfig = {
   maxContextTokens: 200_000,
   maxOutputTokens: 32_000,
 };
+
+const getConfig = () => Promise.resolve(CONFIG);
 
 const startEvent: SseContextCompactionEvent = {
   type: 'context-compaction-start',
@@ -429,5 +435,92 @@ describe('LlmSession usage', () => {
     ).rejects.toThrow('provider failed after usage');
 
     expect(session.getUsage()).toEqual(emptyUsage());
+  });
+});
+
+describe('attachment resolution', () => {
+  let streamCompletionSpy: ReturnType<typeof armStreamCompletion>;
+
+  function armStreamCompletion() {
+    return vi.spyOn(llmApi, 'streamCompletion').mockReturnValue(normalStream());
+  }
+
+  /** Reads back the options the armed `streamCompletion` spy was last called with. */
+  function capturedCompletionOptions(): LlmCompletionOptions {
+    const lastCall = streamCompletionSpy.mock.lastCall;
+    assert(lastCall, 'llmApi.streamCompletion was not called');
+    return lastCall[0];
+  }
+
+  beforeEach(() => {
+    streamCompletionSpy = armStreamCompletion();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('materializes base64 for the request without persisting it', async () => {
+    const resolveAttachment = vi.fn((attachment: LlmAttachment) =>
+      Promise.resolve(attachment.fileName === 'shot.png' ? 'AAA=' : null),
+    );
+    const session = new LlmSession(getConfig, undefined, resolveAttachment);
+
+    const {stream} = session.sendUserMessage('look', [], '', undefined, [
+      {fileName: 'shot.png', mediaType: 'image/png', byteSize: 3},
+    ]);
+    for await (const _event of stream) {
+      // drain
+    }
+
+    const sent = capturedCompletionOptions();
+    expect(sent.messages[0]).toMatchObject({
+      role: 'user',
+      content: 'look',
+      attachments: [
+        {fileName: 'shot.png', mediaType: 'image/png', data: 'AAA='},
+      ],
+    });
+
+    // The snapshot keeps a reference only — never the bytes.
+    const snapshot = session.toSnapshot();
+    expect(snapshot.messages[0]).toMatchObject({
+      attachments: [
+        {fileName: 'shot.png', mediaType: 'image/png', byteSize: 3},
+      ],
+    });
+    expect(JSON.stringify(snapshot)).not.toContain('AAA=');
+  });
+
+  it('resolves a vanished file to null so the adapter can flag it', async () => {
+    const session = new LlmSession(getConfig, undefined, () =>
+      Promise.resolve(null),
+    );
+
+    const {stream} = session.sendUserMessage('look', [], '', undefined, [
+      {fileName: 'gone.png', mediaType: 'image/png', byteSize: 3},
+    ]);
+    for await (const _event of stream) {
+      // drain
+    }
+
+    expect(capturedCompletionOptions().messages[0]).toMatchObject({
+      attachments: [{fileName: 'gone.png', data: null}],
+    });
+  });
+
+  it('resolves nothing when no resolver was injected', async () => {
+    const session = new LlmSession(getConfig);
+
+    const {stream} = session.sendUserMessage('look', [], '', undefined, [
+      {fileName: 'shot.png', mediaType: 'image/png', byteSize: 3},
+    ]);
+    for await (const _event of stream) {
+      // drain
+    }
+
+    expect(capturedCompletionOptions().messages[0]).toMatchObject({
+      attachments: [{fileName: 'shot.png', data: null}],
+    });
   });
 });
