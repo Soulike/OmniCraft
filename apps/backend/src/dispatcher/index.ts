@@ -14,7 +14,12 @@ const apiRouter = new Router({prefix: '/api'});
 
 apiRouter.use(async (ctx, next) => {
   await next();
-  ctx.set('Cache-Control', 'no-store');
+  // Only the default. A handler that sets its own policy — e.g. the attachment
+  // download endpoint, whose bytes are immutable for a given name — must not be
+  // overwritten, and this middleware runs after the handler.
+  if (ctx.response.get('Cache-Control') === '') {
+    ctx.set('Cache-Control', 'no-store');
+  }
 });
 
 apiRouter.use(

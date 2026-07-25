@@ -21,6 +21,10 @@ export {
   sessionMetadataSchema,
   type SubmitToolResponseRequest,
   submitToolResponseRequestSchema,
+  type UploadAttachmentQuery,
+  uploadAttachmentQuerySchema,
+  type UploadAttachmentResponse,
+  uploadAttachmentResponseSchema,
 } from './chat/schema.js';
 export {
   type GetWorkspacesResponse,

@@ -6,6 +6,7 @@ import {
   createSessionRequestSchema,
   listSessionsResponseSchema,
   sessionMetadataSchema,
+  uploadAttachmentQuerySchema,
 } from './schema.js';
 
 // valid UUID (sessionIdSchema = z.uuid())
@@ -90,5 +91,48 @@ describe('sessionMetadataSchema', () => {
       total: 1,
     });
     expect(parsed.sessions[0].isWaitingForInput).toBe(true);
+  });
+});
+
+describe('chatCompletionsRequestSchema attachments', () => {
+  it('defaults attachmentFileNames to an empty list', () => {
+    const parsed = chatCompletionsRequestSchema.parse({message: 'hello'});
+    expect(parsed.attachmentFileNames).toEqual([]);
+  });
+
+  it('accepts a list of file names', () => {
+    const parsed = chatCompletionsRequestSchema.parse({
+      message: 'look',
+      attachmentFileNames: ['shot.png', 'invoice.pdf'],
+    });
+    expect(parsed.attachmentFileNames).toEqual(['shot.png', 'invoice.pdf']);
+  });
+
+  it('still requires a non-empty message even with attachments', () => {
+    expect(() =>
+      chatCompletionsRequestSchema.parse({
+        message: '',
+        attachmentFileNames: ['shot.png'],
+      }),
+    ).toThrow();
+  });
+
+  it('rejects an empty file name', () => {
+    expect(() =>
+      chatCompletionsRequestSchema.parse({
+        message: 'look',
+        attachmentFileNames: [''],
+      }),
+    ).toThrow();
+  });
+});
+
+describe('uploadAttachmentQuerySchema', () => {
+  it('requires a non-empty name', () => {
+    expect(uploadAttachmentQuerySchema.parse({name: 'a.png'}).name).toBe(
+      'a.png',
+    );
+    expect(() => uploadAttachmentQuerySchema.parse({})).toThrow();
+    expect(() => uploadAttachmentQuerySchema.parse({name: ''})).toThrow();
   });
 });

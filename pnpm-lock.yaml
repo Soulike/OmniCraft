@@ -872,6 +872,9 @@ importers:
       '@omnicraft/settings-schema':
         specifier: workspace:^
         version: link:../settings-schema
+      '@omnicraft/tool-schemas':
+        specifier: workspace:^
+        version: link:../tool-schemas
       zod:
         specifier: 'catalog:'
         version: 4.4.3

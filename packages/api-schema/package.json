@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@omnicraft/settings-schema": "workspace:^",
+    "@omnicraft/tool-schemas": "workspace:^",
     "zod": "catalog:"
   },
   "devDependencies": {

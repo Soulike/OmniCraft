@@ -1,3 +1,4 @@
+import {llmAttachmentSchema} from '@omnicraft/tool-schemas';
 import {z} from 'zod';
 
 import {sessionIdSchema} from '../agent-id/schema.js';
@@ -26,6 +27,10 @@ export type CreateSessionResponse = z.infer<typeof createSessionResponseSchema>;
 /** Schema for the POST /chat/session/:id/completions request body. */
 export const chatCompletionsRequestSchema = z.strictObject({
   message: z.string().min(1),
+  // Names only. The server re-stats and re-sniffs each file, so a client cannot
+  // misreport a media type or size. Text is always required — an attachment
+  // never substitutes for it.
+  attachmentFileNames: z.array(z.string().min(1)).default([]),
 });
 
 export type ChatCompletionsRequest = z.infer<
@@ -46,6 +51,24 @@ export const submitToolResponseRequestSchema = z.object({
 
 export type SubmitToolResponseRequest = z.infer<
   typeof submitToolResponseRequestSchema
+>;
+
+/** Schema for the POST /chat|coding/session/:id/attachments query string. */
+export const uploadAttachmentQuerySchema = z.object({
+  name: z.string().min(1),
+});
+
+export type UploadAttachmentQuery = z.infer<typeof uploadAttachmentQuerySchema>;
+
+/**
+ * Schema for the POST /chat|coding/session/:id/attachments response body. The
+ * stored name may differ from the requested one — it is sanitized, given the
+ * extension of the sniffed media type, and uniquified against collisions.
+ */
+export const uploadAttachmentResponseSchema = llmAttachmentSchema;
+
+export type UploadAttachmentResponse = z.infer<
+  typeof uploadAttachmentResponseSchema
 >;
 
 /** Schema for a single session entry in the list response. */
