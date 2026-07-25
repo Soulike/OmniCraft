@@ -1,5 +1,6 @@
 import type {SessionMetadata} from '@omnicraft/api-schema';
 import type {SseEventCursorEntry} from '@omnicraft/sse-events';
+import type {LlmAttachment} from '@omnicraft/tool-schemas';
 
 import {MainAgent} from '@/agent/agents/index.js';
 import type {AgentSseLogReaderOptions} from '@/agent-core/agent/index.js';
@@ -37,10 +38,14 @@ export const chatAgentSessionService = {
    * Sends a user message to the agent. The agent runs in the background;
    * use {@link subscribe} to read events. Returns false if agent not found.
    */
-  async sendCompletion(agentId: string, userMessage: string): Promise<boolean> {
+  async sendCompletion(
+    agentId: string,
+    userMessage: string,
+    attachments: readonly LlmAttachment[] = [],
+  ): Promise<boolean> {
     const agent = await MainAgentStore.getInstance().get(agentId);
     if (!agent) return false;
-    agent.enqueueUserTurn(userMessage);
+    agent.enqueueUserTurn(userMessage, attachments);
     return true;
   },
 

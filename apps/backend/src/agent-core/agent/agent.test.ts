@@ -2,6 +2,7 @@ import crypto from 'node:crypto';
 import {mkdtempSync, realpathSync, rmSync, statSync} from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import {Readable} from 'node:stream';
 
 import type {SseEvent} from '@omnicraft/sse-events';
 import {afterEach, describe, expect, it, vi} from 'vitest';
@@ -34,6 +35,16 @@ const LIGHT_CONFIG: LlmConfig = {
   ...MAIN_CONFIG,
   model: 'light-model',
 };
+
+// Real PNG magic bytes plus padding — the store sniffs content, never the
+// declared name. Matches the fixture style in agent-attachment-store.test.ts.
+const PNG = Buffer.concat([
+  Buffer.from([
+    0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d,
+    0x49, 0x48, 0x44, 0x52,
+  ]),
+  Buffer.alloc(48),
+]);
 
 function emptyUsage() {
   return {
@@ -83,6 +94,14 @@ function testAgentOptions() {
 function track<T extends Agent>(agent: T): T {
   tmpDirsToCleanup.add(path.dirname(agent.getScratchDirectory()));
   return agent;
+}
+
+/** A minimally-configured, disposable agent for tests that only need its
+ *  scratch-space operations, not the LLM plumbing. */
+function createTestAgent(): TestAgent {
+  return track(
+    new TestAgent(() => Promise.resolve(MAIN_CONFIG), testAgentOptions()),
+  );
 }
 
 const tmpDirsToCleanup = new Set<string>();
@@ -1226,5 +1245,55 @@ describe('Agent attachments', () => {
       (event) => event.type === 'message-start' && event.role === 'user',
     );
     expect(start).toMatchObject({content: 'look', attachments});
+  });
+});
+
+describe('attachment operations', () => {
+  it('stores an attachment in its own scratch space', async () => {
+    const agent = createTestAgent();
+
+    const saved = await agent.saveAttachment('shot.png', Readable.from([PNG]));
+    expect(saved).toMatchObject({ok: true});
+
+    const found = await agent.describeAttachment('shot.png');
+    expect(found?.attachment).toEqual({
+      fileName: 'shot.png',
+      mediaType: 'image/png',
+      byteSize: PNG.length,
+    });
+    expect(found?.absolutePath).toBe(
+      path.join(agent.getScratchDirectory(), 'attachments', 'shot.png'),
+    );
+  });
+
+  it('removes an attachment and reports whether it existed', async () => {
+    const agent = createTestAgent();
+    await agent.saveAttachment('shot.png', Readable.from([PNG]));
+
+    expect(await agent.removeAttachment('shot.png')).toBe(true);
+    expect(await agent.removeAttachment('shot.png')).toBe(false);
+  });
+
+  it('resolves names to descriptors read from disk, in the requested order', async () => {
+    const agent = createTestAgent();
+    await agent.saveAttachment('a.png', Readable.from([PNG]));
+    await agent.saveAttachment('b.png', Readable.from([PNG]));
+
+    const result = await agent.resolveAttachments(['b.png', 'a.png']);
+    expect(result.ok && result.attachments.map((a) => a.fileName)).toEqual([
+      'b.png',
+      'a.png',
+    ]);
+  });
+
+  it('reports every unknown name instead of failing on the first', async () => {
+    const agent = createTestAgent();
+
+    expect(
+      await agent.resolveAttachments(['gone.png', '../escape.png']),
+    ).toEqual({
+      ok: false,
+      missing: ['gone.png', '../escape.png'],
+    });
   });
 });

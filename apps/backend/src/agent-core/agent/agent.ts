@@ -1,4 +1,5 @@
 import crypto from 'node:crypto';
+import type {Readable} from 'node:stream';
 
 import type {ModelTier} from '@omnicraft/settings-schema';
 import type {
@@ -10,6 +11,7 @@ import type {LlmAttachment} from '@omnicraft/tool-schemas';
 
 import {Mutex} from '@/helpers/mutex.js';
 import {logger} from '@/logger.js';
+import type {ResolveAttachmentsResult} from '@/services/agent-attachments/index.js';
 
 import {agentEventBus} from '../events/index.js';
 import type {LlmConfig} from '../llm-api/index.js';
@@ -18,7 +20,11 @@ import type {AnyToolDefinition} from '../tool/index.js';
 import {AgentRuntimeState} from './agent-runtime-state.js';
 import {agentScratchDirectoryService} from './agent-scratch-directory-service.js';
 import {agentTurnRunner} from './agent-turn-runner.js';
-import {agentAttachmentStore} from './attachments/index.js';
+import {
+  agentAttachmentStore,
+  type OpenedAttachment,
+  type SaveAttachmentResult,
+} from './attachments/index.js';
 import type {AgentSseLogReaderOptions} from './events/agent-sse-log.js';
 import {AgentSseLog} from './events/agent-sse-log.js';
 import {agentPersistence} from './persistence/agent-persistence.js';
@@ -377,6 +383,52 @@ export abstract class Agent {
       this.scratchDirectory,
       attachment.fileName,
     );
+  }
+
+  /**
+   * Stores an attachment in this Agent's scratch space. The Agent owns the
+   * directory, so it owns the operations on it — callers never need its path.
+   */
+  saveAttachment(
+    desiredName: string,
+    body: Readable,
+  ): Promise<SaveAttachmentResult> {
+    return agentAttachmentStore.save(this.scratchDirectory, desiredName, body);
+  }
+
+  /** Describes a stored attachment, or `null` when it is not there. */
+  describeAttachment(fileName: string): Promise<OpenedAttachment | null> {
+    return agentAttachmentStore.describe(this.scratchDirectory, fileName);
+  }
+
+  /** Deletes a stored attachment. Returns whether it existed. */
+  removeAttachment(fileName: string): Promise<boolean> {
+    return agentAttachmentStore.remove(this.scratchDirectory, fileName);
+  }
+
+  /**
+   * Turns caller-supplied file names into descriptors read from disk. The caller
+   * never supplies `mediaType` or `byteSize`, so what lands in the snapshot
+   * always matches the bytes. Reports every unknown name at once so a client can
+   * show them all.
+   */
+  async resolveAttachments(
+    fileNames: readonly string[],
+  ): Promise<ResolveAttachmentsResult> {
+    const found = await Promise.all(
+      fileNames.map((fileName) => this.describeAttachment(fileName)),
+    );
+
+    const missing = fileNames.filter((_name, index) => found[index] === null);
+    if (missing.length > 0) return {ok: false, missing};
+
+    const attachments: LlmAttachment[] = [];
+    for (const entry of found) {
+      // Narrowed by the `missing` check above; every entry is present.
+      if (entry === null) continue;
+      attachments.push(entry.attachment);
+    }
+    return {ok: true, attachments};
   }
 
   protected runAgentLoop(
