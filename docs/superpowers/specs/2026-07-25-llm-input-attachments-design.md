@@ -134,9 +134,19 @@ entirely the user-message side of our own code.
 `path.join(sessionsDir, id, 'scratch', 'attachments')`, matching the existing
 `scratchPath` / `eventsPath` / `metadataPath` helpers.
 
-**No absolute path is ever persisted.** `DATA_DIR` is configurable and a data
-directory can be backed up and restored elsewhere; a stored absolute path would rot.
-Paths are always derived from `sessionsDir + agentId + fileName` at use time.
+**No absolute path is ever persisted in a descriptor.** `DATA_DIR` is configurable
+and a data directory can be backed up and restored elsewhere; a stored absolute path
+would rot. Descriptor paths are always derived from
+`sessionsDir + agentId + fileName` at use time.
+
+**One deliberate exception: the compaction summary.** That message is prose written
+for the model, and it embeds absolute paths resolved when compaction ran (see
+[Compaction](#compaction)). Rendering them lazily would mean carrying the attachment
+list on the compaction metadata and re-rendering the message content at request time
+— a change to the core compaction structures. Accepted instead, because the failure
+mode is graceful: after a `DATA_DIR` move the model reads a stale path, the read
+fails, and it continues. Nothing is corrupted, and nothing but that one file list is
+affected.
 Absolute paths are also never sent to the browser — they are server filesystem
 detail. The frontend only receives descriptors and builds
 `/api/chat/session/:sid/attachments/:fileName`.
