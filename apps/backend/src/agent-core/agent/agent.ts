@@ -216,8 +216,11 @@ export abstract class Agent {
    * Enqueues a user turn. Always accepted and serialized through the mutex
    * queue. Events are written to {@link sseLog}; use {@link subscribe} to read.
    */
-  enqueueUserTurn(userMessage: string): void {
-    this.runTrackedTurn(userMessage);
+  enqueueUserTurn(
+    userMessage: string,
+    attachments: readonly LlmAttachment[] = [],
+  ): void {
+    this.runTrackedTurn(userMessage, attachments);
   }
 
   /**
@@ -228,15 +231,21 @@ export abstract class Agent {
    * {@link isRunning} and the increment inside {@link runTrackedTurn}, so in a
    * single-threaded runtime two concurrent claims cannot both succeed.
    */
-  tryStartUserTurn(userMessage: string): boolean {
+  tryStartUserTurn(
+    userMessage: string,
+    attachments: readonly LlmAttachment[] = [],
+  ): boolean {
     if (this.isRunning) return false;
-    this.runTrackedTurn(userMessage);
+    this.runTrackedTurn(userMessage, attachments);
     return true;
   }
 
-  private runTrackedTurn(userMessage: string): void {
+  private runTrackedTurn(
+    userMessage: string,
+    attachments: readonly LlmAttachment[],
+  ): void {
     this.pendingTurnCount++;
-    void this.runTurn(userMessage).finally(() => {
+    void this.runTurn(userMessage, attachments).finally(() => {
       this.pendingTurnCount--;
     });
   }
@@ -267,12 +276,16 @@ export abstract class Agent {
   // Private helpers
   // -------------------------------------------------------------------------
 
-  private async runTurn(userMessage: string): Promise<void> {
+  private async runTurn(
+    userMessage: string,
+    attachments: readonly LlmAttachment[],
+  ): Promise<void> {
     const release = await this.mutex.acquire();
     try {
       this.abortController = new AbortController();
       const stream = this.runAgentLoop(
         userMessage,
+        attachments,
         this.abortController.signal,
       );
       await this.pump(stream, (event) => {
@@ -361,10 +374,12 @@ export abstract class Agent {
 
   protected runAgentLoop(
     userMessage: string,
+    attachments: readonly LlmAttachment[],
     signal: AbortSignal,
   ): AgentEventStream {
     return agentTurnRunner.run({
       userMessage,
+      attachments,
       agentId: this.id,
       sessionsDir: this.sessionsDir,
       subagentRegistry: this.subagentRegistry,

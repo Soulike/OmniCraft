@@ -49,7 +49,7 @@ class TestAgent extends Agent {}
 
 class UsageTestAgent extends Agent {
   streamForTest(userMessage: string): AsyncIterable<SseEvent> {
-    return this.runAgentLoop(userMessage, new AbortController().signal);
+    return this.runAgentLoop(userMessage, [], new AbortController().signal);
   }
 }
 
@@ -1198,5 +1198,33 @@ describe('Agent turn scheduling', () => {
     while (agent.isRunning) {
       await delay(0);
     }
+  });
+});
+
+describe('Agent attachments', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('echoes attachment descriptors on the user message-start event', async () => {
+    vi.spyOn(llmApi, 'countToken').mockResolvedValue(1);
+    vi.spyOn(llmApi, 'streamCompletion').mockImplementation(() =>
+      mainCompletionStream(),
+    );
+    const agent = track(
+      new TestAgent(() => Promise.resolve(MAIN_CONFIG), testAgentOptions()),
+    );
+    const attachments = [
+      {fileName: 'shot.png', mediaType: 'image/png' as const, byteSize: 3},
+    ];
+
+    const eventsPromise = collectUntilDone(agent);
+    agent.enqueueUserTurn('look', attachments);
+    const events = await eventsPromise;
+
+    const start = events.find(
+      (event) => event.type === 'message-start' && event.role === 'user',
+    );
+    expect(start).toMatchObject({content: 'look', attachments});
   });
 });

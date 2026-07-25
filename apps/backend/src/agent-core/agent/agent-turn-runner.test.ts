@@ -135,6 +135,7 @@ function createInput(
   const subagentRegistry = overrides.subagentRegistry ?? new SubagentRegistry();
   const defaults: RunAgentTurnInput = {
     userMessage: 'user request',
+    attachments: [],
     agentId: 'agent-1',
     sessionsDir: null,
     subagentRegistry,

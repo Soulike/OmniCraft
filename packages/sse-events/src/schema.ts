@@ -3,7 +3,11 @@ import {
   subAgentTypeSchema,
   thinkingLevelSchema,
 } from '@omnicraft/api-schema';
-import {toolNameSchema, toolResultDataSchema} from '@omnicraft/tool-schemas';
+import {
+  llmAttachmentSchema,
+  toolNameSchema,
+  toolResultDataSchema,
+} from '@omnicraft/tool-schemas';
 import {z} from 'zod';
 
 /** A text content delta from the LLM. */
@@ -44,6 +48,10 @@ export const sseMessageStartEventSchema = z.object({
   messageId: z.string(),
   createdAt: z.number(),
   content: z.string(),
+  // Descriptors only — no bytes and no absolute paths cross this boundary. The
+  // client fetches the bytes from the session's attachment endpoint. Defaulted
+  // so event-log lines written before this field keep parsing on replay.
+  attachments: z.array(llmAttachmentSchema).default([]),
 });
 export type SseMessageStartEvent = z.infer<typeof sseMessageStartEventSchema>;
 
