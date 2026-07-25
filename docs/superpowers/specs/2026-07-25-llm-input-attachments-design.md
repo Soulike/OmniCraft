@@ -509,8 +509,14 @@ is tracked in [#373](https://github.com/Soulike/OmniCraft/issues/373).
 - new `agent-core/agent/attachments/agent-attachment-store.ts` — save from a stream,
   resolve to base64, delete, uniquify, path safety. Source-agnostic (see
   [The attachment store is source-agnostic](#the-attachment-store-is-source-agnostic)).
-- `services/{chat,coding}-agent-session/` — upload / download / delete delegation,
-  and name → `LlmAttachment` resolution for the completions request
+- `agent-core/agent/agent.ts` — `saveAttachment` / `describeAttachment` /
+  `removeAttachment` / `resolveAttachments`. The Agent owns its scratch space, so
+  it owns operations on it; nothing outside needs its path.
+- new `services/agent-attachments/` — one `createAgentAttachmentService(getStore)`
+  factory. The only per-family difference is which store resolves the id, and that
+  lookup is the access boundary, so the two bindings stay separate.
+- new `dispatcher/helpers/attachment-routes.ts` — the three handlers registered
+  once and bound to both routers.
 
 **Dispatcher**
 

@@ -1904,7 +1904,9 @@ And add the private method:
    * used at the LlmSession call sites because `scratchDirectory` is assigned
    * after the session is constructed — resolution only ever happens later.
    */
-  private resolveAttachment(attachment: LlmAttachment): Promise<string | null> {
+  private resolveAttachmentData(
+    attachment: LlmAttachment,
+  ): Promise<string | null> {
     return agentAttachmentStore.readBase64(
       this.scratchDirectory,
       attachment.fileName,
@@ -2719,7 +2721,7 @@ In `agent.ts`, supply it at both `LlmSession` construction sites:
 this.llmSession = new LlmSession(
   getConfig,
   snapshot?.llmSession,
-  (a) => this.resolveAttachment(a),
+  (a) => this.resolveAttachmentData(a),
   agentAttachmentStore.directory(
     agentScratchDirectoryService.createScratchDirectory(
       options.sessionsDir ?? null,
@@ -2912,233 +2914,162 @@ git commit -m "feat(api-schema): add attachment upload and completion schemas"
 
 ---
 
-## Task 9: Attachment service layer
+## Task 9: Attachment operations on `Agent`, and the session bindings
 
-Turns the store into session-scoped operations the routers can call, and resolves file names into validated descriptors for the completions request.
+The agent owns its scratch space, so it owns the operations on it. Task 4 already
+put `resolveAttachmentData` on `Agent` for the LLM path; this task adds the
+HTTP-facing counterparts next to it rather than reaching into the agent's
+directory from outside.
+
+`getScratchDirectory()` currently has **zero production callers** — only tests.
+Do not make the service layer its first one.
 
 **Files:**
 
-- Create: `apps/backend/src/services/chat-agent-session/attachments.ts`
-- Create: `apps/backend/src/services/chat-agent-session/attachments.test.ts`
-- Modify: `apps/backend/src/services/chat-agent-session/chat-agent-session-service.ts`
-- Modify: `apps/backend/src/services/chat-agent-session/index.ts`
-- Create: `apps/backend/src/services/coding-agent-session/attachments.ts`
-- Modify: `apps/backend/src/services/coding-agent-session/coding-agent-session-service.ts`
-- Modify: `apps/backend/src/services/coding-agent-session/index.ts`
+- Modify: `apps/backend/src/agent-core/agent/agent.ts`
+- Modify: `apps/backend/src/agent-core/agent/agent.test.ts`
+- Create: `apps/backend/src/services/agent-attachments/agent-attachment-service.ts`
+- Create: `apps/backend/src/services/agent-attachments/index.ts`
+- Modify: `apps/backend/src/services/chat-agent-session/chat-agent-session-service.ts` and `index.ts`
+- Modify: `apps/backend/src/services/coding-agent-session/coding-agent-session-service.ts` and `index.ts`
 
 **Interfaces:**
 
-- Consumes: `agentAttachmentStore` (Task 2); `Agent.getScratchDirectory()` (already exists); `MainAgentStore` / `CodingAgentStore`.
+- Consumes: `agentAttachmentStore` (Task 2); `AgentStore` base class (`models/agent-store/`).
 - Produces:
 
   ```ts
+  // On Agent — all four delegate to agentAttachmentStore with this.scratchDirectory
+  async saveAttachment(desiredName: string, body: Readable): Promise<SaveAttachmentResult>;
+  async describeAttachment(fileName: string): Promise<OpenedAttachment | null>;
+  async removeAttachment(fileName: string): Promise<boolean>;
+  async resolveAttachments(
+    fileNames: readonly string[],
+  ): Promise<ResolveAttachmentsResult>;
+
+  // services/agent-attachments/
   export type ResolveAttachmentsResult =
     | {readonly ok: true; readonly attachments: LlmAttachment[]}
     | {readonly ok: false; readonly missing: string[]};
 
-  export const chatAgentAttachments: {
-    save(
-      agentId: string,
-      desiredName: string,
-      body: Readable,
-    ): Promise<SaveAttachmentResult | null>;
-    describe(
-      agentId: string,
-      fileName: string,
-    ): Promise<OpenedAttachment | null>;
+  export interface AgentAttachmentService {
+    save(agentId: string, desiredName: string, body: Readable): Promise<SaveAttachmentResult | null>;
+    describe(agentId: string, fileName: string): Promise<OpenedAttachment | null>;
     remove(agentId: string, fileName: string): Promise<boolean | null>;
-    resolve(
-      agentId: string,
-      fileNames: readonly string[],
-    ): Promise<ResolveAttachmentsResult | null>;
-  };
+    resolve(agentId: string, fileNames: readonly string[]): Promise<ResolveAttachmentsResult | null>;
+  }
+
+  export function createAgentAttachmentService(
+    getStore: () => AgentStore,
+  ): AgentAttachmentService;
   ```
 
-  Every method returns `null` when the session does not exist, which the routers map to 404. `sendCompletion` gains a third parameter: `attachments: readonly LlmAttachment[] = []`.
+  `ResolveAttachmentsResult` lives in `services/agent-attachments/` and is imported by `Agent`. Every service method returns `null` when the session does not exist, which the routers map to 404.
 
-- [ ] **Step 1: Write the failing tests**
+- [ ] **Step 1: Write the failing `Agent` tests**
 
-Create `apps/backend/src/services/chat-agent-session/attachments.test.ts`. There is no Koa test harness in this repo (`dispatcher/mcp/router.test.ts` says so explicitly), so exercise the service directly against a real temp directory and a cast agent stub:
+Append to `apps/backend/src/agent-core/agent/agent.test.ts`, reusing the file's existing agent-construction helper:
 
 ```ts
-import {mkdtemp, rm} from 'node:fs/promises';
-import os from 'node:os';
-import path from 'node:path';
-import {Readable} from 'node:stream';
+describe('attachment operations', () => {
+  it('stores an attachment in its own scratch space', async () => {
+    const agent = createTestAgent();
 
-import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
-
-import {MainAgentStore} from '@/models/agent-store/index.js';
-
-import {chatAgentAttachments} from './attachments.js';
-
-const PNG = Buffer.concat([
-  Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
-  Buffer.alloc(64),
-]);
-
-let scratchDirectory: string;
-
-function stubStore(agent: unknown): void {
-  vi.spyOn(MainAgentStore, 'getInstance').mockReturnValue({
-    get: async () => agent,
-  } as never);
-}
-
-beforeEach(async () => {
-  scratchDirectory = await mkdtemp(path.join(os.tmpdir(), 'attach-svc-'));
-  stubStore({getScratchDirectory: () => scratchDirectory});
-});
-
-afterEach(async () => {
-  vi.restoreAllMocks();
-  await rm(scratchDirectory, {recursive: true, force: true});
-});
-
-describe('save / describe / remove', () => {
-  it('stores an upload and describes it back', async () => {
-    const saved = await chatAgentAttachments.save(
-      'session-1',
-      'shot.png',
-      Readable.from([PNG]),
-    );
+    const saved = await agent.saveAttachment('shot.png', Readable.from([PNG]));
     expect(saved).toMatchObject({ok: true});
 
-    const found = await chatAgentAttachments.describe('session-1', 'shot.png');
-    expect(found?.attachment.mediaType).toBe('image/png');
-  });
-
-  it('returns null for an unknown session', async () => {
-    stubStore(undefined);
-    expect(
-      await chatAgentAttachments.save('nope', 'a.png', Readable.from([PNG])),
-    ).toBeNull();
-    expect(await chatAgentAttachments.describe('nope', 'a.png')).toBeNull();
-    expect(await chatAgentAttachments.remove('nope', 'a.png')).toBeNull();
-  });
-});
-
-describe('resolve', () => {
-  it('re-derives descriptors from disk rather than trusting the caller', async () => {
-    await chatAgentAttachments.save(
-      'session-1',
-      'shot.png',
-      Readable.from([PNG]),
-    );
-
-    const result = await chatAgentAttachments.resolve('session-1', [
-      'shot.png',
-    ]);
-    expect(result).toEqual({
-      ok: true,
-      attachments: [
-        {fileName: 'shot.png', mediaType: 'image/png', byteSize: PNG.length},
-      ],
+    const found = await agent.describeAttachment('shot.png');
+    expect(found?.attachment).toEqual({
+      fileName: 'shot.png',
+      mediaType: 'image/png',
+      byteSize: PNG.length,
     });
+    expect(found?.absolutePath).toBe(
+      path.join(agent.getScratchDirectory(), 'attachments', 'shot.png'),
+    );
+  });
+
+  it('removes an attachment and reports whether it existed', async () => {
+    const agent = createTestAgent();
+    await agent.saveAttachment('shot.png', Readable.from([PNG]));
+
+    expect(await agent.removeAttachment('shot.png')).toBe(true);
+    expect(await agent.removeAttachment('shot.png')).toBe(false);
+  });
+
+  it('resolves names to descriptors read from disk, in the requested order', async () => {
+    const agent = createTestAgent();
+    await agent.saveAttachment('a.png', Readable.from([PNG]));
+    await agent.saveAttachment('b.png', Readable.from([PNG]));
+
+    const result = await agent.resolveAttachments(['b.png', 'a.png']);
+    expect(result.ok && result.attachments.map((a) => a.fileName)).toEqual([
+      'b.png',
+      'a.png',
+    ]);
   });
 
   it('reports every unknown name instead of failing on the first', async () => {
-    const result = await chatAgentAttachments.resolve('session-1', [
-      'gone.png',
-      '../escape.png',
-    ]);
-    expect(result).toEqual({ok: false, missing: ['gone.png', '../escape.png']});
-  });
+    const agent = createTestAgent();
 
-  it('preserves the requested order', async () => {
-    await chatAgentAttachments.save('session-1', 'a.png', Readable.from([PNG]));
-    await chatAgentAttachments.save('session-1', 'b.png', Readable.from([PNG]));
-
-    const result = await chatAgentAttachments.resolve('session-1', [
-      'b.png',
-      'a.png',
-    ]);
-    expect(result?.ok && result.attachments.map((a) => a.fileName)).toEqual([
-      'b.png',
-      'a.png',
-    ]);
+    expect(
+      await agent.resolveAttachments(['gone.png', '../escape.png']),
+    ).toEqual({
+      ok: false,
+      missing: ['gone.png', '../escape.png'],
+    });
   });
 });
 ```
 
+Define `PNG` in the test file as a real PNG header plus padding, matching the fixture style in `agent-attachment-store.test.ts`, and import `Readable` from `node:stream`.
+
 - [ ] **Step 2: Run them to verify they fail**
 
-Run: `pnpm --filter @omnicraft/backend test src/services/chat-agent-session/attachments.test.ts`
-Expected: FAIL — cannot resolve `./attachments.js`.
+Run: `pnpm --filter @omnicraft/backend test src/agent-core/agent/agent.test.ts`
+Expected: FAIL — `agent.saveAttachment is not a function`.
 
-- [ ] **Step 3: Implement the chat service**
+- [ ] **Step 3: Add the operations to `Agent`**
 
-Create `apps/backend/src/services/chat-agent-session/attachments.ts`:
+In `apps/backend/src/agent-core/agent/agent.ts`, next to the `resolveAttachmentData` added in Task 4:
 
 ```ts
-import type {Readable} from 'node:stream';
-
-import type {LlmAttachment} from '@omnicraft/tool-schemas';
-
-import type {
-  OpenedAttachment,
-  SaveAttachmentResult,
-} from '@/agent-core/agent/index.js';
-import {agentAttachmentStore} from '@/agent-core/agent/index.js';
-import {MainAgentStore} from '@/models/agent-store/index.js';
-
-export type ResolveAttachmentsResult =
-  | {readonly ok: true; readonly attachments: LlmAttachment[]}
-  | {readonly ok: false; readonly missing: string[]};
-
-async function scratchDirectoryOf(agentId: string): Promise<string | null> {
-  const agent = await MainAgentStore.getInstance().get(agentId);
-  if (!agent) return null;
-  return agent.getScratchDirectory();
-}
-
-/**
- * Session-scoped attachment operations. Every method returns `null` when the
- * session does not exist, which the router maps to 404.
- */
-export const chatAgentAttachments = {
-  async save(
-    agentId: string,
+  /**
+   * Stores an attachment in this Agent's scratch space. The Agent owns the
+   * directory, so it owns the operations on it — callers never need its path.
+   */
+  saveAttachment(
     desiredName: string,
     body: Readable,
-  ): Promise<SaveAttachmentResult | null> {
-    const scratchDirectory = await scratchDirectoryOf(agentId);
-    if (scratchDirectory === null) return null;
-    return agentAttachmentStore.save(scratchDirectory, desiredName, body);
-  },
+  ): Promise<SaveAttachmentResult> {
+    return agentAttachmentStore.save(
+      this.scratchDirectory,
+      desiredName,
+      body,
+    );
+  }
 
-  async describe(
-    agentId: string,
-    fileName: string,
-  ): Promise<OpenedAttachment | null> {
-    const scratchDirectory = await scratchDirectoryOf(agentId);
-    if (scratchDirectory === null) return null;
-    return agentAttachmentStore.describe(scratchDirectory, fileName);
-  },
+  /** Describes a stored attachment, or `null` when it is not there. */
+  describeAttachment(fileName: string): Promise<OpenedAttachment | null> {
+    return agentAttachmentStore.describe(this.scratchDirectory, fileName);
+  }
 
-  async remove(agentId: string, fileName: string): Promise<boolean | null> {
-    const scratchDirectory = await scratchDirectoryOf(agentId);
-    if (scratchDirectory === null) return null;
-    return agentAttachmentStore.remove(scratchDirectory, fileName);
-  },
+  /** Deletes a stored attachment. Returns whether it existed. */
+  removeAttachment(fileName: string): Promise<boolean> {
+    return agentAttachmentStore.remove(this.scratchDirectory, fileName);
+  }
 
   /**
-   * Turns caller-supplied file names into descriptors read from disk. The
-   * caller never supplies `mediaType` or `byteSize`, so what lands in the
-   * snapshot always matches the bytes. Reports every unknown name at once so
-   * the client can show them all.
+   * Turns caller-supplied file names into descriptors read from disk. The caller
+   * never supplies `mediaType` or `byteSize`, so what lands in the snapshot
+   * always matches the bytes. Reports every unknown name at once so a client can
+   * show them all.
    */
-  async resolve(
-    agentId: string,
+  async resolveAttachments(
     fileNames: readonly string[],
-  ): Promise<ResolveAttachmentsResult | null> {
-    const scratchDirectory = await scratchDirectoryOf(agentId);
-    if (scratchDirectory === null) return null;
-
+  ): Promise<ResolveAttachmentsResult> {
     const found = await Promise.all(
-      fileNames.map((fileName) =>
-        agentAttachmentStore.describe(scratchDirectory, fileName),
-      ),
+      fileNames.map((fileName) => this.describeAttachment(fileName)),
     );
 
     const missing = fileNames.filter((_name, index) => found[index] === null);
@@ -3151,18 +3082,101 @@ export const chatAgentAttachments = {
       attachments.push(entry.attachment);
     }
     return {ok: true, attachments};
-  },
-};
+  }
 ```
-
-Export it from `apps/backend/src/services/chat-agent-session/index.ts`.
 
 - [ ] **Step 4: Run them to verify they pass**
 
-Run: `pnpm --filter @omnicraft/backend test src/services/chat-agent-session/attachments.test.ts`
-Expected: PASS, 5 tests.
+Run: `pnpm --filter @omnicraft/backend test src/agent-core/agent/agent.test.ts`
+Expected: PASS, 4 new tests.
 
-- [ ] **Step 5: Widen `sendCompletion` in both services**
+- [ ] **Step 5: Add the shared service factory**
+
+Create `apps/backend/src/services/agent-attachments/agent-attachment-service.ts`:
+
+```ts
+import type {Readable} from 'node:stream';
+
+import type {
+  OpenedAttachment,
+  ResolveAttachmentsResult,
+  SaveAttachmentResult,
+} from '@/agent-core/agent/index.js';
+import type {AgentStore} from '@/models/agent-store/index.js';
+
+export interface AgentAttachmentService {
+  save(
+    agentId: string,
+    desiredName: string,
+    body: Readable,
+  ): Promise<SaveAttachmentResult | null>;
+  describe(agentId: string, fileName: string): Promise<OpenedAttachment | null>;
+  remove(agentId: string, fileName: string): Promise<boolean | null>;
+  resolve(
+    agentId: string,
+    fileNames: readonly string[],
+  ): Promise<ResolveAttachmentsResult | null>;
+}
+
+/**
+ * Binds attachment operations to one session family. The operations themselves
+ * live on `Agent`; the only thing that differs between chat and coding sessions
+ * is which store resolves the id — and that lookup is the access boundary, so
+ * the two bindings must stay separate. `getStore` is a thunk because
+ * `getInstance()` asserts the singleton exists and must run per request, not at
+ * module load.
+ *
+ * Every method returns `null` when the session does not exist, which the router
+ * maps to 404.
+ */
+export function createAgentAttachmentService(
+  getStore: () => AgentStore,
+): AgentAttachmentService {
+  return {
+    async save(agentId, desiredName, body) {
+      const agent = await getStore().get(agentId);
+      if (!agent) return null;
+      return agent.saveAttachment(desiredName, body);
+    },
+
+    async describe(agentId, fileName) {
+      const agent = await getStore().get(agentId);
+      if (!agent) return null;
+      return agent.describeAttachment(fileName);
+    },
+
+    async remove(agentId, fileName) {
+      const agent = await getStore().get(agentId);
+      if (!agent) return null;
+      return agent.removeAttachment(fileName);
+    },
+
+    async resolve(agentId, fileNames) {
+      const agent = await getStore().get(agentId);
+      if (!agent) return null;
+      return agent.resolveAttachments(fileNames);
+    },
+  };
+}
+```
+
+Create `apps/backend/src/services/agent-attachments/index.ts` exporting the factory and the `AgentAttachmentService` type.
+
+- [ ] **Step 6: Bind it for both session families**
+
+In `apps/backend/src/services/chat-agent-session/index.ts`:
+
+```ts
+export const chatAgentAttachments = createAgentAttachmentService(() =>
+  MainAgentStore.getInstance(),
+);
+```
+
+In `apps/backend/src/services/coding-agent-session/index.ts`, the same against `CodingAgentStore.getInstance()`.
+
+No test file for the factory: it is four two-line delegations over `Agent` methods that Step 1 already covers, and a test would only assert that a mock was called.
+
+- [ ] **Step 7: Widen `sendCompletion` in both services**
 
 `chat-agent-session-service.ts`:
 
@@ -3181,42 +3195,41 @@ Expected: PASS, 5 tests.
 
 `coding-agent-session-service.ts` — identical, against `CodingAgentStore`.
 
-- [ ] **Step 6: Mirror the service for coding sessions**
-
-Create `apps/backend/src/services/coding-agent-session/attachments.ts` as a copy of the chat version with `MainAgentStore` replaced by `CodingAgentStore` and the export renamed to `codingAgentAttachments`. Export it from that module's `index.ts`.
-
-The duplication mirrors the existing `chat-agent-session-service.ts` / `coding-agent-session-service.ts` pair, which the repo already keeps as two near-identical files rather than a shared generic. Follow the established shape rather than introducing a new abstraction here.
-
-- [ ] **Step 7: Verify the build and full suite**
+- [ ] **Step 8: Verify the build and full suite**
 
 Run: `pnpm typecheck:all && pnpm --filter @omnicraft/backend test`
 Expected: green.
 
-- [ ] **Step 8: Commit**
+- [ ] **Step 9: Commit**
 
 ```bash
-git add apps/backend/src/services
-git commit -m "feat(services): add session attachment operations"
+git add apps/backend/src/agent-core apps/backend/src/services
+git commit -m "feat(agent-core): give Agent attachment operations on its scratch space"
 ```
 
 ---
 
 ## Task 10: Attachment routes
 
-The three HTTP endpoints on both routers, plus wiring `attachmentFileNames` into the completions handlers.
+Three HTTP endpoints, registered once and bound to both routers. The handlers are
+identical for chat and coding — only the path prefix and the service binding
+differ — so they are written once in `dispatcher/helpers/`, which
+`dispatcher/CLAUDE.md` designates for "agent-agnostic transport helpers shared
+across resource modules" (the same home as `session-id.ts` and `cursor.ts`).
 
 **Files:**
 
 - Create: `apps/backend/src/dispatcher/helpers/attachment-name.ts`
 - Create: `apps/backend/src/dispatcher/helpers/attachment-name.test.ts`
+- Create: `apps/backend/src/dispatcher/helpers/attachment-routes.ts`
 - Modify: `apps/backend/src/dispatcher/chat-agent-session/path.ts` and `router.ts`
 - Modify: `apps/backend/src/dispatcher/coding-agent-session/path.ts` and `router.ts`
 
-The name validator goes in `dispatcher/helpers/`, which `dispatcher/CLAUDE.md` designates for "agent-agnostic transport helpers shared across resource modules" — the same home as `session-id.ts` and `cursor.ts`. Both routers import it.
-
 **Interfaces:**
 
-- Consumes: `chatAgentAttachments` / `codingAgentAttachments` (Task 9); `uploadAttachmentQuerySchema`, `chatCompletionsRequestSchema` (Task 8); `parseSessionId` (existing).
+- Consumes: `chatAgentAttachments` / `codingAgentAttachments` and the
+  `AgentAttachmentService` type (Task 9); `uploadAttachmentQuerySchema`,
+  `chatCompletionsRequestSchema` (Task 8); `parseSessionId` (existing).
 - Produces:
 
   ```ts
@@ -3225,9 +3238,20 @@ The name validator goes in `dispatcher/helpers/`, which `dispatcher/CLAUDE.md` d
     raw: string | undefined,
   ): string | null;
 
+  // dispatcher/helpers/attachment-routes.ts
+  export interface AttachmentRoutePaths {
+    readonly collection: string; // '/chat/session/:id/attachments'
+    readonly byName: string; // '/chat/session/:id/attachments/:fileName'
+  }
+  export function registerAttachmentRoutes(
+    router: Router,
+    paths: AttachmentRoutePaths,
+    service: AgentAttachmentService,
+  ): void;
+
   // chat path.ts / coding path.ts
-  export const SESSION_ATTACHMENTS: string; // '/chat/session/:id/attachments'
-  export const SESSION_ATTACHMENT_BY_NAME: string; // '/chat/session/:id/attachments/:fileName'
+  export const SESSION_ATTACHMENTS: string;
+  export const SESSION_ATTACHMENT_BY_NAME: string;
   ```
 
 - [ ] **Step 1: Write the failing path-param test**
@@ -3320,107 +3344,158 @@ export const SESSION_ATTACHMENT_BY_NAME =
 
 In `apps/backend/src/dispatcher/coding-agent-session/path.ts`, the same with the `/coding` prefix.
 
-- [ ] **Step 6: Add the three handlers to the chat router**
+- [ ] **Step 6: Write the shared route registrar**
 
-In `apps/backend/src/dispatcher/chat-agent-session/router.ts`, import `createReadStream` from `node:fs`, the new path constants, `parseAttachmentFileName` from `../helpers/attachment-name.js`, `chatAgentAttachments`, and `uploadAttachmentQuerySchema`. Then add:
+Create `apps/backend/src/dispatcher/helpers/attachment-routes.ts`:
 
 ```ts
-/** POST /chat/session/:id/attachments — stores an uploaded image or PDF. */
-router.post(SESSION_ATTACHMENTS, async (ctx) => {
-  const id = parseSessionId(ctx.params.id);
-  if (id === null) {
-    ctx.response.status = StatusCodes.NOT_FOUND;
-    ctx.response.body = {error: `Session not found: ${ctx.params.id}`};
-    return;
-  }
+import {createReadStream} from 'node:fs';
 
-  let name: string;
-  try {
-    name = uploadAttachmentQuerySchema.parse(ctx.query).name;
-  } catch (e) {
-    if (e instanceof ZodError) {
-      ctx.response.status = StatusCodes.BAD_REQUEST;
-      ctx.response.body = {error: e.issues};
+import type Router from '@koa/router';
+import {uploadAttachmentQuerySchema} from '@omnicraft/api-schema';
+import {StatusCodes} from 'http-status-codes';
+import {ZodError} from 'zod';
+
+import type {AgentAttachmentService} from '@/services/agent-attachments/index.js';
+
+import {parseAttachmentFileName} from './attachment-name.js';
+import {parseSessionId} from './session-id.js';
+
+export interface AttachmentRoutePaths {
+  readonly collection: string;
+  readonly byName: string;
+}
+
+/**
+ * Registers the upload / download / delete endpoints on a session router.
+ *
+ * The handlers are identical for every session family; only the path prefix and
+ * the service binding differ. The binding is what keeps the families apart — a
+ * coding session id must not reach a chat session's attachments — so it is a
+ * parameter rather than something resolved inside.
+ */
+export function registerAttachmentRoutes(
+  router: Router,
+  paths: AttachmentRoutePaths,
+  service: AgentAttachmentService,
+): void {
+  /** POST …/attachments — stores an uploaded image or PDF. */
+  router.post(paths.collection, async (ctx) => {
+    const id = parseSessionId(ctx.params.id);
+    if (id === null) {
+      ctx.response.status = StatusCodes.NOT_FOUND;
+      ctx.response.body = {error: `Session not found: ${ctx.params.id}`};
       return;
     }
-    throw e;
-  }
 
-  // `@koa/bodyparser` only handles json/form, so for any other content type the
-  // request stream is untouched and can be piped straight to disk.
-  const result = await chatAgentAttachments.save(id, name, ctx.req);
-  if (result === null) {
-    ctx.response.status = StatusCodes.NOT_FOUND;
-    ctx.response.body = {error: `Session not found: ${id}`};
-    return;
-  }
+    let name: string;
+    try {
+      name = uploadAttachmentQuerySchema.parse(ctx.query).name;
+    } catch (e) {
+      if (e instanceof ZodError) {
+        ctx.response.status = StatusCodes.BAD_REQUEST;
+        ctx.response.body = {error: e.issues};
+        return;
+      }
+      throw e;
+    }
 
-  if (!result.ok) {
-    ctx.response.status =
-      result.reason === 'too-large'
-        ? StatusCodes.REQUEST_TOO_LONG
-        : StatusCodes.BAD_REQUEST;
-    ctx.response.body = {error: result.reason};
-    return;
-  }
+    // `@koa/bodyparser` only handles json/form, so for any other content type
+    // the request stream is untouched and can be piped straight to disk.
+    const result = await service.save(id, name, ctx.req);
+    if (result === null) {
+      ctx.response.status = StatusCodes.NOT_FOUND;
+      ctx.response.body = {error: `Session not found: ${id}`};
+      return;
+    }
 
-  ctx.response.status = StatusCodes.CREATED;
-  ctx.response.body = result.attachment;
-});
+    if (!result.ok) {
+      ctx.response.status =
+        result.reason === 'too-large'
+          ? StatusCodes.REQUEST_TOO_LONG
+          : StatusCodes.BAD_REQUEST;
+      ctx.response.body = {error: result.reason};
+      return;
+    }
 
-/** GET /chat/session/:id/attachments/:fileName — streams the stored bytes. */
-router.get(SESSION_ATTACHMENT_BY_NAME, async (ctx) => {
-  const id = parseSessionId(ctx.params.id);
-  const fileName = parseAttachmentFileName(ctx.params.fileName);
-  if (id === null || fileName === null) {
-    ctx.response.status = StatusCodes.NOT_FOUND;
-    ctx.response.body = {error: 'Attachment not found'};
-    return;
-  }
+    ctx.response.status = StatusCodes.CREATED;
+    ctx.response.body = result.attachment;
+  });
 
-  const found = await chatAgentAttachments.describe(id, fileName);
-  if (found === null) {
-    ctx.response.status = StatusCodes.NOT_FOUND;
-    ctx.response.body = {error: 'Attachment not found'};
-    return;
-  }
+  /** GET …/attachments/:fileName — streams the stored bytes. */
+  router.get(paths.byName, async (ctx) => {
+    const id = parseSessionId(ctx.params.id);
+    const fileName = parseAttachmentFileName(ctx.params.fileName);
+    if (id === null || fileName === null) {
+      ctx.response.status = StatusCodes.NOT_FOUND;
+      ctx.response.body = {error: 'Attachment not found'};
+      return;
+    }
 
-  ctx.response.status = StatusCodes.OK;
-  ctx.response.type = found.attachment.mediaType;
-  ctx.response.length = found.attachment.byteSize;
-  // Bytes are immutable for a given name — the store uniquifies rather than
-  // overwriting. Set explicitly so the /api default of `no-store` does not
-  // apply (see the conditional middleware in dispatcher/index.ts).
-  ctx.response.set('Cache-Control', 'private, max-age=31536000, immutable');
-  ctx.body = createReadStream(found.absolutePath);
-});
+    const found = await service.describe(id, fileName);
+    if (found === null) {
+      ctx.response.status = StatusCodes.NOT_FOUND;
+      ctx.response.body = {error: 'Attachment not found'};
+      return;
+    }
 
-/** DELETE /chat/session/:id/attachments/:fileName — removes a stored file. */
-router.delete(SESSION_ATTACHMENT_BY_NAME, async (ctx) => {
-  const id = parseSessionId(ctx.params.id);
-  const fileName = parseAttachmentFileName(ctx.params.fileName);
-  if (id === null || fileName === null) {
-    ctx.response.status = StatusCodes.NOT_FOUND;
-    ctx.response.body = {error: 'Attachment not found'};
-    return;
-  }
+    ctx.response.status = StatusCodes.OK;
+    ctx.response.type = found.attachment.mediaType;
+    ctx.response.length = found.attachment.byteSize;
+    // Bytes are immutable for a given name — the store uniquifies rather than
+    // overwriting. Set explicitly so the /api default of `no-store` does not
+    // apply (see the conditional middleware in dispatcher/index.ts).
+    ctx.response.set('Cache-Control', 'private, max-age=31536000, immutable');
+    ctx.body = createReadStream(found.absolutePath);
+  });
 
-  const removed = await chatAgentAttachments.remove(id, fileName);
-  if (removed !== true) {
-    ctx.response.status = StatusCodes.NOT_FOUND;
-    ctx.response.body = {error: 'Attachment not found'};
-    return;
-  }
+  /** DELETE …/attachments/:fileName — removes a stored file. */
+  router.delete(paths.byName, async (ctx) => {
+    const id = parseSessionId(ctx.params.id);
+    const fileName = parseAttachmentFileName(ctx.params.fileName);
+    if (id === null || fileName === null) {
+      ctx.response.status = StatusCodes.NOT_FOUND;
+      ctx.response.body = {error: 'Attachment not found'};
+      return;
+    }
 
-  ctx.response.status = StatusCodes.NO_CONTENT;
-});
+    const removed = await service.remove(id, fileName);
+    if (removed !== true) {
+      ctx.response.status = StatusCodes.NOT_FOUND;
+      ctx.response.body = {error: 'Attachment not found'};
+      return;
+    }
+
+    ctx.response.status = StatusCodes.NO_CONTENT;
+  });
+}
 ```
 
-**Route ordering matters.** Register `SESSION_ATTACHMENTS` before `SESSION_ATTACHMENT_BY_NAME` so the collection POST is not shadowed — the same concern documented for `mcpSettingsRouter` in `dispatcher/index.ts`.
+`paths.collection` is registered before `paths.byName` so the collection POST is
+not shadowed — the same concern documented for `mcpSettingsRouter` in
+`dispatcher/index.ts`.
 
-- [ ] **Step 7: Wire attachments into the chat completions handler**
+- [ ] **Step 7: Call the registrar from both routers**
 
-In the existing `SESSION_COMPLETIONS` handler, replace the body-parsing block and the service call:
+In `apps/backend/src/dispatcher/chat-agent-session/router.ts`, after the existing
+route registrations:
+
+```ts
+registerAttachmentRoutes(
+  router,
+  {collection: SESSION_ATTACHMENTS, byName: SESSION_ATTACHMENT_BY_NAME},
+  chatAgentAttachments,
+);
+```
+
+In `apps/backend/src/dispatcher/coding-agent-session/router.ts`, the same with
+that module's path constants and `codingAgentAttachments`.
+
+- [ ] **Step 8: Wire attachments into both completions handlers**
+
+This part stays per-router — it edits an existing handler rather than adding one.
+In the `SESSION_COMPLETIONS` handler, replace the body-parsing block and the
+service call:
 
 ```ts
 let message: string;
@@ -3460,11 +3535,11 @@ const found = await chatAgentSessionService.sendCompletion(
 );
 ```
 
-The turn does not start when a name is unknown — the model must never see a message promising a file it will not get.
+The turn does not start when a name is unknown — the model must never see a
+message promising a file it will not get.
 
-- [ ] **Step 8: Mirror onto the coding router**
-
-Copy the three handlers and the completions change into `apps/backend/src/dispatcher/coding-agent-session/router.ts`, swapping `chatAgentAttachments` for `codingAgentAttachments` and `chatAgentSessionService` for `codingAgentSessionService`. The two routers are already near-identical by convention; keep them so.
+Apply the same change to the coding router, against `codingAgentAttachments` and
+`codingAgentSessionService`.
 
 - [ ] **Step 9: Verify the build and full suite**
 
@@ -3679,5 +3754,5 @@ Checked against the spec after writing:
 - **Spec coverage.** Every spec section maps to a task — storage layout → 2; types → 1, 3; resolution seam → 4; provider adapters → 3; HTTP API → 8, 10; upload pipeline → 2; path safety → 2, 10; agent plumbing → 6; compaction → 7; token estimation → 5; the two-caps section → 2 (constants) and 7 (sizes in the model-facing list); testing strategy → every task plus 11.
 - **One spec correction was made while planning.** The spec put `llmAttachmentSchema` in `agent-core/llm-api/types.ts`, but `packages/sse-events` cannot import from `apps/backend`. It moved to `@omnicraft/tool-schemas` — which `sse-events` already depends on, and where #372 put the media-type enums for exactly this reason — and `packages/api-schema` gains that dependency. The spec has been updated to match.
 - **Type consistency.** `LlmAttachment` (`{fileName, mediaType, byteSize}`) is used unchanged from Task 1 through Task 11. `ResolvedLlmAttachment` adds only `data: string | null`. `SaveAttachmentResult` / `OpenedAttachment` keep the shapes declared in Task 2 through the service and router layers. Every `agentAttachmentStore` method takes `scratchDirectory` first.
-- **Known duplication, deliberate.** `chatAgentAttachments` / `codingAgentAttachments` and the two routers' handlers are near-identical, mirroring the existing `*-agent-session-service.ts` pair the repo already keeps duplicated. `parseAttachmentFileName` is the one genuinely shared piece and lives in `dispatcher/helpers/`.
+- **Duplication removed after a design challenge.** The plan originally mandated copying the attachment service and the three route handlers into the coding module, justified by the existing `*-agent-session-service.ts` pair. That analogy was wrong: those two differ in real logic (coding validates a workspace), whereas the attachment paths differ only in which store resolves the id. The operations now live on `Agent` — which already owns the scratch directory and, per Task 4, already reads attachments for the LLM — with one shared service factory and one shared route registrar. The two thin bindings stay separate on purpose: they are the access boundary that stops a coding session id from reaching a chat session's attachments.
 - **No silent caps.** The 5 MB / 10 MB limits surface to the client as `413` with a reason, and to the model as a size in the compaction file list.
