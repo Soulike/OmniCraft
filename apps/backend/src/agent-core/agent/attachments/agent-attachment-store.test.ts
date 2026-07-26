@@ -544,6 +544,28 @@ describe('describe / readBase64 / remove', () => {
     // The target survived.
     await expect(access(outside)).resolves.toBeUndefined();
   });
+
+  // Regression test for 297be09, which changed remove() from stat-then-unlink
+  // to unlink-and-catch-ENOENT: `unlink` on a directory throws (EPERM on
+  // macOS/BSD, EISDIR on Linux) and that error is neither ENOENT nor caught,
+  // so it used to propagate uncaught. A tool can plant a directory at the
+  // path an attachment name would occupy (e.g. `mkdir
+  // scratch/attachments/shot.png`); every DELETE for that name must degrade
+  // to "not found" — never a 500 that leaves the entry permanently
+  // undeletable through the API.
+  it('reports a directory planted at an attachment name as not-found instead of throwing', async () => {
+    const attachmentsDirectory =
+      agentAttachmentStore.directory(scratchDirectory);
+    const plantedDirectory = path.join(attachmentsDirectory, 'shot.png');
+    await mkdir(plantedDirectory, {recursive: true});
+
+    await expect(
+      agentAttachmentStore.remove(scratchDirectory, 'shot.png'),
+    ).resolves.toBe(false);
+    // The directory itself must survive — remove() must refuse it outright,
+    // never attempt an unlink that could behave unexpectedly on it.
+    await expect(access(plantedDirectory)).resolves.toBeUndefined();
+  });
 });
 
 describe('path safety', () => {

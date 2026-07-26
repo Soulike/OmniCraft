@@ -1,5 +1,5 @@
 import crypto from 'node:crypto';
-import {link, mkdir, readFile, rm, unlink} from 'node:fs/promises';
+import {link, lstat, mkdir, readFile, rm, unlink} from 'node:fs/promises';
 import path from 'node:path';
 import type {Readable} from 'node:stream';
 
@@ -235,10 +235,25 @@ class AgentAttachmentStore {
     );
     if (absolutePath === null) return false;
 
-    // Unlink and interpret the failure, rather than stat-then-unlink: it drops
-    // a TOCTOU window and a syscall, and it can delete things a stat gate
-    // would refuse. `unlink` removes a symlink itself rather than following
-    // it, so a planted one becomes cleanable instead of permanently stuck.
+    // `lstat` first to gate out directories: `unlink` throws on one (EPERM on
+    // macOS/BSD, EISDIR on Linux — the code alone isn't a reliable signal, so
+    // this can't be told apart by catching afterward), and left uncaught that
+    // turns every DELETE for a directory planted at an attachment name into a
+    // 500 that leaves the entry permanently undeletable. `lstat`, not `stat`,
+    // and gating on `isDirectory()` rather than requiring `isFile()`: a
+    // symlink (to a file, a directory, or nothing) must still fall through to
+    // `unlink` below, which removes the link itself without following it —
+    // requiring `isFile()` would refuse a symlink outright and leave it stuck
+    // exactly like a directory would be.
+    let stats;
+    try {
+      stats = await lstat(absolutePath);
+    } catch (error: unknown) {
+      if (isFileNotFoundError(error)) return false;
+      throw error;
+    }
+    if (stats.isDirectory()) return false;
+
     // Only ENOENT means "there was nothing to delete"; anything else is a real
     // failure and must not be reported as a clean miss.
     try {
