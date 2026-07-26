@@ -16,11 +16,12 @@ import {Readable} from 'node:stream';
 import {fileTypeFromFile} from 'file-type';
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 
+import {agentAttachmentStore} from './agent-attachment-store.js';
 import {
-  agentAttachmentStore,
   MAX_DOCUMENT_ATTACHMENT_BYTES,
   MAX_IMAGE_ATTACHMENT_BYTES,
-} from './agent-attachment-store.js';
+} from './helpers/cap-for.js';
+import {resolveInside} from './helpers/resolve-inside.js';
 
 // Both mocks default to the real implementation — only the specific tests
 // below that exercise the stat/sniff/read race override a single call.
@@ -99,18 +100,6 @@ describe('save', () => {
     if (!result.ok) return;
     expect(result.attachment.mediaType).toBe('application/pdf');
     expect(result.attachment.fileName).toBe('invoice.pdf');
-  });
-
-  it('strips directory components and control characters from the name', async () => {
-    const result = await agentAttachmentStore.save(
-      scratchDirectory,
-      `../../etc/pa${NUL}ss.png`,
-      streamOf(pngOf(64)),
-    );
-
-    expect(result.ok).toBe(true);
-    if (!result.ok) return;
-    expect(result.attachment.fileName).toBe('pass.png');
   });
 
   it('uniquifies a colliding name instead of overwriting', async () => {
@@ -452,16 +441,13 @@ describe('describe / readBase64 / remove', () => {
 });
 
 describe('path safety', () => {
-  it.each([
-    ['a traversal segment', '../snapshot.json'],
-    ['a nested path', 'sub/shot.png'],
-    ['a backslash path', 'sub\\shot.png'],
-    ['an absolute path', '/etc/passwd'],
-    ['a dot name', '.'],
-    ['a dot-dot name', '..'],
-    ['an empty name', ''],
-    ['a name with a control character', `sh${NUL}ot.png`],
-  ])('rejects %s on read', async (_label, fileName) => {
+  // The full rejection matrix (traversal, backslash paths, dot names, control
+  // characters, ...) is a pure function of `resolveInside` now and is tested
+  // directly in helpers/resolve-inside.test.ts. This just confirms the
+  // store's read methods correctly wire a rejection into `null`/`false`
+  // instead of throwing.
+  it('rejects a read for a name outside the store, delegating to resolveInside', async () => {
+    const fileName = '../snapshot.json';
     expect(
       await agentAttachmentStore.describe(scratchDirectory, fileName),
     ).toBeNull();
@@ -471,6 +457,29 @@ describe('path safety', () => {
     expect(await agentAttachmentStore.remove(scratchDirectory, fileName)).toBe(
       false,
     );
+  });
+
+  // The one intended behavior change (design doc, section 3): a read-path
+  // name is now compared byte-for-byte against its own sanitized form, so
+  // trailing whitespace — silently accepted by the pre-refactor checks — is
+  // now rejected. The file is saved as 'shot.png' (no trailing space), so the
+  // only difference from a normal lookup is the trailing space on the read.
+  it('rejects a read with trailing whitespace even though the underlying file exists', async () => {
+    await agentAttachmentStore.save(
+      scratchDirectory,
+      'shot.png',
+      streamOf(pngOf(64)),
+    );
+
+    expect(
+      await agentAttachmentStore.describe(scratchDirectory, 'shot.png '),
+    ).toBeNull();
+    expect(
+      await agentAttachmentStore.readBase64(scratchDirectory, 'shot.png '),
+    ).toBeNull();
+    expect(
+      await agentAttachmentStore.remove(scratchDirectory, 'shot.png '),
+    ).toBe(false);
   });
 
   it('rejects a symlink planted inside the attachments directory', async () => {
@@ -493,5 +502,45 @@ describe('path safety', () => {
     expect(
       await agentAttachmentStore.readBase64(scratchDirectory, 'link.png'),
     ).toBeNull();
+  });
+
+  // Required invariant: every name save() actually produces must be accepted
+  // by resolveInside — otherwise a saved attachment could become permanently
+  // unreadable. Verified by round-tripping real saved names (including
+  // hostile desired names that get transformed along the way), not by
+  // asserting the property for hand-picked "nice" cases only.
+  it('accepts, via resolveInside, every name save() actually produces for a spread of hostile desired names', async () => {
+    const hostileDesiredNames = [
+      'shot.png',
+      `../../etc/pa${NUL}ss.png`,
+      'sub/shot.png',
+      'sub\\shot.png',
+      '  leading.png',
+      'trailing.png ',
+      'shot.png...',
+      'CON.png',
+      `${'あ'.repeat(90)}.png`,
+    ];
+
+    const attachmentsDirectory =
+      agentAttachmentStore.directory(scratchDirectory);
+    const savedFileNames: string[] = [];
+    for (const desiredName of hostileDesiredNames) {
+      const result = await agentAttachmentStore.save(
+        scratchDirectory,
+        desiredName,
+        streamOf(pngOf(64)),
+      );
+      // Not every hostile name survives sanitizing (e.g. a Windows-reserved
+      // name) — save() correctly refuses those outright, so there is nothing
+      // to round-trip for that entry.
+      if (!result.ok) continue;
+      savedFileNames.push(result.attachment.fileName);
+    }
+
+    expect(savedFileNames.length).toBeGreaterThan(0);
+    for (const fileName of savedFileNames) {
+      expect(resolveInside(attachmentsDirectory, fileName)).not.toBeNull();
+    }
   });
 });

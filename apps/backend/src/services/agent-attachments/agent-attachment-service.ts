@@ -1,7 +1,7 @@
 import type {Readable} from 'node:stream';
 
 import type {
-  OpenedAttachment,
+  AttachmentDescriptor,
   ResolveAttachmentsResult,
   SaveAttachmentResult,
 } from '@/agent-core/agent/index.js';
@@ -13,7 +13,10 @@ export interface AgentAttachmentService {
     desiredName: string,
     body: Readable,
   ): Promise<SaveAttachmentResult | null>;
-  describe(agentId: string, fileName: string): Promise<OpenedAttachment | null>;
+  describe(
+    agentId: string,
+    fileName: string,
+  ): Promise<AttachmentDescriptor | null>;
   remove(agentId: string, fileName: string): Promise<boolean | null>;
   resolve(
     agentId: string,

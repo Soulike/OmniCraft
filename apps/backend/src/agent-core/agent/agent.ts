@@ -21,7 +21,7 @@ import {agentScratchDirectoryService} from './agent-scratch-directory-service.js
 import {agentTurnRunner} from './agent-turn-runner.js';
 import {
   agentAttachmentStore,
-  type OpenedAttachment,
+  type AttachmentDescriptor,
   type ResolveAttachmentsResult,
   type SaveAttachmentResult,
 } from './attachments/index.js';
@@ -397,7 +397,7 @@ export abstract class Agent {
   }
 
   /** Describes a stored attachment, or `null` when it is not there. */
-  describeAttachment(fileName: string): Promise<OpenedAttachment | null> {
+  describeAttachment(fileName: string): Promise<AttachmentDescriptor | null> {
     return agentAttachmentStore.describe(this.scratchDirectory, fileName);
   }
 
