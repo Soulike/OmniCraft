@@ -518,6 +518,32 @@ describe('describe / readBase64 / remove', () => {
     ).toBe(true);
     await expect(access(truncatedPath)).rejects.toThrow();
   });
+
+  it('removes a symlink planted in the store rather than leaving it stuck', async () => {
+    const attachmentsDirectory =
+      agentAttachmentStore.directory(scratchDirectory);
+    await agentAttachmentStore.save(
+      scratchDirectory,
+      'real.png',
+      streamOf(pngOf(64)),
+    );
+    const outside = path.join(scratchDirectory, 'outside.png');
+    await writeFile(outside, pngOf(64));
+    const linkPath = path.join(attachmentsDirectory, 'link.png');
+    await symlink(outside, linkPath);
+
+    // `describe` refuses a symlink, so a stat-gated `remove` could never
+    // delete one. Unlinking removes the link itself — never the target.
+    expect(
+      await agentAttachmentStore.describe(scratchDirectory, 'link.png'),
+    ).toBeNull();
+    expect(
+      await agentAttachmentStore.remove(scratchDirectory, 'link.png'),
+    ).toBe(true);
+    await expect(access(linkPath)).rejects.toThrow();
+    // The target survived.
+    await expect(access(outside)).resolves.toBeUndefined();
+  });
 });
 
 describe('path safety', () => {

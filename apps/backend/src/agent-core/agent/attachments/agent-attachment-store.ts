@@ -235,11 +235,19 @@ class AgentAttachmentStore {
     );
     if (absolutePath === null) return false;
 
-    const stats = await statRegularFile(absolutePath);
-    if (stats === null) return false;
-
-    await unlink(absolutePath);
-    return true;
+    // Unlink and interpret the failure, rather than stat-then-unlink: it drops
+    // a TOCTOU window and a syscall, and it can delete things a stat gate
+    // would refuse. `unlink` removes a symlink itself rather than following
+    // it, so a planted one becomes cleanable instead of permanently stuck.
+    // Only ENOENT means "there was nothing to delete"; anything else is a real
+    // failure and must not be reported as a clean miss.
+    try {
+      await unlink(absolutePath);
+      return true;
+    } catch (error: unknown) {
+      if (isFileNotFoundError(error)) return false;
+      throw error;
+    }
   }
 
   /**
