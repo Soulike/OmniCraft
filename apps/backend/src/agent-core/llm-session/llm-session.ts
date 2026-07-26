@@ -40,6 +40,18 @@ function throwIfAborted(signal: AbortSignal | undefined): void {
   throw signal.reason instanceof Error ? signal.reason : new Error('Aborted');
 }
 
+/** Constructor options for {@link LlmSession}. `snapshot` is the only
+ *  optional field — a fresh session has none, but every production caller
+ *  needs attachments resolved, so `resolveAttachment` and
+ *  `attachmentsDirectory` are required rather than silently degrading to a
+ *  session that can never deliver an attachment. */
+export interface LlmSessionOptions {
+  readonly getConfig: () => Promise<LlmConfig>;
+  readonly snapshot?: LlmSessionSnapshot;
+  readonly resolveAttachment: AttachmentResolver;
+  readonly attachmentsDirectory: string;
+}
+
 /**
  * In-memory LLM conversation context.
  *
@@ -60,19 +72,16 @@ export class LlmSession {
   /** Number of messages covered by the latest provider input-token usage. */
   private latestUsageInputMessageCount: number | null = null;
   private readonly getConfig: () => Promise<LlmConfig>;
-  private readonly resolveAttachment: AttachmentResolver | null;
-  private readonly attachmentsDirectory: string | null;
+  private readonly resolveAttachment: AttachmentResolver;
+  private readonly attachmentsDirectory: string;
   private readonly mutex = new Mutex();
 
-  constructor(
-    getConfig: () => Promise<LlmConfig>,
-    snapshot?: LlmSessionSnapshot,
-    resolveAttachment?: AttachmentResolver,
-    attachmentsDirectory?: string,
-  ) {
+  constructor(options: LlmSessionOptions) {
+    const {getConfig, snapshot, resolveAttachment, attachmentsDirectory} =
+      options;
     this.getConfig = getConfig;
-    this.resolveAttachment = resolveAttachment ?? null;
-    this.attachmentsDirectory = attachmentsDirectory ?? null;
+    this.resolveAttachment = resolveAttachment;
+    this.attachmentsDirectory = attachmentsDirectory;
 
     if (snapshot) {
       this.id = snapshot.id;
@@ -323,9 +332,7 @@ export class LlmSession {
         const attachments = await Promise.all(
           message.attachments.map(
             async (attachment): Promise<ResolvedLlmAttachment> => {
-              const resolution = this.resolveAttachment
-                ? await this.resolveAttachment(attachment)
-                : ({data: null, reason: 'missing'} as const);
+              const resolution = await this.resolveAttachment(attachment);
               return {...attachment, ...resolution};
             },
           ),

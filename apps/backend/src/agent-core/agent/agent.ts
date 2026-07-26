@@ -122,22 +122,21 @@ export abstract class Agent {
       this.title = snapshot.title;
       this.sseEventCount = snapshot.sseEventCount;
       providedWorkingDirectory = snapshot.options.workingDirectory;
-      this.llmSession = new LlmSession(
+      this.llmSession = new LlmSession({
         getConfig,
-        snapshot.llmSession,
-        (a) => this.resolveAttachmentData(a),
-        agentAttachmentStore.directory(scratchDirectory),
-      );
+        snapshot: snapshot.llmSession,
+        resolveAttachment: (a) => this.resolveAttachmentData(a),
+        attachmentsDirectory: agentAttachmentStore.directory(scratchDirectory),
+      });
       this.subagentRegistry = new SubagentRegistry();
     } else {
       this.id = id;
       providedWorkingDirectory = options.workingDirectory;
-      this.llmSession = new LlmSession(
+      this.llmSession = new LlmSession({
         getConfig,
-        undefined,
-        (a) => this.resolveAttachmentData(a),
-        agentAttachmentStore.directory(scratchDirectory),
-      );
+        resolveAttachment: (a) => this.resolveAttachmentData(a),
+        attachmentsDirectory: agentAttachmentStore.directory(scratchDirectory),
+      });
       this.subagentRegistry = new SubagentRegistry();
     }
 
