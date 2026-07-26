@@ -9,7 +9,7 @@ describe('attachmentsToBlocks', () => {
         {
           fileName: 'shot.png',
           mediaType: 'image/png',
-          byteSize: 3,
+          lastKnownByteSize: 3,
           data: 'AAA=',
         },
       ]),
@@ -22,7 +22,7 @@ describe('attachmentsToBlocks', () => {
         {
           fileName: 'invoice.pdf',
           mediaType: 'application/pdf',
-          byteSize: 3,
+          lastKnownByteSize: 3,
           data: 'BBB=',
         },
       ]),
@@ -42,7 +42,7 @@ describe('attachmentsToBlocks', () => {
         {
           fileName: 'gone.png',
           mediaType: 'image/png',
-          byteSize: 10,
+          lastKnownByteSize: 10,
           data: null,
           reason: 'missing',
         },
@@ -56,7 +56,7 @@ describe('attachmentsToBlocks', () => {
         {
           fileName: 'shot.png',
           mediaType: 'image/png',
-          byteSize: 12_910_182,
+          lastKnownByteSize: 12_910_182,
           data: null,
           reason: 'too-large',
         },
@@ -71,11 +71,16 @@ describe('attachmentsToBlocks', () => {
 
   it('preserves order across mixed attachments', () => {
     const blocks = attachmentsToBlocks([
-      {fileName: 'a.png', mediaType: 'image/png', byteSize: 1, data: 'AA=='},
+      {
+        fileName: 'a.png',
+        mediaType: 'image/png',
+        lastKnownByteSize: 1,
+        data: 'AA==',
+      },
       {
         fileName: 'b.pdf',
         mediaType: 'application/pdf',
-        byteSize: 1,
+        lastKnownByteSize: 1,
         data: null,
         reason: 'missing',
       },

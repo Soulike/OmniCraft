@@ -14,7 +14,7 @@ describe('llmAttachmentSchema', () => {
       const parsed = llmAttachmentSchema.parse({
         fileName: 'file',
         mediaType,
-        byteSize: 1,
+        lastKnownByteSize: 1,
       });
       expect(parsed.mediaType).toBe(mediaType);
     }
@@ -25,7 +25,7 @@ describe('llmAttachmentSchema', () => {
       llmAttachmentSchema.parse({
         fileName: 'diagram.svg',
         mediaType: 'image/svg+xml',
-        byteSize: 1,
+        lastKnownByteSize: 1,
       }),
     ).toThrow();
   });
@@ -35,14 +35,18 @@ describe('llmAttachmentSchema', () => {
       llmAttachmentSchema.parse({
         fileName: '',
         mediaType: 'image/png',
-        byteSize: 1,
+        lastKnownByteSize: 1,
       }),
     ).toThrow();
   });
 
   it('rejects a negative or fractional byte size', () => {
     const base = {fileName: 'a.png', mediaType: 'image/png'};
-    expect(() => llmAttachmentSchema.parse({...base, byteSize: -1})).toThrow();
-    expect(() => llmAttachmentSchema.parse({...base, byteSize: 1.5})).toThrow();
+    expect(() =>
+      llmAttachmentSchema.parse({...base, lastKnownByteSize: -1}),
+    ).toThrow();
+    expect(() =>
+      llmAttachmentSchema.parse({...base, lastKnownByteSize: 1.5}),
+    ).toThrow();
   });
 });

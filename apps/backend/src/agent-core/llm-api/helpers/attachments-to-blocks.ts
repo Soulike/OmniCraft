@@ -18,7 +18,7 @@ export function attachmentsToBlocks(
     if (attachment.data === null) {
       const text =
         attachment.reason === 'too-large'
-          ? `[attachment too large to deliver: ${attachment.fileName} (${formatAttachmentSize(attachment.byteSize)})]`
+          ? `[attachment too large to deliver: ${attachment.fileName} (${formatAttachmentSize(attachment.lastKnownByteSize)})]`
           : `[attachment missing: ${attachment.fileName}]`;
       return {type: 'text', text};
     }

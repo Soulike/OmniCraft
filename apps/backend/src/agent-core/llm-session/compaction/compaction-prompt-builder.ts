@@ -52,7 +52,7 @@ export class CompactionPromptBuilder {
       '',
       ...attachments.map(
         (attachment) =>
-          `- ${path.join(attachmentsDirectory, attachment.fileName)} — ${attachment.mediaType}, ${formatAttachmentSize(attachment.byteSize)}`,
+          `- ${path.join(attachmentsDirectory, attachment.fileName)} — ${attachment.mediaType}, ${formatAttachmentSize(attachment.lastKnownByteSize)}`,
       ),
     ];
   }

@@ -58,7 +58,7 @@ function projectUserContent(message: LlmUserMessage): string {
   if (message.attachments.length === 0) return message.content;
   const placeholders = message.attachments.map(
     (attachment) =>
-      `[attachment: ${attachment.fileName} (${attachment.mediaType}, ${formatAttachmentSize(attachment.byteSize)})]`,
+      `[attachment: ${attachment.fileName} (${attachment.mediaType}, ${formatAttachmentSize(attachment.lastKnownByteSize)})]`,
   );
   return [message.content, ...placeholders].join('\n');
 }

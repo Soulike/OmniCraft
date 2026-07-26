@@ -50,9 +50,13 @@ describe('buildCompactedMessageContent attachments', () => {
         {
           fileName: 'invoice.pdf',
           mediaType: 'application/pdf',
-          byteSize: 240_640,
+          lastKnownByteSize: 240_640,
         },
-        {fileName: 'shot.png', mediaType: 'image/png', byteSize: 831_488},
+        {
+          fileName: 'shot.png',
+          mediaType: 'image/png',
+          lastKnownByteSize: 831_488,
+        },
       ],
       attachmentsDirectory: '/data/sessions/x/scratch/attachments',
     });
@@ -76,7 +80,9 @@ describe('buildCompactedMessageContent attachments', () => {
     const content = compactionPromptBuilder.buildCompactedMessageContent({
       summary: 's',
       recentContext: 'r',
-      attachments: [{fileName: 'a.png', mediaType: 'image/png', byteSize: 1}],
+      attachments: [
+        {fileName: 'a.png', mediaType: 'image/png', lastKnownByteSize: 1},
+      ],
       attachmentsDirectory: null,
     });
     expect(content).not.toContain('Attachments you saw earlier');

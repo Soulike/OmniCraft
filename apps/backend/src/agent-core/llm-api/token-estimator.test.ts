@@ -141,13 +141,17 @@ describe('user message attachments', () => {
           role: 'user',
           content: 'hi',
           attachments: [
-            {fileName: 'a.png', mediaType: 'image/png', byteSize: 4_000_000},
+            {
+              fileName: 'a.png',
+              mediaType: 'image/png',
+              lastKnownByteSize: 4_000_000,
+            },
           ],
         },
       ],
     });
 
-    // Bounded and independent of byteSize — matches the tool-result image cost.
+    // Bounded and independent of lastKnownByteSize — matches the tool-result image cost.
     expect(withImage - withoutImage).toBe(1600);
   });
 
@@ -165,7 +169,11 @@ describe('user message attachments', () => {
           role: 'user',
           content: 'hi',
           attachments: [
-            {fileName: 'a.pdf', mediaType: 'application/pdf', byteSize: 10},
+            {
+              fileName: 'a.pdf',
+              mediaType: 'application/pdf',
+              lastKnownByteSize: 10,
+            },
           ],
         },
       ],
@@ -186,7 +194,7 @@ describe('user message attachments', () => {
             {
               fileName: 'a.png',
               mediaType: 'image/png',
-              byteSize: 3,
+              lastKnownByteSize: 3,
               data: 'A'.repeat(100_000),
             },
           ],

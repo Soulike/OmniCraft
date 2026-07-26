@@ -29,7 +29,7 @@ export function totalAttachmentBytes(
   attachments: readonly LlmAttachment[],
 ): number {
   return attachments.reduce(
-    (total, attachment) => total + attachment.byteSize,
+    (total, attachment) => total + attachment.lastKnownByteSize,
     0,
   );
 }

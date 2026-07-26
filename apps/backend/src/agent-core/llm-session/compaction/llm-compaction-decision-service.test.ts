@@ -121,7 +121,7 @@ describe('attachment byte pressure', () => {
   const bigAttachment = (fileName: string, mb: number) => ({
     fileName,
     mediaType: 'application/pdf' as const,
-    byteSize: mb * 1024 * 1024,
+    lastKnownByteSize: mb * 1024 * 1024,
   });
 
   function inputWith(userMessages: LlmMessage[]): LlmCompactionDecisionInput {
@@ -211,7 +211,7 @@ describe('attachment byte pressure', () => {
             {
               fileName: 'a.pdf',
               mediaType: 'application/pdf',
-              byteSize: COMPACTION_TRIGGER_ATTACHMENT_BYTES - 1,
+              lastKnownByteSize: COMPACTION_TRIGGER_ATTACHMENT_BYTES - 1,
             },
           ],
         },

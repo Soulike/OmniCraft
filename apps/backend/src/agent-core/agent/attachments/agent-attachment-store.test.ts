@@ -81,7 +81,7 @@ describe('save', () => {
     expect(result.attachment).toEqual({
       fileName: 'shot.png',
       mediaType: 'image/png',
-      byteSize: 2048,
+      lastKnownByteSize: 2048,
     });
 
     const stored = await readFile(
@@ -117,7 +117,7 @@ describe('save', () => {
 
     expect(first.ok && first.attachment.fileName).toBe('shot.png');
     expect(second.ok && second.attachment.fileName).toBe('shot (2).png');
-    expect(second.ok && second.attachment.byteSize).toBe(128);
+    expect(second.ok && second.attachment.lastKnownByteSize).toBe(128);
   });
 
   // Regression test for a name `placeUniquely` could produce that the read
@@ -207,7 +207,7 @@ describe('save', () => {
     );
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(result.attachment.byteSize).toBe(size);
+    expect(result.attachment.lastKnownByteSize).toBe(size);
   });
 
   it('aborts a stream past the largest cap without buffering it', async () => {
@@ -298,7 +298,7 @@ describe('describe / readBase64 / remove', () => {
     expect(found?.attachment).toEqual({
       fileName: 'shot.png',
       mediaType: 'image/png',
-      byteSize: 256,
+      lastKnownByteSize: 256,
     });
     expect(found?.absolutePath).toBe(
       path.join(scratchDirectory, 'attachments', 'shot.png'),
@@ -351,7 +351,7 @@ describe('describe / readBase64 / remove', () => {
 
   // Regression tests for the bug this section of the review follow-up spec
   // fixes: `readBase64` used to read the file with no size check at all,
-  // trusting the `byteSize` `describe` had recorded earlier — but
+  // trusting the `lastKnownByteSize` `describe` had recorded earlier — but
   // `run_command`'s realpath allowlist deliberately covers the scratch space
   // (it's how an oversized image gets downsampled), so a writer other than
   // `save()` can replace the file with a larger one between the two.
@@ -401,7 +401,7 @@ describe('describe / readBase64 / remove', () => {
       expect(found?.attachment).toEqual({
         fileName: 'shot.png',
         mediaType: 'image/png',
-        byteSize: grownSize,
+        lastKnownByteSize: grownSize,
       });
       expect(found?.absolutePath).toBe(absolutePath);
 
@@ -637,7 +637,7 @@ describe('freeze', () => {
   });
 
   // The invariant the whole byte budget rests on: once a descriptor is in
-  // history, its `byteSize` must keep describing the bytes on disk. The only
+  // history, its `lastKnownByteSize` must keep describing the bytes on disk. The only
   // way an API caller could rebind a name to different bytes is to free it
   // first — `placeUniquely` never overwrites, it falls through to `(2)`. So
   // refusing the delete closes the rebinding path entirely.
@@ -682,7 +682,7 @@ describe('freeze', () => {
     expect(found?.attachment).toEqual({
       fileName: 'shot.png',
       mediaType: 'image/png',
-      byteSize: 64,
+      lastKnownByteSize: 64,
     });
     expect(
       await agentAttachmentStore.readBase64(scratchDirectory, 'shot.png'),

@@ -64,11 +64,15 @@ describe('llmUserMessageSchema attachments', () => {
       role: 'user',
       content: 'look',
       attachments: [
-        {fileName: 'shot.png', mediaType: 'image/png', byteSize: 812345},
+        {
+          fileName: 'shot.png',
+          mediaType: 'image/png',
+          lastKnownByteSize: 812345,
+        },
         {
           fileName: 'invoice.pdf',
           mediaType: 'application/pdf',
-          byteSize: 235000,
+          lastKnownByteSize: 235000,
         },
       ],
     });
@@ -85,7 +89,11 @@ describe('llmUserMessageSchema attachments', () => {
         role: 'user',
         content: 'look',
         attachments: [
-          {fileName: 'diagram.svg', mediaType: 'image/svg+xml', byteSize: 10},
+          {
+            fileName: 'diagram.svg',
+            mediaType: 'image/svg+xml',
+            lastKnownByteSize: 10,
+          },
         ],
       }),
     ).toThrow();

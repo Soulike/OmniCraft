@@ -190,7 +190,7 @@ describe('toSdkMessage user attachments', () => {
         {
           fileName: 'shot.png',
           mediaType: 'image/png',
-          byteSize: 3,
+          lastKnownByteSize: 3,
           data: 'AAA=',
         },
       ],
@@ -215,7 +215,7 @@ describe('toSdkMessage user attachments', () => {
         {
           fileName: 'invoice.pdf',
           mediaType: 'application/pdf',
-          byteSize: 3,
+          lastKnownByteSize: 3,
           data: 'BBB=',
         },
       ],
@@ -242,7 +242,7 @@ describe('toSdkMessage user attachments', () => {
         {
           fileName: 'shot.png',
           mediaType: 'image/png',
-          byteSize: 3,
+          lastKnownByteSize: 3,
           data: 'AAA=',
         },
       ],

@@ -90,7 +90,7 @@ async function descriptorFor(fileName: string): Promise<AttachmentDescriptor> {
   const absolutePath = path.join(scratchDirectory, crypto.randomUUID());
   await writeFile(absolutePath, 'bytes');
   return {
-    attachment: {fileName, mediaType: 'image/png', byteSize: 5},
+    attachment: {fileName, mediaType: 'image/png', lastKnownByteSize: 5},
     absolutePath,
     mtimeMs: Date.now(),
   };
@@ -152,7 +152,7 @@ describe('GET .../attachments/:fileName body framing', () => {
   // `describe`'s stat and the route's `open` both resolve the path by name and
   // are separate awaits, so a DELETE plus a same-name re-upload between them
   // leaves the descriptor describing a file this response is not sending. The
-  // stale `byteSize` does not fail loudly: the client stops reading at
+  // stale `lastKnownByteSize` does not fail loudly: the client stops reading at
   // `Content-Length`, so the download arrives silently truncated — and the
   // matching `ETag` caches the corruption. A descriptor deliberately out of
   // step with its file stands in for the race.
@@ -166,7 +166,7 @@ describe('GET .../attachments/:fileName body framing', () => {
     );
     const body = await res.arrayBuffer();
 
-    expect(descriptor.attachment.byteSize).toBe(5);
+    expect(descriptor.attachment.lastKnownByteSize).toBe(5);
     expect(res.headers.get('content-length')).toBe('100');
     expect(body.byteLength).toBe(100);
     expect(res.headers.get('etag')).toMatch(/^"100-/);
@@ -187,7 +187,7 @@ describe('GET .../attachments/:fileName body framing', () => {
     );
     const body = await res.arrayBuffer();
 
-    expect(descriptor.attachment.byteSize).toBe(5);
+    expect(descriptor.attachment.lastKnownByteSize).toBe(5);
     expect(res.headers.get('content-length')).toBe('2');
     expect(body.byteLength).toBe(2);
   });

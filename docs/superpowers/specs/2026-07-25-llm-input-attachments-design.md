@@ -69,7 +69,7 @@ entirely the user-message side of our own code.
 ## Key decisions
 
 1. **Reference storage, not inline base64.** The snapshot holds
-   `{fileName, mediaType, byteSize}`; the bytes live in a file. Base64 is
+   `{fileName, mediaType, lastKnownByteSize}`; the bytes live in a file. Base64 is
    materialized transiently when a request is built, and never persisted.
 
    This deliberately **diverges from #372**, which inlines tool-result base64 into
@@ -121,7 +121,7 @@ entirely the user-message side of our own code.
 
 ```
 <dataDir>/sessions/<sid>/
-  snapshot.json          attachments: [{fileName, mediaType, byteSize}]
+  snapshot.json          attachments: [{fileName, mediaType, lastKnownByteSize}]
   metadata.json
   sse-events.jsonl       message-start carries the same descriptors
   scratch/
@@ -161,7 +161,7 @@ session's blob store for anything destined to become binary LLM input, and a use
 upload is simply its first producer. Concretely, this constrains the
 implementation:
 
-- **The store knows only `{fileName, mediaType, byteSize}`.** No `uploadedBy`, no
+- **The store knows only `{fileName, mediaType, lastKnownByteSize}`.** No `uploadedBy`, no
   `source`, no user-specific field anywhere in `LlmAttachment` or in the store's
   API. If a later producer needs provenance, it belongs on the message, not on the
   attachment.
@@ -198,7 +198,7 @@ leaf with only a `zod` dependency, so no cycle is possible).
 export const llmAttachmentSchema = z.object({
   fileName: z.string().min(1),
   mediaType: z.union([imageMediaTypeSchema, documentMediaTypeSchema]),
-  byteSize: z.number().int().nonnegative(),
+  lastKnownByteSize: z.number().int().nonnegative(),
 });
 
 export type LlmAttachment = z.infer<typeof llmAttachmentSchema>;
@@ -316,7 +316,7 @@ near-identical router pair.
 ```
 POST   /api/chat/session/:id/attachments?name=<original filename>
        Content-Type: <ignored>, body = raw bytes
-       201 {fileName, mediaType, byteSize}     fileName may differ — see pipeline
+       201 {fileName, mediaType, lastKnownByteSize}     fileName may differ — see pipeline
        400 unsupported media type / invalid name
        413 over the per-type cap
        404 session not found
@@ -337,7 +337,7 @@ POST   /api/chat/session/:id/completions
 
 **`completions` takes file names, not descriptors.** `Agent.claimAttachments` turns
 each name into a `LlmAttachment` by re-stating and re-sniffing the file on disk, so a
-client cannot misreport `mediaType` or `byteSize`, and the descriptor persisted in the
+client cannot misreport `mediaType` or `lastKnownByteSize`, and the descriptor persisted in the
 snapshot always matches the bytes. An unknown or unreadable name is a 400 and the turn
 does not start.
 
@@ -383,7 +383,7 @@ download endpoint is aggressively cacheable.
    really a PDF is stored as `.pdf`, so neither the model reading the path list nor
    the frontend is misled.
 7. Uniquify on collision (`invoice.pdf` → `invoice (2).pdf`).
-8. `rename` tmp → final. Return `{fileName, mediaType, byteSize}`.
+8. `rename` tmp → final. Return `{fileName, mediaType, lastKnownByteSize}`.
 
 ### Path safety
 
@@ -406,7 +406,7 @@ there; the request conflicts with a state it cannot leave).
 Both steps resolve by **file name**, and they are separate awaits, so anything landing
 between them can swap the file a name points at — a `DELETE` plus a same-name
 re-upload suffices, since `placeUniquely` always starts at the bare name. Describing
-first records a `byteSize` for one file and then pins whatever occupies the name a
+first records a `lastKnownByteSize` for one file and then pins whatever occupies the name a
 moment later. That is the stale-descriptor bug freezing exists to prevent, reintroduced
 one layer down; an early version of this shipped with it.
 
@@ -437,7 +437,7 @@ user can now delete. That trades an invisible leak for a dangling reference, whi
 the class of bug this section exists to prevent.
 
 This is what makes the byte accounting true rather than approximate. The compaction
-trigger, the per-message cap, and the per-file caps all compare against a `byteSize`
+trigger, the per-message cap, and the per-file caps all compare against a `lastKnownByteSize`
 recorded when the message was sent, while `toRequestMessages` re-reads the bytes from
 disk on every round. If a name could be freed and rebound, those two would diverge:
 ten descriptors accepted at 1 KiB, deleted, and re-uploaded as 2 MiB files would
@@ -631,12 +631,18 @@ Both bounds are real constraints, not tuning:
 12 MB decoded is ~16.5 MB as base64; 16 MB is ~22 MB, leaving ~10 MB of the
 provider's 32 MB for text, tool definitions, and the system prompt.
 
-**Known imprecision, accepted.** The sum uses each descriptor's recorded `byteSize`,
-not a fresh `stat`. The agent can overwrite a file in its scratch space (that is the
-designed downsampling escape hatch), so a recorded size can be stale. Under-reporting
-delays compaction rather than losing data, and the ~2× headroom between the 16 MB
-trigger and the 32 MB limit absorbs it. Re-`stat`ing every attachment on every
-compaction decision would trade that headroom for I/O on the hot path.
+**Known imprecision, accepted.** The sum uses each descriptor's
+`lastKnownByteSize`, not a fresh `stat`. Anything running as this process's user can
+replace a file in the scratch space, so a recorded size can be stale — and no
+permission scheme prevents that, since `unlink` plus recreate never consults the
+frozen file's mode. Under-reporting only delays compaction; it cannot lose data.
+Re-`stat`ing every attachment on every compaction decision would put I/O on the hot
+path to sharpen a number that is a _scheduling hint_, not a bound.
+
+The bound lives at materialization instead, where the bytes are actually read and can
+therefore be measured rather than trusted. That is the division `lastKnownByteSize`'s
+name is meant to keep visible: display and scheduling may use the record; anything
+that bounds memory, frames a response, or decides what to send must measure.
 
 **Out of scope, and not a small gap:** tool-result media still inlines base64 in
 message content (see [#388](https://github.com/Soulike/OmniCraft/issues/388)) and

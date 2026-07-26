@@ -33,7 +33,7 @@ function sumUserAttachmentBytes(messages: readonly LlmMessage[]): number {
         total +
         message.attachments.reduce(
           (attachmentTotal, attachment) =>
-            attachmentTotal + attachment.byteSize,
+            attachmentTotal + attachment.lastKnownByteSize,
           0,
         ),
       0,

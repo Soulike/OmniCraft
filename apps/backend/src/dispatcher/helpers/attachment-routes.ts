@@ -177,7 +177,7 @@ export function registerAttachmentRoutes(
     // open handle, so the validator always describes the bytes actually sent.
     ctx.response.status = StatusCodes.OK;
     ctx.response.set('Cache-Control', 'private, max-age=0, must-revalidate');
-    ctx.response.etag = `${descriptor.attachment.byteSize}-${descriptor.mtimeMs}`;
+    ctx.response.etag = `${descriptor.attachment.lastKnownByteSize}-${descriptor.mtimeMs}`;
 
     if (ctx.fresh) {
       ctx.response.status = StatusCodes.NOT_MODIFIED;
@@ -214,7 +214,7 @@ export function registerAttachmentRoutes(
     // Size and validator are re-read from the OPEN file, not reused from
     // `describe`'s earlier stat. Both resolve `absolutePath` by name, and they
     // are separate awaits, so a DELETE plus a same-name re-upload landing
-    // between them makes `describe`'s `byteSize` describe a file this response
+    // between them makes `describe`'s `lastKnownByteSize` describe a file this response
     // is not sending — and the failure is silent, not loud: the client stops
     // reading at `Content-Length`, so a larger file arrives truncated and a
     // smaller one hangs, with a matching `ETag` caching the corruption. An
@@ -285,7 +285,7 @@ export function registerAttachmentRoutes(
         // allowed to ask — the request conflicts with a state the resource
         // has already reached and cannot leave. Deleting it would let the
         // name be reclaimed by a different file, breaking the guarantee that
-        // a `byteSize` recorded in history still describes the bytes on disk.
+        // a `lastKnownByteSize` recorded in history still describes the bytes on disk.
         case 'attachment-frozen': {
           ctx.response.status = StatusCodes.CONFLICT;
           ctx.response.body = {

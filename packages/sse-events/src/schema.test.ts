@@ -309,7 +309,11 @@ describe('sseMessageStartEventSchema attachments', () => {
       createdAt: 1,
       content: 'look',
       attachments: [
-        {fileName: 'shot.png', mediaType: 'image/png', byteSize: 812345},
+        {
+          fileName: 'shot.png',
+          mediaType: 'image/png',
+          lastKnownByteSize: 812345,
+        },
       ],
     });
     expect(parsed.attachments[0]?.fileName).toBe('shot.png');
@@ -325,7 +329,7 @@ describe('sseMessageStartEventSchema attachments', () => {
         createdAt: 1,
         content: 'look',
         attachments: [
-          {fileName: 'a.svg', mediaType: 'image/svg+xml', byteSize: 1},
+          {fileName: 'a.svg', mediaType: 'image/svg+xml', lastKnownByteSize: 1},
         ],
       }),
     ).toThrow();

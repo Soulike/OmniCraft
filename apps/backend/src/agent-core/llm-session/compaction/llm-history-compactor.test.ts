@@ -121,7 +121,11 @@ describe('LlmHistoryCompactor', () => {
           role: 'user',
           content: 'first',
           attachments: [
-            {fileName: 'shot.png', mediaType: 'image/png', byteSize: 831_488},
+            {
+              fileName: 'shot.png',
+              mediaType: 'image/png',
+              lastKnownByteSize: 831_488,
+            },
           ],
         },
         {
@@ -130,11 +134,15 @@ describe('LlmHistoryCompactor', () => {
           role: 'user',
           content: 'again',
           attachments: [
-            {fileName: 'shot.png', mediaType: 'image/png', byteSize: 831_488},
+            {
+              fileName: 'shot.png',
+              mediaType: 'image/png',
+              lastKnownByteSize: 831_488,
+            },
             {
               fileName: 'invoice.pdf',
               mediaType: 'application/pdf',
-              byteSize: 240_640,
+              lastKnownByteSize: 240_640,
             },
           ],
         },

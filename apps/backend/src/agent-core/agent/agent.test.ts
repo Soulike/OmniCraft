@@ -50,7 +50,7 @@ const PNG_HEADER = Buffer.from([
 
 const PNG = Buffer.concat([PNG_HEADER, Buffer.alloc(48)]);
 
-/** A PNG of an exact total size, for asserting on a recorded `byteSize`. */
+/** A PNG of an exact total size, for asserting on a recorded `lastKnownByteSize`. */
 function pngOf(totalBytes: number): Buffer {
   return Buffer.concat([
     PNG_HEADER,
@@ -1257,7 +1257,11 @@ describe('Agent attachments', () => {
       new TestAgent(() => Promise.resolve(MAIN_CONFIG), testAgentOptions()),
     );
     const attachments = [
-      {fileName: 'shot.png', mediaType: 'image/png' as const, byteSize: 3},
+      {
+        fileName: 'shot.png',
+        mediaType: 'image/png' as const,
+        lastKnownByteSize: 3,
+      },
     ];
 
     const eventsPromise = collectUntilDone(agent);
@@ -1282,7 +1286,7 @@ describe('attachment operations', () => {
     expect(found?.attachment).toEqual({
       fileName: 'shot.png',
       mediaType: 'image/png',
-      byteSize: PNG.length,
+      lastKnownByteSize: PNG.length,
     });
     expect(found?.absolutePath).toBe(
       path.join(agent.getScratchDirectory(), 'attachments', 'shot.png'),
@@ -1372,8 +1376,8 @@ describe('attachment operations', () => {
     const claimed = await agent.claimAttachments(['shot.png']);
     const onDisk = await agent.describeAttachment('shot.png');
 
-    expect(claimed.ok && claimed.attachments[0].byteSize).toBe(
-      onDisk?.attachment.byteSize,
+    expect(claimed.ok && claimed.attachments[0].lastKnownByteSize).toBe(
+      onDisk?.attachment.lastKnownByteSize,
     );
     // And the file that descriptor points at is the one that is now pinned.
     expect(await agent.removeAttachment('shot.png')).toEqual({
@@ -1392,7 +1396,7 @@ describe('attachment operations', () => {
       {
         fileName: 'huge.pdf',
         mediaType: 'application/pdf' as const,
-        byteSize: MAX_MESSAGE_ATTACHMENT_BYTES + 1,
+        lastKnownByteSize: MAX_MESSAGE_ATTACHMENT_BYTES + 1,
       },
     ];
 
@@ -1404,7 +1408,7 @@ describe('attachment operations', () => {
     );
   });
 
-  // The whole point of claiming: after this, the recorded byteSize is a
+  // The whole point of claiming: after this, the recorded lastKnownByteSize is a
   // permanent fact about the file, because the name can no longer be freed
   // and re-bound to different bytes.
   it('freezes what it claims, so the file can no longer be deleted', async () => {

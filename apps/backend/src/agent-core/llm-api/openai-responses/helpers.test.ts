@@ -97,7 +97,7 @@ describe('toInputItems user attachments', () => {
             {
               fileName: 'shot.png',
               mediaType: 'image/png',
-              byteSize: 3,
+              lastKnownByteSize: 3,
               data: 'AAA=',
             },
           ],
@@ -127,7 +127,7 @@ describe('toInputItems user attachments', () => {
           {
             fileName: 'invoice.pdf',
             mediaType: 'application/pdf',
-            byteSize: 3,
+            lastKnownByteSize: 3,
             data: 'BBB=',
           },
         ],
@@ -154,7 +154,7 @@ describe('toInputItems user attachments', () => {
           {
             fileName: 'gone.png',
             mediaType: 'image/png',
-            byteSize: 3,
+            lastKnownByteSize: 3,
             data: null,
             reason: 'missing',
           },

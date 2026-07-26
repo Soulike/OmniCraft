@@ -125,7 +125,7 @@ export type ClaimAttachmentsResult =
  * A session's blob store for binary LLM input, rooted at
  * `<scratchDirectory>/attachments/`.
  *
- * Deliberately source-agnostic: it knows only `{fileName, mediaType, byteSize}`
+ * Deliberately source-agnostic: it knows only `{fileName, mediaType, lastKnownByteSize}`
  * and takes a stream, never an HTTP request, so a producer holding in-memory
  * bytes can use it without going through the upload endpoint. A user upload is
  * its first producer; tool results are expected to follow
@@ -221,6 +221,8 @@ class AgentAttachmentStore {
         MAX_ANY_ATTACHMENT_BYTES,
       );
       if (!written.ok) return {ok: false, reason: 'too-large'};
+      // Local and fresh — counted by `writeCapped` as the bytes went past. It
+      // only becomes a `lastKnownByteSize` once it leaves here as a record.
       const {byteSize} = written;
 
       const detected = await fileTypeFromFile(temporaryPath);
@@ -235,7 +237,10 @@ class AgentAttachmentStore {
         mediaType,
       );
       if (fileName === null) return {ok: false, reason: 'name-unavailable'};
-      return {ok: true, attachment: {fileName, mediaType, byteSize}};
+      return {
+        ok: true,
+        attachment: {fileName, mediaType, lastKnownByteSize: byteSize},
+      };
     } finally {
       await rm(temporaryPath, {force: true});
     }
@@ -272,7 +277,7 @@ class AgentAttachmentStore {
     if (mediaType === null) return null;
 
     return {
-      attachment: {fileName, mediaType, byteSize: stats.size},
+      attachment: {fileName, mediaType, lastKnownByteSize: stats.size},
       absolutePath,
       mtimeMs: stats.mtimeMs,
     };
@@ -292,8 +297,8 @@ class AgentAttachmentStore {
    * `readFile` itself has no size limit, and `run_command`'s realpath
    * allowlist deliberately covers the scratch space (it is how an oversized
    * image gets downsampled), so the file on disk can be larger than the
-   * `byteSize` last recorded for it. `describe` freshly `lstat`s on every
-   * call, so its `byteSize` is checked against `capFor(mediaType)` before any
+   * `lastKnownByteSize` last recorded for it. `describe` freshly `lstat`s on every
+   * call, so its `lastKnownByteSize` is checked against `capFor(mediaType)` before any
    * byte is read — closing the gap between what compaction certified as safe
    * and what would otherwise be read into memory. A residual TOCTOU window
    * remains (the stat is not the read); it is microseconds wide and the only
@@ -307,8 +312,9 @@ class AgentAttachmentStore {
     const found = await this.describe(scratchDirectory, fileName);
     if (found === null) return {data: null, reason: 'missing'};
 
-    const {byteSize, mediaType} = found.attachment;
-    if (byteSize > capFor(mediaType)) return {data: null, reason: 'too-large'};
+    const {lastKnownByteSize, mediaType} = found.attachment;
+    if (lastKnownByteSize > capFor(mediaType))
+      return {data: null, reason: 'too-large'};
 
     // Same race as above: `describe` above already stat'd (and, internally,
     // sniffed) the file, but a concurrent `remove()` can still unlink it
@@ -332,7 +338,7 @@ class AgentAttachmentStore {
    * Called the moment an attachment enters the model's history, and never
    * undone. Before that point a name is an ordinary mutable file: it can be
    * deleted, and the next upload of the same desired name reclaims it. After
-   * it, the recorded `byteSize` is a permanent fact about the bytes on disk —
+   * it, the recorded `lastKnownByteSize` is a permanent fact about the bytes on disk —
    * which is what the compaction byte budget, the per-message cap, and the
    * per-file caps all quietly assume. Without this, a name could be deleted
    * and re-uploaded with different bytes after the descriptor was accepted,

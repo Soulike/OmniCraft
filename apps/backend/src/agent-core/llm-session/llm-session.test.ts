@@ -494,7 +494,7 @@ describe('attachment resolution', () => {
     const session = createSession({resolveAttachment});
 
     const {stream} = session.sendUserMessage('look', [], '', undefined, [
-      {fileName: 'shot.png', mediaType: 'image/png', byteSize: 3},
+      {fileName: 'shot.png', mediaType: 'image/png', lastKnownByteSize: 3},
     ]);
     for await (const _event of stream) {
       // drain
@@ -513,7 +513,7 @@ describe('attachment resolution', () => {
     const snapshot = session.toSnapshot();
     expect(snapshot.messages[0]).toMatchObject({
       attachments: [
-        {fileName: 'shot.png', mediaType: 'image/png', byteSize: 3},
+        {fileName: 'shot.png', mediaType: 'image/png', lastKnownByteSize: 3},
       ],
     });
     expect(JSON.stringify(snapshot)).not.toContain('AAA=');
@@ -526,7 +526,7 @@ describe('attachment resolution', () => {
     });
 
     const {stream} = session.sendUserMessage('look', [], '', undefined, [
-      {fileName: 'gone.png', mediaType: 'image/png', byteSize: 3},
+      {fileName: 'gone.png', mediaType: 'image/png', lastKnownByteSize: 3},
     ]);
     for await (const _event of stream) {
       // drain

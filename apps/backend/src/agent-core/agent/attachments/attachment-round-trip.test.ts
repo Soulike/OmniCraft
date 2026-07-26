@@ -98,7 +98,11 @@ describe('attachment round trip', () => {
     const loaded = await agentPersistence.loadSnapshot(sessionsDir, AGENT_ID);
     expect(loaded.llmSession.messages[0]).toMatchObject({
       attachments: [
-        {fileName: 'shot.png', mediaType: 'image/png', byteSize: PNG.length},
+        {
+          fileName: 'shot.png',
+          mediaType: 'image/png',
+          lastKnownByteSize: PNG.length,
+        },
       ],
     });
   });

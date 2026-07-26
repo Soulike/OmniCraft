@@ -428,14 +428,14 @@ export abstract class Agent {
   /**
    * Freezes the caller-supplied attachments, then describes them and enforces
    * the per-message byte cap. The caller never supplies `mediaType` or
-   * `byteSize`, so what lands in the snapshot always matches the bytes.
+   * `lastKnownByteSize`, so what lands in the snapshot always matches the bytes.
    * Reports every unknown name at once so a client can show them all.
    *
    * **Freeze first, then describe.** Both steps resolve by file name, and they
    * are separate awaits, so anything between them can swap the file a name
    * points at — a DELETE plus a same-name re-upload is enough, since
    * `placeUniquely` always starts at the bare name. Describing first records a
-   * `byteSize` for one file and then pins whatever occupies the name a moment
+   * `lastKnownByteSize` for one file and then pins whatever occupies the name a moment
    * later, which is the exact stale-descriptor bug freezing exists to prevent.
    *
    * The order fixes it without any identity tracking, because the invariant

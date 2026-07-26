@@ -218,7 +218,7 @@ describe('slimMessagesForSummary', () => {
             {
               fileName: 'invoice.pdf',
               mediaType: 'application/pdf',
-              byteSize: 240_640,
+              lastKnownByteSize: 240_640,
             },
           ],
         },
