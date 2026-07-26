@@ -335,11 +335,26 @@ POST   /api/chat/session/:id/completions
        {message: string /* min 1 */, attachmentFileNames?: string[]}
 ```
 
-**`completions` takes file names, not descriptors.** The **service layer** turns
-each name into a `LlmAttachment` by re-stating and re-sniffing the file on disk
-before calling `Agent.enqueueUserTurn`, so a client cannot misreport `mediaType` or
-`byteSize`, and the descriptor persisted in the snapshot always matches the bytes.
-An unknown or unreadable name is a 400 and the turn does not start.
+**`completions` takes file names, not descriptors.** `Agent.claimAttachments` turns
+each name into a `LlmAttachment` by re-stating and re-sniffing the file on disk, so a
+client cannot misreport `mediaType` or `byteSize`, and the descriptor persisted in the
+snapshot always matches the bytes. An unknown or unreadable name is a 400 and the turn
+does not start.
+
+**The per-message cap lives on the Agent, and is asserted again below it.** It is
+load-bearing for compaction rather than a presentation concern — a single message over
+`COMPACTION_TRIGGER_ATTACHMENT_BYTES` would trip a compaction that cannot relieve it,
+since compaction's only lever is dropping attachments from _older_ messages. So
+`claimAttachments` enforces it and returns `attachments-too-large` (413), which each
+session service forwards unchanged, and `Agent.runTrackedTurn` — where
+`enqueueUserTurn` and `tryStartUserTurn` both land — `assert`s the same bound. The two
+are not redundant: the first is a business outcome for names resolved off disk; the
+second catches a producer that assembled descriptors some other way, which is a bug in
+this process and not something a client did, so it throws.
+
+The cap runs **before** the freeze, so a turn rejected by it leaves nothing read-only.
+That costs no tightness — the sizes are already in hand and summing them is
+synchronous, so the `describe`/`freeze` pair stays as adjacent as it needs to be.
 
 **`Cache-Control` middleware fix.** `dispatcher/index.ts:15-18` sets
 `no-store` on every `/api` response _after_ `await next()`, overwriting whatever a

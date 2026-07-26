@@ -1,4 +1,8 @@
-import type {DocumentMediaType, ImageMediaType} from '@omnicraft/tool-schemas';
+import type {
+  DocumentMediaType,
+  ImageMediaType,
+  LlmAttachment,
+} from '@omnicraft/tool-schemas';
 
 /** Max bytes for an image attachment. Anthropic's own per-image limit is 5 MB,
  *  and image token cost is flat regardless of file size, so a larger cap costs
@@ -14,10 +18,21 @@ export const MAX_DOCUMENT_ATTACHMENT_BYTES = 10 * 1024 * 1024;
  * A single message's attachments may not exceed this. Strictly below
  * `COMPACTION_TRIGGER_ATTACHMENT_BYTES` (see `compaction-constants.ts`), and
  * at or above the largest per-file cap below — the relationship is pinned by
- * `compaction-constants.test.ts`. Enforced by the session services once
- * descriptors are resolved from disk, not from client-supplied numbers.
+ * `compaction-constants.test.ts`. Enforced by `Agent.claimAttachments` once
+ * descriptors are resolved from disk, not from client-supplied numbers, and
+ * asserted again where turns enter the Agent.
  */
 export const MAX_MESSAGE_ATTACHMENT_BYTES = 12 * 1024 * 1024;
+
+/** Total bytes a set of attachments contributes to one request. */
+export function totalAttachmentBytes(
+  attachments: readonly LlmAttachment[],
+): number {
+  return attachments.reduce(
+    (total, attachment) => total + attachment.byteSize,
+    0,
+  );
+}
 
 /** The byte cap that applies to a given deliverable media type. A `Record`
  *  rather than a boolean check: adding a new media type without a cap here is

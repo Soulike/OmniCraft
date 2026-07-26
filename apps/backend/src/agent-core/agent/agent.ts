@@ -1,3 +1,4 @@
+import assert from 'node:assert';
 import crypto from 'node:crypto';
 import type {Readable} from 'node:stream';
 
@@ -23,8 +24,10 @@ import {
   agentAttachmentStore,
   type AttachmentDescriptor,
   type ClaimAttachmentsResult,
+  MAX_MESSAGE_ATTACHMENT_BYTES,
   type RemoveAttachmentResult,
   type SaveAttachmentResult,
+  totalAttachmentBytes,
 } from './attachments/index.js';
 import type {AgentSseLogReaderOptions} from './events/agent-sse-log.js';
 import {AgentSseLog} from './events/agent-sse-log.js';
@@ -257,6 +260,22 @@ export abstract class Agent {
     userMessage: string,
     attachments: readonly LlmAttachment[],
   ): void {
+    // Every turn enters here, whichever public method queued it. The cap is
+    // load-bearing for compaction — a single message above
+    // `COMPACTION_TRIGGER_ATTACHMENT_BYTES` would trip a compaction that
+    // cannot relieve it, because compaction's whole lever is dropping
+    // attachments from *older* messages. `claimAttachments` already returns
+    // this as a business failure for the path that resolves names off disk;
+    // reaching here over the cap means a producer assembled descriptors some
+    // other way and skipped that check, which is a bug in this process, not
+    // something a client did. Failing loudly beats silently queueing a turn
+    // that breaks the invariant downstream.
+    const totalBytes = totalAttachmentBytes(attachments);
+    assert(
+      totalBytes <= MAX_MESSAGE_ATTACHMENT_BYTES,
+      `Turn attachments total ${totalBytes.toString()} bytes, over the ${MAX_MESSAGE_ATTACHMENT_BYTES.toString()} per-message cap`,
+    );
+
     this.pendingTurnCount++;
     void this.runTurn(userMessage, attachments).finally(() => {
       this.pendingTurnCount--;
@@ -407,10 +426,11 @@ export abstract class Agent {
   }
 
   /**
-   * Turns caller-supplied file names into descriptors read from disk, and
-   * freezes the files behind them. The caller never supplies `mediaType` or
-   * `byteSize`, so what lands in the snapshot always matches the bytes.
-   * Reports every unknown name at once so a client can show them all.
+   * Turns caller-supplied file names into descriptors read from disk, enforces
+   * the per-message byte cap, and freezes the files behind them. The caller
+   * never supplies `mediaType` or `byteSize`, so what lands in the snapshot
+   * always matches the bytes. Reports every unknown name at once so a client
+   * can show them all.
    *
    * Claiming, not just resolving: freezing happens here, in the same async
    * block that reads the sizes, so there is no window between recording a
@@ -419,10 +439,15 @@ export abstract class Agent {
    * open, and a delete-then-re-upload inside it would put a descriptor and
    * its file permanently out of step.
    *
-   * Freezing before the caller's own checks (the per-message byte cap) means
-   * a rejected turn can leave attachments frozen that never reached the
-   * model. That is the safe direction to err: the cost is a file the user can
-   * no longer delete, against an invariant the whole byte budget rests on.
+   * The cap runs before the freeze, so a rejected turn leaves nothing frozen.
+   * It costs no tightness: the sizes are already in hand and summing them is
+   * synchronous, so `describe` and `freeze` stay as adjacent as before.
+   *
+   * The cap lives here rather than in each session service because it is load-
+   * bearing for compaction, not a presentation concern: a single message over
+   * `COMPACTION_TRIGGER_ATTACHMENT_BYTES` would trip a compaction that cannot
+   * relieve it. {@link runTrackedTurn} asserts the same bound for producers
+   * that build descriptors some other way.
    */
   async claimAttachments(
     fileNames: readonly string[],
@@ -432,13 +457,9 @@ export abstract class Agent {
     );
 
     const missing = fileNames.filter((_name, index) => found[index] === null);
-    if (missing.length > 0) return {ok: false, missing};
-
-    const vanished = await agentAttachmentStore.freeze(
-      this.scratchDirectory,
-      fileNames,
-    );
-    if (vanished.length > 0) return {ok: false, missing: vanished};
+    if (missing.length > 0) {
+      return {ok: false, reason: 'unknown-attachments', missing};
+    }
 
     const attachments: LlmAttachment[] = [];
     for (const entry of found) {
@@ -446,6 +467,25 @@ export abstract class Agent {
       if (entry === null) continue;
       attachments.push(entry.attachment);
     }
+
+    const totalBytes = totalAttachmentBytes(attachments);
+    if (totalBytes > MAX_MESSAGE_ATTACHMENT_BYTES) {
+      return {
+        ok: false,
+        reason: 'attachments-too-large',
+        totalBytes,
+        limit: MAX_MESSAGE_ATTACHMENT_BYTES,
+      };
+    }
+
+    const vanished = await agentAttachmentStore.freeze(
+      this.scratchDirectory,
+      fileNames,
+    );
+    if (vanished.length > 0) {
+      return {ok: false, reason: 'unknown-attachments', missing: vanished};
+    }
+
     return {ok: true, attachments};
   }
 

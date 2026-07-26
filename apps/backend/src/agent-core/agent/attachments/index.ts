@@ -11,4 +11,5 @@ export {
   MAX_DOCUMENT_ATTACHMENT_BYTES,
   MAX_IMAGE_ATTACHMENT_BYTES,
   MAX_MESSAGE_ATTACHMENT_BYTES,
+  totalAttachmentBytes,
 } from './helpers/cap-for.js';

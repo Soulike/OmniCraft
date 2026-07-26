@@ -4,10 +4,7 @@ import type {SessionMetadata} from '@omnicraft/api-schema';
 import type {SseEventCursorEntry} from '@omnicraft/sse-events';
 
 import {CodingAgent} from '@/agent/agents/index.js';
-import {
-  type AgentSseLogReaderOptions,
-  MAX_MESSAGE_ATTACHMENT_BYTES,
-} from '@/agent-core/agent/index.js';
+import {type AgentSseLogReaderOptions} from '@/agent-core/agent/index.js';
 import {CodingAgentStore} from '@/models/agent-store/index.js';
 import {SettingsManager} from '@/models/settings-manager/index.js';
 
@@ -56,14 +53,11 @@ export const codingAgentSessionService = {
   },
 
   /**
-   * Claims the caller-supplied attachment file names against this agent's
-   * scratch space, enforces the per-message byte cap, and — once both checks
-   * pass — enqueues the turn. The agent runs in the background; use
-   * {@link subscribe} to read events.
-   *
-   * Claiming freezes the files, so a turn rejected by the cap below can still
-   * leave attachments read-only. That is deliberate; see
-   * {@link Agent.claimAttachments}.
+   * Enqueues a turn once the Agent has claimed the caller-supplied attachment
+   * file names. Claiming resolves them against the agent's scratch space,
+   * enforces the per-message byte cap, and freezes the files; its failure
+   * reasons are this method's own, so they forward unchanged. The agent runs
+   * in the background; use {@link subscribe} to read events.
    */
   async sendCompletion(
     agentId: string,
@@ -73,29 +67,10 @@ export const codingAgentSessionService = {
     const agent = await CodingAgentStore.getInstance().get(agentId);
     if (!agent) return {ok: false, reason: 'session-not-found'};
 
-    const resolved = await agent.claimAttachments(attachmentFileNames);
-    if (!resolved.ok) {
-      return {
-        ok: false,
-        reason: 'unknown-attachments',
-        missing: resolved.missing,
-      };
-    }
+    const claimed = await agent.claimAttachments(attachmentFileNames);
+    if (!claimed.ok) return claimed;
 
-    const totalBytes = resolved.attachments.reduce(
-      (total, attachment) => total + attachment.byteSize,
-      0,
-    );
-    if (totalBytes > MAX_MESSAGE_ATTACHMENT_BYTES) {
-      return {
-        ok: false,
-        reason: 'attachments-too-large',
-        totalBytes,
-        limit: MAX_MESSAGE_ATTACHMENT_BYTES,
-      };
-    }
-
-    agent.enqueueUserTurn(userMessage, resolved.attachments);
+    agent.enqueueUserTurn(userMessage, claimed.attachments);
     return {ok: true};
   },
 

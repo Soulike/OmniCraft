@@ -13,6 +13,10 @@ import {createMockTool} from '../tool/testing.js';
 import {ToolRegistry} from '../tool/tool-registry.js';
 import type {ToolDefinition} from '../tool/types.js';
 import {Agent} from './agent.js';
+import {
+  MAX_DOCUMENT_ATTACHMENT_BYTES,
+  MAX_MESSAGE_ATTACHMENT_BYTES,
+} from './attachments/index.js';
 import {agentPersistence} from './persistence/agent-persistence.js';
 import type {AgentSnapshot} from './types.js';
 
@@ -45,6 +49,17 @@ const PNG = Buffer.concat([
   ]),
   Buffer.alloc(48),
 ]);
+
+const PDF_HEADER = Buffer.from('%PDF-1.7\n%\xE2\xE3\xCF\xD3\n', 'binary');
+
+/** A PDF sized exactly at the per-file cap — legal on its own, so a set of
+ *  them isolates the per-message cap from the per-file one. */
+function cappedPdf(): Buffer {
+  return Buffer.concat([
+    PDF_HEADER,
+    Buffer.alloc(MAX_DOCUMENT_ATTACHMENT_BYTES - PDF_HEADER.length),
+  ]);
+}
 
 function emptyUsage() {
   return {
@@ -1295,8 +1310,72 @@ describe('attachment operations', () => {
     expect(await agent.claimAttachments(['gone.png', '../escape.png'])).toEqual(
       {
         ok: false,
+        reason: 'unknown-attachments',
         missing: ['gone.png', '../escape.png'],
       },
+    );
+  });
+
+  // The cap belongs to the Agent, not to each session service: it is what
+  // keeps a single message below COMPACTION_TRIGGER_ATTACHMENT_BYTES, and a
+  // compaction triggered by one over-sized message cannot relieve itself,
+  // because its only lever is dropping attachments from *older* messages.
+  it('refuses a claim whose attachments exceed the per-message cap', async () => {
+    const agent = createTestAgent();
+    // Three PDFs at the 10 MB per-file cap: each is individually legal, and
+    // together they are over the 12 MB per-message cap.
+    const names = ['a.pdf', 'b.pdf', 'c.pdf'];
+    for (const name of names) {
+      await agent.saveAttachment(name, Readable.from([cappedPdf()]));
+    }
+
+    expect(await agent.claimAttachments(names)).toEqual({
+      ok: false,
+      reason: 'attachments-too-large',
+      totalBytes: MAX_DOCUMENT_ATTACHMENT_BYTES * 3,
+      limit: MAX_MESSAGE_ATTACHMENT_BYTES,
+    });
+  });
+
+  // The cap runs before the freeze precisely so this holds: a turn the user
+  // never got to send must not leave them with files they can no longer
+  // delete.
+  it('freezes nothing when the cap rejects the claim', async () => {
+    const agent = createTestAgent();
+    const names = ['a.pdf', 'b.pdf'];
+    for (const name of names) {
+      await agent.saveAttachment(name, Readable.from([cappedPdf()]));
+    }
+
+    expect(await agent.claimAttachments(names)).toMatchObject({
+      ok: false,
+      reason: 'attachments-too-large',
+    });
+
+    for (const name of names) {
+      expect(await agent.removeAttachment(name)).toEqual({ok: true});
+    }
+  });
+
+  // The same bound, one layer down and with a different contract. Reaching
+  // enqueueUserTurn over the cap means a producer built descriptors without
+  // going through claimAttachments — a bug in this process, not something a
+  // client did, so it throws rather than returning a failure nobody asked for.
+  it('throws when a turn is enqueued over the per-message cap', () => {
+    const agent = createTestAgent();
+    const overCap = [
+      {
+        fileName: 'huge.pdf',
+        mediaType: 'application/pdf' as const,
+        byteSize: MAX_MESSAGE_ATTACHMENT_BYTES + 1,
+      },
+    ];
+
+    expect(() => {
+      agent.enqueueUserTurn('hi', overCap);
+    }).toThrow(/per-message cap/);
+    expect(() => agent.tryStartUserTurn('hi', overCap)).toThrow(
+      /per-message cap/,
     );
   });
 

@@ -98,10 +98,22 @@ export interface AttachmentDescriptor {
 }
 
 /** Result of claiming caller-supplied file names for a turn,
- *  as returned by `Agent.claimAttachments`. */
+ *  as returned by `Agent.claimAttachments`. The failure variants mirror the
+ *  session services' own `SendCompletionResult` reasons, so a service forwards
+ *  them rather than re-deriving them. */
 export type ClaimAttachmentsResult =
   | {readonly ok: true; readonly attachments: LlmAttachment[]}
-  | {readonly ok: false; readonly missing: string[]};
+  | {
+      readonly ok: false;
+      readonly reason: 'unknown-attachments';
+      readonly missing: string[];
+    }
+  | {
+      readonly ok: false;
+      readonly reason: 'attachments-too-large';
+      readonly totalBytes: number;
+      readonly limit: number;
+    };
 
 /**
  * A session's blob store for binary LLM input, rooted at
