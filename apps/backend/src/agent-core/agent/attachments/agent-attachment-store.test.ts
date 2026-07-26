@@ -163,7 +163,7 @@ describe('save', () => {
         scratchDirectory,
         result.attachment.fileName,
       ),
-    ).toBe(true);
+    ).toEqual({ok: true});
   });
 
   it('rejects a name that sanitizes to nothing', async () => {
@@ -409,7 +409,7 @@ describe('describe / readBase64 / remove', () => {
       // still the user's data, and must stay deletable from the UI.
       expect(
         await agentAttachmentStore.remove(scratchDirectory, 'shot.png'),
-      ).toBe(true);
+      ).toEqual({ok: true});
     });
 
     it('still delivers a file sized exactly at its type cap', async () => {
@@ -541,10 +541,10 @@ describe('describe / readBase64 / remove', () => {
 
     expect(
       await agentAttachmentStore.remove(scratchDirectory, 'shot.png'),
-    ).toBe(true);
+    ).toEqual({ok: true});
     expect(
       await agentAttachmentStore.remove(scratchDirectory, 'shot.png'),
-    ).toBe(false);
+    ).toEqual({ok: false, reason: 'not-found'});
   });
 
   it('removes a file that no longer sniffs as a supported media type', async () => {
@@ -561,7 +561,7 @@ describe('describe / readBase64 / remove', () => {
     ).toBeNull();
     expect(
       await agentAttachmentStore.remove(scratchDirectory, 'truncated.png'),
-    ).toBe(true);
+    ).toEqual({ok: true});
     await expect(access(truncatedPath)).rejects.toThrow();
   });
 
@@ -585,7 +585,7 @@ describe('describe / readBase64 / remove', () => {
     ).toBeNull();
     expect(
       await agentAttachmentStore.remove(scratchDirectory, 'link.png'),
-    ).toBe(true);
+    ).toEqual({ok: true});
     await expect(access(linkPath)).rejects.toThrow();
     // The target survived.
     await expect(access(outside)).resolves.toBeUndefined();
@@ -607,10 +607,140 @@ describe('describe / readBase64 / remove', () => {
 
     await expect(
       agentAttachmentStore.remove(scratchDirectory, 'shot.png'),
-    ).resolves.toBe(false);
+    ).resolves.toEqual({ok: false, reason: 'not-found'});
     // The directory itself must survive — remove() must refuse it outright,
     // never attempt an unlink that could behave unexpectedly on it.
     await expect(access(plantedDirectory)).resolves.toBeUndefined();
+  });
+});
+
+describe('freeze', () => {
+  async function modeOf(fileName: string): Promise<number> {
+    const stats = await lstat(
+      path.join(agentAttachmentStore.directory(scratchDirectory), fileName),
+    );
+    return stats.mode & 0o777;
+  }
+
+  it('drops the write bit and reports nothing missing', async () => {
+    await agentAttachmentStore.save(
+      scratchDirectory,
+      'shot.png',
+      streamOf(pngOf(64)),
+    );
+    expect(await modeOf('shot.png')).toBe(0o600);
+
+    expect(
+      await agentAttachmentStore.freeze(scratchDirectory, ['shot.png']),
+    ).toEqual([]);
+    expect(await modeOf('shot.png')).toBe(0o400);
+  });
+
+  // The invariant the whole byte budget rests on: once a descriptor is in
+  // history, its `byteSize` must keep describing the bytes on disk. The only
+  // way an API caller could rebind a name to different bytes is to free it
+  // first — `placeUniquely` never overwrites, it falls through to `(2)`. So
+  // refusing the delete closes the rebinding path entirely.
+  it('makes the name unreclaimable: remove refuses, so a re-upload cannot take it back', async () => {
+    await agentAttachmentStore.save(
+      scratchDirectory,
+      'shot.png',
+      streamOf(pngOf(64)),
+    );
+    await agentAttachmentStore.freeze(scratchDirectory, ['shot.png']);
+
+    expect(
+      await agentAttachmentStore.remove(scratchDirectory, 'shot.png'),
+    ).toEqual({ok: false, reason: 'frozen'});
+
+    // A second upload of the same desired name gets its own file rather than
+    // the frozen one's bytes.
+    const again = await agentAttachmentStore.save(
+      scratchDirectory,
+      'shot.png',
+      streamOf(pngOf(128)),
+    );
+    expect(again).toMatchObject({ok: true});
+    expect(again.ok && again.attachment.fileName).toBe('shot (2).png');
+    expect(
+      await agentAttachmentStore.readBase64(scratchDirectory, 'shot.png'),
+    ).toEqual({data: pngOf(64).toString('base64')});
+  });
+
+  it('leaves a frozen file readable and describable', async () => {
+    await agentAttachmentStore.save(
+      scratchDirectory,
+      'shot.png',
+      streamOf(pngOf(64)),
+    );
+    await agentAttachmentStore.freeze(scratchDirectory, ['shot.png']);
+
+    const found = await agentAttachmentStore.describe(
+      scratchDirectory,
+      'shot.png',
+    );
+    expect(found?.attachment).toEqual({
+      fileName: 'shot.png',
+      mediaType: 'image/png',
+      byteSize: 64,
+    });
+    expect(
+      await agentAttachmentStore.readBase64(scratchDirectory, 'shot.png'),
+    ).toEqual({data: pngOf(64).toString('base64')});
+  });
+
+  it('is idempotent, so attaching the same file to a second message is fine', async () => {
+    await agentAttachmentStore.save(
+      scratchDirectory,
+      'shot.png',
+      streamOf(pngOf(64)),
+    );
+
+    expect(
+      await agentAttachmentStore.freeze(scratchDirectory, ['shot.png']),
+    ).toEqual([]);
+    expect(
+      await agentAttachmentStore.freeze(scratchDirectory, ['shot.png']),
+    ).toEqual([]);
+    expect(await modeOf('shot.png')).toBe(0o400);
+  });
+
+  it('reports names it could not freeze rather than silently skipping them', async () => {
+    await agentAttachmentStore.save(
+      scratchDirectory,
+      'here.png',
+      streamOf(pngOf(64)),
+    );
+
+    expect(
+      await agentAttachmentStore.freeze(scratchDirectory, [
+        'here.png',
+        'gone.png',
+        '../escape.png',
+      ]),
+    ).toEqual(['gone.png', '../escape.png']);
+  });
+
+  it('reports every name when the attachments directory does not exist yet', async () => {
+    expect(
+      await agentAttachmentStore.freeze(scratchDirectory, ['shot.png']),
+    ).toEqual(['shot.png']);
+  });
+
+  // `chmod` follows symlinks; `freeze` must not, or a link planted at an
+  // attachment name would turn some file outside the store read-only.
+  it('refuses a symlink instead of chmod-ing its target', async () => {
+    const attachmentsDirectory =
+      agentAttachmentStore.directory(scratchDirectory);
+    await mkdir(attachmentsDirectory, {recursive: true});
+    const outside = path.join(scratchDirectory, 'outside.png');
+    await writeFile(outside, pngOf(64), {mode: 0o600});
+    await symlink(outside, path.join(attachmentsDirectory, 'link.png'));
+
+    expect(
+      await agentAttachmentStore.freeze(scratchDirectory, ['link.png']),
+    ).toEqual(['link.png']);
+    expect((await lstat(outside)).mode & 0o777).toBe(0o600);
   });
 });
 
@@ -628,9 +758,9 @@ describe('path safety', () => {
     expect(
       await agentAttachmentStore.readBase64(scratchDirectory, fileName),
     ).toEqual({data: null, reason: 'missing'});
-    expect(await agentAttachmentStore.remove(scratchDirectory, fileName)).toBe(
-      false,
-    );
+    expect(
+      await agentAttachmentStore.remove(scratchDirectory, fileName),
+    ).toEqual({ok: false, reason: 'not-found'});
   });
 
   // The one intended behavior change (design doc, section 3): a read-path
@@ -653,7 +783,7 @@ describe('path safety', () => {
     ).toEqual({data: null, reason: 'missing'});
     expect(
       await agentAttachmentStore.remove(scratchDirectory, 'shot.png '),
-    ).toBe(false);
+    ).toEqual({ok: false, reason: 'not-found'});
   });
 
   it('rejects a symlink planted inside the attachments directory', async () => {

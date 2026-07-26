@@ -66,5 +66,8 @@ export type AttachmentRemoveResult =
   | {readonly ok: true}
   | {
       readonly ok: false;
-      readonly reason: 'session-not-found' | 'attachment-not-found';
+      readonly reason:
+        | 'session-not-found'
+        | 'attachment-not-found'
+        | 'attachment-frozen';
     };

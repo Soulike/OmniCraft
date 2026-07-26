@@ -45,10 +45,14 @@ export const chatAgentSessionService = {
   },
 
   /**
-   * Resolves the caller-supplied attachment file names against this agent's
+   * Claims the caller-supplied attachment file names against this agent's
    * scratch space, enforces the per-message byte cap, and — once both checks
    * pass — enqueues the turn. The agent runs in the background; use
    * {@link subscribe} to read events.
+   *
+   * Claiming freezes the files, so a turn rejected by the cap below can still
+   * leave attachments read-only. That is deliberate; see
+   * {@link Agent.claimAttachments}.
    */
   async sendCompletion(
     agentId: string,
@@ -58,7 +62,7 @@ export const chatAgentSessionService = {
     const agent = await MainAgentStore.getInstance().get(agentId);
     if (!agent) return {ok: false, reason: 'session-not-found'};
 
-    const resolved = await agent.resolveAttachments(attachmentFileNames);
+    const resolved = await agent.claimAttachments(attachmentFileNames);
     if (!resolved.ok) {
       return {
         ok: false,
@@ -121,7 +125,14 @@ export const chatAgentSessionService = {
     if (!agent) return {ok: false, reason: 'session-not-found'};
 
     const removed = await agent.removeAttachment(fileName);
-    if (!removed) return {ok: false, reason: 'attachment-not-found'};
+    if (!removed.ok) {
+      switch (removed.reason) {
+        case 'not-found':
+          return {ok: false, reason: 'attachment-not-found'};
+        case 'frozen':
+          return {ok: false, reason: 'attachment-frozen'};
+      }
+    }
     return {ok: true};
   },
 

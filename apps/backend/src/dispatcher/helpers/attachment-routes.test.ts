@@ -23,6 +23,9 @@ let scratchDirectory: string;
 let server: Server;
 let baseUrl: string;
 let descriptorToReturn: AttachmentDescriptor | null = null;
+let removeResultToReturn: Awaited<
+  ReturnType<AttachmentSessionService['removeAttachment']>
+> = {ok: true};
 
 /**
  * A minimal stand-in for `chatAgentSessionService` / `codingAgentSessionService`
@@ -48,7 +51,7 @@ function fakeService(): AttachmentSessionService {
       _agentId: string,
       _fileName: string,
     ): ReturnType<AttachmentSessionService['removeAttachment']> {
-      throw new Error('not exercised by these tests');
+      return Promise.resolve(removeResultToReturn);
     },
   };
 }
@@ -80,6 +83,7 @@ afterAll(async () => {
 
 afterEach(() => {
   descriptorToReturn = null;
+  removeResultToReturn = {ok: true};
 });
 
 async function descriptorFor(fileName: string): Promise<AttachmentDescriptor> {
@@ -141,5 +145,43 @@ describe('GET .../attachments/:fileName response hardening', () => {
     expect(res.headers.get('content-disposition')).toBe(
       'inline; filename="?.png"; filename*=UTF-8\'\'%E3%81%82.png',
     );
+  });
+});
+
+describe('DELETE .../attachments/:fileName', () => {
+  async function del(fileName: string): Promise<Response> {
+    return fetch(`${baseUrl}/sessions/${SESSION_ID}/attachments/${fileName}`, {
+      method: 'DELETE',
+    });
+  }
+
+  it('returns 204 for an attachment that was removed', async () => {
+    removeResultToReturn = {ok: true};
+
+    expect((await del('shot.png')).status).toBe(204);
+  });
+
+  it.each(['session-not-found', 'attachment-not-found'] as const)(
+    'returns 404 for %s',
+    async (reason) => {
+      removeResultToReturn = {ok: false, reason};
+
+      expect((await del('shot.png')).status).toBe(404);
+    },
+  );
+
+  // Not a 404: the file is there, and saying otherwise would invite the client
+  // to retry the upload under the same name — the exact move the freeze
+  // exists to prevent. Not a 403 either: nothing about the caller is wrong.
+  it('returns 409, not 404, for an attachment already sent to the model', async () => {
+    removeResultToReturn = {ok: false, reason: 'attachment-frozen'};
+
+    const res = await del('shot.png');
+
+    expect(res.status).toBe(409);
+    expect(await res.json()).toEqual({
+      error:
+        'Attachment has been sent to the model and can no longer be removed',
+    });
   });
 });

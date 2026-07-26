@@ -1,7 +1,15 @@
 import assert from 'node:assert';
 import crypto from 'node:crypto';
 import type {Stats} from 'node:fs';
-import {link, lstat, mkdir, readFile, rm, unlink} from 'node:fs/promises';
+import {
+  chmod,
+  link,
+  lstat,
+  mkdir,
+  readFile,
+  rm,
+  unlink,
+} from 'node:fs/promises';
 import path from 'node:path';
 import type {Readable} from 'node:stream';
 
@@ -57,6 +65,27 @@ export type SaveAttachmentResult =
   | {readonly ok: true; readonly attachment: LlmAttachment}
   | {readonly ok: false; readonly reason: SaveAttachmentFailureReason};
 
+/**
+ * The mode a frozen attachment is set to — readable by its owner, writable by
+ * nobody. See {@link freeze}.
+ */
+const FROZEN_MODE = 0o400;
+
+/**
+ * Owner-write. Its absence is the frozen marker: a fresh attachment is written
+ * `0600` (see `writeCapped`), so this one bit distinguishes "still editable"
+ * from "already sent". Keeping the marker in the file mode rather than in a
+ * separate list is what makes it survive a restart, stay correct across
+ * compaction, and need no snapshot schema of its own.
+ */
+const OWNER_WRITE_MODE = 0o200;
+
+export type RemoveAttachmentFailureReason = 'not-found' | 'frozen';
+
+export type RemoveAttachmentResult =
+  | {readonly ok: true}
+  | {readonly ok: false; readonly reason: RemoveAttachmentFailureReason};
+
 export interface AttachmentDescriptor {
   readonly attachment: LlmAttachment;
   readonly absolutePath: string;
@@ -68,9 +97,9 @@ export interface AttachmentDescriptor {
   readonly mtimeMs: number;
 }
 
-/** Result of resolving caller-supplied file names to attachment descriptors,
- *  as returned by `Agent.resolveAttachments`. */
-export type ResolveAttachmentsResult =
+/** Result of claiming caller-supplied file names for a turn,
+ *  as returned by `Agent.claimAttachments`. */
+export type ClaimAttachmentsResult =
   | {readonly ok: true; readonly attachments: LlmAttachment[]}
   | {readonly ok: false; readonly missing: string[]};
 
@@ -277,18 +306,87 @@ class AgentAttachmentStore {
   }
 
   /**
-   * Deletes an attachment. Returns whether it existed. Validates the path and
-   * stats the file directly rather than delegating to {@link describe} —
-   * deletion must still work on a file that no longer sniffs as a supported
-   * media type (for example, one truncated mid-write), which `describe`
-   * refuses to touch.
+   * Marks attachments read-only, pinning their bytes for the rest of the
+   * session. Returns the names that could not be frozen because they were no
+   * longer there — the caller folds those into its own missing-attachment
+   * channel rather than reporting a turn built on bytes that just vanished.
+   *
+   * Called the moment an attachment enters the model's history, and never
+   * undone. Before that point a name is an ordinary mutable file: it can be
+   * deleted, and the next upload of the same desired name reclaims it. After
+   * it, the recorded `byteSize` is a permanent fact about the bytes on disk —
+   * which is what the compaction byte budget, the per-message cap, and the
+   * per-file caps all quietly assume. Without this, a name could be deleted
+   * and re-uploaded with different bytes after the descriptor was accepted,
+   * so a request would materialize bytes the accounting never saw, and a
+   * historical turn's content could change under a model that had already
+   * reasoned about it.
+   *
+   * The mode is the marker; there is no separate registry. `remove` refuses a
+   * file without {@link OWNER_WRITE_MODE}, and the read-only bit also makes an
+   * in-place overwrite from the agent's shell fail rather than silently
+   * succeed. That is protection against a mistake, not against intent: the
+   * agent runs as this process's own user, so it could `chmod` the bit back.
+   * The system prompt tells it why not to (see `attachmentInstructions`); a
+   * file already delivered to the model never needs editing again.
    */
-  async remove(scratchDirectory: string, fileName: string): Promise<boolean> {
+  async freeze(
+    scratchDirectory: string,
+    fileNames: readonly string[],
+  ): Promise<string[]> {
     const directory = this.directory(scratchDirectory);
-    if (!(await this.verifyRealDirectoryOrAbsent(directory))) return false;
+    if (!(await this.verifyRealDirectoryOrAbsent(directory))) {
+      return [...fileNames];
+    }
 
+    const frozen = await Promise.all(
+      fileNames.map((fileName) => this.freezeOne(directory, fileName)),
+    );
+    return fileNames.filter((_fileName, index) => !frozen[index]);
+  }
+
+  /** Freezes one file, reporting whether it was still there to freeze. */
+  private async freezeOne(
+    directory: string,
+    fileName: string,
+  ): Promise<boolean> {
     const absolutePath = resolveInside(directory, fileName);
     if (absolutePath === null) return false;
+
+    // `chmod` follows symlinks, so it would otherwise change the mode of
+    // whatever a planted link points at — a file this store does not own.
+    // `statRegularFile` lstats, so a symlink fails this check instead.
+    if ((await statRegularFile(absolutePath)) === null) return false;
+
+    try {
+      await chmod(absolutePath, FROZEN_MODE);
+      return true;
+    } catch (error: unknown) {
+      // Same race the read paths handle: a concurrent `remove()` between the
+      // stat above and this call. Anything else is a real failure.
+      if (isFileNotFoundError(error)) return false;
+      throw error;
+    }
+  }
+
+  /**
+   * Deletes an attachment, refusing one already frozen by {@link freeze}.
+   * Validates the path and stats the file directly rather than delegating to
+   * {@link describe} — deletion must still work on a file that no longer
+   * sniffs as a supported media type (for example, one truncated mid-write),
+   * which `describe` refuses to touch.
+   */
+  async remove(
+    scratchDirectory: string,
+    fileName: string,
+  ): Promise<RemoveAttachmentResult> {
+    const directory = this.directory(scratchDirectory);
+    if (!(await this.verifyRealDirectoryOrAbsent(directory))) {
+      return {ok: false, reason: 'not-found'};
+    }
+
+    const absolutePath = resolveInside(directory, fileName);
+    if (absolutePath === null) return {ok: false, reason: 'not-found'};
 
     // `lstat` first to gate out directories: `unlink` throws on one (EPERM on
     // macOS/BSD, EISDIR on Linux — the code alone isn't a reliable signal, so
@@ -304,18 +402,25 @@ class AgentAttachmentStore {
     try {
       stats = await lstat(absolutePath);
     } catch (error: unknown) {
-      if (isFileNotFoundError(error)) return false;
+      if (isFileNotFoundError(error)) return {ok: false, reason: 'not-found'};
       throw error;
     }
-    if (stats.isDirectory()) return false;
+    if (stats.isDirectory()) return {ok: false, reason: 'not-found'};
+
+    // The same `lstat` answers whether the file is frozen. A symlink is
+    // unaffected: `lstat` reports the link's own mode (0777 on macOS/Linux),
+    // never the target's, so a planted link stays deletable.
+    if ((stats.mode & OWNER_WRITE_MODE) === 0) {
+      return {ok: false, reason: 'frozen'};
+    }
 
     // Only ENOENT means "there was nothing to delete"; anything else is a real
     // failure and must not be reported as a clean miss.
     try {
       await unlink(absolutePath);
-      return true;
+      return {ok: true};
     } catch (error: unknown) {
-      if (isFileNotFoundError(error)) return false;
+      if (isFileNotFoundError(error)) return {ok: false, reason: 'not-found'};
       throw error;
     }
   }

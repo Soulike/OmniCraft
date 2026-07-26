@@ -1,7 +1,8 @@
 export {Agent} from './agent.js';
 export type {
   AttachmentDescriptor,
-  ResolveAttachmentsResult,
+  ClaimAttachmentsResult,
+  RemoveAttachmentFailureReason,
   SaveAttachmentFailureReason,
 } from './attachments/index.js';
 export {

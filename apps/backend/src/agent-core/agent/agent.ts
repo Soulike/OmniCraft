@@ -22,7 +22,8 @@ import {agentTurnRunner} from './agent-turn-runner.js';
 import {
   agentAttachmentStore,
   type AttachmentDescriptor,
-  type ResolveAttachmentsResult,
+  type ClaimAttachmentsResult,
+  type RemoveAttachmentResult,
   type SaveAttachmentResult,
 } from './attachments/index.js';
 import type {AgentSseLogReaderOptions} from './events/agent-sse-log.js';
@@ -400,26 +401,44 @@ export abstract class Agent {
     return agentAttachmentStore.describe(this.scratchDirectory, fileName);
   }
 
-  /** Deletes a stored attachment. Returns whether it existed. */
-  removeAttachment(fileName: string): Promise<boolean> {
+  /** Deletes a stored attachment, refusing one already sent to the model. */
+  removeAttachment(fileName: string): Promise<RemoveAttachmentResult> {
     return agentAttachmentStore.remove(this.scratchDirectory, fileName);
   }
 
   /**
-   * Turns caller-supplied file names into descriptors read from disk. The caller
-   * never supplies `mediaType` or `byteSize`, so what lands in the snapshot
-   * always matches the bytes. Reports every unknown name at once so a client can
-   * show them all.
+   * Turns caller-supplied file names into descriptors read from disk, and
+   * freezes the files behind them. The caller never supplies `mediaType` or
+   * `byteSize`, so what lands in the snapshot always matches the bytes.
+   * Reports every unknown name at once so a client can show them all.
+   *
+   * Claiming, not just resolving: freezing happens here, in the same async
+   * block that reads the sizes, so there is no window between recording a
+   * `byteSize` and pinning the bytes it describes. Doing it any later — when
+   * the queued turn actually starts, say — would leave exactly that window
+   * open, and a delete-then-re-upload inside it would put a descriptor and
+   * its file permanently out of step.
+   *
+   * Freezing before the caller's own checks (the per-message byte cap) means
+   * a rejected turn can leave attachments frozen that never reached the
+   * model. That is the safe direction to err: the cost is a file the user can
+   * no longer delete, against an invariant the whole byte budget rests on.
    */
-  async resolveAttachments(
+  async claimAttachments(
     fileNames: readonly string[],
-  ): Promise<ResolveAttachmentsResult> {
+  ): Promise<ClaimAttachmentsResult> {
     const found = await Promise.all(
       fileNames.map((fileName) => this.describeAttachment(fileName)),
     );
 
     const missing = fileNames.filter((_name, index) => found[index] === null);
     if (missing.length > 0) return {ok: false, missing};
+
+    const vanished = await agentAttachmentStore.freeze(
+      this.scratchDirectory,
+      fileNames,
+    );
+    if (vanished.length > 0) return {ok: false, missing: vanished};
 
     const attachments: LlmAttachment[] = [];
     for (const entry of found) {

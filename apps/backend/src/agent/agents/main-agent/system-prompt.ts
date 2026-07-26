@@ -1,4 +1,5 @@
 import {
+  attachmentInstructions,
   mathRenderingInstructions,
   preambleInstructions,
 } from '@/agent/system-prompts/index.js';
@@ -9,4 +10,6 @@ export const mainAgentSystemPrompt = [
   preambleInstructions,
   '',
   mathRenderingInstructions,
+  '',
+  attachmentInstructions,
 ].join('\n');

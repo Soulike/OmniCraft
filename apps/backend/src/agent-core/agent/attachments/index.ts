@@ -1,6 +1,8 @@
 export type {
   AttachmentDescriptor,
-  ResolveAttachmentsResult,
+  ClaimAttachmentsResult,
+  RemoveAttachmentFailureReason,
+  RemoveAttachmentResult,
   SaveAttachmentFailureReason,
   SaveAttachmentResult,
 } from './agent-attachment-store.js';

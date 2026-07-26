@@ -48,7 +48,10 @@ type AttachmentRemoveResult =
   | {readonly ok: true}
   | {
       readonly ok: false;
-      readonly reason: 'session-not-found' | 'attachment-not-found';
+      readonly reason:
+        | 'session-not-found'
+        | 'attachment-not-found'
+        | 'attachment-frozen';
     };
 
 /**
@@ -239,6 +242,19 @@ export function registerAttachmentRoutes(
         case 'attachment-not-found': {
           ctx.response.status = StatusCodes.NOT_FOUND;
           ctx.response.body = {error: 'Attachment not found'};
+          return;
+        }
+        // Not a 404 and not a 403: the attachment is there and the caller is
+        // allowed to ask — the request conflicts with a state the resource
+        // has already reached and cannot leave. Deleting it would let the
+        // name be reclaimed by a different file, breaking the guarantee that
+        // a `byteSize` recorded in history still describes the bytes on disk.
+        case 'attachment-frozen': {
+          ctx.response.status = StatusCodes.CONFLICT;
+          ctx.response.body = {
+            error:
+              'Attachment has been sent to the model and can no longer be removed',
+          };
           return;
         }
       }

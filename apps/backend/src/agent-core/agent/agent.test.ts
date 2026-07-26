@@ -1270,16 +1270,19 @@ describe('attachment operations', () => {
     const agent = createTestAgent();
     await agent.saveAttachment('shot.png', Readable.from([PNG]));
 
-    expect(await agent.removeAttachment('shot.png')).toBe(true);
-    expect(await agent.removeAttachment('shot.png')).toBe(false);
+    expect(await agent.removeAttachment('shot.png')).toEqual({ok: true});
+    expect(await agent.removeAttachment('shot.png')).toEqual({
+      ok: false,
+      reason: 'not-found',
+    });
   });
 
-  it('resolves names to descriptors read from disk, in the requested order', async () => {
+  it('claims names to descriptors read from disk, in the requested order', async () => {
     const agent = createTestAgent();
     await agent.saveAttachment('a.png', Readable.from([PNG]));
     await agent.saveAttachment('b.png', Readable.from([PNG]));
 
-    const result = await agent.resolveAttachments(['b.png', 'a.png']);
+    const result = await agent.claimAttachments(['b.png', 'a.png']);
     expect(result.ok && result.attachments.map((a) => a.fileName)).toEqual([
       'b.png',
       'a.png',
@@ -1289,11 +1292,40 @@ describe('attachment operations', () => {
   it('reports every unknown name instead of failing on the first', async () => {
     const agent = createTestAgent();
 
-    expect(
-      await agent.resolveAttachments(['gone.png', '../escape.png']),
-    ).toEqual({
-      ok: false,
-      missing: ['gone.png', '../escape.png'],
+    expect(await agent.claimAttachments(['gone.png', '../escape.png'])).toEqual(
+      {
+        ok: false,
+        missing: ['gone.png', '../escape.png'],
+      },
+    );
+  });
+
+  // The whole point of claiming: after this, the recorded byteSize is a
+  // permanent fact about the file, because the name can no longer be freed
+  // and re-bound to different bytes.
+  it('freezes what it claims, so the file can no longer be deleted', async () => {
+    const agent = createTestAgent();
+    await agent.saveAttachment('shot.png', Readable.from([PNG]));
+
+    expect(await agent.removeAttachment('shot.png')).toEqual({ok: true});
+    await agent.saveAttachment('shot.png', Readable.from([PNG]));
+
+    expect(await agent.claimAttachments(['shot.png'])).toMatchObject({
+      ok: true,
     });
+    expect(await agent.removeAttachment('shot.png')).toEqual({
+      ok: false,
+      reason: 'frozen',
+    });
+  });
+
+  it('leaves an unclaimed attachment deletable', async () => {
+    const agent = createTestAgent();
+    await agent.saveAttachment('claimed.png', Readable.from([PNG]));
+    await agent.saveAttachment('loose.png', Readable.from([PNG]));
+
+    await agent.claimAttachments(['claimed.png']);
+
+    expect(await agent.removeAttachment('loose.png')).toEqual({ok: true});
   });
 });

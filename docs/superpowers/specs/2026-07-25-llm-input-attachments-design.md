@@ -327,7 +327,9 @@ GET    /api/chat/session/:id/attachments/:fileName
        404 session or file not found
 
 DELETE /api/chat/session/:id/attachments/:fileName
-       204 / 404
+       204 removed
+       404 session or file not found
+       409 already sent to the model (frozen — see below)
 
 POST   /api/chat/session/:id/completions
        {message: string /* min 1 */, attachmentFileNames?: string[]}
@@ -376,10 +378,39 @@ reasoning already documented in `agent-scratch-directory-service.ts:23-43`
 `@koa/router` decodes percent-encoded slashes, which is exactly why
 `dispatcher/helpers/session-id.ts` exists — the same care applies here.
 
-**Known and accepted:** the agent can modify or delete files under `scratch/`, so an
-attachment referenced by a past message can disappear. The download endpoint 404s,
-the adapter emits `[attachment missing: …]`, and the frontend will show a
-placeholder. Guarding against this is not worth the complexity.
+### Frozen once sent
+
+An attachment is a **mutable file until the moment its bytes reach the model, and a
+permanent fact afterwards.** `Agent.claimAttachments` sets the file to `0400` in the
+same async block that reads its `byteSize`, and `remove()` refuses a file without the
+owner-write bit (409, not 404 — the file is there; the request conflicts with a state
+it cannot leave).
+
+This is what makes the byte accounting true rather than approximate. The compaction
+trigger, the per-message cap, and the per-file caps all compare against a `byteSize`
+recorded when the message was sent, while `toRequestMessages` re-reads the bytes from
+disk on every round. If a name could be freed and rebound, those two would diverge:
+ten descriptors accepted at 1 KiB, deleted, and re-uploaded as 2 MiB files would
+materialize 20 MiB against accounting that still read 10 KiB. Worse than the budget
+hole, a historical turn's content could change under a model that had already reasoned
+about it — it would see image B where it had reasoned about image A, with no signal.
+
+Freezing closes this for every path with an API contract. `placeUniquely` never
+overwrites (it falls through to `(2)` on EEXIST), so freeing the name via `DELETE` was
+the _only_ way an API caller could rebind it.
+
+**The marker is the file mode, not a registry.** No snapshot field, no back-compat
+default, no question about what compaction does to it, and it survives a restart.
+
+**Known and accepted:** `run_command` has no write allowlist — only a _cwd_ allowlist
+(`run-command.ts:120-140`) — so the agent can still `chmod` the bit back and overwrite
+a frozen file with an absolute path. The read-only bit stops a mistake, not an intent.
+What closes the gap is that the agent has no reason to try: a file that is read-only is
+one it has already been shown, and re-reading gives it exactly what it already has. The
+system prompt says so, and says to write a modified copy elsewhere under a new name
+(`system-prompts/attachments.ts`). A file that disappears anyway still degrades safely:
+the download endpoint 404s, the adapter emits `[attachment missing: …]`, and the
+frontend shows a placeholder.
 
 ## Agent plumbing
 
@@ -584,7 +615,7 @@ still catches the growth even though the byte sum does not.
   resolve to base64, delete, uniquify, path safety. Source-agnostic (see
   [The attachment store is source-agnostic](#the-attachment-store-is-source-agnostic)).
 - `agent-core/agent/agent.ts` — `saveAttachment` / `describeAttachment` /
-  `removeAttachment` / `resolveAttachments`. The Agent owns its scratch space, so
+  `removeAttachment` / `claimAttachments`. The Agent owns its scratch space, so
   it owns operations on it; nothing outside needs its path.
 - new `services/agent-attachments/` — one `createAgentAttachmentService(getStore)`
   factory. The only per-family difference is which store resolves the id, and that
