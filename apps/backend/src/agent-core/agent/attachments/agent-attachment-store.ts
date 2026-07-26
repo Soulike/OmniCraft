@@ -323,7 +323,20 @@ class AgentAttachmentStore {
     const stats = await statRegularFile(absolutePath);
     if (stats === null) return null;
 
-    const mediaType = toMediaType((await fileTypeFromFile(absolutePath))?.mime);
+    // A concurrent `remove()` can unlink the file between the `lstat` above
+    // and this sniff — `fileTypeFromFile` opens the file to read its header.
+    // Only ENOENT means "the file is gone"; anything else (EACCES, EIO, ...)
+    // is a real failure and must not be laundered into a missing-attachment
+    // result.
+    let detected: Awaited<ReturnType<typeof fileTypeFromFile>>;
+    try {
+      detected = await fileTypeFromFile(absolutePath);
+    } catch (error: unknown) {
+      if (isFileNotFoundError(error)) return null;
+      throw error;
+    }
+
+    const mediaType = toMediaType(detected?.mime);
     if (mediaType === null) return null;
 
     return {
@@ -340,7 +353,17 @@ class AgentAttachmentStore {
   ): Promise<string | null> {
     const found = await this.describe(scratchDirectory, fileName);
     if (found === null) return null;
-    return (await readFile(found.absolutePath)).toString('base64');
+
+    // Same race as above: `describe` above already stat'd (and, internally,
+    // sniffed) the file, but a concurrent `remove()` can still unlink it
+    // before this read. Only ENOENT degrades to the missing-attachment
+    // placeholder; any other error is a genuine failure and propagates.
+    try {
+      return (await readFile(found.absolutePath)).toString('base64');
+    } catch (error: unknown) {
+      if (isFileNotFoundError(error)) return null;
+      throw error;
+    }
   }
 
   /**

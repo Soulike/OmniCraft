@@ -6,19 +6,32 @@ import {
   readFile,
   rm,
   symlink,
+  unlink,
   writeFile,
 } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import {Readable} from 'node:stream';
 
-import {afterEach, beforeEach, describe, expect, it} from 'vitest';
+import {fileTypeFromFile} from 'file-type';
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 
 import {
   agentAttachmentStore,
   MAX_DOCUMENT_ATTACHMENT_BYTES,
   MAX_IMAGE_ATTACHMENT_BYTES,
 } from './agent-attachment-store.js';
+
+// Both mocks default to the real implementation — only the specific tests
+// below that exercise the stat/sniff/read race override a single call.
+vi.mock('node:fs/promises', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('node:fs/promises')>();
+  return {...actual, readFile: vi.fn(actual.readFile)};
+});
+vi.mock('file-type', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('file-type')>();
+  return {...actual, fileTypeFromFile: vi.fn(actual.fileTypeFromFile)};
+});
 
 // Real magic bytes — the store sniffs content, never the declared type.
 const PNG_HEADER = Buffer.from([
@@ -49,6 +62,7 @@ beforeEach(async () => {
 
 afterEach(async () => {
   await rm(scratchDirectory, {recursive: true, force: true});
+  vi.restoreAllMocks();
 });
 
 describe('save', () => {
@@ -298,6 +312,109 @@ describe('describe / readBase64 / remove', () => {
     expect(
       await agentAttachmentStore.readBase64(scratchDirectory, 'shot.png'),
     ).toBe(bytes.toString('base64'));
+  });
+
+  // Regression tests for a concurrent DELETE racing the read paths. `describe`
+  // stats the file, then sniffs its type; `readBase64` calls `describe`, then
+  // separately reads the bytes. A `remove()` landing inside either gap must
+  // still degrade to `null` (the adapter's "[attachment missing: ...]"
+  // placeholder) rather than reject and abort the whole LLM turn.
+  describe('concurrent delete racing a read', () => {
+    it('describe returns null, not a rejection, when the file is unlinked between the stat and the type sniff', async () => {
+      await agentAttachmentStore.save(
+        scratchDirectory,
+        'shot.png',
+        streamOf(pngOf(64)),
+      );
+      const absolutePath = path.join(
+        scratchDirectory,
+        'attachments',
+        'shot.png',
+      );
+
+      // `fileTypeFromFile` opens the file to read its header — unlinking it
+      // first, then letting the real sniff run, reproduces exactly the
+      // ENOENT a concurrent `remove()` would cause in that window.
+      const actualFileType =
+        await vi.importActual<typeof import('file-type')>('file-type');
+      vi.mocked(fileTypeFromFile).mockImplementationOnce(
+        async (filePath, options) => {
+          await unlink(absolutePath);
+          return actualFileType.fileTypeFromFile(filePath, options);
+        },
+      );
+
+      await expect(
+        agentAttachmentStore.describe(scratchDirectory, 'shot.png'),
+      ).resolves.toBeNull();
+    });
+
+    it('readBase64 returns null, not a rejection, when the file is unlinked between describe and the read', async () => {
+      await agentAttachmentStore.save(
+        scratchDirectory,
+        'shot.png',
+        streamOf(pngOf(64)),
+      );
+      const absolutePath = path.join(
+        scratchDirectory,
+        'attachments',
+        'shot.png',
+      );
+
+      // Calls through to the real `describe` (the file still exists, so it
+      // resolves normally), then unlinks the file before `readBase64` gets a
+      // chance to read it — putting a real deletion inside the exact window
+      // between `describe` and `readFile`.
+      const originalDescribe =
+        agentAttachmentStore.describe.bind(agentAttachmentStore);
+      vi.spyOn(agentAttachmentStore, 'describe').mockImplementationOnce(
+        async (scratchDir, fileName) => {
+          const found = await originalDescribe(scratchDir, fileName);
+          await unlink(absolutePath);
+          return found;
+        },
+      );
+
+      await expect(
+        agentAttachmentStore.readBase64(scratchDirectory, 'shot.png'),
+      ).resolves.toBeNull();
+    });
+
+    it('describe rejects instead of returning null when the type sniff fails for a reason other than ENOENT', async () => {
+      await agentAttachmentStore.save(
+        scratchDirectory,
+        'shot.png',
+        streamOf(pngOf(64)),
+      );
+
+      const accessError = Object.assign(
+        new Error('EACCES: permission denied'),
+        {code: 'EACCES'},
+      );
+      vi.mocked(fileTypeFromFile).mockRejectedValueOnce(accessError);
+
+      await expect(
+        agentAttachmentStore.describe(scratchDirectory, 'shot.png'),
+      ).rejects.toBe(accessError);
+    });
+
+    it('readBase64 rejects instead of returning null when the read fails for a reason other than ENOENT', async () => {
+      await agentAttachmentStore.save(
+        scratchDirectory,
+        'shot.png',
+        streamOf(pngOf(64)),
+      );
+
+      const accessError = Object.assign(
+        new Error('EACCES: permission denied'),
+        {code: 'EACCES'},
+      );
+      vi.mocked(readFile).mockRejectedValueOnce(accessError);
+
+      await expect(
+        agentAttachmentStore.readBase64(scratchDirectory, 'shot.png'),
+      ).rejects.toBe(accessError);
+    });
   });
 
   it('removes a stored attachment and reports whether it existed', async () => {
