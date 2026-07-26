@@ -10,11 +10,7 @@ import {
 import {StatusCodes} from 'http-status-codes';
 import {ZodError} from 'zod';
 
-import {
-  codingAgentAttachments,
-  codingAgentSessionService,
-  MAX_MESSAGE_ATTACHMENT_BYTES,
-} from '@/services/coding-agent-session/index.js';
+import {codingAgentSessionService} from '@/services/coding-agent-session/index.js';
 
 import {registerAttachmentRoutes} from '../helpers/attachment-routes.js';
 import {isCursorAheadOfLog, parseSseResumeCursor} from '../helpers/cursor.js';
@@ -106,50 +102,37 @@ router.post(SESSION_COMPLETIONS, async (ctx) => {
     throw e;
   }
 
-  const resolved = await codingAgentAttachments.resolve(
-    id,
-    attachmentFileNames,
-  );
-  if (resolved === null) {
-    ctx.response.status = StatusCodes.NOT_FOUND;
-    ctx.response.body = {error: `Session not found: ${id}`};
-    return;
-  }
-  if (!resolved.ok) {
-    ctx.response.status = StatusCodes.BAD_REQUEST;
-    ctx.response.body = {
-      error: 'UNKNOWN_ATTACHMENTS',
-      missing: resolved.missing,
-    };
-    return;
-  }
-
-  const totalAttachmentBytes = resolved.attachments.reduce(
-    (total, attachment) => total + attachment.byteSize,
-    0,
-  );
-  if (totalAttachmentBytes > MAX_MESSAGE_ATTACHMENT_BYTES) {
-    ctx.response.status = StatusCodes.REQUEST_TOO_LONG;
-    ctx.response.body = {
-      error: 'ATTACHMENTS_TOO_LARGE',
-      limitBytes: MAX_MESSAGE_ATTACHMENT_BYTES,
-      totalBytes: totalAttachmentBytes,
-    };
-    return;
-  }
-
-  const found = await codingAgentSessionService.sendCompletion(
+  const result = await codingAgentSessionService.sendCompletion(
     id,
     message,
-    resolved.attachments,
+    attachmentFileNames,
   );
-  if (!found) {
-    ctx.response.status = StatusCodes.NOT_FOUND;
-    ctx.response.body = {error: `Session not found: ${id}`};
+  if (result.ok) {
+    ctx.response.status = StatusCodes.ACCEPTED;
     return;
   }
 
-  ctx.response.status = StatusCodes.ACCEPTED;
+  switch (result.reason) {
+    case 'session-not-found':
+      ctx.response.status = StatusCodes.NOT_FOUND;
+      ctx.response.body = {error: `Session not found: ${id}`};
+      return;
+    case 'unknown-attachments':
+      ctx.response.status = StatusCodes.BAD_REQUEST;
+      ctx.response.body = {
+        error: 'UNKNOWN_ATTACHMENTS',
+        missing: result.missing,
+      };
+      return;
+    case 'attachments-too-large':
+      ctx.response.status = StatusCodes.REQUEST_TOO_LONG;
+      ctx.response.body = {
+        error: 'ATTACHMENTS_TOO_LARGE',
+        limitBytes: result.limit,
+        totalBytes: result.totalBytes,
+      };
+      return;
+  }
 });
 
 /** GET /coding/session/:id/events — SSE stream of agent events. */
@@ -287,7 +270,7 @@ router.delete(SESSION_BY_ID, async (ctx) => {
 registerAttachmentRoutes(
   router,
   {collection: SESSION_ATTACHMENTS, byName: SESSION_ATTACHMENT_BY_NAME},
-  codingAgentAttachments,
+  codingAgentSessionService,
 );
 
 export {router};

@@ -1,17 +1,39 @@
 import {createReadStream} from 'node:fs';
+import type {Readable} from 'node:stream';
 
 import type Router from '@koa/router';
 import {uploadAttachmentQuerySchema} from '@omnicraft/api-schema';
 import {StatusCodes} from 'http-status-codes';
 import {ZodError} from 'zod';
 
-import type {AgentAttachmentService} from '@/services/agent-attachments/index.js';
+import type {
+  AttachmentDescriptor,
+  SaveAttachmentResult,
+} from '@/agent-core/agent/index.js';
 
 import {parseSessionId} from './session-id.js';
 
 export interface AttachmentRoutePaths {
   readonly collection: string;
   readonly byName: string;
+}
+
+/**
+ * The subset of a session service's surface that the attachment routes need.
+ * Both `chatAgentSessionService` and `codingAgentSessionService` satisfy this
+ * structurally — no shared base type links them, only the method shapes.
+ */
+export interface AttachmentSessionService {
+  saveAttachment(
+    agentId: string,
+    desiredName: string,
+    body: Readable,
+  ): Promise<SaveAttachmentResult | null>;
+  describeAttachment(
+    agentId: string,
+    fileName: string,
+  ): Promise<AttachmentDescriptor | null>;
+  removeAttachment(agentId: string, fileName: string): Promise<boolean | null>;
 }
 
 /**
@@ -25,7 +47,7 @@ export interface AttachmentRoutePaths {
 export function registerAttachmentRoutes(
   router: Router,
   paths: AttachmentRoutePaths,
-  service: AgentAttachmentService,
+  service: AttachmentSessionService,
 ): void {
   /** POST …/attachments — stores an uploaded image or PDF. */
   router.post(paths.collection, async (ctx) => {
@@ -50,7 +72,7 @@ export function registerAttachmentRoutes(
 
     // `@koa/bodyparser` only handles json/form, so for any other content type
     // the request stream is untouched and can be piped straight to disk.
-    const result = await service.save(id, name, ctx.req);
+    const result = await service.saveAttachment(id, name, ctx.req);
     if (result === null) {
       ctx.response.status = StatusCodes.NOT_FOUND;
       ctx.response.body = {error: `Session not found: ${id}`};
@@ -79,7 +101,7 @@ export function registerAttachmentRoutes(
       return;
     }
 
-    const found = await service.describe(id, ctx.params.fileName);
+    const found = await service.describeAttachment(id, ctx.params.fileName);
     if (found === null) {
       ctx.response.status = StatusCodes.NOT_FOUND;
       ctx.response.body = {error: 'Attachment not found'};
@@ -117,7 +139,7 @@ export function registerAttachmentRoutes(
       return;
     }
 
-    const removed = await service.remove(id, ctx.params.fileName);
+    const removed = await service.removeAttachment(id, ctx.params.fileName);
     if (removed !== true) {
       ctx.response.status = StatusCodes.NOT_FOUND;
       ctx.response.body = {error: 'Attachment not found'};
