@@ -142,8 +142,14 @@ path — and establishes an invariant worth having:
 sides can no longer drift apart as either evolves.
 
 It also covers strictly more than the checks it replaces — control characters,
-separators of both kinds, `.`/`..`, empty, over-length — plus leading and trailing
-whitespace, which the current code accepts.
+separators of both kinds, `.`/`..`, empty, over-length — plus **trailing** whitespace,
+which the current code accepts.
+
+Leading whitespace is _not_ rejected: `sanitize-filename` strips trailing spaces but
+keeps leading ones, so `' shot.png'` is a fixed point and stays legal on both sides. A
+custom trim was considered and rejected — trimming before the delegate is not
+idempotent (a NUL-prefixed name loses its NUL on pass one and only then becomes
+trimmable), and the invariant matters more than the tidiness.
 
 **Sanitizing rather than rejecting on the read path stays wrong**, and this change
 does not do it. A read names an _existing_ file: sanitizing `../secret.png` into
