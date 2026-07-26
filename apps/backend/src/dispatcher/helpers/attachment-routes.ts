@@ -7,7 +7,6 @@ import {ZodError} from 'zod';
 
 import type {AgentAttachmentService} from '@/services/agent-attachments/index.js';
 
-import {parseAttachmentFileName} from './attachment-name.js';
 import {parseSessionId} from './session-id.js';
 
 export interface AttachmentRoutePaths {
@@ -74,14 +73,13 @@ export function registerAttachmentRoutes(
   /** GET …/attachments/:fileName — streams the stored bytes. */
   router.get(paths.byName, async (ctx) => {
     const id = parseSessionId(ctx.params.id);
-    const fileName = parseAttachmentFileName(ctx.params.fileName);
-    if (id === null || fileName === null) {
+    if (id === null) {
       ctx.response.status = StatusCodes.NOT_FOUND;
       ctx.response.body = {error: 'Attachment not found'};
       return;
     }
 
-    const found = await service.describe(id, fileName);
+    const found = await service.describe(id, ctx.params.fileName);
     if (found === null) {
       ctx.response.status = StatusCodes.NOT_FOUND;
       ctx.response.body = {error: 'Attachment not found'};
@@ -113,14 +111,13 @@ export function registerAttachmentRoutes(
   /** DELETE …/attachments/:fileName — removes a stored file. */
   router.delete(paths.byName, async (ctx) => {
     const id = parseSessionId(ctx.params.id);
-    const fileName = parseAttachmentFileName(ctx.params.fileName);
-    if (id === null || fileName === null) {
+    if (id === null) {
       ctx.response.status = StatusCodes.NOT_FOUND;
       ctx.response.body = {error: 'Attachment not found'};
       return;
     }
 
-    const removed = await service.remove(id, fileName);
+    const removed = await service.remove(id, ctx.params.fileName);
     if (removed !== true) {
       ctx.response.status = StatusCodes.NOT_FOUND;
       ctx.response.body = {error: 'Attachment not found'};
