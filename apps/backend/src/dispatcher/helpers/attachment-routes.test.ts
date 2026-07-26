@@ -148,6 +148,42 @@ describe('GET .../attachments/:fileName response hardening', () => {
   });
 });
 
+describe('GET .../attachments/:fileName body framing', () => {
+  // `describe`'s stat and the route's `open` both resolve the path by name and
+  // are separate awaits, so a DELETE plus a same-name re-upload between them
+  // leaves the descriptor describing a file this response is not sending. The
+  // stale `byteSize` does not fail loudly: the client stops reading at
+  // `Content-Length`, so the download arrives silently truncated — and the
+  // matching `ETag` caches the corruption. A descriptor deliberately out of
+  // step with its file stands in for the race.
+  it('takes Content-Length and ETag from the open file, not the stale descriptor', async () => {
+    const descriptor = await descriptorFor('shot.png');
+    await writeFile(descriptor.absolutePath, Buffer.alloc(100, 0x61));
+    descriptorToReturn = descriptor;
+
+    const res = await fetch(
+      `${baseUrl}/sessions/${SESSION_ID}/attachments/shot.png`,
+    );
+    const body = await res.arrayBuffer();
+
+    expect(descriptor.attachment.byteSize).toBe(5);
+    expect(res.headers.get('content-length')).toBe('100');
+    expect(body.byteLength).toBe(100);
+    expect(res.headers.get('etag')).toMatch(/^"100-/);
+  });
+
+  it('serves the whole file when the descriptor is in step with it', async () => {
+    descriptorToReturn = await descriptorFor('shot.png');
+
+    const res = await fetch(
+      `${baseUrl}/sessions/${SESSION_ID}/attachments/shot.png`,
+    );
+
+    expect(res.headers.get('content-length')).toBe('5');
+    expect((await res.arrayBuffer()).byteLength).toBe(5);
+  });
+});
+
 describe('DELETE .../attachments/:fileName', () => {
   async function del(fileName: string): Promise<Response> {
     return fetch(`${baseUrl}/sessions/${SESSION_ID}/attachments/${fileName}`, {

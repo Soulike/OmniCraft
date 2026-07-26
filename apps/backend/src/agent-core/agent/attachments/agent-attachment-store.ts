@@ -90,10 +90,16 @@ export interface AttachmentDescriptor {
   readonly attachment: LlmAttachment;
   readonly absolutePath: string;
   /** The file's last-modified time, in milliseconds since the epoch, from the
-   *  same `lstat` `describe` already performs. Exposed so callers can build a
-   *  validator (e.g. an `ETag`) without a second stat — a name is not a
-   *  stable identifier for a file's bytes here, since `remove` frees it for
-   *  reuse by a later, different upload. */
+   *  same `lstat` `describe` already performs. Exposed so a caller can build a
+   *  cache validator (e.g. an `ETag`) without opening the file — a name is not
+   *  a stable identifier for a file's bytes until the attachment is frozen,
+   *  since `remove` frees it for reuse by a later, different upload.
+   *
+   *  Good enough to *decide* a 304, which sends no body. A caller that goes on
+   *  to send one must re-derive the size and validator from the handle it
+   *  opened: this stat and that open are separate moments, and a response whose
+   *  `Content-Length` came from the first would truncate bytes read from the
+   *  second. See the download route. */
   readonly mtimeMs: number;
 }
 

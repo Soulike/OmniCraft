@@ -1,3 +1,4 @@
+import type {Stats} from 'node:fs';
 import type {FileHandle} from 'node:fs/promises';
 import {open} from 'node:fs/promises';
 import type {Readable} from 'node:stream';
@@ -161,14 +162,19 @@ export function registerAttachmentRoutes(
 
     const {descriptor} = found;
 
-    // Bytes are NOT immutable for a given name: `remove` frees the name, and
-    // the very next upload of the same desired name reclaims it via
-    // `placeUniquely` (which always starts at the bare, unsuffixed name),
-    // with different bytes. So this must revalidate on every request rather
-    // than caching for a year — a strong `ETag` derived from the file's size
-    // and mtime lets that revalidation cost a 304 instead of a re-download.
-    // Set explicitly so the /api default of `no-store` does not apply (see
-    // the conditional middleware in dispatcher/index.ts).
+    // Bytes are NOT immutable for a given name until the attachment is sent:
+    // `remove` frees the name, and the very next upload of the same desired
+    // name reclaims it via `placeUniquely` (which always starts at the bare,
+    // unsuffixed name), with different bytes. So this must revalidate on every
+    // request rather than caching for a year — a strong `ETag` derived from
+    // the file's size and mtime lets that revalidation cost a 304 instead of a
+    // re-download. Set explicitly so the /api default of `no-store` does not
+    // apply (see the conditional middleware in dispatcher/index.ts).
+    //
+    // This `ETag` decides the 304 only. It is the freshest information
+    // available without opening the file, which is the whole point of the fast
+    // path. A response that does carry a body re-derives it below from the
+    // open handle, so the validator always describes the bytes actually sent.
     ctx.response.status = StatusCodes.OK;
     ctx.response.set('Cache-Control', 'private, max-age=0, must-revalidate');
     ctx.response.etag = `${descriptor.attachment.byteSize}-${descriptor.mtimeMs}`;
@@ -205,13 +211,44 @@ export function registerAttachmentRoutes(
       throw error;
     }
 
+    // Size and validator are re-read from the OPEN file, not reused from
+    // `describe`'s earlier stat. Both resolve `absolutePath` by name, and they
+    // are separate awaits, so a DELETE plus a same-name re-upload landing
+    // between them makes `describe`'s `byteSize` describe a file this response
+    // is not sending — and the failure is silent, not loud: the client stops
+    // reading at `Content-Length`, so a larger file arrives truncated and a
+    // smaller one hangs, with a matching `ETag` caching the corruption. An
+    // `fstat` on the handle is authoritative because the fd already pins the
+    // inode, so nothing can swap the file out from under the numbers.
+    //
+    // Reachable through the API for an attachment that has not been sent yet;
+    // a frozen one can only get here if something bypassed the read-only bit.
+    let streamed: Stats;
+    try {
+      streamed = await fileHandle.stat();
+    } catch (error: unknown) {
+      // Nothing owns the handle until `ctx.body` takes it below, so it has to
+      // be closed here or the fd leaks for the process's lifetime.
+      await fileHandle.close();
+      throw error;
+    }
+
     ctx.response.type = descriptor.attachment.mediaType;
-    ctx.response.length = descriptor.attachment.byteSize;
+    ctx.response.length = streamed.size;
+    ctx.response.etag = `${streamed.size}-${streamed.mtimeMs}`;
     // The sniffed Content-Type above is trustworthy (never client-supplied),
     // but nosniff still stops a browser from second-guessing it based on the
     // bytes. `inline`, not `attachment`, is deliberate: the frontend renders
     // these images in the message stream next round — the escaped filename
     // is only for when a user chooses to save the file themselves.
+    //
+    // The media type alone still comes from `describe`, so the same swap can
+    // mislabel it. That degrades to a file the browser cannot render rather
+    // than to a corrupt download or a cross-type confusion: the type is always
+    // one of the five deliverable media types, never anything active, and
+    // nosniff holds the browser to it. Fixing it properly means sniffing from
+    // this handle, which belongs in the store — it owns magic-byte detection —
+    // not open-coded here.
     ctx.response.set('X-Content-Type-Options', 'nosniff');
     // Koa's own helper, which delegates to jshttp's `content-disposition` —
     // hand-rolling this is a trap. A stored name can be non-ASCII (the
