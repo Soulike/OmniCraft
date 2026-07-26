@@ -4,7 +4,8 @@ import {
   MAX_DOCUMENT_ATTACHMENT_BYTES,
   MAX_IMAGE_ATTACHMENT_BYTES,
   MAX_MESSAGE_ATTACHMENT_BYTES,
-} from '../../agent/attachments/index.js';
+} from '@/agent-core/agent/index.js';
+
 import {COMPACTION_TRIGGER_ATTACHMENT_BYTES} from './compaction-constants.js';
 
 // The invariant covered below is load-bearing, not tuning:
