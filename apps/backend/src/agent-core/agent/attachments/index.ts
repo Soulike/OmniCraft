@@ -1,6 +1,5 @@
 export type {
   AttachmentDescriptor,
-  AttachmentReadResult,
   ResolveAttachmentsResult,
   SaveAttachmentFailureReason,
   SaveAttachmentResult,

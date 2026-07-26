@@ -13,7 +13,7 @@ import {Mutex} from '@/helpers/mutex.js';
 import {logger} from '@/logger.js';
 
 import {agentEventBus} from '../events/index.js';
-import type {LlmConfig} from '../llm-api/index.js';
+import type {AttachmentResolution, LlmConfig} from '../llm-api/index.js';
 import {LlmSession} from '../llm-session/index.js';
 import type {AnyToolDefinition} from '../tool/index.js';
 import {AgentRuntimeState} from './agent-runtime-state.js';
@@ -22,7 +22,6 @@ import {agentTurnRunner} from './agent-turn-runner.js';
 import {
   agentAttachmentStore,
   type AttachmentDescriptor,
-  type AttachmentReadResult,
   type ResolveAttachmentsResult,
   type SaveAttachmentResult,
 } from './attachments/index.js';
@@ -379,7 +378,7 @@ export abstract class Agent {
    */
   private resolveAttachmentData(
     attachment: LlmAttachment,
-  ): Promise<AttachmentReadResult> {
+  ): Promise<AttachmentResolution> {
     return agentAttachmentStore.readBase64(
       this.scratchDirectory,
       attachment.fileName,

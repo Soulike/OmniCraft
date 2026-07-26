@@ -16,6 +16,7 @@ import {
   statRegularFile,
 } from '@/helpers/fs.js';
 
+import type {AttachmentResolution} from '../../llm-api/index.js';
 import {budgetStem, MAX_PLACEMENT_ATTEMPTS} from './helpers/budget-stem.js';
 import {
   capFor,
@@ -80,10 +81,6 @@ export type ResolveAttachmentsResult =
  * still downsample it and read it again — the same escape hatch `read_file`
  * points at for oversized media).
  */
-export type AttachmentReadResult =
-  | {readonly data: string}
-  | {readonly data: null; readonly reason: 'missing' | 'too-large'};
-
 class AgentAttachmentStore {
   /** The attachments directory for a session, given its scratch directory. */
   directory(scratchDirectory: string): string {
@@ -204,7 +201,7 @@ class AgentAttachmentStore {
   async readBase64(
     scratchDirectory: string,
     fileName: string,
-  ): Promise<AttachmentReadResult> {
+  ): Promise<AttachmentResolution> {
     const found = await this.describe(scratchDirectory, fileName);
     if (found === null) return {data: null, reason: 'missing'};
 
