@@ -20,6 +20,19 @@ export interface AttachmentRoutePaths {
 }
 
 /**
+ * Escapes a file name for use inside a `Content-Disposition` quoted-string
+ * (RFC 6266 / RFC 2616 §2.2). `sanitizeFileName` strips control characters,
+ * `/`, and `\` from anything saved through the upload path, but not `"` — so
+ * an unescaped name could close the quoted-string early and inject
+ * additional header parameters. Backslash is escaped too, defensively,
+ * in case a name ever reaches this header by some path other than the
+ * sanitizer-backed store.
+ */
+function escapeContentDispositionFilename(fileName: string): string {
+  return fileName.replaceAll('\\', '\\\\').replaceAll('"', '\\"');
+}
+
+/**
  * The result shape `saveAttachment` structurally satisfies on both
  * `chatAgentSessionService` and `codingAgentSessionService`. Declared locally
  * — not imported from either service's `types.ts` — so the two services can
@@ -175,6 +188,16 @@ export function registerAttachmentRoutes(
 
     ctx.response.type = descriptor.attachment.mediaType;
     ctx.response.length = descriptor.attachment.byteSize;
+    // The sniffed Content-Type above is trustworthy (never client-supplied),
+    // but nosniff still stops a browser from second-guessing it based on the
+    // bytes. `inline`, not `attachment`, is deliberate: the frontend renders
+    // these images in the message stream next round — the escaped filename
+    // is only for when a user chooses to save the file themselves.
+    ctx.response.set('X-Content-Type-Options', 'nosniff');
+    ctx.response.set(
+      'Content-Disposition',
+      `inline; filename="${escapeContentDispositionFilename(descriptor.attachment.fileName)}"`,
+    );
     ctx.body = createReadStream(descriptor.absolutePath);
   });
 
