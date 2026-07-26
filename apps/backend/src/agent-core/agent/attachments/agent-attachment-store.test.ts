@@ -1,3 +1,4 @@
+import {execFile} from 'node:child_process';
 import {
   access,
   lstat,
@@ -13,6 +14,7 @@ import {
 import os from 'node:os';
 import path from 'node:path';
 import {Readable} from 'node:stream';
+import {promisify} from 'node:util';
 
 import {fileTypeFromFile} from 'file-type';
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
@@ -120,18 +122,22 @@ describe('save', () => {
     expect(second.ok && second.attachment.lastKnownByteSize).toBe(128);
   });
 
-  // Regression test for a name `placeUniquely` could produce that the read
-  // paths then reject. `sanitizeFileName` leaves U+2028 (LINE SEPARATOR)
-  // alone, and it breaks the `.`-matches-anything assumption the
-  // `sanitize-filename` package's Windows-reserved-name regex relies on, so
-  // 'con.<U+2028>png' survives the up-front sanitize as a fixed point. Once
-  // `placeUniquely` strips the (line-separator-containing) extension and
-  // swaps in the sniffed `.png`, the bare stem is exactly `con` — a
-  // Windows-reserved name — so the first candidate, `con.png`, is a name
-  // `sanitizeFileName` itself would reject. Before the fix this got linked
-  // to disk anyway: `describe`/`readBase64` reported it missing and `remove`
-  // reported not-found for a file that was, in fact, sitting there forever.
-  it('skips a first candidate that would rebuild a Windows-reserved name after the extension swap', async () => {
+  // Was a regression test for a name `placeUniquely` could produce that the
+  // read paths then rejected. Its whole premise was that U+2028 survives
+  // sanitizing: a JavaScript `.` does not match a line terminator, so a U+2028
+  // in the extension hid `con` from the `sanitize-filename` package's
+  // Windows-reserved-name regex, and `con.<U+2028>png` came through as a fixed
+  // point. `placeUniquely` then stripped that extension, swapped in the
+  // sniffed `.png`, and produced `con.png` — a name `sanitizeFileName` itself
+  // rejects — linking to disk a file no read path could ever look up again.
+  //
+  // U+2028 and U+2029 are stripped now (they can inject lines into the
+  // model-facing compaction list), which closes this at the door instead: the
+  // name reduces to the reserved `con.png` and never reaches placement. The
+  // guard inside `placeUniquely` stays as defense in depth — it costs one
+  // comparison, and the next character that slips past the package would
+  // otherwise reopen exactly this.
+  it('rejects a name whose line separator would have hidden a reserved word', async () => {
     const desiredName = `con.${String.fromCharCode(0x2028)}png`;
     const result = await agentAttachmentStore.save(
       scratchDirectory,
@@ -139,34 +145,11 @@ describe('save', () => {
       streamOf(pngOf(64)),
     );
 
-    expect(result.ok).toBe(true);
-    if (!result.ok) return;
-    // Not the unreachable `con.png` — the next candidate the uniquify loop
-    // tries, which is not a reserved name once suffixed.
-    expect(result.attachment.fileName).toBe('con (2).png');
-
-    // The file must be reachable through every read path, exactly like any
-    // other successfully saved attachment.
-    const found = await agentAttachmentStore.describe(
-      scratchDirectory,
-      result.attachment.fileName,
-    );
-    expect(found).not.toBeNull();
-    expect(
-      await agentAttachmentStore.readBase64(
-        scratchDirectory,
-        result.attachment.fileName,
-      ),
-    ).toEqual({
-      data: pngOf(64).toString('base64'),
-      materializedByteSize: pngOf(64).byteLength,
-    });
-    expect(
-      await agentAttachmentStore.remove(
-        scratchDirectory,
-        result.attachment.fileName,
-      ),
-    ).toEqual({ok: true});
+    expect(result).toEqual({ok: false, reason: 'invalid-name'});
+    // Nothing was placed, and no temp file was left behind.
+    await expect(
+      readdir(path.join(scratchDirectory, 'attachments')),
+    ).rejects.toThrow();
   });
 
   it('rejects a name that sanitizes to nothing', async () => {
@@ -741,6 +724,35 @@ describe('freeze', () => {
       await agentAttachmentStore.freeze(scratchDirectory, ['shot.png']),
     ).toEqual(['shot.png']);
   });
+
+  // `freeze` opens the file and `fchmod`s through that handle, so these three
+  // cases are all the same question asked of the handle rather than the path.
+  // The race the handle closes — a symlink planted between a check and a
+  // separate `chmod(path)` — has no test because it no longer has a window to
+  // inject into: there is only one resolution now. What these pin is that the
+  // one resolution refuses everything that is not a regular file.
+  it('refuses a directory planted at an attachment name', async () => {
+    const attachmentsDirectory =
+      agentAttachmentStore.directory(scratchDirectory);
+    await mkdir(path.join(attachmentsDirectory, 'shot.png'), {recursive: true});
+
+    expect(
+      await agentAttachmentStore.freeze(scratchDirectory, ['shot.png']),
+    ).toEqual(['shot.png']);
+  });
+
+  it('refuses a FIFO without blocking on a writer that never comes', async () => {
+    const attachmentsDirectory =
+      agentAttachmentStore.directory(scratchDirectory);
+    await mkdir(attachmentsDirectory, {recursive: true});
+    await promisify(execFile)('mkfifo', [
+      path.join(attachmentsDirectory, 'shot.png'),
+    ]);
+
+    expect(
+      await agentAttachmentStore.freeze(scratchDirectory, ['shot.png']),
+    ).toEqual(['shot.png']);
+  }, 5000);
 
   // `chmod` follows symlinks; `freeze` must not, or a link planted at an
   // attachment name would turn some file outside the store read-only.

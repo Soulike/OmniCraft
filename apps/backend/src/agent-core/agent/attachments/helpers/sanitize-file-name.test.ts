@@ -11,6 +11,8 @@ const LRI = String.fromCodePoint(0x2066);
 const PDI = String.fromCodePoint(0x2069);
 const RLM = String.fromCodePoint(0x200f);
 const LRM = String.fromCodePoint(0x200e);
+const LS = String.fromCodePoint(0x2028);
+const PS = String.fromCodePoint(0x2029);
 
 describe('sanitizeFileName', () => {
   it('takes the basename before sanitizing a forward-slash path', () => {
@@ -115,6 +117,10 @@ describe('sanitizeFileName', () => {
       RLO,
       `${LRI}sh${PDI}ot.png`,
       `${RLM}${LRM}shot.png`,
+      `shot${LS}a.png`,
+      `con.${LS}png`,
+      `shot${PS}a.png`,
+      LS,
       '../../etc/passwd',
       `../../etc/pa${NUL}ss.png`,
       'sub\\shot.png',
@@ -166,5 +172,23 @@ describe('sanitizeFileName', () => {
   it('strips them before the delegate, so a hidden reserved name is still caught', () => {
     expect(sanitizeFileName(`CON${RLO} `)).toBeNull();
     expect(sanitizeFileName(`${LRM}CON`)).toBeNull();
+  });
+
+  // A stored name is interpolated into the compaction attachment list, one
+  // entry per line. The package sweeps the C0 controls, so `\n` and `\r`
+  // cannot get in, but it leaves U+2028/U+2029 — which a model reads as line
+  // breaks all the same, letting a third-party filename add its own entries.
+  it('strips line and paragraph separators', () => {
+    expect(sanitizeFileName(`shot${LS}a.png`)).toBe('shota.png');
+    expect(sanitizeFileName(`shot${PS}a.png`)).toBe('shota.png');
+    expect(sanitizeFileName(LS)).toBeNull();
+  });
+
+  // These are the reason the package misses them: a JavaScript `.` does not
+  // match a line terminator, so U+2028 hides a reserved word from the
+  // package's own regex. Stripping first is what makes the check see `con`.
+  it('strips them before the delegate, so a line separator cannot hide a reserved word', () => {
+    expect(sanitizeFileName(`con.${LS}png`)).toBeNull();
+    expect(sanitizeFileName(`CON${PS}`)).toBeNull();
   });
 });

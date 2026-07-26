@@ -6,6 +6,14 @@ import sanitize from 'sanitize-filename';
  * U+007F (DEL) sits just past the C0 block the package sweeps (`\x00-\x1f`,
  * `\x80-\x9f`) — an oversight rather than an intent.
  *
+ * U+2028 and U+2029 are Unicode's line and paragraph separators. The package
+ * sweeps the C0 controls, which covers `\n` and `\r`, but not these — and a
+ * stored name is interpolated into the compaction attachment list, one entry
+ * per line, so a name carrying one could add entries the model reads as
+ * separate lines. That the package misses them is not incidental either: a
+ * JavaScript `.` does not match a line terminator, so a `U+2028` inside a name
+ * also hides it from the package's own Windows-reserved-name regex.
+ *
  * The rest are Unicode's bidirectional formatting characters. They render as
  * nothing but reorder the text around them, so `invoice<U+202E>gnp.png` can
  * display as a different name than it is — the "Trojan Source" trick applied
@@ -31,6 +39,8 @@ const STRIPPED_CODE_POINTS = [
   0x2067, // RIGHT-TO-LEFT ISOLATE
   0x2068, // FIRST STRONG ISOLATE
   0x2069, // POP DIRECTIONAL ISOLATE
+  0x2028, // LINE SEPARATOR
+  0x2029, // PARAGRAPH SEPARATOR
 ];
 
 /** Built from the code points rather than written as a literal class, so the

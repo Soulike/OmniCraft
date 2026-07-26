@@ -1,15 +1,9 @@
 import assert from 'node:assert';
 import crypto from 'node:crypto';
 import type {Stats} from 'node:fs';
-import {
-  chmod,
-  link,
-  lstat,
-  mkdir,
-  readFile,
-  rm,
-  unlink,
-} from 'node:fs/promises';
+import {constants} from 'node:fs';
+import type {FileHandle} from 'node:fs/promises';
+import {link, lstat, mkdir, open, readFile, rm, unlink} from 'node:fs/promises';
 import path from 'node:path';
 import type {Readable} from 'node:stream';
 
@@ -23,6 +17,7 @@ import {fileTypeFromFile} from 'file-type';
 import {
   isFileExistsError,
   isFileNotFoundError,
+  isSymlinkRefusedError,
   statRegularFile,
 } from '@/helpers/fs.js';
 
@@ -388,19 +383,41 @@ class AgentAttachmentStore {
     const absolutePath = resolveInside(directory, fileName);
     if (absolutePath === null) return false;
 
-    // `chmod` follows symlinks, so it would otherwise change the mode of
-    // whatever a planted link points at — a file this store does not own.
-    // `statRegularFile` lstats, so a symlink fails this check instead.
-    if ((await statRegularFile(absolutePath)) === null) return false;
+    // Freezes through an open handle, never by path. An earlier version
+    // lstat'd and then called `chmod(absolutePath, ...)`, reasoning that the
+    // lstat would catch a symlink — but those are two resolutions of the same
+    // name with an await between them, so a link planted in the gap was
+    // followed and the mode of a file outside this store was changed. Checking
+    // then acting on a path is not atomic no matter what the check looks at.
+    //
+    // `O_NOFOLLOW` lets the kernel refuse the link instead; `O_NONBLOCK` keeps
+    // a planted FIFO from blocking here; and `fchmod` through the handle acts
+    // on the inode the checks below already saw, which no rename or unlink can
+    // swap. `O_RDONLY` is enough — `fchmod` needs ownership, not write access.
+    let handle: FileHandle;
+    try {
+      handle = await open(
+        absolutePath,
+        constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK,
+      );
+    } catch (error: unknown) {
+      // Gone, or not something this store may freeze. Both are "nothing here
+      // to pin" to the caller, which folds them into its missing list.
+      if (isFileNotFoundError(error) || isSymlinkRefusedError(error)) {
+        return false;
+      }
+      throw error;
+    }
 
     try {
-      await chmod(absolutePath, FROZEN_MODE);
+      // `O_NOFOLLOW` rules out a symlink but not a directory or a device node.
+      const stats = await handle.stat();
+      if (!stats.isFile()) return false;
+
+      await handle.chmod(FROZEN_MODE);
       return true;
-    } catch (error: unknown) {
-      // Same race the read paths handle: a concurrent `remove()` between the
-      // stat above and this call. Anything else is a real failure.
-      if (isFileNotFoundError(error)) return false;
-      throw error;
+    } finally {
+      await handle.close();
     }
   }
 

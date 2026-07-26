@@ -95,6 +95,27 @@ describe('sessionMetadataSchema', () => {
 });
 
 describe('chatCompletionsRequestSchema attachments', () => {
+  // Nothing downstream collapses a repeat: one descriptor per occurrence, one
+  // materialization each, charged against both budgets and sent to the model
+  // twice. Rejected at the boundary rather than silently deduplicated.
+  it('rejects a repeated attachment name', () => {
+    expect(() =>
+      chatCompletionsRequestSchema.parse({
+        message: 'hi',
+        attachmentFileNames: ['shot.png', 'other.png', 'shot.png'],
+      }),
+    ).toThrow(/duplicates/);
+  });
+
+  it('accepts distinct names that differ only in case', () => {
+    expect(
+      chatCompletionsRequestSchema.parse({
+        message: 'hi',
+        attachmentFileNames: ['shot.png', 'SHOT.png'],
+      }).attachmentFileNames,
+    ).toEqual(['shot.png', 'SHOT.png']);
+  });
+
   it('defaults attachmentFileNames to an empty list', () => {
     const parsed = chatCompletionsRequestSchema.parse({message: 'hello'});
     expect(parsed.attachmentFileNames).toEqual([]);

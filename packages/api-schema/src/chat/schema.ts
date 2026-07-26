@@ -31,8 +31,22 @@ export const chatCompletionsRequestSchema = z.strictObject({
   // misreport a media type or size. Text is always required — an attachment
   // never substitutes for it. Capped at 10 to bound how many stat+sniff
   // operations one request can force; the byte total itself is enforced
-  // after resolution, in the completions handler.
-  attachmentFileNames: z.array(z.string().min(1)).max(10).default([]),
+  // after resolution, in `Agent.claimAttachments`.
+  //
+  // Rejected rather than deduplicated when a name repeats. Nothing downstream
+  // collapses them — `claimAttachments` keeps one descriptor per occurrence and
+  // request construction materializes the same bytes once each — so a repeat
+  // multiplies a file against both the per-message and materialization budgets
+  // and sends the model duplicate blocks. Sending a name twice has no meaning,
+  // so it is a client bug, and a 400 says so rather than silently changing the
+  // request out from under a UI that thinks it attached three files.
+  attachmentFileNames: z
+    .array(z.string().min(1))
+    .max(10)
+    .refine((names) => new Set(names).size === names.length, {
+      message: 'attachmentFileNames must not contain duplicates',
+    })
+    .default([]),
 });
 
 export type ChatCompletionsRequest = z.infer<

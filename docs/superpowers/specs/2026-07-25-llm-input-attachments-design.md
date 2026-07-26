@@ -412,9 +412,18 @@ taken for `Content-Length` also gates on `isFile()`. Asking the open handle is w
 makes it final: a third path resolution would just be one more moment for something
 to change underneath.
 
-This is the same correction as the two above it — bind to the object you actually
-operate on, never re-resolve the name — applied to the last place in the request
-that was still trusting a path.
+`freeze` does the same: it opens under the same flags, checks `isFile()` on the
+handle, and `fchmod`s through it. An earlier version `lstat`ed and then called
+`chmod(path)` — reasoning that the `lstat` would catch a symlink — but those are two
+resolutions with an await between them, and a link planted in the gap had its target's
+mode changed. `O_RDONLY` suffices; `fchmod` needs ownership, not write access.
+
+This is the same correction repeated four times in this PR — the claim's
+describe/freeze gap, the download's `Content-Length`, the download's `open`, and
+`freeze`'s `chmod`. Each was a name resolved twice with an await in between, and each
+fix was the same move: **bind to the object you actually operate on, never re-resolve
+the name.** Checking a path and then acting on it is not atomic no matter what the
+check looks at, which is exactly what three of the four wrong code comments claimed.
 
 ### Frozen once sent
 
