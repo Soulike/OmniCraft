@@ -172,6 +172,26 @@ describe('GET .../attachments/:fileName body framing', () => {
     expect(res.headers.get('etag')).toMatch(/^"100-/);
   });
 
+  // The other direction, which fails differently: with a stale length LARGER
+  // than the file, the client waits for bytes that never arrive instead of
+  // getting a short read. Asserted with a timeout so a regression shows up as
+  // a failure rather than a hung suite.
+  it('does not leave the client waiting when the file is smaller than the descriptor', async () => {
+    const descriptor = await descriptorFor('shot.png');
+    await writeFile(descriptor.absolutePath, Buffer.alloc(2, 0x61));
+    descriptorToReturn = descriptor;
+
+    const res = await fetch(
+      `${baseUrl}/sessions/${SESSION_ID}/attachments/shot.png`,
+      {signal: AbortSignal.timeout(5000)},
+    );
+    const body = await res.arrayBuffer();
+
+    expect(descriptor.attachment.byteSize).toBe(5);
+    expect(res.headers.get('content-length')).toBe('2');
+    expect(body.byteLength).toBe(2);
+  });
+
   it('serves the whole file when the descriptor is in step with it', async () => {
     descriptorToReturn = await descriptorFor('shot.png');
 
