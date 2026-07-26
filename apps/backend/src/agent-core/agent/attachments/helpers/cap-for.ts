@@ -10,9 +10,20 @@ export const MAX_IMAGE_ATTACHMENT_BYTES = 5 * 1024 * 1024;
  *  flat — see https://github.com/Soulike/OmniCraft/issues/373. */
 export const MAX_DOCUMENT_ATTACHMENT_BYTES = 10 * 1024 * 1024;
 
+/** The byte cap that applies to a given deliverable media type. A `Record`
+ *  rather than a boolean check: adding a new media type without a cap here is
+ *  a compile error rather than a silent fallback to the image cap. */
+const CAP_BY_MEDIA_TYPE: Readonly<
+  Record<ImageMediaType | DocumentMediaType, number>
+> = {
+  'image/png': MAX_IMAGE_ATTACHMENT_BYTES,
+  'image/jpeg': MAX_IMAGE_ATTACHMENT_BYTES,
+  'image/gif': MAX_IMAGE_ATTACHMENT_BYTES,
+  'image/webp': MAX_IMAGE_ATTACHMENT_BYTES,
+  'application/pdf': MAX_DOCUMENT_ATTACHMENT_BYTES,
+};
+
 /** The byte cap that applies to a given deliverable media type. */
 export function capFor(mediaType: ImageMediaType | DocumentMediaType): number {
-  return mediaType === 'application/pdf'
-    ? MAX_DOCUMENT_ATTACHMENT_BYTES
-    : MAX_IMAGE_ATTACHMENT_BYTES;
+  return CAP_BY_MEDIA_TYPE[mediaType];
 }

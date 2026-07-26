@@ -22,18 +22,25 @@ export function attachmentsToBlocks(
           : `[attachment missing: ${attachment.fileName}]`;
       return {type: 'text', text};
     }
-    if (attachment.mediaType === 'application/pdf') {
-      return {
-        type: 'document',
-        mediaType: attachment.mediaType,
-        data: attachment.data,
-        name: attachment.fileName,
-      };
+    // Exhaustive over every deliverable media type: adding one without a case
+    // here is a compile error (missing return), not a silent image fallback.
+    switch (attachment.mediaType) {
+      case 'application/pdf':
+        return {
+          type: 'document',
+          mediaType: attachment.mediaType,
+          data: attachment.data,
+          name: attachment.fileName,
+        };
+      case 'image/png':
+      case 'image/jpeg':
+      case 'image/gif':
+      case 'image/webp':
+        return {
+          type: 'image',
+          mediaType: attachment.mediaType,
+          data: attachment.data,
+        };
     }
-    return {
-      type: 'image',
-      mediaType: attachment.mediaType,
-      data: attachment.data,
-    };
   });
 }
