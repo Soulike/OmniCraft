@@ -3,6 +3,7 @@ import {
   lstat,
   mkdir,
   mkdtemp,
+  readdir,
   readFile,
   rm,
   symlink,
@@ -145,7 +146,6 @@ describe('save', () => {
     );
     expect(result).toEqual({ok: false, reason: 'too-large'});
 
-    const {readdir} = await import('node:fs/promises');
     const entries = await readdir(path.join(scratchDirectory, 'attachments'));
     expect(entries).toEqual([]);
   });
@@ -670,5 +670,60 @@ describe('path safety', () => {
     for (const fileName of savedFileNames) {
       expect(resolveInside(attachmentsDirectory, fileName)).not.toBeNull();
     }
+  });
+});
+
+// Regression coverage for the gap `save()`'s `mkdir` comment used to document
+// as known and unaddressed: `mkdir(recursive)` is a no-op when `attachments`
+// already exists — including as a symlink to a directory — so a symlink
+// planted at that segment itself (as opposed to a leaf file name, which the
+// read paths' `lstat` already rejects) survived undetected, and every
+// subsequent open-by-path under it followed the symlink outside the scratch
+// space.
+describe('attachments directory itself planted as a symlink', () => {
+  it('save() rejects instead of writing through a symlinked attachments directory', async () => {
+    const outside = await mkdtemp(
+      path.join(os.tmpdir(), 'attachment-outside-'),
+    );
+    const attachmentsDirectory =
+      agentAttachmentStore.directory(scratchDirectory);
+    await symlink(outside, attachmentsDirectory);
+
+    await expect(
+      agentAttachmentStore.save(
+        scratchDirectory,
+        'shot.png',
+        streamOf(pngOf(64)),
+      ),
+    ).rejects.toThrow();
+
+    // Nothing must have been written through the symlink into `outside`.
+    expect(await readdir(outside)).toEqual([]);
+    await rm(outside, {recursive: true, force: true});
+  });
+
+  it('describe(), readBase64(), and remove() reject instead of following a symlinked attachments directory', async () => {
+    const outside = await mkdtemp(
+      path.join(os.tmpdir(), 'attachment-outside-'),
+    );
+    const secret = path.join(outside, 'shot.png');
+    await writeFile(secret, pngOf(64));
+    const attachmentsDirectory =
+      agentAttachmentStore.directory(scratchDirectory);
+    await symlink(outside, attachmentsDirectory);
+
+    await expect(
+      agentAttachmentStore.describe(scratchDirectory, 'shot.png'),
+    ).rejects.toThrow();
+    await expect(
+      agentAttachmentStore.readBase64(scratchDirectory, 'shot.png'),
+    ).rejects.toThrow();
+    await expect(
+      agentAttachmentStore.remove(scratchDirectory, 'shot.png'),
+    ).rejects.toThrow();
+
+    // The file outside the scratch space must survive every attempt.
+    await expect(access(secret)).resolves.toBeUndefined();
+    await rm(outside, {recursive: true, force: true});
   });
 });

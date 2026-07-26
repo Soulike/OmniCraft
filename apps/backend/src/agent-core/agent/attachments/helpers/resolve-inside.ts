@@ -20,8 +20,11 @@ import {sanitizeFileName} from './sanitize-file-name.js';
  * would serve a different file than the caller asked for. Compare-and-reject
  * keeps the answer "that name is not one of ours" instead of a guess.
  *
- * This does not guard `directory` (the session's `attachments` folder) itself
- * being a symlink — see the comment on `mkdir` in `save()`.
+ * This does not itself guard `directory` (the session's `attachments` folder)
+ * being a symlink — every caller (`save`, `describe`, `remove`) confirms that
+ * via `AgentAttachmentStore.verifyRealDirectoryOrAbsent` before reaching this
+ * function, so a resolved path here is guaranteed to sit under a real
+ * directory, not one reached by following a planted symlink.
  */
 export function resolveInside(
   directory: string,

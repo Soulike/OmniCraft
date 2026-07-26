@@ -1,4 +1,6 @@
+import assert from 'node:assert';
 import crypto from 'node:crypto';
+import type {Stats} from 'node:fs';
 import {link, lstat, mkdir, readFile, rm, unlink} from 'node:fs/promises';
 import path from 'node:path';
 import type {Readable} from 'node:stream';
@@ -88,6 +90,46 @@ class AgentAttachmentStore {
   }
 
   /**
+   * Confirms `directory` — the session's attachments directory — is either
+   * absent or a real directory, never a symlink. Every path below it
+   * (`resolveInside`'s callers, `save`'s temp file, `placeUniquely`'s hard
+   * links) is built by joining onto `directory` and then opened by path, so a
+   * symlink planted at this exact segment would redirect all of them to a
+   * location this store does not own — and `mkdir(recursive)` treats that
+   * symlink as "already exists" and silently leaves it in place rather than
+   * erroring.
+   *
+   * `lstat`, not `stat`: a symlink must be identified before it is followed,
+   * not after resolving through it to whatever it points at. This mirrors
+   * `AgentScratchDirectoryService.createScratchDirectory`'s guard on the
+   * `{agentId}` segment, for the same reason.
+   *
+   * Returns `false` when `directory` does not exist yet — an ordinary
+   * pre-first-save state every read path already treats as "nothing here" —
+   * and throws when it exists but is not a real directory. A planted symlink
+   * is not a client input error; it is a tampered scratch space, so it
+   * surfaces as a thrown error rather than a `SaveAttachmentFailureReason` or
+   * a quiet `null`/`false`.
+   */
+  private async verifyRealDirectoryOrAbsent(
+    directory: string,
+  ): Promise<boolean> {
+    let stats: Stats;
+    try {
+      stats = await lstat(directory);
+    } catch (error: unknown) {
+      if (isFileNotFoundError(error)) return false;
+      throw error;
+    }
+    if (!stats.isDirectory()) {
+      throw new Error(
+        `Attachments directory is not a real directory: ${directory}`,
+      );
+    }
+    return true;
+  }
+
+  /**
    * Writes `body` into the session's attachment store under a name derived from
    * `desiredName` and the sniffed media type. The caller's declared content type
    * is never consulted.
@@ -101,12 +143,19 @@ class AgentAttachmentStore {
     if (sanitized === null) return {ok: false, reason: 'invalid-name'};
 
     const directory = this.directory(scratchDirectory);
-    // Known, unaddressed gap: `mkdir(recursive)` succeeds through a symlink
-    // planted at the `attachments` segment itself (unlike a symlink at a leaf
-    // file name, which `lstat` in the read paths rejects), and every
-    // subsequent open-by-path under `directory` would follow it. Closing this
-    // is a separate decision, not made here.
+    // `mkdir(recursive)` treats a symlink already sitting at `directory` as
+    // "already exists" and leaves it untouched, so `verifyRealDirectoryOrAbsent`
+    // must run after it to reject a planted symlink before anything below is
+    // written through it. `assert`, not another `if`/return: `mkdir` above
+    // guarantees `directory` exists by the time it resolves (barring a
+    // concurrent `rm -rf` of the whole scratch tree, which is not this
+    // store's problem to handle), so the `false` (absent) case here is an
+    // invariant violation, not a reachable business outcome.
     await mkdir(directory, {recursive: true, mode: 0o700});
+    assert(
+      await this.verifyRealDirectoryOrAbsent(directory),
+      `Attachments directory disappeared immediately after creation: ${directory}`,
+    );
 
     const temporaryPath = path.join(directory, `.${crypto.randomUUID()}.tmp`);
 
@@ -144,10 +193,10 @@ class AgentAttachmentStore {
     scratchDirectory: string,
     fileName: string,
   ): Promise<AttachmentDescriptor | null> {
-    const absolutePath = resolveInside(
-      this.directory(scratchDirectory),
-      fileName,
-    );
+    const directory = this.directory(scratchDirectory);
+    if (!(await this.verifyRealDirectoryOrAbsent(directory))) return null;
+
+    const absolutePath = resolveInside(directory, fileName);
     if (absolutePath === null) return null;
 
     const stats = await statRegularFile(absolutePath);
@@ -229,10 +278,10 @@ class AgentAttachmentStore {
    * refuses to touch.
    */
   async remove(scratchDirectory: string, fileName: string): Promise<boolean> {
-    const absolutePath = resolveInside(
-      this.directory(scratchDirectory),
-      fileName,
-    );
+    const directory = this.directory(scratchDirectory);
+    if (!(await this.verifyRealDirectoryOrAbsent(directory))) return false;
+
+    const absolutePath = resolveInside(directory, fileName);
     if (absolutePath === null) return false;
 
     // `lstat` first to gate out directories: `unlink` throws on one (EPERM on
