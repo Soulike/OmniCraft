@@ -462,7 +462,11 @@ describe('attachment resolution', () => {
 
   it('materializes base64 for the request without persisting it', async () => {
     const resolveAttachment = vi.fn((attachment: LlmAttachment) =>
-      Promise.resolve(attachment.fileName === 'shot.png' ? 'AAA=' : null),
+      Promise.resolve(
+        attachment.fileName === 'shot.png'
+          ? {data: 'AAA='}
+          : {data: null, reason: 'missing' as const},
+      ),
     );
     const session = new LlmSession(getConfig, undefined, resolveAttachment);
 
@@ -492,9 +496,9 @@ describe('attachment resolution', () => {
     expect(JSON.stringify(snapshot)).not.toContain('AAA=');
   });
 
-  it('resolves a vanished file to null so the adapter can flag it', async () => {
+  it('resolves a vanished file to the missing reason so the adapter can flag it', async () => {
     const session = new LlmSession(getConfig, undefined, () =>
-      Promise.resolve(null),
+      Promise.resolve({data: null, reason: 'missing' as const}),
     );
 
     const {stream} = session.sendUserMessage('look', [], '', undefined, [
@@ -505,11 +509,11 @@ describe('attachment resolution', () => {
     }
 
     expect(capturedCompletionOptions().messages[0]).toMatchObject({
-      attachments: [{fileName: 'gone.png', data: null}],
+      attachments: [{fileName: 'gone.png', data: null, reason: 'missing'}],
     });
   });
 
-  it('resolves nothing when no resolver was injected', async () => {
+  it('resolves to the missing reason when no resolver was injected', async () => {
     const session = new LlmSession(getConfig);
 
     const {stream} = session.sendUserMessage('look', [], '', undefined, [
@@ -520,7 +524,7 @@ describe('attachment resolution', () => {
     }
 
     expect(capturedCompletionOptions().messages[0]).toMatchObject({
-      attachments: [{fileName: 'shot.png', data: null}],
+      attachments: [{fileName: 'shot.png', data: null, reason: 'missing'}],
     });
   });
 });

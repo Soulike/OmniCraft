@@ -3,7 +3,10 @@ import type {
   LlmToolCall,
   LlmUserMessage,
 } from '../../llm-api/index.js';
-import {toolResultBlocksToText} from '../../llm-api/index.js';
+import {
+  formatAttachmentSize,
+  toolResultBlocksToText,
+} from '../../llm-api/index.js';
 import type {AnyToolDefinition} from '../../tool/types.js';
 import {
   RECENT_CONTEXT_ENTRY_TRUNCATE_HEAD_CHARS,
@@ -49,15 +52,6 @@ function truncateForCompaction(
   const omitted = content.length - head.length - tail.length;
 
   return `${head}\n\n[Content truncated for compaction only. Original length: ${content.length.toString()} chars. Omitted ${omitted.toString()} chars.]\n\n${tail}`;
-}
-
-/** Renders a size in the same units the model sees in the compaction file list. */
-export function formatAttachmentSize(byteSize: number): string {
-  if (byteSize < 1024) return `${byteSize.toString()} B`;
-  if (byteSize < 1024 * 1024) {
-    return `${Math.round(byteSize / 1024).toString()} KB`;
-  }
-  return `${(byteSize / 1024 / 1024).toFixed(1)} MB`;
 }
 
 function projectUserContent(message: LlmUserMessage): string {

@@ -71,6 +71,19 @@ export type ResolveAttachmentsResult =
   | {readonly ok: true; readonly attachments: LlmAttachment[]}
   | {readonly ok: false; readonly missing: string[]};
 
+/**
+ * Result of materializing an attachment's bytes for delivery to a provider.
+ * `reason` distinguishes two situations that must not be conflated: `missing`
+ * means the file is gone (so mentioning it is honest, and there's nothing
+ * left to act on), while `too-large` means the file is still on disk but
+ * grew past its type's cap since it was last described (so the agent can
+ * still downsample it and read it again — the same escape hatch `read_file`
+ * points at for oversized media).
+ */
+export type AttachmentReadResult =
+  | {readonly data: string}
+  | {readonly data: null; readonly reason: 'missing' | 'too-large'};
+
 class AgentAttachmentStore {
   /** The attachments directory for a session, given its scratch directory. */
   directory(scratchDirectory: string): string {
@@ -166,22 +179,47 @@ class AgentAttachmentStore {
     };
   }
 
-  /** Reads an attachment's bytes as base64, or `null` when it is gone. */
+  /**
+   * Reads an attachment's bytes as base64 for delivery to a provider, or a
+   * reason it could not be delivered.
+   *
+   * The size cap is enforced HERE and not in `describe`, deliberately:
+   * `describe` also backs the HTTP download endpoint and completions
+   * descriptor resolution, where an attachment the agent happened to
+   * overwrite with something larger must stay viewable and deletable. The
+   * cap is a statement about what a provider request may carry, not about
+   * what a user may see.
+   *
+   * `readFile` itself has no size limit, and `run_command`'s realpath
+   * allowlist deliberately covers the scratch space (it is how an oversized
+   * image gets downsampled), so the file on disk can be larger than the
+   * `byteSize` last recorded for it. `describe` freshly `lstat`s on every
+   * call, so its `byteSize` is checked against `capFor(mediaType)` before any
+   * byte is read — closing the gap between what compaction certified as safe
+   * and what would otherwise be read into memory. A residual TOCTOU window
+   * remains (the stat is not the read); it is microseconds wide and the only
+   * writer is our own agent, which is why a fresh bounded check is preferred
+   * over streaming the read through a capping transform.
+   */
   async readBase64(
     scratchDirectory: string,
     fileName: string,
-  ): Promise<string | null> {
+  ): Promise<AttachmentReadResult> {
     const found = await this.describe(scratchDirectory, fileName);
-    if (found === null) return null;
+    if (found === null) return {data: null, reason: 'missing'};
+
+    const {byteSize, mediaType} = found.attachment;
+    if (byteSize > capFor(mediaType)) return {data: null, reason: 'too-large'};
 
     // Same race as above: `describe` above already stat'd (and, internally,
     // sniffed) the file, but a concurrent `remove()` can still unlink it
     // before this read. Only ENOENT degrades to the missing-attachment
     // placeholder; any other error is a genuine failure and propagates.
     try {
-      return (await readFile(found.absolutePath)).toString('base64');
+      const bytes = await readFile(found.absolutePath);
+      return {data: bytes.toString('base64')};
     } catch (error: unknown) {
-      if (isFileNotFoundError(error)) return null;
+      if (isFileNotFoundError(error)) return {data: null, reason: 'missing'};
       throw error;
     }
   }

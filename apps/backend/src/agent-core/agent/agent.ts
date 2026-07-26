@@ -22,6 +22,7 @@ import {agentTurnRunner} from './agent-turn-runner.js';
 import {
   agentAttachmentStore,
   type AttachmentDescriptor,
+  type AttachmentReadResult,
   type ResolveAttachmentsResult,
   type SaveAttachmentResult,
 } from './attachments/index.js';
@@ -378,7 +379,7 @@ export abstract class Agent {
    */
   private resolveAttachmentData(
     attachment: LlmAttachment,
-  ): Promise<string | null> {
+  ): Promise<AttachmentReadResult> {
     return agentAttachmentStore.readBase64(
       this.scratchDirectory,
       attachment.fileName,

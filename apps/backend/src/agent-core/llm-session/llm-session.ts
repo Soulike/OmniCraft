@@ -13,6 +13,7 @@ import type {
   LlmRequestMessage,
   LlmThinkingBlock,
   LlmToolCall,
+  ResolvedLlmAttachment,
 } from '../llm-api/index.js';
 import {llmApi} from '../llm-api/index.js';
 import type {AnyToolDefinition} from '../tool/types.js';
@@ -320,12 +321,14 @@ export class LlmSession {
       this.messages.map(async (message): Promise<LlmRequestMessage> => {
         if (message.role !== 'user') return message;
         const attachments = await Promise.all(
-          message.attachments.map(async (attachment) => ({
-            ...attachment,
-            data: this.resolveAttachment
-              ? await this.resolveAttachment(attachment)
-              : null,
-          })),
+          message.attachments.map(
+            async (attachment): Promise<ResolvedLlmAttachment> => {
+              const resolution = this.resolveAttachment
+                ? await this.resolveAttachment(attachment)
+                : ({data: null, reason: 'missing'} as const);
+              return {...attachment, ...resolution};
+            },
+          ),
         );
         return {...message, attachments};
       }),

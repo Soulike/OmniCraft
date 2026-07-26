@@ -281,13 +281,13 @@ describe('describe / readBase64 / remove', () => {
     expect(found?.mtimeMs).toBeLessThanOrEqual(Date.now());
   });
 
-  it('returns null for a missing file', async () => {
+  it('returns null / missing for a missing file', async () => {
     expect(
       await agentAttachmentStore.describe(scratchDirectory, 'nope.png'),
     ).toBeNull();
     expect(
       await agentAttachmentStore.readBase64(scratchDirectory, 'nope.png'),
-    ).toBeNull();
+    ).toEqual({data: null, reason: 'missing'});
   });
 
   it('reads bytes back as base64', async () => {
@@ -300,7 +300,85 @@ describe('describe / readBase64 / remove', () => {
 
     expect(
       await agentAttachmentStore.readBase64(scratchDirectory, 'shot.png'),
-    ).toBe(bytes.toString('base64'));
+    ).toEqual({data: bytes.toString('base64')});
+  });
+
+  // Regression tests for the bug this section of the review follow-up spec
+  // fixes: `readBase64` used to read the file with no size check at all,
+  // trusting the `byteSize` `describe` had recorded earlier — but
+  // `run_command`'s realpath allowlist deliberately covers the scratch space
+  // (it's how an oversized image gets downsampled), so a writer other than
+  // `save()` can replace the file with a larger one between the two.
+  describe('byte cap enforced only in readBase64', () => {
+    it('yields the too-large reason, not the bytes, when the file grew past its cap after being described', async () => {
+      const saved = await agentAttachmentStore.save(
+        scratchDirectory,
+        'shot.png',
+        streamOf(pngOf(64)),
+      );
+      expect(saved.ok).toBe(true);
+      const absolutePath = path.join(
+        scratchDirectory,
+        'attachments',
+        'shot.png',
+      );
+
+      // Simulates the agent's own `run_command` overwriting the file with
+      // something larger — the write this cap exists to react to.
+      await writeFile(absolutePath, pngOf(MAX_IMAGE_ATTACHMENT_BYTES + 1));
+
+      expect(
+        await agentAttachmentStore.readBase64(scratchDirectory, 'shot.png'),
+      ).toEqual({data: null, reason: 'too-large'});
+    });
+
+    it('keeps describing and exposing the absolute path of an over-cap file, proving the cap did not leak into describe (and so the file stays downloadable and deletable)', async () => {
+      const saved = await agentAttachmentStore.save(
+        scratchDirectory,
+        'shot.png',
+        streamOf(pngOf(64)),
+      );
+      expect(saved.ok).toBe(true);
+      const absolutePath = path.join(
+        scratchDirectory,
+        'attachments',
+        'shot.png',
+      );
+      const grownSize = MAX_IMAGE_ATTACHMENT_BYTES + 1;
+      await writeFile(absolutePath, pngOf(grownSize));
+
+      const found = await agentAttachmentStore.describe(
+        scratchDirectory,
+        'shot.png',
+      );
+      expect(found).not.toBeNull();
+      expect(found?.attachment).toEqual({
+        fileName: 'shot.png',
+        mediaType: 'image/png',
+        byteSize: grownSize,
+      });
+      expect(found?.absolutePath).toBe(absolutePath);
+
+      // remove() must also still work — an over-cap file the agent grew is
+      // still the user's data, and must stay deletable from the UI.
+      expect(
+        await agentAttachmentStore.remove(scratchDirectory, 'shot.png'),
+      ).toBe(true);
+    });
+
+    it('still delivers a file sized exactly at its type cap', async () => {
+      const bytes = pngOf(MAX_IMAGE_ATTACHMENT_BYTES);
+      const saved = await agentAttachmentStore.save(
+        scratchDirectory,
+        'shot.png',
+        streamOf(bytes),
+      );
+      expect(saved.ok).toBe(true);
+
+      expect(
+        await agentAttachmentStore.readBase64(scratchDirectory, 'shot.png'),
+      ).toEqual({data: bytes.toString('base64')});
+    });
   });
 
   // Regression tests for a concurrent DELETE racing the read paths. `describe`
@@ -338,7 +416,7 @@ describe('describe / readBase64 / remove', () => {
       ).resolves.toBeNull();
     });
 
-    it('readBase64 returns null, not a rejection, when the file is unlinked between describe and the read', async () => {
+    it('readBase64 yields the missing reason, not a rejection, when the file is unlinked between describe and the read', async () => {
       await agentAttachmentStore.save(
         scratchDirectory,
         'shot.png',
@@ -364,9 +442,11 @@ describe('describe / readBase64 / remove', () => {
         },
       );
 
+      // Reason must be `missing`, not `too-large`: the two must never be
+      // confused with one another.
       await expect(
         agentAttachmentStore.readBase64(scratchDirectory, 'shot.png'),
-      ).resolves.toBeNull();
+      ).resolves.toEqual({data: null, reason: 'missing'});
     });
 
     it('describe rejects instead of returning null when the type sniff fails for a reason other than ENOENT', async () => {
@@ -453,7 +533,7 @@ describe('path safety', () => {
     ).toBeNull();
     expect(
       await agentAttachmentStore.readBase64(scratchDirectory, fileName),
-    ).toBeNull();
+    ).toEqual({data: null, reason: 'missing'});
     expect(await agentAttachmentStore.remove(scratchDirectory, fileName)).toBe(
       false,
     );
@@ -476,7 +556,7 @@ describe('path safety', () => {
     ).toBeNull();
     expect(
       await agentAttachmentStore.readBase64(scratchDirectory, 'shot.png '),
-    ).toBeNull();
+    ).toEqual({data: null, reason: 'missing'});
     expect(
       await agentAttachmentStore.remove(scratchDirectory, 'shot.png '),
     ).toBe(false);
@@ -501,7 +581,7 @@ describe('path safety', () => {
     ).toBeNull();
     expect(
       await agentAttachmentStore.readBase64(scratchDirectory, 'link.png'),
-    ).toBeNull();
+    ).toEqual({data: null, reason: 'missing'});
   });
 
   // Required invariant: every name save() actually produces must be accepted

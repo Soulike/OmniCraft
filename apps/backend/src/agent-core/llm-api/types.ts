@@ -102,11 +102,20 @@ export type LlmMessage = z.infer<typeof llmMessageSchema>;
 // references; the wire carries bytes.
 // ---------------------------------------------------------------------------
 
+/**
+ * The outcome of materializing a single attachment's bytes for a provider
+ * call: either its base64 data, or a reason delivery failed. The two
+ * failure reasons must not be conflated — `missing` means the file is gone,
+ * while `too-large` means it is still on disk but grew past its type's cap
+ * since it was described, which is actionable (the agent can downsample it
+ * and read it again) in a way `missing` is not.
+ */
+export type AttachmentResolution =
+  | {readonly data: string}
+  | {readonly data: null; readonly reason: 'missing' | 'too-large'};
+
 /** An attachment with its bytes materialized for a provider call. */
-export interface ResolvedLlmAttachment extends LlmAttachment {
-  /** base64 of the file; `null` when the file is no longer on disk. */
-  readonly data: string | null;
-}
+export type ResolvedLlmAttachment = LlmAttachment & AttachmentResolution;
 
 /** A user message whose attachments have been resolved to bytes. */
 export interface LlmRequestUserMessage extends Omit<

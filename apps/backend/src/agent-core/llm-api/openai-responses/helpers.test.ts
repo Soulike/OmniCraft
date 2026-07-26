@@ -156,6 +156,7 @@ describe('toInputItems user attachments', () => {
             mediaType: 'image/png',
             byteSize: 3,
             data: null,
+            reason: 'missing',
           },
         ],
       },

@@ -2,7 +2,7 @@ import path from 'node:path';
 
 import type {LlmAttachment} from '@omnicraft/tool-schemas';
 
-import {formatAttachmentSize} from './compaction-message-slimmer.js';
+import {formatAttachmentSize} from '../../llm-api/index.js';
 
 export interface BuildCompactedMessageContentOptions {
   readonly summary: string;

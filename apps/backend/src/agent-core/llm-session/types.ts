@@ -5,7 +5,7 @@ import type {
 import type {LlmAttachment} from '@omnicraft/tool-schemas';
 import {z} from 'zod';
 
-import type {ToolResultBlock} from '../llm-api/index.js';
+import type {AttachmentResolution, ToolResultBlock} from '../llm-api/index.js';
 import {llmMessageSchema, type LlmToolCall} from '../llm-api/index.js';
 import type {AnyToolDefinition} from '../tool/types.js';
 
@@ -50,13 +50,13 @@ export interface ToolResult {
 }
 
 /**
- * Materializes an attachment's bytes as base64 for a provider call, or `null`
- * when the file is no longer on disk. Injected so `agent-core` never reaches
+ * Materializes an attachment's bytes as base64 for a provider call, or a
+ * reason it could not be delivered. Injected so `agent-core` never reaches
  * up into the service layer, and so tests can supply a fake.
  */
 export type AttachmentResolver = (
   attachment: LlmAttachment,
-) => Promise<string | null>;
+) => Promise<AttachmentResolution>;
 
 export interface LlmCompactionOptions {
   readonly reason: SseCompactionReason;
