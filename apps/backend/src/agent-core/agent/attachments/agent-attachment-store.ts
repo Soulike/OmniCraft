@@ -348,6 +348,25 @@ class AgentAttachmentStore {
     for (let index = 1; index <= MAX_PLACEMENT_ATTEMPTS; index++) {
       const candidate =
         index === 1 ? `${base}${extension}` : `${base} (${index})${extension}`;
+
+      // `base` is sliced from `sanitized`, a fixed point of `sanitizeFileName`
+      // on entry — but swapping in the extension that matches the *sniffed*
+      // media type can rebuild a name the sanitizer would not accept back,
+      // even though nothing here re-checks it: stem `con` plus `.png`
+      // reconstitutes the Windows-reserved `con.png`, which
+      // `sanitizeFileName('con.png')` rejects. Skipping a non-fixed-point
+      // candidate preserves the invariant every read path depends on (a name
+      // `save()` returns is always a name `resolveInside` accepts back)
+      // instead of linking a file no read path can ever look up again.
+      //
+      // This can only reject the bare, unsuffixed candidate (index 1): the
+      // Windows-reserved check matches only an *exact* reserved word before
+      // the extension, and every later candidate's ` (${index})` suffix
+      // breaks that exact match. So a legitimate upload never actually
+      // exhausts `MAX_PLACEMENT_ATTEMPTS` over this — it lands one candidate
+      // later, on `<stem> (2)<ext>`, instead of the bare name.
+      if (sanitizeFileName(candidate) !== candidate) continue;
+
       try {
         await link(temporaryPath, path.join(directory, candidate));
         return candidate;

@@ -120,6 +120,52 @@ describe('save', () => {
     expect(second.ok && second.attachment.byteSize).toBe(128);
   });
 
+  // Regression test for a name `placeUniquely` could produce that the read
+  // paths then reject. `sanitizeFileName` leaves U+2028 (LINE SEPARATOR)
+  // alone, and it breaks the `.`-matches-anything assumption the
+  // `sanitize-filename` package's Windows-reserved-name regex relies on, so
+  // 'con.<U+2028>png' survives the up-front sanitize as a fixed point. Once
+  // `placeUniquely` strips the (line-separator-containing) extension and
+  // swaps in the sniffed `.png`, the bare stem is exactly `con` — a
+  // Windows-reserved name — so the first candidate, `con.png`, is a name
+  // `sanitizeFileName` itself would reject. Before the fix this got linked
+  // to disk anyway: `describe`/`readBase64` reported it missing and `remove`
+  // reported not-found for a file that was, in fact, sitting there forever.
+  it('skips a first candidate that would rebuild a Windows-reserved name after the extension swap', async () => {
+    const desiredName = `con.${String.fromCharCode(0x2028)}png`;
+    const result = await agentAttachmentStore.save(
+      scratchDirectory,
+      desiredName,
+      streamOf(pngOf(64)),
+    );
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    // Not the unreachable `con.png` — the next candidate the uniquify loop
+    // tries, which is not a reserved name once suffixed.
+    expect(result.attachment.fileName).toBe('con (2).png');
+
+    // The file must be reachable through every read path, exactly like any
+    // other successfully saved attachment.
+    const found = await agentAttachmentStore.describe(
+      scratchDirectory,
+      result.attachment.fileName,
+    );
+    expect(found).not.toBeNull();
+    expect(
+      await agentAttachmentStore.readBase64(
+        scratchDirectory,
+        result.attachment.fileName,
+      ),
+    ).toEqual({data: pngOf(64).toString('base64')});
+    expect(
+      await agentAttachmentStore.remove(
+        scratchDirectory,
+        result.attachment.fileName,
+      ),
+    ).toBe(true);
+  });
+
   it('rejects a name that sanitizes to nothing', async () => {
     const result = await agentAttachmentStore.save(
       scratchDirectory,
