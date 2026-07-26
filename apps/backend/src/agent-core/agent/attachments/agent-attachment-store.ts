@@ -75,13 +75,19 @@ export type ResolveAttachmentsResult =
   | {readonly ok: false; readonly missing: string[]};
 
 /**
- * Result of materializing an attachment's bytes for delivery to a provider.
- * `reason` distinguishes two situations that must not be conflated: `missing`
- * means the file is gone (so mentioning it is honest, and there's nothing
- * left to act on), while `too-large` means the file is still on disk but
- * grew past its type's cap since it was last described (so the agent can
- * still downsample it and read it again — the same escape hatch `read_file`
- * points at for oversized media).
+ * A session's blob store for binary LLM input, rooted at
+ * `<scratchDirectory>/attachments/`.
+ *
+ * Deliberately source-agnostic: it knows only `{fileName, mediaType, byteSize}`
+ * and takes a stream, never an HTTP request, so a producer holding in-memory
+ * bytes can use it without going through the upload endpoint. A user upload is
+ * its first producer; tool results are expected to follow
+ * (https://github.com/Soulike/OmniCraft/issues/388).
+ *
+ * This is the whole trust boundary for attachment bytes — name sanitizing,
+ * magic-byte type sniffing, size caps, collision-free placement, and the
+ * refusal to read or write through anything that is not a regular file
+ * directly inside a real attachments directory all live here.
  */
 class AgentAttachmentStore {
   /** The attachments directory for a session, given its scratch directory. */
