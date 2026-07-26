@@ -22,29 +22,6 @@ export interface AttachmentRoutePaths {
 }
 
 /**
- * Builds a `Content-Disposition` value for a stored attachment (RFC 6266).
- *
- * Two parameters, not one, because a stored name can legitimately be
- * non-ASCII — the sanitizer preserves Unicode, so `あ.png` is a valid stored
- * name — while a Node response header cannot carry it: `setHeader` rejects any
- * code point outside latin1 with `ERR_INVALID_CHAR`, which would turn a
- * successful upload into a 500 on download.
- *
- * - `filename` is the ASCII-only fallback every client understands. Non-ASCII
- *   code points collapse to `_`, and `"` / `\` are escaped so a name cannot
- *   close the quoted-string early and inject further parameters.
- * - `filename*` carries the real name, percent-encoded per RFC 5987, which
- *   clients that support it prefer.
- */
-function contentDispositionFor(fileName: string): string {
-  const asciiFallback = fileName
-    .replace(/[^\x20-\x7E]/g, '_')
-    .replace(/["\\]/g, '\\$&');
-
-  return `inline; filename="${asciiFallback}"; filename*=UTF-8''${encodeURIComponent(fileName)}`;
-}
-
-/**
  * The result shape `saveAttachment` structurally satisfies on both
  * `chatAgentSessionService` and `codingAgentSessionService`. Declared locally
  * — not imported from either service's `types.ts` — so the two services can
@@ -233,10 +210,16 @@ export function registerAttachmentRoutes(
     // these images in the message stream next round — the escaped filename
     // is only for when a user chooses to save the file themselves.
     ctx.response.set('X-Content-Type-Options', 'nosniff');
-    ctx.response.set(
-      'Content-Disposition',
-      contentDispositionFor(descriptor.attachment.fileName),
-    );
+    // Koa's own helper, which delegates to jshttp's `content-disposition` —
+    // hand-rolling this is a trap. A stored name can be non-ASCII (the
+    // sanitizer preserves Unicode), and Node's `setHeader` rejects anything
+    // outside latin1 with ERR_INVALID_CHAR, so the header needs an ASCII
+    // fallback plus an RFC 5987 `filename*`; the package also knows to keep a
+    // latin1 name verbatim and skip `filename*` entirely rather than mangling
+    // it. Called after `ctx.response.type` is set, because it would otherwise
+    // guess the type from the file extension — the sniffed media type is the
+    // trustworthy one.
+    ctx.response.attachment(descriptor.attachment.fileName, {type: 'inline'});
     ctx.body = fileHandle.createReadStream();
   });
 

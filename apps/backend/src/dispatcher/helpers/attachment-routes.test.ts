@@ -103,7 +103,7 @@ describe('GET .../attachments/:fileName response hardening', () => {
     expect(res.status).toBe(200);
     expect(res.headers.get('x-content-type-options')).toBe('nosniff');
     expect(res.headers.get('content-disposition')).toBe(
-      'inline; filename="shot.png"; filename*=UTF-8\'\'shot.png',
+      'inline; filename="shot.png"',
     );
   });
 
@@ -121,7 +121,7 @@ describe('GET .../attachments/:fileName response hardening', () => {
 
     expect(res.status).toBe(200);
     expect(res.headers.get('content-disposition')).toBe(
-      String.raw`inline; filename="weird\"name.png"; filename*=UTF-8''weird%22name.png`,
+      String.raw`inline; filename="weird\"name.png"`,
     );
   });
 
@@ -139,7 +139,7 @@ describe('GET .../attachments/:fileName response hardening', () => {
 
     expect(res.status).toBe(200);
     expect(res.headers.get('content-disposition')).toBe(
-      'inline; filename="_.png"; filename*=UTF-8\'\'%E3%81%82.png',
+      'inline; filename="?.png"; filename*=UTF-8\'\'%E3%81%82.png',
     );
   });
 });
