@@ -1,0 +1,168 @@
+# Attachment store review follow-ups
+
+- **PR:** [#389](https://github.com/Soulike/OmniCraft/pull/389) — review of `agent-attachment-store.ts`
+- **Date:** 2026-07-26
+- **Status:** Agreed, ready to implement
+
+Nine changes from the file review. One is a behavior fix; the rest are structure
+and naming. They should ship as **two commits** — the fix reviewed on its own, the
+refactor reviewed as a refactor — because a behavior change buried in a rename sweep
+is a behavior change nobody reads.
+
+## 1. Bug: `readBase64` trusts a size it did not enforce
+
+`readFile` has no size limit. `describe` reports `byteSize` from an `lstat`, but
+between that stat and the read the file can be replaced by a larger one — and there
+is a writer that can do it, since `run_command`'s realpath allowlist covers the
+scratch space by design (it is how an oversized image gets downsampled).
+
+Two consequences, the second worse than the first:
+
+- An arbitrarily large file is read fully into memory.
+- The per-request byte budget is bypassed. `LlmSession.toRequestMessages` decides
+  compaction from the **recorded** `byteSize`, while `readBase64` returns whatever is
+  actually on disk. When those disagree, the assembled request can exceed the budget
+  the compaction trigger just certified as safe.
+
+**Fix.** Enforce the per-type cap on the freshly-stat'd size, inside `describe`, so
+every read path inherits it: an attachment whose on-disk size now exceeds
+`capFor(mediaType)` resolves to `null` and renders as the existing
+`[attachment missing: …]` placeholder.
+
+Placing it in `describe` rather than `readBase64` matters — `describe` also backs the
+HTTP download endpoint and the completions handler's descriptor resolution, so a file
+that grew past its cap stops being served and stops being attachable, not merely
+stops being sent to the model.
+
+A residual TOCTOU window remains (the stat is not the read). It is microseconds wide
+and the only writer is our own agent, so a fresh bounded check is the right trade
+against streaming the read through a capping transform.
+
+## 2. `sanitizeFileName`: delegate to `sanitize-filename`, keep one custom step
+
+The hand-rolled sanitizer misses three things the well-known package gets right, and
+gets one thing right that the package gets wrong for us.
+
+|                                                  | ours today                        | `sanitize-filename`                                                    |
+| ------------------------------------------------ | --------------------------------- | ---------------------------------------------------------------------- |
+| separators                                       | takes the basename → `passwd.png` | deletes the characters → `....etcpasswd.png`                           |
+| truncation                                       | by **character**                  | by **byte** (correct — this is the bug `budgetStem` had to paper over) |
+| Windows reserved names (`CON`, `PRN`, `COM1`, …) | not handled                       | handled                                                                |
+| trailing dots and spaces                         | trims spaces only                 | handled                                                                |
+
+Only the first row favours our version, and it favours it clearly: a client that
+hands us `Downloads/photo.png` should get `photo.png`, not `Downloadsphoto.png`.
+
+So: **package for the capability, one custom step on top.**
+
+```ts
+import sanitize from 'sanitize-filename';
+
+function sanitizeFileName(raw: string): string | null {
+  const base = raw.split(/[/\\]/).pop() ?? ''; // ours: basename semantics
+  const cleaned = sanitize(base); // package: everything else
+  if (cleaned === '' || cleaned === '.' || cleaned === '..') return null;
+  return cleaned;
+}
+```
+
+`isControlCharacter`, `hasControlCharacter`, and most of the current
+`sanitizeFileName` body go away.
+
+**Idempotence is preserved**, which section 3 depends on: after the first pass there
+are no separators left, so `split().pop()` is the identity on a second pass, and the
+package is stable on already-sanitized input. `sanitize(sanitize(x)) === sanitize(x)`
+still holds, so every name `save()` produces remains a fixed point.
+
+`budgetStem` stays. It reserves room for the ` (100)` uniquify suffix and the
+extension — something no general-purpose package can know — and its budget
+(255 − suffix − extension bytes) is strictly tighter than the package's 255, so the
+package's truncation never fires after it.
+
+Install notes: `pnpm add sanitize-filename` (currently 1.6.4, one transitive
+dependency, `truncate-utf8-bytes`). **Do not install `@types/sanitize-filename`** — it
+is a deprecated stub; the package ships its own `index.d.ts`. It is CJS, so it is
+consumed as a default import under the backend's nodenext resolution.
+
+## 3. `resolveInside`: validate by sanitizing and comparing
+
+Replace the four hand-rolled checks with one:
+
+```ts
+function resolveInside(directory: string, fileName: string): string | null {
+  if (sanitizeFileName(fileName) !== fileName) return null;
+  return path.join(directory, fileName);
+}
+```
+
+This is not a shortening for its own sake. It leans on section 2 — `sanitizeFileName`
+becomes the single definition of "a legal name", used by both the write and the read
+path — and establishes an invariant worth having:
+**the read path accepts exactly the names the write path can produce.** Every name
+`save()` returns is a fixed point of `sanitizeFileName` by construction, so the two
+sides can no longer drift apart as either evolves.
+
+It also covers strictly more than the checks it replaces — control characters,
+separators of both kinds, `.`/`..`, empty, over-length — plus leading and trailing
+whitespace, which the current code accepts.
+
+**Sanitizing rather than rejecting on the read path stays wrong**, and this change
+does not do it. A read names an _existing_ file: sanitizing `../secret.png` into
+`secret.png` would silently serve a different file than the caller asked for, turning
+a rejection into a guess. Compare-and-reject keeps the answer "that name is not one
+of ours."
+
+## 4. `writeCapped`: structured result, and it owns its own cleanup
+
+`Promise<number | null>` with `null` meaning "too large" is unreadable at the call
+site, and inconsistent with `SaveAttachmentResult` two screens up. Return a
+discriminated union instead.
+
+Separately: the temp file **is** cleaned up today — `save()`'s
+`finally { rm(temporaryPath, {force: true}) }` covers every exit — so there is no
+leak. But `writeCapped` creates the file and `save` removes it, which splits
+responsibility across a boundary. On a failure path `writeCapped` should remove what
+it wrote; `save`'s `finally` then becomes a backstop for the success path's temp
+file rather than the only thing standing between a failed upload and a stray file.
+
+## 5. Extract module helpers into `helpers/`
+
+Eight module-private functions sit above the class, which is not how this codebase is
+laid out — `dispatcher/helpers/`, `llm-api/helpers/`, and `agent/tools/file/helpers.ts`
+are all the established shape.
+
+`statRegularFile` goes further, into **`src/helpers/fs.ts`**: it is `lstat` +
+`isFile()` + ENOENT-to-`null` with nothing attachment-specific about it, and
+`isFileNotFoundError` / `isFileExistsError` already live there.
+
+A previous review defended the single file on cohesion grounds ("keep the
+security-relevant checks together"). That argument does not survive contact with the
+alternative: the helpers stay in one file either way, just not in the class's file.
+
+## 6. Naming
+
+- `toMediaType` → **`toSupportedMediaType`**. The current name does not convey that an
+  unsupported type returns `null`, which is the whole point of the function.
+- `OpenedAttachment` → **`AttachmentDescriptor`**. Nothing is opened and no handle is
+  returned; the name describes an operation the type does not perform. `describe` as a
+  method name is fine and stays — "given a name, tell me what this is" is what it does.
+
+## Testing
+
+The refactor is covered by the existing 30 tests in `agent-attachment-store.test.ts`;
+a rename or a file move that breaks behavior breaks them.
+
+The fix needs its own, and they must reproduce the condition rather than assert the
+happy path:
+
+- A file that grows past its type cap between upload and read resolves to `null` from
+  `describe`, `readBase64`, **and** the HTTP download path.
+- A file at exactly the cap still resolves.
+- `resolveInside`'s new rule accepts every name `save()` produces — assert this by
+  round-tripping saved names through it, not by listing cases, so the invariant is
+  what is tested.
+- Leading/trailing whitespace in a read path name is rejected (new behavior).
+- `sanitizeFileName` keeps basename semantics after delegating to the package:
+  `Downloads/photo.png` → `photo.png`, not `Downloadsphoto.png`.
+- `sanitizeFileName` is idempotent — assert `sanitize(sanitize(x)) === sanitize(x)`
+  over a spread of hostile inputs, since section 3's invariant rests on it.
