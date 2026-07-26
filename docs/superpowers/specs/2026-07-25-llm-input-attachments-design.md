@@ -427,7 +427,25 @@ system prompt says so, and says to write a modified copy elsewhere under a new n
 the download endpoint 404s, the adapter emits `[attachment missing: …]`, and the
 frontend shows a placeholder.
 
-## Agent plumbing
+## Attachment content is untrusted, and that changes nothing
+
+A PDF or image goes into the same `user` message as the typed request, so a document
+can try to steer the model into tool calls the user never asked for. There is no
+confirmation boundary in front of tool execution — `AgentTurnRunner` runs what the
+model returns.
+
+**Accepted by design.** OmniCraft is deliberately a YOLO agent: no tool-approval gate
+anywhere. Gating only attachment-bearing turns would be worse than gating nothing,
+because the same untrusted content already arrives through `read_file` on a repository
+file, `web_fetch` on a page, and any MCP tool result — a door on the newest entrance
+implies a boundary the other entrances do not have. And prompt injection has no
+complete defense to reach for in the first place.
+
+By provenance, attachments are the _most_ trustworthy of those channels, not the least:
+the user picked the file. `web_fetch` retrieves a URL the user may never have seen.
+
+Revisit this only as a product-wide decision about tool-call approval — never as an
+attachment-specific mitigation.
 
 - `chatAgentSessionService.sendCompletion(id, message, attachments)`
 - `Agent.enqueueUserTurn(userMessage, attachments)` → `AgentTurnRunner` →
