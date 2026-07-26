@@ -53,18 +53,14 @@ describe('resolveInside', () => {
     expect(resolveInside(directory, 'CON')).toBeNull();
   });
 
-  // Documents a deliberate boundary, not an oversight: the now-deleted
-  // dispatcher-level `parseAttachmentFileName` additionally rejected a raw DEL
-  // byte (0x7f), which `sanitize-filename`'s control-character sweep
-  // (`\x00-\x1f`, `\x80-\x9f`) does not cover. `save()` already accepts a DEL
-  // byte via this same sanitizer, so the old dispatcher check did not add
-  // path-safety — it only made a file `save()` had already accepted
-  // unreachable via GET/DELETE. Accepting it here closes that gap rather than
-  // reopening one.
-  it('does not reject a name containing a DEL (0x7f) byte', () => {
+  // The now-deleted dispatcher-level `parseAttachmentFileName` also rejected a
+  // raw DEL byte (0x7f), which `sanitize-filename`'s control-character sweep
+  // (`\x00-\x1f`, `\x80-\x9f`) misses. Rather than loosen the read path to
+  // match, `sanitizeFileName` now strips DEL on the write side too — so no
+  // stored name can contain one, and this rejection is the read path staying
+  // consistent with what `save()` can produce.
+  it('rejects a name containing a DEL (0x7f) byte', () => {
     const DEL = String.fromCharCode(0x7f);
-    expect(resolveInside(directory, `sh${DEL}ot.png`)).toBe(
-      path.join(directory, `sh${DEL}ot.png`),
-    );
+    expect(resolveInside(directory, `sh${DEL}ot.png`)).toBeNull();
   });
 });

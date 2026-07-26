@@ -4,6 +4,7 @@ import {sanitizeFileName} from './sanitize-file-name.js';
 
 // A literal NUL is written via fromCharCode so this file stays copy/paste-safe.
 const NUL = String.fromCharCode(0);
+const DEL = String.fromCharCode(0x7f);
 
 describe('sanitizeFileName', () => {
   it('takes the basename before sanitizing a forward-slash path', () => {
@@ -99,6 +100,10 @@ describe('sanitizeFileName', () => {
       'NUL.txt   ',
       `sh${NUL}ot.png`,
       `${NUL} shot.png`,
+      `sh${DEL}ot.png`,
+      `CON${DEL} `,
+      DEL,
+      `${DEL}${DEL}`,
       '../../etc/passwd',
       `../../etc/pa${NUL}ss.png`,
       'sub\\shot.png',
@@ -118,5 +123,18 @@ describe('sanitizeFileName', () => {
       if (once === null) continue;
       expect(sanitizeFileName(once)).toBe(once);
     }
+  });
+
+  // `sanitize-filename` sweeps C0 controls but leaves DEL, so this is our own
+  // step. It runs *before* the delegate on purpose: stripping DEL afterwards
+  // is not idempotent, because `CON<DEL><space>` survives the package as
+  // `CON<DEL>` (not a reserved name) and only becomes the reserved `CON` once
+  // DEL is removed — which a second pass would then reject.
+  it('strips DEL, and does so before the delegate runs', () => {
+    expect(sanitizeFileName(`sh${DEL}ot.png`)).toBe('shot.png');
+    expect(sanitizeFileName(DEL)).toBeNull();
+    // The order-sensitive case: stripping DEL after the package would yield
+    // 'CON' here, which is not a fixed point.
+    expect(sanitizeFileName(`CON${DEL} `)).toBeNull();
   });
 });
