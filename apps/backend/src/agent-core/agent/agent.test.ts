@@ -14,6 +14,7 @@ import {ToolRegistry} from '../tool/tool-registry.js';
 import type {ToolDefinition} from '../tool/types.js';
 import {Agent} from './agent.js';
 import {
+  agentAttachmentStore,
   MAX_DOCUMENT_ATTACHMENT_BYTES,
   MAX_MESSAGE_ATTACHMENT_BYTES,
 } from './attachments/index.js';
@@ -42,13 +43,20 @@ const LIGHT_CONFIG: LlmConfig = {
 
 // Real PNG magic bytes plus padding — the store sniffs content, never the
 // declared name. Matches the fixture style in agent-attachment-store.test.ts.
-const PNG = Buffer.concat([
-  Buffer.from([
-    0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d,
-    0x49, 0x48, 0x44, 0x52,
-  ]),
-  Buffer.alloc(48),
+const PNG_HEADER = Buffer.from([
+  0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d, 0x49,
+  0x48, 0x44, 0x52,
 ]);
+
+const PNG = Buffer.concat([PNG_HEADER, Buffer.alloc(48)]);
+
+/** A PNG of an exact total size, for asserting on a recorded `byteSize`. */
+function pngOf(totalBytes: number): Buffer {
+  return Buffer.concat([
+    PNG_HEADER,
+    Buffer.alloc(totalBytes - PNG_HEADER.length),
+  ]);
+}
 
 const PDF_HEADER = Buffer.from('%PDF-1.7\n%\xE2\xE3\xCF\xD3\n', 'binary');
 
@@ -1337,24 +1345,41 @@ describe('attachment operations', () => {
     });
   });
 
-  // The cap runs before the freeze precisely so this holds: a turn the user
-  // never got to send must not leave them with files they can no longer
-  // delete.
-  it('freezes nothing when the cap rejects the claim', async () => {
+  // The invariant the whole byte budget rests on, stated as a property: the
+  // descriptor a claim returns must describe the bytes the claim froze. Not
+  // "the bytes that were there when the request arrived" — which file wins a
+  // race does not matter, only that the recorded size and the pinned file are
+  // the same one.
+  //
+  // The swap is injected through the `freeze` spy so this test is sensitive to
+  // the ORDER of the two store calls, which is the actual fix. With
+  // describe-then-freeze the swap lands in the gap between them and the
+  // descriptor goes stale; with freeze-then-describe it lands before the
+  // freeze, so the pinned file is also the described one.
+  it('returns a descriptor for the bytes it froze, even if the file is swapped mid-claim', async () => {
     const agent = createTestAgent();
-    const names = ['a.pdf', 'b.pdf'];
-    for (const name of names) {
-      await agent.saveAttachment(name, Readable.from([cappedPdf()]));
-    }
+    await agent.saveAttachment('shot.png', Readable.from([pngOf(66)]));
 
-    expect(await agent.claimAttachments(names)).toMatchObject({
+    const freeze = agentAttachmentStore.freeze.bind(agentAttachmentStore);
+    vi.spyOn(agentAttachmentStore, 'freeze').mockImplementation(
+      async (directory, names) => {
+        await agent.removeAttachment('shot.png');
+        await agent.saveAttachment('shot.png', Readable.from([pngOf(5066)]));
+        return freeze(directory, names);
+      },
+    );
+
+    const claimed = await agent.claimAttachments(['shot.png']);
+    const onDisk = await agent.describeAttachment('shot.png');
+
+    expect(claimed.ok && claimed.attachments[0].byteSize).toBe(
+      onDisk?.attachment.byteSize,
+    );
+    // And the file that descriptor points at is the one that is now pinned.
+    expect(await agent.removeAttachment('shot.png')).toEqual({
       ok: false,
-      reason: 'attachments-too-large',
+      reason: 'frozen',
     });
-
-    for (const name of names) {
-      expect(await agent.removeAttachment(name)).toEqual({ok: true});
-    }
   });
 
   // The same bound, one layer down and with a different contract. Reaching

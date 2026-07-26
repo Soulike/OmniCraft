@@ -5,6 +5,12 @@ import {sanitizeFileName} from './sanitize-file-name.js';
 // A literal NUL is written via fromCharCode so this file stays copy/paste-safe.
 const NUL = String.fromCharCode(0);
 const DEL = String.fromCharCode(0x7f);
+// Bidi formatting characters, by code point for the same copy/paste reason.
+const RLO = String.fromCodePoint(0x202e);
+const LRI = String.fromCodePoint(0x2066);
+const PDI = String.fromCodePoint(0x2069);
+const RLM = String.fromCodePoint(0x200f);
+const LRM = String.fromCodePoint(0x200e);
 
 describe('sanitizeFileName', () => {
   it('takes the basename before sanitizing a forward-slash path', () => {
@@ -104,6 +110,11 @@ describe('sanitizeFileName', () => {
       `CON${DEL} `,
       DEL,
       `${DEL}${DEL}`,
+      `invoice${RLO}gnp.png`,
+      `CON${RLO} `,
+      RLO,
+      `${LRI}sh${PDI}ot.png`,
+      `${RLM}${LRM}shot.png`,
       '../../etc/passwd',
       `../../etc/pa${NUL}ss.png`,
       'sub\\shot.png',
@@ -136,5 +147,24 @@ describe('sanitizeFileName', () => {
     // The order-sensitive case: stripping DEL after the package would yield
     // 'CON' here, which is not a fixed point.
     expect(sanitizeFileName(`CON${DEL} `)).toBeNull();
+  });
+
+  // Bidi formatting characters render as nothing but reorder what surrounds
+  // them, so a stored name could display as something other than what it is
+  // wherever it is shown — the compaction path list, the UI, a downloaded
+  // file. The package leaves them, same as DEL, so they are stripped in the
+  // same step and for the same reason.
+  it('strips bidirectional formatting characters', () => {
+    expect(sanitizeFileName(`invoice${RLO}gnp.png`)).toBe('invoicegnp.png');
+    expect(sanitizeFileName(`${LRI}sh${PDI}ot.png`)).toBe('shot.png');
+    expect(sanitizeFileName(`${RLM}${LRM}shot.png`)).toBe('shot.png');
+    expect(sanitizeFileName(RLO)).toBeNull();
+  });
+
+  // Same order-sensitivity as DEL: a bidi character hides a reserved name
+  // from the package, so stripping after it would not be a fixed point.
+  it('strips them before the delegate, so a hidden reserved name is still caught', () => {
+    expect(sanitizeFileName(`CON${RLO} `)).toBeNull();
+    expect(sanitizeFileName(`${LRM}CON`)).toBeNull();
   });
 });

@@ -426,32 +426,48 @@ export abstract class Agent {
   }
 
   /**
-   * Turns caller-supplied file names into descriptors read from disk, enforces
-   * the per-message byte cap, and freezes the files behind them. The caller
-   * never supplies `mediaType` or `byteSize`, so what lands in the snapshot
-   * always matches the bytes. Reports every unknown name at once so a client
-   * can show them all.
+   * Freezes the caller-supplied attachments, then describes them and enforces
+   * the per-message byte cap. The caller never supplies `mediaType` or
+   * `byteSize`, so what lands in the snapshot always matches the bytes.
+   * Reports every unknown name at once so a client can show them all.
    *
-   * Claiming, not just resolving: freezing happens here, in the same async
-   * block that reads the sizes, so there is no window between recording a
-   * `byteSize` and pinning the bytes it describes. Doing it any later — when
-   * the queued turn actually starts, say — would leave exactly that window
-   * open, and a delete-then-re-upload inside it would put a descriptor and
-   * its file permanently out of step.
+   * **Freeze first, then describe.** Both steps resolve by file name, and they
+   * are separate awaits, so anything between them can swap the file a name
+   * points at — a DELETE plus a same-name re-upload is enough, since
+   * `placeUniquely` always starts at the bare name. Describing first records a
+   * `byteSize` for one file and then pins whatever occupies the name a moment
+   * later, which is the exact stale-descriptor bug freezing exists to prevent.
    *
-   * The cap runs before the freeze, so a rejected turn leaves nothing frozen.
-   * It costs no tightness: the sizes are already in hand and summing them is
-   * synchronous, so `describe` and `freeze` stay as adjacent as before.
+   * The order fixes it without any identity tracking, because the invariant
+   * needed is *"the descriptor describes the frozen bytes"* — not "the
+   * descriptor describes the file that was there when the request arrived".
+   * Once `freeze` returns, `remove` refuses the name, so it cannot be released
+   * and rebound; `describe` therefore reads the very file that was pinned. If
+   * a swap wins the race against the `chmod` itself, the new file is the one
+   * pinned *and* the one described, which is equally consistent.
    *
-   * The cap lives here rather than in each session service because it is load-
-   * bearing for compaction, not a presentation concern: a single message over
-   * `COMPACTION_TRIGGER_ATTACHMENT_BYTES` would trip a compaction that cannot
-   * relieve it. {@link runTrackedTurn} asserts the same bound for producers
-   * that build descriptors some other way.
+   * The cap can only run last, since it needs sizes and the sizes must come
+   * from the pinned file. So a claim rejected by the cap leaves its
+   * attachments frozen without ever reaching the model. That is accepted: such
+   * a file is unreachable (nothing enumerates the store — there is no list
+   * endpoint), contributes nothing to the byte accounting (it is not in
+   * history), and costs only disk space plus a ` (2)` suffix on the next
+   * upload of the same name. Releasing it would need to distinguish "frozen by
+   * this claim" from "frozen by an earlier message", and every version of that
+   * check misfires after compaction — where an attachment survives only as a
+   * path in the summary and so looks unreferenced. See the design doc.
    */
   async claimAttachments(
     fileNames: readonly string[],
   ): Promise<ClaimAttachmentsResult> {
+    const vanished = await agentAttachmentStore.freeze(
+      this.scratchDirectory,
+      fileNames,
+    );
+    if (vanished.length > 0) {
+      return {ok: false, reason: 'unknown-attachments', missing: vanished};
+    }
+
     const found = await Promise.all(
       fileNames.map((fileName) => this.describeAttachment(fileName)),
     );
@@ -476,14 +492,6 @@ export abstract class Agent {
         totalBytes,
         limit: MAX_MESSAGE_ATTACHMENT_BYTES,
       };
-    }
-
-    const vanished = await agentAttachmentStore.freeze(
-      this.scratchDirectory,
-      fileNames,
-    );
-    if (vanished.length > 0) {
-      return {ok: false, reason: 'unknown-attachments', missing: vanished};
     }
 
     return {ok: true, attachments};

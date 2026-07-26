@@ -1,8 +1,49 @@
 import sanitize from 'sanitize-filename';
 
-/** U+007F. Written as a code point so the source survives copy/paste, and
- *  because a control-character regex class trips eslint's `no-control-regex`. */
-const DEL = String.fromCharCode(0x7f);
+/**
+ * Invisible characters the delegate leaves in place, stripped before it runs.
+ *
+ * U+007F (DEL) sits just past the C0 block the package sweeps (`\x00-\x1f`,
+ * `\x80-\x9f`) — an oversight rather than an intent.
+ *
+ * The rest are Unicode's bidirectional formatting characters. They render as
+ * nothing but reorder the text around them, so `invoice<U+202E>gnp.png` can
+ * display as a different name than it is — the "Trojan Source" trick applied
+ * to a file name. Impact is limited here because the extension is always
+ * rebuilt from the sniffed media type, so a spoofed name can never disagree
+ * with the real content type; the point is to keep the name itself
+ * unambiguous wherever it is shown, which is the same reason DEL goes.
+ *
+ * Written as code points, not literals, so the source stays copy/paste-safe
+ * and no control-character regex class trips eslint's `no-control-regex`.
+ */
+const STRIPPED_CODE_POINTS = [
+  0x7f, // DEL
+  0x061c, // ARABIC LETTER MARK
+  0x200e, // LEFT-TO-RIGHT MARK
+  0x200f, // RIGHT-TO-LEFT MARK
+  0x202a, // LEFT-TO-RIGHT EMBEDDING
+  0x202b, // RIGHT-TO-LEFT EMBEDDING
+  0x202c, // POP DIRECTIONAL FORMATTING
+  0x202d, // LEFT-TO-RIGHT OVERRIDE
+  0x202e, // RIGHT-TO-LEFT OVERRIDE
+  0x2066, // LEFT-TO-RIGHT ISOLATE
+  0x2067, // RIGHT-TO-LEFT ISOLATE
+  0x2068, // FIRST STRONG ISOLATE
+  0x2069, // POP DIRECTIONAL ISOLATE
+];
+
+/** Built from the code points rather than written as a literal class, so the
+ *  source contains no invisible characters. The `u` flag makes `\u{...}`
+ *  escapes match whole code points. */
+const STRIPPED_PATTERN = new RegExp(
+  `[${STRIPPED_CODE_POINTS.map((codePoint) => `\\u{${codePoint.toString(16)}}`).join('')}]`,
+  'gu',
+);
+
+function stripInvisible(value: string): string {
+  return value.replace(STRIPPED_PATTERN, '');
+}
 
 /**
  * Reduces a client-supplied name to a bare, printable file name. Delegates
@@ -16,15 +57,14 @@ const DEL = String.fromCharCode(0x7f);
  * package's own separator handling, which deletes the characters instead
  * (`Downloadsphoto.png`).
  *
- * Second, DEL (U+007F) is stripped, also *before* the package runs. The
- * package sweeps every C0 control character but leaves DEL — an oversight
- * rather than an intent, and one that matters here because a stored name ends
- * up in the model-facing compaction path list, in the UI, and in HTTP headers.
- * The order is load-bearing: stripping DEL *after* the package would break
- * idempotence, because `'CON '` sanitizes to `'CON'` (not a
- * reserved name, so it survives) and only becomes the reserved `'CON'` once
- * DEL is removed — which a second pass would then reject. Stripping first
- * lets the package's reserved-name check see the final character set.
+ * Second, {@link STRIPPED_CODE_POINTS} are removed, also *before* the package
+ * runs. They matter because a stored name ends up in the model-facing
+ * compaction path list, in the UI, and in HTTP headers. The order is
+ * load-bearing: stripping them *after* the package would break idempotence,
+ * because `'CON<DEL> '` sanitizes to `'CON<DEL>'` (not a reserved name, so it
+ * survives) and only becomes the reserved `'CON'` once the character is
+ * removed — which a second pass would then reject. Stripping first lets the
+ * package's reserved-name check see the final character set.
  *
  * Returns `null` when nothing usable survives. Never used to build a path on
  * its own — the result is re-checked by `resolveInside`, which relies on this
@@ -49,8 +89,7 @@ export function sanitizeFileName(raw: string): string | null {
   // Split on both separators so a Windows-style path is reduced too; POSIX
   // `path.basename` would keep `sub\shot.png` whole.
   const base = raw.split(/[/\\]/).pop() ?? '';
-  const withoutDel = base.split(DEL).join('');
-  const cleaned = sanitize(sanitize(withoutDel));
+  const cleaned = sanitize(sanitize(stripInvisible(base)));
   if (cleaned === '' || cleaned === '.' || cleaned === '..') return null;
   return cleaned;
 }

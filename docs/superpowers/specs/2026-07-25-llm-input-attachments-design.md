@@ -352,9 +352,10 @@ are not redundant: the first is a business outcome for names resolved off disk; 
 second catches a producer that assembled descriptors some other way, which is a bug in
 this process and not something a client did, so it throws.
 
-The cap runs **before** the freeze, so a turn rejected by it leaves nothing read-only.
-That costs no tightness — the sizes are already in hand and summing them is
-synchronous, so the `describe`/`freeze` pair stays as adjacent as it needs to be.
+The cap runs **last**, after the freeze, because it needs sizes and the sizes must
+come from the pinned file (see "Freeze first, then describe" below). A claim the cap
+rejects therefore leaves its attachments frozen without them ever reaching the model —
+accepted, for the reasons under "A stranded claim is inert".
 
 **`Cache-Control` middleware fix.** `dispatcher/index.ts:15-18` sets
 `no-store` on every `/api` response _after_ `await next()`, overwriting whatever a
@@ -396,10 +397,44 @@ reasoning already documented in `agent-scratch-directory-service.ts:23-43`
 ### Frozen once sent
 
 An attachment is a **mutable file until the moment its bytes reach the model, and a
-permanent fact afterwards.** `Agent.claimAttachments` sets the file to `0400` in the
-same async block that reads its `byteSize`, and `remove()` refuses a file without the
-owner-write bit (409, not 404 — the file is there; the request conflicts with a state
-it cannot leave).
+permanent fact afterwards.** `Agent.claimAttachments` sets the file to `0400`, and
+`remove()` refuses a file without the owner-write bit (409, not 404 — the file is
+there; the request conflicts with a state it cannot leave).
+
+#### Freeze first, then describe
+
+Both steps resolve by **file name**, and they are separate awaits, so anything landing
+between them can swap the file a name points at — a `DELETE` plus a same-name
+re-upload suffices, since `placeUniquely` always starts at the bare name. Describing
+first records a `byteSize` for one file and then pins whatever occupies the name a
+moment later. That is the stale-descriptor bug freezing exists to prevent, reintroduced
+one layer down; an early version of this shipped with it.
+
+Ordering fixes it with no identity tracking, because the invariant needed is _"the
+descriptor describes the frozen bytes"_ — **not** "the descriptor describes the file
+that was there when the request arrived". Which file wins a race does not matter. Once
+`freeze` returns, `remove` refuses the name, so it cannot be released and rebound, and
+`describe` necessarily reads the file that was pinned. If a swap beats the `chmod`
+itself, the new file is both pinned and described, which is equally consistent.
+
+#### A stranded claim is inert
+
+A claim can freeze files that never reach the model: the cap rejects it, `describe`
+refuses the type, or the turn is aborted or fails before delivery (`sendMessages` rolls
+the user message back on any incomplete stream, which includes an ordinary user abort).
+
+Accepted, and deliberately not released. Such a file is **unreachable** — there is no
+list endpoint and nothing enumerates the directory, so no client can see it. It
+contributes nothing to the byte accounting, which sums over history. Its only cost is
+disk space (bounded by the per-file caps, and the subject of #390) and a ` (2)` suffix
+on the next upload of the same name.
+
+Releasing it would have to distinguish "frozen by this claim" from "frozen by an
+earlier message that also referenced this name", and every form of that check misfires
+after compaction — where an attachment survives only as a path in the summary and so
+reads as unreferenced. Freeing it there would leave the summary pointing at a name the
+user can now delete. That trades an invisible leak for a dangling reference, which is
+the class of bug this section exists to prevent.
 
 This is what makes the byte accounting true rather than approximate. The compaction
 trigger, the per-message cap, and the per-file caps all compare against a `byteSize`
