@@ -1,91 +1,88 @@
-import {describe, expect, it, vi} from 'vitest';
+import type {Server} from 'node:http';
+import type {AddressInfo} from 'node:net';
+
+import type {Middleware} from 'koa';
+import Koa from 'koa';
+import {afterEach, describe, expect, it} from 'vitest';
 
 import {defaultCacheControl} from './cache-control.js';
 
 /**
- * Minimal fake Koa context object that exposes the `response.get` / `set`
- * surface the cache-control middleware uses.
+ * Every case here drives a real request through a real Koa app rather than a
+ * hand-written context double.
  *
- * Koa's `ctx.response.get()` returns `''` (empty string) for an unset header,
- * not `undefined`. This double reproduces that behavior.
+ * The previous version of this file used a double whose `response.get()`
+ * returned `headers.get(name) ?? ''` — matching what the middleware assumed,
+ * and both were wrong. Koa 3's `get` is a bare `res.getHeader()`, so an unset
+ * header is `undefined`, the `=== ''` branch never ran, and no real response
+ * ever carried the default. A double that encodes the same misunderstanding as
+ * the code under test can only confirm it, which is exactly what it did for
+ * three green tests. Nothing short of a round trip would have caught it.
  */
-interface FakeContext {
-  response: {
-    get(name: string): string;
-  };
-  set(name: string, value: string): void;
-}
+let server: Server | null = null;
 
-function createFakeContext(): FakeContext & {headers: Map<string, string>} {
-  const headers = new Map<string, string>();
+afterEach(() => {
+  server?.close();
+  server = null;
+});
 
-  return {
-    headers,
-    response: {
-      get(name: string): string {
-        return headers.get(name) ?? '';
-      },
-    },
-    set(name: string, value: string): void {
-      headers.set(name, value);
-    },
-  };
+async function get(handler: Middleware): Promise<Response> {
+  const app = new Koa();
+  app.use(defaultCacheControl());
+  app.use(handler);
+
+  const started = await new Promise<Server>((resolve) => {
+    const s = app.listen(0, () => {
+      resolve(s);
+    });
+  });
+  server = started;
+
+  const {port} = started.address() as AddressInfo;
+  return fetch(`http://127.0.0.1:${port.toString()}/`);
 }
 
 describe('defaultCacheControl', () => {
-  it('sets Cache-Control: no-store when the handler left the header unset', async () => {
-    const ctx = createFakeContext();
-    const middleware = defaultCacheControl();
-
-    // Handler that does not set Cache-Control
-    const next = vi.fn(() => {
-      // Simulate a handler that returns without setting the header
-      return Promise.resolve();
+  it('sets no-store when the handler left the header unset', async () => {
+    const res = await get((ctx) => {
+      ctx.body = {ok: true};
     });
 
-    await middleware(ctx as never, next);
-
-    expect(ctx.headers.get('Cache-Control')).toBe('no-store');
-    expect(next).toHaveBeenCalledOnce();
+    expect(res.headers.get('cache-control')).toBe('no-store');
   });
 
-  it('leaves a handler-set Cache-Control untouched', async () => {
-    const ctx = createFakeContext();
-    const middleware = defaultCacheControl();
-
-    // Handler that sets its own caching policy (e.g. for a validated resource)
-    const next = vi.fn(() => {
-      ctx.set('Cache-Control', 'private, max-age=0, must-revalidate');
-      return Promise.resolve();
+  it('leaves a handler-set policy untouched', async () => {
+    const res = await get((ctx) => {
+      ctx.set('Cache-Control', 'public, max-age=3600');
+      ctx.body = {ok: true};
     });
 
-    await middleware(ctx as never, next);
+    expect(res.headers.get('cache-control')).toBe('public, max-age=3600');
+  });
 
-    expect(ctx.headers.get('Cache-Control')).toBe(
+  // The attachment download endpoint's exact shape: a handler that opts into
+  // revalidation rather than no-store. This is the case the middleware exists
+  // not to break.
+  it('leaves a revalidating policy untouched alongside an ETag', async () => {
+    const res = await get((ctx) => {
+      ctx.set('Cache-Control', 'private, max-age=0, must-revalidate');
+      ctx.response.etag = '"5-1"';
+      ctx.body = 'bytes';
+    });
+
+    expect(res.headers.get('cache-control')).toBe(
       'private, max-age=0, must-revalidate',
     );
-    expect(next).toHaveBeenCalledOnce();
+    expect(res.headers.get('etag')).toBe('"5-1"');
   });
 
-  it('runs after the downstream handler (awaits next before reading the header)', async () => {
-    const ctx = createFakeContext();
-    const middleware = defaultCacheControl();
-    const callOrder: string[] = [];
-
-    // Handler that sets the header inside next()
-    const next = vi.fn(() => {
-      callOrder.push('handler-sets-header');
-      ctx.set('Cache-Control', 'public, max-age=3600');
-      return Promise.resolve();
+  it('applies the default on an error status too', async () => {
+    const res = await get((ctx) => {
+      ctx.status = 404;
+      ctx.body = {error: 'nope'};
     });
 
-    await middleware(ctx as never, next);
-
-    // Verify the order: handler runs first (via next), then middleware checks
-    // The middleware should read the header AFTER next() returns
-    expect(callOrder).toEqual(['handler-sets-header']);
-
-    // Verify the header was not overwritten (handler's value survives)
-    expect(ctx.headers.get('Cache-Control')).toBe('public, max-age=3600');
+    expect(res.status).toBe(404);
+    expect(res.headers.get('cache-control')).toBe('no-store');
   });
 });
