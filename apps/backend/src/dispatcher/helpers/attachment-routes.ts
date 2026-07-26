@@ -1,4 +1,5 @@
-import {createReadStream} from 'node:fs';
+import type {FileHandle} from 'node:fs/promises';
+import {open} from 'node:fs/promises';
 import type {Readable} from 'node:stream';
 
 import type Router from '@koa/router';
@@ -11,6 +12,7 @@ import type {
   AttachmentDescriptor,
   SaveAttachmentFailureReason,
 } from '@/agent-core/agent/index.js';
+import {isFileNotFoundError} from '@/helpers/fs.js';
 
 import {parseSessionId} from './session-id.js';
 
@@ -186,6 +188,33 @@ export function registerAttachmentRoutes(
       return;
     }
 
+    // Opens the file — and so surfaces a concurrent DELETE's ENOENT — before
+    // any header below commits the response. `describeAttachment` above
+    // already validated the file existed, but that check and this open are
+    // two separate moments; a DELETE landing in between must still end in
+    // the same 404 every other missing-attachment path returns, not an
+    // opaque mid-stream error after the response has already started (once
+    // `ctx.body` is assigned and Koa begins flushing, the status can no
+    // longer change). Same TOCTOU family as `describe`'s sniff and
+    // `readBase64`'s read inside the store — just at the route layer, where
+    // it must degrade to an HTTP status instead of a `null`/reason object.
+    //
+    // Opening the file also closes the window for good, not just narrows it:
+    // once the fd is open, a concurrent `unlink` no longer matters — POSIX
+    // keeps an open file's data reachable through its existing descriptor
+    // until every consumer closes it.
+    let fileHandle: FileHandle;
+    try {
+      fileHandle = await open(descriptor.absolutePath, 'r');
+    } catch (error: unknown) {
+      if (isFileNotFoundError(error)) {
+        ctx.response.status = StatusCodes.NOT_FOUND;
+        ctx.response.body = {error: 'Attachment not found'};
+        return;
+      }
+      throw error;
+    }
+
     ctx.response.type = descriptor.attachment.mediaType;
     ctx.response.length = descriptor.attachment.byteSize;
     // The sniffed Content-Type above is trustworthy (never client-supplied),
@@ -198,7 +227,7 @@ export function registerAttachmentRoutes(
       'Content-Disposition',
       `inline; filename="${escapeContentDispositionFilename(descriptor.attachment.fileName)}"`,
     );
-    ctx.body = createReadStream(descriptor.absolutePath);
+    ctx.body = fileHandle.createReadStream();
   });
 
   /** DELETE …/attachments/:fileName — removes a stored file. */
