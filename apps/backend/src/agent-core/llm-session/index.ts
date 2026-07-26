@@ -1,4 +1,3 @@
-export {MAX_MESSAGE_ATTACHMENT_BYTES} from './compaction/index.js';
 export {LlmSession} from './llm-session.js';
 export type {
   LlmCompactionMetadata,

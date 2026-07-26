@@ -10,6 +10,15 @@ export const MAX_IMAGE_ATTACHMENT_BYTES = 5 * 1024 * 1024;
  *  flat — see https://github.com/Soulike/OmniCraft/issues/373. */
 export const MAX_DOCUMENT_ATTACHMENT_BYTES = 10 * 1024 * 1024;
 
+/**
+ * A single message's attachments may not exceed this. Strictly below
+ * `COMPACTION_TRIGGER_ATTACHMENT_BYTES` (see `compaction-constants.ts`), and
+ * at or above the largest per-file cap below — the relationship is pinned by
+ * `compaction-constants.test.ts`. Enforced by the session services once
+ * descriptors are resolved from disk, not from client-supplied numbers.
+ */
+export const MAX_MESSAGE_ATTACHMENT_BYTES = 12 * 1024 * 1024;
+
 /** The byte cap that applies to a given deliverable media type. A `Record`
  *  rather than a boolean check: adding a new media type without a cap here is
  *  a compile error rather than a silent fallback to the image cap. */
