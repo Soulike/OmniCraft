@@ -1,3 +1,4 @@
+import {assertWithinMaterializationBudget} from './attachment-limits.js';
 import {countClaudeTokens, streamClaude} from './claude/index.js';
 import {
   countOpenAIResponsesTokens,
@@ -16,6 +17,9 @@ export const llmApi = {
    * Dispatches to the appropriate SDK based on `config.apiFormat`.
    */
   streamCompletion(options: LlmCompletionOptions): LlmEventStream {
+    // Before the dispatch, so it covers every adapter rather than each one
+    // remembering. This is the last point at which the bytes are still ours.
+    assertWithinMaterializationBudget(options.messages);
     switch (options.config.apiFormat) {
       case 'claude':
         return streamClaude(options);

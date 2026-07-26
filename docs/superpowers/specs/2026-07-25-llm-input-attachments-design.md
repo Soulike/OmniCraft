@@ -665,6 +665,18 @@ degrades rather than fails. Reaching the ceiling at all means the accounting was
 already wrong, which is why it sits strictly above the compaction trigger — see
 `compaction-constants.test.ts`.
 
+`llmApi.streamCompletion` then `assert`s the same bound before dispatching to a
+provider adapter, the same two-layer shape the per-message cap uses
+(`claimAttachments` enforces, `runTrackedTurn` asserts). Not redundant: by that point
+degrading is no longer possible, so arriving over budget means a producer assembled
+request messages without going through `toRequestMessages`. Two such producers already
+exist — `compaction-summary-generator` and `agent-title` build their own
+`LlmRequestMessage[]` and call `streamCompletion` directly. Both pass
+`attachments: []` today, and both would still compile if they stopped. The check sits
+before the provider dispatch, so it covers every adapter, and it sums what each
+attachment actually delivered — never a `lastKnownByteSize`, which is precisely the
+thing this limit exists not to trust.
+
 **Known imprecision, accepted.** The sum uses each descriptor's
 `lastKnownByteSize`, not a fresh `stat`. Anything running as this process's user can
 replace a file in the scratch space, so a recorded size can be stale — and no
