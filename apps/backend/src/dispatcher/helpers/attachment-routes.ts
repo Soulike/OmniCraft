@@ -22,16 +22,26 @@ export interface AttachmentRoutePaths {
 }
 
 /**
- * Escapes a file name for use inside a `Content-Disposition` quoted-string
- * (RFC 6266 / RFC 2616 §2.2). `sanitizeFileName` strips control characters,
- * `/`, and `\` from anything saved through the upload path, but not `"` — so
- * an unescaped name could close the quoted-string early and inject
- * additional header parameters. Backslash is escaped too, defensively,
- * in case a name ever reaches this header by some path other than the
- * sanitizer-backed store.
+ * Builds a `Content-Disposition` value for a stored attachment (RFC 6266).
+ *
+ * Two parameters, not one, because a stored name can legitimately be
+ * non-ASCII — the sanitizer preserves Unicode, so `あ.png` is a valid stored
+ * name — while a Node response header cannot carry it: `setHeader` rejects any
+ * code point outside latin1 with `ERR_INVALID_CHAR`, which would turn a
+ * successful upload into a 500 on download.
+ *
+ * - `filename` is the ASCII-only fallback every client understands. Non-ASCII
+ *   code points collapse to `_`, and `"` / `\` are escaped so a name cannot
+ *   close the quoted-string early and inject further parameters.
+ * - `filename*` carries the real name, percent-encoded per RFC 5987, which
+ *   clients that support it prefer.
  */
-function escapeContentDispositionFilename(fileName: string): string {
-  return fileName.replaceAll('\\', '\\\\').replaceAll('"', '\\"');
+function contentDispositionFor(fileName: string): string {
+  const asciiFallback = fileName
+    .replace(/[^\x20-\x7E]/g, '_')
+    .replace(/["\\]/g, '\\$&');
+
+  return `inline; filename="${asciiFallback}"; filename*=UTF-8''${encodeURIComponent(fileName)}`;
 }
 
 /**
@@ -225,7 +235,7 @@ export function registerAttachmentRoutes(
     ctx.response.set('X-Content-Type-Options', 'nosniff');
     ctx.response.set(
       'Content-Disposition',
-      `inline; filename="${escapeContentDispositionFilename(descriptor.attachment.fileName)}"`,
+      contentDispositionFor(descriptor.attachment.fileName),
     );
     ctx.body = fileHandle.createReadStream();
   });

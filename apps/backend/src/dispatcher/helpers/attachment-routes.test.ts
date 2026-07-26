@@ -103,7 +103,7 @@ describe('GET .../attachments/:fileName response hardening', () => {
     expect(res.status).toBe(200);
     expect(res.headers.get('x-content-type-options')).toBe('nosniff');
     expect(res.headers.get('content-disposition')).toBe(
-      'inline; filename="shot.png"',
+      'inline; filename="shot.png"; filename*=UTF-8\'\'shot.png',
     );
   });
 
@@ -121,7 +121,25 @@ describe('GET .../attachments/:fileName response hardening', () => {
 
     expect(res.status).toBe(200);
     expect(res.headers.get('content-disposition')).toBe(
-      String.raw`inline; filename="weird\"name.png"`,
+      String.raw`inline; filename="weird\"name.png"; filename*=UTF-8''weird%22name.png`,
+    );
+  });
+
+  // The sanitizer preserves Unicode, so a stored name legitimately can be
+  // non-ASCII — but Node's `setHeader` rejects any code point outside latin1
+  // with ERR_INVALID_CHAR, which turned a successful upload into a 500 on
+  // download. The ASCII fallback keeps the header emittable; `filename*`
+  // carries the real name for clients that read it.
+  it('serves a non-ASCII file name instead of throwing on the header', async () => {
+    descriptorToReturn = await descriptorFor('\u3042.png');
+
+    const res = await fetch(
+      `${baseUrl}/sessions/${SESSION_ID}/attachments/${encodeURIComponent('\u3042.png')}`,
+    );
+
+    expect(res.status).toBe(200);
+    expect(res.headers.get('content-disposition')).toBe(
+      'inline; filename="_.png"; filename*=UTF-8\'\'%E3%81%82.png',
     );
   });
 });
