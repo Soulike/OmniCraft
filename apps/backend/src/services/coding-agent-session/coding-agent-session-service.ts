@@ -6,15 +6,19 @@ import type {SseEventCursorEntry} from '@omnicraft/sse-events';
 import {CodingAgent} from '@/agent/agents/index.js';
 import {
   type AgentSseLogReaderOptions,
-  type AttachmentDescriptor,
   MAX_MESSAGE_ATTACHMENT_BYTES,
-  type SaveAttachmentResult,
 } from '@/agent-core/agent/index.js';
 import {CodingAgentStore} from '@/models/agent-store/index.js';
 import {SettingsManager} from '@/models/settings-manager/index.js';
 
 import {getLlmConfig} from './helpers.js';
-import type {CreateSessionResult, SendCompletionResult} from './types.js';
+import type {
+  AttachmentDescribeResult,
+  AttachmentRemoveResult,
+  AttachmentUploadResult,
+  CreateSessionResult,
+  SendCompletionResult,
+} from './types.js';
 import {CreateSessionError} from './types.js';
 import {validateSessionPaths} from './validation.js';
 
@@ -91,38 +95,45 @@ export const codingAgentSessionService = {
     return {ok: true};
   },
 
-  /** Stores an uploaded attachment. Returns `null` if agent not found. */
+  /**
+   * Stores an uploaded attachment. Folds a missing session into the same
+   * failure channel as the store's own save failures — see
+   * {@link AttachmentUploadResult}.
+   */
   async saveAttachment(
     agentId: string,
     desiredName: string,
     body: Readable,
-  ): Promise<SaveAttachmentResult | null> {
+  ): Promise<AttachmentUploadResult> {
     const agent = await CodingAgentStore.getInstance().get(agentId);
-    if (!agent) return null;
+    if (!agent) return {ok: false, reason: 'session-not-found'};
     return agent.saveAttachment(desiredName, body);
   },
 
-  /** Describes a stored attachment. Returns `null` if agent or file not found. */
+  /** Describes a stored attachment. */
   async describeAttachment(
     agentId: string,
     fileName: string,
-  ): Promise<AttachmentDescriptor | null> {
+  ): Promise<AttachmentDescribeResult> {
     const agent = await CodingAgentStore.getInstance().get(agentId);
-    if (!agent) return null;
-    return agent.describeAttachment(fileName);
+    if (!agent) return {ok: false, reason: 'session-not-found'};
+
+    const descriptor = await agent.describeAttachment(fileName);
+    if (descriptor === null) return {ok: false, reason: 'attachment-not-found'};
+    return {ok: true, descriptor};
   },
 
-  /**
-   * Deletes a stored attachment. Returns `null` if agent not found, otherwise
-   * whether the file existed.
-   */
+  /** Deletes a stored attachment. */
   async removeAttachment(
     agentId: string,
     fileName: string,
-  ): Promise<boolean | null> {
+  ): Promise<AttachmentRemoveResult> {
     const agent = await CodingAgentStore.getInstance().get(agentId);
-    if (!agent) return null;
-    return agent.removeAttachment(fileName);
+    if (!agent) return {ok: false, reason: 'session-not-found'};
+
+    const removed = await agent.removeAttachment(fileName);
+    if (!removed) return {ok: false, reason: 'attachment-not-found'};
+    return {ok: true};
   },
 
   /**

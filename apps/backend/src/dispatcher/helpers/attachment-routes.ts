@@ -3,12 +3,13 @@ import type {Readable} from 'node:stream';
 
 import type Router from '@koa/router';
 import {uploadAttachmentQuerySchema} from '@omnicraft/api-schema';
+import type {LlmAttachment} from '@omnicraft/tool-schemas';
 import {StatusCodes} from 'http-status-codes';
 import {ZodError} from 'zod';
 
 import type {
   AttachmentDescriptor,
-  SaveAttachmentResult,
+  SaveAttachmentFailureReason,
 } from '@/agent-core/agent/index.js';
 
 import {parseSessionId} from './session-id.js';
@@ -17,6 +18,36 @@ export interface AttachmentRoutePaths {
   readonly collection: string;
   readonly byName: string;
 }
+
+/**
+ * The result shape `saveAttachment` structurally satisfies on both
+ * `chatAgentSessionService` and `codingAgentSessionService`. Declared locally
+ * — not imported from either service's `types.ts` — so the two services can
+ * diverge without this router silently drifting out of sync; see
+ * {@link AttachmentSessionService}.
+ */
+type AttachmentUploadResult =
+  | {readonly ok: true; readonly attachment: LlmAttachment}
+  | {
+      readonly ok: false;
+      readonly reason: 'session-not-found' | SaveAttachmentFailureReason;
+    };
+
+/** The result shape `describeAttachment` structurally satisfies on both services. */
+type AttachmentDescribeResult =
+  | {readonly ok: true; readonly descriptor: AttachmentDescriptor}
+  | {
+      readonly ok: false;
+      readonly reason: 'session-not-found' | 'attachment-not-found';
+    };
+
+/** The result shape `removeAttachment` structurally satisfies on both services. */
+type AttachmentRemoveResult =
+  | {readonly ok: true}
+  | {
+      readonly ok: false;
+      readonly reason: 'session-not-found' | 'attachment-not-found';
+    };
 
 /**
  * The subset of a session service's surface that the attachment routes need.
@@ -28,12 +59,15 @@ export interface AttachmentSessionService {
     agentId: string,
     desiredName: string,
     body: Readable,
-  ): Promise<SaveAttachmentResult | null>;
+  ): Promise<AttachmentUploadResult>;
   describeAttachment(
     agentId: string,
     fileName: string,
-  ): Promise<AttachmentDescriptor | null>;
-  removeAttachment(agentId: string, fileName: string): Promise<boolean | null>;
+  ): Promise<AttachmentDescribeResult>;
+  removeAttachment(
+    agentId: string,
+    fileName: string,
+  ): Promise<AttachmentRemoveResult>;
 }
 
 /**
@@ -73,19 +107,26 @@ export function registerAttachmentRoutes(
     // `@koa/bodyparser` only handles json/form, so for any other content type
     // the request stream is untouched and can be piped straight to disk.
     const result = await service.saveAttachment(id, name, ctx.req);
-    if (result === null) {
-      ctx.response.status = StatusCodes.NOT_FOUND;
-      ctx.response.body = {error: `Session not found: ${id}`};
-      return;
-    }
-
     if (!result.ok) {
-      ctx.response.status =
-        result.reason === 'too-large'
-          ? StatusCodes.REQUEST_TOO_LONG
-          : StatusCodes.BAD_REQUEST;
-      ctx.response.body = {error: result.reason};
-      return;
+      switch (result.reason) {
+        case 'session-not-found': {
+          ctx.response.status = StatusCodes.NOT_FOUND;
+          ctx.response.body = {error: `Session not found: ${id}`};
+          return;
+        }
+        case 'too-large': {
+          ctx.response.status = StatusCodes.REQUEST_TOO_LONG;
+          ctx.response.body = {error: result.reason};
+          return;
+        }
+        case 'invalid-name':
+        case 'unsupported-type':
+        case 'name-unavailable': {
+          ctx.response.status = StatusCodes.BAD_REQUEST;
+          ctx.response.body = {error: result.reason};
+          return;
+        }
+      }
     }
 
     ctx.response.status = StatusCodes.CREATED;
@@ -102,11 +143,18 @@ export function registerAttachmentRoutes(
     }
 
     const found = await service.describeAttachment(id, ctx.params.fileName);
-    if (found === null) {
-      ctx.response.status = StatusCodes.NOT_FOUND;
-      ctx.response.body = {error: 'Attachment not found'};
-      return;
+    if (!found.ok) {
+      switch (found.reason) {
+        case 'session-not-found':
+        case 'attachment-not-found': {
+          ctx.response.status = StatusCodes.NOT_FOUND;
+          ctx.response.body = {error: 'Attachment not found'};
+          return;
+        }
+      }
     }
+
+    const {descriptor} = found;
 
     // Bytes are NOT immutable for a given name: `remove` frees the name, and
     // the very next upload of the same desired name reclaims it via
@@ -118,16 +166,16 @@ export function registerAttachmentRoutes(
     // the conditional middleware in dispatcher/index.ts).
     ctx.response.status = StatusCodes.OK;
     ctx.response.set('Cache-Control', 'private, max-age=0, must-revalidate');
-    ctx.response.etag = `${found.attachment.byteSize}-${found.mtimeMs}`;
+    ctx.response.etag = `${descriptor.attachment.byteSize}-${descriptor.mtimeMs}`;
 
     if (ctx.fresh) {
       ctx.response.status = StatusCodes.NOT_MODIFIED;
       return;
     }
 
-    ctx.response.type = found.attachment.mediaType;
-    ctx.response.length = found.attachment.byteSize;
-    ctx.body = createReadStream(found.absolutePath);
+    ctx.response.type = descriptor.attachment.mediaType;
+    ctx.response.length = descriptor.attachment.byteSize;
+    ctx.body = createReadStream(descriptor.absolutePath);
   });
 
   /** DELETE …/attachments/:fileName — removes a stored file. */
@@ -140,10 +188,15 @@ export function registerAttachmentRoutes(
     }
 
     const removed = await service.removeAttachment(id, ctx.params.fileName);
-    if (removed !== true) {
-      ctx.response.status = StatusCodes.NOT_FOUND;
-      ctx.response.body = {error: 'Attachment not found'};
-      return;
+    if (!removed.ok) {
+      switch (removed.reason) {
+        case 'session-not-found':
+        case 'attachment-not-found': {
+          ctx.response.status = StatusCodes.NOT_FOUND;
+          ctx.response.body = {error: 'Attachment not found'};
+          return;
+        }
+      }
     }
 
     ctx.response.status = StatusCodes.NO_CONTENT;
