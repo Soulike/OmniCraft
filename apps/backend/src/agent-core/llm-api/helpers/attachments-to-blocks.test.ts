@@ -11,6 +11,7 @@ describe('attachmentsToBlocks', () => {
           mediaType: 'image/png',
           lastKnownByteSize: 3,
           data: 'AAA=',
+          materializedByteSize: Buffer.from('AAA=', 'base64').byteLength,
         },
       ]),
     ).toEqual([{type: 'image', mediaType: 'image/png', data: 'AAA='}]);
@@ -24,6 +25,7 @@ describe('attachmentsToBlocks', () => {
           mediaType: 'application/pdf',
           lastKnownByteSize: 3,
           data: 'BBB=',
+          materializedByteSize: Buffer.from('BBB=', 'base64').byteLength,
         },
       ]),
     ).toEqual([
@@ -76,6 +78,7 @@ describe('attachmentsToBlocks', () => {
         mediaType: 'image/png',
         lastKnownByteSize: 1,
         data: 'AA==',
+        materializedByteSize: Buffer.from('AA==', 'base64').byteLength,
       },
       {
         fileName: 'b.pdf',

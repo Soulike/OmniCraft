@@ -157,7 +157,10 @@ describe('save', () => {
         scratchDirectory,
         result.attachment.fileName,
       ),
-    ).toEqual({data: pngOf(64).toString('base64')});
+    ).toEqual({
+      data: pngOf(64).toString('base64'),
+      materializedByteSize: pngOf(64).byteLength,
+    });
     expect(
       await agentAttachmentStore.remove(
         scratchDirectory,
@@ -346,7 +349,10 @@ describe('describe / readBase64 / remove', () => {
 
     expect(
       await agentAttachmentStore.readBase64(scratchDirectory, 'shot.png'),
-    ).toEqual({data: bytes.toString('base64')});
+    ).toEqual({
+      data: bytes.toString('base64'),
+      materializedByteSize: bytes.byteLength,
+    });
   });
 
   // Regression tests for the bug this section of the review follow-up spec
@@ -423,7 +429,10 @@ describe('describe / readBase64 / remove', () => {
 
       expect(
         await agentAttachmentStore.readBase64(scratchDirectory, 'shot.png'),
-      ).toEqual({data: bytes.toString('base64')});
+      ).toEqual({
+        data: bytes.toString('base64'),
+        materializedByteSize: bytes.byteLength,
+      });
     });
   });
 
@@ -664,7 +673,10 @@ describe('freeze', () => {
     expect(again.ok && again.attachment.fileName).toBe('shot (2).png');
     expect(
       await agentAttachmentStore.readBase64(scratchDirectory, 'shot.png'),
-    ).toEqual({data: pngOf(64).toString('base64')});
+    ).toEqual({
+      data: pngOf(64).toString('base64'),
+      materializedByteSize: pngOf(64).byteLength,
+    });
   });
 
   it('leaves a frozen file readable and describable', async () => {
@@ -686,7 +698,10 @@ describe('freeze', () => {
     });
     expect(
       await agentAttachmentStore.readBase64(scratchDirectory, 'shot.png'),
-    ).toEqual({data: pngOf(64).toString('base64')});
+    ).toEqual({
+      data: pngOf(64).toString('base64'),
+      materializedByteSize: pngOf(64).byteLength,
+    });
   });
 
   it('is idempotent, so attaching the same file to a second message is fine', async () => {

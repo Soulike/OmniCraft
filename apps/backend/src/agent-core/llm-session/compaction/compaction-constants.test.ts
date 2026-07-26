@@ -5,6 +5,7 @@ import {
   MAX_IMAGE_ATTACHMENT_BYTES,
   MAX_MESSAGE_ATTACHMENT_BYTES,
 } from '@/agent-core/agent/index.js';
+import {MAX_MATERIALIZED_ATTACHMENT_BYTES} from '@/agent-core/llm-api/index.js';
 
 import {COMPACTION_TRIGGER_ATTACHMENT_BYTES} from './compaction-constants.js';
 
@@ -34,6 +35,18 @@ describe('attachment byte constant invariants', () => {
   it('keeps MAX_MESSAGE_ATTACHMENT_BYTES at or above the largest per-file cap', () => {
     expect(MAX_MESSAGE_ATTACHMENT_BYTES).toBeGreaterThanOrEqual(
       Math.max(MAX_IMAGE_ATTACHMENT_BYTES, MAX_DOCUMENT_ATTACHMENT_BYTES),
+    );
+  });
+
+  // The materialization ceiling is the only one of these checked against
+  // measured bytes rather than a recorded size, so it is the backstop for when
+  // the records are wrong. Keeping it strictly above the trigger means
+  // compaction always gets the first chance: reaching the ceiling degrades a
+  // turn (attachments become `too-large` placeholders), while the trigger only
+  // summarizes, which is the better outcome whenever it can still work.
+  it('keeps COMPACTION_TRIGGER_ATTACHMENT_BYTES strictly below MAX_MATERIALIZED_ATTACHMENT_BYTES', () => {
+    expect(COMPACTION_TRIGGER_ATTACHMENT_BYTES).toBeLessThan(
+      MAX_MATERIALIZED_ATTACHMENT_BYTES,
     );
   });
 });

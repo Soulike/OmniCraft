@@ -7,6 +7,7 @@ import type {LlmAttachment} from '@omnicraft/tool-schemas';
 import {Mutex} from '@/helpers/mutex.js';
 
 import type {
+  AttachmentResolution,
   LlmAssistantMessage,
   LlmConfig,
   LlmMessage,
@@ -15,7 +16,7 @@ import type {
   LlmToolCall,
   ResolvedLlmAttachment,
 } from '../llm-api/index.js';
-import {llmApi} from '../llm-api/index.js';
+import {llmApi, MAX_MATERIALIZED_ATTACHMENT_BYTES} from '../llm-api/index.js';
 import type {AnyToolDefinition} from '../tool/types.js';
 import {
   type LlmSessionCompactionPatch,
@@ -324,22 +325,55 @@ export class LlmSession {
    * attachment bytes. Nothing here is stored, so the snapshot stays free of
    * base64. History is re-sent on every tool round, so this re-reads each
    * attachment per round — see the plan's "Tunables" note before adding a cache.
+   *
+   * Bounded by `MAX_MATERIALIZED_ATTACHMENT_BYTES`, charged against the bytes
+   * each read actually returns. Every other attachment limit is checked against
+   * a recorded `lastKnownByteSize`, and a record can be defeated by anything
+   * that replaces a file on disk; this one cannot, because it never consults a
+   * record. Attachments past the budget resolve to the `too-large` placeholder,
+   * so the turn degrades instead of failing.
+   *
+   * Two properties of the walk are load-bearing:
+   *
+   * - **Sequential, not `Promise.all`.** A running budget is meaningless if the
+   *   reads race — every one of them would see the same "remaining" and the
+   *   total could overshoot by an arbitrary factor.
+   * - **Newest attachment first.** History is oldest-first, so charging in that
+   *   order would spend the budget on stale turns and drop the image the user
+   *   just asked about. Resolution order is reversed; emission order is not.
    */
   private async toRequestMessages(): Promise<LlmRequestMessage[]> {
-    return Promise.all(
-      this.messages.map(async (message): Promise<LlmRequestMessage> => {
-        if (message.role !== 'user') return message;
-        const attachments = await Promise.all(
-          message.attachments.map(
-            async (attachment): Promise<ResolvedLlmAttachment> => {
-              const resolution = await this.resolveAttachment(attachment);
-              return {...attachment, ...resolution};
-            },
-          ),
-        );
-        return {...message, attachments};
-      }),
-    );
+    const resolutions = new Map<LlmAttachment, AttachmentResolution>();
+    let remainingBytes = MAX_MATERIALIZED_ATTACHMENT_BYTES;
+
+    const newestFirst = this.messages
+      .filter((message) => message.role === 'user')
+      .flatMap((message) => message.attachments)
+      .reverse();
+
+    for (const attachment of newestFirst) {
+      const resolution = await this.resolveAttachment(
+        attachment,
+        remainingBytes,
+      );
+      if (resolution.data !== null) {
+        remainingBytes -= resolution.materializedByteSize;
+      }
+      resolutions.set(attachment, resolution);
+    }
+
+    return this.messages.map((message): LlmRequestMessage => {
+      if (message.role !== 'user') return message;
+      const attachments = message.attachments.map(
+        (attachment): ResolvedLlmAttachment => ({
+          ...attachment,
+          // Every attachment was visited above, so a miss is impossible; the
+          // fallback keeps this total without an assertion the type cannot see.
+          ...(resolutions.get(attachment) ?? {data: null, reason: 'missing'}),
+        }),
+      );
+      return {...message, attachments};
+    });
   }
 
   /**

@@ -294,27 +294,33 @@ class AgentAttachmentStore {
    * cap is a statement about what a provider request may carry, not about
    * what a user may see.
    *
-   * `readFile` itself has no size limit, and `run_command`'s realpath
-   * allowlist deliberately covers the scratch space (it is how an oversized
-   * image gets downsampled), so the file on disk can be larger than the
-   * `lastKnownByteSize` last recorded for it. `describe` freshly `lstat`s on every
-   * call, so its `lastKnownByteSize` is checked against `capFor(mediaType)` before any
-   * byte is read — closing the gap between what compaction certified as safe
-   * and what would otherwise be read into memory. A residual TOCTOU window
-   * remains (the stat is not the read); it is microseconds wide and the only
-   * writer is our own agent, which is why a fresh bounded check is preferred
-   * over streaming the read through a capping transform.
+   * `readFile` itself has no size limit, and nothing prevents the file on disk
+   * from being larger than the `lastKnownByteSize` recorded for it — the
+   * attachments directory must stay writable for uploads to land, so anything
+   * running as this process's user can replace a file, and `unlink` plus
+   * recreate never consults the frozen read-only bit.
+   *
+   * So the size is re-measured here, by `describe`'s fresh `lstat`, and checked
+   * before a single byte is read — against `capFor(mediaType)` and against
+   * `remainingBytes`, whichever binds first. Refusing beforehand rather than
+   * measuring afterwards is what makes the budget a bound: reading first would
+   * mean the memory was already spent by the time anyone noticed.
+   *
+   * A residual TOCTOU window remains (the stat is not the read); it is
+   * microseconds wide, and the only writer is our own agent.
    */
   async readBase64(
     scratchDirectory: string,
     fileName: string,
+    remainingBytes = Number.POSITIVE_INFINITY,
   ): Promise<AttachmentResolution> {
     const found = await this.describe(scratchDirectory, fileName);
     if (found === null) return {data: null, reason: 'missing'};
 
-    const {lastKnownByteSize, mediaType} = found.attachment;
-    if (lastKnownByteSize > capFor(mediaType))
+    const {lastKnownByteSize: measuredByteSize, mediaType} = found.attachment;
+    if (measuredByteSize > Math.min(capFor(mediaType), remainingBytes)) {
       return {data: null, reason: 'too-large'};
+    }
 
     // Same race as above: `describe` above already stat'd (and, internally,
     // sniffed) the file, but a concurrent `remove()` can still unlink it
@@ -322,7 +328,12 @@ class AgentAttachmentStore {
     // placeholder; any other error is a genuine failure and propagates.
     try {
       const bytes = await readFile(found.absolutePath);
-      return {data: bytes.toString('base64')};
+      return {
+        data: bytes.toString('base64'),
+        // The read's own length, not the stat's: they are separate moments,
+        // and the budget must be charged for what was actually loaded.
+        materializedByteSize: bytes.byteLength,
+      };
     } catch (error: unknown) {
       if (isFileNotFoundError(error)) return {data: null, reason: 'missing'};
       throw error;

@@ -129,7 +129,8 @@ export abstract class Agent {
       this.llmSession = new LlmSession({
         getConfig,
         snapshot: snapshot.llmSession,
-        resolveAttachment: (a) => this.resolveAttachmentData(a),
+        resolveAttachment: (a, remaining) =>
+          this.resolveAttachmentData(a, remaining),
         attachmentsDirectory: agentAttachmentStore.directory(scratchDirectory),
       });
       this.subagentRegistry = new SubagentRegistry();
@@ -138,7 +139,8 @@ export abstract class Agent {
       providedWorkingDirectory = options.workingDirectory;
       this.llmSession = new LlmSession({
         getConfig,
-        resolveAttachment: (a) => this.resolveAttachmentData(a),
+        resolveAttachment: (a, remaining) =>
+          this.resolveAttachmentData(a, remaining),
         attachmentsDirectory: agentAttachmentStore.directory(scratchDirectory),
       });
       this.subagentRegistry = new SubagentRegistry();
@@ -397,10 +399,12 @@ export abstract class Agent {
    */
   private resolveAttachmentData(
     attachment: LlmAttachment,
+    remainingBytes: number,
   ): Promise<AttachmentResolution> {
     return agentAttachmentStore.readBase64(
       this.scratchDirectory,
       attachment.fileName,
+      remainingBytes,
     );
   }
 

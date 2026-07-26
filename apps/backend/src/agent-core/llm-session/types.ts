@@ -56,6 +56,10 @@ export interface ToolResult {
  */
 export type AttachmentResolver = (
   attachment: LlmAttachment,
+  /** Bytes still available in the request's materialization budget. A resolver
+   *  must refuse — rather than read — anything larger, so the budget bounds
+   *  memory instead of merely reporting on it afterwards. */
+  remainingBytes: number,
 ) => Promise<AttachmentResolution>;
 
 export interface LlmCompactionOptions {

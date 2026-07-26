@@ -196,6 +196,7 @@ describe('user message attachments', () => {
               mediaType: 'image/png',
               lastKnownByteSize: 3,
               data: 'A'.repeat(100_000),
+              materializedByteSize: 3,
             },
           ],
         },

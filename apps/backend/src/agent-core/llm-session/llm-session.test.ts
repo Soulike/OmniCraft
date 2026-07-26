@@ -10,6 +10,8 @@ import {
   type LlmConfig,
   type LlmEventStream,
   type LlmMessage,
+  MAX_MATERIALIZED_ATTACHMENT_BYTES,
+  type ResolvedLlmAttachment,
 } from '../llm-api/index.js';
 import {llmSessionCompactor} from './compaction/index.js';
 import {LlmSession, type LlmSessionOptions} from './llm-session.js';
@@ -464,8 +466,13 @@ describe('LlmSession usage', () => {
 describe('attachment resolution', () => {
   let streamCompletionSpy: ReturnType<typeof armStreamCompletion>;
 
+  // `mockImplementation`, not `mockReturnValue`: the latter hands every call
+  // the same generator instance, so a second turn would receive one that was
+  // already drained by the first.
   function armStreamCompletion() {
-    return vi.spyOn(llmApi, 'streamCompletion').mockReturnValue(normalStream());
+    return vi
+      .spyOn(llmApi, 'streamCompletion')
+      .mockImplementation(() => normalStream());
   }
 
   /** Reads back the options the armed `streamCompletion` spy was last called with. */
@@ -487,7 +494,7 @@ describe('attachment resolution', () => {
     const resolveAttachment = vi.fn((attachment: LlmAttachment) =>
       Promise.resolve(
         attachment.fileName === 'shot.png'
-          ? {data: 'AAA='}
+          ? {data: 'AAA=', materializedByteSize: 3}
           : {data: null, reason: 'missing' as const},
       ),
     );
@@ -517,6 +524,89 @@ describe('attachment resolution', () => {
       ],
     });
     expect(JSON.stringify(snapshot)).not.toContain('AAA=');
+  });
+
+  // A resolver standing in for the store: it reports what it actually read,
+  // and refuses anything that would not fit the budget it was handed — which
+  // is what makes the ceiling a bound rather than a report.
+  function budgetedResolver(sizesByName: Readonly<Record<string, number>>) {
+    return vi.fn((attachment: LlmAttachment, remainingBytes: number) => {
+      const size = sizesByName[attachment.fileName] ?? 0;
+      return Promise.resolve(
+        size > remainingBytes
+          ? {data: null, reason: 'too-large' as const}
+          : {data: 'A'.repeat(4), materializedByteSize: size},
+      );
+    });
+  }
+
+  function attachmentOf(fileName: string): LlmAttachment {
+    // A tiny recorded size against a huge real one: exactly the state a
+    // record-based limit cannot see, and the reason this ceiling measures.
+    return {fileName, mediaType: 'image/png', lastKnownByteSize: 1};
+  }
+
+  it('stops materializing once the measured bytes reach the ceiling', async () => {
+    const half = Math.ceil(MAX_MATERIALIZED_ATTACHMENT_BYTES / 2);
+    const resolveAttachment = budgetedResolver({
+      'a.png': half,
+      'b.png': half,
+      'c.png': half,
+    });
+    const session = createSession({resolveAttachment});
+
+    const {stream} = session.sendUserMessage('look', [], '', undefined, [
+      attachmentOf('a.png'),
+      attachmentOf('b.png'),
+      attachmentOf('c.png'),
+    ]);
+    for await (const _event of stream) {
+      // drain
+    }
+
+    const sent = capturedCompletionOptions();
+    const attachments: readonly ResolvedLlmAttachment[] = sent.messages.flatMap(
+      (message) => (message.role === 'user' ? [...message.attachments] : []),
+    );
+    const delivered = attachments.filter(
+      (attachment) => attachment.data !== null,
+    );
+    // Two halves fit; the third cannot, and degrades instead of being read.
+    expect(delivered).toHaveLength(2);
+    expect(
+      attachments.filter((attachment): boolean => attachment.data === null),
+    ).toEqual([expect.objectContaining({data: null, reason: 'too-large'})]);
+  });
+
+  // History is oldest-first, so charging the budget in that order would spend
+  // it on stale turns and drop the image the user just asked about.
+  it('spends the budget on the newest attachments first', async () => {
+    const almostAll = MAX_MATERIALIZED_ATTACHMENT_BYTES - 1;
+    const resolveAttachment = budgetedResolver({
+      'old.png': almostAll,
+      'new.png': almostAll,
+    });
+    const session = createSession({resolveAttachment});
+
+    for (const fileName of ['old.png', 'new.png']) {
+      const {stream} = session.sendUserMessage('look', [], '', undefined, [
+        attachmentOf(fileName),
+      ]);
+      for await (const _event of stream) {
+        // drain
+      }
+    }
+
+    // Only one of the two fits. The last request must carry the newer one.
+    const sent = capturedCompletionOptions();
+    const byName = new Map(
+      sent.messages
+        .filter((message) => message.role === 'user')
+        .flatMap((message) => message.attachments)
+        .map((attachment) => [attachment.fileName, attachment.data !== null]),
+    );
+    expect(byName.get('new.png')).toBe(true);
+    expect(byName.get('old.png')).toBe(false);
   });
 
   it('resolves a vanished file to the missing reason so the adapter can flag it', async () => {

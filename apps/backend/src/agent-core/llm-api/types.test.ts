@@ -14,6 +14,7 @@ describe('toolResultBlockSchema', () => {
       type: 'image',
       mediaType: 'image/png',
       data: 'AAAA',
+      materializedByteSize: Buffer.from('AAAA', 'base64').byteLength,
     });
     expect(r.success).toBe(true);
   });
@@ -23,6 +24,7 @@ describe('toolResultBlockSchema', () => {
       type: 'image',
       mediaType: 'image/svg+xml',
       data: 'AAAA',
+      materializedByteSize: Buffer.from('AAAA', 'base64').byteLength,
     });
     expect(r.success).toBe(false);
   });
@@ -33,6 +35,7 @@ describe('toolResultBlockSchema', () => {
         type: 'document',
         mediaType: 'application/pdf',
         data: 'AAAA',
+        materializedByteSize: Buffer.from('AAAA', 'base64').byteLength,
         name: 'a.pdf',
       }).success,
     ).toBe(true);
@@ -41,6 +44,7 @@ describe('toolResultBlockSchema', () => {
         type: 'document',
         mediaType: 'text/plain',
         data: 'AAAA',
+        materializedByteSize: Buffer.from('AAAA', 'base64').byteLength,
       }).success,
     ).toBe(false);
   });

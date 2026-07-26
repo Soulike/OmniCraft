@@ -631,6 +631,40 @@ Both bounds are real constraints, not tuning:
 12 MB decoded is ~16.5 MB as base64; 16 MB is ~22 MB, leaving ~10 MB of the
 provider's 32 MB for text, tool definitions, and the system prompt.
 
+### The bound lives at materialization
+
+`MAX_MATERIALIZED_ATTACHMENT_BYTES` (`llm-api/attachment-limits.ts`) caps the
+attachment bytes one provider request may carry, charged against what each read
+**actually returns** — never against a recorded `lastKnownByteSize`.
+
+That distinction is the whole design. Every other limit here is checked against a
+record, and a record can be defeated: the attachments directory must stay writable
+for uploads to land, so anything running as this process's user can replace a file,
+and `unlink` plus recreate does it without ever consulting the frozen read-only bit.
+Ten attachments recorded at 1 KiB can each be 2 MiB on disk; the compaction trigger
+would see 10 KiB while the request carried 20 MiB. No permission scheme closes that,
+which is why the defense cannot be another record.
+
+It lives in `llm-api` rather than beside the per-file caps in `cap-for.ts` because it
+is a statement about what a _provider request_ may carry — the per-file caps are
+store-admission policy — and because `llm-session`, which enforces it while building
+the request, cannot reach `agent/`: the dependency runs `agent` → `llm-session` →
+`llm-api`, never back.
+
+Two properties of `toRequestMessages`' walk are load-bearing:
+
+- **Sequential, not `Promise.all`.** A running budget is meaningless if the reads
+  race — each would see the same "remaining" and the total could overshoot
+  arbitrarily.
+- **Newest attachment first.** History is oldest-first, so charging in that order
+  would spend the budget on stale turns and drop the image the user just asked
+  about. Resolution order is reversed; emission order is not.
+
+Over-budget attachments resolve to the existing `too-large` placeholder, so a turn
+degrades rather than fails. Reaching the ceiling at all means the accounting was
+already wrong, which is why it sits strictly above the compaction trigger — see
+`compaction-constants.test.ts`.
+
 **Known imprecision, accepted.** The sum uses each descriptor's
 `lastKnownByteSize`, not a fresh `stat`. Anything running as this process's user can
 replace a file in the scratch space, so a recorded size can be stale — and no

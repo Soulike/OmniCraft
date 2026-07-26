@@ -111,7 +111,10 @@ export type LlmMessage = z.infer<typeof llmMessageSchema>;
  * and read it again) in a way `missing` is not.
  */
 export type AttachmentResolution =
-  | {readonly data: string}
+  /** `materializedByteSize` is the decoded length actually read, measured at
+   *  read time — the counterpart to `LlmAttachment.lastKnownByteSize`, which is
+   *  only a record. A caller budgeting request memory must accumulate this one. */
+  | {readonly data: string; readonly materializedByteSize: number}
   | {readonly data: null; readonly reason: 'missing' | 'too-large'};
 
 /** An attachment with its bytes materialized for a provider call. */

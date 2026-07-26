@@ -192,6 +192,7 @@ describe('toSdkMessage user attachments', () => {
           mediaType: 'image/png',
           lastKnownByteSize: 3,
           data: 'AAA=',
+          materializedByteSize: Buffer.from('AAA=', 'base64').byteLength,
         },
       ],
     });
@@ -217,6 +218,7 @@ describe('toSdkMessage user attachments', () => {
           mediaType: 'application/pdf',
           lastKnownByteSize: 3,
           data: 'BBB=',
+          materializedByteSize: Buffer.from('BBB=', 'base64').byteLength,
         },
       ],
     });
@@ -244,6 +246,7 @@ describe('toSdkMessage user attachments', () => {
           mediaType: 'image/png',
           lastKnownByteSize: 3,
           data: 'AAA=',
+          materializedByteSize: Buffer.from('AAA=', 'base64').byteLength,
         },
       ],
     });

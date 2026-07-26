@@ -1,3 +1,4 @@
+export {MAX_MATERIALIZED_ATTACHMENT_BYTES} from './attachment-limits.js';
 export {attachmentsToBlocks} from './helpers/attachments-to-blocks.js';
 export {formatAttachmentSize} from './helpers/format-attachment-size.js';
 export {toolResultBlocksToText} from './helpers/tool-result-blocks-to-text.js';
