@@ -394,6 +394,28 @@ reasoning already documented in `agent-scratch-directory-service.ts:23-43`
 `@koa/router` decodes percent-encoded slashes, which is exactly why
 `dispatcher/helpers/session-id.ts` exists — the same care applies here.
 
+### The download opens under constraint, and asks the handle
+
+`describe` refuses a symlink (it `lstat`s and requires a regular file), but that
+refusal does not carry over to the route's `open()` — the two resolve the same name
+at different moments, and `open` by path follows links. A link planted in that gap
+turned the endpoint into an arbitrary file read returning `200`.
+
+So the open is constrained rather than re-validated: `O_NOFOLLOW` makes the kernel
+refuse a symlinked final component, and `O_NONBLOCK` keeps a planted FIFO from
+blocking the request until a writer appears (verified: without it the request hangs
+rather than fails). Neither flag changes anything for a regular file. `ELOOP` joins
+`ENOENT` as a 404 — to a client, "not a servable attachment" is one answer.
+
+`O_NOFOLLOW` does not cover a directory or a device node, so the `fstat` already
+taken for `Content-Length` also gates on `isFile()`. Asking the open handle is what
+makes it final: a third path resolution would just be one more moment for something
+to change underneath.
+
+This is the same correction as the two above it — bind to the object you actually
+operate on, never re-resolve the name — applied to the last place in the request
+that was still trusting a path.
+
 ### Frozen once sent
 
 An attachment is a **mutable file until the moment its bytes reach the model, and a

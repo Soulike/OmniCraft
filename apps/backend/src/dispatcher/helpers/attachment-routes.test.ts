@@ -1,10 +1,12 @@
+import {execFile} from 'node:child_process';
 import crypto from 'node:crypto';
-import {mkdtemp, rm, writeFile} from 'node:fs/promises';
+import {mkdir, mkdtemp, rm, symlink, writeFile} from 'node:fs/promises';
 import type {Server} from 'node:http';
 import type {AddressInfo} from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
 import type {Readable} from 'node:stream';
+import {promisify} from 'node:util';
 
 import Router from '@koa/router';
 import Koa from 'koa';
@@ -201,6 +203,62 @@ describe('GET .../attachments/:fileName body framing', () => {
 
     expect(res.headers.get('content-length')).toBe('5');
     expect((await res.arrayBuffer()).byteLength).toBe(5);
+  });
+});
+
+describe('GET .../attachments/:fileName open-time hardening', () => {
+  // `describe` refuses a symlink via `lstat`, but that refusal does not carry
+  // over to the route's `open()`, which resolves the same name a moment later
+  // and follows links. Planting one in that gap turned this endpoint into an
+  // arbitrary file read returning 200. The descriptor here points at a path
+  // that is a symlink by the time the route opens it, which is that state.
+  it('refuses a symlink instead of streaming its target', async () => {
+    const descriptor = await descriptorFor('shot.png');
+    const secret = path.join(scratchDirectory, 'secret.txt');
+    await writeFile(secret, 'TOP SECRET OUTSIDE THE STORE');
+    await rm(descriptor.absolutePath);
+    await symlink(secret, descriptor.absolutePath);
+    descriptorToReturn = descriptor;
+
+    const res = await fetch(
+      `${baseUrl}/sessions/${SESSION_ID}/attachments/shot.png`,
+    );
+    const body = await res.text();
+
+    expect(res.status).toBe(404);
+    expect(body).not.toContain('TOP SECRET');
+  });
+
+  // `O_NOFOLLOW` does not cover this one: a directory opens fine, and the
+  // failure would otherwise surface mid-stream, after the status is committed.
+  it('refuses a directory planted at the attachment path', async () => {
+    const descriptor = await descriptorFor('shot.png');
+    await rm(descriptor.absolutePath);
+    await mkdir(descriptor.absolutePath);
+    descriptorToReturn = descriptor;
+
+    const res = await fetch(
+      `${baseUrl}/sessions/${SESSION_ID}/attachments/shot.png`,
+    );
+
+    expect(res.status).toBe(404);
+  });
+
+  // Without `O_NONBLOCK` this hangs rather than fails: opening a FIFO waits
+  // for a writer that never comes. Bounded by a timeout so a regression is a
+  // failure and not a stuck suite.
+  it('refuses a FIFO without hanging the request', async () => {
+    const descriptor = await descriptorFor('shot.png');
+    await rm(descriptor.absolutePath);
+    await promisify(execFile)('mkfifo', [descriptor.absolutePath]);
+    descriptorToReturn = descriptor;
+
+    const res = await fetch(
+      `${baseUrl}/sessions/${SESSION_ID}/attachments/shot.png`,
+      {signal: AbortSignal.timeout(5000)},
+    );
+
+    expect(res.status).toBe(404);
   });
 });
 

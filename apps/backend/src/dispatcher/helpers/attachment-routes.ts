@@ -1,4 +1,5 @@
 import type {Stats} from 'node:fs';
+import {constants} from 'node:fs';
 import type {FileHandle} from 'node:fs/promises';
 import {open} from 'node:fs/promises';
 import type {Readable} from 'node:stream';
@@ -13,7 +14,7 @@ import type {
   AttachmentDescriptor,
   SaveAttachmentFailureReason,
 } from '@/agent-core/agent/index.js';
-import {isFileNotFoundError} from '@/helpers/fs.js';
+import {isFileNotFoundError, isSymlinkRefusedError} from '@/helpers/fs.js';
 
 import {parseSessionId} from './session-id.js';
 
@@ -184,26 +185,40 @@ export function registerAttachmentRoutes(
       return;
     }
 
-    // Opens the file — and so surfaces a concurrent DELETE's ENOENT — before
-    // any header below commits the response. `describeAttachment` above
-    // already validated the file existed, but that check and this open are
-    // two separate moments; a DELETE landing in between must still end in
-    // the same 404 every other missing-attachment path returns, not an
-    // opaque mid-stream error after the response has already started (once
-    // `ctx.body` is assigned and Koa begins flushing, the status can no
-    // longer change). Same TOCTOU family as `describe`'s sniff and
-    // `readBase64`'s read inside the store — just at the route layer, where
-    // it must degrade to an HTTP status instead of a `null`/reason object.
+    // `O_NOFOLLOW`, because `open` by path follows symlinks and `describe`'s
+    // refusal of them does not carry over — the two resolve the same name at
+    // different moments, so a link planted in between would be followed and
+    // this handler would stream a file from outside the store with a 200.
+    // `O_NONBLOCK` for the same family of plant: opening a FIFO blocks until a
+    // writer appears, which would hang the request rather than fail it.
+    // Neither flag changes anything for a regular file.
     //
-    // Opening the file also closes the window for good, not just narrows it:
-    // once the fd is open, a concurrent `unlink` no longer matters — POSIX
-    // keeps an open file's data reachable through its existing descriptor
-    // until every consumer closes it.
+    // Opening also surfaces a concurrent DELETE's ENOENT before any header
+    // below commits the response. `describeAttachment` above already validated
+    // the file existed, but that check and this open are two separate moments;
+    // a DELETE landing in between must still end in the same 404 every other
+    // missing-attachment path returns, not an opaque mid-stream error after the
+    // response has already started (once `ctx.body` is assigned and Koa begins
+    // flushing, the status can no longer change). Same TOCTOU family as
+    // `describe`'s sniff and `readBase64`'s read inside the store — just at the
+    // route layer, where it must degrade to an HTTP status instead of a
+    // `null`/reason object.
+    //
+    // Opening the file also closes the unlink window for good, not just narrows
+    // it: once the fd is open, a concurrent `unlink` no longer matters — POSIX
+    // keeps an open file's data reachable through its existing descriptor until
+    // every consumer closes it.
     let fileHandle: FileHandle;
     try {
-      fileHandle = await open(descriptor.absolutePath, 'r');
+      fileHandle = await open(
+        descriptor.absolutePath,
+        constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK,
+      );
     } catch (error: unknown) {
-      if (isFileNotFoundError(error)) {
+      // A missing file and a planted symlink are the same answer to a client:
+      // nothing servable under this name. Anything else (EACCES, EIO, ...) is a
+      // real failure and must not be laundered into a 404.
+      if (isFileNotFoundError(error) || isSymlinkRefusedError(error)) {
         ctx.response.status = StatusCodes.NOT_FOUND;
         ctx.response.body = {error: 'Attachment not found'};
         return;
@@ -231,6 +246,17 @@ export function registerAttachmentRoutes(
       // be closed here or the fd leaks for the process's lifetime.
       await fileHandle.close();
       throw error;
+    }
+
+    // `O_NOFOLLOW` rules out a symlink, but not a directory or a device node
+    // planted at the same name. Asking the open handle — rather than the path,
+    // which a third resolution would have to walk again — is what makes this
+    // final rather than one more moment something can change under.
+    if (!streamed.isFile()) {
+      await fileHandle.close();
+      ctx.response.status = StatusCodes.NOT_FOUND;
+      ctx.response.body = {error: 'Attachment not found'};
+      return;
     }
 
     ctx.response.type = descriptor.attachment.mediaType;
