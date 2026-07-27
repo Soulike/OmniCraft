@@ -150,20 +150,24 @@ export type ClaimAttachmentsResult =
  */
 class AgentAttachmentStore {
   /**
-   * Serializes the mutating operations that are not atomic on their own.
+   * Serializes the two operations that change a directory entry's state after
+   * checking it: {@link claim} and {@link remove}. Nothing else acquires it, so
+   * adding a third mutating path means deciding explicitly whether it belongs
+   * here.
    *
-   * `claim` freezes, reads, checks, and may un-freeze; `remove` checks the
-   * frozen bit and then unlinks. Both are check-then-act sequences over the
-   * same names, and `unlink` in particular succeeds on a `0400` file — deletion
-   * depends on the directory's mode, not the file's — so an interleaved claim
-   * could freeze a file that a delete then removes anyway, with both reporting
-   * success.
+   * `claim` freezes, reads sizes, checks the cap, and un-freezes on rejection;
+   * `remove` checks the frozen bit and then unlinks. `unlink` succeeds on a
+   * `0400` file — deletion depends on the *directory's* mode, not the file's —
+   * so an interleaved claim froze a file that a delete then removed anyway,
+   * both reporting success. Two concurrent claims naming the same file could
+   * likewise interleave so that one's release un-freezes a file the other had
+   * already accepted.
    *
-   * Unlike the placement race, which `link`'s atomicity settles because a
-   * writer outside this process can also create files, both racers here are our
-   * own API calls. That is exactly the case a lock fits.
+   * Unlike the placement race, which `link`'s atomicity settles because writers
+   * outside this process also create files here, both racers are our own API
+   * calls. That is the case a lock actually covers.
    *
-   * `save` stays outside it: `placeUniquely` never overwrites (EEXIST falls
+   * `save` stays outside: `placeUniquely` never overwrites (EEXIST falls
    * through to the next candidate), so uploads are already safe against each
    * other and against anything else, and serializing them would put a
    * multi-megabyte write on a shared lock for nothing.
@@ -173,7 +177,7 @@ class AgentAttachmentStore {
    * is a single-user local tool; a per-directory lock is the obvious upgrade if
    * that ever stops being true.
    */
-  private readonly mutex = new Mutex();
+  private readonly entryMutex = new Mutex();
 
   /** The attachments directory for a session, given its scratch directory. */
   directory(scratchDirectory: string): string {
@@ -478,7 +482,7 @@ class AgentAttachmentStore {
    * Pins the named attachments for delivery and describes them, or explains
    * why it could not.
    *
-   * Runs under {@link mutex}, and that is load-bearing rather than tidiness.
+   * Runs under {@link entryMutex}, and that is load-bearing rather than tidiness.
    * The sequence freezes, then reads sizes, then checks the aggregate cap, and
    * un-freezes what it froze if the cap rejects — so two concurrent claims
    * naming the same file could otherwise interleave such that one releases a
@@ -506,7 +510,7 @@ class AgentAttachmentStore {
     scratchDirectory: string,
     fileNames: readonly string[],
   ): Promise<ClaimAttachmentsResult> {
-    const release = await this.mutex.acquire();
+    const release = await this.entryMutex.acquire();
     try {
       return await this.claimUnlocked(scratchDirectory, fileNames);
     } finally {
@@ -607,6 +611,18 @@ class AgentAttachmentStore {
    * which `describe` refuses to touch.
    */
   async remove(
+    scratchDirectory: string,
+    fileName: string,
+  ): Promise<RemoveAttachmentResult> {
+    const release = await this.entryMutex.acquire();
+    try {
+      return await this.removeUnlocked(scratchDirectory, fileName);
+    } finally {
+      release();
+    }
+  }
+
+  private async removeUnlocked(
     scratchDirectory: string,
     fileName: string,
   ): Promise<RemoveAttachmentResult> {

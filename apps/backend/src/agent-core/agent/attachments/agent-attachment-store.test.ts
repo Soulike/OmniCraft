@@ -1,4 +1,7 @@
 import {execFile} from 'node:child_process';
+// `node:fs/promises` is mocked below; this specifier is not, so it is how the
+// real `lstat` is reached from inside a mock implementation.
+import {promises as realFs} from 'node:fs';
 import {
   access,
   lstat,
@@ -30,7 +33,11 @@ import {resolveInside} from './helpers/resolve-inside.js';
 // below that exercise the stat/sniff/read race override a single call.
 vi.mock('node:fs/promises', async (importOriginal) => {
   const actual = await importOriginal<typeof import('node:fs/promises')>();
-  return {...actual, readFile: vi.fn(actual.readFile)};
+  return {
+    ...actual,
+    readFile: vi.fn(actual.readFile),
+    lstat: vi.fn(actual.lstat),
+  };
 });
 vi.mock('file-type', async (importOriginal) => {
   const actual = await importOriginal<typeof import('file-type')>();
@@ -732,37 +739,66 @@ describe('claim', () => {
     ).toEqual({ok: false, reason: 'frozen'});
   });
 
-  // `remove` checks the frozen bit and then unlinks, and `unlink` succeeds on
-  // a 0400 file — deletion depends on the directory's mode, not the file's. So
-  // without the lock a claim landing between those two steps freezes a file
-  // that the delete then removes anyway, and both report success. Exactly one
-  // of them may win.
-  it('never lets a concurrent claim and remove both succeed', async () => {
-    for (let attempt = 0; attempt < 200; attempt++) {
-      await save('shot.png', pngOf(64));
-
-      const [claimed, removed] = await Promise.all([
-        agentAttachmentStore.claim(scratchDirectory, ['shot.png']),
-        agentAttachmentStore.remove(scratchDirectory, 'shot.png'),
-      ]);
-
-      expect(claimed.ok && removed.ok).toBe(false);
-
-      // Whichever won, the store must agree with itself afterwards: a file
-      // that survived is frozen, and a file that is gone stays gone.
-      const found = await agentAttachmentStore.describe(
-        scratchDirectory,
-        'shot.png',
-      );
-      expect(found === null).toBe(removed.ok);
-      if (found !== null) expect(await modeOf('shot.png')).toBe('400');
-
-      await rm(agentAttachmentStore.directory(scratchDirectory), {
-        recursive: true,
-        force: true,
-      });
+  // `remove` checks the frozen bit and then unlinks, and `unlink` succeeds on a
+  // 0400 file — deletion depends on the directory's mode, not the file's. So a
+  // claim landing between those two steps freezes a file the delete removes
+  // anyway, and both report success.
+  //
+  // The interleaving is forced rather than raced for. An earlier version of
+  // this test fired `claim` and `remove` concurrently 200 times and asserted
+  // they never both won; it passed with the lock on either method alone, and
+  // even with no lock the outcome turned on microtask ordering — a single
+  // extra `await` was enough to hide the bug. It was measuring luck. Hooking
+  // `lstat` puts the claim exactly in the window instead, so the assertion is
+  // about mutual exclusion and not about timing.
+  /** Resolves once the file is read-only, or after `timeoutMs` if it never is.
+   *  Polling rather than a fixed sleep so the unlocked case — the one that must
+   *  fail — is decided by seeing the freeze, not by guessing how long it takes. */
+  async function waitForFreeze(absolutePath: string, timeoutMs = 200) {
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+      const stats = await realFs.lstat(absolutePath).catch(() => null);
+      if (stats !== null && (stats.mode & 0o200) === 0) return;
+      await new Promise((resolve) => setTimeout(resolve, 2));
     }
-  }, 30000);
+  }
+
+  it('never lets a concurrent claim and remove both succeed', async () => {
+    await save('shot.png', pngOf(64));
+    const attachmentPath = path.join(
+      agentAttachmentStore.directory(scratchDirectory),
+      'shot.png',
+    );
+
+    let claiming: Promise<unknown> = Promise.resolve();
+    vi.mocked(lstat).mockImplementation(async (target) => {
+      const stats = await realFs.lstat(target);
+      if (target !== attachmentPath) return stats;
+      // `remove` has just read the mode and has not unlinked yet. Start a claim
+      // and wait for it to actually freeze the file. Blocked by the lock it
+      // never does and this gives up after the timeout; without the lock the
+      // wait ends the moment the write bit clears — so the failing case is
+      // decided by observation rather than by how far a macrotask got.
+      vi.mocked(lstat).mockImplementation(realFs.lstat);
+      claiming = agentAttachmentStore.claim(scratchDirectory, ['shot.png']);
+      await waitForFreeze(attachmentPath);
+      return stats;
+    });
+
+    const removed = await agentAttachmentStore.remove(
+      scratchDirectory,
+      'shot.png',
+    );
+    const claimed = await claiming;
+
+    expect(removed.ok && (claimed as {ok: boolean}).ok).toBe(false);
+    // Whichever won, the store agrees with itself afterwards.
+    const found = await agentAttachmentStore.describe(
+      scratchDirectory,
+      'shot.png',
+    );
+    expect(found === null).toBe(removed.ok);
+  }, 20000);
 
   it('refuses a directory planted at an attachment name', async () => {
     const attachmentsDirectory =
