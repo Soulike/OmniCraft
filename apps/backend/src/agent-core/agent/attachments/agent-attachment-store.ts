@@ -172,10 +172,11 @@ class AgentAttachmentStore {
    * other and against anything else, and serializing them would put a
    * multi-megabyte write on a shared lock for nothing.
    *
-   * One lock for every session rather than one per scratch directory. The
-   * guarded sections are a handful of `stat`/`chmod`/`unlink` calls, and this
-   * is a single-user local tool; a per-directory lock is the obvious upgrade if
-   * that ever stops being true.
+   * One lock shared by every session, not one per scratch directory — coarser
+   * than the invariant needs, since entries never cross scratch directories.
+   * The guarded sections are a handful of `stat`/`chmod`/`unlink` calls and
+   * this is a single-user local tool, so the contention is currently zero.
+   * Narrowing it is https://github.com/Soulike/OmniCraft/issues/393.
    */
   private readonly entryMutex = new Mutex();
 
