@@ -25,11 +25,28 @@ export const SUMMARY_INPUT_CONTENT_TRUNCATE_TAIL_CHARS = 2 * 1024;
 /**
  * Total attachment bytes in history that force a compaction. Strictly above
  * `MAX_MESSAGE_ATTACHMENT_BYTES` (see `cap-for.ts`) — the relationship is
- * pinned by `compaction-constants.test.ts`. `LlmSession.sendMessages` appends
- * the new message to history *before* `compactBeforeModelCall` runs, so if a
- * single legal message could reach this trigger on its own, compaction would
- * fire on the very turn the attachment arrived (the model would see a summary
- * instead of the attachment) and that same message would still exceed the
- * trigger afterwards, re-firing compaction every following turn.
+ * pinned by `compaction-constants.test.ts`.
+ *
+ * What that buys: **compaction must be triggered by accumulated history, never
+ * by one legal message on its own.** `LlmSession.sendMessages` appends the new
+ * message before `compactBeforeModelCall` runs, so if a single message at the
+ * per-message cap could reach this trigger by itself, sending an attachment
+ * that large would compact every time — including as the first message of an
+ * empty session. The feature would be unusable at its own documented limit.
+ *
+ * What it does *not* buy, deliberately: an attachment can still be summarized
+ * away on the turn it arrives, once history has accumulated enough that this
+ * message pushes the total over. The model then reads the compaction summary's
+ * path list rather than the bytes. That is by design — the file is still on
+ * disk and the summary names it, so the model can read it back when it needs
+ * to (https://github.com/Soulike/OmniCraft/issues/391 makes that a reference
+ * rather than base64). Do not add a rule preserving the pending message here
+ * on the strength of that outcome alone.
+ *
+ * An earlier version of this comment also claimed a single over-trigger
+ * message would "still exceed the trigger afterwards, re-firing compaction
+ * every following turn". That was wrong: compaction replaces history with a
+ * synthetic message carrying `attachments: []`, so the sum drops to zero and
+ * nothing re-fires.
  */
 export const COMPACTION_TRIGGER_ATTACHMENT_BYTES = 16 * 1024 * 1024;

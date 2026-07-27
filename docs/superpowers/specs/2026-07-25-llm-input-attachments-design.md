@@ -353,9 +353,12 @@ second catches a producer that assembled descriptors some other way, which is a 
 this process and not something a client did, so it throws.
 
 The cap runs **last**, after the freeze, because it needs sizes and the sizes must
-come from the pinned file (see "Freeze first, then describe" below). A claim the cap
-rejects therefore leaves its attachments frozen without them ever reaching the model —
-accepted, for the reasons under "A stranded claim is inert".
+come from the pinned file (see "Freeze first, then describe" below). A claim it
+rejects therefore **releases what it froze**: nothing reached the model, so leaving
+the files read-only would strand disk the user cannot reclaim, and repeating the
+request would strand more. Only the files that call transitioned are released — one
+already frozen belongs to an earlier message, and un-freezing it would let its name be
+freed and rebound.
 
 **`Cache-Control` middleware fix.** `dispatcher/index.ts:15-18` sets
 `no-store` on every `/api` response _after_ `await next()`, overwriting whatever a
@@ -448,24 +451,39 @@ that was there when the request arrived". Which file wins a race does not matter
 `describe` necessarily reads the file that was pinned. If a swap beats the `chmod`
 itself, the new file is both pinned and described, which is equally consistent.
 
-#### A stranded claim is inert
+#### The claim is one locked sequence
 
-A claim can freeze files that never reach the model: the cap rejects it, `describe`
-refuses the type, or the turn is aborted or fails before delivery (`sendMessages` rolls
-the user message back on any incomplete stream, which includes an ordinary user abort).
+`claim` freezes, describes, checks the cap, and un-freezes on rejection — a
+check-then-act over file names, so it holds a mutex. Two concurrent claims naming the
+same file would otherwise interleave such that one releases a file the other had
+already accepted and enqueued.
 
-Accepted, and deliberately not released. Such a file is **unreachable** — there is no
+The same lock covers `remove`, the other half of a race worth naming: `remove` checks
+the frozen bit and then unlinks, and `unlink` succeeds on a `0400` file — deletion
+depends on the _directory's_ mode, not the file's. So a claim landing between those two
+steps froze a file the delete then removed anyway, both reporting success. Unlike the
+placement race, which `link`'s atomicity settles because writers outside this process
+also create files, both racers here are our own API calls; that is the case a lock
+fits. `save` stays outside it — `placeUniquely` never overwrites, so uploads are
+already safe against each other, and serializing them would put a multi-megabyte write
+on a shared lock for nothing.
+
+#### A stranded claim is still possible, and inert
+
+Releasing on rejection covers what `claim` can see. It cannot cover a turn aborted or
+failed _after_ enqueueing — `sendMessages` rolls the user message back on any
+incomplete stream, which includes an ordinary user abort — because by then "frozen by
+this claim" is no longer distinguishable from "frozen by an earlier message", and every
+form of that check misfires after compaction, where an attachment survives only as a
+path in the summary and so reads as unreferenced. Freeing it there would leave the
+summary pointing at a name the user can now delete: an invisible leak traded for a
+dangling reference.
+
+So that case is accepted. Such a file is **unreachable** — there is no
 list endpoint and nothing enumerates the directory, so no client can see it. It
 contributes nothing to the byte accounting, which sums over history. Its only cost is
 disk space (bounded by the per-file caps, and the subject of #390) and a ` (2)` suffix
 on the next upload of the same name.
-
-Releasing it would have to distinguish "frozen by this claim" from "frozen by an
-earlier message that also referenced this name", and every form of that check misfires
-after compaction — where an attachment survives only as a path in the summary and so
-reads as unreferenced. Freeing it there would leave the summary pointing at a name the
-user can now delete. That trades an invisible leak for a dangling reference, which is
-the class of bug this section exists to prevent.
 
 This is what makes the byte accounting true rather than approximate. The compaction
 trigger, the per-message cap, and the per-file caps all compare against a `lastKnownByteSize`

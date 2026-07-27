@@ -20,6 +20,7 @@ import {
   isSymlinkRefusedError,
   statRegularFile,
 } from '@/helpers/fs.js';
+import {Mutex} from '@/helpers/mutex.js';
 
 import type {AttachmentResolution} from '../../llm-api/index.js';
 import {budgetStem, MAX_PLACEMENT_ATTEMPTS} from './helpers/budget-stem.js';
@@ -27,6 +28,8 @@ import {
   capFor,
   MAX_DOCUMENT_ATTACHMENT_BYTES,
   MAX_IMAGE_ATTACHMENT_BYTES,
+  MAX_MESSAGE_ATTACHMENT_BYTES,
+  totalAttachmentBytes,
 } from './helpers/cap-for.js';
 import {resolveInside} from './helpers/resolve-inside.js';
 import {sanitizeFileName} from './helpers/sanitize-file-name.js';
@@ -74,6 +77,20 @@ const FROZEN_MODE = 0o400;
  * compaction, and need no snapshot schema of its own.
  */
 const OWNER_WRITE_MODE = 0o200;
+
+/** The mode a released attachment returns to — what `writeCapped` created it
+ *  with, so a claim that fails leaves the file exactly as it found it. */
+const UNFROZEN_MODE = 0o600;
+
+/** What `freezeOne` did. `already-frozen` is deliberately distinct from
+ *  `newly-frozen`: only a file this claim transitioned may be released again,
+ *  since an earlier message may be relying on one that was frozen before. */
+type FreezeOneOutcome = 'newly-frozen' | 'already-frozen' | 'gone';
+
+interface FreezeOutcome {
+  readonly vanished: string[];
+  readonly newlyFrozen: string[];
+}
 
 export type RemoveAttachmentFailureReason = 'not-found' | 'frozen';
 
@@ -132,6 +149,32 @@ export type ClaimAttachmentsResult =
  * directly inside a real attachments directory all live here.
  */
 class AgentAttachmentStore {
+  /**
+   * Serializes the mutating operations that are not atomic on their own.
+   *
+   * `claim` freezes, reads, checks, and may un-freeze; `remove` checks the
+   * frozen bit and then unlinks. Both are check-then-act sequences over the
+   * same names, and `unlink` in particular succeeds on a `0400` file — deletion
+   * depends on the directory's mode, not the file's — so an interleaved claim
+   * could freeze a file that a delete then removes anyway, with both reporting
+   * success.
+   *
+   * Unlike the placement race, which `link`'s atomicity settles because a
+   * writer outside this process can also create files, both racers here are our
+   * own API calls. That is exactly the case a lock fits.
+   *
+   * `save` stays outside it: `placeUniquely` never overwrites (EEXIST falls
+   * through to the next candidate), so uploads are already safe against each
+   * other and against anything else, and serializing them would put a
+   * multi-megabyte write on a shared lock for nothing.
+   *
+   * One lock for every session rather than one per scratch directory. The
+   * guarded sections are a handful of `stat`/`chmod`/`unlink` calls, and this
+   * is a single-user local tool; a per-directory lock is the obvious upgrade if
+   * that ever stops being true.
+   */
+  private readonly mutex = new Mutex();
+
   /** The attachments directory for a session, given its scratch directory. */
   directory(scratchDirectory: string): string {
     return path.join(scratchDirectory, 'attachments');
@@ -360,28 +403,37 @@ class AgentAttachmentStore {
    * The system prompt tells it why not to (see `attachmentInstructions`); a
    * file already delivered to the model never needs editing again.
    */
-  async freeze(
+  private async freeze(
     scratchDirectory: string,
     fileNames: readonly string[],
-  ): Promise<string[]> {
+  ): Promise<FreezeOutcome> {
     const directory = this.directory(scratchDirectory);
     if (!(await this.verifyRealDirectoryOrAbsent(directory))) {
-      return [...fileNames];
+      return {vanished: [...fileNames], newlyFrozen: []};
     }
 
-    const frozen = await Promise.all(
+    const results = await Promise.all(
       fileNames.map((fileName) => this.freezeOne(directory, fileName)),
     );
-    return fileNames.filter((_fileName, index) => !frozen[index]);
+    return {
+      vanished: fileNames.filter((_name, index) => results[index] === 'gone'),
+      newlyFrozen: fileNames.filter(
+        (_name, index) => results[index] === 'newly-frozen',
+      ),
+    };
   }
 
-  /** Freezes one file, reporting whether it was still there to freeze. */
+  /**
+   * Freezes one file. Distinguishes a file this call transitioned from one
+   * that was already frozen — only the former may be released again, since an
+   * earlier message may be relying on the latter.
+   */
   private async freezeOne(
     directory: string,
     fileName: string,
-  ): Promise<boolean> {
+  ): Promise<FreezeOneOutcome> {
     const absolutePath = resolveInside(directory, fileName);
-    if (absolutePath === null) return false;
+    if (absolutePath === null) return 'gone';
 
     // Freezes through an open handle, never by path. An earlier version
     // lstat'd and then called `chmod(absolutePath, ...)`, reasoning that the
@@ -404,7 +456,7 @@ class AgentAttachmentStore {
       // Gone, or not something this store may freeze. Both are "nothing here
       // to pin" to the caller, which folds them into its missing list.
       if (isFileNotFoundError(error) || isSymlinkRefusedError(error)) {
-        return false;
+        return 'gone';
       }
       throw error;
     }
@@ -412,13 +464,139 @@ class AgentAttachmentStore {
     try {
       // `O_NOFOLLOW` rules out a symlink but not a directory or a device node.
       const stats = await handle.stat();
-      if (!stats.isFile()) return false;
+      if (!stats.isFile()) return 'gone';
 
+      const wasWritable = (stats.mode & OWNER_WRITE_MODE) !== 0;
       await handle.chmod(FROZEN_MODE);
-      return true;
+      return wasWritable ? 'newly-frozen' : 'already-frozen';
     } finally {
       await handle.close();
     }
+  }
+
+  /**
+   * Pins the named attachments for delivery and describes them, or explains
+   * why it could not.
+   *
+   * Runs under {@link mutex}, and that is load-bearing rather than tidiness.
+   * The sequence freezes, then reads sizes, then checks the aggregate cap, and
+   * un-freezes what it froze if the cap rejects — so two concurrent claims
+   * naming the same file could otherwise interleave such that one releases a
+   * file the other had already accepted and enqueued. Serializing makes each
+   * claim see the file either untouched or fully committed by the other.
+   *
+   * **Freeze first, then describe.** Both resolve by file name and are
+   * separate awaits, so anything between them can swap the file a name points
+   * at — a `DELETE` plus a same-name re-upload suffices, since `placeUniquely`
+   * always starts at the bare name. Describing first records a size for one
+   * file and then pins whatever occupies the name a moment later. The
+   * invariant needed is *the descriptor describes the frozen bytes*, not *the
+   * descriptor describes the file that was there when the request arrived* —
+   * which file wins a race does not matter. Once frozen, `remove` refuses the
+   * name, so it cannot be released and rebound.
+   *
+   * **The cap runs last**, because it needs sizes and the sizes must come from
+   * the pinned file. A claim it rejects therefore releases what it froze: the
+   * turn never reaches the model, so leaving the user with files they can no
+   * longer delete would strand disk they cannot reclaim. Only the files *this*
+   * call transitioned are released — one already frozen belongs to an earlier
+   * message.
+   */
+  async claim(
+    scratchDirectory: string,
+    fileNames: readonly string[],
+  ): Promise<ClaimAttachmentsResult> {
+    const release = await this.mutex.acquire();
+    try {
+      return await this.claimUnlocked(scratchDirectory, fileNames);
+    } finally {
+      release();
+    }
+  }
+
+  private async claimUnlocked(
+    scratchDirectory: string,
+    fileNames: readonly string[],
+  ): Promise<ClaimAttachmentsResult> {
+    const {vanished, newlyFrozen} = await this.freeze(
+      scratchDirectory,
+      fileNames,
+    );
+    if (vanished.length > 0) {
+      await this.release(scratchDirectory, newlyFrozen);
+      return {ok: false, reason: 'unknown-attachments', missing: vanished};
+    }
+
+    const found = await Promise.all(
+      fileNames.map((fileName) => this.describe(scratchDirectory, fileName)),
+    );
+    const missing = fileNames.filter((_name, index) => found[index] === null);
+    if (missing.length > 0) {
+      await this.release(scratchDirectory, newlyFrozen);
+      return {ok: false, reason: 'unknown-attachments', missing};
+    }
+
+    const attachments: LlmAttachment[] = [];
+    for (const entry of found) {
+      // Narrowed by the `missing` check above; every entry is present.
+      if (entry === null) continue;
+      attachments.push(entry.attachment);
+    }
+
+    const totalBytes = totalAttachmentBytes(attachments);
+    if (totalBytes > MAX_MESSAGE_ATTACHMENT_BYTES) {
+      await this.release(scratchDirectory, newlyFrozen);
+      return {
+        ok: false,
+        reason: 'attachments-too-large',
+        totalBytes,
+        limit: MAX_MESSAGE_ATTACHMENT_BYTES,
+      };
+    }
+
+    return {ok: true, attachments};
+  }
+
+  /**
+   * Restores the owner-write bit, undoing a freeze this claim performed.
+   *
+   * Only ever called with names {@link freezeOne} reported as `newly-frozen`,
+   * and only from inside {@link claim}'s lock, so it can never un-freeze an
+   * attachment an earlier message is relying on. Opens under the same flags as
+   * the freeze for the same reason — a name is not a safe thing to chmod.
+   *
+   * Best effort: a file that vanished between the freeze and here needs no
+   * undoing, and a claim already failing should report why it failed rather
+   * than an error from its own cleanup.
+   */
+  private async release(
+    scratchDirectory: string,
+    fileNames: readonly string[],
+  ): Promise<void> {
+    const directory = this.directory(scratchDirectory);
+    await Promise.all(
+      fileNames.map(async (fileName) => {
+        const absolutePath = resolveInside(directory, fileName);
+        if (absolutePath === null) return;
+        let handle: FileHandle;
+        try {
+          handle = await open(
+            absolutePath,
+            constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK,
+          );
+        } catch (error: unknown) {
+          if (isFileNotFoundError(error) || isSymlinkRefusedError(error)) {
+            return;
+          }
+          throw error;
+        }
+        try {
+          await handle.chmod(UNFROZEN_MODE);
+        } finally {
+          await handle.close();
+        }
+      }),
+    );
   }
 
   /**

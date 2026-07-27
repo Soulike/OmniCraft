@@ -606,139 +606,176 @@ describe('describe / readBase64 / remove', () => {
   });
 });
 
-describe('freeze', () => {
-  async function modeOf(fileName: string): Promise<number> {
+describe('claim', () => {
+  async function modeOf(fileName: string): Promise<string> {
     const stats = await lstat(
       path.join(agentAttachmentStore.directory(scratchDirectory), fileName),
     );
-    return stats.mode & 0o777;
+    return (stats.mode & 0o777).toString(8);
   }
 
-  it('drops the write bit and reports nothing missing', async () => {
-    await agentAttachmentStore.save(
+  async function save(fileName: string, bytes: Buffer): Promise<void> {
+    const result = await agentAttachmentStore.save(
       scratchDirectory,
-      'shot.png',
-      streamOf(pngOf(64)),
+      fileName,
+      streamOf(bytes),
     );
-    expect(await modeOf('shot.png')).toBe(0o600);
+    expect(result.ok).toBe(true);
+  }
 
-    expect(
-      await agentAttachmentStore.freeze(scratchDirectory, ['shot.png']),
-    ).toEqual([]);
-    expect(await modeOf('shot.png')).toBe(0o400);
-  });
+  it('freezes what it claims and describes the frozen bytes', async () => {
+    await save('shot.png', pngOf(64));
 
-  // The invariant the whole byte budget rests on: once a descriptor is in
-  // history, its `lastKnownByteSize` must keep describing the bytes on disk. The only
-  // way an API caller could rebind a name to different bytes is to free it
-  // first — `placeUniquely` never overwrites, it falls through to `(2)`. So
-  // refusing the delete closes the rebinding path entirely.
-  it('makes the name unreclaimable: remove refuses, so a re-upload cannot take it back', async () => {
-    await agentAttachmentStore.save(
-      scratchDirectory,
+    const claimed = await agentAttachmentStore.claim(scratchDirectory, [
       'shot.png',
-      streamOf(pngOf(64)),
-    );
-    await agentAttachmentStore.freeze(scratchDirectory, ['shot.png']);
+    ]);
 
+    expect(claimed).toEqual({
+      ok: true,
+      attachments: [
+        {
+          fileName: 'shot.png',
+          mediaType: 'image/png',
+          lastKnownByteSize: 64,
+        },
+      ],
+    });
+    expect(await modeOf('shot.png')).toBe('400');
     expect(
       await agentAttachmentStore.remove(scratchDirectory, 'shot.png'),
     ).toEqual({ok: false, reason: 'frozen'});
-
-    // A second upload of the same desired name gets its own file rather than
-    // the frozen one's bytes.
-    const again = await agentAttachmentStore.save(
-      scratchDirectory,
-      'shot.png',
-      streamOf(pngOf(128)),
-    );
-    expect(again).toMatchObject({ok: true});
-    expect(again.ok && again.attachment.fileName).toBe('shot (2).png');
-    expect(
-      await agentAttachmentStore.readBase64(scratchDirectory, 'shot.png'),
-    ).toEqual({
-      data: pngOf(64).toString('base64'),
-      materializedByteSize: pngOf(64).byteLength,
-    });
   });
 
-  it('leaves a frozen file readable and describable', async () => {
-    await agentAttachmentStore.save(
-      scratchDirectory,
-      'shot.png',
-      streamOf(pngOf(64)),
-    );
-    await agentAttachmentStore.freeze(scratchDirectory, ['shot.png']);
-
-    const found = await agentAttachmentStore.describe(
-      scratchDirectory,
-      'shot.png',
-    );
-    expect(found?.attachment).toEqual({
-      fileName: 'shot.png',
-      mediaType: 'image/png',
-      lastKnownByteSize: 64,
-    });
-    expect(
-      await agentAttachmentStore.readBase64(scratchDirectory, 'shot.png'),
-    ).toEqual({
-      data: pngOf(64).toString('base64'),
-      materializedByteSize: pngOf(64).byteLength,
-    });
-  });
-
-  it('is idempotent, so attaching the same file to a second message is fine', async () => {
-    await agentAttachmentStore.save(
-      scratchDirectory,
-      'shot.png',
-      streamOf(pngOf(64)),
-    );
+  it('reports every unknown name at once, and leaves nothing frozen', async () => {
+    await save('here.png', pngOf(64));
 
     expect(
-      await agentAttachmentStore.freeze(scratchDirectory, ['shot.png']),
-    ).toEqual([]);
-    expect(
-      await agentAttachmentStore.freeze(scratchDirectory, ['shot.png']),
-    ).toEqual([]);
-    expect(await modeOf('shot.png')).toBe(0o400);
-  });
-
-  it('reports names it could not freeze rather than silently skipping them', async () => {
-    await agentAttachmentStore.save(
-      scratchDirectory,
-      'here.png',
-      streamOf(pngOf(64)),
-    );
-
-    expect(
-      await agentAttachmentStore.freeze(scratchDirectory, [
+      await agentAttachmentStore.claim(scratchDirectory, [
         'here.png',
         'gone.png',
-        '../escape.png',
       ]),
-    ).toEqual(['gone.png', '../escape.png']);
-  });
+    ).toEqual({
+      ok: false,
+      reason: 'unknown-attachments',
+      missing: ['gone.png'],
+    });
 
-  it('reports every name when the attachments directory does not exist yet', async () => {
+    // `here.png` was frozen on the way to discovering `gone.png` was not
+    // there. Since no turn was enqueued, it must be deletable again.
+    expect(await modeOf('here.png')).toBe('600');
     expect(
-      await agentAttachmentStore.freeze(scratchDirectory, ['shot.png']),
-    ).toEqual(['shot.png']);
+      await agentAttachmentStore.remove(scratchDirectory, 'here.png'),
+    ).toEqual({ok: true});
   });
 
-  // `freeze` opens the file and `fchmod`s through that handle, so these three
-  // cases are all the same question asked of the handle rather than the path.
-  // The race the handle closes — a symlink planted between a check and a
-  // separate `chmod(path)` — has no test because it no longer has a window to
-  // inject into: there is only one resolution now. What these pin is that the
-  // one resolution refuses everything that is not a regular file.
+  // The cap can only run after the freeze, because it needs sizes from the
+  // pinned files. A claim it rejects must therefore undo the freeze: nothing
+  // reached the model, so leaving the files read-only would strand disk the
+  // user cannot reclaim, and repeating the request would strand more.
+  it('releases what it froze when the aggregate cap rejects the claim', async () => {
+    const names = ['a.pdf', 'b.pdf'];
+    for (const name of names) {
+      await save(
+        name,
+        Buffer.concat([
+          PDF_HEADER,
+          Buffer.alloc(MAX_DOCUMENT_ATTACHMENT_BYTES - PDF_HEADER.length),
+        ]),
+      );
+    }
+
+    expect(
+      await agentAttachmentStore.claim(scratchDirectory, names),
+    ).toMatchObject({ok: false, reason: 'attachments-too-large'});
+
+    for (const name of names) {
+      expect(await modeOf(name)).toBe('600');
+      expect(await agentAttachmentStore.remove(scratchDirectory, name)).toEqual(
+        {ok: true},
+      );
+    }
+  });
+
+  // The release must not reach past its own claim: a file frozen by an earlier
+  // message is in history, and un-freezing it would let the name be freed and
+  // rebound to different bytes — the thing freezing exists to prevent.
+  it('leaves an already-frozen attachment frozen when a later claim is rejected', async () => {
+    // A PNG, so `save` stores it under `.png` — the store names files by the
+    // sniffed type, never by the requested extension.
+    await save('sent.png', pngOf(64));
+    expect(
+      await agentAttachmentStore.claim(scratchDirectory, ['sent.png']),
+    ).toMatchObject({ok: true});
+
+    const oversized = Buffer.concat([
+      PDF_HEADER,
+      Buffer.alloc(MAX_DOCUMENT_ATTACHMENT_BYTES - PDF_HEADER.length),
+    ]);
+    await save('a.pdf', oversized);
+    await save('b.pdf', oversized);
+
+    expect(
+      await agentAttachmentStore.claim(scratchDirectory, [
+        'sent.png',
+        'a.pdf',
+        'b.pdf',
+      ]),
+    ).toMatchObject({ok: false, reason: 'attachments-too-large'});
+
+    // The two this claim froze are released; the one an earlier claim froze
+    // stays frozen.
+    expect(await modeOf('a.pdf')).toBe('600');
+    expect(await modeOf('b.pdf')).toBe('600');
+    expect(await modeOf('sent.png')).toBe('400');
+    expect(
+      await agentAttachmentStore.remove(scratchDirectory, 'sent.png'),
+    ).toEqual({ok: false, reason: 'frozen'});
+  });
+
+  // `remove` checks the frozen bit and then unlinks, and `unlink` succeeds on
+  // a 0400 file — deletion depends on the directory's mode, not the file's. So
+  // without the lock a claim landing between those two steps freezes a file
+  // that the delete then removes anyway, and both report success. Exactly one
+  // of them may win.
+  it('never lets a concurrent claim and remove both succeed', async () => {
+    for (let attempt = 0; attempt < 200; attempt++) {
+      await save('shot.png', pngOf(64));
+
+      const [claimed, removed] = await Promise.all([
+        agentAttachmentStore.claim(scratchDirectory, ['shot.png']),
+        agentAttachmentStore.remove(scratchDirectory, 'shot.png'),
+      ]);
+
+      expect(claimed.ok && removed.ok).toBe(false);
+
+      // Whichever won, the store must agree with itself afterwards: a file
+      // that survived is frozen, and a file that is gone stays gone.
+      const found = await agentAttachmentStore.describe(
+        scratchDirectory,
+        'shot.png',
+      );
+      expect(found === null).toBe(removed.ok);
+      if (found !== null) expect(await modeOf('shot.png')).toBe('400');
+
+      await rm(agentAttachmentStore.directory(scratchDirectory), {
+        recursive: true,
+        force: true,
+      });
+    }
+  }, 30000);
+
   it('refuses a directory planted at an attachment name', async () => {
     const attachmentsDirectory =
       agentAttachmentStore.directory(scratchDirectory);
     await mkdir(path.join(attachmentsDirectory, 'shot.png'), {recursive: true});
 
     expect(
-      await agentAttachmentStore.freeze(scratchDirectory, ['shot.png']),
-    ).toEqual(['shot.png']);
+      await agentAttachmentStore.claim(scratchDirectory, ['shot.png']),
+    ).toEqual({
+      ok: false,
+      reason: 'unknown-attachments',
+      missing: ['shot.png'],
+    });
   });
 
   it('refuses a FIFO without blocking on a writer that never comes', async () => {
@@ -750,11 +787,11 @@ describe('freeze', () => {
     ]);
 
     expect(
-      await agentAttachmentStore.freeze(scratchDirectory, ['shot.png']),
-    ).toEqual(['shot.png']);
+      await agentAttachmentStore.claim(scratchDirectory, ['shot.png']),
+    ).toMatchObject({ok: false, reason: 'unknown-attachments'});
   }, 5000);
 
-  // `chmod` follows symlinks; `freeze` must not, or a link planted at an
+  // `chmod` follows symlinks; claiming must not, or a link planted at an
   // attachment name would turn some file outside the store read-only.
   it('refuses a symlink instead of chmod-ing its target', async () => {
     const attachmentsDirectory =
@@ -765,8 +802,8 @@ describe('freeze', () => {
     await symlink(outside, path.join(attachmentsDirectory, 'link.png'));
 
     expect(
-      await agentAttachmentStore.freeze(scratchDirectory, ['link.png']),
-    ).toEqual(['link.png']);
+      await agentAttachmentStore.claim(scratchDirectory, ['link.png']),
+    ).toMatchObject({ok: false, reason: 'unknown-attachments'});
     expect((await lstat(outside)).mode & 0o777).toBe(0o600);
   });
 });

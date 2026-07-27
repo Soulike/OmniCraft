@@ -430,75 +430,17 @@ export abstract class Agent {
   }
 
   /**
-   * Freezes the caller-supplied attachments, then describes them and enforces
-   * the per-message byte cap. The caller never supplies `mediaType` or
-   * `lastKnownByteSize`, so what lands in the snapshot always matches the bytes.
-   * Reports every unknown name at once so a client can show them all.
+   * Pins the caller-supplied attachments for this turn and describes them.
    *
-   * **Freeze first, then describe.** Both steps resolve by file name, and they
-   * are separate awaits, so anything between them can swap the file a name
-   * points at — a DELETE plus a same-name re-upload is enough, since
-   * `placeUniquely` always starts at the bare name. Describing first records a
-   * `lastKnownByteSize` for one file and then pins whatever occupies the name a moment
-   * later, which is the exact stale-descriptor bug freezing exists to prevent.
-   *
-   * The order fixes it without any identity tracking, because the invariant
-   * needed is *"the descriptor describes the frozen bytes"* — not "the
-   * descriptor describes the file that was there when the request arrived".
-   * Once `freeze` returns, `remove` refuses the name, so it cannot be released
-   * and rebound; `describe` therefore reads the very file that was pinned. If
-   * a swap wins the race against the `chmod` itself, the new file is the one
-   * pinned *and* the one described, which is equally consistent.
-   *
-   * The cap can only run last, since it needs sizes and the sizes must come
-   * from the pinned file. So a claim rejected by the cap leaves its
-   * attachments frozen without ever reaching the model. That is accepted: such
-   * a file is unreachable (nothing enumerates the store — there is no list
-   * endpoint), contributes nothing to the byte accounting (it is not in
-   * history), and costs only disk space plus a ` (2)` suffix on the next
-   * upload of the same name. Releasing it would need to distinguish "frozen by
-   * this claim" from "frozen by an earlier message", and every version of that
-   * check misfires after compaction — where an attachment survives only as a
-   * path in the summary and so looks unreferenced. See the design doc.
+   * A forward, like the other three attachment methods: the sequence is a
+   * check-then-act over file names that has to hold a lock and un-freeze what
+   * it froze when the byte cap rejects it, and all of that belongs to the
+   * store that owns those files. See {@link agentAttachmentStore.claim}.
    */
-  async claimAttachments(
+  claimAttachments(
     fileNames: readonly string[],
   ): Promise<ClaimAttachmentsResult> {
-    const vanished = await agentAttachmentStore.freeze(
-      this.scratchDirectory,
-      fileNames,
-    );
-    if (vanished.length > 0) {
-      return {ok: false, reason: 'unknown-attachments', missing: vanished};
-    }
-
-    const found = await Promise.all(
-      fileNames.map((fileName) => this.describeAttachment(fileName)),
-    );
-
-    const missing = fileNames.filter((_name, index) => found[index] === null);
-    if (missing.length > 0) {
-      return {ok: false, reason: 'unknown-attachments', missing};
-    }
-
-    const attachments: LlmAttachment[] = [];
-    for (const entry of found) {
-      // Narrowed by the `missing` check above; every entry is present.
-      if (entry === null) continue;
-      attachments.push(entry.attachment);
-    }
-
-    const totalBytes = totalAttachmentBytes(attachments);
-    if (totalBytes > MAX_MESSAGE_ATTACHMENT_BYTES) {
-      return {
-        ok: false,
-        reason: 'attachments-too-large',
-        totalBytes,
-        limit: MAX_MESSAGE_ATTACHMENT_BYTES,
-      };
-    }
-
-    return {ok: true, attachments};
+    return agentAttachmentStore.claim(this.scratchDirectory, fileNames);
   }
 
   protected runAgentLoop(

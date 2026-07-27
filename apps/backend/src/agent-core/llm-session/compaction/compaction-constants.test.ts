@@ -13,10 +13,13 @@ import {COMPACTION_TRIGGER_ATTACHMENT_BYTES} from './compaction-constants.js';
 //
 // - Strictly below the trigger: `LlmSession.sendMessages` appends the new
 //   message to history *before* `compactBeforeModelCall` runs. If one legal
-//   message could reach the trigger on its own, compaction would fire on the
-//   very turn the attachment arrived (the model would see a summary instead
-//   of the attachment) and that same message would still exceed the trigger
-//   afterwards, re-firing compaction every following turn.
+//   message could reach the trigger on its own, sending an attachment at the
+//   per-message cap would compact every time — including as the first message
+//   of an empty session — so the feature would be unusable at its own
+//   documented limit. Compaction must be triggered by accumulated history,
+//   never by one legal message alone. (An attachment being summarized away on
+//   the turn it arrives, once history has accumulated, is by design: the file
+//   is still on disk and the summary names it. See the constant's comment.)
 // - At or above the largest per-file cap: otherwise a single legal
 //   attachment at `MAX_IMAGE_ATTACHMENT_BYTES` or `MAX_DOCUMENT_ATTACHMENT_BYTES`,
 //   whichever is larger, could never be sent.
