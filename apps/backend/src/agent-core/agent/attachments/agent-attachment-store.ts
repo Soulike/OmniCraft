@@ -98,9 +98,28 @@ export type RemoveAttachmentResult =
   | {readonly ok: true}
   | {readonly ok: false; readonly reason: RemoveAttachmentFailureReason};
 
+/** A file's identity on disk, from the `lstat` that described it. Two numbers
+ *  the kernel guarantees identify one inode, so a caller that later opens
+ *  `absolutePath` can confirm it got *this* file rather than whatever now
+ *  answers to that name. */
+export interface AttachmentIdentity {
+  readonly deviceId: number;
+  readonly inode: number;
+}
+
 export interface AttachmentDescriptor {
   readonly attachment: LlmAttachment;
   readonly absolutePath: string;
+  /** What {@link describe} actually looked at.
+   *
+   *  `absolutePath` is a name, and a name is resolved fresh by every operation
+   *  that touches it — `O_NOFOLLOW` only refuses a symlinked *final*
+   *  component, so renaming the attachments directory and leaving a symlink in
+   *  its place redirects an `open` of the very same string to a file outside
+   *  the store. Node exposes no `openat`, so a directory handle cannot be
+   *  pinned; comparing this against the opened handle's `fstat` is how a
+   *  caller binds to the file instead of to the path. */
+  readonly identity: AttachmentIdentity;
   /** The file's last-modified time, in milliseconds since the epoch, from the
    *  same `lstat` `describe` already performs. Exposed so a caller can build a
    *  cache validator (e.g. an `ETag`) without opening the file — a name is not
@@ -322,6 +341,7 @@ class AgentAttachmentStore {
     return {
       attachment: {fileName, mediaType, lastKnownByteSize: stats.size},
       absolutePath,
+      identity: {deviceId: stats.dev, inode: stats.ino},
       mtimeMs: stats.mtimeMs,
     };
   }
@@ -596,6 +616,12 @@ class AgentAttachmentStore {
           throw error;
         }
         try {
+          // Same gate as `freezeOne`: `O_NOFOLLOW` rules out a symlink, but on
+          // Linux a directory opens fine, and `chmod`ing one to `0600` would
+          // strip its traversal bit. An entry replaced between the freeze and
+          // this release is not ours to touch.
+          const stats = await handle.stat();
+          if (!stats.isFile()) return;
           await handle.chmod(UNFROZEN_MODE);
         } finally {
           await handle.close();

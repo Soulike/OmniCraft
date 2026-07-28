@@ -703,6 +703,43 @@ describe('claim', () => {
     }
   });
 
+  // The release opens by path like the freeze does, so it needs the same gate:
+  // `O_NOFOLLOW` refuses a symlink but a directory opens fine, and `chmod`ing
+  // one to 0600 strips its traversal bit. The swap lands after `describe` has
+  // read the file, so the claim proceeds to the cap check, fails, and releases
+  // onto whatever now holds the name.
+  it('does not chmod a directory that replaced a file it froze', async () => {
+    const oversized = Buffer.concat([
+      PDF_HEADER,
+      Buffer.alloc(MAX_DOCUMENT_ATTACHMENT_BYTES - PDF_HEADER.length),
+    ]);
+    await save('a.pdf', oversized);
+    await save('b.pdf', oversized);
+
+    const attachmentsDirectory =
+      agentAttachmentStore.directory(scratchDirectory);
+    const target = path.join(attachmentsDirectory, 'a.pdf');
+    const real = vi.mocked(fileTypeFromFile).getMockImplementation();
+    expect(real).toBeDefined();
+    vi.mocked(fileTypeFromFile).mockImplementation(async (input) => {
+      const detected = await (real as typeof fileTypeFromFile)(input);
+      if (input === target) {
+        vi.mocked(fileTypeFromFile).mockImplementation(
+          real as typeof fileTypeFromFile,
+        );
+        await unlink(target);
+        await mkdir(target, {mode: 0o700});
+      }
+      return detected;
+    });
+
+    await agentAttachmentStore.claim(scratchDirectory, ['a.pdf', 'b.pdf']);
+
+    // The planted directory must be untouched — 0600 would have cost it the
+    // traversal bit and left it unusable.
+    expect(((await lstat(target)).mode & 0o777).toString(8)).toBe('700');
+  });
+
   // The release must not reach past its own claim: a file frozen by an earlier
   // message is in history, and un-freezing it would let the name be freed and
   // rebound to different bytes — the thing freezing exists to prevent.

@@ -1,6 +1,14 @@
 import {execFile} from 'node:child_process';
 import crypto from 'node:crypto';
-import {mkdir, mkdtemp, rm, symlink, writeFile} from 'node:fs/promises';
+import {
+  mkdir,
+  mkdtemp,
+  rename,
+  rm,
+  stat,
+  symlink,
+  writeFile,
+} from 'node:fs/promises';
 import type {Server} from 'node:http';
 import type {AddressInfo} from 'node:net';
 import os from 'node:os';
@@ -88,12 +96,17 @@ afterEach(() => {
   removeResultToReturn = {ok: true};
 });
 
-async function descriptorFor(fileName: string): Promise<AttachmentDescriptor> {
+async function descriptorFor(
+  fileName: string,
+  mediaType: 'image/png' | 'application/pdf' = 'image/png',
+): Promise<AttachmentDescriptor> {
   const absolutePath = path.join(scratchDirectory, crypto.randomUUID());
   await writeFile(absolutePath, 'bytes');
+  const stats = await stat(absolutePath);
   return {
-    attachment: {fileName, mediaType: 'image/png', lastKnownByteSize: 5},
+    attachment: {fileName, mediaType, lastKnownByteSize: 5},
     absolutePath,
+    identity: {deviceId: stats.dev, inode: stats.ino},
     mtimeMs: Date.now(),
   };
 }
@@ -229,6 +242,46 @@ describe('GET .../attachments/:fileName open-time hardening', () => {
     expect(body).not.toContain('TOP SECRET');
   });
 
+  // `O_NOFOLLOW` only refuses a symlinked *final* component, so the path can
+  // still be redirected higher up: rename the directory the descriptor points
+  // into, leave a symlink in its place, and an `open` of the same string
+  // resolves outside the store. Node has no `openat` to pin the parent with,
+  // so the response is bound to the file's inode instead — any component
+  // changing underneath yields a different one.
+  it('refuses a file reached through a swapped parent directory', async () => {
+    const realDirectory = path.join(scratchDirectory, 'real');
+    const elsewhere = path.join(scratchDirectory, 'elsewhere');
+    await mkdir(realDirectory);
+    await mkdir(elsewhere);
+    const absolutePath = path.join(realDirectory, 'shot.png');
+    await writeFile(absolutePath, 'bytes');
+    await writeFile(path.join(elsewhere, 'shot.png'), 'TOP SECRET');
+    const stats = await stat(absolutePath);
+
+    descriptorToReturn = {
+      attachment: {
+        fileName: 'shot.png',
+        mediaType: 'image/png',
+        lastKnownByteSize: 5,
+      },
+      absolutePath,
+      identity: {deviceId: stats.dev, inode: stats.ino},
+      mtimeMs: Date.now(),
+    };
+
+    // The parent is swapped after the descriptor was produced.
+    await rename(realDirectory, path.join(scratchDirectory, 'real.moved'));
+    await symlink(elsewhere, realDirectory);
+
+    const res = await fetch(
+      `${baseUrl}/sessions/${SESSION_ID}/attachments/shot.png`,
+    );
+    const body = await res.text();
+
+    expect(res.status).toBe(404);
+    expect(body).not.toContain('TOP SECRET');
+  });
+
   // `O_NOFOLLOW` does not cover this one: a directory opens fine, and the
   // failure would otherwise surface mid-stream, after the status is committed.
   it('refuses a directory planted at the attachment path', async () => {
@@ -259,6 +312,47 @@ describe('GET .../attachments/:fileName open-time hardening', () => {
     );
 
     expect(res.status).toBe(404);
+  });
+});
+
+describe('GET .../attachments/:fileName disposition', () => {
+  // Images are rendered inline in the message stream, so they need it. A PDF
+  // does not, and handing an untrusted document to the browser's PDF viewer on
+  // the same origin as the agent-control API buys nothing.
+  it('serves a PDF as an attachment, not inline', async () => {
+    descriptorToReturn = await descriptorFor('invoice.pdf', 'application/pdf');
+
+    const res = await fetch(
+      `${baseUrl}/sessions/${SESSION_ID}/attachments/invoice.pdf`,
+    );
+
+    expect(res.headers.get('content-disposition')).toBe(
+      'attachment; filename="invoice.pdf"',
+    );
+  });
+
+  it('keeps images inline', async () => {
+    descriptorToReturn = await descriptorFor('shot.png');
+
+    const res = await fetch(
+      `${baseUrl}/sessions/${SESSION_ID}/attachments/shot.png`,
+    );
+
+    expect(res.headers.get('content-disposition')).toBe(
+      'inline; filename="shot.png"',
+    );
+  });
+
+  // Only binds when the response is loaded as a document, so an `<img>` is
+  // unaffected; what it covers is a user navigating straight to the URL.
+  it('sandboxes the response', async () => {
+    descriptorToReturn = await descriptorFor('shot.png');
+
+    const res = await fetch(
+      `${baseUrl}/sessions/${SESSION_ID}/attachments/shot.png`,
+    );
+
+    expect(res.headers.get('content-security-policy')).toBe('sandbox');
   });
 });
 

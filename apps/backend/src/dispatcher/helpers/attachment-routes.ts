@@ -248,11 +248,23 @@ export function registerAttachmentRoutes(
       throw error;
     }
 
-    // `O_NOFOLLOW` rules out a symlink, but not a directory or a device node
-    // planted at the same name. Asking the open handle — rather than the path,
-    // which a third resolution would have to walk again — is what makes this
-    // final rather than one more moment something can change under.
-    if (!streamed.isFile()) {
+    // `O_NOFOLLOW` only refuses a symlinked *final* component, so it does not
+    // stop the path being redirected higher up: renaming the attachments
+    // directory and leaving a symlink in its place makes this `open` of the
+    // very same string resolve to a file outside the store, and the handler
+    // would serve it. Node exposes no `openat`, so the directory cannot be
+    // pinned and opened relative to — but the fd does pin an inode, so
+    // comparing it against what `describe` looked at binds the response to the
+    // file rather than to the name. Any component of the path changing
+    // underneath produces a different inode and lands here.
+    //
+    // The `isFile` check stays: `O_NOFOLLOW` admits a directory or a device
+    // node at the final component, and those would otherwise fail mid-stream,
+    // after the status is already committed.
+    const isSameFile =
+      streamed.dev === descriptor.identity.deviceId &&
+      streamed.ino === descriptor.identity.inode;
+    if (!isSameFile || !streamed.isFile()) {
       await fileHandle.close();
       ctx.response.status = StatusCodes.NOT_FOUND;
       ctx.response.body = {error: 'Attachment not found'};
@@ -264,9 +276,9 @@ export function registerAttachmentRoutes(
     ctx.response.etag = `${streamed.size}-${streamed.mtimeMs}`;
     // The sniffed Content-Type above is trustworthy (never client-supplied),
     // but nosniff still stops a browser from second-guessing it based on the
-    // bytes. `inline`, not `attachment`, is deliberate: the frontend renders
-    // these images in the message stream next round — the escaped filename
-    // is only for when a user chooses to save the file themselves.
+    // bytes. `sandbox` is belt to that braces: it only binds when the response
+    // is loaded as a document, so it costs an `<img>` nothing, and it strips
+    // the origin from anything a user navigates to directly.
     //
     // The media type alone still comes from `describe`, so the same swap can
     // mislabel it. That degrades to a file the browser cannot render rather
@@ -276,6 +288,7 @@ export function registerAttachmentRoutes(
     // this handle, which belongs in the store — it owns magic-byte detection —
     // not open-coded here.
     ctx.response.set('X-Content-Type-Options', 'nosniff');
+    ctx.response.set('Content-Security-Policy', 'sandbox');
     // Koa's own helper, which delegates to jshttp's `content-disposition` —
     // hand-rolling this is a trap. A stored name can be non-ASCII (the
     // sanitizer preserves Unicode), and Node's `setHeader` rejects anything
@@ -285,7 +298,18 @@ export function registerAttachmentRoutes(
     // it. Called after `ctx.response.type` is set, because it would otherwise
     // guess the type from the file extension — the sniffed media type is the
     // trustworthy one.
-    ctx.response.attachment(descriptor.attachment.fileName, {type: 'inline'});
+    // `inline` for images, because the frontend renders them in the message
+    // stream next round. Not for PDFs: nothing needs one inline, and handing an
+    // untrusted document to the browser's PDF viewer on the same origin as the
+    // agent-control API is a needless place to be generous. The escaped file
+    // name is what a user sees when they save it either way.
+    const disposition =
+      descriptor.attachment.mediaType === 'application/pdf'
+        ? 'attachment'
+        : 'inline';
+    ctx.response.attachment(descriptor.attachment.fileName, {
+      type: disposition,
+    });
     ctx.body = fileHandle.createReadStream();
   });
 

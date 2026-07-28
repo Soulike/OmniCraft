@@ -415,6 +415,15 @@ taken for `Content-Length` also gates on `isFile()`. Asking the open handle is w
 makes it final: a third path resolution would just be one more moment for something
 to change underneath.
 
+`O_NOFOLLOW` only refuses a symlinked **final** component, so it does not stop the
+path being redirected higher up: renaming the attachments directory and leaving a
+symlink in its place makes an `open` of the very same string resolve outside the store.
+Node exposes no `openat`, so a directory handle cannot be pinned and opened relative
+to. Instead `describe` records the file's `dev`/`ino`, and the download compares that
+against the opened handle's `fstat` — the fd pins an inode, so any component of the
+path changing underneath yields a different one. That binds the response to the file
+rather than to the name, which is the same move as everything above, one level up.
+
 `freeze` does the same: it opens under the same flags, checks `isFile()` on the
 handle, and `fchmod`s through it. An earlier version `lstat`ed and then called
 `chmod(path)` — reasoning that the `lstat` would catch a symlink — but those are two
@@ -427,6 +436,17 @@ describe/freeze gap, the download's `Content-Length`, the download's `open`, and
 fix was the same move: **bind to the object you actually operate on, never re-resolve
 the name.** Checking a path and then acting on it is not atomic no matter what the
 check looks at, which is exactly what three of the four wrong code comments claimed.
+
+### The download's disposition is per media type
+
+`inline` for images, because the frontend renders them in the message stream. Not for
+PDFs — nothing needs one inline, and handing an untrusted document to the browser's
+PDF viewer under the same origin as the agent-control API buys nothing. Those get
+`attachment`.
+
+Every attachment response also carries `Content-Security-Policy: sandbox`. It only
+binds when the response is loaded as a document, so an `<img>` is unaffected; what it
+covers is a user navigating straight to the URL.
 
 ### Frozen once sent
 
