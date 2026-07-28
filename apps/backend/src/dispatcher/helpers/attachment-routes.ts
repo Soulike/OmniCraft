@@ -6,7 +6,11 @@ import type {Readable} from 'node:stream';
 
 import type Router from '@koa/router';
 import {uploadAttachmentQuerySchema} from '@omnicraft/api-schema';
-import type {LlmAttachment} from '@omnicraft/tool-schemas';
+import type {
+  DocumentMediaType,
+  ImageMediaType,
+  LlmAttachment,
+} from '@omnicraft/tool-schemas';
 import {StatusCodes} from 'http-status-codes';
 import {ZodError} from 'zod';
 
@@ -17,6 +21,28 @@ import type {
 import {isFileNotFoundError, isSymlinkRefusedError} from '@/helpers/fs.js';
 
 import {parseSessionId} from './session-id.js';
+
+/**
+ * Whether a stored media type may render in the browser or must download.
+ *
+ * A `Record` keyed by the union rather than a check for the unsafe types:
+ * adding a deliverable media type without deciding this is a compile error,
+ * where either default would be a silent answer — and the silent answer a
+ * ternary gives is `inline`, the permissive one.
+ *
+ * Images are `inline` because the frontend renders them in the message stream.
+ * A PDF has no such need, and handing an untrusted document to the browser's
+ * PDF viewer under the same origin as the agent-control API buys nothing.
+ */
+const DISPOSITION_BY_MEDIA_TYPE: Readonly<
+  Record<ImageMediaType | DocumentMediaType, 'inline' | 'attachment'>
+> = {
+  'image/png': 'inline',
+  'image/jpeg': 'inline',
+  'image/gif': 'inline',
+  'image/webp': 'inline',
+  'application/pdf': 'attachment',
+};
 
 export interface AttachmentRoutePaths {
   readonly collection: string;
@@ -298,17 +324,8 @@ export function registerAttachmentRoutes(
     // it. Called after `ctx.response.type` is set, because it would otherwise
     // guess the type from the file extension — the sniffed media type is the
     // trustworthy one.
-    // `inline` for images, because the frontend renders them in the message
-    // stream next round. Not for PDFs: nothing needs one inline, and handing an
-    // untrusted document to the browser's PDF viewer on the same origin as the
-    // agent-control API is a needless place to be generous. The escaped file
-    // name is what a user sees when they save it either way.
-    const disposition =
-      descriptor.attachment.mediaType === 'application/pdf'
-        ? 'attachment'
-        : 'inline';
     ctx.response.attachment(descriptor.attachment.fileName, {
-      type: disposition,
+      type: DISPOSITION_BY_MEDIA_TYPE[descriptor.attachment.mediaType],
     });
     ctx.body = fileHandle.createReadStream();
   });

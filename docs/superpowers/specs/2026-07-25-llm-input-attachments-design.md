@@ -439,10 +439,14 @@ check looks at, which is exactly what three of the four wrong code comments clai
 
 ### The download's disposition is per media type
 
-`inline` for images, because the frontend renders them in the message stream. Not for
-PDFs — nothing needs one inline, and handing an untrusted document to the browser's
-PDF viewer under the same origin as the agent-control API buys nothing. Those get
-`attachment`.
+A `Record` keyed by the media-type union, not a check for the unsafe types: adding a
+deliverable media type without deciding its disposition is a compile error. Either
+default would be a silent answer, and the one a ternary gives is `inline` — the
+permissive side. Same reasoning as `CAP_BY_MEDIA_TYPE` and `EXTENSION_BY_MEDIA_TYPE`.
+
+Images are `inline`, because the frontend renders them in the message stream. A PDF has
+no such need, and handing an untrusted document to the browser's PDF viewer under the
+same origin as the agent-control API buys nothing, so it downloads.
 
 Every attachment response also carries `Content-Security-Policy: sandbox`. It only
 binds when the response is loaded as a document, so an `<img>` is unaffected; what it
