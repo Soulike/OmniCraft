@@ -3,7 +3,7 @@ import crypto from 'node:crypto';
 import type {Stats} from 'node:fs';
 import {constants} from 'node:fs';
 import type {FileHandle} from 'node:fs/promises';
-import {link, lstat, mkdir, open, readFile, rm, unlink} from 'node:fs/promises';
+import {link, lstat, mkdir, open, rm, unlink} from 'node:fs/promises';
 import path from 'node:path';
 import type {Readable} from 'node:stream';
 
@@ -380,26 +380,60 @@ class AgentAttachmentStore {
     const found = await this.describe(scratchDirectory, fileName);
     if (found === null) return {data: null, reason: 'missing'};
 
-    const {lastKnownByteSize: measuredByteSize, mediaType} = found.attachment;
-    if (measuredByteSize > Math.min(capFor(mediaType), remainingBytes)) {
-      return {data: null, reason: 'too-large'};
+    // Everything below is decided on an open handle, never on the path again.
+    // `describe` resolved the name once; re-resolving it here to read would
+    // hand the caller whatever answers to it now, and this caller ships those
+    // bytes to a third-party endpoint — so a symlink planted in the gap turned
+    // this into arbitrary local file exfiltration, at a size neither
+    // `capFor` nor `remainingBytes` had ever seen.
+    let handle: FileHandle;
+    try {
+      handle = await open(
+        found.absolutePath,
+        constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK,
+      );
+    } catch (error: unknown) {
+      // Gone, or no longer something this store will read: the same
+      // missing-attachment placeholder either way. Anything else is real.
+      if (isFileNotFoundError(error) || isSymlinkRefusedError(error)) {
+        return {data: null, reason: 'missing'};
+      }
+      throw error;
     }
 
-    // Same race as above: `describe` above already stat'd (and, internally,
-    // sniffed) the file, but a concurrent `remove()` can still unlink it
-    // before this read. Only ENOENT degrades to the missing-attachment
-    // placeholder; any other error is a genuine failure and propagates.
     try {
-      const bytes = await readFile(found.absolutePath);
+      const stats = await handle.stat();
+      // `O_NOFOLLOW` refuses a symlinked final component; this refuses a
+      // directory or device node at that component, and — via the identity —
+      // any swap higher up the path, which no open flag can see.
+      // The identity is what makes this complete: `O_NOFOLLOW` refuses a
+      // symlinked *final* component, and `isFile` a directory or device node
+      // at that component, but neither can see a parent being swapped. Since
+      // the described inode is pinned, this subsumes both — they are the
+      // earlier, cheaper gates that keep a foreign file from being opened at
+      // all, not separate coverage. A test can only distinguish this one.
+      const isDescribedFile =
+        stats.isFile() &&
+        stats.dev === found.identity.deviceId &&
+        stats.ino === found.identity.inode;
+      if (!isDescribedFile) return {data: null, reason: 'missing'};
+
+      // Both limits are enforced against the handle's own size, so they cover
+      // the bytes about to be read rather than the ones `describe` measured.
+      const {mediaType} = found.attachment;
+      if (stats.size > Math.min(capFor(mediaType), remainingBytes)) {
+        return {data: null, reason: 'too-large'};
+      }
+
+      const bytes = await handle.readFile();
       return {
         data: bytes.toString('base64'),
         // The read's own length, not the stat's: they are separate moments,
         // and the budget must be charged for what was actually loaded.
         materializedByteSize: bytes.byteLength,
       };
-    } catch (error: unknown) {
-      if (isFileNotFoundError(error)) return {data: null, reason: 'missing'};
-      throw error;
+    } finally {
+      await handle.close();
     }
   }
 

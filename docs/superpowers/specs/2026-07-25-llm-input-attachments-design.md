@@ -424,6 +424,18 @@ against the opened handle's `fstat` — the fd pins an inode, so any component o
 path changing underneath yields a different one. That binds the response to the file
 rather than to the name, which is the same move as everything above, one level up.
 
+`readBase64` does the same, and it is where this mattered most: `describe` validated
+and sized one file, then the read re-resolved the name, so a symlink planted in that
+gap sent an arbitrary local file **to the configured LLM endpoint** — past `capFor`
+and past the caller's remaining budget, since both had measured the pre-swap inode. It
+now opens once, `fstat`s, requires the described identity, and enforces both limits
+against that handle before reading a byte.
+
+The identity check subsumes the flags there rather than complementing them: a symlink
+target has a different inode too. `O_NOFOLLOW` and `isFile` stay as the earlier, cheaper
+gates that keep a foreign file from being opened at all — but only the identity is
+separately testable, and only it sees a parent being swapped.
+
 `freeze` does the same: it opens under the same flags, checks `isFile()` on the
 handle, and `fchmod`s through it. An earlier version `lstat`ed and then called
 `chmod(path)` — reasoning that the `lstat` would catch a symlink — but those are two
@@ -451,6 +463,12 @@ same origin as the agent-control API buys nothing, so it downloads.
 Every attachment response also carries `Content-Security-Policy: sandbox`. It only
 binds when the response is loaded as a document, so an `<img>` is unaffected; what it
 covers is a user navigating straight to the URL.
+
+All of these are set **before** the freshness check, so a `304` carries them too. A
+compliant cache reuses the stored `200`'s metadata, so this is not a correctness fix —
+it just stops the hardening depending on that merge being done right by whatever sits
+in front of us. Only `Content-Length` and the `ETag` are left until after the open,
+because those must describe the bytes actually being sent.
 
 ### Frozen once sent
 

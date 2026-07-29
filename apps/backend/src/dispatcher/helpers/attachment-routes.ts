@@ -206,6 +206,25 @@ export function registerAttachmentRoutes(
     ctx.response.set('Cache-Control', 'private, max-age=0, must-revalidate');
     ctx.response.etag = `${descriptor.attachment.lastKnownByteSize}-${descriptor.mtimeMs}`;
 
+    // Set before the freshness check, not after, so a 304 carries them too. A
+    // compliant cache reuses the stored 200's metadata, so this changes nothing
+    // for one — but it means the hardening does not depend on that merge being
+    // done right by whatever is in front of us.
+    //
+    // The sniffed Content-Type is trustworthy (never client-supplied), but
+    // nosniff still stops a browser second-guessing it from the bytes.
+    // `sandbox` only binds when the response is loaded as a document, so it
+    // costs an `<img>` nothing and strips the origin from a direct navigation.
+    // `attachment` is called after `ctx.response.type` deliberately: it would
+    // otherwise guess the type from the file extension, and the sniffed media
+    // type is the trustworthy one.
+    ctx.response.type = descriptor.attachment.mediaType;
+    ctx.response.set('X-Content-Type-Options', 'nosniff');
+    ctx.response.set('Content-Security-Policy', 'sandbox');
+    ctx.response.attachment(descriptor.attachment.fileName, {
+      type: DISPOSITION_BY_MEDIA_TYPE[descriptor.attachment.mediaType],
+    });
+
     if (ctx.fresh) {
       ctx.response.status = StatusCodes.NOT_MODIFIED;
       return;
@@ -297,36 +316,15 @@ export function registerAttachmentRoutes(
       return;
     }
 
-    ctx.response.type = descriptor.attachment.mediaType;
+    // Re-derived from the handle: `describe`'s numbers describe whatever the
+    // name meant a moment earlier, and a `Content-Length` from those would
+    // truncate the bytes read from this one.
     ctx.response.length = streamed.size;
     ctx.response.etag = `${streamed.size}-${streamed.mtimeMs}`;
-    // The sniffed Content-Type above is trustworthy (never client-supplied),
-    // but nosniff still stops a browser from second-guessing it based on the
-    // bytes. `sandbox` is belt to that braces: it only binds when the response
-    // is loaded as a document, so it costs an `<img>` nothing, and it strips
-    // the origin from anything a user navigates to directly.
-    //
-    // The media type alone still comes from `describe`, so the same swap can
-    // mislabel it. That degrades to a file the browser cannot render rather
-    // than to a corrupt download or a cross-type confusion: the type is always
-    // one of the five deliverable media types, never anything active, and
-    // nosniff holds the browser to it. Fixing it properly means sniffing from
-    // this handle, which belongs in the store — it owns magic-byte detection —
-    // not open-coded here.
-    ctx.response.set('X-Content-Type-Options', 'nosniff');
-    ctx.response.set('Content-Security-Policy', 'sandbox');
-    // Koa's own helper, which delegates to jshttp's `content-disposition` —
-    // hand-rolling this is a trap. A stored name can be non-ASCII (the
-    // sanitizer preserves Unicode), and Node's `setHeader` rejects anything
-    // outside latin1 with ERR_INVALID_CHAR, so the header needs an ASCII
-    // fallback plus an RFC 5987 `filename*`; the package also knows to keep a
-    // latin1 name verbatim and skip `filename*` entirely rather than mangling
-    // it. Called after `ctx.response.type` is set, because it would otherwise
-    // guess the type from the file extension — the sniffed media type is the
-    // trustworthy one.
-    ctx.response.attachment(descriptor.attachment.fileName, {
-      type: DISPOSITION_BY_MEDIA_TYPE[descriptor.attachment.mediaType],
-    });
+    // The media type comes from `describe`, so a swap can still mislabel it —
+    // but the identity check above means a mislabelled response can only be
+    // the described file, and the type is always one of the five deliverable
+    // media types, never anything active.
     ctx.body = fileHandle.createReadStream();
   });
 

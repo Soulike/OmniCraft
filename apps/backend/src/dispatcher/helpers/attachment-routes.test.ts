@@ -107,7 +107,12 @@ async function descriptorFor(
     attachment: {fileName, mediaType, lastKnownByteSize: 5},
     absolutePath,
     identity: {deviceId: stats.dev, inode: stats.ino},
-    mtimeMs: Date.now(),
+    // The file's real mtime, as a real `describe` returns. Anything else makes
+    // the fixture describe a file it does not point at — and the conditional
+    // path would never match, because the 200's validator is re-derived from
+    // the open handle. They agree by construction whenever the file has not
+    // changed, which is exactly when a 304 is correct.
+    mtimeMs: stats.mtimeMs,
   };
 }
 
@@ -353,6 +358,53 @@ describe('GET .../attachments/:fileName disposition', () => {
     );
 
     expect(res.headers.get('content-security-policy')).toBe('sandbox');
+  });
+});
+
+describe('GET .../attachments/:fileName conditional request', () => {
+  async function conditionalGet(fileName: string): Promise<Response> {
+    const first = await fetch(
+      `${baseUrl}/sessions/${SESSION_ID}/attachments/${fileName}`,
+    );
+    const etag = first.headers.get('etag');
+    expect(etag).not.toBeNull();
+    await first.arrayBuffer();
+    return fetch(`${baseUrl}/sessions/${SESSION_ID}/attachments/${fileName}`, {
+      headers: {
+        'If-None-Match': etag ?? '',
+        // Node's `fetch` sends `cache-control: no-cache` by default, and the
+        // `fresh` package honours it by refusing to report freshness at all —
+        // correct HTTP, but it would make every conditional request here a 200
+        // and the assertions below meaningless.
+        'Cache-Control': 'max-age=0',
+      },
+    });
+  }
+
+  it('answers a matching If-None-Match with 304', async () => {
+    descriptorToReturn = await descriptorFor('shot.png');
+
+    expect((await conditionalGet('shot.png')).status).toBe(304);
+  });
+
+  // A compliant cache reuses the stored 200's metadata, so omitting these is
+  // not a correctness bug — but it makes the hardening depend on that merge
+  // being done right by whatever sits in front of us, which is a poor thing to
+  // rely on for headers whose whole job is to constrain a browser.
+  it('carries the descriptor-derived metadata on the 304', async () => {
+    descriptorToReturn = await descriptorFor('shot.png');
+
+    const res = await conditionalGet('shot.png');
+
+    expect(res.status).toBe(304);
+    expect(res.headers.get('x-content-type-options')).toBe('nosniff');
+    expect(res.headers.get('content-security-policy')).toBe('sandbox');
+    expect(res.headers.get('content-disposition')).toBe(
+      'inline; filename="shot.png"',
+    );
+    expect(res.headers.get('cache-control')).toBe(
+      'private, max-age=0, must-revalidate',
+    );
   });
 });
 

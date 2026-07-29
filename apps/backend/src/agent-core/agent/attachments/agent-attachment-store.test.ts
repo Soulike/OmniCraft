@@ -7,8 +7,10 @@ import {
   lstat,
   mkdir,
   mkdtemp,
+  open,
   readdir,
   readFile,
+  rename,
   rm,
   symlink,
   unlink,
@@ -37,6 +39,7 @@ vi.mock('node:fs/promises', async (importOriginal) => {
     ...actual,
     readFile: vi.fn(actual.readFile),
     lstat: vi.fn(actual.lstat),
+    open: vi.fn(actual.open),
   };
 });
 vi.mock('file-type', async (importOriginal) => {
@@ -512,7 +515,12 @@ describe('describe / readBase64 / remove', () => {
       ).rejects.toBe(accessError);
     });
 
-    it('readBase64 rejects instead of returning null when the read fails for a reason other than ENOENT', async () => {
+    // The read goes through an open handle now, so the failure that has to
+    // propagate is the `open` itself. ENOENT and a refused symlink are the two
+    // outcomes that mean "nothing to deliver"; everything else is a real
+    // failure and must not be laundered into a missing-attachment placeholder,
+    // which the model would read as the user simply not having sent anything.
+    it('readBase64 rejects instead of returning null when the open fails for a reason other than ENOENT', async () => {
       await agentAttachmentStore.save(
         scratchDirectory,
         'shot.png',
@@ -523,13 +531,102 @@ describe('describe / readBase64 / remove', () => {
         new Error('EACCES: permission denied'),
         {code: 'EACCES'},
       );
-      vi.mocked(readFile).mockRejectedValueOnce(accessError);
+      vi.mocked(open).mockRejectedValueOnce(accessError);
 
       await expect(
         agentAttachmentStore.readBase64(scratchDirectory, 'shot.png'),
       ).rejects.toBe(accessError);
     });
   });
+
+  // The worst version of this PR's recurring bug: `describe` validated and
+  // sized one file, and the read then resolved the same name again. A symlink
+  // planted in that gap sent an arbitrary local file to the configured LLM
+  // endpoint — past `capFor` and past the caller's remaining budget, because
+  // both had measured the pre-swap inode. The swap is injected through the
+  // type sniff, which is the last thing `describe` does.
+  it('refuses to read a file swapped in after describe validated it', async () => {
+    const secret = path.join(scratchDirectory, 'secret.bin');
+    await writeFile(secret, Buffer.alloc(6 * 1024 * 1024, 0x41));
+    await agentAttachmentStore.save(
+      scratchDirectory,
+      'shot.png',
+      streamOf(pngOf(64)),
+    );
+    const target = path.join(
+      agentAttachmentStore.directory(scratchDirectory),
+      'shot.png',
+    );
+
+    const real = vi.mocked(fileTypeFromFile).getMockImplementation();
+    expect(real).toBeDefined();
+    vi.mocked(fileTypeFromFile).mockImplementation(async (input) => {
+      const detected = await (real as typeof fileTypeFromFile)(input);
+      if (input === target) {
+        vi.mocked(fileTypeFromFile).mockImplementation(
+          real as typeof fileTypeFromFile,
+        );
+        await unlink(target);
+        await symlink(secret, target);
+      }
+      return detected;
+    });
+
+    expect(
+      await agentAttachmentStore.readBase64(
+        scratchDirectory,
+        'shot.png',
+        1024 * 1024,
+      ),
+    ).toEqual({data: null, reason: 'missing'});
+  }, 30000);
+
+  // The half `O_NOFOLLOW` cannot see. It refuses a symlinked *final*
+  // component, so the swap above is caught by the flag alone — this one
+  // redirects a *parent*, leaving an ordinary regular file at the end of the
+  // path. Only comparing the handle against the inode `describe` looked at
+  // rejects it.
+  it('refuses to read through a parent directory swapped after describe', async () => {
+    const elsewhere = path.join(scratchDirectory, 'elsewhere');
+    await mkdir(elsewhere, {recursive: true});
+    await writeFile(
+      path.join(elsewhere, 'shot.png'),
+      Buffer.alloc(6 * 1024 * 1024, 0x41),
+    );
+    await agentAttachmentStore.save(
+      scratchDirectory,
+      'shot.png',
+      streamOf(pngOf(64)),
+    );
+    const attachmentsDirectory =
+      agentAttachmentStore.directory(scratchDirectory);
+    const target = path.join(attachmentsDirectory, 'shot.png');
+
+    const real = vi.mocked(fileTypeFromFile).getMockImplementation();
+    expect(real).toBeDefined();
+    vi.mocked(fileTypeFromFile).mockImplementation(async (input) => {
+      const detected = await (real as typeof fileTypeFromFile)(input);
+      if (input === target) {
+        vi.mocked(fileTypeFromFile).mockImplementation(
+          real as typeof fileTypeFromFile,
+        );
+        await rename(
+          attachmentsDirectory,
+          path.join(scratchDirectory, 'attachments.moved'),
+        );
+        await symlink(elsewhere, attachmentsDirectory);
+      }
+      return detected;
+    });
+
+    expect(
+      await agentAttachmentStore.readBase64(
+        scratchDirectory,
+        'shot.png',
+        1024 * 1024,
+      ),
+    ).toEqual({data: null, reason: 'missing'});
+  }, 30000);
 
   it('removes a stored attachment and reports whether it existed', async () => {
     await agentAttachmentStore.save(
