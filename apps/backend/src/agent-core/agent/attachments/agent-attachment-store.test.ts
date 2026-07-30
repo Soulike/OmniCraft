@@ -818,6 +818,27 @@ describe('claim', () => {
     expect(((await lstat(stranger)).mode & 0o777).toString(8)).toBe('400');
   });
 
+  // `freezeOne` accepts any regular file — deliverability is `describe`'s
+  // question and it runs afterwards — so a claim can freeze something the
+  // store did not create and then reject it. Cleanup used to write back a
+  // fixed 0600, silently rewriting an agent-created file that only happened to
+  // be sitting in the directory.
+  it('restores the mode a released file actually had, not a constant', async () => {
+    const attachmentsDirectory =
+      agentAttachmentStore.directory(scratchDirectory);
+    await mkdir(attachmentsDirectory, {recursive: true});
+    const stranger = path.join(attachmentsDirectory, 'notes.png');
+    await writeFile(stranger, 'not a deliverable media type', {mode: 0o644});
+
+    // `describe` rejects it — it does not sniff as anything deliverable — so
+    // the claim fails after the freeze and releases what it froze.
+    expect(
+      await agentAttachmentStore.claim(scratchDirectory, ['notes.png']),
+    ).toMatchObject({ok: false, reason: 'unknown-attachments'});
+
+    expect(((await lstat(stranger)).mode & 0o777).toString(8)).toBe('644');
+  });
+
   // The release must not reach past its own claim: a file frozen by an earlier
   // message is in history, and un-freezing it would let the name be freed and
   // rebound to different bytes — the thing freezing exists to prevent.

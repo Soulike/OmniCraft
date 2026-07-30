@@ -82,18 +82,26 @@ const FROZEN_MODE = 0o400;
  */
 const OWNER_WRITE_MODE = 0o200;
 
-/** The mode a released attachment returns to — what `writeCapped` created it
- *  with, so a claim that fails leaves the file exactly as it found it. */
-const UNFROZEN_MODE = 0o600;
-
 /** What `freezeOne` did. `already-frozen` is deliberately distinct from
  *  `newly-frozen`: only a file this claim transitioned may be released again,
  *  since an earlier message may be relying on one that was frozen before. */
-type FreezeOneOutcome = 'newly-frozen' | 'already-frozen' | 'gone';
+type FreezeOneOutcome =
+  | {readonly kind: 'newly-frozen'; readonly previousMode: number}
+  | {readonly kind: 'already-frozen'}
+  | {readonly kind: 'gone'};
+
+/** A file this claim froze, and the mode it had beforehand. Carried so a
+ *  release restores what was actually there: `freezeOne` accepts any regular
+ *  file, and `describe` can still reject its bytes afterwards, so the thing
+ *  being un-frozen is not necessarily one `writeCapped` created at `0600`. */
+interface FrozenEntry {
+  readonly fileName: string;
+  readonly previousMode: number;
+}
 
 interface FreezeOutcome {
   readonly vanished: string[];
-  readonly newlyFrozen: string[];
+  readonly newlyFrozen: FrozenEntry[];
 }
 
 export type RemoveAttachmentFailureReason = 'not-found' | 'frozen';
@@ -507,12 +515,22 @@ class AgentAttachmentStore {
     const results = await Promise.all(
       fileNames.map((fileName) => this.freezeOne(directory, fileName)),
     );
-    return {
-      vanished: fileNames.filter((_name, index) => results[index] === 'gone'),
-      newlyFrozen: fileNames.filter(
-        (_name, index) => results[index] === 'newly-frozen',
-      ),
-    };
+    const vanished: string[] = [];
+    const newlyFrozen: FrozenEntry[] = [];
+    results.forEach((result, index) => {
+      const fileName = fileNames[index] ?? '';
+      switch (result.kind) {
+        case 'gone':
+          vanished.push(fileName);
+          return;
+        case 'newly-frozen':
+          newlyFrozen.push({fileName, previousMode: result.previousMode});
+          return;
+        case 'already-frozen':
+          return;
+      }
+    });
+    return {vanished, newlyFrozen};
   }
 
   /**
@@ -525,7 +543,7 @@ class AgentAttachmentStore {
     fileName: string,
   ): Promise<FreezeOneOutcome> {
     const absolutePath = resolveInside(directory, fileName);
-    if (absolutePath === null) return 'gone';
+    if (absolutePath === null) return {kind: 'gone'};
 
     // Freezes through an open handle, never by path. An earlier version
     // lstat'd and then called `chmod(absolutePath, ...)`, reasoning that the
@@ -548,7 +566,7 @@ class AgentAttachmentStore {
       // Gone, or not something this store may freeze. Both are "nothing here
       // to pin" to the caller, which folds them into its missing list.
       if (isFileNotFoundError(error) || isSymlinkRefusedError(error)) {
-        return 'gone';
+        return {kind: 'gone'};
       }
       throw error;
     }
@@ -556,11 +574,13 @@ class AgentAttachmentStore {
 
     // `O_NOFOLLOW` rules out a symlink but not a directory or a device node.
     const stats = await owned.stat();
-    if (!stats.isFile()) return 'gone';
+    if (!stats.isFile()) return {kind: 'gone'};
 
-    const wasWritable = (stats.mode & OWNER_WRITE_MODE) !== 0;
+    const previousMode = stats.mode & 0o777;
     await owned.chmod(FROZEN_MODE);
-    return wasWritable ? 'newly-frozen' : 'already-frozen';
+    return (previousMode & OWNER_WRITE_MODE) === 0
+      ? {kind: 'already-frozen'}
+      : {kind: 'newly-frozen', previousMode};
   }
 
   /**
@@ -647,7 +667,13 @@ class AgentAttachmentStore {
   }
 
   /**
-   * Restores the owner-write bit, undoing a freeze this claim performed.
+   * Restores each file's pre-freeze mode, undoing a freeze this claim made.
+   *
+   * The mode it observed, not a constant. `freezeOne` accepts any regular
+   * file — deliverability is `describe`'s question, and it runs afterwards —
+   * so a claim can freeze something the store did not create and then reject
+   * it. Writing back a fixed `0600` silently rewrote an agent-created `0644`
+   * file that only happened to be sitting in the directory.
    *
    * Only ever called with names {@link freezeOne} reported as `newly-frozen`,
    * and only from inside {@link claim}'s lock, so it can never un-freeze an
@@ -660,7 +686,7 @@ class AgentAttachmentStore {
    */
   private async release(
     scratchDirectory: string,
-    fileNames: readonly string[],
+    frozen: readonly FrozenEntry[],
   ): Promise<void> {
     const directory = this.directory(scratchDirectory);
     // Every other path checks this and cleanup skipped it: `O_NOFOLLOW` guards
@@ -680,7 +706,7 @@ class AgentAttachmentStore {
       return;
     }
     await Promise.all(
-      fileNames.map(async (fileName) => {
+      frozen.map(async ({fileName, previousMode}) => {
         const absolutePath = resolveInside(directory, fileName);
         if (absolutePath === null) return;
         let handle: FileHandle;
@@ -702,7 +728,7 @@ class AgentAttachmentStore {
         // this release is not ours to touch.
         const stats = await owned.stat();
         if (!stats.isFile()) return;
-        await owned.chmod(UNFROZEN_MODE);
+        await owned.chmod(previousMode);
       }),
     );
   }

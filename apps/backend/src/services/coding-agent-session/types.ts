@@ -75,6 +75,9 @@ export type AttachmentOpenResult =
       readonly reason: 'session-not-found' | 'attachment-not-found';
     };
 
+/** Result of `removeAttachment`. `attachment-frozen` is separate from
+ *  `attachment-not-found` because the file is there and the caller may ask —
+ *  it has simply reached a state it cannot leave. */
 export type AttachmentRemoveResult =
   | {readonly ok: true}
   | {
