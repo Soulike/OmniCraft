@@ -119,6 +119,8 @@ describe('sanitizeFileName', () => {
       `${RLM}${LRM}shot.png`,
       `shot${LS}a.png`,
       `con.${LS}png`,
+      `con${' '.repeat(252)}JUNKJUNK`,
+      `${'a'.repeat(250)}${' '.repeat(20)}CON`,
       `shot${PS}a.png`,
       LS,
       '../../etc/passwd',
@@ -165,6 +167,19 @@ describe('sanitizeFileName', () => {
     expect(sanitizeFileName(`${LRI}sh${PDI}ot.png`)).toBe('shot.png');
     expect(sanitizeFileName(`${RLM}${LRM}shot.png`)).toBe('shot.png');
     expect(sanitizeFileName(RLO)).toBeNull();
+  });
+
+  // Two passes were not enough, and a finite hostile-input list did not show
+  // it. The package trims trailing dots and spaces, checks Windows-reserved
+  // names, then truncates to 255 bytes — in that order — so truncation can
+  // reintroduce trailing spaces after the trim, and removing those on the next
+  // pass can expose a reserved name they were hiding. This input reduced to
+  // `'con'`, which sanitizes to `''`: not a fixed point, and `resolveInside`
+  // would have rejected a name `save` could produce.
+  it('reaches a fixed point when truncation resurrects a reserved name', () => {
+    const raw = `con${' '.repeat(252)}JUNKJUNK`;
+
+    expect(sanitizeFileName(raw)).toBeNull();
   });
 
   // Same order-sensitivity as DEL: a bidi character hides a reserved name

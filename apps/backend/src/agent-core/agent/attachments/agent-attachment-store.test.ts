@@ -21,7 +21,6 @@ import path from 'node:path';
 import {Readable} from 'node:stream';
 import {promisify} from 'node:util';
 
-import {fileTypeFromFile} from 'file-type';
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 
 import {agentAttachmentStore} from './agent-attachment-store.js';
@@ -42,11 +41,6 @@ vi.mock('node:fs/promises', async (importOriginal) => {
     open: vi.fn(actual.open),
   };
 });
-vi.mock('file-type', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('file-type')>();
-  return {...actual, fileTypeFromFile: vi.fn(actual.fileTypeFromFile)};
-});
-
 // Real magic bytes — the store sniffs content, never the declared type.
 const PNG_HEADER = Buffer.from([
   0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d, 0x49,
@@ -67,6 +61,39 @@ function streamOf(buffer: Buffer): Readable {
 
 // A literal NUL is written via fromCharCode so this file stays copy/paste-safe.
 const NUL = String.fromCharCode(0);
+
+/**
+ * Runs `swap` once, immediately after the next `describe` returns.
+ *
+ * `describe` opens the file once and reads its stats, identity and media type
+ * from that one handle, so there is no longer a gap *inside* it to inject
+ * into — which is the point of it working that way. The gap that remains is
+ * between a descriptor being produced and the next operation resolving the
+ * same name again, and that is what these tests exercise.
+ */
+function swapAfterDescribe(
+  swap: () => Promise<void>,
+  /** Which resolved `describe` to swap behind. `claim` describes its files
+   *  with `Promise.all`, so a swap that has to land after *all* of them —
+   *  anything touching the attachments directory itself, which a still-running
+   *  describe would walk into — must count them. */
+  afterResolvedCall = 1,
+): void {
+  const real = agentAttachmentStore.describe.bind(agentAttachmentStore);
+  let resolved = 0;
+  let done = false;
+  vi.spyOn(agentAttachmentStore, 'describe').mockImplementation(
+    async (directory, fileName) => {
+      const found = await real(directory, fileName);
+      resolved++;
+      if (!done && resolved >= afterResolvedCall) {
+        done = true;
+        await swap();
+      }
+      return found;
+    },
+  );
+}
 
 let scratchDirectory: string;
 
@@ -435,33 +462,32 @@ describe('describe / readBase64 / remove', () => {
   // still degrade to `null` (the adapter's "[attachment missing: ...]"
   // placeholder) rather than reject and abort the whole LLM turn.
   describe('concurrent delete racing a read', () => {
-    it('describe returns null, not a rejection, when the file is unlinked between the stat and the type sniff', async () => {
+    // `describe` used to `lstat` the path and then sniff it, so a `remove()`
+    // could land between and the sniff had to degrade to null. It opens once
+    // now and reads everything from that handle, so the gap is gone — what is
+    // left is the open itself, which reports the same two outcomes.
+    it('describe returns null when the file is gone before it can be opened', async () => {
+      expect(
+        await agentAttachmentStore.describe(scratchDirectory, 'never.png'),
+      ).toBeNull();
+    });
+
+    it('describe rejects instead of returning null when the open fails for a reason other than ENOENT', async () => {
       await agentAttachmentStore.save(
         scratchDirectory,
         'shot.png',
         streamOf(pngOf(64)),
       );
-      const absolutePath = path.join(
-        scratchDirectory,
-        'attachments',
-        'shot.png',
-      );
 
-      // `fileTypeFromFile` opens the file to read its header — unlinking it
-      // first, then letting the real sniff run, reproduces exactly the
-      // ENOENT a concurrent `remove()` would cause in that window.
-      const actualFileType =
-        await vi.importActual<typeof import('file-type')>('file-type');
-      vi.mocked(fileTypeFromFile).mockImplementationOnce(
-        async (filePath, options) => {
-          await unlink(absolutePath);
-          return actualFileType.fileTypeFromFile(filePath, options);
-        },
+      const accessError = Object.assign(
+        new Error('EACCES: permission denied'),
+        {code: 'EACCES'},
       );
+      vi.mocked(open).mockRejectedValueOnce(accessError);
 
       await expect(
         agentAttachmentStore.describe(scratchDirectory, 'shot.png'),
-      ).resolves.toBeNull();
+      ).rejects.toBe(accessError);
     });
 
     it('readBase64 yields the missing reason, not a rejection, when the file is unlinked between describe and the read', async () => {
@@ -495,24 +521,6 @@ describe('describe / readBase64 / remove', () => {
       await expect(
         agentAttachmentStore.readBase64(scratchDirectory, 'shot.png'),
       ).resolves.toEqual({data: null, reason: 'missing'});
-    });
-
-    it('describe rejects instead of returning null when the type sniff fails for a reason other than ENOENT', async () => {
-      await agentAttachmentStore.save(
-        scratchDirectory,
-        'shot.png',
-        streamOf(pngOf(64)),
-      );
-
-      const accessError = Object.assign(
-        new Error('EACCES: permission denied'),
-        {code: 'EACCES'},
-      );
-      vi.mocked(fileTypeFromFile).mockRejectedValueOnce(accessError);
-
-      await expect(
-        agentAttachmentStore.describe(scratchDirectory, 'shot.png'),
-      ).rejects.toBe(accessError);
     });
 
     // The read goes through an open handle now, so the failure that has to
@@ -558,18 +566,9 @@ describe('describe / readBase64 / remove', () => {
       'shot.png',
     );
 
-    const real = vi.mocked(fileTypeFromFile).getMockImplementation();
-    expect(real).toBeDefined();
-    vi.mocked(fileTypeFromFile).mockImplementation(async (input) => {
-      const detected = await (real as typeof fileTypeFromFile)(input);
-      if (input === target) {
-        vi.mocked(fileTypeFromFile).mockImplementation(
-          real as typeof fileTypeFromFile,
-        );
-        await unlink(target);
-        await symlink(secret, target);
-      }
-      return detected;
+    swapAfterDescribe(async () => {
+      await unlink(target);
+      await symlink(secret, target);
     });
 
     expect(
@@ -600,23 +599,13 @@ describe('describe / readBase64 / remove', () => {
     );
     const attachmentsDirectory =
       agentAttachmentStore.directory(scratchDirectory);
-    const target = path.join(attachmentsDirectory, 'shot.png');
 
-    const real = vi.mocked(fileTypeFromFile).getMockImplementation();
-    expect(real).toBeDefined();
-    vi.mocked(fileTypeFromFile).mockImplementation(async (input) => {
-      const detected = await (real as typeof fileTypeFromFile)(input);
-      if (input === target) {
-        vi.mocked(fileTypeFromFile).mockImplementation(
-          real as typeof fileTypeFromFile,
-        );
-        await rename(
-          attachmentsDirectory,
-          path.join(scratchDirectory, 'attachments.moved'),
-        );
-        await symlink(elsewhere, attachmentsDirectory);
-      }
-      return detected;
+    swapAfterDescribe(async () => {
+      await rename(
+        attachmentsDirectory,
+        path.join(scratchDirectory, 'attachments.moved'),
+      );
+      await symlink(elsewhere, attachmentsDirectory);
     });
 
     expect(
@@ -816,18 +805,9 @@ describe('claim', () => {
     const attachmentsDirectory =
       agentAttachmentStore.directory(scratchDirectory);
     const target = path.join(attachmentsDirectory, 'a.pdf');
-    const real = vi.mocked(fileTypeFromFile).getMockImplementation();
-    expect(real).toBeDefined();
-    vi.mocked(fileTypeFromFile).mockImplementation(async (input) => {
-      const detected = await (real as typeof fileTypeFromFile)(input);
-      if (input === target) {
-        vi.mocked(fileTypeFromFile).mockImplementation(
-          real as typeof fileTypeFromFile,
-        );
-        await unlink(target);
-        await mkdir(target, {mode: 0o700});
-      }
-      return detected;
+    swapAfterDescribe(async () => {
+      await unlink(target);
+      await mkdir(target, {mode: 0o700});
     });
 
     await agentAttachmentStore.claim(scratchDirectory, ['a.pdf', 'b.pdf']);
@@ -835,6 +815,42 @@ describe('claim', () => {
     // The planted directory must be untouched — 0600 would have cost it the
     // traversal bit and left it unusable.
     expect(((await lstat(target)).mode & 0o777).toString(8)).toBe('700');
+  });
+
+  // `release` reached `resolveInside` without checking the attachments
+  // directory itself, unlike every other path here — and `O_NOFOLLOW` only
+  // guards the final component. With `attachments` replaced by a symlink, a
+  // failing claim's cleanup walked outside the store and un-froze a
+  // same-named stranger.
+  it('does not release through a swapped attachments directory', async () => {
+    const oversized = Buffer.concat([
+      PDF_HEADER,
+      Buffer.alloc(MAX_DOCUMENT_ATTACHMENT_BYTES - PDF_HEADER.length),
+    ]);
+    await save('a.pdf', oversized);
+    await save('b.pdf', oversized);
+
+    const attachmentsDirectory =
+      agentAttachmentStore.directory(scratchDirectory);
+    const elsewhere = path.join(scratchDirectory, 'elsewhere');
+    await mkdir(elsewhere, {recursive: true});
+    const stranger = path.join(elsewhere, 'a.pdf');
+    await writeFile(stranger, 'not ours', {mode: 0o400});
+
+    // After both describes, so neither walks into the swapped directory.
+    swapAfterDescribe(async () => {
+      await rename(
+        attachmentsDirectory,
+        path.join(scratchDirectory, 'attachments.moved'),
+      );
+      await symlink(elsewhere, attachmentsDirectory);
+    }, 2);
+
+    expect(
+      await agentAttachmentStore.claim(scratchDirectory, ['a.pdf', 'b.pdf']),
+    ).toMatchObject({ok: false, reason: 'attachments-too-large'});
+
+    expect(((await lstat(stranger)).mode & 0o777).toString(8)).toBe('400');
   });
 
   // The release must not reach past its own claim: a file frozen by an earlier

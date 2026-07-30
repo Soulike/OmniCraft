@@ -55,6 +55,37 @@ function stripInvisible(value: string): string {
   return value.replace(STRIPPED_PATTERN, '');
 }
 
+/** Passes over `MAX_SANITIZE_PASSES`, which no input should approach — each
+ *  pass is a self-composition of one that already runs twice internally. */
+const MAX_SANITIZE_PASSES = 8;
+
+/**
+ * Applies the delegate until it stops changing the value.
+ *
+ * Two passes are not enough, which is the whole reason this exists. The
+ * package trims trailing dots and spaces, checks Windows-reserved names, and
+ * truncates to 255 bytes — in that order — so truncation can *reintroduce*
+ * trailing spaces after the trim that would have removed them, and removing
+ * those on the next pass can expose a reserved name that was hidden behind
+ * them. `'con' + ' '.repeat(252) + 'JUNKJUNK'` is such an input: it reduces to
+ * `'con'`, which sanitizes to `''`.
+ *
+ * Iterating terminates because no pass ever lengthens its input, so the byte
+ * count strictly decreases until it settles. The bound is a backstop against a
+ * future package change turning that into a cycle; failing closed there costs
+ * a rejected upload, where returning a non-fixed-point name would store a file
+ * no read path could ever look up again.
+ */
+function toFixedPoint(value: string): string {
+  let current = sanitize(value);
+  for (let pass = 0; pass < MAX_SANITIZE_PASSES; pass++) {
+    const next = sanitize(current);
+    if (next === current) return current;
+    current = next;
+  }
+  return '';
+}
+
 /**
  * Reduces a client-supplied name to a bare, printable file name. Delegates
  * everything — control characters, `/`/`\` (deleted, not just rejected),
@@ -82,7 +113,7 @@ function stripInvisible(value: string): string {
  * equal `sanitizeFileName(x)` for every `x`, so that every name `save()`
  * produces is a fixed point the read paths can recognize.
  *
- * The package is applied twice (`sanitize(sanitize(base))`), not once. It
+ * The package is applied until it stops changing the value, not once. It
  * checks a Windows-reserved name (`CON`, `PRN.png`, ...) *before* trimming
  * trailing dots/spaces, so `'CON '` survives a single pass as `'CON'` — a
  * reserved name a second pass then empties. A single pass is thus not a
@@ -99,7 +130,7 @@ export function sanitizeFileName(raw: string): string | null {
   // Split on both separators so a Windows-style path is reduced too; POSIX
   // `path.basename` would keep `sub\shot.png` whole.
   const base = raw.split(/[/\\]/).pop() ?? '';
-  const cleaned = sanitize(sanitize(stripInvisible(base)));
+  const cleaned = toFixedPoint(stripInvisible(base));
   if (cleaned === '' || cleaned === '.' || cleaned === '..') return null;
   return cleaned;
 }

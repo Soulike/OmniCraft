@@ -12,13 +12,12 @@ import type {
   ImageMediaType,
   LlmAttachment,
 } from '@omnicraft/tool-schemas';
-import {fileTypeFromFile} from 'file-type';
+import {fileTypeFromBuffer} from 'file-type';
 
 import {
   isFileExistsError,
   isFileNotFoundError,
   isSymlinkRefusedError,
-  statRegularFile,
 } from '@/helpers/fs.js';
 import {Mutex} from '@/helpers/mutex.js';
 
@@ -35,6 +34,11 @@ import {resolveInside} from './helpers/resolve-inside.js';
 import {sanitizeFileName} from './helpers/sanitize-file-name.js';
 import {toSupportedMediaType} from './helpers/to-supported-media-type.js';
 import {writeCapped} from './helpers/write-capped.js';
+
+/** Bytes read from a file's head to sniff its type. `file-type` documents 4100
+ *  as the amount its full detector set may need; every media type this store
+ *  delivers is decided in the first few, so this is slack rather than a cost. */
+const SNIFF_HEADER_BYTES = 4100;
 
 const MAX_ANY_ATTACHMENT_BYTES = Math.max(
   MAX_IMAGE_ATTACHMENT_BYTES,
@@ -287,8 +291,11 @@ class AgentAttachmentStore {
       // only becomes a `lastKnownByteSize` once it leaves here as a record.
       const {byteSize} = written;
 
-      const detected = await fileTypeFromFile(temporaryPath);
-      const mediaType = toSupportedMediaType(detected?.mime);
+      // Through a handle, like `describe`. The temp path is a fresh UUID inside
+      // the directory just verified, so there is little here to redirect — but
+      // one sniffing helper means there is no second way to do this that
+      // someone could later reach for.
+      const mediaType = await this.sniffMediaType(temporaryPath);
       if (mediaType === null) return {ok: false, reason: 'unsupported-type'};
       if (byteSize > capFor(mediaType)) return {ok: false, reason: 'too-large'};
 
@@ -308,6 +315,33 @@ class AgentAttachmentStore {
     }
   }
 
+  /** Reads a file's head through an already-open handle and maps it to a
+   *  deliverable media type, or `null` when it is not one. Takes the handle so
+   *  the type is a fact about the same inode as its caller's other checks. */
+  private async sniffMediaTypeOf(
+    handle: FileHandle,
+  ): Promise<ImageMediaType | DocumentMediaType | null> {
+    const header = Buffer.alloc(SNIFF_HEADER_BYTES);
+    const {bytesRead} = await handle.read(header, 0, header.length, 0);
+    const detected = await fileTypeFromBuffer(header.subarray(0, bytesRead));
+    return toSupportedMediaType(detected?.mime);
+  }
+
+  /** {@link sniffMediaTypeOf} for a path this store owns and has just written. */
+  private async sniffMediaType(
+    absolutePath: string,
+  ): Promise<ImageMediaType | DocumentMediaType | null> {
+    const handle = await open(
+      absolutePath,
+      constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK,
+    );
+    try {
+      return await this.sniffMediaTypeOf(handle);
+    } finally {
+      await handle.close();
+    }
+  }
+
   /** Returns an attachment's descriptor and absolute path, or `null`. */
   async describe(
     scratchDirectory: string,
@@ -319,31 +353,45 @@ class AgentAttachmentStore {
     const absolutePath = resolveInside(directory, fileName);
     if (absolutePath === null) return null;
 
-    const stats = await statRegularFile(absolutePath);
-    if (stats === null) return null;
-
-    // A concurrent `remove()` can unlink the file between the `lstat` above
-    // and this sniff — `fileTypeFromFile` opens the file to read its header.
-    // Only ENOENT means "the file is gone"; anything else (EACCES, EIO, ...)
-    // is a real failure and must not be laundered into a missing-attachment
-    // result.
-    let detected: Awaited<ReturnType<typeof fileTypeFromFile>>;
+    // One open, and every fact below comes from that handle. An earlier version
+    // `lstat`ed the path and then sniffed it, which are two resolutions of the
+    // same name: a swap in between produced a descriptor whose identity and
+    // size described one file while its media type described another — and
+    // since `capFor` is keyed by media type, a 6 MiB image could be admitted
+    // under the 10 MiB document cap. Sniffing through the handle makes them
+    // facts about one inode by construction.
+    let handle: FileHandle;
     try {
-      detected = await fileTypeFromFile(absolutePath);
+      handle = await open(
+        absolutePath,
+        constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK,
+      );
     } catch (error: unknown) {
-      if (isFileNotFoundError(error)) return null;
+      // Gone, or something this store will not describe. Both read as "nothing
+      // here"; anything else (EACCES, EIO, ...) is a real failure and must not
+      // be laundered into a missing-attachment result.
+      if (isFileNotFoundError(error) || isSymlinkRefusedError(error)) {
+        return null;
+      }
       throw error;
     }
 
-    const mediaType = toSupportedMediaType(detected?.mime);
-    if (mediaType === null) return null;
+    try {
+      const stats = await handle.stat();
+      if (!stats.isFile()) return null;
 
-    return {
-      attachment: {fileName, mediaType, lastKnownByteSize: stats.size},
-      absolutePath,
-      identity: {deviceId: stats.dev, inode: stats.ino},
-      mtimeMs: stats.mtimeMs,
-    };
+      const mediaType = await this.sniffMediaTypeOf(handle);
+      if (mediaType === null) return null;
+
+      return {
+        attachment: {fileName, mediaType, lastKnownByteSize: stats.size},
+        absolutePath,
+        identity: {deviceId: stats.dev, inode: stats.ino},
+        mtimeMs: stats.mtimeMs,
+      };
+    } finally {
+      await handle.close();
+    }
   }
 
   /**
@@ -633,6 +681,22 @@ class AgentAttachmentStore {
     fileNames: readonly string[],
   ): Promise<void> {
     const directory = this.directory(scratchDirectory);
+    // Every other path checks this and cleanup skipped it: `O_NOFOLLOW` guards
+    // the final component, so with `attachments` itself replaced by a symlink
+    // this walked outside the store and un-froze a same-named stranger. There
+    // is nothing to undo in a directory that is not ours.
+    //
+    // Caught rather than propagated, unlike everywhere else that calls this.
+    // A tampered scratch space is a thrown error on a path that was about to
+    // succeed; here the claim has already failed and is on its way to
+    // reporting why, and replacing that reason with an error from its own
+    // cleanup would hide it. The tampering still surfaces on the next
+    // `describe` or `save`, which are not in the middle of failing.
+    try {
+      if (!(await this.verifyRealDirectoryOrAbsent(directory))) return;
+    } catch {
+      return;
+    }
     await Promise.all(
       fileNames.map(async (fileName) => {
         const absolutePath = resolveInside(directory, fileName);

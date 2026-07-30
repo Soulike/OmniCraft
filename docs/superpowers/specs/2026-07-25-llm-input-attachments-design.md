@@ -424,6 +424,16 @@ against the opened handle's `fstat` — the fd pins an inode, so any component o
 path changing underneath yields a different one. That binds the response to the file
 rather than to the name, which is the same move as everything above, one level up.
 
+`describe` is the root of all of it, and had the same flaw one level down: it
+`lstat`ed the path and then sniffed it, two resolutions again. A swap in between
+produced a descriptor whose identity and size described one file while its media type
+described another — and since `capFor` is keyed by media type, that admitted a 6 MiB
+image under the 10 MiB document cap. It opens once now and reads stats, identity and
+type from that one handle, so they are facts about a single inode by construction.
+There is no test for that specific race, because closing it removed the window to
+inject into; what the tests cover is the gap that remains, between a descriptor being
+produced and the next operation resolving the same name.
+
 `readBase64` does the same, and it is where this mattered most: `describe` validated
 and sized one file, then the read re-resolved the name, so a symlink planted in that
 gap sent an arbitrary local file **to the configured LLM endpoint** — past `capFor`
