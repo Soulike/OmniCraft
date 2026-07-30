@@ -25,6 +25,7 @@ import {
   type AttachmentDescriptor,
   type ClaimAttachmentsResult,
   MAX_MESSAGE_ATTACHMENT_BYTES,
+  type OpenedAttachment,
   type RemoveAttachmentResult,
   type SaveAttachmentResult,
   totalAttachmentBytes,
@@ -422,6 +423,16 @@ export abstract class Agent {
   /** Describes a stored attachment, or `null` when it is not there. */
   describeAttachment(fileName: string): Promise<AttachmentDescriptor | null> {
     return agentAttachmentStore.describe(this.scratchDirectory, fileName);
+  }
+
+  /** Opens a stored attachment for streaming. The caller owns the handle. */
+  openAttachmentForDownload(
+    fileName: string,
+  ): Promise<OpenedAttachment | null> {
+    return agentAttachmentStore.openForDownload(
+      this.scratchDirectory,
+      fileName,
+    );
   }
 
   /** Deletes a stored attachment, refusing one already sent to the model. */

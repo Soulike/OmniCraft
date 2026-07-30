@@ -1,7 +1,3 @@
-import type {Stats} from 'node:fs';
-import {constants} from 'node:fs';
-import type {FileHandle} from 'node:fs/promises';
-import {open} from 'node:fs/promises';
 import type {Readable} from 'node:stream';
 
 import type Router from '@koa/router';
@@ -16,9 +12,9 @@ import {ZodError} from 'zod';
 
 import type {
   AttachmentDescriptor,
+  OpenedAttachment,
   SaveAttachmentFailureReason,
 } from '@/agent-core/agent/index.js';
-import {isFileNotFoundError, isSymlinkRefusedError} from '@/helpers/fs.js';
 
 import {parseSessionId} from './session-id.js';
 
@@ -71,6 +67,14 @@ type AttachmentDescribeResult =
       readonly reason: 'session-not-found' | 'attachment-not-found';
     };
 
+/** The result shape `openAttachment` structurally satisfies on both services. */
+type AttachmentOpenResult =
+  | {readonly ok: true; readonly opened: OpenedAttachment}
+  | {
+      readonly ok: false;
+      readonly reason: 'session-not-found' | 'attachment-not-found';
+    };
+
 /** The result shape `removeAttachment` structurally satisfies on both services. */
 type AttachmentRemoveResult =
   | {readonly ok: true}
@@ -97,6 +101,10 @@ export interface AttachmentSessionService {
     agentId: string,
     fileName: string,
   ): Promise<AttachmentDescribeResult>;
+  openAttachment(
+    agentId: string,
+    fileName: string,
+  ): Promise<AttachmentOpenResult>;
   removeAttachment(
     agentId: string,
     fileName: string,
@@ -230,102 +238,36 @@ export function registerAttachmentRoutes(
       return;
     }
 
-    // `O_NOFOLLOW`, because `open` by path follows symlinks and `describe`'s
-    // refusal of them does not carry over — the two resolve the same name at
-    // different moments, so a link planted in between would be followed and
-    // this handler would stream a file from outside the store with a 200.
-    // `O_NONBLOCK` for the same family of plant: opening a FIFO blocks until a
-    // writer appears, which would hang the request rather than fail it.
-    // Neither flag changes anything for a regular file.
+    // Asks the store to open it, rather than taking a path and opening it
+    // here. A path would be a second resolution of a name the descriptor above
+    // already resolved, and everything that went wrong in this module went
+    // wrong in exactly that gap — a symlink, a swapped parent, a replaced
+    // file. A handle cannot be re-resolved, so this route no longer has the
+    // opportunity.
     //
-    // Opening also surfaces a concurrent DELETE's ENOENT before any header
-    // below commits the response. `describeAttachment` above already validated
-    // the file existed, but that check and this open are two separate moments;
-    // a DELETE landing in between must still end in the same 404 every other
-    // missing-attachment path returns, not an opaque mid-stream error after the
-    // response has already started (once `ctx.body` is assigned and Koa begins
-    // flushing, the status can no longer change). Same TOCTOU family as
-    // `describe`'s sniff and `readBase64`'s read inside the store — just at the
-    // route layer, where it must degrade to an HTTP status instead of a
-    // `null`/reason object.
-    //
-    // Opening the file also closes the unlink window for good, not just narrows
-    // it: once the fd is open, a concurrent `unlink` no longer matters — POSIX
-    // keeps an open file's data reachable through its existing descriptor until
-    // every consumer closes it.
-    let fileHandle: FileHandle;
-    try {
-      fileHandle = await open(
-        descriptor.absolutePath,
-        constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK,
-      );
-    } catch (error: unknown) {
-      // A missing file and a planted symlink are the same answer to a client:
-      // nothing servable under this name. Anything else (EACCES, EIO, ...) is a
-      // real failure and must not be laundered into a 404.
-      if (isFileNotFoundError(error) || isSymlinkRefusedError(error)) {
-        ctx.response.status = StatusCodes.NOT_FOUND;
-        ctx.response.body = {error: 'Attachment not found'};
-        return;
+    // It also surfaces a concurrent DELETE before any header below commits the
+    // response: once `ctx.body` is assigned and Koa begins flushing, the status
+    // can no longer change. And once the fd is open, a concurrent `unlink` no
+    // longer matters — POSIX keeps an open file's data reachable through its
+    // existing descriptor until every consumer closes it.
+    const opened = await service.openAttachment(id, ctx.params.fileName);
+    if (!opened.ok) {
+      switch (opened.reason) {
+        case 'session-not-found':
+        case 'attachment-not-found': {
+          ctx.response.status = StatusCodes.NOT_FOUND;
+          ctx.response.body = {error: 'Attachment not found'};
+          return;
+        }
       }
-      throw error;
     }
 
-    // Size and validator are re-read from the OPEN file, not reused from
-    // `describe`'s earlier stat. Both resolve `absolutePath` by name, and they
-    // are separate awaits, so a DELETE plus a same-name re-upload landing
-    // between them makes `describe`'s `lastKnownByteSize` describe a file this response
-    // is not sending — and the failure is silent, not loud: the client stops
-    // reading at `Content-Length`, so a larger file arrives truncated and a
-    // smaller one hangs, with a matching `ETag` caching the corruption. An
-    // `fstat` on the handle is authoritative because the fd already pins the
-    // inode, so nothing can swap the file out from under the numbers.
-    //
-    // Reachable through the API for an attachment that has not been sent yet;
-    // a frozen one can only get here if something bypassed the read-only bit.
-    let streamed: Stats;
-    try {
-      streamed = await fileHandle.stat();
-    } catch (error: unknown) {
-      // Nothing owns the handle until `ctx.body` takes it below, so it has to
-      // be closed here or the fd leaks for the process's lifetime.
-      await fileHandle.close();
-      throw error;
-    }
-
-    // `O_NOFOLLOW` only refuses a symlinked *final* component, so it does not
-    // stop the path being redirected higher up: renaming the attachments
-    // directory and leaving a symlink in its place makes this `open` of the
-    // very same string resolve to a file outside the store, and the handler
-    // would serve it. Node exposes no `openat`, so the directory cannot be
-    // pinned and opened relative to — but the fd does pin an inode, so
-    // comparing it against what `describe` looked at binds the response to the
-    // file rather than to the name. Any component of the path changing
-    // underneath produces a different inode and lands here.
-    //
-    // The `isFile` check stays: `O_NOFOLLOW` admits a directory or a device
-    // node at the final component, and those would otherwise fail mid-stream,
-    // after the status is already committed.
-    const isSameFile =
-      streamed.dev === descriptor.identity.deviceId &&
-      streamed.ino === descriptor.identity.inode;
-    if (!isSameFile || !streamed.isFile()) {
-      await fileHandle.close();
-      ctx.response.status = StatusCodes.NOT_FOUND;
-      ctx.response.body = {error: 'Attachment not found'};
-      return;
-    }
-
-    // Re-derived from the handle: `describe`'s numbers describe whatever the
-    // name meant a moment earlier, and a `Content-Length` from those would
-    // truncate the bytes read from this one.
-    ctx.response.length = streamed.size;
-    ctx.response.etag = `${streamed.size}-${streamed.mtimeMs}`;
-    // The media type comes from `describe`, so a swap can still mislabel it —
-    // but the identity check above means a mislabelled response can only be
-    // the described file, and the type is always one of the five deliverable
-    // media types, never anything active.
-    ctx.body = fileHandle.createReadStream();
+    // From the handle that will be streamed, so they describe the bytes
+    // actually sent. `describe`'s numbers above are a moment older and only
+    // ever decided the 304.
+    ctx.response.length = opened.opened.attachment.lastKnownByteSize;
+    ctx.response.etag = `${opened.opened.attachment.lastKnownByteSize}-${opened.opened.mtimeMs}`;
+    ctx.body = opened.opened.handle.createReadStream();
   });
 
   /** DELETE …/attachments/:fileName — removes a stored file. */

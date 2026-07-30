@@ -397,7 +397,25 @@ reasoning already documented in `agent-scratch-directory-service.ts:23-43`
 `@koa/router` decodes percent-encoded slashes, which is exactly why
 `dispatcher/helpers/session-id.ts` exists — the same care applies here.
 
-### The download opens under constraint, and asks the handle
+### The store hands out handles, not paths
+
+The descriptor carries `{attachment, mtimeMs}` and nothing else. It used to carry
+`absolutePath`, and every consumer opened that itself — which meant a second
+resolution of a name the store had already validated, and **that gap is the whole of
+this module's bug history**: a symlink at the final component, a swapped parent
+directory, a replaced file, a stale size. Each was found and fixed separately.
+
+So `openForDownload` returns an **open handle**. A handle cannot be re-resolved, so a
+caller holding one has no way to reintroduce the problem — the route no longer contains
+an `open` at all, and the identity comparison it needed to bridge two resolutions is
+gone with it. `readBase64` and `describe` collapse the same way: one private `open`
+produces the stats, the media type and the size, so those are facts about a single
+inode by construction rather than by check.
+
+What is left is one rule the type system now enforces for free: **the store opens
+files; nobody else does.**
+
+### The open is constrained
 
 `describe` refuses a symlink (it `lstat`s and requires a regular file), but that
 refusal does not carry over to the route's `open()` — the two resolve the same name

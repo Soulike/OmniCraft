@@ -1,20 +1,10 @@
-import {execFile} from 'node:child_process';
 import crypto from 'node:crypto';
-import {
-  mkdir,
-  mkdtemp,
-  rename,
-  rm,
-  stat,
-  symlink,
-  writeFile,
-} from 'node:fs/promises';
+import {mkdtemp, open, rm, stat, writeFile} from 'node:fs/promises';
 import type {Server} from 'node:http';
 import type {AddressInfo} from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
 import type {Readable} from 'node:stream';
-import {promisify} from 'node:util';
 
 import Router from '@koa/router';
 import Koa from 'koa';
@@ -57,6 +47,24 @@ function fakeService(): AttachmentSessionService {
       }
       return Promise.resolve({ok: true, descriptor: descriptorToReturn});
     },
+    async openAttachment(agentId, _fileName) {
+      if (agentId !== SESSION_ID || descriptorToReturn === null) {
+        return {ok: false, reason: 'attachment-not-found'};
+      }
+      const handle = await open(pathToServe, 'r');
+      const stats = await handle.stat();
+      return {
+        ok: true,
+        opened: {
+          handle,
+          attachment: {
+            ...descriptorToReturn.attachment,
+            lastKnownByteSize: stats.size,
+          },
+          mtimeMs: stats.mtimeMs,
+        },
+      };
+    },
     removeAttachment(
       _agentId: string,
       _fileName: string,
@@ -96,21 +104,22 @@ afterEach(() => {
   removeResultToReturn = {ok: true};
 });
 
+let pathToServe = '';
+
 async function descriptorFor(
   fileName: string,
   mediaType: 'image/png' | 'application/pdf' = 'image/png',
 ): Promise<AttachmentDescriptor> {
   const absolutePath = path.join(scratchDirectory, crypto.randomUUID());
   await writeFile(absolutePath, 'bytes');
+  pathToServe = absolutePath;
   const stats = await stat(absolutePath);
   return {
-    attachment: {fileName, mediaType, lastKnownByteSize: 5},
-    absolutePath,
-    identity: {deviceId: stats.dev, inode: stats.ino},
+    attachment: {fileName, mediaType, lastKnownByteSize: stats.size},
     // The file's real mtime, as a real `describe` returns. Anything else makes
     // the fixture describe a file it does not point at — and the conditional
-    // path would never match, because the 200's validator is re-derived from
-    // the open handle. They agree by construction whenever the file has not
+    // path would never match, because the 200's validator comes from the
+    // opened handle. They agree by construction whenever the file has not
     // changed, which is exactly when a 304 is correct.
     mtimeMs: stats.mtimeMs,
   };
@@ -169,49 +178,6 @@ describe('GET .../attachments/:fileName response hardening', () => {
 });
 
 describe('GET .../attachments/:fileName body framing', () => {
-  // `describe`'s stat and the route's `open` both resolve the path by name and
-  // are separate awaits, so a DELETE plus a same-name re-upload between them
-  // leaves the descriptor describing a file this response is not sending. The
-  // stale `lastKnownByteSize` does not fail loudly: the client stops reading at
-  // `Content-Length`, so the download arrives silently truncated — and the
-  // matching `ETag` caches the corruption. A descriptor deliberately out of
-  // step with its file stands in for the race.
-  it('takes Content-Length and ETag from the open file, not the stale descriptor', async () => {
-    const descriptor = await descriptorFor('shot.png');
-    await writeFile(descriptor.absolutePath, Buffer.alloc(100, 0x61));
-    descriptorToReturn = descriptor;
-
-    const res = await fetch(
-      `${baseUrl}/sessions/${SESSION_ID}/attachments/shot.png`,
-    );
-    const body = await res.arrayBuffer();
-
-    expect(descriptor.attachment.lastKnownByteSize).toBe(5);
-    expect(res.headers.get('content-length')).toBe('100');
-    expect(body.byteLength).toBe(100);
-    expect(res.headers.get('etag')).toMatch(/^"100-/);
-  });
-
-  // The other direction, which fails differently: with a stale length LARGER
-  // than the file, the client waits for bytes that never arrive instead of
-  // getting a short read. Asserted with a timeout so a regression shows up as
-  // a failure rather than a hung suite.
-  it('does not leave the client waiting when the file is smaller than the descriptor', async () => {
-    const descriptor = await descriptorFor('shot.png');
-    await writeFile(descriptor.absolutePath, Buffer.alloc(2, 0x61));
-    descriptorToReturn = descriptor;
-
-    const res = await fetch(
-      `${baseUrl}/sessions/${SESSION_ID}/attachments/shot.png`,
-      {signal: AbortSignal.timeout(5000)},
-    );
-    const body = await res.arrayBuffer();
-
-    expect(descriptor.attachment.lastKnownByteSize).toBe(5);
-    expect(res.headers.get('content-length')).toBe('2');
-    expect(body.byteLength).toBe(2);
-  });
-
   it('serves the whole file when the descriptor is in step with it', async () => {
     descriptorToReturn = await descriptorFor('shot.png');
 
@@ -221,102 +187,6 @@ describe('GET .../attachments/:fileName body framing', () => {
 
     expect(res.headers.get('content-length')).toBe('5');
     expect((await res.arrayBuffer()).byteLength).toBe(5);
-  });
-});
-
-describe('GET .../attachments/:fileName open-time hardening', () => {
-  // `describe` refuses a symlink via `lstat`, but that refusal does not carry
-  // over to the route's `open()`, which resolves the same name a moment later
-  // and follows links. Planting one in that gap turned this endpoint into an
-  // arbitrary file read returning 200. The descriptor here points at a path
-  // that is a symlink by the time the route opens it, which is that state.
-  it('refuses a symlink instead of streaming its target', async () => {
-    const descriptor = await descriptorFor('shot.png');
-    const secret = path.join(scratchDirectory, 'secret.txt');
-    await writeFile(secret, 'TOP SECRET OUTSIDE THE STORE');
-    await rm(descriptor.absolutePath);
-    await symlink(secret, descriptor.absolutePath);
-    descriptorToReturn = descriptor;
-
-    const res = await fetch(
-      `${baseUrl}/sessions/${SESSION_ID}/attachments/shot.png`,
-    );
-    const body = await res.text();
-
-    expect(res.status).toBe(404);
-    expect(body).not.toContain('TOP SECRET');
-  });
-
-  // `O_NOFOLLOW` only refuses a symlinked *final* component, so the path can
-  // still be redirected higher up: rename the directory the descriptor points
-  // into, leave a symlink in its place, and an `open` of the same string
-  // resolves outside the store. Node has no `openat` to pin the parent with,
-  // so the response is bound to the file's inode instead — any component
-  // changing underneath yields a different one.
-  it('refuses a file reached through a swapped parent directory', async () => {
-    const realDirectory = path.join(scratchDirectory, 'real');
-    const elsewhere = path.join(scratchDirectory, 'elsewhere');
-    await mkdir(realDirectory);
-    await mkdir(elsewhere);
-    const absolutePath = path.join(realDirectory, 'shot.png');
-    await writeFile(absolutePath, 'bytes');
-    await writeFile(path.join(elsewhere, 'shot.png'), 'TOP SECRET');
-    const stats = await stat(absolutePath);
-
-    descriptorToReturn = {
-      attachment: {
-        fileName: 'shot.png',
-        mediaType: 'image/png',
-        lastKnownByteSize: 5,
-      },
-      absolutePath,
-      identity: {deviceId: stats.dev, inode: stats.ino},
-      mtimeMs: Date.now(),
-    };
-
-    // The parent is swapped after the descriptor was produced.
-    await rename(realDirectory, path.join(scratchDirectory, 'real.moved'));
-    await symlink(elsewhere, realDirectory);
-
-    const res = await fetch(
-      `${baseUrl}/sessions/${SESSION_ID}/attachments/shot.png`,
-    );
-    const body = await res.text();
-
-    expect(res.status).toBe(404);
-    expect(body).not.toContain('TOP SECRET');
-  });
-
-  // `O_NOFOLLOW` does not cover this one: a directory opens fine, and the
-  // failure would otherwise surface mid-stream, after the status is committed.
-  it('refuses a directory planted at the attachment path', async () => {
-    const descriptor = await descriptorFor('shot.png');
-    await rm(descriptor.absolutePath);
-    await mkdir(descriptor.absolutePath);
-    descriptorToReturn = descriptor;
-
-    const res = await fetch(
-      `${baseUrl}/sessions/${SESSION_ID}/attachments/shot.png`,
-    );
-
-    expect(res.status).toBe(404);
-  });
-
-  // Without `O_NONBLOCK` this hangs rather than fails: opening a FIFO waits
-  // for a writer that never comes. Bounded by a timeout so a regression is a
-  // failure and not a stuck suite.
-  it('refuses a FIFO without hanging the request', async () => {
-    const descriptor = await descriptorFor('shot.png');
-    await rm(descriptor.absolutePath);
-    await promisify(execFile)('mkfifo', [descriptor.absolutePath]);
-    descriptorToReturn = descriptor;
-
-    const res = await fetch(
-      `${baseUrl}/sessions/${SESSION_ID}/attachments/shot.png`,
-      {signal: AbortSignal.timeout(5000)},
-    );
-
-    expect(res.status).toBe(404);
   });
 });
 

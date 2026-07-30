@@ -323,9 +323,6 @@ describe('describe / readBase64 / remove', () => {
       mediaType: 'image/png',
       lastKnownByteSize: 256,
     });
-    expect(found?.absolutePath).toBe(
-      path.join(scratchDirectory, 'attachments', 'shot.png'),
-    );
   });
 
   it('reports the stored file mtime, matching a direct lstat', async () => {
@@ -429,7 +426,6 @@ describe('describe / readBase64 / remove', () => {
         mediaType: 'image/png',
         lastKnownByteSize: grownSize,
       });
-      expect(found?.absolutePath).toBe(absolutePath);
 
       // remove() must also still work — an over-cap file the agent grew is
       // still the user's data, and must stay deletable from the UI.
@@ -490,39 +486,6 @@ describe('describe / readBase64 / remove', () => {
       ).rejects.toBe(accessError);
     });
 
-    it('readBase64 yields the missing reason, not a rejection, when the file is unlinked between describe and the read', async () => {
-      await agentAttachmentStore.save(
-        scratchDirectory,
-        'shot.png',
-        streamOf(pngOf(64)),
-      );
-      const absolutePath = path.join(
-        scratchDirectory,
-        'attachments',
-        'shot.png',
-      );
-
-      // Calls through to the real `describe` (the file still exists, so it
-      // resolves normally), then unlinks the file before `readBase64` gets a
-      // chance to read it — putting a real deletion inside the exact window
-      // between `describe` and `readFile`.
-      const originalDescribe =
-        agentAttachmentStore.describe.bind(agentAttachmentStore);
-      vi.spyOn(agentAttachmentStore, 'describe').mockImplementationOnce(
-        async (scratchDir, fileName) => {
-          const found = await originalDescribe(scratchDir, fileName);
-          await unlink(absolutePath);
-          return found;
-        },
-      );
-
-      // Reason must be `missing`, not `too-large`: the two must never be
-      // confused with one another.
-      await expect(
-        agentAttachmentStore.readBase64(scratchDirectory, 'shot.png'),
-      ).resolves.toEqual({data: null, reason: 'missing'});
-    });
-
     // The read goes through an open handle now, so the failure that has to
     // propagate is the `open` itself. ENOENT and a refused symlink are the two
     // outcomes that mean "nothing to deliver"; everything else is a real
@@ -547,75 +510,77 @@ describe('describe / readBase64 / remove', () => {
     });
   });
 
-  // The worst version of this PR's recurring bug: `describe` validated and
-  // sized one file, and the read then resolved the same name again. A symlink
-  // planted in that gap sent an arbitrary local file to the configured LLM
-  // endpoint — past `capFor` and past the caller's remaining budget, because
-  // both had measured the pre-swap inode. The swap is injected through the
-  // type sniff, which is the last thing `describe` does.
-  it('refuses to read a file swapped in after describe validated it', async () => {
-    const secret = path.join(scratchDirectory, 'secret.bin');
-    await writeFile(secret, Buffer.alloc(6 * 1024 * 1024, 0x41));
-    await agentAttachmentStore.save(
-      scratchDirectory,
-      'shot.png',
-      streamOf(pngOf(64)),
-    );
-    const target = path.join(
-      agentAttachmentStore.directory(scratchDirectory),
-      'shot.png',
-    );
-
-    swapAfterDescribe(async () => {
-      await unlink(target);
-      await symlink(secret, target);
-    });
-
+  // Everything `readBase64` knows now comes from one open, so the swaps these
+  // used to inject — a symlink, a replaced file, a redirected parent — have no
+  // window between a validation and a read to land in. What is left is the
+  // open itself refusing them, which `openForDownload` covers below since both
+  // go through the same private open.
+  it('reports missing for a file that is not there', async () => {
     expect(
-      await agentAttachmentStore.readBase64(
+      await agentAttachmentStore.readBase64(scratchDirectory, 'nope.png'),
+    ).toEqual({data: null, reason: 'missing'});
+  });
+
+  describe('openForDownload', () => {
+    it('hands back a handle whose facts describe the file it opened', async () => {
+      await agentAttachmentStore.save(
         scratchDirectory,
         'shot.png',
-        1024 * 1024,
-      ),
-    ).toEqual({data: null, reason: 'missing'});
-  }, 30000);
-
-  // The half `O_NOFOLLOW` cannot see. It refuses a symlinked *final*
-  // component, so the swap above is caught by the flag alone — this one
-  // redirects a *parent*, leaving an ordinary regular file at the end of the
-  // path. Only comparing the handle against the inode `describe` looked at
-  // rejects it.
-  it('refuses to read through a parent directory swapped after describe', async () => {
-    const elsewhere = path.join(scratchDirectory, 'elsewhere');
-    await mkdir(elsewhere, {recursive: true});
-    await writeFile(
-      path.join(elsewhere, 'shot.png'),
-      Buffer.alloc(6 * 1024 * 1024, 0x41),
-    );
-    await agentAttachmentStore.save(
-      scratchDirectory,
-      'shot.png',
-      streamOf(pngOf(64)),
-    );
-    const attachmentsDirectory =
-      agentAttachmentStore.directory(scratchDirectory);
-
-    swapAfterDescribe(async () => {
-      await rename(
-        attachmentsDirectory,
-        path.join(scratchDirectory, 'attachments.moved'),
+        streamOf(pngOf(256)),
       );
-      await symlink(elsewhere, attachmentsDirectory);
-    });
 
-    expect(
-      await agentAttachmentStore.readBase64(
+      const opened = await agentAttachmentStore.openForDownload(
         scratchDirectory,
         'shot.png',
-        1024 * 1024,
-      ),
-    ).toEqual({data: null, reason: 'missing'});
-  }, 30000);
+      );
+      expect(opened).not.toBeNull();
+      if (opened === null) return;
+      try {
+        expect(opened.attachment).toEqual({
+          fileName: 'shot.png',
+          mediaType: 'image/png',
+          lastKnownByteSize: 256,
+        });
+        // The caller streams from this handle, so the size it was told and the
+        // bytes it can read must be the same file — that is the whole reason
+        // this returns a handle rather than a path.
+        expect((await opened.handle.readFile()).byteLength).toBe(256);
+      } finally {
+        await opened.handle.close();
+      }
+    });
+
+    it('refuses a symlink planted at the attachment name', async () => {
+      const attachmentsDirectory =
+        agentAttachmentStore.directory(scratchDirectory);
+      await mkdir(attachmentsDirectory, {recursive: true});
+      const outside = path.join(scratchDirectory, 'outside.png');
+      await writeFile(outside, pngOf(64));
+      await symlink(outside, path.join(attachmentsDirectory, 'link.png'));
+
+      expect(
+        await agentAttachmentStore.openForDownload(
+          scratchDirectory,
+          'link.png',
+        ),
+      ).toBeNull();
+    });
+
+    it('refuses a directory planted at the attachment name', async () => {
+      const attachmentsDirectory =
+        agentAttachmentStore.directory(scratchDirectory);
+      await mkdir(path.join(attachmentsDirectory, 'shot.png'), {
+        recursive: true,
+      });
+
+      expect(
+        await agentAttachmentStore.openForDownload(
+          scratchDirectory,
+          'shot.png',
+        ),
+      ).toBeNull();
+    });
+  });
 
   it('removes a stored attachment and reports whether it existed', async () => {
     await agentAttachmentStore.save(

@@ -2,6 +2,7 @@ import type {LlmAttachment} from '@omnicraft/tool-schemas';
 
 import type {
   AttachmentDescriptor,
+  OpenedAttachment,
   SaveAttachmentFailureReason,
 } from '@/agent-core/agent/index.js';
 
@@ -66,6 +67,14 @@ export type AttachmentDescribeResult =
     };
 
 /** Result of `removeAttachment`. */
+/** Result of `openAttachment`. The handle inside belongs to the caller. */
+export type AttachmentOpenResult =
+  | {readonly ok: true; readonly opened: OpenedAttachment}
+  | {
+      readonly ok: false;
+      readonly reason: 'session-not-found' | 'attachment-not-found';
+    };
+
 export type AttachmentRemoveResult =
   | {readonly ok: true}
   | {

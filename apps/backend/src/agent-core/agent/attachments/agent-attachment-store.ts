@@ -102,39 +102,30 @@ export type RemoveAttachmentResult =
   | {readonly ok: true}
   | {readonly ok: false; readonly reason: RemoveAttachmentFailureReason};
 
-/** A file's identity on disk, from the `lstat` that described it. Two numbers
- *  the kernel guarantees identify one inode, so a caller that later opens
- *  `absolutePath` can confirm it got *this* file rather than whatever now
- *  answers to that name. */
-export interface AttachmentIdentity {
-  readonly deviceId: number;
-  readonly inode: number;
-}
-
 export interface AttachmentDescriptor {
   readonly attachment: LlmAttachment;
-  readonly absolutePath: string;
-  /** What {@link describe} actually looked at.
-   *
-   *  `absolutePath` is a name, and a name is resolved fresh by every operation
-   *  that touches it — `O_NOFOLLOW` only refuses a symlinked *final*
-   *  component, so renaming the attachments directory and leaving a symlink in
-   *  its place redirects an `open` of the very same string to a file outside
-   *  the store. Node exposes no `openat`, so a directory handle cannot be
-   *  pinned; comparing this against the opened handle's `fstat` is how a
-   *  caller binds to the file instead of to the path. */
-  readonly identity: AttachmentIdentity;
   /** The file's last-modified time, in milliseconds since the epoch, from the
-   *  same `lstat` `describe` already performs. Exposed so a caller can build a
-   *  cache validator (e.g. an `ETag`) without opening the file — a name is not
-   *  a stable identifier for a file's bytes until the attachment is frozen,
-   *  since `remove` frees it for reuse by a later, different upload.
-   *
-   *  Good enough to *decide* a 304, which sends no body. A caller that goes on
-   *  to send one must re-derive the size and validator from the handle it
-   *  opened: this stat and that open are separate moments, and a response whose
-   *  `Content-Length` came from the first would truncate bytes read from the
-   *  second. See the download route. */
+   *  same `fstat` that produced everything else here. Exposed so a caller can
+   *  build a cache validator without a second look at the file — a name is not
+   *  a stable identifier for bytes until the attachment is frozen, since
+   *  `remove` frees it for reuse by a later, different upload. */
+  readonly mtimeMs: number;
+}
+
+/**
+ * An attachment opened for streaming, with the facts that describe *that*
+ * handle. The caller owns the handle and must close it — or hand it to
+ * something that will.
+ *
+ * Deliberately not a path plus a descriptor. This store used to hand out
+ * `absolutePath` and let each caller open it, and every one of them re-resolved
+ * a name that something else could redefine in between; that is the whole of
+ * this module's bug history. A handle cannot be re-resolved, so a caller
+ * holding one cannot reintroduce the problem.
+ */
+export interface OpenedAttachment {
+  readonly handle: FileHandle;
+  readonly attachment: LlmAttachment;
   readonly mtimeMs: number;
 }
 
@@ -342,24 +333,26 @@ class AgentAttachmentStore {
     }
   }
 
-  /** Returns an attachment's descriptor and absolute path, or `null`. */
-  async describe(
+  /**
+   * Opens an attachment and reads every fact about it from that one handle.
+   * The handle is returned still open; callers that only want the facts close
+   * it themselves.
+   *
+   * The single open is the point. Stats, media type and size taken from one
+   * handle are facts about one inode by construction — no ordering to get
+   * right, no identity to compare, and no window for a name to mean something
+   * different between two of them.
+   */
+  private async open(
     scratchDirectory: string,
     fileName: string,
-  ): Promise<AttachmentDescriptor | null> {
+  ): Promise<OpenedAttachment | null> {
     const directory = this.directory(scratchDirectory);
     if (!(await this.verifyRealDirectoryOrAbsent(directory))) return null;
 
     const absolutePath = resolveInside(directory, fileName);
     if (absolutePath === null) return null;
 
-    // One open, and every fact below comes from that handle. An earlier version
-    // `lstat`ed the path and then sniffed it, which are two resolutions of the
-    // same name: a swap in between produced a descriptor whose identity and
-    // size described one file while its media type described another — and
-    // since `capFor` is keyed by media type, a 6 MiB image could be admitted
-    // under the 10 MiB document cap. Sniffing through the handle makes them
-    // facts about one inode by construction.
     let handle: FileHandle;
     try {
       handle = await open(
@@ -367,9 +360,9 @@ class AgentAttachmentStore {
         constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK,
       );
     } catch (error: unknown) {
-      // Gone, or something this store will not describe. Both read as "nothing
-      // here"; anything else (EACCES, EIO, ...) is a real failure and must not
-      // be laundered into a missing-attachment result.
+      // Gone, or a symlink `O_NOFOLLOW` refused. Both read as "nothing here";
+      // anything else (EACCES, EIO, ...) is a real failure and must not be
+      // laundered into a missing-attachment result.
       if (isFileNotFoundError(error) || isSymlinkRefusedError(error)) {
         return null;
       }
@@ -378,20 +371,57 @@ class AgentAttachmentStore {
 
     try {
       const stats = await handle.stat();
-      if (!stats.isFile()) return null;
+      // `O_NOFOLLOW` rules out a symlink; this rules out a directory or a
+      // device node at the same name.
+      if (!stats.isFile()) {
+        await handle.close();
+        return null;
+      }
 
       const mediaType = await this.sniffMediaTypeOf(handle);
-      if (mediaType === null) return null;
+      if (mediaType === null) {
+        await handle.close();
+        return null;
+      }
 
       return {
+        handle,
         attachment: {fileName, mediaType, lastKnownByteSize: stats.size},
-        absolutePath,
-        identity: {deviceId: stats.dev, inode: stats.ino},
         mtimeMs: stats.mtimeMs,
       };
-    } finally {
+    } catch (error: unknown) {
       await handle.close();
+      throw error;
     }
+  }
+
+  /** Describes an attachment without keeping it open, or `null`. */
+  async describe(
+    scratchDirectory: string,
+    fileName: string,
+  ): Promise<AttachmentDescriptor | null> {
+    const opened = await this.open(scratchDirectory, fileName);
+    if (opened === null) return null;
+    try {
+      return {attachment: opened.attachment, mtimeMs: opened.mtimeMs};
+    } finally {
+      await opened.handle.close();
+    }
+  }
+
+  /**
+   * Opens an attachment for streaming to a client. The caller owns the handle.
+   *
+   * Exists so the download route never sees a path: it used to take
+   * `absolutePath` from a descriptor and open it itself, which meant a second
+   * resolution of a name the first had already validated, and a symlink or a
+   * swapped parent directory in between served a file from outside the store.
+   */
+  async openForDownload(
+    scratchDirectory: string,
+    fileName: string,
+  ): Promise<OpenedAttachment | null> {
+    return this.open(scratchDirectory, fileName);
   }
 
   /**
@@ -425,55 +455,20 @@ class AgentAttachmentStore {
     fileName: string,
     remainingBytes = Number.POSITIVE_INFINITY,
   ): Promise<AttachmentResolution> {
-    const found = await this.describe(scratchDirectory, fileName);
-    if (found === null) return {data: null, reason: 'missing'};
-
-    // Everything below is decided on an open handle, never on the path again.
-    // `describe` resolved the name once; re-resolving it here to read would
-    // hand the caller whatever answers to it now, and this caller ships those
-    // bytes to a third-party endpoint — so a symlink planted in the gap turned
-    // this into arbitrary local file exfiltration, at a size neither
-    // `capFor` nor `remainingBytes` had ever seen.
-    let handle: FileHandle;
-    try {
-      handle = await open(
-        found.absolutePath,
-        constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK,
-      );
-    } catch (error: unknown) {
-      // Gone, or no longer something this store will read: the same
-      // missing-attachment placeholder either way. Anything else is real.
-      if (isFileNotFoundError(error) || isSymlinkRefusedError(error)) {
-        return {data: null, reason: 'missing'};
-      }
-      throw error;
-    }
+    const opened = await this.open(scratchDirectory, fileName);
+    if (opened === null) return {data: null, reason: 'missing'};
 
     try {
-      const stats = await handle.stat();
-      // `O_NOFOLLOW` refuses a symlinked final component; this refuses a
-      // directory or device node at that component, and — via the identity —
-      // any swap higher up the path, which no open flag can see.
-      // The identity is what makes this complete: `O_NOFOLLOW` refuses a
-      // symlinked *final* component, and `isFile` a directory or device node
-      // at that component, but neither can see a parent being swapped. Since
-      // the described inode is pinned, this subsumes both — they are the
-      // earlier, cheaper gates that keep a foreign file from being opened at
-      // all, not separate coverage. A test can only distinguish this one.
-      const isDescribedFile =
-        stats.isFile() &&
-        stats.dev === found.identity.deviceId &&
-        stats.ino === found.identity.inode;
-      if (!isDescribedFile) return {data: null, reason: 'missing'};
-
-      // Both limits are enforced against the handle's own size, so they cover
-      // the bytes about to be read rather than the ones `describe` measured.
-      const {mediaType} = found.attachment;
-      if (stats.size > Math.min(capFor(mediaType), remainingBytes)) {
+      // From the handle, so both limits cover the bytes about to be read
+      // rather than a size some earlier resolution of the name reported.
+      const {size} = await opened.handle.stat();
+      if (
+        size > Math.min(capFor(opened.attachment.mediaType), remainingBytes)
+      ) {
         return {data: null, reason: 'too-large'};
       }
 
-      const bytes = await handle.readFile();
+      const bytes = await opened.handle.readFile();
       return {
         data: bytes.toString('base64'),
         // The read's own length, not the stat's: they are separate moments,
@@ -481,7 +476,7 @@ class AgentAttachmentStore {
         materializedByteSize: bytes.byteLength,
       };
     } finally {
-      await handle.close();
+      await opened.handle.close();
     }
   }
 

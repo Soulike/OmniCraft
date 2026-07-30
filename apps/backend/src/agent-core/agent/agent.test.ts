@@ -1279,9 +1279,6 @@ describe('attachment operations', () => {
       mediaType: 'image/png',
       lastKnownByteSize: PNG.length,
     });
-    expect(found?.absolutePath).toBe(
-      path.join(agent.getScratchDirectory(), 'attachments', 'shot.png'),
-    );
   });
 
   it('removes an attachment and reports whether it existed', async () => {

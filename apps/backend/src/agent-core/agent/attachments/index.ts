@@ -1,6 +1,7 @@
 export type {
   AttachmentDescriptor,
   ClaimAttachmentsResult,
+  OpenedAttachment,
   RemoveAttachmentFailureReason,
   RemoveAttachmentResult,
   SaveAttachmentFailureReason,

@@ -11,6 +11,7 @@ import {SettingsManager} from '@/models/settings-manager/index.js';
 import {getLlmConfig} from './helpers.js';
 import type {
   AttachmentDescribeResult,
+  AttachmentOpenResult,
   AttachmentRemoveResult,
   AttachmentUploadResult,
   CreateSessionResult,
@@ -100,6 +101,22 @@ export const codingAgentSessionService = {
     const descriptor = await agent.describeAttachment(fileName);
     if (descriptor === null) return {ok: false, reason: 'attachment-not-found'};
     return {ok: true, descriptor};
+  },
+
+  /**
+   * Opens a stored attachment for streaming. The caller owns the handle — the
+   * store hands one out precisely so no caller has to resolve a path.
+   */
+  async openAttachment(
+    agentId: string,
+    fileName: string,
+  ): Promise<AttachmentOpenResult> {
+    const agent = await CodingAgentStore.getInstance().get(agentId);
+    if (!agent) return {ok: false, reason: 'session-not-found'};
+
+    const opened = await agent.openAttachmentForDownload(fileName);
+    if (opened === null) return {ok: false, reason: 'attachment-not-found'};
+    return {ok: true, opened};
   },
 
   /** Deletes a stored attachment. */
