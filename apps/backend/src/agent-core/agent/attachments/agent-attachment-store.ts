@@ -322,15 +322,11 @@ class AgentAttachmentStore {
   private async sniffMediaType(
     absolutePath: string,
   ): Promise<ImageMediaType | DocumentMediaType | null> {
-    const handle = await open(
+    await using handle = await open(
       absolutePath,
       constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK,
     );
-    try {
-      return await this.sniffMediaTypeOf(handle);
-    } finally {
-      await handle.close();
-    }
+    return await this.sniffMediaTypeOf(handle);
   }
 
   /**
@@ -353,11 +349,19 @@ class AgentAttachmentStore {
     const absolutePath = resolveInside(directory, fileName);
     if (absolutePath === null) return null;
 
+    // The one method here that hands a handle out, so the one that has to say
+    // so explicitly. Everything it opens is owned by `stack` — which closes it
+    // on every failing path, including one added later — until `move()`
+    // disowns it at the single point where the caller takes over.
+    await using stack = new AsyncDisposableStack();
+
     let handle: FileHandle;
     try {
-      handle = await open(
-        absolutePath,
-        constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK,
+      handle = stack.use(
+        await open(
+          absolutePath,
+          constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK,
+        ),
       );
     } catch (error: unknown) {
       // Gone, or a symlink `O_NOFOLLOW` refused. Both read as "nothing here";
@@ -369,30 +373,20 @@ class AgentAttachmentStore {
       throw error;
     }
 
-    try {
-      const stats = await handle.stat();
-      // `O_NOFOLLOW` rules out a symlink; this rules out a directory or a
-      // device node at the same name.
-      if (!stats.isFile()) {
-        await handle.close();
-        return null;
-      }
+    const stats = await handle.stat();
+    // `O_NOFOLLOW` rules out a symlink; this rules out a directory or a
+    // device node at the same name.
+    if (!stats.isFile()) return null;
 
-      const mediaType = await this.sniffMediaTypeOf(handle);
-      if (mediaType === null) {
-        await handle.close();
-        return null;
-      }
+    const mediaType = await this.sniffMediaTypeOf(handle);
+    if (mediaType === null) return null;
 
-      return {
-        handle,
-        attachment: {fileName, mediaType, lastKnownByteSize: stats.size},
-        mtimeMs: stats.mtimeMs,
-      };
-    } catch (error: unknown) {
-      await handle.close();
-      throw error;
-    }
+    stack.move();
+    return {
+      handle,
+      attachment: {fileName, mediaType, lastKnownByteSize: stats.size},
+      mtimeMs: stats.mtimeMs,
+    };
   }
 
   /** Describes an attachment without keeping it open, or `null`. */
@@ -402,11 +396,8 @@ class AgentAttachmentStore {
   ): Promise<AttachmentDescriptor | null> {
     const opened = await this.open(scratchDirectory, fileName);
     if (opened === null) return null;
-    try {
-      return {attachment: opened.attachment, mtimeMs: opened.mtimeMs};
-    } finally {
-      await opened.handle.close();
-    }
+    await using _owned = opened.handle;
+    return {attachment: opened.attachment, mtimeMs: opened.mtimeMs};
   }
 
   /**
@@ -457,26 +448,25 @@ class AgentAttachmentStore {
   ): Promise<AttachmentResolution> {
     const opened = await this.open(scratchDirectory, fileName);
     if (opened === null) return {data: null, reason: 'missing'};
+    await using handle = opened.handle;
 
-    try {
+    {
       // From the handle, so both limits cover the bytes about to be read
       // rather than a size some earlier resolution of the name reported.
-      const {size} = await opened.handle.stat();
+      const {size} = await handle.stat();
       if (
         size > Math.min(capFor(opened.attachment.mediaType), remainingBytes)
       ) {
         return {data: null, reason: 'too-large'};
       }
 
-      const bytes = await opened.handle.readFile();
+      const bytes = await handle.readFile();
       return {
         data: bytes.toString('base64'),
         // The read's own length, not the stat's: they are separate moments,
         // and the budget must be charged for what was actually loaded.
         materializedByteSize: bytes.byteLength,
       };
-    } finally {
-      await opened.handle.close();
     }
   }
 
@@ -562,18 +552,15 @@ class AgentAttachmentStore {
       }
       throw error;
     }
+    await using owned = handle;
 
-    try {
-      // `O_NOFOLLOW` rules out a symlink but not a directory or a device node.
-      const stats = await handle.stat();
-      if (!stats.isFile()) return 'gone';
+    // `O_NOFOLLOW` rules out a symlink but not a directory or a device node.
+    const stats = await owned.stat();
+    if (!stats.isFile()) return 'gone';
 
-      const wasWritable = (stats.mode & OWNER_WRITE_MODE) !== 0;
-      await handle.chmod(FROZEN_MODE);
-      return wasWritable ? 'newly-frozen' : 'already-frozen';
-    } finally {
-      await handle.close();
-    }
+    const wasWritable = (stats.mode & OWNER_WRITE_MODE) !== 0;
+    await owned.chmod(FROZEN_MODE);
+    return wasWritable ? 'newly-frozen' : 'already-frozen';
   }
 
   /**
@@ -708,17 +695,14 @@ class AgentAttachmentStore {
           }
           throw error;
         }
-        try {
-          // Same gate as `freezeOne`: `O_NOFOLLOW` rules out a symlink, but on
-          // Linux a directory opens fine, and `chmod`ing one to `0600` would
-          // strip its traversal bit. An entry replaced between the freeze and
-          // this release is not ours to touch.
-          const stats = await handle.stat();
-          if (!stats.isFile()) return;
-          await handle.chmod(UNFROZEN_MODE);
-        } finally {
-          await handle.close();
-        }
+        await using owned = handle;
+        // Same gate as `freezeOne`: `O_NOFOLLOW` rules out a symlink, but on
+        // Linux a directory opens fine, and `chmod`ing one to `0600` would
+        // strip its traversal bit. An entry replaced between the freeze and
+        // this release is not ours to touch.
+        const stats = await owned.stat();
+        if (!stats.isFile()) return;
+        await owned.chmod(UNFROZEN_MODE);
       }),
     );
   }
