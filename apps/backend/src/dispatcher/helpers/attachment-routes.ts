@@ -262,12 +262,28 @@ export function registerAttachmentRoutes(
       }
     }
 
-    // From the handle that will be streamed, so they describe the bytes
-    // actually sent. `describe`'s numbers above are a moment older and only
-    // ever decided the 304.
-    ctx.response.length = opened.opened.attachment.lastKnownByteSize;
-    ctx.response.etag = `${opened.opened.attachment.lastKnownByteSize}-${opened.opened.mtimeMs}`;
-    ctx.body = opened.opened.handle.createReadStream();
+    // Nothing closes this handle explicitly, and that is correct: the read
+    // stream owns it and closes it when it ends *or* when it is destroyed,
+    // which Koa does on response finish — so an abandoned download does not
+    // leak a descriptor. Both are pinned by tests, because "correct" here
+    // rests on `autoClose` defaulting to true.
+    //
+    // Until the stream exists, though, nothing owns it. The two assignments
+    // below cannot realistically throw, but that is an argument from reading
+    // the code rather than from its shape, so the handle is closed explicitly
+    // if they ever do.
+    const {handle, attachment, mtimeMs} = opened.opened;
+    try {
+      // From the handle that will be streamed, so they describe the bytes
+      // actually sent. `describe`'s numbers above are a moment older and only
+      // ever decided the 304.
+      ctx.response.length = attachment.lastKnownByteSize;
+      ctx.response.etag = `${attachment.lastKnownByteSize}-${mtimeMs}`;
+    } catch (error: unknown) {
+      await handle.close();
+      throw error;
+    }
+    ctx.body = handle.createReadStream();
   });
 
   /** DELETE …/attachments/:fileName — removes a stored file. */

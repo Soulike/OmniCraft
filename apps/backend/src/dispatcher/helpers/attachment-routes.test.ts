@@ -1,4 +1,5 @@
 import crypto from 'node:crypto';
+import type {FileHandle} from 'node:fs/promises';
 import {mkdtemp, open, rm, stat, writeFile} from 'node:fs/promises';
 import type {Server} from 'node:http';
 import type {AddressInfo} from 'node:net';
@@ -52,6 +53,7 @@ function fakeService(): AttachmentSessionService {
         return {ok: false, reason: 'attachment-not-found'};
       }
       const handle = await open(pathToServe, 'r');
+      lastServedHandle = handle;
       const stats = await handle.stat();
       return {
         ok: true,
@@ -102,9 +104,11 @@ afterAll(async () => {
 afterEach(() => {
   descriptorToReturn = null;
   removeResultToReturn = {ok: true};
+  lastServedHandle = null;
 });
 
 let pathToServe = '';
+let lastServedHandle: FileHandle | null = null;
 
 async function descriptorFor(
   fileName: string,
@@ -276,6 +280,61 @@ describe('GET .../attachments/:fileName conditional request', () => {
       'private, max-age=0, must-revalidate',
     );
   });
+});
+
+describe('GET .../attachments/:fileName handle ownership', () => {
+  async function handleState(): Promise<string> {
+    if (lastServedHandle === null) return 'never opened';
+    try {
+      await lastServedHandle.stat();
+      return 'still open';
+    } catch (error: unknown) {
+      return error instanceof Error && 'code' in error
+        ? `closed (${String(error.code)})`
+        : 'closed';
+    }
+  }
+
+  // The route never closes the handle it is given. That is correct rather than
+  // an oversight — `createReadStream` owns it and closes it when the stream
+  // ends — but "correct" here rests on a default, so it is worth pinning.
+  it('closes the handle once the response has been streamed', async () => {
+    descriptorToReturn = await descriptorFor('shot.png');
+
+    const res = await fetch(
+      `${baseUrl}/sessions/${SESSION_ID}/attachments/shot.png`,
+    );
+    await res.arrayBuffer();
+    // Koa destroys the body stream on response finish; give that a turn.
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    expect(await handleState()).toBe('closed (EBADF)');
+  });
+
+  // The other direction, which a fully-consumed response does not cover: a
+  // client that walks away mid-download. Koa destroys the stream, and
+  // destroying it closes the handle — otherwise every abandoned download would
+  // leak a descriptor for the process's lifetime.
+  it('closes the handle when the client disconnects mid-download', async () => {
+    // Large enough that the body is still in flight when the abort lands, and
+    // awaited to the headers first — an abort issued before the request
+    // reaches the server proves nothing, which is how the first version of
+    // this test "passed" the wrong thing.
+    descriptorToReturn = await descriptorFor('big.png');
+    await writeFile(pathToServe, Buffer.alloc(16 * 1024 * 1024, 0x61));
+
+    const controller = new AbortController();
+    const res = await fetch(
+      `${baseUrl}/sessions/${SESSION_ID}/attachments/big.png`,
+      {signal: controller.signal},
+    );
+    expect(res.status).toBe(200);
+    controller.abort();
+    await res.arrayBuffer().catch(() => undefined);
+    await new Promise((resolve) => setTimeout(resolve, 100));
+
+    expect(await handleState()).toBe('closed (EBADF)');
+  }, 20000);
 });
 
 describe('DELETE .../attachments/:fileName', () => {
