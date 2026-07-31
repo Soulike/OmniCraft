@@ -295,6 +295,10 @@ describe('GET .../attachments/:fileName conditional request', () => {
     const res = await conditionalGet('shot.png');
 
     expect(res.status).toBe(304);
+    // Not Content-Type: Koa's empty-status path sets `ctx.body = null`, which
+    // strips it. Asserted rather than omitted so the boundary is pinned — the
+    // comment on the route used to claim all of these survive.
+    expect(res.headers.get('content-type')).toBeNull();
     expect(res.headers.get('x-content-type-options')).toBe('nosniff');
     expect(res.headers.get('content-security-policy')).toBe('sandbox');
     expect(res.headers.get('content-disposition')).toBe(

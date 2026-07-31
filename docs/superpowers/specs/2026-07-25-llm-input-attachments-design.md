@@ -506,7 +506,11 @@ Every attachment response also carries `Content-Security-Policy: sandbox`. It on
 binds when the response is loaded as a document, so an `<img>` is unaffected; what it
 covers is a user navigating straight to the URL.
 
-All of these are set **before** the freshness check, so a `304` carries them too. A
+All of these are set **before** the freshness check, so a `304` carries the ones it
+can — `nosniff`, the CSP, `Content-Disposition` and `Cache-Control`. Not `Content-Type`:
+Koa's empty-status path assigns `ctx.body = null` and the body setter strips the type
+with it, so no ordering keeps it. Standard and harmless — RFC 9110 makes those headers
+optional on a `304`, and a compliant cache reuses the stored `200`'s. A
 compliant cache reuses the stored `200`'s metadata, so this is not a correctness fix —
 it just stops the hardening depending on that merge being done right by whatever sits
 in front of us. Only `Content-Length` and the `ETag` are left until after the open,

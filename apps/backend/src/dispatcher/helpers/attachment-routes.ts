@@ -214,10 +214,16 @@ export function registerAttachmentRoutes(
     ctx.response.set('Cache-Control', 'private, max-age=0, must-revalidate');
     ctx.response.etag = `${descriptor.attachment.lastKnownByteSize}-${descriptor.mtimeMs}`;
 
-    // Set before the freshness check, not after, so a 304 carries them too. A
-    // compliant cache reuses the stored 200's metadata, so this changes nothing
-    // for one — but it means the hardening does not depend on that merge being
-    // done right by whatever is in front of us.
+    // Set before the freshness check, not after, so a 304 carries the ones it
+    // can: `X-Content-Type-Options`, the CSP, `Content-Disposition` and
+    // `Cache-Control`. **Not `Content-Type`** — Koa's empty-status path assigns
+    // `ctx.body = null`, and the body setter strips the type with it, so no
+    // ordering here can keep it. That is fine and standard: a compliant cache
+    // reuses the stored 200's metadata, and RFC 9110 makes those headers
+    // optional on a 304. What the ordering buys is that the hardening headers
+    // do not depend on that merge being done right by whatever is in front of
+    // us. The 304 test asserts the absence as well as the presences, so the
+    // boundary is recorded rather than assumed.
     //
     // The sniffed Content-Type is trustworthy (never client-supplied), but
     // nosniff still stops a browser second-guessing it from the bytes.
