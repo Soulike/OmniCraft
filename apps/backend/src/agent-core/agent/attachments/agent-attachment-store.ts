@@ -86,9 +86,20 @@ const OWNER_WRITE_MODE = 0o200;
  *  `newly-frozen`: only a file this claim transitioned may be released again,
  *  since an earlier message may be relying on one that was frozen before. */
 type FreezeOneOutcome =
-  | {readonly kind: 'newly-frozen'; readonly previousMode: number}
-  | {readonly kind: 'already-frozen'}
-  | {readonly kind: 'gone'};
+  | {readonly kind: 'gone'}
+  | {
+      readonly kind: 'frozen';
+      /** The mode before this call, or `null` when it was already frozen —
+       *  only a file this claim transitioned may be released again. */
+      readonly previousMode: number | null;
+      /** `null` when the bytes are not a deliverable media type. Described
+       *  from the same handle that was frozen, so the descriptor cannot end up
+       *  naming a different inode than the one pinned. */
+      readonly described: {
+        readonly attachment: LlmAttachment;
+        readonly mtimeMs: number;
+      } | null;
+    };
 
 /** A file this claim froze, and the mode it had beforehand. Carried so a
  *  release restores what was actually there: `freezeOne` accepts any regular
@@ -100,8 +111,12 @@ interface FrozenEntry {
 }
 
 interface FreezeOutcome {
+  /** Names with nothing deliverable behind them — gone, or frozen but not a
+   *  supported media type. Both read as "no such attachment" to a caller. */
   readonly vanished: string[];
   readonly newlyFrozen: FrozenEntry[];
+  /** Descriptors taken from the very handles that were frozen. */
+  readonly described: LlmAttachment[];
 }
 
 export type RemoveAttachmentFailureReason = 'not-found' | 'frozen';
@@ -231,12 +246,12 @@ class AgentAttachmentStore {
    */
   private async verifyRealDirectoryOrAbsent(
     directory: string,
-  ): Promise<boolean> {
+  ): Promise<Stats | null> {
     let stats: Stats;
     try {
       stats = await lstat(directory);
     } catch (error: unknown) {
-      if (isFileNotFoundError(error)) return false;
+      if (isFileNotFoundError(error)) return null;
       throw error;
     }
     if (!stats.isDirectory()) {
@@ -244,7 +259,35 @@ class AgentAttachmentStore {
         `Attachments directory is not a real directory: ${directory}`,
       );
     }
-    return true;
+    return stats;
+  }
+
+  /**
+   * Confirms the attachments directory is still the one that was validated.
+   *
+   * `O_NOFOLLOW` refuses a symlinked *final* component and says nothing about
+   * the parents, so renaming `attachments/` and leaving a symlink in its place
+   * redirects an open of an unchanged path. Node exposes no `openat`, so the
+   * directory cannot be pinned and opened relative to — which means this
+   * **narrows the window rather than closing it**: a swap that persists is
+   * caught here, a swap reverted before this runs is not.
+   *
+   * Only something with filesystem access can do either, which is the residual
+   * this store has accepted throughout (see the freeze notes). This is worth
+   * having anyway because the consequence is not confined to the scratch
+   * space: the download route and the provider read would otherwise serve a
+   * file from outside it.
+   */
+  private async directoryUnchanged(
+    directory: string,
+    validated: Stats,
+  ): Promise<boolean> {
+    const now = await this.verifyRealDirectoryOrAbsent(directory).catch(
+      () => null,
+    );
+    return (
+      now !== null && now.dev === validated.dev && now.ino === validated.ino
+    );
   }
 
   /**
@@ -271,7 +314,7 @@ class AgentAttachmentStore {
     // invariant violation, not a reachable business outcome.
     await mkdir(directory, {recursive: true, mode: 0o700});
     assert(
-      await this.verifyRealDirectoryOrAbsent(directory),
+      (await this.verifyRealDirectoryOrAbsent(directory)) !== null,
       `Attachments directory disappeared immediately after creation: ${directory}`,
     );
 
@@ -352,7 +395,8 @@ class AgentAttachmentStore {
     fileName: string,
   ): Promise<OpenedAttachment | null> {
     const directory = this.directory(scratchDirectory);
-    if (!(await this.verifyRealDirectoryOrAbsent(directory))) return null;
+    const validated = await this.verifyRealDirectoryOrAbsent(directory);
+    if (validated === null) return null;
 
     const absolutePath = resolveInside(directory, fileName);
     if (absolutePath === null) return null;
@@ -388,6 +432,10 @@ class AgentAttachmentStore {
 
     const mediaType = await this.sniffMediaTypeOf(handle);
     if (mediaType === null) return null;
+
+    // The parent was validated before the open above; confirm the open did not
+    // walk through a different one. See `directoryUnchanged`.
+    if (!(await this.directoryUnchanged(directory, validated))) return null;
 
     stack.move();
     return {
@@ -508,29 +556,35 @@ class AgentAttachmentStore {
     fileNames: readonly string[],
   ): Promise<FreezeOutcome> {
     const directory = this.directory(scratchDirectory);
-    if (!(await this.verifyRealDirectoryOrAbsent(directory))) {
-      return {vanished: [...fileNames], newlyFrozen: []};
+    const validated = await this.verifyRealDirectoryOrAbsent(directory);
+    if (validated === null) {
+      return {vanished: [...fileNames], newlyFrozen: [], described: []};
     }
 
     const results = await Promise.all(
-      fileNames.map((fileName) => this.freezeOne(directory, fileName)),
+      fileNames.map((fileName) =>
+        this.freezeOne(directory, fileName, validated),
+      ),
     );
     const vanished: string[] = [];
     const newlyFrozen: FrozenEntry[] = [];
+    const described: LlmAttachment[] = [];
     results.forEach((result, index) => {
       const fileName = fileNames[index] ?? '';
       switch (result.kind) {
         case 'gone':
           vanished.push(fileName);
           return;
-        case 'newly-frozen':
-          newlyFrozen.push({fileName, previousMode: result.previousMode});
-          return;
-        case 'already-frozen':
+        case 'frozen':
+          if (result.previousMode !== null) {
+            newlyFrozen.push({fileName, previousMode: result.previousMode});
+          }
+          if (result.described === null) vanished.push(fileName);
+          else described.push(result.described.attachment);
           return;
       }
     });
-    return {vanished, newlyFrozen};
+    return {vanished, newlyFrozen, described};
   }
 
   /**
@@ -541,6 +595,7 @@ class AgentAttachmentStore {
   private async freezeOne(
     directory: string,
     fileName: string,
+    validatedDirectory: Stats,
   ): Promise<FreezeOneOutcome> {
     const absolutePath = resolveInside(directory, fileName);
     if (absolutePath === null) return {kind: 'gone'};
@@ -576,11 +631,38 @@ class AgentAttachmentStore {
     const stats = await owned.stat();
     if (!stats.isFile()) return {kind: 'gone'};
 
+    // The parent was validated before this open; confirm the open did not walk
+    // through a different one before changing any mode. See
+    // `directoryUnchanged`.
+    if (!(await this.directoryUnchanged(directory, validatedDirectory))) {
+      return {kind: 'gone'};
+    }
+
     const previousMode = stats.mode & 0o777;
     await owned.chmod(FROZEN_MODE);
-    return (previousMode & OWNER_WRITE_MODE) === 0
-      ? {kind: 'already-frozen'}
-      : {kind: 'newly-frozen', previousMode};
+
+    // Described here, from the handle just frozen, rather than by a second
+    // `describe` pass over the name afterwards. Those were two resolutions:
+    // a swap between them let a claim commit a descriptor for one inode while
+    // a different one carried the frozen bit — so the API could still delete
+    // the file a successful claim had supposedly pinned.
+    const mediaType = await this.sniffMediaTypeOf(owned);
+    return {
+      kind: 'frozen',
+      previousMode:
+        (previousMode & OWNER_WRITE_MODE) === 0 ? null : previousMode,
+      described:
+        mediaType === null
+          ? null
+          : {
+              attachment: {
+                fileName,
+                mediaType,
+                lastKnownByteSize: stats.size,
+              },
+              mtimeMs: stats.mtimeMs,
+            },
+    };
   }
 
   /**
@@ -627,7 +709,7 @@ class AgentAttachmentStore {
     scratchDirectory: string,
     fileNames: readonly string[],
   ): Promise<ClaimAttachmentsResult> {
-    const {vanished, newlyFrozen} = await this.freeze(
+    const {vanished, newlyFrozen, described} = await this.freeze(
       scratchDirectory,
       fileNames,
     );
@@ -636,23 +718,7 @@ class AgentAttachmentStore {
       return {ok: false, reason: 'unknown-attachments', missing: vanished};
     }
 
-    const found = await Promise.all(
-      fileNames.map((fileName) => this.describe(scratchDirectory, fileName)),
-    );
-    const missing = fileNames.filter((_name, index) => found[index] === null);
-    if (missing.length > 0) {
-      await this.release(scratchDirectory, newlyFrozen);
-      return {ok: false, reason: 'unknown-attachments', missing};
-    }
-
-    const attachments: LlmAttachment[] = [];
-    for (const entry of found) {
-      // Narrowed by the `missing` check above; every entry is present.
-      if (entry === null) continue;
-      attachments.push(entry.attachment);
-    }
-
-    const totalBytes = totalAttachmentBytes(attachments);
+    const totalBytes = totalAttachmentBytes(described);
     if (totalBytes > MAX_MESSAGE_ATTACHMENT_BYTES) {
       await this.release(scratchDirectory, newlyFrozen);
       return {
@@ -663,7 +729,7 @@ class AgentAttachmentStore {
       };
     }
 
-    return {ok: true, attachments};
+    return {ok: true, attachments: described};
   }
 
   /**
@@ -701,7 +767,7 @@ class AgentAttachmentStore {
     // cleanup would hide it. The tampering still surfaces on the next
     // `describe` or `save`, which are not in the middle of failing.
     try {
-      if (!(await this.verifyRealDirectoryOrAbsent(directory))) return;
+      if ((await this.verifyRealDirectoryOrAbsent(directory)) === null) return;
     } catch {
       return;
     }
@@ -757,7 +823,7 @@ class AgentAttachmentStore {
     fileName: string,
   ): Promise<RemoveAttachmentResult> {
     const directory = this.directory(scratchDirectory);
-    if (!(await this.verifyRealDirectoryOrAbsent(directory))) {
+    if ((await this.verifyRealDirectoryOrAbsent(directory)) === null) {
       return {ok: false, reason: 'not-found'};
     }
 

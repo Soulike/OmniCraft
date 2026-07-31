@@ -71,28 +71,29 @@ const NUL = String.fromCharCode(0);
  * between a descriptor being produced and the next operation resolving the
  * same name again, and that is what these tests exercise.
  */
-function swapAfterDescribe(
-  swap: () => Promise<void>,
-  /** Which resolved `describe` to swap behind. `claim` describes its files
-   *  with `Promise.all`, so a swap that has to land after *all* of them —
-   *  anything touching the attachments directory itself, which a still-running
-   *  describe would walk into — must count them. */
-  afterResolvedCall = 1,
-): void {
-  const real = agentAttachmentStore.describe.bind(agentAttachmentStore);
+/**
+ * Runs `swap` once, after the `afterResolvedCall`-th `open` resolves.
+ *
+ * Hooks `open` rather than `describe` because a claim no longer describes: it
+ * freezes each file and takes the descriptor from that same handle, so the only
+ * remaining boundary within a claim is between the freeze's opens and the
+ * release's. Counting resolved opens puts the swap exactly there — a claim over
+ * two files opens twice to freeze, so `2` lands after both.
+ */
+function swapAfterOpen(swap: () => Promise<void>, afterResolvedCall = 1): void {
+  const real = vi.mocked(open).getMockImplementation();
+  expect(real).toBeDefined();
   let resolved = 0;
   let done = false;
-  vi.spyOn(agentAttachmentStore, 'describe').mockImplementation(
-    async (directory, fileName) => {
-      const found = await real(directory, fileName);
-      resolved++;
-      if (!done && resolved >= afterResolvedCall) {
-        done = true;
-        await swap();
-      }
-      return found;
-    },
-  );
+  vi.mocked(open).mockImplementation(async (...args) => {
+    const handle = await (real as typeof open)(...args);
+    resolved++;
+    if (!done && resolved >= afterResolvedCall) {
+      done = true;
+      await swap();
+    }
+    return handle;
+  });
 }
 
 let scratchDirectory: string;
@@ -521,6 +522,38 @@ describe('describe / readBase64 / remove', () => {
     ).toEqual({data: null, reason: 'missing'});
   });
 
+  // `O_NOFOLLOW` refuses a symlinked *final* component and says nothing about
+  // the parents, so renaming `attachments/` and leaving a symlink in its place
+  // redirects an open of an unchanged path. Node has no `openat` to pin the
+  // directory with, so the parent is re-checked after the open instead: this
+  // catches a swap that persists, which is every swap that could serve a file
+  // from outside the store.
+  it('refuses a read reached through a swapped attachments directory', async () => {
+    const elsewhere = path.join(scratchDirectory, 'elsewhere');
+    await mkdir(elsewhere, {recursive: true});
+    await writeFile(path.join(elsewhere, 'shot.png'), pngOf(4096));
+    await agentAttachmentStore.save(
+      scratchDirectory,
+      'shot.png',
+      streamOf(pngOf(64)),
+    );
+    const attachmentsDirectory =
+      agentAttachmentStore.directory(scratchDirectory);
+
+    // Between the directory check and the open of the file beneath it.
+    swapAfterOpen(async () => {
+      await rename(
+        attachmentsDirectory,
+        path.join(scratchDirectory, 'attachments.moved'),
+      );
+      await symlink(elsewhere, attachmentsDirectory);
+    });
+
+    expect(
+      await agentAttachmentStore.readBase64(scratchDirectory, 'shot.png'),
+    ).toEqual({data: null, reason: 'missing'});
+  });
+
   describe('openForDownload', () => {
     it('hands back a handle whose facts describe the file it opened', async () => {
       await agentAttachmentStore.save(
@@ -770,10 +803,12 @@ describe('claim', () => {
     const attachmentsDirectory =
       agentAttachmentStore.directory(scratchDirectory);
     const target = path.join(attachmentsDirectory, 'a.pdf');
-    swapAfterDescribe(async () => {
+    // Two files, so two opens to freeze; the swap lands after both, in the
+    // gap before the release reopens them.
+    swapAfterOpen(async () => {
       await unlink(target);
       await mkdir(target, {mode: 0o700});
-    });
+    }, 2);
 
     await agentAttachmentStore.claim(scratchDirectory, ['a.pdf', 'b.pdf']);
 
@@ -802,8 +837,8 @@ describe('claim', () => {
     const stranger = path.join(elsewhere, 'a.pdf');
     await writeFile(stranger, 'not ours', {mode: 0o400});
 
-    // After both describes, so neither walks into the swapped directory.
-    swapAfterDescribe(async () => {
+    // After both freezes, so neither walks into the swapped directory.
+    swapAfterOpen(async () => {
       await rename(
         attachmentsDirectory,
         path.join(scratchDirectory, 'attachments.moved'),
@@ -811,9 +846,12 @@ describe('claim', () => {
       await symlink(elsewhere, attachmentsDirectory);
     }, 2);
 
+    // Which failure it reports depends on where the swap lands relative to
+    // each freeze's own parent re-check — either way the claim must fail, and
+    // either way nothing outside the store may have its mode touched.
     expect(
       await agentAttachmentStore.claim(scratchDirectory, ['a.pdf', 'b.pdf']),
-    ).toMatchObject({ok: false, reason: 'attachments-too-large'});
+    ).toMatchObject({ok: false});
 
     expect(((await lstat(stranger)).mode & 0o777).toString(8)).toBe('400');
   });

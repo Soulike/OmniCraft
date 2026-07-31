@@ -1,8 +1,8 @@
 import crypto from 'node:crypto';
-import type {Stats, WriteStream} from 'node:fs';
+import type {WriteStream} from 'node:fs';
 import {createWriteStream} from 'node:fs';
 import fs from 'node:fs/promises';
-import {access, lstat, stat} from 'node:fs/promises';
+import {access, stat} from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -24,26 +24,6 @@ export function isSymlinkRefusedError(error: unknown): boolean {
 /** Checks whether an error is a file-already-exists (EEXIST) error. */
 export function isFileExistsError(error: unknown): boolean {
   return error instanceof Error && 'code' in error && error.code === 'EEXIST';
-}
-
-/**
- * lstat's `absolutePath`, returning its stats when it is a regular file and
- * `null` when it is missing or something else. `lstat`, never `stat`: a
- * symlink at `absolutePath` itself must be rejected rather than followed.
- * This says nothing about a symlink earlier in the path — a caller that
- * recursively creates a directory before using this must guard that
- * separately if it matters for its use case.
- */
-export async function statRegularFile(
-  absolutePath: string,
-): Promise<Stats | null> {
-  try {
-    const stats = await lstat(absolutePath);
-    return stats.isFile() ? stats : null;
-  } catch (error: unknown) {
-    if (isFileNotFoundError(error)) return null;
-    throw error;
-  }
 }
 
 /** Checks whether a file exists at the given path. */
