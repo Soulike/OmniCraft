@@ -313,8 +313,9 @@ class AgentAttachmentStore {
     // store's problem to handle), so the `false` (absent) case here is an
     // invariant violation, not a reachable business outcome.
     await mkdir(directory, {recursive: true, mode: 0o700});
+    const validated = await this.verifyRealDirectoryOrAbsent(directory);
     assert(
-      (await this.verifyRealDirectoryOrAbsent(directory)) !== null,
+      validated !== null,
       `Attachments directory disappeared immediately after creation: ${directory}`,
     );
 
@@ -346,6 +347,7 @@ class AgentAttachmentStore {
         temporaryPath,
         sanitized,
         mediaType,
+        validated,
       );
       if (fileName === null) return {ok: false, reason: 'name-unavailable'};
       return {
@@ -766,8 +768,11 @@ class AgentAttachmentStore {
     // reporting why, and replacing that reason with an error from its own
     // cleanup would hide it. The tampering still surfaces on the next
     // `describe` or `save`, which are not in the middle of failing.
+    let validated: Stats;
     try {
-      if ((await this.verifyRealDirectoryOrAbsent(directory)) === null) return;
+      const stats = await this.verifyRealDirectoryOrAbsent(directory);
+      if (stats === null) return;
+      validated = stats;
     } catch {
       return;
     }
@@ -794,6 +799,9 @@ class AgentAttachmentStore {
         // this release is not ours to touch.
         const stats = await owned.stat();
         if (!stats.isFile()) return;
+        // And the parent, for the same reason the read path checks it: the
+        // open above resolved the whole path, not just the final component.
+        if (!(await this.directoryUnchanged(directory, validated))) return;
         await owned.chmod(previousMode);
       }),
     );
@@ -823,9 +831,8 @@ class AgentAttachmentStore {
     fileName: string,
   ): Promise<RemoveAttachmentResult> {
     const directory = this.directory(scratchDirectory);
-    if ((await this.verifyRealDirectoryOrAbsent(directory)) === null) {
-      return {ok: false, reason: 'not-found'};
-    }
+    const validated = await this.verifyRealDirectoryOrAbsent(directory);
+    if (validated === null) return {ok: false, reason: 'not-found'};
 
     const absolutePath = resolveInside(directory, fileName);
     if (absolutePath === null) return {ok: false, reason: 'not-found'};
@@ -854,6 +861,15 @@ class AgentAttachmentStore {
     // never the target's, so a planted link stays deletable.
     if ((stats.mode & OWNER_WRITE_MODE) === 0) {
       return {ok: false, reason: 'frozen'};
+    }
+
+    // `unlink` takes a path and has no fd form — the name is the thing being
+    // removed — so this is one of the few operations that cannot be moved onto
+    // a handle. Re-checking the parent immediately before it is the closest
+    // available substitute; see `directoryUnchanged` for what that does and
+    // does not buy.
+    if (!(await this.directoryUnchanged(directory, validated))) {
+      return {ok: false, reason: 'not-found'};
     }
 
     // Only ENOENT means "there was nothing to delete"; anything else is a real
@@ -885,6 +901,7 @@ class AgentAttachmentStore {
     temporaryPath: string,
     sanitized: string,
     mediaType: ImageMediaType | DocumentMediaType,
+    validatedDirectory: Stats,
   ): Promise<string | null> {
     const extension = EXTENSION_BY_MEDIA_TYPE[mediaType];
     const existing = path.extname(sanitized);
@@ -913,6 +930,13 @@ class AgentAttachmentStore {
       // exhausts `MAX_PLACEMENT_ATTEMPTS` over this — it lands one candidate
       // later, on `<stem> (2)<ext>`, instead of the bare name.
       if (sanitizeFileName(candidate) !== candidate) continue;
+
+      // `link` takes paths and has no fd form, like `unlink` — the name is
+      // what is being created. Re-checking the parent immediately before it is
+      // the closest available substitute; see `directoryUnchanged`.
+      if (!(await this.directoryUnchanged(directory, validatedDirectory))) {
+        return null;
+      }
 
       try {
         await link(temporaryPath, path.join(directory, candidate));

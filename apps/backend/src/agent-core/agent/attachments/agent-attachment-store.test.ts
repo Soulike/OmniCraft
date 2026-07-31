@@ -674,6 +674,49 @@ describe('describe / readBase64 / remove', () => {
     await expect(access(outside)).resolves.toBeUndefined();
   });
 
+  // `unlink` takes a path and has no fd form — the name is what is being
+  // removed — so `remove` cannot move onto a handle the way the read paths
+  // did. Between validating the directory and unlinking beneath it, a rename
+  // plus symlink redirects the unchanged path, and the delete lands on a
+  // same-named file outside the store.
+  it('refuses to unlink through a swapped attachments directory', async () => {
+    const elsewhere = path.join(scratchDirectory, 'elsewhere');
+    await mkdir(elsewhere, {recursive: true});
+    const stranger = path.join(elsewhere, 'shot.png');
+    await writeFile(stranger, 'not ours');
+    await agentAttachmentStore.save(
+      scratchDirectory,
+      'shot.png',
+      streamOf(pngOf(64)),
+    );
+    const attachmentsDirectory =
+      agentAttachmentStore.directory(scratchDirectory);
+    const target = path.join(attachmentsDirectory, 'shot.png');
+
+    // After `remove` has stat'd the file it intends to delete, and before the
+    // unlink.
+    const real = vi.mocked(lstat).getMockImplementation();
+    expect(real).toBeDefined();
+    vi.mocked(lstat).mockImplementation(async (input) => {
+      const stats = await (real as typeof lstat)(input);
+      if (input === target) {
+        vi.mocked(lstat).mockImplementation(real as typeof lstat);
+        await rename(
+          attachmentsDirectory,
+          path.join(scratchDirectory, 'attachments.moved'),
+        );
+        await symlink(elsewhere, attachmentsDirectory);
+      }
+      return stats;
+    });
+
+    expect(
+      await agentAttachmentStore.remove(scratchDirectory, 'shot.png'),
+    ).toEqual({ok: false, reason: 'not-found'});
+    // The stranger survives.
+    await expect(access(stranger)).resolves.toBeUndefined();
+  });
+
   // Regression test for 297be09, which changed remove() from stat-then-unlink
   // to unlink-and-catch-ENOENT: `unlink` on a directory throws (EPERM on
   // macOS/BSD, EISDIR on Linux) and that error is neither ENOENT nor caught,

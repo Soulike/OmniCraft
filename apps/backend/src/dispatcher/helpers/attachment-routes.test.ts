@@ -61,6 +61,9 @@ function fakeService(): AttachmentSessionService {
           handle,
           attachment: {
             ...descriptorToReturn.attachment,
+            ...(openedMediaTypeOverride === null
+              ? {}
+              : {mediaType: openedMediaTypeOverride}),
             lastKnownByteSize: stats.size,
           },
           mtimeMs: stats.mtimeMs,
@@ -105,10 +108,12 @@ afterEach(() => {
   descriptorToReturn = null;
   removeResultToReturn = {ok: true};
   lastServedHandle = null;
+  openedMediaTypeOverride = null;
 });
 
 let pathToServe = '';
 let lastServedHandle: FileHandle | null = null;
+let openedMediaTypeOverride: 'image/png' | 'application/pdf' | null = null;
 
 async function descriptorFor(
   fileName: string,
@@ -219,6 +224,25 @@ describe('GET .../attachments/:fileName disposition', () => {
 
     expect(res.headers.get('content-disposition')).toBe(
       'inline; filename="shot.png"',
+    );
+  });
+
+  // `describe` and the open are two resolutions of one name, and an unfrozen
+  // attachment can change between them, so the store can genuinely report one
+  // media type from the first and another from the second. Every header
+  // describing the body has to come from the handle being streamed, or the
+  // response advertises an inline PNG while sending PDF bytes.
+  it('takes Content-Type and disposition from the opened handle', async () => {
+    descriptorToReturn = await descriptorFor('shot.png');
+    openedMediaTypeOverride = 'application/pdf';
+
+    const res = await fetch(
+      `${baseUrl}/sessions/${SESSION_ID}/attachments/shot.png`,
+    );
+
+    expect(res.headers.get('content-type')).toContain('application/pdf');
+    expect(res.headers.get('content-disposition')).toBe(
+      'attachment; filename="shot.png"',
     );
   });
 

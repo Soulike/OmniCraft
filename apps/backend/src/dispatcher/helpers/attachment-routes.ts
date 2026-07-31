@@ -274,11 +274,19 @@ export function registerAttachmentRoutes(
     // if they ever do.
     const {handle, attachment, mtimeMs} = opened.opened;
     try {
-      // From the handle that will be streamed, so they describe the bytes
-      // actually sent. `describe`'s numbers above are a moment older and only
-      // ever decided the 304.
+      // Every header describing the body is re-set from the opened handle, not
+      // just the size. `describe` and this open are two resolutions of one
+      // name, and an unfrozen attachment can change between them — the store
+      // can genuinely report `image/png` from the first and `application/pdf`
+      // from the second, which would have advertised an inline PNG while
+      // streaming PDF bytes. The descriptor-derived values above exist only to
+      // decide the 304, which sends no body.
       ctx.response.length = attachment.lastKnownByteSize;
       ctx.response.etag = `${attachment.lastKnownByteSize}-${mtimeMs}`;
+      ctx.response.type = attachment.mediaType;
+      ctx.response.attachment(attachment.fileName, {
+        type: DISPOSITION_BY_MEDIA_TYPE[attachment.mediaType],
+      });
     } catch (error: unknown) {
       await handle.close();
       throw error;
