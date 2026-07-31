@@ -42,6 +42,48 @@ describe('buildCompactedMessageContent attachments', () => {
     expect(content).not.toContain('Attachments you saw earlier');
   });
 
+  // `run_command` runs `/bin/sh -l -c`, and these lines are the one place the
+  // store's names are handed to a model as something it may copy onto a
+  // command line. A name may legitimately contain `;` or a space —
+  // `placeUniquely` generates `name (2).ext` itself — so the constraint
+  // belongs here rather than in the sanitizer.
+  it('shell-quotes each path so a crafted name cannot become a second command', () => {
+    const content = compactionPromptBuilder.buildCompactedMessageContent({
+      summary: 's',
+      recentContext: 'r',
+      attachments: [
+        {
+          fileName: 'photo;printf INJECTED;.png',
+          mediaType: 'image/png',
+          lastKnownByteSize: 64,
+        },
+      ],
+      attachmentsDirectory: '/data/attachments',
+    });
+
+    expect(content).toContain("'/data/attachments/photo;printf INJECTED;.png'");
+    expect(content).not.toContain(
+      '- /data/attachments/photo;printf INJECTED;.png',
+    );
+  });
+
+  it('escapes a single quote in the name rather than closing the quoting', () => {
+    const content = compactionPromptBuilder.buildCompactedMessageContent({
+      summary: 's',
+      recentContext: 'r',
+      attachments: [
+        {
+          fileName: "it's;id.png",
+          mediaType: 'image/png',
+          lastKnownByteSize: 64,
+        },
+      ],
+      attachmentsDirectory: '/data/attachments',
+    });
+
+    expect(content).toContain(`'/data/attachments/it'\\''s;id.png'`);
+  });
+
   it('lists absolute paths with sizes and no tool name', () => {
     const content = compactionPromptBuilder.buildCompactedMessageContent({
       summary: 's',
@@ -65,10 +107,10 @@ describe('buildCompactedMessageContent attachments', () => {
       '## Attachments you saw earlier in this conversation',
     );
     expect(content).toContain(
-      '- /data/sessions/x/scratch/attachments/invoice.pdf — application/pdf, 235 KB',
+      "- '/data/sessions/x/scratch/attachments/invoice.pdf' — application/pdf, 235 KB",
     );
     expect(content).toContain(
-      '- /data/sessions/x/scratch/attachments/shot.png — image/png, 812 KB',
+      "- '/data/sessions/x/scratch/attachments/shot.png' — image/png, 812 KB",
     );
     // Source-agnostic and tool-agnostic by design — see the spec.
     expect(content).not.toContain('read_file');

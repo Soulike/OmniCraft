@@ -4,6 +4,26 @@ import type {LlmAttachment} from '@omnicraft/tool-schemas';
 
 import {formatAttachmentSize} from '../../llm-api/index.js';
 
+/**
+ * Wraps a path in POSIX single quotes so it is one shell word whatever it
+ * contains.
+ *
+ * A stored file name may legitimately contain `;`, backticks, `$(`, spaces and
+ * parentheses — `sanitizeFileName` has no business removing those, and
+ * `placeUniquely` generates `name (2).ext` itself. But these lines are the one
+ * place the store's names are handed to a model as something it may copy onto
+ * a command line, and `run_command` runs `/bin/sh -l -c`, so an unquoted
+ * `photo;printf X;.png` would execute `printf X` as a second command.
+ *
+ * Quoting here rather than sanitizing there keeps the constraint where the
+ * shell actually is. The failure mode if a model copies the quotes somewhere
+ * they do not belong is a visible "no such file", which it can recover from;
+ * the failure mode of not quoting is silent command execution.
+ */
+function toShellSafePath(absolutePath: string): string {
+  return `'${absolutePath.split("'").join(`'\\''`)}'`;
+}
+
 export interface BuildCompactedMessageContentOptions {
   readonly summary: string;
   readonly recentContext: string;
@@ -49,10 +69,12 @@ export class CompactionPromptBuilder {
       '',
       'You have already seen these files. They were dropped from the context by',
       'compaction, but they are still on disk — read them again if you need them.',
+      'The paths are shell-quoted; drop the surrounding quotes if you pass one to',
+      'a tool that takes a path directly rather than a command line.',
       '',
       ...attachments.map(
         (attachment) =>
-          `- ${path.join(attachmentsDirectory, attachment.fileName)} — ${attachment.mediaType}, ${formatAttachmentSize(attachment.lastKnownByteSize)}`,
+          `- ${toShellSafePath(path.join(attachmentsDirectory, attachment.fileName))} — ${attachment.mediaType}, ${formatAttachmentSize(attachment.lastKnownByteSize)}`,
       ),
     ];
   }

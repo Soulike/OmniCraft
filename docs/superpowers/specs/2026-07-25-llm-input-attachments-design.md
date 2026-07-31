@@ -397,6 +397,20 @@ reasoning already documented in `agent-scratch-directory-service.ts:23-43`
 `@koa/router` decodes percent-encoded slashes, which is exactly why
 `dispatcher/helpers/session-id.ts` exists — the same care applies here.
 
+### The compaction path list is shell-quoted
+
+That list is the one place the store's names reach a model as something it may copy
+onto a command line, and `run_command` runs `/bin/sh -l -c`. An unquoted
+`photo;printf X;.png` would execute `printf X` as a second command.
+
+Quoted there rather than sanitized in `sanitizeFileName`, because a file name may
+legitimately contain `;`, backticks, `$(`, spaces or parentheses — `placeUniquely`
+generates `name (2).ext` itself, and stripping shell metacharacters would break both
+that and every name with a space. The constraint belongs where the shell is.
+
+If a model copies the quotes somewhere they do not belong, it gets a visible "no such
+file" and can recover; not quoting fails by executing something instead.
+
 ### The store hands out handles, not paths
 
 The descriptor carries `{attachment, mtimeMs}` and nothing else. It used to carry
