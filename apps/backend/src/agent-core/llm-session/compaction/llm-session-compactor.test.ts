@@ -73,6 +73,7 @@ const compactDecision: Extract<LlmCompactionDecision, {type: 'compact'}> = {
 const historyResult: LlmHistoryCompactionResult = {
   summary: 'summary text',
   replacementMessages,
+  attachments: [],
   metadataInput: {
     recentContextMessageCount: 1,
     beforeCharCount: 456,
@@ -122,6 +123,7 @@ function createInput(commit = vi.fn()) {
     usage,
     latestUsageInputMessageCount: 2,
     attachmentsDirectory: null,
+    carriedAttachments: [],
     options,
     commit,
   };
@@ -200,6 +202,7 @@ describe('LlmSessionCompactor', () => {
       messages,
       tools: options.tools,
       attachmentsDirectory: null,
+      carriedAttachments: [],
       signal: controller.signal,
     });
     expect(estimateTokensSpy).toHaveBeenCalledWith({
@@ -304,6 +307,7 @@ describe('LlmSessionCompactor', () => {
         recentContextMessageCount: 1,
         beforeCharCount: 456,
         afterCharCount: 78,
+        attachments: [],
       },
     });
   });

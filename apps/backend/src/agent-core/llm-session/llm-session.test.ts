@@ -96,6 +96,7 @@ function createPatch(): LlmSessionCompactionPatch {
       recentContextMessageCount: 1,
       beforeCharCount: 200,
       afterCharCount: 20,
+      attachments: [],
     },
   };
 }

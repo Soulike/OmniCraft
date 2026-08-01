@@ -51,6 +51,7 @@ describe('LlmHistoryCompactor', () => {
       messages,
       tools: [],
       attachmentsDirectory: null,
+      carriedAttachments: [],
     });
 
     expect(result.summary).toBe('summary text');
@@ -79,6 +80,7 @@ describe('LlmHistoryCompactor', () => {
         messages,
         tools: [],
         attachmentsDirectory: null,
+        carriedAttachments: [],
       }),
     ).rejects.toThrow('Compaction summary is empty');
   });
@@ -93,6 +95,7 @@ describe('LlmHistoryCompactor', () => {
       messages: inputMessages,
       tools: [],
       attachmentsDirectory: null,
+      carriedAttachments: [],
     });
 
     expect(inputMessages).toEqual(originalMessages);
@@ -149,6 +152,7 @@ describe('LlmHistoryCompactor', () => {
       ],
       tools: [],
       attachmentsDirectory: '/data/sessions/x/scratch/attachments',
+      carriedAttachments: [],
     } as never);
 
     const content = (result.replacementMessages[0]?.content ?? '') as string;
@@ -157,5 +161,42 @@ describe('LlmHistoryCompactor', () => {
     // The replacement message itself carries no attachments — the model re-reads
     // from disk rather than having them re-attached.
     expect(result.replacementMessages[0]).toMatchObject({attachments: []});
+  });
+
+  // A second compaction sees `attachments: []` on the replacement the first
+  // one produced, so building the catalog from `message.attachments` alone
+  // would drop every earlier file. That list is the whole basis for treating
+  // "compaction loses the bytes" as acceptable — the file is still on disk and
+  // the summary names it — so losing it on the second pass would quietly
+  // retract the justification.
+  it('keeps listing attachments a previous compaction recorded', async () => {
+    const compactor = createCompactor('summary text');
+
+    const result = await compactor.compact({
+      config,
+      messages: [
+        {
+          id: 'm1',
+          createdAt: 0,
+          role: 'user',
+          content: 'hi',
+          attachments: [],
+        },
+      ],
+      tools: [],
+      attachmentsDirectory: '/data/attachments',
+      carriedAttachments: [
+        {
+          fileName: 'earlier.png',
+          mediaType: 'image/png',
+          lastKnownByteSize: 64,
+        },
+      ],
+    });
+
+    const content = result.replacementMessages[0]?.content ?? '';
+    expect(content).toContain('earlier.png');
+    // And it stays available to the compaction after this one.
+    expect(result.attachments.map((a) => a.fileName)).toEqual(['earlier.png']);
   });
 });

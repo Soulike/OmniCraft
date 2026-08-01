@@ -3,6 +3,7 @@ import type {
   SseContextCompactionEvent,
 } from '@omnicraft/sse-events';
 import type {LlmAttachment} from '@omnicraft/tool-schemas';
+import {llmAttachmentSchema} from '@omnicraft/tool-schemas';
 import {z} from 'zod';
 
 import type {AttachmentResolution, ToolResultBlock} from '../llm-api/index.js';
@@ -16,6 +17,19 @@ export const llmCompactionMetadataSchema = z.object({
   recentContextMessageCount: z.number(),
   beforeCharCount: z.number(),
   afterCharCount: z.number(),
+  /** Every attachment the compacted history had seen, carried forward so a
+   *  later compaction can still list it.
+   *
+   *  The replacement message holds `attachments: []` — that emptiness is what
+   *  lets compaction relieve the byte pressure it fired on — so a second
+   *  compaction reading only `message.attachments` would find nothing and drop
+   *  the path list. That list is the entire basis for treating "compaction
+   *  loses the bytes" as acceptable: the file is still on disk and the summary
+   *  names it. Losing it on the second pass would quietly retract that.
+   *
+   *  `.default([])` so sessions compacted before this field existed still
+   *  parse; they simply have no catalog to carry. */
+  attachments: z.array(llmAttachmentSchema).default([]),
 });
 
 export type LlmCompactionMetadata = z.infer<typeof llmCompactionMetadataSchema>;

@@ -33,8 +33,15 @@ function throwIfAborted(signal: AbortSignal | undefined): void {
 
 /** Every attachment referenced by the history being compacted, first occurrence
  *  wins, deduped by file name. */
-function collectAttachments(messages: readonly LlmMessage[]): LlmAttachment[] {
+function collectAttachments(
+  messages: readonly LlmMessage[],
+  carriedForward: readonly LlmAttachment[],
+): LlmAttachment[] {
   const byName = new Map<string, LlmAttachment>();
+  // Earlier compactions first, so a name still present in history keeps its
+  // newer descriptor.
+  for (const attachment of carriedForward)
+    byName.set(attachment.fileName, attachment);
   for (const message of messages) {
     if (message.role !== 'user') continue;
     for (const attachment of message.attachments) {
@@ -73,6 +80,15 @@ export class LlmHistoryCompactor {
       input.messages,
       input.tools,
     );
+    // Unioned with what earlier compactions recorded: the replacement message
+    // they produced carries `attachments: []`, so a second pass reading only
+    // `message.attachments` would find nothing and silently drop the path list
+    // the model needs to read those files back.
+    const attachments = collectAttachments(
+      input.messages,
+      input.carriedAttachments,
+    );
+
     const replacementMessages: LlmMessage[] = [
       {
         id: crypto.randomUUID(),
@@ -81,7 +97,7 @@ export class LlmHistoryCompactor {
         content: this.promptBuilder.buildCompactedMessageContent({
           summary,
           recentContext: recentContext.content,
-          attachments: collectAttachments(input.messages),
+          attachments,
           attachmentsDirectory: input.attachmentsDirectory,
         }),
         attachments: [],
@@ -91,6 +107,7 @@ export class LlmHistoryCompactor {
     return {
       summary,
       replacementMessages,
+      attachments,
       metadataInput: {
         recentContextMessageCount: recentContext.sourceMessageCount,
         beforeCharCount,

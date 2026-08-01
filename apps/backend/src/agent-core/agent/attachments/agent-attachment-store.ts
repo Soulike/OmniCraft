@@ -563,11 +563,39 @@ class AgentAttachmentStore {
       return {vanished: [...fileNames], newlyFrozen: [], described: []};
     }
 
-    const results = await Promise.all(
+    // `allSettled`, not `all`: a rejection from `all` abandons its siblings
+    // mid-flight, so their `previousMode` is lost while their `chmod` still
+    // lands — and a claim that never accepted a turn would leave files frozen
+    // with nothing able to release them. Everything is awaited, then anything
+    // this call froze is rolled back before the error propagates.
+    const settled = await Promise.allSettled(
       fileNames.map((fileName) =>
         this.freezeOne(directory, fileName, validated),
       ),
     );
+
+    const failure = settled.find((entry) => entry.status === 'rejected');
+    if (failure !== undefined) {
+      const rollback: FrozenEntry[] = [];
+      settled.forEach((entry, index) => {
+        if (entry.status !== 'fulfilled') return;
+        const outcome = entry.value;
+        if (outcome.kind !== 'frozen' || outcome.previousMode === null) return;
+        rollback.push({
+          fileName: fileNames[index] ?? '',
+          previousMode: outcome.previousMode,
+        });
+      });
+      await this.release(scratchDirectory, rollback);
+      throw failure.reason instanceof Error
+        ? failure.reason
+        : new Error(String(failure.reason));
+    }
+
+    const results: FreezeOneOutcome[] = settled.map((entry) => {
+      if (entry.status === 'fulfilled') return entry.value;
+      return {kind: 'gone'};
+    });
     const vanished: string[] = [];
     const newlyFrozen: FrozenEntry[] = [];
     const described: LlmAttachment[] = [];
