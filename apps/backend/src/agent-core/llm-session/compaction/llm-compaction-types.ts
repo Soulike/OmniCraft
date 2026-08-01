@@ -44,10 +44,7 @@ export interface LlmHistoryCompactionInput {
   readonly tools: readonly AnyToolDefinition[];
   /** Absolute attachments directory, or null when the session has no store. */
   readonly attachmentsDirectory: string | null;
-  /** Attachments recorded by earlier compactions of this session. The
-   *  replacement message they produced carries `attachments: []`, so without
-   *  this a second compaction would find no structured record of files the
-   *  model has already seen and drop them from the path list. */
+  /** See {@link LlmCompactionMetadata.attachments}. */
   readonly carriedAttachments: readonly LlmAttachment[];
 
   readonly signal?: AbortSignal;
@@ -62,8 +59,8 @@ export interface LlmHistoryCompactionMetadataInput {
 export interface LlmHistoryCompactionResult {
   readonly summary: string;
   readonly replacementMessages: readonly LlmMessage[];
-  /** Every attachment the compacted history had seen, for the metadata to
-   *  carry forward. */
+  /** For the metadata to carry forward; see
+   *  {@link LlmCompactionMetadata.attachments}. */
   readonly attachments: readonly LlmAttachment[];
   readonly metadataInput: LlmHistoryCompactionMetadataInput;
 }
@@ -76,8 +73,7 @@ export interface LlmSessionCompactionPatch {
 }
 
 export interface CompactLlmSessionIfNeededInput extends LlmCompactionDecisionInput {
-  /** Attachments recorded by earlier compactions of this session; see
-   *  {@link LlmHistoryCompactionInput.carriedAttachments}. */
+  /** See {@link LlmCompactionMetadata.attachments}. */
   readonly carriedAttachments: readonly LlmAttachment[];
   /** Absolute attachments directory, or null when the session has no store. */
   readonly attachmentsDirectory: string | null;

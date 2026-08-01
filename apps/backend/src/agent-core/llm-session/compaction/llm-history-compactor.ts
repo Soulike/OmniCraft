@@ -80,10 +80,6 @@ export class LlmHistoryCompactor {
       input.messages,
       input.tools,
     );
-    // Unioned with what earlier compactions recorded: the replacement message
-    // they produced carries `attachments: []`, so a second pass reading only
-    // `message.attachments` would find nothing and silently drop the path list
-    // the model needs to read those files back.
     const attachments = collectAttachments(
       input.messages,
       input.carriedAttachments,

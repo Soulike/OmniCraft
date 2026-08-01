@@ -305,10 +305,6 @@ export class LlmSession {
       usage: this.usage,
       latestUsageInputMessageCount: this.latestUsageInputMessageCount,
       attachmentsDirectory: this.attachmentsDirectory,
-      // Every attachment earlier compactions of this session recorded. Without
-      // it a second compaction sees only `message.attachments` — emptied by the
-      // first — and drops the path list the model needs to read those files
-      // back, which is the whole reason losing the bytes is acceptable.
       carriedAttachments: this.compactions.flatMap(
         (compaction) => compaction.attachments,
       ),

@@ -563,11 +563,8 @@ class AgentAttachmentStore {
       return {vanished: [...fileNames], newlyFrozen: [], described: []};
     }
 
-    // `allSettled`, not `all`: a rejection from `all` abandons its siblings
-    // mid-flight, so their `previousMode` is lost while their `chmod` still
-    // lands — and a claim that never accepted a turn would leave files frozen
-    // with nothing able to release them. Everything is awaited, then anything
-    // this call froze is rolled back before the error propagates.
+    // `allSettled`, not `all`: `all` rejects early, leaving siblings to chmod
+    // after the mutex is released with no `previousMode` left to undo them.
     const settled = await Promise.allSettled(
       fileNames.map((fileName) =>
         this.freezeOne(directory, fileName, validated),
