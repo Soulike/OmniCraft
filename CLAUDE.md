@@ -61,3 +61,17 @@ Follow Google TypeScript guide unless specified. Detail: <https://google.github.
 ### Flow Control
 
 - Always use early-return style for `if` to reduce levels.
+
+## Agent skills
+
+### Issue tracker
+
+Issues and specs are tracked in this repository's GitHub Issues. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+This repo uses the five default canonical triage labels. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+This repo uses a multi-context domain-doc layout organized around relevant workspaces. See `docs/agents/domain.md`.
