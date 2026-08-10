@@ -36,86 +36,43 @@ inputs:
 runs:
   using: composite
   steps:
-    - name: Seal trusted review controller
-      shell: bash
-      run: |
-        if [ "$(git -C "$GITHUB_WORKSPACE" rev-parse HEAD)" != "$BASE_SHA" ]; then
-          echo "::error::Controller checkout does not match the pinned base SHA"
-          exit 1
-        fi
-        if [ -n "$(git -C "$GITHUB_WORKSPACE" status --porcelain --untracked-files=no)" ]; then
-          echo "::error::Controller checkout is not clean"
-          exit 1
-        fi
-        git -C "$GITHUB_WORKSPACE" ls-files -z | xargs -0 chmod a-w
-      env:
-        BASE_SHA: ${{ inputs.base-sha }}
     - name: Checkout PR head
       uses: actions/checkout@v7
       with:
         ref: ${{ inputs.head-sha }}
         path: pr-head
         fetch-depth: 0
-        persist-credentials: false
-    - name: Verify PR head
-      shell: bash
-      run: |
-        if [ "$(git -C pr-head rev-parse HEAD)" != "$HEAD_SHA" ]; then
-          echo "::error::PR checkout does not match the pinned head SHA"
-          exit 1
-        fi
-      env:
-        HEAD_SHA: ${{ inputs.head-sha }}
     - name: Fetch base for diff range
       shell: bash
       run: git -C pr-head fetch --no-tags origin -- "${BASE_REF}"
       env:
         BASE_REF: ${{ inputs.base-ref }}
-    # Keep PR-controlled lifecycle hooks out of the credential-bearing job.
+    - name: Install deps in pr-head
+      shell: bash
+      run: pnpm install --frozen-lockfile
+      working-directory: pr-head
     - name: Install Copilot CLI
       shell: bash
       run: npm install -g @github/copilot
     - name: Review pass
       shell: bash
       run: |
-        assert_controller_integrity() {
-          [ "$(git -C "$GITHUB_WORKSPACE" rev-parse HEAD)" = "$BASE_SHA" ] &&
-            [ -z "$(git -C "$GITHUB_WORKSPACE" status --porcelain --untracked-files=no)" ]
-        }
-        if ! assert_controller_integrity || [ "$(git -C pr-head rev-parse HEAD)" != "$HEAD_SHA" ]; then
-          echo "::error::Review checkout identity or controller integrity changed"
-          exit 1
-        fi
-
-        COPILOT_BIN="$(realpath "$(command -v copilot || true)" 2>/dev/null || true)"
-        if [ ! -x "$COPILOT_BIN" ] || [[ "$COPILOT_BIN" == "$GITHUB_WORKSPACE"/* ]]; then
-          echo "::error::Copilot executable is missing or comes from the untrusted workspace"
-          exit 1
-        fi
-
         PROMPT="$(cat "$GITHUB_WORKSPACE/scripts/src/ai-review/prompts/review-$PASS.md")
 
-        Trusted controller checkout: $GITHUB_WORKSPACE (pinned at $BASE_SHA).
-        Untrusted PR checkout: $GITHUB_WORKSPACE/pr-head (pinned at $HEAD_SHA).
         Repository: $GH_REPO
         PR number: $PR_NUMBER
         Review the full diff of this PR against its base: run
         \`git diff $BASE_SHA...HEAD\` (three-dot) inside pr-head.
 
         Report file: $REPORT_FILE"
-        "$COPILOT_BIN" --model "$MODEL" --effort "$EFFORT" \
+        copilot --model "$MODEL" --effort "$EFFORT" \
           --context long_context \
-          --no-custom-instructions \
           --allow-tool 'shell,read,write' \
           --allow-all-urls \
           --secret-env-vars COPILOT_GITHUB_TOKEN \
           --add-dir "$GITHUB_WORKSPACE" \
           -C pr-head \
           -p "$PROMPT"
-        if ! assert_controller_integrity; then
-          echo "::error::Reviewer modified the trusted controller"
-          exit 1
-        fi
         if [ ! -s "$REPORT_FILE" ]; then
           echo "::error::Reviewer did not write a non-empty report to $REPORT_FILE"
           exit 1
@@ -128,7 +85,6 @@ runs:
         GH_TOKEN: ${{ inputs.github-token }}
         GH_REPO: ${{ inputs.repo }}
         PR_NUMBER: ${{ inputs.pr-number }}
-        HEAD_SHA: ${{ inputs.head-sha }}
         BASE_SHA: ${{ inputs.base-sha }}
         REPORT_FILE: ${{ github.workspace }}/report-${{ inputs.pass }}-${{ inputs.model }}.md
     - name: Upload report

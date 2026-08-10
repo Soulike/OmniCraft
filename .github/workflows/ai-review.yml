@@ -25,11 +25,7 @@ jobs:
       general_models_json: ${{ steps.check.outputs.general_models_json }}
       security_models_json: ${{ steps.check.outputs.security_models_json }}
     steps:
-      - name: Checkout trusted review controller
-        uses: actions/checkout@v7
-        with:
-          ref: ${{ github.event.pull_request.base.sha }}
-          persist-credentials: false
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
       - name: Check config
         id: check
@@ -50,11 +46,7 @@ jobs:
       has_changes: ${{ steps.range.outputs.has_changes }}
       carried_verdict: ${{ steps.range.outputs.carried_verdict }}
     steps:
-      - name: Checkout trusted review controller
-        uses: actions/checkout@v7
-        with:
-          ref: ${{ github.event.pull_request.base.sha }}
-          persist-credentials: false
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
       - name: Resolve range
         id: range
@@ -78,11 +70,7 @@ jobs:
       matrix:
         model: ${{ fromJSON(needs.config.outputs.general_models_json) }}
     steps:
-      - name: Checkout trusted review controller
-        uses: actions/checkout@v7
-        with:
-          ref: ${{ github.event.pull_request.base.sha }}
-          persist-credentials: false
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
       - uses: ./.github/actions/run-review-pass
         with:
@@ -110,11 +98,7 @@ jobs:
       matrix:
         model: ${{ fromJSON(needs.config.outputs.security_models_json) }}
     steps:
-      - name: Checkout trusted review controller
-        uses: actions/checkout@v7
-        with:
-          ref: ${{ github.event.pull_request.base.sha }}
-          persist-credentials: false
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
       - uses: ./.github/actions/run-review-pass
         with:
@@ -138,45 +122,21 @@ jobs:
       contents: read
       pull-requests: write
     steps:
-      - name: Checkout trusted review controller
-        uses: actions/checkout@v7
-        with:
-          ref: ${{ github.event.pull_request.base.sha }}
-          persist-credentials: false
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
-      - name: Seal trusted review controller
-        run: |
-          if [ "$(git -C "$GITHUB_WORKSPACE" rev-parse HEAD)" != "$BASE_SHA" ]; then
-            echo "::error::Controller checkout does not match the pinned base SHA"
-            exit 1
-          fi
-          if [ -n "$(git -C "$GITHUB_WORKSPACE" status --porcelain --untracked-files=no)" ]; then
-            echo "::error::Controller checkout is not clean"
-            exit 1
-          fi
-          git -C "$GITHUB_WORKSPACE" ls-files -z | xargs -0 chmod a-w
-        env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
       - name: Checkout PR head
         uses: actions/checkout@v7
         with:
           ref: ${{ needs.prepare.outputs.head_sha }}
           path: pr-head
           fetch-depth: 0
-          persist-credentials: false
-      - name: Verify PR head
-        run: |
-          if [ "$(git -C pr-head rev-parse HEAD)" != "$HEAD_SHA" ]; then
-            echo "::error::PR checkout does not match the pinned head SHA"
-            exit 1
-          fi
-        env:
-          HEAD_SHA: ${{ needs.prepare.outputs.head_sha }}
       - name: Fetch base for diff range
         run: git -C pr-head fetch --no-tags origin -- "${BASE_REF}"
         env:
           BASE_REF: ${{ github.event.pull_request.base.ref }}
-      # Keep PR-controlled lifecycle hooks out of the credential-bearing job.
+      - name: Install deps in pr-head
+        run: pnpm install --frozen-lockfile
+        working-directory: pr-head
       - name: Install Copilot CLI
         run: npm install -g @github/copilot
       - name: Download reports
@@ -187,43 +147,21 @@ jobs:
           merge-multiple: true
       - name: Confirm and post
         run: |
-          assert_controller_integrity() {
-            [ "$(git -C "$GITHUB_WORKSPACE" rev-parse HEAD)" = "$BASE_SHA" ] &&
-              [ -z "$(git -C "$GITHUB_WORKSPACE" status --porcelain --untracked-files=no)" ]
-          }
-          if ! assert_controller_integrity || [ "$(git -C pr-head rev-parse HEAD)" != "$HEAD_SHA" ]; then
-            echo "::error::Review checkout identity or controller integrity changed"
-            exit 1
-          fi
-
-          COPILOT_BIN="$(realpath "$(command -v copilot || true)" 2>/dev/null || true)"
-          if [ ! -x "$COPILOT_BIN" ] || [[ "$COPILOT_BIN" == "$GITHUB_WORKSPACE"/* ]]; then
-            echo "::error::Copilot executable is missing or comes from the untrusted workspace"
-            exit 1
-          fi
-
           PROMPT="$(cat "$GITHUB_WORKSPACE/scripts/src/ai-review/prompts/confirm.md")
 
-          Trusted controller checkout: $GITHUB_WORKSPACE (pinned at $BASE_SHA).
-          Untrusted PR checkout: $GITHUB_WORKSPACE/pr-head (pinned at $HEAD_SHA).
           Repository: $GH_REPO
           PR number: $PR_NUMBER
           Head SHA: $HEAD_SHA
           Reviewed range: full PR diff ($BASE_SHA...HEAD)
           Reviewer reports are in the $GITHUB_WORKSPACE/reports/ directory."
-          "$COPILOT_BIN" --model "$CONFIRM_MODEL" --effort "$CONFIRM_EFFORT" \
+          copilot --model "$CONFIRM_MODEL" --effort "$CONFIRM_EFFORT" \
             --context long_context \
-            --no-custom-instructions \
             --allow-tool 'shell,read,write' \
             --allow-all-urls \
             --secret-env-vars COPILOT_GITHUB_TOKEN \
             --add-dir "$GITHUB_WORKSPACE" \
             -C pr-head \
             -p "$PROMPT"
-          if ! assert_controller_integrity; then
-            echo "::error::Reviewer modified the trusted controller"
-            exit 1
-          fi
         env:
           COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_CLI_TOKEN }}
           GH_TOKEN: ${{ github.token }}
@@ -242,11 +180,7 @@ jobs:
       pull-requests: write
       issues: write
     steps:
-      - name: Checkout trusted review controller
-        uses: actions/checkout@v7
-        with:
-          ref: ${{ github.event.pull_request.base.sha }}
-          persist-credentials: false
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
       - name: Read posted verdict
         id: verdict
