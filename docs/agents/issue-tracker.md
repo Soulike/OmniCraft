@@ -55,7 +55,7 @@ GitHub shares one number space across issues and PRs, so a bare `#42` may be eit
 Used by `/wayfinder`. The **map** is a single issue with **child** issues as tickets.
 
 - **Map**: a single issue labelled `wayfinder:map`. Create it with the safe issue-creation procedure and a fixed `labels: ["wayfinder:map"]` field. Its body must contain Destination, Notes, Decisions so far, Not yet specified, and Out of scope sections.
-- **Child ticket**: create it with the safe issue-creation procedure and one fixed `wayfinder:<type>` label (`research`, `prototype`, `grilling`, or `task`), then link it through the sub-issues API. Where sub-issues are unavailable, add it to the map's task list under the map-update lock below and put `Part of #<map>` in its body file. Creation is complete only after a refetch shows both the label and the sub-issue association or ordered fallback task-list entry.
+- **Child ticket**: create it with the safe issue-creation procedure and one fixed `wayfinder:<type>` label (`research`, `prototype`, `grilling`, or `task`), then link it through the sub-issues API. Where sub-issues are unavailable, add it to the map's task list and put `Part of #<map>` in its body file. Creation is complete only after a refetch shows both the label and the sub-issue association or ordered fallback task-list entry.
 - **Blocking**: use GitHub's native issue dependencies. Add an edge with `gh api --method POST repos/{owner}/{repo}/issues/<child>/dependencies/blocked_by -F issue_id=<blocker-db-id>`, where both values are validated decimal IDs and `<blocker-db-id>` is the blocker's numeric database ID, not its issue number or `node_id`. Where dependencies are unavailable, put exactly one first-line marker in the child body: `Blocked by: #<number>, #<number>`. It must match `^Blocked by: #[0-9]+(, #[0-9]+)*$`; no marker means no fallback blockers. A ticket is unblocked when every blocker is closed.
 
 ### Frontier
@@ -66,41 +66,10 @@ When native dependencies are unavailable, fetch each candidate's body and parse 
 
 If sub-issues are unavailable, parse the map task list in its written order and inspect only the issue numbers in that list, applying the same native-or-fallback blocker check. Pagination must run to exhaustion in either mode; reaching a page or client limit is not a complete frontier.
 
-### Coordination leases
+### Work a ticket
 
-Ticket claims and map-body locks are atomic, expiring leases:
-
-- Ticket claim: `refs/tags/wayfinder-claims/<ticket-number>`, with a six-hour expiry.
-- Map update lock: `refs/tags/wayfinder-map-locks/<map-number>`, with a fifteen-minute expiry.
-
-For either lease, create an immutable annotated-tag object through the Git Data API. Give its tag object a unique name containing the kind, validated number, and random session ID. Its JSON message records `kind`, the number, GitHub login, session ID, `created_at`, and `expires_at`; build the `tag`, `message`, `object`, and `type: commit` request fields with a serializer and `gh api --input`. Point the tag object at the pinned default-branch commit, then atomically create the fixed coordination ref. HTTP 201 owns the lease. On HTTP 422, no work is claimed: read the existing ref and tag metadata; a valid, unexpired lease belongs to that owner, an expired lease requires the recovery procedure below, and malformed metadata requires manual maintainer inspection. Never replace or renew a coordination ref in place.
-
-The returned tag-object SHA is the fencing token. Before every issue, PR, ref, or map write, refetch the fixed ref and tag metadata. Proceed only when the ref still points to that SHA, owner and session match, and at least five minutes remain before expiry. Before ordinary ticket work and the close operation, a claimant must also verify that the ticket is open and its sole assignee is the lease owner. After a successful close, only owned-claim cleanup may proceed; it requires the ticket to be closed with that owner still its sole assignee. Stop before the safety window; if more time is needed, release the lease and compete for a new one.
-
-### Claim and release
-
-1. Verify that the selected child is open and unassigned, then acquire its ticket-claim lease.
-2. After checking the fencing token, assign the current GitHub user and refetch the issue. Work starts only when that user is the sole assignee.
-3. If assignment or verification fails, remove only the current user's assignment while the lease is still valid, delete the owned ref, and verify both pieces of state were cleared.
-4. Before each subsequent tracker write, repeat the fencing and issue-state checks.
-5. On resolution or abandonment, remove the claimant assignment first, then delete the owned ref and verify that the issue has no assignee and the ref is absent. Close a resolved ticket before this cleanup; leave an abandoned ticket open.
-
-### Stale recovery
-
-Workers never reclaim or delete somebody else's lease. A repository maintainer, with current-user authorization, serializes stale recovery so only one recovery runs at a time. Immediately before recovery, refetch the ref and immutable tag, confirm that its fencing token is unchanged and its expiry has passed, and confirm that the issue has either no assignee or only the recorded owner. Additional assignees, mismatched metadata, or evidence that the owner is still active require human resolution.
-
-For an expired ticket claim, remove the recorded owner assignment first, delete the claim ref, then verify that the issue is unassigned and the ref returns 404. For an expired map lock, delete its ref and verify 404. Recovery only clears stale state; a worker must rerun frontier selection and acquire a new lease normally.
-
-### Conflict-safe map updates
-
-Every map-body mutation—including Decisions so far, Not yet specified, Out of scope, and fallback task lists—requires the map-update lease, separate from ticket claims.
-
-1. Acquire the map-update lease and verify its fencing token.
-2. Fetch the map body only after acquiring the lock. Record every existing Decisions-so-far pointer, merge the new pointer or section change, and write the complete candidate body to a payload file.
-3. Recheck the lease, update with `gh issue edit <map> --body-file "$map_body_file"`, then refetch the map.
-4. Verify that every previously observed decision pointer and every intended new pointer occurs exactly once. If verification fails, refetch, merge, and retry while the lease remains valid; never overwrite from a pre-lock snapshot.
-5. Release the map lease only after verification succeeds. A live competing lock waits; an expired one goes through maintainer recovery.
-
-### Resolve
-
-Write the answer to a file and post it with `--body-file`. While the child is still open and the claim is valid, create every newly surfaced ticket through the **Child ticket** procedure above: apply its `wayfinder:<type>` label, link it as a map sub-issue or insert its fallback task-list entry under the map lock, wire blockers, and refetch to verify the association. Append the resolved ticket's context pointer under the conflict-safe map-update protocol. Close the child only after every new ticket is reachable from the map and those writes verify, then release the ticket claim.
+1. Assign the selected child to the current GitHub user with `gh issue edit <number> --add-assignee @me`.
+2. Write the answer to a file and post it with `--body-file`.
+3. Create every newly surfaced ticket through the **Child ticket** procedure above, wire its blockers, and verify that it is reachable from the map.
+4. Fetch the latest map body, add the resolved ticket's context pointer under Decisions so far, update it with `gh issue edit <map> --body-file "$map_body_file"`, and refetch to verify the pointer.
+5. Close the resolved child. On abandonment, remove the assignment and leave the child open.
