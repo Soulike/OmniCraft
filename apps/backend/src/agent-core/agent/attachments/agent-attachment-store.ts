@@ -92,6 +92,10 @@ type FreezeOneOutcome =
       /** The mode before this call, or `null` when it was already frozen —
        *  only a file this claim transitioned may be released again. */
       readonly previousMode: number | null;
+      /** Identity of the inode this handle froze. A later release may resolve
+       *  the name again, so it must prove that name still reaches this inode. */
+      readonly dev: number;
+      readonly ino: number;
       /** `null` when the bytes are not a deliverable media type. Described
        *  from the same handle that was frozen, so the descriptor cannot end up
        *  naming a different inode than the one pinned. */
@@ -101,13 +105,16 @@ type FreezeOneOutcome =
       } | null;
     };
 
-/** A file this claim froze, and the mode it had beforehand. Carried so a
- *  release restores what was actually there: `freezeOne` accepts any regular
- *  file, and `describe` can still reject its bytes afterwards, so the thing
- *  being un-frozen is not necessarily one `writeCapped` created at `0600`. */
+/** A file this claim froze, with its inode identity and the mode it had
+ *  beforehand. Carried so a release restores what was actually there:
+ *  `freezeOne` accepts any regular file, and `describe` can still reject its
+ *  bytes afterwards, so the thing being un-frozen is not necessarily one
+ *  `writeCapped` created at `0600`. */
 interface FrozenEntry {
   readonly fileName: string;
   readonly previousMode: number;
+  readonly dev: number;
+  readonly ino: number;
 }
 
 interface FreezeOutcome {
@@ -581,6 +588,8 @@ class AgentAttachmentStore {
         rollback.push({
           fileName: fileNames[index] ?? '',
           previousMode: outcome.previousMode,
+          dev: outcome.dev,
+          ino: outcome.ino,
         });
       });
       await this.release(scratchDirectory, rollback);
@@ -604,7 +613,12 @@ class AgentAttachmentStore {
           return;
         case 'frozen':
           if (result.previousMode !== null) {
-            newlyFrozen.push({fileName, previousMode: result.previousMode});
+            newlyFrozen.push({
+              fileName,
+              previousMode: result.previousMode,
+              dev: result.dev,
+              ino: result.ino,
+            });
           }
           if (result.described === null) vanished.push(fileName);
           else described.push(result.described.attachment);
@@ -666,6 +680,7 @@ class AgentAttachmentStore {
     }
 
     const previousMode = stats.mode & 0o777;
+    const newlyFrozen = (previousMode & OWNER_WRITE_MODE) !== 0;
     await owned.chmod(FROZEN_MODE);
 
     // Described here, from the handle just frozen, rather than by a second
@@ -673,23 +688,36 @@ class AgentAttachmentStore {
     // a swap between them let a claim commit a descriptor for one inode while
     // a different one carried the frozen bit — so the API could still delete
     // the file a successful claim had supposedly pinned.
-    const mediaType = await this.sniffMediaTypeOf(owned);
-    return {
-      kind: 'frozen',
-      previousMode:
-        (previousMode & OWNER_WRITE_MODE) === 0 ? null : previousMode,
-      described:
-        mediaType === null
-          ? null
-          : {
-              attachment: {
-                fileName,
-                mediaType,
-                lastKnownByteSize: stats.size,
+    try {
+      const mediaType = await this.sniffMediaTypeOf(owned);
+      return {
+        kind: 'frozen',
+        previousMode: newlyFrozen ? previousMode : null,
+        dev: stats.dev,
+        ino: stats.ino,
+        described:
+          mediaType === null
+            ? null
+            : {
+                attachment: {
+                  fileName,
+                  mediaType,
+                  lastKnownByteSize: stats.size,
+                },
+                mtimeMs: stats.mtimeMs,
               },
-              mtimeMs: stats.mtimeMs,
-            },
-    };
+      };
+    } catch (error: unknown) {
+      // This promise cannot return a FrozenEntry for the outer allSettled
+      // rollback once it rejects. Undo through the still-open handle so a
+      // failed sniff neither strands this inode nor touches a replacement at
+      // the same name. A file that was already frozen belongs to an earlier
+      // accepted turn and must remain frozen.
+      if (newlyFrozen) {
+        await owned.chmod(previousMode).catch(() => undefined);
+      }
+      throw error;
+    }
   }
 
   /**
@@ -802,7 +830,7 @@ class AgentAttachmentStore {
       return;
     }
     await Promise.all(
-      frozen.map(async ({fileName, previousMode}) => {
+      frozen.map(async ({fileName, previousMode, dev, ino}) => {
         const absolutePath = resolveInside(directory, fileName);
         if (absolutePath === null) return;
         let handle: FileHandle;
@@ -824,6 +852,7 @@ class AgentAttachmentStore {
         // this release is not ours to touch.
         const stats = await owned.stat();
         if (!stats.isFile()) return;
+        if (stats.dev !== dev || stats.ino !== ino) return;
         // And the parent, for the same reason the read path checks it: the
         // open above resolved the whole path, not just the final component.
         if (!(await this.directoryUnchanged(directory, validated))) return;

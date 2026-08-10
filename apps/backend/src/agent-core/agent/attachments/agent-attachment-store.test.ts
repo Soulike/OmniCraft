@@ -96,6 +96,26 @@ function swapAfterOpen(swap: () => Promise<void>, afterResolvedCall = 1): void {
   });
 }
 
+/** Configures the first handle opened for `absolutePath`, leaving later opens
+ *  of the same name untouched. This lets a test inject an operation at the
+ *  handle boundary without turning the release's re-open into the same hook. */
+function configureNextOpenAt(
+  absolutePath: string,
+  configure: (handle: Awaited<ReturnType<typeof open>>) => void,
+): void {
+  const real = vi.mocked(open).getMockImplementation();
+  expect(real).toBeDefined();
+  let configured = false;
+  vi.mocked(open).mockImplementation(async (...args) => {
+    const handle = await (real as typeof open)(...args);
+    if (!configured && args[0] === absolutePath) {
+      configured = true;
+      configure(handle);
+    }
+    return handle;
+  });
+}
+
 let scratchDirectory: string;
 
 beforeEach(async () => {
@@ -802,6 +822,28 @@ describe('claim', () => {
     ).toEqual({ok: true});
   });
 
+  it('restores a file when describing it throws after chmod', async () => {
+    await save('shot.png', pngOf(64));
+    const target = path.join(
+      agentAttachmentStore.directory(scratchDirectory),
+      'shot.png',
+    );
+    configureNextOpenAt(target, (handle) => {
+      vi.spyOn(handle, 'read').mockRejectedValueOnce(
+        new Error('injected sniff failure'),
+      );
+    });
+
+    await expect(
+      agentAttachmentStore.claim(scratchDirectory, ['shot.png']),
+    ).rejects.toThrow('injected sniff failure');
+
+    expect(await modeOf('shot.png')).toBe('600');
+    expect(
+      await agentAttachmentStore.remove(scratchDirectory, 'shot.png'),
+    ).toEqual({ok: true});
+  });
+
   // The cap can only run after the freeze, because it needs sizes from the
   // pinned files. A claim it rejects must therefore undo the freeze: nothing
   // reached the model, so leaving the files read-only would strand disk the
@@ -858,6 +900,39 @@ describe('claim', () => {
     // The planted directory must be untouched — 0600 would have cost it the
     // traversal bit and left it unusable.
     expect(((await lstat(target)).mode & 0o777).toString(8)).toBe('700');
+  });
+
+  it('does not restore a replacement inode under the frozen file name', async () => {
+    await save('shot.png', pngOf(64));
+    const attachmentsDirectory =
+      agentAttachmentStore.directory(scratchDirectory);
+    const target = path.join(attachmentsDirectory, 'shot.png');
+    const frozenOriginal = path.join(attachmentsDirectory, 'shot.moved.png');
+
+    configureNextOpenAt(target, (handle) => {
+      const realChmod = handle.chmod.bind(handle);
+      vi.spyOn(handle, 'chmod').mockImplementationOnce(async (mode) => {
+        await realChmod(mode);
+        await rename(target, frozenOriginal);
+        await writeFile(target, pngOf(64), {mode: 0o644});
+      });
+    });
+
+    expect(
+      await agentAttachmentStore.claim(scratchDirectory, [
+        'shot.png',
+        'gone.png',
+      ]),
+    ).toEqual({
+      ok: false,
+      reason: 'unknown-attachments',
+      missing: ['gone.png'],
+    });
+
+    expect(((await lstat(target)).mode & 0o777).toString(8)).toBe('644');
+    expect(((await lstat(frozenOriginal)).mode & 0o777).toString(8)).toBe(
+      '400',
+    );
   });
 
   // `release` reached `resolveInside` without checking the attachments
