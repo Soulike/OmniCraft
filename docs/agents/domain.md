@@ -8,6 +8,8 @@ How the engineering skills should consume this repo's domain documentation when 
 - **`docs/adr/`** — read ADRs that affect the area you're about to work in.
 - **`<workspace>/docs/adr/`** — also read context-scoped decisions for any relevant workspace.
 
+Before following any path from `CONTEXT-MAP.md`, resolve the repository root with `git rev-parse --show-toplevel`. Accept only repository-relative paths with no `..` segments, reject every path containing a symlink, resolve the target's real path, and require a regular file contained beneath the repository root. Apply the same containment check to context-scoped ADR paths. Read the target only after every check passes.
+
 If these files don't exist, **proceed silently**. Don't flag their absence or suggest creating them upfront. The `/domain-modeling` skill creates them lazily when terms or decisions are resolved.
 
 ## File structure
