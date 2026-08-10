@@ -17,10 +17,6 @@ export const llmCompactionMetadataSchema = z.object({
   recentContextMessageCount: z.number(),
   beforeCharCount: z.number(),
   afterCharCount: z.number(),
-  /** Every attachment the compacted history had seen. The replacement message
-   *  carries `attachments: []`, so a later compaction reading only
-   *  `message.attachments` would find nothing left to list. */
-  attachments: z.array(llmAttachmentSchema).default([]),
 });
 
 export type LlmCompactionMetadata = z.infer<typeof llmCompactionMetadataSchema>;
@@ -40,6 +36,7 @@ export type LlmSessionUsage = z.infer<typeof llmSessionUsageSchema>;
 export const llmSessionSnapshotSchema = z.object({
   id: z.string(),
   messages: z.array(llmMessageSchema),
+  attachmentCatalog: z.array(llmAttachmentSchema),
   compactions: z.array(llmCompactionMetadataSchema),
   latestUsageInputMessageCount: z.number().nullable(),
   usage: llmSessionUsageSchema,

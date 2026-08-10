@@ -624,6 +624,7 @@ describe('Agent compaction lifecycle', () => {
         sseEventCount: 0,
         llmSession: {
           id: 'llm-session-1',
+          attachmentCatalog: [],
           compactions: [],
           latestUsageInputMessageCount: null,
           messages: Array.from({length: 12}, (_, index) => ({
@@ -830,6 +831,7 @@ describe('Agent abort flow', () => {
         sseEventCount: 0,
         llmSession: {
           id: 'llm-session-compaction-abort',
+          attachmentCatalog: [],
           compactions: [],
           latestUsageInputMessageCount: null,
           messages: Array.from({length: 12}, (_, index) => ({
@@ -950,6 +952,7 @@ describe('Agent snapshot restore', () => {
       llmSession: {
         id: 'llm-session-id',
         messages: [],
+        attachmentCatalog: [],
         compactions: [],
         latestUsageInputMessageCount: null,
         usage: emptyUsage(),
@@ -982,6 +985,7 @@ describe('Agent snapshot restore', () => {
       llmSession: {
         id: 'llm-session-id',
         messages: [],
+        attachmentCatalog: [],
         compactions: [],
         latestUsageInputMessageCount: null,
         usage: emptyUsage(),
@@ -1039,6 +1043,7 @@ describe('Agent scratch directory', () => {
       llmSession: {
         id: 'llm-session-id',
         messages: [],
+        attachmentCatalog: [],
         compactions: [],
         latestUsageInputMessageCount: null,
         usage: emptyUsage(),

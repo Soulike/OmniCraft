@@ -72,7 +72,7 @@ export class LlmSessionCompactor {
         messages: input.messages,
         tools: input.options.tools,
         attachmentsDirectory: input.attachmentsDirectory,
-        carriedAttachments: input.carriedAttachments,
+        attachments: input.attachments,
         ...(input.options.signal ? {signal: input.options.signal} : {}),
       });
       const afterTokens = this.tokenEstimator.estimateTokensFromMessages({
@@ -117,7 +117,6 @@ export class LlmSessionCompactor {
         id: decision.compactionId,
         compactedAt: Date.now(),
         coveredMessageCount: decision.coveredMessageCount,
-        attachments: [...historyResult.attachments],
         recentContextMessageCount:
           historyResult.metadataInput.recentContextMessageCount,
         beforeCharCount: historyResult.metadataInput.beforeCharCount,

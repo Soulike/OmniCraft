@@ -26,7 +26,6 @@ const historyResult: LlmHistoryCompactionResult = {
       attachments: [],
     },
   ],
-  attachments: [],
   metadataInput: {
     recentContextMessageCount: 2,
     beforeCharCount: 100,

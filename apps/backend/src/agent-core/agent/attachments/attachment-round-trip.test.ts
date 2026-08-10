@@ -70,6 +70,7 @@ describe('attachment round trip', () => {
             attachments: [saved.attachment],
           },
         ],
+        attachmentCatalog: [saved.attachment],
         compactions: [],
         latestUsageInputMessageCount: null,
         usage: {
@@ -105,5 +106,6 @@ describe('attachment round trip', () => {
         },
       ],
     });
+    expect(loaded.llmSession.attachmentCatalog).toEqual([saved.attachment]);
   });
 });

@@ -51,7 +51,7 @@ describe('LlmHistoryCompactor', () => {
       messages,
       tools: [],
       attachmentsDirectory: null,
-      carriedAttachments: [],
+      attachments: [],
     });
 
     expect(result.summary).toBe('summary text');
@@ -80,7 +80,7 @@ describe('LlmHistoryCompactor', () => {
         messages,
         tools: [],
         attachmentsDirectory: null,
-        carriedAttachments: [],
+        attachments: [],
       }),
     ).rejects.toThrow('Compaction summary is empty');
   });
@@ -95,17 +95,17 @@ describe('LlmHistoryCompactor', () => {
       messages: inputMessages,
       tools: [],
       attachmentsDirectory: null,
-      carriedAttachments: [],
+      attachments: [],
     });
 
     expect(inputMessages).toEqual(originalMessages);
   });
 
-  it('carries deduped attachments from the compacted history into the replacement', async () => {
+  it('renders the session attachment catalog in the replacement', async () => {
     // The recent-context slimmer already projects attachments into its own
     // placeholders (covered by compaction-message-slimmer.test.ts) — stubbed
-    // here, same as `createCompactor` above, so this test isolates the
-    // attachment-section dedup behavior instead of re-asserting the slimmer's.
+    // here, same as `createCompactor` above, so this test isolates catalog
+    // rendering instead of re-asserting the slimmer's behavior.
     const messageSlimmer = new CompactionMessageSlimmer();
     vi.spyOn(messageSlimmer, 'buildRecentContext').mockReturnValue({
       content: 'recent context text',
@@ -117,43 +117,23 @@ describe('LlmHistoryCompactor', () => {
     });
 
     const result = await compactor.compact({
-      messages: [
-        {
-          id: 'u1',
-          createdAt: 1,
-          role: 'user',
-          content: 'first',
-          attachments: [
-            {
-              fileName: 'shot.png',
-              mediaType: 'image/png',
-              lastKnownByteSize: 831_488,
-            },
-          ],
-        },
-        {
-          id: 'u2',
-          createdAt: 2,
-          role: 'user',
-          content: 'again',
-          attachments: [
-            {
-              fileName: 'shot.png',
-              mediaType: 'image/png',
-              lastKnownByteSize: 831_488,
-            },
-            {
-              fileName: 'invoice.pdf',
-              mediaType: 'application/pdf',
-              lastKnownByteSize: 240_640,
-            },
-          ],
-        },
-      ],
+      config,
+      messages,
       tools: [],
       attachmentsDirectory: '/data/sessions/x/scratch/attachments',
-      carriedAttachments: [],
-    } as never);
+      attachments: [
+        {
+          fileName: 'shot.png',
+          mediaType: 'image/png',
+          lastKnownByteSize: 831_488,
+        },
+        {
+          fileName: 'invoice.pdf',
+          mediaType: 'application/pdf',
+          lastKnownByteSize: 240_640,
+        },
+      ],
+    });
 
     const content = (result.replacementMessages[0]?.content ?? '') as string;
     expect(content.match(/shot\.png/g)).toHaveLength(1);
@@ -164,12 +144,9 @@ describe('LlmHistoryCompactor', () => {
   });
 
   // A second compaction sees `attachments: []` on the replacement the first
-  // one produced, so building the catalog from `message.attachments` alone
-  // would drop every earlier file. That list is the whole basis for treating
-  // "compaction loses the bytes" as acceptable — the file is still on disk and
-  // the summary names it — so losing it on the second pass would quietly
-  // retract the justification.
-  it('keeps listing attachments a previous compaction recorded', async () => {
+  // one produced. The session catalog, not that synthetic message or earlier
+  // compaction metadata, is what keeps the path list available.
+  it('lists the session catalog when compacted messages carry no attachments', async () => {
     const compactor = createCompactor('summary text');
 
     const result = await compactor.compact({
@@ -185,7 +162,7 @@ describe('LlmHistoryCompactor', () => {
       ],
       tools: [],
       attachmentsDirectory: '/data/attachments',
-      carriedAttachments: [
+      attachments: [
         {
           fileName: 'earlier.png',
           mediaType: 'image/png',
@@ -196,7 +173,5 @@ describe('LlmHistoryCompactor', () => {
 
     const content = result.replacementMessages[0]?.content ?? '';
     expect(content).toContain('earlier.png');
-    // And it stays available to the compaction after this one.
-    expect(result.attachments.map((a) => a.fileName)).toEqual(['earlier.png']);
   });
 });

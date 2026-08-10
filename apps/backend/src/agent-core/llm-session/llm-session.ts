@@ -68,6 +68,9 @@ export class LlmSession {
   readonly id: string;
 
   private readonly messages: LlmMessage[] = [];
+  /** Every attachment committed to this session's model-visible history,
+   *  including ones whose messages a compaction has replaced. */
+  private readonly attachmentCatalog = new Map<string, LlmAttachment>();
   private readonly compactions: LlmCompactionMetadata[] = [];
   private usage: LlmSessionUsage = createEmptyLlmSessionUsage();
   /** Number of messages covered by the latest provider input-token usage. */
@@ -87,6 +90,9 @@ export class LlmSession {
     if (snapshot) {
       this.id = snapshot.id;
       this.messages.push(...snapshot.messages);
+      for (const attachment of snapshot.attachmentCatalog) {
+        this.attachmentCatalog.set(attachment.fileName, attachment);
+      }
       this.compactions.push(...snapshot.compactions);
       this.usage = {...snapshot.usage};
       this.latestUsageInputMessageCount = snapshot.latestUsageInputMessageCount;
@@ -100,6 +106,7 @@ export class LlmSession {
     return {
       id: this.id,
       messages: [...this.messages],
+      attachmentCatalog: [...this.attachmentCatalog.values()],
       compactions: [...this.compactions],
       latestUsageInputMessageCount: this.latestUsageInputMessageCount,
       usage: {...this.usage},
@@ -221,6 +228,7 @@ export class LlmSession {
   /** Clears all messages and resets usage. */
   clear(): void {
     this.messages.length = 0;
+    this.attachmentCatalog.clear();
     this.compactions.length = 0;
     this.usage = createEmptyLlmSessionUsage();
     this.latestUsageInputMessageCount = null;
@@ -238,11 +246,13 @@ export class LlmSession {
   ): LlmSessionEventStream {
     const release = await this.mutex.acquire();
     const rollbackMessages = [...this.messages];
+    const rollbackAttachmentCatalog = new Map(this.attachmentCatalog);
     const rollbackCompactions = [...this.compactions];
     const rollbackUsage = {...this.usage};
     const rollbackLatestUsageInputMessageCount =
       this.latestUsageInputMessageCount;
     this.messages.push(...messages);
+    this.recordAttachments(messages);
     let completed = false;
     try {
       for await (const event of this.compactBeforeModelCall(
@@ -259,6 +269,10 @@ export class LlmSession {
       if (!completed) {
         this.messages.length = 0;
         this.messages.push(...rollbackMessages);
+        this.attachmentCatalog.clear();
+        for (const [fileName, attachment] of rollbackAttachmentCatalog) {
+          this.attachmentCatalog.set(fileName, attachment);
+        }
         this.compactions.length = 0;
         this.compactions.push(...rollbackCompactions);
         this.usage = rollbackUsage;
@@ -266,6 +280,17 @@ export class LlmSession {
           rollbackLatestUsageInputMessageCount;
       }
       release();
+    }
+  }
+
+  private recordAttachments(messages: readonly LlmMessage[]): void {
+    for (const message of messages) {
+      if (message.role !== 'user') continue;
+      for (const attachment of message.attachments) {
+        if (!this.attachmentCatalog.has(attachment.fileName)) {
+          this.attachmentCatalog.set(attachment.fileName, attachment);
+        }
+      }
     }
   }
 
@@ -305,9 +330,7 @@ export class LlmSession {
       usage: this.usage,
       latestUsageInputMessageCount: this.latestUsageInputMessageCount,
       attachmentsDirectory: this.attachmentsDirectory,
-      carriedAttachments: this.compactions.flatMap(
-        (compaction) => compaction.attachments,
-      ),
+      attachments: [...this.attachmentCatalog.values()],
       options,
       commit: (patch) => {
         this.applyCompactionPatch(patch);

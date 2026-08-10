@@ -1,7 +1,5 @@
 import crypto from 'node:crypto';
 
-import type {LlmAttachment} from '@omnicraft/tool-schemas';
-
 import type {LlmMessage} from '../../llm-api/index.js';
 import {
   CompactionMessageSlimmer,
@@ -29,27 +27,6 @@ export interface LlmHistoryCompactorDependencies {
 function throwIfAborted(signal: AbortSignal | undefined): void {
   if (!signal?.aborted) return;
   throw signal.reason instanceof Error ? signal.reason : new Error('Aborted');
-}
-
-/** Every attachment referenced by the history being compacted, first occurrence
- *  wins, deduped by file name. */
-function collectAttachments(
-  messages: readonly LlmMessage[],
-  carriedForward: readonly LlmAttachment[],
-): LlmAttachment[] {
-  const byName = new Map<string, LlmAttachment>();
-  // Earlier compactions first, so a name still present in history keeps its
-  // newer descriptor.
-  for (const attachment of carriedForward)
-    byName.set(attachment.fileName, attachment);
-  for (const message of messages) {
-    if (message.role !== 'user') continue;
-    for (const attachment of message.attachments) {
-      if (byName.has(attachment.fileName)) continue;
-      byName.set(attachment.fileName, attachment);
-    }
-  }
-  return [...byName.values()];
 }
 
 export class LlmHistoryCompactor {
@@ -80,11 +57,6 @@ export class LlmHistoryCompactor {
       input.messages,
       input.tools,
     );
-    const attachments = collectAttachments(
-      input.messages,
-      input.carriedAttachments,
-    );
-
     const replacementMessages: LlmMessage[] = [
       {
         id: crypto.randomUUID(),
@@ -93,7 +65,7 @@ export class LlmHistoryCompactor {
         content: this.promptBuilder.buildCompactedMessageContent({
           summary,
           recentContext: recentContext.content,
-          attachments,
+          attachments: input.attachments,
           attachmentsDirectory: input.attachmentsDirectory,
         }),
         attachments: [],
@@ -103,7 +75,6 @@ export class LlmHistoryCompactor {
     return {
       summary,
       replacementMessages,
-      attachments,
       metadataInput: {
         recentContextMessageCount: recentContext.sourceMessageCount,
         beforeCharCount,

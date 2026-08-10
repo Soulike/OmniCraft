@@ -96,7 +96,6 @@ function createPatch(): LlmSessionCompactionPatch {
       recentContextMessageCount: 1,
       beforeCharCount: 200,
       afterCharCount: 20,
-      attachments: [],
     },
   };
 }
@@ -161,6 +160,37 @@ describe('LlmSession compaction', () => {
     const session = createSession();
 
     expect(session.toSnapshot().compactions).toEqual([]);
+    expect(session.toSnapshot().attachmentCatalog).toEqual([]);
+  });
+
+  it('keeps the attachment catalog in session state instead of compaction metadata', async () => {
+    const attachment: LlmAttachment = {
+      fileName: 'shot.png',
+      mediaType: 'image/png',
+      lastKnownByteSize: 64,
+    };
+    const compactorSpy = vi
+      .spyOn(llmSessionCompactor, 'compactIfNeeded')
+      .mockImplementation(async function* (
+        input: CompactLlmSessionIfNeededInput,
+      ) {
+        await input.commit(createPatch());
+        yield* [];
+      });
+    vi.spyOn(llmApi, 'streamCompletion').mockReturnValue(normalStream());
+    const session = createSession();
+
+    await drain(
+      session.sendUserMessage('look', [], '', undefined, [attachment]).stream,
+    );
+
+    expect(compactorSpy).toHaveBeenCalledWith(
+      expect.objectContaining({attachments: [attachment]}),
+    );
+    const snapshot = session.toSnapshot();
+    expect(snapshot).toMatchObject({attachmentCatalog: [attachment]});
+    expect(snapshot.compactions).toHaveLength(1);
+    expect(snapshot.compactions[0]).not.toHaveProperty('attachments');
   });
 
   it('forwards before-call compactor events as compaction-sse events during message streaming', async () => {
@@ -247,6 +277,7 @@ describe('LlmSession compaction', () => {
     const session = createSession({
       snapshot: {
         id: 'session-1',
+        attachmentCatalog: [],
         compactions: [],
         latestUsageInputMessageCount: 1,
         messages: [
@@ -312,9 +343,15 @@ describe('LlmSession compaction', () => {
       sessionOutputTokens: 2,
       sessionCacheReadInputTokens: 1,
     };
+    const attachment: LlmAttachment = {
+      fileName: 'new.png',
+      mediaType: 'image/png',
+      lastKnownByteSize: 64,
+    };
     const session = createSession({
       snapshot: {
         id: 'session-1',
+        attachmentCatalog: [],
         compactions: [],
         latestUsageInputMessageCount: 1,
         messages,
@@ -323,11 +360,15 @@ describe('LlmSession compaction', () => {
     });
 
     await expect(
-      drain(session.sendUserMessage('hello', [], '').stream),
+      drain(
+        session.sendUserMessage('hello', [], '', undefined, [attachment])
+          .stream,
+      ),
     ).rejects.toThrow('provider failed');
 
     expect(session.toSnapshot()).toEqual({
       id: 'session-1',
+      attachmentCatalog: [],
       compactions: [],
       latestUsageInputMessageCount: 1,
       messages,
@@ -339,6 +380,7 @@ describe('LlmSession compaction', () => {
     const session = createSession({
       snapshot: {
         id: 'session-1',
+        attachmentCatalog: [],
         messages: [
           {
             id: 'user-1',

@@ -44,8 +44,8 @@ export interface LlmHistoryCompactionInput {
   readonly tools: readonly AnyToolDefinition[];
   /** Absolute attachments directory, or null when the session has no store. */
   readonly attachmentsDirectory: string | null;
-  /** See {@link LlmCompactionMetadata.attachments}. */
-  readonly carriedAttachments: readonly LlmAttachment[];
+  /** Session-owned catalog to render into the replacement prompt. */
+  readonly attachments: readonly LlmAttachment[];
 
   readonly signal?: AbortSignal;
 }
@@ -59,9 +59,6 @@ export interface LlmHistoryCompactionMetadataInput {
 export interface LlmHistoryCompactionResult {
   readonly summary: string;
   readonly replacementMessages: readonly LlmMessage[];
-  /** For the metadata to carry forward; see
-   *  {@link LlmCompactionMetadata.attachments}. */
-  readonly attachments: readonly LlmAttachment[];
   readonly metadataInput: LlmHistoryCompactionMetadataInput;
 }
 
@@ -73,8 +70,8 @@ export interface LlmSessionCompactionPatch {
 }
 
 export interface CompactLlmSessionIfNeededInput extends LlmCompactionDecisionInput {
-  /** See {@link LlmCompactionMetadata.attachments}. */
-  readonly carriedAttachments: readonly LlmAttachment[];
+  /** Session-owned catalog to render into the replacement prompt. */
+  readonly attachments: readonly LlmAttachment[];
   /** Absolute attachments directory, or null when the session has no store. */
   readonly attachmentsDirectory: string | null;
   commit(patch: LlmSessionCompactionPatch): void | Promise<void>;

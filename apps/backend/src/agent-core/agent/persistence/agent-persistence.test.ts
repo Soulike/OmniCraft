@@ -27,6 +27,7 @@ function createTestSnapshot(id: string): AgentSnapshot {
     llmSession: {
       id: 'llm-session-id',
       messages: [],
+      attachmentCatalog: [],
       compactions: [],
       latestUsageInputMessageCount: null,
       usage: emptyUsage(),
