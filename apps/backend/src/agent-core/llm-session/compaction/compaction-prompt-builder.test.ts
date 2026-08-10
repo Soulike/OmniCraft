@@ -39,7 +39,7 @@ describe('buildCompactedMessageContent attachments', () => {
       attachments: [],
       attachmentsDirectory: '/data/sessions/x/scratch/attachments',
     });
-    expect(content).not.toContain('Attachments you saw earlier');
+    expect(content).not.toContain('Recent attachments');
   });
 
   // `run_command` runs `/bin/sh -l -c`, and these lines are the one place the
@@ -104,7 +104,7 @@ describe('buildCompactedMessageContent attachments', () => {
     });
 
     expect(content).toContain(
-      '## Attachments you saw earlier in this conversation',
+      '## Recent attachments from earlier in this conversation',
     );
     expect(content).toContain(
       "- '/data/sessions/x/scratch/attachments/invoice.pdf' — application/pdf, 235 KB",
@@ -118,6 +118,29 @@ describe('buildCompactedMessageContent attachments', () => {
     expect(content).not.toContain('1 MB');
   });
 
+  it('bounds the recent-memory hint to the ten newest catalog entries', () => {
+    const attachments = Array.from({length: 12}, (_, index) => ({
+      fileName: `attachment-${index.toString().padStart(2, '0')}.png`,
+      mediaType: 'image/png' as const,
+      lastKnownByteSize: index + 1,
+    }));
+
+    const content = compactionPromptBuilder.buildCompactedMessageContent({
+      summary: 's',
+      recentContext: 'r',
+      attachments,
+      attachmentsDirectory: '/data/attachments',
+    });
+
+    expect(content).toContain('not a complete inventory');
+    expect(content).toContain('2 older attachments omitted.');
+    expect(content).not.toContain('attachment-00.png');
+    expect(content).not.toContain('attachment-01.png');
+    expect(content).toContain('attachment-02.png');
+    expect(content).toContain('attachment-11.png');
+    expect(content.match(/^- '/gmu)).toHaveLength(10);
+  });
+
   it('omits the section when the session has no attachments directory', () => {
     const content = compactionPromptBuilder.buildCompactedMessageContent({
       summary: 's',
@@ -127,6 +150,6 @@ describe('buildCompactedMessageContent attachments', () => {
       ],
       attachmentsDirectory: null,
     });
-    expect(content).not.toContain('Attachments you saw earlier');
+    expect(content).not.toContain('Recent attachments');
   });
 });

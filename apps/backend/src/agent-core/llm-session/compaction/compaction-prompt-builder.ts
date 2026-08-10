@@ -35,6 +35,11 @@ export interface BuildCompactedMessageContentOptions {
 const CONTINUATION_INSTRUCTIONS =
   'Continue from this compacted state. Treat the summary and recent context as the authoritative conversation state. Preserve user requirements, constraints, and corrections. Do not repeat completed work unless needed. If task progress is tracked by available tools, inspect it when needed before planning or acting.';
 
+/** A single message already accepts at most ten attachments. Matching that
+ *  bound keeps the newest legal message fully represented while preventing a
+ *  session-lifetime catalog from making the compacted prompt unbounded. */
+const RECENT_ATTACHMENT_HINT_LIMIT = 10;
+
 export class CompactionPromptBuilder {
   buildCompactionPrompt(slimmedMessages: readonly string[]): string {
     return [
@@ -63,16 +68,25 @@ export class CompactionPromptBuilder {
   ): string[] {
     if (attachments.length === 0 || attachmentsDirectory === null) return [];
 
+    const recentAttachments = attachments.slice(-RECENT_ATTACHMENT_HINT_LIMIT);
+    const omittedCount = attachments.length - recentAttachments.length;
+
     return [
       '',
-      '## Attachments you saw earlier in this conversation',
+      '## Recent attachments from earlier in this conversation',
       '',
+      `This recent-memory hint lists at most ${RECENT_ATTACHMENT_HINT_LIMIT.toString()} files; it is not a complete inventory.`,
+      ...(omittedCount > 0
+        ? [
+            `${omittedCount.toString()} older attachment${omittedCount === 1 ? '' : 's'} omitted.`,
+          ]
+        : []),
       'You have already seen these files. They were dropped from the context by',
       'compaction, but they are still on disk — read them again if you need them.',
       'The paths are shell-quoted; drop the surrounding quotes if you pass one to',
       'a tool that takes a path directly rather than a command line.',
       '',
-      ...attachments.map(
+      ...recentAttachments.map(
         (attachment) =>
           `- ${toShellSafePath(path.join(attachmentsDirectory, attachment.fileName))} — ${attachment.mediaType}, ${formatAttachmentSize(attachment.lastKnownByteSize)}`,
       ),
