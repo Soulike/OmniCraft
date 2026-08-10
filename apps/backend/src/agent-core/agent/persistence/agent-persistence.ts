@@ -14,6 +14,25 @@ interface PersistSnapshotOptions {
   sync?: boolean;
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+/**
+ * Snapshots written before attachment support have no session catalog. Keep
+ * that compatibility at the disk adapter so the runtime schema describes only
+ * the current snapshot format and does not migrate values while validating.
+ */
+function migrateLegacySnapshot(snapshot: unknown): unknown {
+  if (!isRecord(snapshot) || !isRecord(snapshot.llmSession)) return snapshot;
+  if ('attachmentCatalog' in snapshot.llmSession) return snapshot;
+
+  return {
+    ...snapshot,
+    llmSession: {...snapshot.llmSession, attachmentCatalog: []},
+  };
+}
+
 class AgentPersistence {
   snapshotPath(sessionsDir: string, id: string): string {
     return path.join(sessionsDir, id, 'snapshot.json');
@@ -98,7 +117,7 @@ class AgentPersistence {
     const filePath = this.snapshotPath(sessionsDir, id);
     const content = await readFile(filePath, 'utf-8');
     const json: unknown = JSON.parse(content);
-    return agentSnapshotSchema.parse(json);
+    return agentSnapshotSchema.parse(migrateLegacySnapshot(json));
   }
 
   async reconcileEventsFile(
