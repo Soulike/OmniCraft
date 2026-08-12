@@ -54,6 +54,15 @@ runs:
     - name: Install Copilot CLI
       shell: bash
       run: npm install -g @github/copilot
+    - name: Install AI review skills
+      shell: bash
+      run: |
+        cd "$HOME"
+        npx --yes skills@latest add mattpocock/skills \
+          --skill codebase-design tdd writing-for-agents \
+          --agent github-copilot \
+          --copy \
+          --yes
     - name: Review pass
       shell: bash
       run: |
@@ -67,6 +76,7 @@ runs:
         Report file: $REPORT_FILE"
         copilot --model "$MODEL" --effort "$EFFORT" \
           --context long_context \
+          --no-ask-user \
           --allow-tool 'shell,read,write' \
           --allow-all-urls \
           --secret-env-vars COPILOT_GITHUB_TOKEN \
