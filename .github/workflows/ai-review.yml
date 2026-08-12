@@ -143,7 +143,7 @@ jobs:
         run: |
           cd "$HOME"
           npx --yes skills@latest add mattpocock/skills \
-            --skill '*' \
+            --skill codebase-design tdd writing-for-agents \
             --agent github-copilot \
             --copy \
             --yes
@@ -164,6 +164,7 @@ jobs:
           Reviewer reports are in the $GITHUB_WORKSPACE/reports/ directory."
           copilot --model "$CONFIRM_MODEL" --effort "$CONFIRM_EFFORT" \
             --context long_context \
+            --no-ask-user \
             --allow-tool 'shell,read,write' \
             --allow-all-urls \
             --secret-env-vars COPILOT_GITHUB_TOKEN \
