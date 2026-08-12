@@ -254,6 +254,92 @@ describe('save', () => {
     expect(result.attachment.lastKnownByteSize).toBe(size);
   });
 
+  it('rejects an upload that would exceed the session byte quota', async () => {
+    const attachmentsDirectory = path.join(scratchDirectory, 'attachments');
+    await mkdir(attachmentsDirectory, {recursive: true});
+
+    // Ten max-sized PDFs are a legal persisted history and exactly fill the
+    // 100 MiB session budget. Sparse fixtures keep this boundary test cheap
+    // while presenting the same logical file sizes to the store.
+    for (let index = 0; index < 10; index++) {
+      const filePath = path.join(attachmentsDirectory, `${index}.pdf`);
+      await writeFile(filePath, PDF_HEADER);
+      await realFs.truncate(filePath, 10 * 1024 * 1024);
+    }
+
+    const result = await agentAttachmentStore.save(
+      scratchDirectory,
+      'overflow.png',
+      streamOf(pngOf(64)),
+    );
+
+    expect(result).toEqual({
+      ok: false,
+      reason: 'session-quota-exceeded',
+      totalBytes: 100 * 1024 * 1024 + 64,
+      byteLimit: 100 * 1024 * 1024,
+      totalFiles: 11,
+      fileLimit: 100,
+    });
+    expect(await readdir(attachmentsDirectory)).not.toContain('overflow.png');
+  });
+
+  it('rejects an upload that would exceed the session file quota', async () => {
+    const attachmentsDirectory = path.join(scratchDirectory, 'attachments');
+    await mkdir(attachmentsDirectory, {recursive: true});
+    for (let index = 0; index < 100; index++) {
+      await writeFile(
+        path.join(attachmentsDirectory, `${index}.png`),
+        pngOf(64),
+      );
+    }
+
+    const result = await agentAttachmentStore.save(
+      scratchDirectory,
+      'overflow.png',
+      streamOf(pngOf(64)),
+    );
+
+    expect(result).toEqual({
+      ok: false,
+      reason: 'session-quota-exceeded',
+      totalBytes: 101 * 64,
+      byteLimit: 100 * 1024 * 1024,
+      totalFiles: 101,
+      fileLimit: 100,
+    });
+    expect(await readdir(attachmentsDirectory)).not.toContain('overflow.png');
+  });
+
+  it('admits only one concurrent upload into the final quota slot', async () => {
+    const attachmentsDirectory = path.join(scratchDirectory, 'attachments');
+    await mkdir(attachmentsDirectory, {recursive: true});
+    for (let index = 0; index < 99; index++) {
+      await writeFile(
+        path.join(attachmentsDirectory, `${index}.png`),
+        pngOf(64),
+      );
+    }
+
+    const results = await Promise.all(
+      Array.from({length: 10}, (_, index) =>
+        agentAttachmentStore.save(
+          scratchDirectory,
+          `candidate-${index.toString()}.png`,
+          streamOf(pngOf(64)),
+        ),
+      ),
+    );
+
+    expect(results.filter((result) => result.ok)).toHaveLength(1);
+    expect(
+      results
+        .filter((result) => !result.ok)
+        .every((result) => result.reason === 'session-quota-exceeded'),
+    ).toBe(true);
+    expect(await readdir(attachmentsDirectory)).toHaveLength(100);
+  });
+
   it('aborts a stream past the largest cap without buffering it', async () => {
     const stream = streamOf(
       Buffer.concat([

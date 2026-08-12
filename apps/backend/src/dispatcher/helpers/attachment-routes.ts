@@ -2,18 +2,14 @@ import type {Readable} from 'node:stream';
 
 import type Router from '@koa/router';
 import {uploadAttachmentQuerySchema} from '@omnicraft/api-schema';
-import type {
-  DocumentMediaType,
-  ImageMediaType,
-  LlmAttachment,
-} from '@omnicraft/tool-schemas';
+import type {DocumentMediaType, ImageMediaType} from '@omnicraft/tool-schemas';
 import {StatusCodes} from 'http-status-codes';
 import {ZodError} from 'zod';
 
 import type {
   AttachmentDescriptor,
   OpenedAttachment,
-  SaveAttachmentFailureReason,
+  SaveAttachmentResult,
 } from '@/agent-core/agent/index.js';
 
 import {parseSessionId} from './session-id.js';
@@ -53,11 +49,8 @@ export interface AttachmentRoutePaths {
  * {@link AttachmentSessionService}.
  */
 type AttachmentUploadResult =
-  | {readonly ok: true; readonly attachment: LlmAttachment}
-  | {
-      readonly ok: false;
-      readonly reason: 'session-not-found' | SaveAttachmentFailureReason;
-    };
+  | SaveAttachmentResult
+  | {readonly ok: false; readonly reason: 'session-not-found'};
 
 /** The result shape `describeAttachment` structurally satisfies on both services. */
 type AttachmentDescribeResult =
@@ -158,6 +151,17 @@ export function registerAttachmentRoutes(
         case 'too-large': {
           ctx.response.status = StatusCodes.REQUEST_TOO_LONG;
           ctx.response.body = {error: result.reason};
+          return;
+        }
+        case 'session-quota-exceeded': {
+          ctx.response.status = StatusCodes.REQUEST_TOO_LONG;
+          ctx.response.body = {
+            error: result.reason,
+            totalBytes: result.totalBytes,
+            byteLimit: result.byteLimit,
+            totalFiles: result.totalFiles,
+            fileLimit: result.fileLimit,
+          };
           return;
         }
         case 'invalid-name':

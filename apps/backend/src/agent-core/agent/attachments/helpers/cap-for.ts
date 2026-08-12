@@ -24,6 +24,15 @@ export const MAX_DOCUMENT_ATTACHMENT_BYTES = 10 * 1024 * 1024;
  */
 export const MAX_MESSAGE_ATTACHMENT_BYTES = 12 * 1024 * 1024;
 
+/** Persistent attachment storage available to one session. Ten maximum-sized
+ *  PDFs fit exactly, so the disk budget can never reject a single legal turn
+ *  in an otherwise empty session. */
+export const MAX_SESSION_ATTACHMENT_BYTES = 100 * 1024 * 1024;
+
+/** Bounds directory entries as well as bytes so tiny valid files cannot trade
+ *  byte exhaustion for inode exhaustion. */
+export const MAX_SESSION_ATTACHMENT_FILES = 100;
+
 /** Total bytes a set of attachments contributes to one request. */
 export function totalAttachmentBytes(
   attachments: readonly LlmAttachment[],

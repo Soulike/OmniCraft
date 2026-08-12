@@ -4,7 +4,7 @@ export type {
   ClaimAttachmentsResult,
   OpenedAttachment,
   RemoveAttachmentFailureReason,
-  SaveAttachmentFailureReason,
+  SaveAttachmentResult,
 } from './attachments/index.js';
 export {
   agentAttachmentStore,

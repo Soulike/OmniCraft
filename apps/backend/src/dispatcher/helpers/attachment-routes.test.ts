@@ -23,6 +23,24 @@ const SESSION_ID = crypto.randomUUID();
 let scratchDirectory: string;
 let server: Server;
 let baseUrl: string;
+const quotaExceededResult = {
+  ok: false,
+  reason: 'session-quota-exceeded',
+  totalBytes: 104_857_664,
+  byteLimit: 104_857_600,
+  totalFiles: 11,
+  fileLimit: 100,
+} as const;
+let saveResultToReturn: Awaited<
+  ReturnType<AttachmentSessionService['saveAttachment']>
+> = {
+  ok: true,
+  attachment: {
+    fileName: 'shot.png',
+    mediaType: 'image/png',
+    lastKnownByteSize: 64,
+  },
+};
 let descriptorToReturn: AttachmentDescriptor | null = null;
 let removeResultToReturn: Awaited<
   ReturnType<AttachmentSessionService['removeAttachment']>
@@ -40,7 +58,7 @@ function fakeService(): AttachmentSessionService {
       _desiredName: string,
       _body: Readable,
     ): ReturnType<AttachmentSessionService['saveAttachment']> {
-      throw new Error('not exercised by these tests');
+      return Promise.resolve(saveResultToReturn);
     },
     describeAttachment(agentId, _fileName) {
       if (agentId !== SESSION_ID || descriptorToReturn === null) {
@@ -105,6 +123,14 @@ afterAll(async () => {
 });
 
 afterEach(() => {
+  saveResultToReturn = {
+    ok: true,
+    attachment: {
+      fileName: 'shot.png',
+      mediaType: 'image/png',
+      lastKnownByteSize: 64,
+    },
+  };
   descriptorToReturn = null;
   removeResultToReturn = {ok: true};
   lastServedHandle = null;
@@ -133,6 +159,26 @@ async function descriptorFor(
     mtimeMs: stats.mtimeMs,
   };
 }
+
+describe('POST .../attachments session quota', () => {
+  it('returns 413 with the projected usage and limits', async () => {
+    saveResultToReturn = quotaExceededResult;
+
+    const res = await fetch(
+      `${baseUrl}/sessions/${SESSION_ID}/attachments?name=shot.png`,
+      {method: 'POST', body: Buffer.from('bytes')},
+    );
+
+    expect(res.status).toBe(413);
+    expect(await res.json()).toEqual({
+      error: 'session-quota-exceeded',
+      totalBytes: 104_857_664,
+      byteLimit: 104_857_600,
+      totalFiles: 11,
+      fileLimit: 100,
+    });
+  });
+});
 
 describe('GET .../attachments/:fileName response hardening', () => {
   it('sets nosniff and an inline Content-Disposition carrying the file name', async () => {

@@ -1,9 +1,7 @@
-import type {LlmAttachment} from '@omnicraft/tool-schemas';
-
 import type {
   AttachmentDescriptor,
   OpenedAttachment,
-  SaveAttachmentFailureReason,
+  SaveAttachmentResult,
 } from '@/agent-core/agent/index.js';
 
 /** Reasons why chat session creation can fail. */
@@ -44,11 +42,8 @@ export type SendCompletionResult =
  * place to switch instead of two.
  */
 export type AttachmentUploadResult =
-  | {readonly ok: true; readonly attachment: LlmAttachment}
-  | {
-      readonly ok: false;
-      readonly reason: 'session-not-found' | SaveAttachmentFailureReason;
-    };
+  | SaveAttachmentResult
+  | {readonly ok: false; readonly reason: 'session-not-found'};
 
 /**
  * Result of `describeAttachment`. `session-not-found` and

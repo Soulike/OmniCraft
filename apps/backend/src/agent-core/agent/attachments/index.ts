@@ -4,7 +4,6 @@ export type {
   OpenedAttachment,
   RemoveAttachmentFailureReason,
   RemoveAttachmentResult,
-  SaveAttachmentFailureReason,
   SaveAttachmentResult,
 } from './agent-attachment-store.js';
 export {agentAttachmentStore} from './agent-attachment-store.js';

@@ -3,7 +3,7 @@ import crypto from 'node:crypto';
 import type {Stats} from 'node:fs';
 import {constants} from 'node:fs';
 import type {FileHandle} from 'node:fs/promises';
-import {link, lstat, mkdir, open, rm, unlink} from 'node:fs/promises';
+import {link, lstat, mkdir, open, readdir, rm, unlink} from 'node:fs/promises';
 import path from 'node:path';
 import type {Readable} from 'node:stream';
 
@@ -28,6 +28,8 @@ import {
   MAX_DOCUMENT_ATTACHMENT_BYTES,
   MAX_IMAGE_ATTACHMENT_BYTES,
   MAX_MESSAGE_ATTACHMENT_BYTES,
+  MAX_SESSION_ATTACHMENT_BYTES,
+  MAX_SESSION_ATTACHMENT_FILES,
   totalAttachmentBytes,
 } from './helpers/cap-for.js';
 import {resolveInside} from './helpers/resolve-inside.js';
@@ -45,6 +47,8 @@ const MAX_ANY_ATTACHMENT_BYTES = Math.max(
   MAX_DOCUMENT_ATTACHMENT_BYTES,
 );
 
+const INTERNAL_TEMP_FILE_NAME = /^\.[0-9a-f-]{36}\.tmp$/u;
+
 /** The extension each deliverable media type is stored under. The stored name
  *  always matches the sniffed type, so a path list never misdescribes a file. */
 const EXTENSION_BY_MEDIA_TYPE: Readonly<
@@ -61,11 +65,31 @@ export type SaveAttachmentFailureReason =
   | 'invalid-name'
   | 'unsupported-type'
   | 'too-large'
-  | 'name-unavailable';
+  | 'name-unavailable'
+  | 'session-quota-exceeded';
 
 export type SaveAttachmentResult =
   | {readonly ok: true; readonly attachment: LlmAttachment}
-  | {readonly ok: false; readonly reason: SaveAttachmentFailureReason};
+  | {
+      readonly ok: false;
+      readonly reason: Exclude<
+        SaveAttachmentFailureReason,
+        'session-quota-exceeded'
+      >;
+    }
+  | {
+      readonly ok: false;
+      readonly reason: 'session-quota-exceeded';
+      readonly totalBytes: number;
+      readonly byteLimit: number;
+      readonly totalFiles: number;
+      readonly fileLimit: number;
+    };
+
+interface AttachmentStoreUsage {
+  readonly totalBytes: number;
+  readonly totalFiles: number;
+}
 
 /**
  * The mode a frozen attachment is set to — readable by its owner, writable by
@@ -211,10 +235,10 @@ class AgentAttachmentStore {
    * outside this process also create files here, both racers are our own API
    * calls. That is the case a lock actually covers.
    *
-   * `save` stays outside: `placeUniquely` never overwrites (EEXIST falls
-   * through to the next candidate), so uploads are already safe against each
-   * other and against anything else, and serializing them would put a
-   * multi-megabyte write on a shared lock for nothing.
+   * `save` streams and sniffs outside the lock, then takes it only for the
+   * quota check and `placeUniquely`. Placement never overwrites (EEXIST falls
+   * through to the next candidate), but the session quota needs every final
+   * placement and API deletion to observe one serialized directory state.
    *
    * One lock shared by every session, not one per scratch directory — coarser
    * than the invariant needs, since entries never cross scratch directories.
@@ -349,21 +373,67 @@ class AgentAttachmentStore {
       if (mediaType === null) return {ok: false, reason: 'unsupported-type'};
       if (byteSize > capFor(mediaType)) return {ok: false, reason: 'too-large'};
 
-      const fileName = await this.placeUniquely(
-        directory,
-        temporaryPath,
-        sanitized,
-        mediaType,
-        validated,
-      );
-      if (fileName === null) return {ok: false, reason: 'name-unavailable'};
-      return {
-        ok: true,
-        attachment: {fileName, mediaType, lastKnownByteSize: byteSize},
-      };
+      const release = await this.entryMutex.acquire();
+      try {
+        const usage = await this.attachmentStoreUsage(directory);
+        const totalBytes = usage.totalBytes + byteSize;
+        const totalFiles = usage.totalFiles + 1;
+        if (
+          totalBytes > MAX_SESSION_ATTACHMENT_BYTES ||
+          totalFiles > MAX_SESSION_ATTACHMENT_FILES
+        ) {
+          return {
+            ok: false,
+            reason: 'session-quota-exceeded',
+            totalBytes,
+            byteLimit: MAX_SESSION_ATTACHMENT_BYTES,
+            totalFiles,
+            fileLimit: MAX_SESSION_ATTACHMENT_FILES,
+          };
+        }
+
+        const fileName = await this.placeUniquely(
+          directory,
+          temporaryPath,
+          sanitized,
+          mediaType,
+          validated,
+        );
+        if (fileName === null) return {ok: false, reason: 'name-unavailable'};
+        return {
+          ok: true,
+          attachment: {fileName, mediaType, lastKnownByteSize: byteSize},
+        };
+      } finally {
+        release();
+      }
     } finally {
       await rm(temporaryPath, {force: true});
     }
+  }
+
+  /** Logical usage of committed entries. In-progress internal temp files are
+   *  excluded: each save adds its exact byte size below, after acquiring the
+   *  mutex that serializes final placements. */
+  private async attachmentStoreUsage(
+    directory: string,
+  ): Promise<AttachmentStoreUsage> {
+    let totalBytes = 0;
+    let totalFiles = 0;
+    const entries = await readdir(directory, {withFileTypes: true});
+
+    for (const entry of entries) {
+      if (INTERNAL_TEMP_FILE_NAME.test(entry.name)) continue;
+      try {
+        const stats = await lstat(path.join(directory, entry.name));
+        totalBytes += stats.size;
+        totalFiles++;
+      } catch (error: unknown) {
+        if (!isFileNotFoundError(error)) throw error;
+      }
+    }
+
+    return {totalBytes, totalFiles};
   }
 
   /** Reads a file's head through an already-open handle and maps it to a
