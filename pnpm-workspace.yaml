@@ -4,6 +4,11 @@ packages:
   - configs/*
   - scripts
 
+minimumReleaseAge: 10080
+minimumReleaseAgeIgnoreMissingTime: false
+trustPolicy: no-downgrade
+trustPolicyIgnoreAfter: 525600
+
 allowBuilds:
   esbuild: true
 
