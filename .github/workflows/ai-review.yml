@@ -139,6 +139,14 @@ jobs:
         working-directory: pr-head
       - name: Install Copilot CLI
         run: npm install -g @github/copilot
+      - name: Install AI review skills
+        run: |
+          cd "$HOME"
+          npx --yes skills@latest add mattpocock/skills \
+            --skill '*' \
+            --agent github-copilot \
+            --copy \
+            --yes
       - name: Download reports
         uses: actions/download-artifact@v8
         with:

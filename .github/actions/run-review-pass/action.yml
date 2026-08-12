@@ -54,6 +54,15 @@ runs:
     - name: Install Copilot CLI
       shell: bash
       run: npm install -g @github/copilot
+    - name: Install AI review skills
+      shell: bash
+      run: |
+        cd "$HOME"
+        npx --yes skills@latest add mattpocock/skills \
+          --skill '*' \
+          --agent github-copilot \
+          --copy \
+          --yes
     - name: Review pass
       shell: bash
       run: |
