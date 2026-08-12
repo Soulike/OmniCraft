@@ -67,3 +67,17 @@ Follow Google TypeScript guide unless specified. Detail: <https://google.github.
   silently taking the fallback branch. Every member must be listed — a `default` does
   not satisfy the check. When every arm yields the same shape, a `Record` keyed by the
   union is the equivalent: a missing key is a type error.
+
+## Agent skills
+
+### Issue tracker
+
+Issues and specs are tracked in this repository's GitHub Issues. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+This repo uses the five default canonical triage labels. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+This repo uses a multi-context domain-doc layout organized around relevant workspaces. See `docs/agents/domain.md`.
