@@ -11,7 +11,6 @@ import {
 import {CodingAgent} from '@/agent/agents/index.js';
 import type {Agent} from '@/agent-core/agent/index.js';
 import {agentPersistence} from '@/agent-core/agent/index.js';
-import {agentEventBus} from '@/agent-core/events/index.js';
 import {isFileNotFoundError} from '@/helpers/fs.js';
 import {logger} from '@/logger.js';
 
@@ -19,12 +18,6 @@ import {AgentStore} from './agent-store.js';
 
 export class CodingAgentStore extends AgentStore {
   private static instance: CodingAgentStore | null = null;
-
-  private readonly onAgentCreated = (agent: Agent): void => {
-    if (agent instanceof CodingAgent) {
-      this.set(agent);
-    }
-  };
 
   private constructor(sessionsDir: string) {
     super(sessionsDir);
@@ -39,7 +32,7 @@ export class CodingAgentStore extends AgentStore {
     return CodingAgentStore.instance;
   }
 
-  /** Creates the singleton instance and subscribes to agent events. */
+  /** Creates the singleton instance. */
   static create(sessionsDir: string): CodingAgentStore {
     assert(
       CodingAgentStore.instance === null,
@@ -47,18 +40,18 @@ export class CodingAgentStore extends AgentStore {
     );
     const store = new CodingAgentStore(sessionsDir);
     CodingAgentStore.instance = store;
-    agentEventBus.on('agent-created', store.onAgentCreated);
     return store;
+  }
+
+  /** Creates a new coding agent owned by this store. */
+  createAgent(workingDirectory: string): string {
+    const agent = new CodingAgent(workingDirectory, this.sessionsDir);
+    this.registerAgent(agent);
+    return agent.id;
   }
 
   /** Resets the singleton instance. Only for use in tests. */
   static resetInstance(): void {
-    if (CodingAgentStore.instance) {
-      agentEventBus.off(
-        'agent-created',
-        CodingAgentStore.instance.onAgentCreated,
-      );
-    }
     CodingAgentStore.instance = null;
   }
 

@@ -1176,6 +1176,55 @@ describe('Agent turn scheduling', () => {
     expect(agent.isRunning).toBe(true);
   });
 
+  it('close aborts the active turn and drains queued work without starting it', async () => {
+    const turnStarted = Promise.withResolvers<undefined>();
+    const turnAborted = Promise.withResolvers<undefined>();
+
+    async function* blockingStream(
+      signal: AbortSignal | undefined,
+    ): LlmEventStream {
+      turnStarted.resolve(undefined);
+      yield {type: 'message-start', messageId: 'blocking-message'};
+      await new Promise<void>((resolve) => {
+        if (!signal || signal.aborted) {
+          resolve();
+          return;
+        }
+        signal.addEventListener(
+          'abort',
+          () => {
+            resolve();
+          },
+          {once: true},
+        );
+      });
+      turnAborted.resolve(undefined);
+      throw new Error('Request aborted');
+    }
+
+    vi.spyOn(llmApi, 'countToken').mockResolvedValue(1);
+    const streamCompletion = vi
+      .spyOn(llmApi, 'streamCompletion')
+      .mockImplementation((options) => blockingStream(options.signal));
+    const agent = track(
+      new TestAgent(() => Promise.resolve(MAIN_CONFIG), testAgentOptions()),
+    );
+    agent.title = 'Existing Title';
+
+    agent.enqueueUserTurn('active');
+    agent.enqueueUserTurn('queued');
+    await turnStarted.promise;
+
+    const closing = agent.close();
+    expect(agent.tryStartUserTurn('rejected')).toBe(false);
+    agent.enqueueUserTurn('also rejected');
+
+    await closing;
+    await turnAborted.promise;
+    expect(agent.isRunning).toBe(false);
+    expect(streamCompletion).toHaveBeenCalledTimes(1);
+  });
+
   it('tryStartUserTurn returns true again once the turn completes', async () => {
     vi.spyOn(llmApi, 'countToken').mockResolvedValue(1);
     vi.spyOn(llmApi, 'streamCompletion').mockImplementation(() =>

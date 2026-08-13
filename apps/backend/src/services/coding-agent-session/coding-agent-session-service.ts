@@ -3,7 +3,6 @@ import type {Readable} from 'node:stream';
 import type {SessionMetadata} from '@omnicraft/api-schema';
 import type {SseEventCursorEntry} from '@omnicraft/sse-events';
 
-import {CodingAgent} from '@/agent/agents/index.js';
 import {type AgentSseLogReaderOptions} from '@/agent-core/agent/index.js';
 import {CodingAgentStore} from '@/models/agent-store/index.js';
 import {SettingsManager} from '@/models/settings-manager/index.js';
@@ -48,9 +47,8 @@ export const codingAgentSessionService = {
       return {success: false, error: validationError};
     }
 
-    const store = CodingAgentStore.getInstance();
-    const agent = new CodingAgent(workspace, store.sessionsDir);
-    return {success: true, sessionId: agent.id};
+    const sessionId = CodingAgentStore.getInstance().createAgent(workspace);
+    return {success: true, sessionId};
   },
 
   /**
@@ -65,14 +63,17 @@ export const codingAgentSessionService = {
     userMessage: string,
     attachmentFileNames: readonly string[],
   ): Promise<SendCompletionResult> {
-    const agent = await CodingAgentStore.getInstance().get(agentId);
-    if (!agent) return {ok: false, reason: 'session-not-found'};
+    const result = await CodingAgentStore.getInstance().runAgentOperation(
+      agentId,
+      async (agent): Promise<SendCompletionResult> => {
+        const claimed = await agent.claimAttachments(attachmentFileNames);
+        if (!claimed.ok) return claimed;
 
-    const claimed = await agent.claimAttachments(attachmentFileNames);
-    if (!claimed.ok) return claimed;
-
-    agent.enqueueUserTurn(userMessage, claimed.attachments);
-    return {ok: true};
+        agent.enqueueUserTurn(userMessage, claimed.attachments);
+        return {ok: true};
+      },
+    );
+    return result ?? {ok: false, reason: 'session-not-found'};
   },
 
   /**
@@ -85,9 +86,11 @@ export const codingAgentSessionService = {
     desiredName: string,
     body: Readable,
   ): Promise<AttachmentUploadResult> {
-    const agent = await CodingAgentStore.getInstance().get(agentId);
-    if (!agent) return {ok: false, reason: 'session-not-found'};
-    return agent.saveAttachment(desiredName, body);
+    const result = await CodingAgentStore.getInstance().runAgentOperation(
+      agentId,
+      (agent) => agent.saveAttachment(desiredName, body),
+    );
+    return result ?? {ok: false, reason: 'session-not-found'};
   },
 
   /** Describes a stored attachment. */
@@ -95,12 +98,17 @@ export const codingAgentSessionService = {
     agentId: string,
     fileName: string,
   ): Promise<AttachmentDescribeResult> {
-    const agent = await CodingAgentStore.getInstance().get(agentId);
-    if (!agent) return {ok: false, reason: 'session-not-found'};
-
-    const descriptor = await agent.describeAttachment(fileName);
-    if (descriptor === null) return {ok: false, reason: 'attachment-not-found'};
-    return {ok: true, descriptor};
+    const result = await CodingAgentStore.getInstance().runAgentOperation(
+      agentId,
+      async (agent): Promise<AttachmentDescribeResult> => {
+        const descriptor = await agent.describeAttachment(fileName);
+        if (descriptor === null) {
+          return {ok: false, reason: 'attachment-not-found'};
+        }
+        return {ok: true, descriptor};
+      },
+    );
+    return result ?? {ok: false, reason: 'session-not-found'};
   },
 
   /**
@@ -111,12 +119,17 @@ export const codingAgentSessionService = {
     agentId: string,
     fileName: string,
   ): Promise<AttachmentOpenResult> {
-    const agent = await CodingAgentStore.getInstance().get(agentId);
-    if (!agent) return {ok: false, reason: 'session-not-found'};
-
-    const opened = await agent.openAttachmentForDownload(fileName);
-    if (opened === null) return {ok: false, reason: 'attachment-not-found'};
-    return {ok: true, opened};
+    const result = await CodingAgentStore.getInstance().runAgentOperation(
+      agentId,
+      async (agent): Promise<AttachmentOpenResult> => {
+        const opened = await agent.openAttachmentForDownload(fileName);
+        if (opened === null) {
+          return {ok: false, reason: 'attachment-not-found'};
+        }
+        return {ok: true, opened};
+      },
+    );
+    return result ?? {ok: false, reason: 'session-not-found'};
   },
 
   /** Deletes a stored attachment. */
@@ -124,19 +137,22 @@ export const codingAgentSessionService = {
     agentId: string,
     fileName: string,
   ): Promise<AttachmentRemoveResult> {
-    const agent = await CodingAgentStore.getInstance().get(agentId);
-    if (!agent) return {ok: false, reason: 'session-not-found'};
-
-    const removed = await agent.removeAttachment(fileName);
-    if (!removed.ok) {
-      switch (removed.reason) {
-        case 'not-found':
-          return {ok: false, reason: 'attachment-not-found'};
-        case 'frozen':
-          return {ok: false, reason: 'attachment-frozen'};
-      }
-    }
-    return {ok: true};
+    const result = await CodingAgentStore.getInstance().runAgentOperation(
+      agentId,
+      async (agent): Promise<AttachmentRemoveResult> => {
+        const removed = await agent.removeAttachment(fileName);
+        if (!removed.ok) {
+          switch (removed.reason) {
+            case 'not-found':
+              return {ok: false, reason: 'attachment-not-found'};
+            case 'frozen':
+              return {ok: false, reason: 'attachment-frozen'};
+          }
+        }
+        return {ok: true};
+      },
+    );
+    return result ?? {ok: false, reason: 'session-not-found'};
   },
 
   /**
@@ -147,9 +163,9 @@ export const codingAgentSessionService = {
     agentId: string,
     options?: AgentSseLogReaderOptions,
   ): Promise<AsyncIterable<SseEventCursorEntry> | undefined> {
-    const agent = await CodingAgentStore.getInstance().get(agentId);
-    if (!agent) return undefined;
-    return agent.subscribe(options);
+    return CodingAgentStore.getInstance().runAgentOperation(agentId, (agent) =>
+      agent.subscribe(options),
+    );
   },
 
   /**
@@ -157,17 +173,22 @@ export const codingAgentSessionService = {
    * does not exist. Used to detect a resume cursor that outran a rolled-back log.
    */
   async getSseEventCount(agentId: string): Promise<number | undefined> {
-    const agent = await CodingAgentStore.getInstance().get(agentId);
-    if (!agent) return undefined;
-    return agent.getSseEventCount();
+    return CodingAgentStore.getInstance().runAgentOperation(agentId, (agent) =>
+      agent.getSseEventCount(),
+    );
   },
 
   /** Aborts the currently running turn. Returns false if agent not found. */
   async abortCompletion(agentId: string): Promise<boolean> {
-    const agent = await CodingAgentStore.getInstance().get(agentId);
-    if (!agent) return false;
-    agent.abort();
-    return true;
+    return (
+      (await CodingAgentStore.getInstance().runAgentOperation(
+        agentId,
+        (agent) => {
+          agent.abort();
+          return true;
+        },
+      )) ?? false
+    );
   },
 
   /**
@@ -179,9 +200,12 @@ export const codingAgentSessionService = {
     interactionId: string,
     result: unknown,
   ): Promise<boolean> {
-    const agent = await CodingAgentStore.getInstance().get(agentId);
-    if (!agent) return false;
-    return agent.submitUserResponse(interactionId, result);
+    return (
+      (await CodingAgentStore.getInstance().runAgentOperation(
+        agentId,
+        (agent) => agent.submitUserResponse(interactionId, result),
+      )) ?? false
+    );
   },
 
   /** Lists persisted sessions with pagination. */
@@ -194,9 +218,6 @@ export const codingAgentSessionService = {
 
   /** Deletes a session. Returns false if session not found. */
   async deleteSession(agentId: string): Promise<boolean> {
-    const store = CodingAgentStore.getInstance();
-    if (!(await store.has(agentId))) return false;
-    await store.delete(agentId);
-    return true;
+    return CodingAgentStore.getInstance().delete(agentId);
   },
 };

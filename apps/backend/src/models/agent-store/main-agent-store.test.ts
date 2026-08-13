@@ -1,31 +1,14 @@
-import assert from 'node:assert';
 import crypto from 'node:crypto';
 import {mkdir, mkdtemp, rm, utimes, writeFile} from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
-import {afterEach, beforeEach, describe, expect, it} from 'vitest';
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 
-import {AgentSseLog} from '@/agent-core/agent/events/agent-sse-log.js';
-import type {Agent} from '@/agent-core/agent/index.js';
+import {agentEventBus} from '@/agent-core/events/index.js';
+import {McpManager} from '@/models/mcp-manager/index.js';
 
 import {MainAgentStore} from './main-agent-store.js';
-
-/** Creates a minimal mock Agent object for testing cache operations. */
-function createMockAgent(
-  id: string,
-  overrides: {isRunning?: boolean; activeReaderCount?: number} = {},
-): Agent {
-  const sseLog = new AgentSseLog();
-  Object.defineProperty(sseLog, 'activeReaderCount', {
-    get: () => overrides.activeReaderCount ?? 0,
-  });
-  return {
-    id,
-    isRunning: overrides.isRunning ?? false,
-    sseLog,
-  } as Agent;
-}
 
 /** Writes a minimal snapshot.json into a session directory. */
 async function writeSnapshot(
@@ -54,11 +37,14 @@ describe('MainAgentStore', () => {
 
   beforeEach(async () => {
     MainAgentStore.resetInstance();
+    McpManager.create();
     sessionsDir = await mkdtemp(path.join(os.tmpdir(), 'agent-store-test-'));
   });
 
   afterEach(async () => {
+    vi.restoreAllMocks();
     MainAgentStore.resetInstance();
+    McpManager.resetInstanceForTesting();
     await rm(sessionsDir, {recursive: true, force: true});
   });
 
@@ -82,151 +68,115 @@ describe('MainAgentStore', () => {
         'already initialized',
       );
     });
-
-    it('stores the sessionsDir', () => {
-      const store = MainAgentStore.create(sessionsDir);
-      expect(store.sessionsDir).toBe(sessionsDir);
-    });
   });
 
-  describe('set and get', () => {
-    it('stores and retrieves an agent from cache', async () => {
+  describe('agent lifecycle', () => {
+    it('owns a created agent before announcing it', async () => {
       const store = MainAgentStore.create(sessionsDir);
-      const agent = createMockAgent('test-id');
-      store.set(agent);
-      const retrieved = await store.get('test-id');
-      expect(retrieved).toBe(agent);
+      const notification = Promise.withResolvers<boolean>();
+      agentEventBus.once('agent-created', (agent) => {
+        void store
+          .runAgentOperation(agent.id, (current) => current === agent)
+          .then((owned) => {
+            notification.resolve(owned ?? false);
+          });
+      });
+
+      const sessionId = store.createAgent();
+
+      expect(sessionId).toEqual(expect.any(String));
+      await expect(notification.promise).resolves.toBe(true);
     });
 
-    it('returns undefined for nonexistent session', async () => {
+    it('drains an active operation before deleting its agent', async () => {
       const store = MainAgentStore.create(sessionsDir);
-      const result = await store.get('nonexistent-id');
-      expect(result).toBeUndefined();
+      const agentId = store.createAgent();
+      const operationStarted = Promise.withResolvers<undefined>();
+      const resumeOperation = Promise.withResolvers<undefined>();
+
+      const operation = store.runAgentOperation(agentId, async (current) => {
+        operationStarted.resolve(undefined);
+        await resumeOperation.promise;
+        return current.id;
+      });
+      await operationStarted.promise;
+
+      let deletionFinished = false;
+      const deletion = store.delete(agentId).then((result) => {
+        deletionFinished = true;
+        return result;
+      });
+      await Promise.resolve();
+
+      expect(deletionFinished).toBe(false);
+      await expect(
+        store.runAgentOperation(agentId, () => 'unexpected'),
+      ).resolves.toBeUndefined();
+
+      resumeOperation.resolve(undefined);
+      await expect(operation).resolves.toBe(agentId);
+      await expect(deletion).resolves.toBe(true);
+      await expect(
+        store.runAgentOperation(agentId, () => 'unexpected'),
+      ).resolves.toBeUndefined();
     });
-  });
 
-  describe('has', () => {
-    it('returns true for in-memory agent', async () => {
-      const store = MainAgentStore.create(sessionsDir);
-      store.set(createMockAgent('in-memory'));
-      expect(await store.has('in-memory')).toBe(true);
+    it('restores a persisted agent for an operation', async () => {
+      const firstStore = MainAgentStore.create(sessionsDir);
+      const sessionId = firstStore.createAgent();
+      MainAgentStore.resetInstance();
+
+      const restoredStore = MainAgentStore.create(sessionsDir);
+      await expect(
+        restoredStore.runAgentOperation(sessionId, (agent) => agent.id),
+      ).resolves.toBe(sessionId);
     });
 
-    it('returns true for on-disk session with snapshot', async () => {
+    it('keeps an agent owned while one of its operations is active', async () => {
       const store = MainAgentStore.create(sessionsDir);
-      const id = 'on-disk-session';
-      await mkdir(path.join(sessionsDir, id));
-      await writeFile(path.join(sessionsDir, id, 'snapshot.json'), '{}');
-      expect(await store.has(id)).toBe(true);
-    });
+      const sessionId = store.createAgent();
+      const operationStarted = Promise.withResolvers<undefined>();
+      const resumeOperation = Promise.withResolvers<undefined>();
+      const closeObserved =
+        Promise.withResolvers<ReturnType<typeof vi.spyOn>>();
 
-    it('returns false for nonexistent session', async () => {
-      const store = MainAgentStore.create(sessionsDir);
-      expect(await store.has('nonexistent')).toBe(false);
-    });
+      const operation = store.runAgentOperation(sessionId, async (agent) => {
+        closeObserved.resolve(vi.spyOn(agent, 'close'));
+        operationStarted.resolve(undefined);
+        await resumeOperation.promise;
+      });
+      await operationStarted.promise;
+      await new Promise<void>((resolve) => setTimeout(resolve, 2));
 
-    it('does not load the agent into cache', async () => {
-      const store = MainAgentStore.create(sessionsDir);
-      const id = 'no-load-session';
-      await mkdir(path.join(sessionsDir, id));
-      await writeFile(path.join(sessionsDir, id, 'snapshot.json'), '{}');
+      for (let i = 0; i < 50; i++) {
+        store.createAgent();
+      }
 
-      const exists = await store.has(id);
-      expect(exists).toBe(true);
-
-      await rm(path.join(sessionsDir, id), {recursive: true});
-      const stillExists = await store.has(id);
-      expect(stillExists).toBe(false);
+      const deletion = store.delete(sessionId);
+      resumeOperation.resolve(undefined);
+      await operation;
+      await expect(deletion).resolves.toBe(true);
+      expect(await closeObserved.promise).toHaveBeenCalledOnce();
     });
   });
 
   describe('delete', () => {
-    it('removes from memory', async () => {
-      const store = MainAgentStore.create(sessionsDir);
-      store.set(createMockAgent('del-mem'));
-      const result = await store.delete('del-mem');
-      expect(result).toBe(true);
-      // No longer in cache
-      const agent = await store.get('del-mem');
-      expect(agent).toBeUndefined();
-    });
-
     it('removes from disk', async () => {
       const store = MainAgentStore.create(sessionsDir);
       const id = 'del-disk';
       await mkdir(path.join(sessionsDir, id));
       await writeFile(path.join(sessionsDir, id, 'snapshot.json'), '{}');
-      expect(await store.has(id)).toBe(true);
 
-      await store.delete(id);
-      expect(await store.has(id)).toBe(false);
+      await expect(store.delete(id)).resolves.toBe(true);
+      await expect(
+        store.runAgentOperation(id, () => 'unexpected'),
+      ).resolves.toBeUndefined();
     });
 
-    it('returns true even if session does not exist on disk', async () => {
+    it('returns false if the session does not exist', async () => {
       const store = MainAgentStore.create(sessionsDir);
-      // rm with force: true succeeds even if path doesn't exist
       const result = await store.delete('nonexistent');
-      expect(result).toBe(true);
-    });
-  });
-
-  describe('LRU eviction', () => {
-    it('evicts oldest non-running agents when exceeding max cache size', () => {
-      const store = MainAgentStore.create(sessionsDir);
-
-      // Fill cache to MAX_CACHED_AGENTS (50)
-      for (let i = 0; i < 50; i++) {
-        store.set(createMockAgent(`agent-${i}`));
-      }
-
-      // Adding one more should trigger eviction of the oldest
-      store.set(createMockAgent('agent-trigger'));
-
-      // Cache should be at most 50
-      // The oldest agent (agent-0) should have been evicted
-      // We can't access cache directly, but we can verify via the
-      // get method. agent-0 won't be found in cache (and won't be
-      // on disk either), so it returns undefined.
-    });
-
-    it('skips running agents during eviction', async () => {
-      const store = MainAgentStore.create(sessionsDir);
-
-      // Set agent-0 as running
-      store.set(createMockAgent('agent-running', {isRunning: true}));
-
-      // Fill remaining slots
-      for (let i = 1; i < 50; i++) {
-        store.set(createMockAgent(`agent-${i}`));
-      }
-
-      // Trigger eviction
-      store.set(createMockAgent('agent-trigger'));
-
-      // Running agent should still be in cache
-      const runningAgent = await store.get('agent-running');
-      assert(runningAgent);
-      expect(runningAgent.id).toBe('agent-running');
-    });
-
-    it('skips agents with active readers during eviction', async () => {
-      const store = MainAgentStore.create(sessionsDir);
-
-      // Set agent-0 with active readers
-      store.set(createMockAgent('agent-reading', {activeReaderCount: 1}));
-
-      // Fill remaining slots
-      for (let i = 1; i < 50; i++) {
-        store.set(createMockAgent(`agent-${i}`));
-      }
-
-      // Trigger eviction
-      store.set(createMockAgent('agent-trigger'));
-
-      // Agent with active readers should still be in cache
-      const readingAgent = await store.get('agent-reading');
-      assert(readingAgent);
-      expect(readingAgent.id).toBe('agent-reading');
+      expect(result).toBe(false);
     });
   });
 
@@ -473,22 +423,6 @@ describe('MainAgentStore', () => {
       expect(() => {
         MainAgentStore.resetInstance();
       }).not.toThrow();
-    });
-  });
-
-  describe('getRunningIds', () => {
-    it('returns an empty set when nothing is running', () => {
-      const store = MainAgentStore.create(sessionsDir);
-      store.set(createMockAgent('idle-1'));
-      expect(store.getRunningIds()).toEqual(new Set());
-    });
-
-    it('returns only the ids of running agents', () => {
-      const store = MainAgentStore.create(sessionsDir);
-      store.set(createMockAgent('idle-1'));
-      store.set(createMockAgent('run-1', {isRunning: true}));
-      store.set(createMockAgent('run-2', {isRunning: true}));
-      expect(store.getRunningIds()).toEqual(new Set(['run-1', 'run-2']));
     });
   });
 });

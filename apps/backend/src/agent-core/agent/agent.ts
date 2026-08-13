@@ -13,7 +13,6 @@ import type {LlmAttachment} from '@omnicraft/tool-schemas';
 import {Mutex} from '@/helpers/mutex.js';
 import {logger} from '@/logger.js';
 
-import {agentEventBus} from '../events/index.js';
 import type {AttachmentResolution, LlmConfig} from '../llm-api/index.js';
 import {LlmSession} from '../llm-session/index.js';
 import type {AnyToolDefinition} from '../tool/index.js';
@@ -102,6 +101,11 @@ export abstract class Agent {
    */
   private pendingTurnCount = 0;
 
+  /** Once closed, the Agent accepts no new turns and drains existing work. */
+  private closed = false;
+
+  private closeState: PromiseWithResolvers<undefined> | null = null;
+
   constructor(
     getConfig: () => Promise<LlmConfig>,
     options: AgentOptions,
@@ -169,8 +173,6 @@ export abstract class Agent {
         {sync: true},
       );
     }
-
-    agentEventBus.emit('agent-created', this);
   }
 
   /**
@@ -239,6 +241,7 @@ export abstract class Agent {
     userMessage: string,
     attachments: readonly LlmAttachment[] = [],
   ): void {
+    if (this.closed) return;
     this.runTrackedTurn(userMessage, attachments);
   }
 
@@ -254,7 +257,7 @@ export abstract class Agent {
     userMessage: string,
     attachments: readonly LlmAttachment[] = [],
   ): boolean {
-    if (this.isRunning) return false;
+    if (this.closed || this.isRunning) return false;
     this.runTrackedTurn(userMessage, attachments);
     return true;
   }
@@ -282,6 +285,7 @@ export abstract class Agent {
     this.pendingTurnCount++;
     void this.runTurn(userMessage, attachments).finally(() => {
       this.pendingTurnCount--;
+      this.resolveCloseIfIdle();
     });
   }
 
@@ -295,6 +299,17 @@ export abstract class Agent {
   /** Aborts the currently running turn, if any. */
   abort(): void {
     this.abortController?.abort();
+  }
+
+  /** Stops accepting turns, aborts active work, and waits for all work to drain. */
+  close(): Promise<void> {
+    if (this.closeState) return this.closeState.promise;
+
+    this.closeState = Promise.withResolvers<undefined>();
+    this.closed = true;
+    this.abort();
+    this.resolveCloseIfIdle();
+    return this.closeState.promise;
   }
 
   /** Whether a turn is queued/running or a title generation is in flight. */
@@ -317,6 +332,7 @@ export abstract class Agent {
   ): Promise<void> {
     const release = await this.mutex.acquire();
     try {
+      if (this.closed) return;
       this.abortController = new AbortController();
       const stream = this.runAgentLoop(
         userMessage,
@@ -333,6 +349,7 @@ export abstract class Agent {
           this.isGeneratingTitle = true;
           void this.generateAndEmitTitle(event.content).finally(() => {
             this.isGeneratingTitle = false;
+            this.resolveCloseIfIdle();
           });
         }
       });
@@ -343,6 +360,12 @@ export abstract class Agent {
       this.abortController = null;
       release();
     }
+  }
+
+  private resolveCloseIfIdle(): void {
+    if (!this.closeState) return;
+    if (this.isRunning) return;
+    this.closeState.resolve(undefined);
   }
 
   /** Appends an event to the SSE log and increments the event counter. */

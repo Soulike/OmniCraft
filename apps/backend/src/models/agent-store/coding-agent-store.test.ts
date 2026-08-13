@@ -3,22 +3,11 @@ import {mkdir, mkdtemp, rm, writeFile} from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
-import {afterEach, beforeEach, describe, expect, it} from 'vitest';
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 
-import {AgentSseLog} from '@/agent-core/agent/events/agent-sse-log.js';
-import type {Agent} from '@/agent-core/agent/index.js';
+import {McpManager} from '@/models/mcp-manager/index.js';
 
 import {CodingAgentStore} from './coding-agent-store.js';
-
-function createMockAgent(
-  id: string,
-  isRunning: boolean,
-  isWaitingForInput = false,
-): Agent {
-  const sseLog = new AgentSseLog();
-  Object.defineProperty(sseLog, 'activeReaderCount', {get: () => 0});
-  return {id, isRunning, isWaitingForInput, sseLog} as Agent;
-}
 
 async function writeSnapshot(
   sessionsDir: string,
@@ -35,22 +24,24 @@ describe('CodingAgentStore.listSessionMetadata isRunning', () => {
 
   beforeEach(async () => {
     CodingAgentStore.resetInstance();
+    McpManager.create();
     sessionsDir = await mkdtemp(path.join(os.tmpdir(), 'coding-store-test-'));
   });
 
   afterEach(async () => {
+    vi.restoreAllMocks();
     CodingAgentStore.resetInstance();
+    McpManager.resetInstanceForTesting();
     await rm(sessionsDir, {recursive: true, force: true});
   });
 
   it('marks isRunning true only for cached running agents', async () => {
     const store = CodingAgentStore.create(sessionsDir);
-    const runningId = crypto.randomUUID();
-    const idleId = crypto.randomUUID();
-    await writeSnapshot(sessionsDir, runningId, {id: runningId, title: 'Run'});
-    await writeSnapshot(sessionsDir, idleId, {id: idleId, title: 'Idle'});
-    store.set(createMockAgent(runningId, true));
-    store.set(createMockAgent(idleId, false));
+    const runningId = store.createAgent(sessionsDir);
+    const idleId = store.createAgent(sessionsDir);
+    await store.runAgentOperation(runningId, (agent) => {
+      vi.spyOn(agent, 'isRunning', 'get').mockReturnValue(true);
+    });
 
     const {sessions} = await store.listSessionMetadata(0, 100);
     const byId = new Map(sessions.map((s) => [s.id, s.isRunning]));
@@ -84,34 +75,28 @@ describe('CodingAgentStore waiting status', () => {
 
   beforeEach(async () => {
     CodingAgentStore.resetInstance();
+    McpManager.create();
     sessionsDir = await mkdtemp(path.join(os.tmpdir(), 'coding-store-wait-'));
   });
 
   afterEach(async () => {
+    vi.restoreAllMocks();
     CodingAgentStore.resetInstance();
+    McpManager.resetInstanceForTesting();
     await rm(sessionsDir, {recursive: true, force: true});
-  });
-
-  it('getWaitingIds returns exactly the waiting agents', () => {
-    const store = CodingAgentStore.create(sessionsDir);
-    const waitingId = crypto.randomUUID();
-    const runningId = crypto.randomUUID();
-    const idleId = crypto.randomUUID();
-    store.set(createMockAgent(waitingId, true, true));
-    store.set(createMockAgent(runningId, true, false));
-    store.set(createMockAgent(idleId, false, false));
-
-    expect(store.getWaitingIds()).toEqual(new Set([waitingId]));
   });
 
   it('marks isWaitingForInput true only for cached waiting agents', async () => {
     const store = CodingAgentStore.create(sessionsDir);
-    const waitingId = crypto.randomUUID();
-    const runningId = crypto.randomUUID();
-    await writeSnapshot(sessionsDir, waitingId, {id: waitingId, title: 'Wait'});
-    await writeSnapshot(sessionsDir, runningId, {id: runningId, title: 'Run'});
-    store.set(createMockAgent(waitingId, true, true));
-    store.set(createMockAgent(runningId, true, false));
+    const waitingId = store.createAgent(sessionsDir);
+    const runningId = store.createAgent(sessionsDir);
+    await store.runAgentOperation(waitingId, (agent) => {
+      vi.spyOn(agent, 'isRunning', 'get').mockReturnValue(true);
+      vi.spyOn(agent, 'isWaitingForInput', 'get').mockReturnValue(true);
+    });
+    await store.runAgentOperation(runningId, (agent) => {
+      vi.spyOn(agent, 'isRunning', 'get').mockReturnValue(true);
+    });
 
     const {sessions} = await store.listSessionMetadata(0, 100);
     const byId = new Map(sessions.map((s) => [s.id, s.isWaitingForInput]));
