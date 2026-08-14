@@ -92,6 +92,9 @@ export abstract class Agent {
   /** Per-turn abort controller. Null when no turn is running. */
   private abortController: AbortController | null = null;
 
+  /** Abort controller for asynchronous first-turn title generation. */
+  private titleAbortController: AbortController | null = null;
+
   /** True while an async title generation is in flight. */
   private isGeneratingTitle = false;
 
@@ -308,6 +311,7 @@ export abstract class Agent {
     this.closeState = Promise.withResolvers<undefined>();
     this.closed = true;
     this.abort();
+    this.titleAbortController?.abort();
     this.resolveCloseIfIdle();
     return this.closeState.promise;
   }
@@ -346,8 +350,13 @@ export abstract class Agent {
           this.title === Agent.DEFAULT_TITLE &&
           !this.isGeneratingTitle
         ) {
+          this.titleAbortController = new AbortController();
           this.isGeneratingTitle = true;
-          void this.generateAndEmitTitle(event.content).finally(() => {
+          void this.generateAndEmitTitle(
+            event.content,
+            this.titleAbortController.signal,
+          ).finally(() => {
+            this.titleAbortController = null;
             this.isGeneratingTitle = false;
             this.resolveCloseIfIdle();
           });
@@ -510,9 +519,14 @@ export abstract class Agent {
    * then appends a `session-title` event to sseLog.
    * Fire-and-forget — errors are swallowed and a fallback title is used.
    */
-  private async generateAndEmitTitle(userMessage: string): Promise<void> {
-    this.title = await generateTitle(userMessage, () =>
-      this.resolveTierConfig('lightweight'),
+  private async generateAndEmitTitle(
+    userMessage: string,
+    signal: AbortSignal,
+  ): Promise<void> {
+    this.title = await generateTitle(
+      userMessage,
+      () => this.resolveTierConfig('lightweight'),
+      signal,
     );
     if (!this.title) return;
     await this.appendSseEvent({

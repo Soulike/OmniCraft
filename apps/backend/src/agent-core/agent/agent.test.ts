@@ -1286,6 +1286,67 @@ describe('Agent turn scheduling', () => {
       await delay(0);
     }
   });
+
+  it('close aborts in-flight title generation and drains it', async () => {
+    const titleStarted = Promise.withResolvers<undefined>();
+    const releaseTitle = Promise.withResolvers<undefined>();
+    let titleSignal: AbortSignal | undefined;
+
+    async function* blockingTitleStream(
+      signal: AbortSignal | undefined,
+    ): LlmEventStream {
+      titleStarted.resolve(undefined);
+      yield {type: 'message-start', messageId: 'title-message'};
+      await new Promise<void>((resolve) => {
+        void releaseTitle.promise.then(resolve);
+        if (signal?.aborted) {
+          resolve();
+          return;
+        }
+        signal?.addEventListener(
+          'abort',
+          () => {
+            resolve();
+          },
+          {once: true},
+        );
+      });
+      if (signal?.aborted) throw new Error('Request aborted');
+      yield {
+        type: 'message-end',
+        stopReason: 'end_turn',
+        usage: {inputTokens: 1, outputTokens: 1, cacheReadInputTokens: 0},
+      };
+    }
+
+    vi.spyOn(llmApi, 'countToken').mockResolvedValue(1);
+    vi.spyOn(llmApi, 'streamCompletion').mockImplementation((options) => {
+      if (options.config.model === LIGHT_CONFIG.model) {
+        titleSignal = options.signal;
+        return blockingTitleStream(options.signal);
+      }
+      return mainCompletionStream();
+    });
+    const agent = track(
+      new TestAgent(() => Promise.resolve(MAIN_CONFIG), testAgentOptions()),
+    );
+
+    const eventsPromise = collectUntilDone(agent);
+    agent.enqueueUserTurn('first');
+    await eventsPromise;
+    await titleStarted.promise;
+
+    const closing = agent.close();
+    try {
+      await Promise.resolve();
+      expect(titleSignal).toBeDefined();
+      expect(titleSignal?.aborted).toBe(true);
+    } finally {
+      releaseTitle.resolve(undefined);
+      await closing;
+    }
+    expect(agent.isRunning).toBe(false);
+  });
 });
 
 describe('Agent attachments', () => {

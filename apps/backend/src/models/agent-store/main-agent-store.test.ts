@@ -5,6 +5,7 @@ import path from 'node:path';
 
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 
+import type {Agent} from '@/agent-core/agent/index.js';
 import {agentEventBus} from '@/agent-core/events/index.js';
 import {McpManager} from '@/models/mcp-manager/index.js';
 
@@ -157,6 +158,53 @@ describe('MainAgentStore', () => {
       await operation;
       await expect(deletion).resolves.toBe(true);
       expect(await closeObserved.promise).toHaveBeenCalledOnce();
+    });
+
+    it('retries LRU eviction when an operation loses its final protection', async () => {
+      const store = MainAgentStore.create(sessionsDir);
+      const releases: PromiseWithResolvers<undefined>[] = [];
+      const operations: Promise<unknown>[] = [];
+      const firstAgent = Promise.withResolvers<Agent>();
+
+      const firstId = store.createAgent();
+      const firstStarted = Promise.withResolvers<undefined>();
+      const firstRelease = Promise.withResolvers<undefined>();
+      releases.push(firstRelease);
+      operations.push(
+        store.runAgentOperation(firstId, async (agent) => {
+          firstAgent.resolve(agent);
+          firstStarted.resolve(undefined);
+          await firstRelease.promise;
+        }),
+      );
+      await firstStarted.promise;
+
+      for (let i = 0; i < 50; i++) {
+        const id = store.createAgent();
+        const started = Promise.withResolvers<undefined>();
+        const release = Promise.withResolvers<undefined>();
+        releases.push(release);
+
+        const operation = store.runAgentOperation(id, async () => {
+          started.resolve(undefined);
+          await release.promise;
+        });
+        operations.push(operation);
+        await started.promise;
+      }
+
+      try {
+        releases[0].resolve(undefined);
+        await operations[0];
+
+        const originalAgent = await firstAgent.promise;
+        await expect(
+          store.runAgentOperation(firstId, (agent) => agent !== originalAgent),
+        ).resolves.toBe(true);
+      } finally {
+        for (const release of releases) release.resolve(undefined);
+        await Promise.all(operations);
+      }
     });
   });
 

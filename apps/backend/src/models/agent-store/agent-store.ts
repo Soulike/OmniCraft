@@ -172,6 +172,7 @@ export abstract class AgentStore {
 
     lifecycle.drain?.resolve(undefined);
     if (!lifecycle.deleting) this.lifecycles.delete(id);
+    this.evictIfNeeded();
   }
 
   private async finishDelete(
