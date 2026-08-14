@@ -505,7 +505,33 @@ describe('describe / readBase64 / remove', () => {
       await agentAttachmentStore.readBase64(scratchDirectory, 'shot.png'),
     ).toEqual({
       data: bytes.toString('base64'),
+      mediaType: 'image/png',
       materializedByteSize: bytes.byteLength,
+    });
+  });
+
+  it('returns the media type of the bytes read instead of a prior descriptor', async () => {
+    const saved = await agentAttachmentStore.save(
+      scratchDirectory,
+      'shot.png',
+      streamOf(pngOf(64)),
+    );
+    expect(saved.ok).toBe(true);
+    await expect(
+      agentAttachmentStore.claim(scratchDirectory, ['shot.png']),
+    ).resolves.toMatchObject({ok: true});
+
+    const absolutePath = path.join(scratchDirectory, 'attachments', 'shot.png');
+    const replacement = Buffer.concat([PDF_HEADER, Buffer.alloc(64)]);
+    await unlink(absolutePath);
+    await writeFile(absolutePath, replacement);
+
+    expect(
+      await agentAttachmentStore.readBase64(scratchDirectory, 'shot.png'),
+    ).toEqual({
+      data: replacement.toString('base64'),
+      mediaType: 'application/pdf',
+      materializedByteSize: replacement.byteLength,
     });
   });
 
@@ -584,6 +610,7 @@ describe('describe / readBase64 / remove', () => {
         await agentAttachmentStore.readBase64(scratchDirectory, 'shot.png'),
       ).toEqual({
         data: bytes.toString('base64'),
+        mediaType: 'image/png',
         materializedByteSize: bytes.byteLength,
       });
     });

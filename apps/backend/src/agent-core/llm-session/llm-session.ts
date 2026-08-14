@@ -393,8 +393,10 @@ export class LlmSession {
       const attachments = message.attachments.map(
         (attachment): ResolvedLlmAttachment => ({
           ...attachment,
-          // Every attachment was visited above, so a miss is impossible; the
-          // fallback keeps this total without an assertion the type cannot see.
+          // Deliberately last: a successful resolution's media type describes
+          // the bytes just read and overrides the persisted observation. Every
+          // attachment was visited above, so a miss is impossible; the fallback
+          // keeps this total without an assertion the type cannot see.
           ...(resolutions.get(attachment) ?? {data: null, reason: 'missing'}),
         }),
       );

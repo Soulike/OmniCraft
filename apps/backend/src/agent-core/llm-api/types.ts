@@ -1,5 +1,9 @@
 import type {ThinkingLevel} from '@omnicraft/api-schema';
-import type {LlmAttachment} from '@omnicraft/tool-schemas';
+import type {
+  DocumentMediaType,
+  ImageMediaType,
+  LlmAttachment,
+} from '@omnicraft/tool-schemas';
 import {
   documentMediaTypeSchema,
   imageMediaTypeSchema,
@@ -111,10 +115,15 @@ export type LlmMessage = z.infer<typeof llmMessageSchema>;
  * and read it again) in a way `missing` is not.
  */
 export type AttachmentResolution =
-  /** `materializedByteSize` is the decoded length actually read, measured at
-   *  read time — the counterpart to `LlmAttachment.lastKnownByteSize`, which is
-   *  only a record. A caller budgeting request memory must accumulate this one. */
-  | {readonly data: string; readonly materializedByteSize: number}
+  /** Both `mediaType` and `materializedByteSize` describe the bytes actually
+   *  read. Persisted attachment metadata is only a prior observation and may
+   *  no longer describe a same-name replacement. A caller budgeting request
+   *  memory must accumulate this size and label these bytes with this type. */
+  | {
+      readonly data: string;
+      readonly mediaType: ImageMediaType | DocumentMediaType;
+      readonly materializedByteSize: number;
+    }
   | {readonly data: null; readonly reason: 'missing' | 'too-large'};
 
 /** An attachment with its bytes materialized for a provider call. */

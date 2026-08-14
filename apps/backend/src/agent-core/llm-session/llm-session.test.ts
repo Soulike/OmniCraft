@@ -533,11 +533,15 @@ describe('attachment resolution', () => {
     vi.restoreAllMocks();
   });
 
-  it('materializes base64 for the request without persisting it', async () => {
+  it('uses the materialized media type for the request without persisting it', async () => {
     const resolveAttachment = vi.fn((attachment: LlmAttachment) =>
       Promise.resolve(
         attachment.fileName === 'shot.png'
-          ? {data: 'AAA=', materializedByteSize: 3}
+          ? {
+              data: 'AAA=',
+              mediaType: 'application/pdf' as const,
+              materializedByteSize: 3,
+            }
           : {data: null, reason: 'missing' as const},
       ),
     );
@@ -555,7 +559,7 @@ describe('attachment resolution', () => {
       role: 'user',
       content: 'look',
       attachments: [
-        {fileName: 'shot.png', mediaType: 'image/png', data: 'AAA='},
+        {fileName: 'shot.png', mediaType: 'application/pdf', data: 'AAA='},
       ],
     });
 
@@ -578,7 +582,11 @@ describe('attachment resolution', () => {
       return Promise.resolve(
         size > remainingBytes
           ? {data: null, reason: 'too-large' as const}
-          : {data: 'A'.repeat(4), materializedByteSize: size},
+          : {
+              data: 'A'.repeat(4),
+              mediaType: 'image/png' as const,
+              materializedByteSize: size,
+            },
       );
     });
   }

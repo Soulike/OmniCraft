@@ -641,6 +641,9 @@ class AgentAttachmentStore {
       }
       return {
         data: bytes.toString('base64'),
+        // Sniffed from this same open handle. The persisted descriptor may
+        // describe an earlier inode that occupied the same file name.
+        mediaType: opened.attachment.mediaType,
         // The read's own length, not the stat's: they are separate moments,
         // and the budget must be charged for what was actually loaded.
         materializedByteSize: bytes.byteLength,
