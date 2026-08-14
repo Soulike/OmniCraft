@@ -32,6 +32,7 @@ import {
   MAX_SESSION_ATTACHMENT_FILES,
   totalAttachmentBytes,
 } from './helpers/cap-for.js';
+import {checkImageDimensions} from './helpers/check-image-dimensions.js';
 import {resolveInside} from './helpers/resolve-inside.js';
 import {sanitizeFileName} from './helpers/sanitize-file-name.js';
 import {toSupportedMediaType} from './helpers/to-supported-media-type.js';
@@ -48,6 +49,12 @@ const MAX_ANY_ATTACHMENT_BYTES = Math.max(
 );
 
 const INTERNAL_TEMP_FILE_NAME = /^\.[0-9a-f-]{36}\.tmp$/u;
+
+function isImageMediaType(
+  mediaType: ImageMediaType | DocumentMediaType,
+): mediaType is ImageMediaType {
+  return mediaType.startsWith('image/');
+}
 
 /** The extension each deliverable media type is stored under. The stored name
  *  always matches the sniffed type, so a path list never misdescribes a file. */
@@ -369,9 +376,9 @@ class AgentAttachmentStore {
       // the directory just verified, so there is little here to redirect — but
       // one sniffing helper means there is no second way to do this that
       // someone could later reach for.
-      const mediaType = await this.sniffMediaType(temporaryPath);
-      if (mediaType === null) return {ok: false, reason: 'unsupported-type'};
-      if (byteSize > capFor(mediaType)) return {ok: false, reason: 'too-large'};
+      const inspected = await this.inspectUpload(temporaryPath, byteSize);
+      if (!inspected.ok) return inspected;
+      const {mediaType} = inspected;
 
       const release = await this.entryMutex.acquire();
       try {
@@ -448,15 +455,39 @@ class AgentAttachmentStore {
     return toSupportedMediaType(detected?.mime);
   }
 
-  /** {@link sniffMediaTypeOf} for a path this store owns and has just written. */
-  private async sniffMediaType(
+  /** Applies every content-dependent upload check through one handle to the
+   * path this store owns and has just written. Byte size binds before image
+   * inspection so an over-cap image is never read into memory merely to learn
+   * that it should already have been rejected. */
+  private async inspectUpload(
     absolutePath: string,
-  ): Promise<ImageMediaType | DocumentMediaType | null> {
+    byteSize: number,
+  ): Promise<
+    | {
+        readonly ok: true;
+        readonly mediaType: ImageMediaType | DocumentMediaType;
+      }
+    | {readonly ok: false; readonly reason: 'unsupported-type' | 'too-large'}
+  > {
     await using handle = await open(
       absolutePath,
       constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK,
     );
-    return await this.sniffMediaTypeOf(handle);
+    const mediaType = await this.sniffMediaTypeOf(handle);
+    if (mediaType === null) return {ok: false, reason: 'unsupported-type'};
+    if (byteSize > capFor(mediaType)) {
+      return {ok: false, reason: 'too-large'};
+    }
+    if (!isImageMediaType(mediaType)) return {ok: true, mediaType};
+
+    const dimensions = checkImageDimensions(await handle.readFile());
+    if (dimensions === 'invalid') {
+      return {ok: false, reason: 'unsupported-type'};
+    }
+    if (dimensions === 'too-large') {
+      return {ok: false, reason: 'too-large'};
+    }
+    return {ok: true, mediaType};
   }
 
   /**
@@ -596,6 +627,18 @@ class AgentAttachmentStore {
       }
 
       const bytes = await handle.readFile();
+      if (isImageMediaType(opened.attachment.mediaType)) {
+        const dimensions = checkImageDimensions(bytes);
+        if (dimensions === 'too-large') {
+          return {data: null, reason: 'too-large'};
+        }
+        if (dimensions === 'invalid') {
+          // A same-name replacement can still carry recognizable image magic
+          // while lacking a readable header. Like `open()` rejecting an
+          // unsupported replacement type, it is not deliverable content.
+          return {data: null, reason: 'missing'};
+        }
+      }
       return {
         data: bytes.toString('base64'),
         // The read's own length, not the stat's: they are separate moments,
@@ -822,6 +865,8 @@ class AgentAttachmentStore {
     scratchDirectory: string,
     fileNames: readonly string[],
   ): Promise<ClaimAttachmentsResult> {
+    if (fileNames.length === 0) return {ok: true, attachments: []};
+
     const release = await this.entryMutex.acquire();
     try {
       return await this.claimUnlocked(scratchDirectory, fileNames);

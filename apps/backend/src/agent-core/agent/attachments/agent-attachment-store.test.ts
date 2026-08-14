@@ -48,11 +48,14 @@ const PNG_HEADER = Buffer.from([
 ]);
 const PDF_HEADER = Buffer.from('%PDF-1.7\n%\xE2\xE3\xCF\xD3\n', 'binary');
 
-function pngOf(totalBytes: number): Buffer {
-  return Buffer.concat([
+function pngOf(totalBytes: number, width = 1, height = 1): Buffer {
+  const bytes = Buffer.concat([
     PNG_HEADER,
     Buffer.alloc(Math.max(0, totalBytes - PNG_HEADER.length)),
   ]);
+  bytes.writeUInt32BE(width, 16);
+  bytes.writeUInt32BE(height, 20);
+  return bytes;
 }
 
 function streamOf(buffer: Buffer): Readable {
@@ -238,6 +241,33 @@ describe('save', () => {
 
     const entries = await readdir(path.join(scratchDirectory, 'attachments'));
     expect(entries).toEqual([]);
+  });
+
+  it('rejects an image when either dimension exceeds 2000 pixels', async () => {
+    for (const [name, width, height] of [
+      ['too-wide.png', 2001, 1],
+      ['too-tall.png', 1, 2001],
+    ] as const) {
+      const result = await agentAttachmentStore.save(
+        scratchDirectory,
+        name,
+        streamOf(pngOf(64, width, height)),
+      );
+      expect(result).toEqual({ok: false, reason: 'too-large'});
+    }
+
+    const entries = await readdir(path.join(scratchDirectory, 'attachments'));
+    expect(entries).toEqual([]);
+  });
+
+  it('accepts an image whose dimensions are exactly 2000 by 2000', async () => {
+    const result = await agentAttachmentStore.save(
+      scratchDirectory,
+      'boundary.png',
+      streamOf(pngOf(64, 2000, 2000)),
+    );
+
+    expect(result.ok).toBe(true);
   });
 
   it('accepts a PDF between the image cap and the document cap', async () => {
@@ -559,6 +589,22 @@ describe('describe / readBase64 / remove', () => {
     });
   });
 
+  it('does not materialize an image replaced with one over the dimension cap', async () => {
+    const saved = await agentAttachmentStore.save(
+      scratchDirectory,
+      'shot.png',
+      streamOf(pngOf(64)),
+    );
+    expect(saved.ok).toBe(true);
+    const absolutePath = path.join(scratchDirectory, 'attachments', 'shot.png');
+
+    await writeFile(absolutePath, pngOf(64, 2001, 1));
+
+    expect(
+      await agentAttachmentStore.readBase64(scratchDirectory, 'shot.png'),
+    ).toEqual({data: null, reason: 'too-large'});
+  });
+
   // Regression tests for a concurrent DELETE racing the read paths. `describe`
   // stats the file, then sniffs its type; `readBase64` calls `describe`, then
   // separately reads the bytes. A `remove()` landing inside either gap must
@@ -862,6 +908,17 @@ describe('claim', () => {
     );
     expect(result.ok).toBe(true);
   }
+
+  it('returns an empty success without inspecting the attachments path', async () => {
+    await writeFile(
+      agentAttachmentStore.directory(scratchDirectory),
+      'not a directory',
+    );
+
+    await expect(
+      agentAttachmentStore.claim(scratchDirectory, []),
+    ).resolves.toEqual({ok: true, attachments: []});
+  });
 
   it('freezes what it claims and describes the frozen bytes', async () => {
     await save('shot.png', pngOf(64));
