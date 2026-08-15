@@ -2,7 +2,7 @@ import {imageSize} from 'image-size';
 
 /** Product-level image boundary chosen to fit the strictest request mode of
  * every supported provider. The limit applies independently to each edge. */
-const MAX_IMAGE_DIMENSION_PIXELS = 2000;
+export const MAX_IMAGE_DIMENSION_PIXELS = 2000;
 
 type ImageDimensionCheck = 'within-limit' | 'too-large' | 'invalid';
 

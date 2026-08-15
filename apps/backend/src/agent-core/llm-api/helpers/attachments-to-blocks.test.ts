@@ -71,6 +71,26 @@ describe('attachmentsToBlocks', () => {
     ]);
   });
 
+  it('maps oversized image dimensions to a placeholder naming the pixel limit instead of the byte size', () => {
+    expect(
+      attachmentsToBlocks([
+        {
+          fileName: 'shot.png',
+          mediaType: 'image/png',
+          lastKnownByteSize: 64,
+          data: null,
+          reason: 'dimensions-too-large',
+          maxDimensionPixels: 2000,
+        },
+      ]),
+    ).toEqual([
+      {
+        type: 'text',
+        text: '[attachment image dimensions exceed delivery limit: shot.png (maximum 2000 px per edge)]',
+      },
+    ]);
+  });
+
   it('preserves order across mixed attachments', () => {
     const blocks = attachmentsToBlocks([
       {

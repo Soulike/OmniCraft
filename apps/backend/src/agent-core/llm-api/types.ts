@@ -108,11 +108,10 @@ export type LlmMessage = z.infer<typeof llmMessageSchema>;
 
 /**
  * The outcome of materializing a single attachment's bytes for a provider
- * call: either its base64 data, or a reason delivery failed. The two
- * failure reasons must not be conflated — `missing` means the file is gone,
- * while `too-large` means it is still on disk but grew past its type's cap
- * since it was described, which is actionable (the agent can downsample it
- * and read it again) in a way `missing` is not.
+ * call: either its base64 data, or a reason delivery failed. Failure reasons
+ * must not be conflated: `missing` means the file is gone, `too-large` means
+ * its bytes exceed the request budget, and `dimensions-too-large` means an
+ * image exceeds the product's per-edge pixel limit.
  */
 export type AttachmentResolution =
   /** Both `mediaType` and `materializedByteSize` describe the bytes actually
@@ -124,7 +123,12 @@ export type AttachmentResolution =
       readonly mediaType: ImageMediaType | DocumentMediaType;
       readonly materializedByteSize: number;
     }
-  | {readonly data: null; readonly reason: 'missing' | 'too-large'};
+  | {readonly data: null; readonly reason: 'missing' | 'too-large'}
+  | {
+      readonly data: null;
+      readonly reason: 'dimensions-too-large';
+      readonly maxDimensionPixels: number;
+    };
 
 /** An attachment with its bytes materialized for a provider call. */
 export type ResolvedLlmAttachment = LlmAttachment & AttachmentResolution;

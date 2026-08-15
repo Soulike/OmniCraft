@@ -5,21 +5,27 @@ import {formatAttachmentSize} from './format-attachment-size.js';
  * Maps resolved attachments to the neutral media blocks both provider adapters
  * already know how to emit. An attachment that could not be delivered becomes
  * a text placeholder rather than being dropped, so the model is told rather
- * than silently left with less than it was promised. The placeholder wording
- * distinguishes why: `missing` says so plainly, while `too-large` also states
- * the file's size, because — unlike `missing` — it names a live file the
- * agent can still act on (downsample it with a shell command, then read it
- * again), and the size is what makes that actionable.
+ * than silently left with less than it was promised. The placeholder states
+ * whether the file is missing, exceeds the byte budget, or exceeds the image
+ * dimension limit so the agent knows which remediation is applicable.
  */
 export function attachmentsToBlocks(
   attachments: readonly ResolvedLlmAttachment[],
 ): ToolResultBlock[] {
   return attachments.map((attachment) => {
     if (attachment.data === null) {
-      const text =
-        attachment.reason === 'too-large'
-          ? `[attachment too large to deliver: ${attachment.fileName} (${formatAttachmentSize(attachment.lastKnownByteSize)})]`
-          : `[attachment missing: ${attachment.fileName}]`;
+      let text: string;
+      switch (attachment.reason) {
+        case 'missing':
+          text = `[attachment missing: ${attachment.fileName}]`;
+          break;
+        case 'too-large':
+          text = `[attachment too large to deliver: ${attachment.fileName} (${formatAttachmentSize(attachment.lastKnownByteSize)})]`;
+          break;
+        case 'dimensions-too-large':
+          text = `[attachment image dimensions exceed delivery limit: ${attachment.fileName} (maximum ${attachment.maxDimensionPixels.toString()} px per edge)]`;
+          break;
+      }
       return {type: 'text', text};
     }
     // Exhaustive over every deliverable media type: adding one without a case

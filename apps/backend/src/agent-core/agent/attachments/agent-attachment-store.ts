@@ -32,7 +32,10 @@ import {
   MAX_SESSION_ATTACHMENT_FILES,
   totalAttachmentBytes,
 } from './helpers/cap-for.js';
-import {checkImageDimensions} from './helpers/check-image-dimensions.js';
+import {
+  checkImageDimensions,
+  MAX_IMAGE_DIMENSION_PIXELS,
+} from './helpers/check-image-dimensions.js';
 import {resolveInside} from './helpers/resolve-inside.js';
 import {sanitizeFileName} from './helpers/sanitize-file-name.js';
 import {toSupportedMediaType} from './helpers/to-supported-media-type.js';
@@ -630,7 +633,11 @@ class AgentAttachmentStore {
       if (isImageMediaType(opened.attachment.mediaType)) {
         const dimensions = checkImageDimensions(bytes);
         if (dimensions === 'too-large') {
-          return {data: null, reason: 'too-large'};
+          return {
+            data: null,
+            reason: 'dimensions-too-large',
+            maxDimensionPixels: MAX_IMAGE_DIMENSION_PIXELS,
+          };
         }
         if (dimensions === 'invalid') {
           // A same-name replacement can still carry recognizable image magic

@@ -616,7 +616,7 @@ describe('describe / readBase64 / remove', () => {
     });
   });
 
-  it('does not materialize an image replaced with one over the dimension cap', async () => {
+  it('reports why a replacement image cannot be materialized when its dimensions exceed the cap', async () => {
     const saved = await agentAttachmentStore.save(
       scratchDirectory,
       'shot.png',
@@ -629,7 +629,11 @@ describe('describe / readBase64 / remove', () => {
 
     expect(
       await agentAttachmentStore.readBase64(scratchDirectory, 'shot.png'),
-    ).toEqual({data: null, reason: 'too-large'});
+    ).toEqual({
+      data: null,
+      reason: 'dimensions-too-large',
+      maxDimensionPixels: 2000,
+    });
   });
 
   // Regression tests for a concurrent DELETE racing the read paths. `describe`
