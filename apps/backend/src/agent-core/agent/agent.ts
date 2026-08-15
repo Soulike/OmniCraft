@@ -1,4 +1,6 @@
+import assert from 'node:assert';
 import crypto from 'node:crypto';
+import type {Readable} from 'node:stream';
 
 import type {ModelTier} from '@omnicraft/settings-schema';
 import type {
@@ -6,17 +8,27 @@ import type {
   SseEventCursorEntry,
   SseSessionTitleEvent,
 } from '@omnicraft/sse-events';
+import type {LlmAttachment} from '@omnicraft/tool-schemas';
 
 import {Mutex} from '@/helpers/mutex.js';
 import {logger} from '@/logger.js';
 
-import {agentEventBus} from '../events/index.js';
-import type {LlmConfig} from '../llm-api/index.js';
+import type {AttachmentResolution, LlmConfig} from '../llm-api/index.js';
 import {LlmSession} from '../llm-session/index.js';
 import type {AnyToolDefinition} from '../tool/index.js';
 import {AgentRuntimeState} from './agent-runtime-state.js';
 import {agentScratchDirectoryService} from './agent-scratch-directory-service.js';
 import {agentTurnRunner} from './agent-turn-runner.js';
+import {
+  agentAttachmentStore,
+  type AttachmentDescriptor,
+  type ClaimAttachmentsResult,
+  MAX_MESSAGE_ATTACHMENT_BYTES,
+  type OpenedAttachment,
+  type RemoveAttachmentResult,
+  type SaveAttachmentResult,
+  totalAttachmentBytes,
+} from './attachments/index.js';
 import type {AgentSseLogReaderOptions} from './events/agent-sse-log.js';
 import {AgentSseLog} from './events/agent-sse-log.js';
 import {agentPersistence} from './persistence/agent-persistence.js';
@@ -80,6 +92,9 @@ export abstract class Agent {
   /** Per-turn abort controller. Null when no turn is running. */
   private abortController: AbortController | null = null;
 
+  /** Abort controller for asynchronous first-turn title generation. */
+  private titleAbortController: AbortController | null = null;
+
   /** True while an async title generation is in flight. */
   private isGeneratingTitle = false;
 
@@ -88,6 +103,11 @@ export abstract class Agent {
    * before runTurn awaits the mutex; decremented after the turn promise settles.
    */
   private pendingTurnCount = 0;
+
+  /** Once closed, the Agent accepts no new turns and drains existing work. */
+  private closed = false;
+
+  private closeState: PromiseWithResolvers<undefined> | null = null;
 
   constructor(
     getConfig: () => Promise<LlmConfig>,
@@ -104,25 +124,37 @@ export abstract class Agent {
 
     this.sessionsDir = options.sessionsDir ?? null;
 
+    const id = snapshot ? snapshot.id : crypto.randomUUID();
+    const scratchDirectory =
+      agentScratchDirectoryService.createScratchDirectory(this.sessionsDir, id);
+
     let providedWorkingDirectory: string | undefined;
     if (snapshot) {
       this.id = snapshot.id;
       this.title = snapshot.title;
       this.sseEventCount = snapshot.sseEventCount;
       providedWorkingDirectory = snapshot.options.workingDirectory;
-      this.llmSession = new LlmSession(getConfig, snapshot.llmSession);
+      this.llmSession = new LlmSession({
+        getConfig,
+        snapshot: snapshot.llmSession,
+        resolveAttachment: (a, remaining) =>
+          this.resolveAttachmentData(a, remaining),
+        attachmentsDirectory: agentAttachmentStore.directory(scratchDirectory),
+      });
       this.subagentRegistry = new SubagentRegistry();
     } else {
-      this.id = crypto.randomUUID();
+      this.id = id;
       providedWorkingDirectory = options.workingDirectory;
-      this.llmSession = new LlmSession(getConfig);
+      this.llmSession = new LlmSession({
+        getConfig,
+        resolveAttachment: (a, remaining) =>
+          this.resolveAttachmentData(a, remaining),
+        attachmentsDirectory: agentAttachmentStore.directory(scratchDirectory),
+      });
       this.subagentRegistry = new SubagentRegistry();
     }
 
-    this.scratchDirectory = agentScratchDirectoryService.createScratchDirectory(
-      this.sessionsDir,
-      this.id,
-    );
+    this.scratchDirectory = scratchDirectory;
     // A caller that provides no working directory has no project of its own, so
     // the agent works directly in its scratch space.
     this.workingDirectory = providedWorkingDirectory ?? this.scratchDirectory;
@@ -144,8 +176,6 @@ export abstract class Agent {
         {sync: true},
       );
     }
-
-    agentEventBus.emit('agent-created', this);
   }
 
   /**
@@ -210,8 +240,12 @@ export abstract class Agent {
    * Enqueues a user turn. Always accepted and serialized through the mutex
    * queue. Events are written to {@link sseLog}; use {@link subscribe} to read.
    */
-  enqueueUserTurn(userMessage: string): void {
-    this.runTrackedTurn(userMessage);
+  enqueueUserTurn(
+    userMessage: string,
+    attachments: readonly LlmAttachment[] = [],
+  ): void {
+    if (this.closed) return;
+    this.runTrackedTurn(userMessage, attachments);
   }
 
   /**
@@ -222,16 +256,39 @@ export abstract class Agent {
    * {@link isRunning} and the increment inside {@link runTrackedTurn}, so in a
    * single-threaded runtime two concurrent claims cannot both succeed.
    */
-  tryStartUserTurn(userMessage: string): boolean {
-    if (this.isRunning) return false;
-    this.runTrackedTurn(userMessage);
+  tryStartUserTurn(
+    userMessage: string,
+    attachments: readonly LlmAttachment[] = [],
+  ): boolean {
+    if (this.closed || this.isRunning) return false;
+    this.runTrackedTurn(userMessage, attachments);
     return true;
   }
 
-  private runTrackedTurn(userMessage: string): void {
+  private runTrackedTurn(
+    userMessage: string,
+    attachments: readonly LlmAttachment[],
+  ): void {
+    // Every turn enters here, whichever public method queued it. The cap is
+    // load-bearing for compaction — a single message above
+    // `COMPACTION_TRIGGER_ATTACHMENT_BYTES` would trip a compaction that
+    // cannot relieve it, because compaction's whole lever is dropping
+    // attachments from *older* messages. `claimAttachments` already returns
+    // this as a business failure for the path that resolves names off disk;
+    // reaching here over the cap means a producer assembled descriptors some
+    // other way and skipped that check, which is a bug in this process, not
+    // something a client did. Failing loudly beats silently queueing a turn
+    // that breaks the invariant downstream.
+    const totalBytes = totalAttachmentBytes(attachments);
+    assert(
+      totalBytes <= MAX_MESSAGE_ATTACHMENT_BYTES,
+      `Turn attachments total ${totalBytes.toString()} bytes, over the ${MAX_MESSAGE_ATTACHMENT_BYTES.toString()} per-message cap`,
+    );
+
     this.pendingTurnCount++;
-    void this.runTurn(userMessage).finally(() => {
+    void this.runTurn(userMessage, attachments).finally(() => {
       this.pendingTurnCount--;
+      this.resolveCloseIfIdle();
     });
   }
 
@@ -245,6 +302,18 @@ export abstract class Agent {
   /** Aborts the currently running turn, if any. */
   abort(): void {
     this.abortController?.abort();
+  }
+
+  /** Stops accepting turns, aborts active work, and waits for all work to drain. */
+  close(): Promise<void> {
+    if (this.closeState) return this.closeState.promise;
+
+    this.closeState = Promise.withResolvers<undefined>();
+    this.closed = true;
+    this.abort();
+    this.titleAbortController?.abort();
+    this.resolveCloseIfIdle();
+    return this.closeState.promise;
   }
 
   /** Whether a turn is queued/running or a title generation is in flight. */
@@ -261,12 +330,17 @@ export abstract class Agent {
   // Private helpers
   // -------------------------------------------------------------------------
 
-  private async runTurn(userMessage: string): Promise<void> {
+  private async runTurn(
+    userMessage: string,
+    attachments: readonly LlmAttachment[],
+  ): Promise<void> {
     const release = await this.mutex.acquire();
     try {
+      if (this.closed) return;
       this.abortController = new AbortController();
       const stream = this.runAgentLoop(
         userMessage,
+        attachments,
         this.abortController.signal,
       );
       await this.pump(stream, (event) => {
@@ -276,9 +350,15 @@ export abstract class Agent {
           this.title === Agent.DEFAULT_TITLE &&
           !this.isGeneratingTitle
         ) {
+          this.titleAbortController = new AbortController();
           this.isGeneratingTitle = true;
-          void this.generateAndEmitTitle(event.content).finally(() => {
+          void this.generateAndEmitTitle(
+            event.content,
+            this.titleAbortController.signal,
+          ).finally(() => {
+            this.titleAbortController = null;
             this.isGeneratingTitle = false;
+            this.resolveCloseIfIdle();
           });
         }
       });
@@ -289,6 +369,12 @@ export abstract class Agent {
       this.abortController = null;
       release();
     }
+  }
+
+  private resolveCloseIfIdle(): void {
+    if (!this.closeState) return;
+    if (this.isRunning) return;
+    this.closeState.resolve(undefined);
   }
 
   /** Appends an event to the SSE log and increments the event counter. */
@@ -339,12 +425,75 @@ export abstract class Agent {
     return this.getTierConfig ? this.getTierConfig(tier) : this.getConfig();
   }
 
+  /**
+   * Reads an attachment's bytes from this session's store. An arrow closure is
+   * used at the LlmSession call sites because `scratchDirectory` is assigned
+   * after the session is constructed — resolution only ever happens later.
+   */
+  private resolveAttachmentData(
+    attachment: LlmAttachment,
+    remainingBytes: number,
+  ): Promise<AttachmentResolution> {
+    return agentAttachmentStore.readBase64(
+      this.scratchDirectory,
+      attachment.fileName,
+      remainingBytes,
+    );
+  }
+
+  /**
+   * Stores an attachment in this Agent's scratch space. The Agent owns the
+   * directory, so it owns the operations on it — callers never need its path.
+   */
+  saveAttachment(
+    desiredName: string,
+    body: Readable,
+  ): Promise<SaveAttachmentResult> {
+    return agentAttachmentStore.save(this.scratchDirectory, desiredName, body);
+  }
+
+  /** Describes a stored attachment, or `null` when it is not there. */
+  describeAttachment(fileName: string): Promise<AttachmentDescriptor | null> {
+    return agentAttachmentStore.describe(this.scratchDirectory, fileName);
+  }
+
+  /** Opens a stored attachment for streaming. The caller owns the handle. */
+  openAttachmentForDownload(
+    fileName: string,
+  ): Promise<OpenedAttachment | null> {
+    return agentAttachmentStore.openForDownload(
+      this.scratchDirectory,
+      fileName,
+    );
+  }
+
+  /** Deletes a stored attachment, refusing one already sent to the model. */
+  removeAttachment(fileName: string): Promise<RemoveAttachmentResult> {
+    return agentAttachmentStore.remove(this.scratchDirectory, fileName);
+  }
+
+  /**
+   * Pins the caller-supplied attachments for this turn and describes them.
+   *
+   * A forward, like the other three attachment methods: the sequence is a
+   * check-then-act over file names that has to hold a lock and un-freeze what
+   * it froze when the byte cap rejects it, and all of that belongs to the
+   * store that owns those files. See {@link agentAttachmentStore.claim}.
+   */
+  claimAttachments(
+    fileNames: readonly string[],
+  ): Promise<ClaimAttachmentsResult> {
+    return agentAttachmentStore.claim(this.scratchDirectory, fileNames);
+  }
+
   protected runAgentLoop(
     userMessage: string,
+    attachments: readonly LlmAttachment[],
     signal: AbortSignal,
   ): AgentEventStream {
     return agentTurnRunner.run({
       userMessage,
+      attachments,
       agentId: this.id,
       sessionsDir: this.sessionsDir,
       subagentRegistry: this.subagentRegistry,
@@ -370,9 +519,14 @@ export abstract class Agent {
    * then appends a `session-title` event to sseLog.
    * Fire-and-forget — errors are swallowed and a fallback title is used.
    */
-  private async generateAndEmitTitle(userMessage: string): Promise<void> {
-    this.title = await generateTitle(userMessage, () =>
-      this.resolveTierConfig('lightweight'),
+  private async generateAndEmitTitle(
+    userMessage: string,
+    signal: AbortSignal,
+  ): Promise<void> {
+    this.title = await generateTitle(
+      userMessage,
+      () => this.resolveTierConfig('lightweight'),
+      signal,
     );
     if (!this.title) return;
     await this.appendSseEvent({

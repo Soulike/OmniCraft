@@ -38,6 +38,7 @@ export class AgentLlmStreamTranslator {
             messageId: event.messageId,
             createdAt: event.createdAt,
             content: '',
+            attachments: [],
           } satisfies SseMessageStartEvent;
           break;
         case 'tool-call':

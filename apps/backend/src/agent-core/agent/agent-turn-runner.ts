@@ -9,7 +9,7 @@ import type {
   SseToolExecuteEndEvent,
   SseToolExecuteStartEvent,
 } from '@omnicraft/sse-events';
-import type {ToolName} from '@omnicraft/tool-schemas';
+import type {LlmAttachment, ToolName} from '@omnicraft/tool-schemas';
 
 import {AsyncChannel} from '@/helpers/async-channel.js';
 import {logger} from '@/logger.js';
@@ -41,6 +41,7 @@ import type {AgentEvent, AgentEventStream} from './types.js';
 
 export interface RunAgentTurnInput {
   readonly userMessage: string;
+  readonly attachments: readonly LlmAttachment[];
   readonly agentId: string;
   readonly sessionsDir: string | null;
   readonly subagentRegistry: SubagentRegistry;
@@ -92,6 +93,7 @@ export class AgentTurnRunner {
       toolDefs,
       systemPrompt,
       input.signal,
+      input.attachments,
     );
 
     yield {
@@ -100,6 +102,7 @@ export class AgentTurnRunner {
       messageId,
       createdAt,
       content: input.userMessage,
+      attachments: [...input.attachments],
     } satisfies SseMessageStartEvent;
 
     const initial = yield* this.advanceTurn(userStream, input);

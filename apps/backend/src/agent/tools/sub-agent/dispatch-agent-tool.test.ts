@@ -510,6 +510,7 @@ describe('dispatchAgentTool', () => {
           messageId: 'new-assistant',
           createdAt: 2,
           content: '',
+          attachments: [],
         },
       }),
       expect.objectContaining({

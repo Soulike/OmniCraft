@@ -1,12 +1,20 @@
 import type {SessionMetadata} from '@omnicraft/api-schema';
 
 import type {Agent} from '@/agent-core/agent/index.js';
+import {agentEventBus} from '@/agent-core/events/index.js';
 
 const MAX_CACHED_AGENTS = 50;
 
 interface CacheEntry {
   agent: Agent;
   lastAccessedAt: number;
+}
+
+interface AgentLifecycle {
+  activeOperationCount: number;
+  deleting: boolean;
+  drain: PromiseWithResolvers<undefined> | null;
+  deletion: Promise<boolean> | null;
 }
 
 /**
@@ -20,21 +28,22 @@ export abstract class AgentStore {
     string,
     Promise<Agent | undefined>
   >();
+  private readonly lifecycles = new Map<string, AgentLifecycle>();
 
   constructor(private readonly _sessionsDir: string) {}
 
-  get sessionsDir(): string {
+  protected get sessionsDir(): string {
     return this._sessionsDir;
   }
 
-  /** Registers an agent in the cache with LRU tracking. */
-  set(agent: Agent): void {
+  /** Adds an owned agent to the cache with LRU tracking. */
+  private cacheAgent(agent: Agent): void {
     this.cache.set(agent.id, {agent, lastAccessedAt: Date.now()});
     this.evictIfNeeded();
   }
 
-  /** Retrieves an agent by id, loading from disk if not cached. */
-  async get(id: string): Promise<Agent | undefined> {
+  /** Retrieves an owned agent by id, loading from disk if not cached. */
+  private async getAgent(id: string): Promise<Agent | undefined> {
     const entry = this.cache.get(id);
     if (entry) {
       entry.lastAccessedAt = Date.now();
@@ -44,7 +53,7 @@ export abstract class AgentStore {
     const existing = this.loadingPromises.get(id);
     if (existing) return existing;
 
-    const loadPromise = this.loadFromDisk(id);
+    const loadPromise = this.loadAndRegister(id);
     this.loadingPromises.set(id, loadPromise);
     try {
       return await loadPromise;
@@ -53,16 +62,35 @@ export abstract class AgentStore {
     }
   }
 
-  /** Checks whether an agent exists in memory or on disk. Does not load. */
-  async has(id: string): Promise<boolean> {
-    if (this.cache.has(id)) return true;
-    return this.existsOnDisk(id);
+  /** Runs one operation against the current agent for a persisted session. */
+  async runAgentOperation<Result>(
+    id: string,
+    operation: (agent: Agent) => Promise<Result> | Result,
+  ): Promise<Result | undefined> {
+    const lifecycle = this.getLifecycle(id);
+    if (lifecycle.deleting) return undefined;
+
+    lifecycle.activeOperationCount++;
+    try {
+      const agent = await this.getAgent(id);
+      if (!agent) return undefined;
+      return await operation(agent);
+    } finally {
+      this.releaseOperation(id, lifecycle);
+    }
   }
 
   /** Removes an agent from memory and deletes its session from disk. */
-  async delete(id: string): Promise<boolean> {
-    this.cache.delete(id);
-    return this.deleteFromDisk(id);
+  delete(id: string): Promise<boolean> {
+    const lifecycle = this.getLifecycle(id);
+    if (lifecycle.deletion) return lifecycle.deletion;
+
+    lifecycle.deleting = true;
+    if (lifecycle.activeOperationCount > 0) {
+      lifecycle.drain = Promise.withResolvers<undefined>();
+    }
+    lifecycle.deletion = this.finishDelete(id, lifecycle);
+    return lifecycle.deletion;
   }
 
   /**
@@ -71,7 +99,7 @@ export abstract class AgentStore {
    * is a complete view of what is running right now. After a process restart the
    * cache is cold, so this is empty — correct, since a turn cannot survive one.
    */
-  getRunningIds(): Set<string> {
+  protected getRunningIds(): Set<string> {
     const ids = new Set<string>();
     for (const [id, entry] of this.cache) {
       if (entry.agent.isRunning) {
@@ -87,7 +115,7 @@ export abstract class AgentStore {
    * always running, so eviction never removes it and this in-memory scan is a
    * complete view. Cold cache after a restart ⇒ empty, which is correct.
    */
-  getWaitingIds(): Set<string> {
+  protected getWaitingIds(): Set<string> {
     const ids = new Set<string>();
     for (const [id, entry] of this.cache) {
       if (entry.agent.isWaitingForInput) {
@@ -112,13 +140,73 @@ export abstract class AgentStore {
   /** Deletes an agent session from disk. */
   protected abstract deleteFromDisk(id: string): Promise<boolean>;
 
+  /** Takes ownership of an Agent before notifying outward listeners. */
+  protected registerAgent(agent: Agent): void {
+    this.cacheAgent(agent);
+    agentEventBus.emit('agent-created', agent);
+  }
+
+  private async loadAndRegister(id: string): Promise<Agent | undefined> {
+    const agent = await this.loadFromDisk(id);
+    if (agent) this.registerAgent(agent);
+    return agent;
+  }
+
+  private getLifecycle(id: string): AgentLifecycle {
+    const existing = this.lifecycles.get(id);
+    if (existing) return existing;
+
+    const lifecycle = {
+      activeOperationCount: 0,
+      deleting: false,
+      drain: null,
+      deletion: null,
+    };
+    this.lifecycles.set(id, lifecycle);
+    return lifecycle;
+  }
+
+  private releaseOperation(id: string, lifecycle: AgentLifecycle): void {
+    lifecycle.activeOperationCount--;
+    if (lifecycle.activeOperationCount !== 0) return;
+
+    lifecycle.drain?.resolve(undefined);
+    if (!lifecycle.deleting) this.lifecycles.delete(id);
+    this.evictIfNeeded();
+  }
+
+  private async finishDelete(
+    id: string,
+    lifecycle: AgentLifecycle,
+  ): Promise<boolean> {
+    try {
+      await lifecycle.drain?.promise;
+      const agent = this.cache.get(id)?.agent;
+      if (!agent && !(await this.existsOnDisk(id))) return false;
+
+      await agent?.close();
+      this.cache.delete(id);
+      return await this.deleteFromDisk(id);
+    } finally {
+      if (this.lifecycles.get(id) === lifecycle) {
+        this.lifecycles.delete(id);
+      }
+    }
+  }
+
   private evictIfNeeded(): void {
     if (this.cache.size <= MAX_CACHED_AGENTS) return;
 
     const entries = [...this.cache.entries()]
-      .filter(
-        ([, e]) => !e.agent.isRunning && e.agent.sseLog.activeReaderCount === 0,
-      )
+      .filter(([id, entry]) => {
+        const lifecycle = this.lifecycles.get(id);
+        if (lifecycle) {
+          if (lifecycle.deleting) return false;
+          if (lifecycle.activeOperationCount > 0) return false;
+        }
+        if (entry.agent.isRunning) return false;
+        return entry.agent.sseLog.activeReaderCount === 0;
+      })
       .sort((a, b) => a[1].lastAccessedAt - b[1].lastAccessedAt);
 
     for (const [id] of entries) {

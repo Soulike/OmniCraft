@@ -6,8 +6,8 @@ import type {ImageMediaType} from '@omnicraft/tool-schemas';
 import {z} from 'zod';
 
 import type {AnyToolDefinition} from '../../tool/types.js';
-import type {ToolResultBlock} from '../types.js';
-import type {LlmMessage} from '../types.js';
+import {attachmentsToBlocks} from '../helpers/attachments-to-blocks.js';
+import type {LlmRequestMessage, ToolResultBlock} from '../types.js';
 
 type SdkMessageParam = Anthropic.MessageParam;
 
@@ -27,11 +27,34 @@ type _CheckImageMediaType = AssertAssignable<
   Anthropic.Base64ImageSource['media_type']
 >;
 
-/** Converts our unified LlmMessage to the Anthropic SDK message format. */
-export function toSdkMessage(message: LlmMessage): SdkMessageParam {
+/** Converts our unified request message to the Anthropic SDK message format. */
+export function toSdkMessage(message: LlmRequestMessage): SdkMessageParam {
   switch (message.role) {
-    case 'user':
-      return {role: 'user', content: message.content};
+    case 'user': {
+      if (message.attachments.length === 0) {
+        return {role: 'user', content: message.content};
+      }
+      // Media first: Anthropic recommends that ordering, and it also keeps
+      // addCacheBreakpoint's "mark the last block" rule landing on the text
+      // block, which the AssertCacheControl checks above already cover.
+      return {
+        role: 'user',
+        content: [
+          // toClaudeToolResultContent's declared return type is the full
+          // ToolResultBlockParam['content'] union — a bare string, `undefined`,
+          // or a tool-search ToolReferenceBlockParam — so it can be assigned
+          // straight into the 'tool' branch below. Mapping our own
+          // text/image/document blocks never produces any of those shapes, so
+          // this cast is safe and narrow: if the SDK ever changes what
+          // ToolResultBlockParam['content'] accepts, this line is where it
+          // will fail to compile.
+          ...(toClaudeToolResultContent(
+            attachmentsToBlocks(message.attachments),
+          ) as Anthropic.ContentBlockParam[]),
+          {type: 'text', text: message.content},
+        ],
+      };
+    }
     case 'assistant': {
       const content: Anthropic.ContentBlockParam[] = [];
       // Thinking blocks must come before text/tool_use blocks.

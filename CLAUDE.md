@@ -61,6 +61,12 @@ Follow Google TypeScript guide unless specified. Detail: <https://google.github.
 ### Flow Control
 
 - Always use early-return style for `if` to reduce levels.
+- Dispatch on a union of literal types with `switch`, never `if`/`else` or a ternary.
+  `@typescript-eslint/switch-exhaustiveness-check` can only see `switch`, so it is the
+  one branching form where adding a member to the union fails the build instead of
+  silently taking the fallback branch. Every member must be listed — a `default` does
+  not satisfy the check. When every arm yields the same shape, a `Record` keyed by the
+  union is the equivalent: a missing key is a type error.
 
 ## Agent skills
 

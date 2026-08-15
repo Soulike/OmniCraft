@@ -63,6 +63,7 @@ describe('AgentLlmStreamTranslator', () => {
         messageId: 'assistant-message',
         createdAt: 1,
         content: '',
+        attachments: [],
       },
       {type: 'text-delta', content: 'hello'},
       {type: 'thinking-start'},

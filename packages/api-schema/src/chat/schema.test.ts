@@ -6,6 +6,7 @@ import {
   createSessionRequestSchema,
   listSessionsResponseSchema,
   sessionMetadataSchema,
+  uploadAttachmentQuerySchema,
 } from './schema.js';
 
 // valid UUID (sessionIdSchema = z.uuid())
@@ -90,5 +91,89 @@ describe('sessionMetadataSchema', () => {
       total: 1,
     });
     expect(parsed.sessions[0].isWaitingForInput).toBe(true);
+  });
+});
+
+describe('chatCompletionsRequestSchema attachments', () => {
+  // Nothing downstream collapses a repeat: one descriptor per occurrence, one
+  // materialization each, charged against both budgets and sent to the model
+  // twice. Rejected at the boundary rather than silently deduplicated.
+  it('rejects a repeated attachment name', () => {
+    expect(() =>
+      chatCompletionsRequestSchema.parse({
+        message: 'hi',
+        attachmentFileNames: ['shot.png', 'other.png', 'shot.png'],
+      }),
+    ).toThrow(/duplicates/);
+  });
+
+  it('accepts distinct names that differ only in case', () => {
+    expect(
+      chatCompletionsRequestSchema.parse({
+        message: 'hi',
+        attachmentFileNames: ['shot.png', 'SHOT.png'],
+      }).attachmentFileNames,
+    ).toEqual(['shot.png', 'SHOT.png']);
+  });
+
+  it('defaults attachmentFileNames to an empty list', () => {
+    const parsed = chatCompletionsRequestSchema.parse({message: 'hello'});
+    expect(parsed.attachmentFileNames).toEqual([]);
+  });
+
+  it('accepts a list of file names', () => {
+    const parsed = chatCompletionsRequestSchema.parse({
+      message: 'look',
+      attachmentFileNames: ['shot.png', 'invoice.pdf'],
+    });
+    expect(parsed.attachmentFileNames).toEqual(['shot.png', 'invoice.pdf']);
+  });
+
+  it('still requires a non-empty message even with attachments', () => {
+    expect(() =>
+      chatCompletionsRequestSchema.parse({
+        message: '',
+        attachmentFileNames: ['shot.png'],
+      }),
+    ).toThrow();
+  });
+
+  it('rejects an empty file name', () => {
+    expect(() =>
+      chatCompletionsRequestSchema.parse({
+        message: 'look',
+        attachmentFileNames: [''],
+      }),
+    ).toThrow();
+  });
+
+  it('rejects more than ten attachment file names', () => {
+    const names = Array.from({length: 11}, (_, i) => `f${i.toString()}.png`);
+    expect(() =>
+      chatCompletionsRequestSchema.parse({
+        message: 'x',
+        attachmentFileNames: names,
+      }),
+    ).toThrow();
+  });
+
+  it('accepts exactly ten', () => {
+    const names = Array.from({length: 10}, (_, i) => `f${i.toString()}.png`);
+    expect(
+      chatCompletionsRequestSchema.parse({
+        message: 'x',
+        attachmentFileNames: names,
+      }).attachmentFileNames,
+    ).toHaveLength(10);
+  });
+});
+
+describe('uploadAttachmentQuerySchema', () => {
+  it('requires a non-empty name', () => {
+    expect(uploadAttachmentQuerySchema.parse({name: 'a.png'}).name).toBe(
+      'a.png',
+    );
+    expect(() => uploadAttachmentQuerySchema.parse({})).toThrow();
+    expect(() => uploadAttachmentQuerySchema.parse({name: ''})).toThrow();
   });
 });

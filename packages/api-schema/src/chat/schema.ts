@@ -1,3 +1,4 @@
+import {llmAttachmentSchema} from '@omnicraft/tool-schemas';
 import {z} from 'zod';
 
 import {sessionIdSchema} from '../agent-id/schema.js';
@@ -26,6 +27,26 @@ export type CreateSessionResponse = z.infer<typeof createSessionResponseSchema>;
 /** Schema for the POST /chat/session/:id/completions request body. */
 export const chatCompletionsRequestSchema = z.strictObject({
   message: z.string().min(1),
+  // Names only. The server re-stats and re-sniffs each file, so a client cannot
+  // misreport a media type or size. Text is always required — an attachment
+  // never substitutes for it. Capped at 10 to bound how many stat+sniff
+  // operations one request can force; the byte total itself is enforced
+  // after resolution, in `Agent.claimAttachments`.
+  //
+  // Rejected rather than deduplicated when a name repeats. Nothing downstream
+  // collapses them — `claimAttachments` keeps one descriptor per occurrence and
+  // request construction materializes the same bytes once each — so a repeat
+  // multiplies a file against both the per-message and materialization budgets
+  // and sends the model duplicate blocks. Sending a name twice has no meaning,
+  // so it is a client bug, and a 400 says so rather than silently changing the
+  // request out from under a UI that thinks it attached three files.
+  attachmentFileNames: z
+    .array(z.string().min(1))
+    .max(10)
+    .refine((names) => new Set(names).size === names.length, {
+      message: 'attachmentFileNames must not contain duplicates',
+    })
+    .default([]),
 });
 
 export type ChatCompletionsRequest = z.infer<
@@ -46,6 +67,24 @@ export const submitToolResponseRequestSchema = z.object({
 
 export type SubmitToolResponseRequest = z.infer<
   typeof submitToolResponseRequestSchema
+>;
+
+/** Schema for the POST /chat|coding/session/:id/attachments query string. */
+export const uploadAttachmentQuerySchema = z.object({
+  name: z.string().min(1),
+});
+
+export type UploadAttachmentQuery = z.infer<typeof uploadAttachmentQuerySchema>;
+
+/**
+ * Schema for the POST /chat|coding/session/:id/attachments response body. The
+ * stored name may differ from the requested one — it is sanitized, given the
+ * extension of the sniffed media type, and uniquified against collisions.
+ */
+export const uploadAttachmentResponseSchema = llmAttachmentSchema;
+
+export type UploadAttachmentResponse = z.infer<
+  typeof uploadAttachmentResponseSchema
 >;
 
 /** Schema for a single session entry in the list response. */

@@ -1,3 +1,5 @@
+import type {LlmAttachment} from '@omnicraft/tool-schemas';
+
 import type {LlmConfig, LlmMessage} from '../../llm-api/index.js';
 import type {AnyToolDefinition} from '../../tool/types.js';
 import type {
@@ -40,6 +42,11 @@ export interface LlmHistoryCompactionInput {
   readonly config: Readonly<LlmConfig>;
   readonly messages: readonly LlmMessage[];
   readonly tools: readonly AnyToolDefinition[];
+  /** Absolute attachments directory, or null when the session has no store. */
+  readonly attachmentsDirectory: string | null;
+  /** Session-owned catalog to render into the replacement prompt. */
+  readonly attachments: readonly LlmAttachment[];
+
   readonly signal?: AbortSignal;
 }
 
@@ -63,5 +70,9 @@ export interface LlmSessionCompactionPatch {
 }
 
 export interface CompactLlmSessionIfNeededInput extends LlmCompactionDecisionInput {
+  /** Session-owned catalog to render into the replacement prompt. */
+  readonly attachments: readonly LlmAttachment[];
+  /** Absolute attachments directory, or null when the session has no store. */
+  readonly attachmentsDirectory: string | null;
   commit(patch: LlmSessionCompactionPatch): void | Promise<void>;
 }

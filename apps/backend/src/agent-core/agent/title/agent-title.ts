@@ -8,6 +8,7 @@ const TITLE_MAX_LENGTH = 20;
 export async function generateTitle(
   userMessage: string,
   getConfig: () => Promise<LlmConfig>,
+  signal: AbortSignal,
 ): Promise<string> {
   try {
     const config = await getConfig();
@@ -24,9 +25,11 @@ export async function generateTitle(
             '',
             `User: ${userMessage}`,
           ].join('\n'),
+          attachments: [],
         },
       ],
       tools: [],
+      signal,
     });
 
     let title = '';

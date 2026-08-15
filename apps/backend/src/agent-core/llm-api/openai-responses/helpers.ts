@@ -3,23 +3,35 @@ import type OpenAI from 'openai';
 import {z} from 'zod';
 
 import type {AnyToolDefinition} from '../../tool/types.js';
+import {attachmentsToBlocks} from '../helpers/attachments-to-blocks.js';
 import {toolResultBlocksToText} from '../helpers/tool-result-blocks-to-text.js';
-import type {ToolResultBlock} from '../types.js';
-import type {LlmMessage} from '../types.js';
+import type {LlmRequestMessage, ToolResultBlock} from '../types.js';
 
 type ResponseInputItem = OpenAI.Responses.ResponseInputItem;
 
-/** Converts our unified LlmMessage(s) to OpenAI Responses API input items. */
+/** Converts our unified request message(s) to OpenAI Responses API input items. */
 export function toInputItems(
-  messages: readonly LlmMessage[],
+  messages: readonly LlmRequestMessage[],
 ): ResponseInputItem[] {
   const items: ResponseInputItem[] = [];
 
   for (const message of messages) {
     switch (message.role) {
-      case 'user':
-        items.push({type: 'message', role: 'user', content: message.content});
+      case 'user': {
+        if (message.attachments.length === 0) {
+          items.push({type: 'message', role: 'user', content: message.content});
+          break;
+        }
+        items.push({
+          type: 'message',
+          role: 'user',
+          content: [
+            ...toOpenAIContentItems(attachmentsToBlocks(message.attachments)),
+            {type: 'input_text', text: message.content},
+          ],
+        });
         break;
+      }
       case 'assistant': {
         // Reasoning items must come before the assistant message.
         for (const block of message.thinking) {
@@ -58,17 +70,10 @@ export function toInputItems(
   return items;
 }
 
-/**
- * Maps neutral tool-result blocks to an OpenAI function_call_output `output`.
- * All-text results stay a plain string (matches prior behavior); media results
- * become a content-item array.
- */
-export function toOpenAIToolResultOutput(
+/** Maps neutral media blocks to OpenAI Responses input content items. */
+export function toOpenAIContentItems(
   blocks: readonly ToolResultBlock[],
-): string | OpenAI.Responses.ResponseFunctionCallOutputItemList {
-  if (blocks.every((block) => block.type === 'text')) {
-    return toolResultBlocksToText(blocks);
-  }
+): OpenAI.Responses.ResponseInputMessageContentList {
   return blocks.map((block) => {
     switch (block.type) {
       case 'text':
@@ -91,6 +96,26 @@ export function toOpenAIToolResultOutput(
         };
     }
   });
+}
+
+/**
+ * Maps neutral tool-result blocks to an OpenAI function_call_output `output`.
+ * All-text results stay a plain string (matches prior behavior); media results
+ * become a content-item array.
+ */
+export function toOpenAIToolResultOutput(
+  blocks: readonly ToolResultBlock[],
+): string | OpenAI.Responses.ResponseFunctionCallOutputItemList {
+  if (blocks.every((block) => block.type === 'text')) {
+    return toolResultBlocksToText(blocks);
+  }
+  // No cast needed: ResponseInputMessageContentList and
+  // ResponseFunctionCallOutputItemList are arrays of the same three item
+  // shapes, and the function-call-output item shapes are the more permissive
+  // (optional/nullable) variant of the input-message item shapes, so the
+  // former is already structurally assignable to the latter. If the SDK ever
+  // narrows that relationship, this line is where it will fail to compile.
+  return toOpenAIContentItems(blocks);
 }
 
 /** Converts an AnyToolDefinition to the OpenAI Responses API function tool format. */

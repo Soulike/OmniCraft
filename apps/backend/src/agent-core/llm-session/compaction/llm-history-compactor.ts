@@ -65,7 +65,10 @@ export class LlmHistoryCompactor {
         content: this.promptBuilder.buildCompactedMessageContent({
           summary,
           recentContext: recentContext.content,
+          attachments: input.attachments,
+          attachmentsDirectory: input.attachmentsDirectory,
         }),
+        attachments: [],
       },
     ];
 

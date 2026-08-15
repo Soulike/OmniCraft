@@ -130,11 +130,17 @@ function createInput(
   overrides: Partial<RunAgentTurnInput> = {},
 ): RunAgentTurnInput {
   const llmSession =
-    overrides.llmSession ?? new LlmSession(() => Promise.resolve(MAIN_CONFIG));
+    overrides.llmSession ??
+    new LlmSession({
+      getConfig: () => Promise.resolve(MAIN_CONFIG),
+      resolveAttachment: () => Promise.resolve({data: null, reason: 'missing'}),
+      attachmentsDirectory: '/scratch/attachments',
+    });
   const workingDirectory = overrides.workingDirectory ?? '/workspace/project';
   const subagentRegistry = overrides.subagentRegistry ?? new SubagentRegistry();
   const defaults: RunAgentTurnInput = {
     userMessage: 'user request',
+    attachments: [],
     agentId: 'agent-1',
     sessionsDir: null,
     subagentRegistry,

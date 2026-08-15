@@ -5,6 +5,7 @@ import {router as chatAgentSessionRouter} from './chat-agent-session/index.js';
 import {router as codingAgentSessionRouter} from './coding-agent-session/index.js';
 import {router as fileAccessSettingsRouter} from './file-access-settings/index.js';
 import {router as healthRouter} from './health/index.js';
+import {defaultCacheControl} from './helpers/cache-control.js';
 import {router as mcpRouter} from './mcp/index.js';
 import {router as mcpSettingsRouter} from './mcp-settings/index.js';
 import {router as settingsRouter} from './settings/index.js';
@@ -12,10 +13,7 @@ import {router as vscodeRouter} from './vscode/index.js';
 
 const apiRouter = new Router({prefix: '/api'});
 
-apiRouter.use(async (ctx, next) => {
-  await next();
-  ctx.set('Cache-Control', 'no-store');
-});
+apiRouter.use(defaultCacheControl());
 
 apiRouter.use(
   chatAgentSessionRouter.routes(),

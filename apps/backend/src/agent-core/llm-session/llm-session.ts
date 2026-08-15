@@ -2,17 +2,21 @@ import assert from 'node:assert';
 import crypto from 'node:crypto';
 
 import type {SseContextCompactionEvent} from '@omnicraft/sse-events';
+import type {LlmAttachment} from '@omnicraft/tool-schemas';
 
 import {Mutex} from '@/helpers/mutex.js';
 
 import type {
+  AttachmentResolution,
   LlmAssistantMessage,
   LlmConfig,
   LlmMessage,
+  LlmRequestMessage,
   LlmThinkingBlock,
   LlmToolCall,
+  ResolvedLlmAttachment,
 } from '../llm-api/index.js';
-import {llmApi} from '../llm-api/index.js';
+import {llmApi, MAX_MATERIALIZED_ATTACHMENT_BYTES} from '../llm-api/index.js';
 import type {AnyToolDefinition} from '../tool/types.js';
 import {
   type LlmSessionCompactionPatch,
@@ -21,6 +25,7 @@ import {
 import {createEmptyLlmSessionUsage} from './helpers.js';
 import {sanitizeReminderContent} from './sanitize-reminder.js';
 import type {
+  AttachmentResolver,
   LlmCompactionMetadata,
   LlmCompactionOptions,
   LlmSessionEventStream,
@@ -34,6 +39,18 @@ import type {
 function throwIfAborted(signal: AbortSignal | undefined): void {
   if (!signal?.aborted) return;
   throw signal.reason instanceof Error ? signal.reason : new Error('Aborted');
+}
+
+/** Constructor options for {@link LlmSession}. `snapshot` is the only
+ *  optional field — a fresh session has none, but every production caller
+ *  needs attachments resolved, so `resolveAttachment` and
+ *  `attachmentsDirectory` are required rather than silently degrading to a
+ *  session that can never deliver an attachment. */
+export interface LlmSessionOptions {
+  readonly getConfig: () => Promise<LlmConfig>;
+  readonly snapshot?: LlmSessionSnapshot;
+  readonly resolveAttachment: AttachmentResolver;
+  readonly attachmentsDirectory: string;
 }
 
 /**
@@ -51,22 +68,31 @@ export class LlmSession {
   readonly id: string;
 
   private readonly messages: LlmMessage[] = [];
+  /** Every attachment committed to this session's model-visible history,
+   *  including ones whose messages a compaction has replaced. */
+  private readonly attachmentCatalog = new Map<string, LlmAttachment>();
   private readonly compactions: LlmCompactionMetadata[] = [];
   private usage: LlmSessionUsage = createEmptyLlmSessionUsage();
   /** Number of messages covered by the latest provider input-token usage. */
   private latestUsageInputMessageCount: number | null = null;
   private readonly getConfig: () => Promise<LlmConfig>;
+  private readonly resolveAttachment: AttachmentResolver;
+  private readonly attachmentsDirectory: string;
   private readonly mutex = new Mutex();
 
-  constructor(
-    getConfig: () => Promise<LlmConfig>,
-    snapshot?: LlmSessionSnapshot,
-  ) {
+  constructor(options: LlmSessionOptions) {
+    const {getConfig, snapshot, resolveAttachment, attachmentsDirectory} =
+      options;
     this.getConfig = getConfig;
+    this.resolveAttachment = resolveAttachment;
+    this.attachmentsDirectory = attachmentsDirectory;
 
     if (snapshot) {
       this.id = snapshot.id;
       this.messages.push(...snapshot.messages);
+      for (const attachment of snapshot.attachmentCatalog) {
+        this.attachmentCatalog.set(attachment.fileName, attachment);
+      }
       this.compactions.push(...snapshot.compactions);
       this.usage = {...snapshot.usage};
       this.latestUsageInputMessageCount = snapshot.latestUsageInputMessageCount;
@@ -80,6 +106,7 @@ export class LlmSession {
     return {
       id: this.id,
       messages: [...this.messages],
+      attachmentCatalog: [...this.attachmentCatalog.values()],
       compactions: [...this.compactions],
       latestUsageInputMessageCount: this.latestUsageInputMessageCount,
       usage: {...this.usage},
@@ -100,12 +127,14 @@ export class LlmSession {
     tools: readonly AnyToolDefinition[],
     systemPrompt: string,
     signal?: AbortSignal,
+    attachments: readonly LlmAttachment[] = [],
   ): SendUserMessageResult {
     const userMessage = {
       id: crypto.randomUUID(),
       createdAt: Date.now(),
       role: 'user' as const,
       content,
+      attachments: [...attachments],
     };
     return {
       stream: this.sendMessages([userMessage], tools, systemPrompt, signal),
@@ -141,6 +170,7 @@ export class LlmSession {
       createdAt: Date.now(),
       role: 'user' as const,
       content: `<system-reminder>\n${safeContent}\n</system-reminder>`,
+      attachments: [],
     };
     return {
       stream: this.sendMessages([reminderMessage], tools, systemPrompt, signal),
@@ -198,6 +228,7 @@ export class LlmSession {
   /** Clears all messages and resets usage. */
   clear(): void {
     this.messages.length = 0;
+    this.attachmentCatalog.clear();
     this.compactions.length = 0;
     this.usage = createEmptyLlmSessionUsage();
     this.latestUsageInputMessageCount = null;
@@ -215,11 +246,13 @@ export class LlmSession {
   ): LlmSessionEventStream {
     const release = await this.mutex.acquire();
     const rollbackMessages = [...this.messages];
+    const rollbackAttachmentCatalog = new Map(this.attachmentCatalog);
     const rollbackCompactions = [...this.compactions];
     const rollbackUsage = {...this.usage};
     const rollbackLatestUsageInputMessageCount =
       this.latestUsageInputMessageCount;
     this.messages.push(...messages);
+    this.recordAttachments(messages);
     let completed = false;
     try {
       for await (const event of this.compactBeforeModelCall(
@@ -236,6 +269,10 @@ export class LlmSession {
       if (!completed) {
         this.messages.length = 0;
         this.messages.push(...rollbackMessages);
+        this.attachmentCatalog.clear();
+        for (const [fileName, attachment] of rollbackAttachmentCatalog) {
+          this.attachmentCatalog.set(fileName, attachment);
+        }
         this.compactions.length = 0;
         this.compactions.push(...rollbackCompactions);
         this.usage = rollbackUsage;
@@ -243,6 +280,17 @@ export class LlmSession {
           rollbackLatestUsageInputMessageCount;
       }
       release();
+    }
+  }
+
+  private recordAttachments(messages: readonly LlmMessage[]): void {
+    for (const message of messages) {
+      if (message.role !== 'user') continue;
+      for (const attachment of message.attachments) {
+        if (!this.attachmentCatalog.has(attachment.fileName)) {
+          this.attachmentCatalog.set(attachment.fileName, attachment);
+        }
+      }
     }
   }
 
@@ -281,6 +329,8 @@ export class LlmSession {
       messages: this.messages,
       usage: this.usage,
       latestUsageInputMessageCount: this.latestUsageInputMessageCount,
+      attachmentsDirectory: this.attachmentsDirectory,
+      attachments: [...this.attachmentCatalog.values()],
       options,
       commit: (patch) => {
         this.applyCompactionPatch(patch);
@@ -297,6 +347,64 @@ export class LlmSession {
   }
 
   /**
+   * Projects persisted history onto the request-time shape, materializing
+   * attachment bytes. Nothing here is stored, so the snapshot stays free of
+   * base64. History is re-sent on every tool round, so this re-reads each
+   * attachment per round — see the plan's "Tunables" note before adding a cache.
+   *
+   * Bounded by `MAX_MATERIALIZED_ATTACHMENT_BYTES`, charged against the bytes
+   * each read actually returns. Every other attachment limit is checked against
+   * a recorded `lastKnownByteSize`, and a record can be defeated by anything
+   * that replaces a file on disk; this one cannot, because it never consults a
+   * record. Attachments past the budget resolve to the `too-large` placeholder,
+   * so the turn degrades instead of failing.
+   *
+   * Two properties of the walk are load-bearing:
+   *
+   * - **Sequential, not `Promise.all`.** A running budget is meaningless if the
+   *   reads race — every one of them would see the same "remaining" and the
+   *   total could overshoot by an arbitrary factor.
+   * - **Newest attachment first.** History is oldest-first, so charging in that
+   *   order would spend the budget on stale turns and drop the image the user
+   *   just asked about. Resolution order is reversed; emission order is not.
+   */
+  private async toRequestMessages(): Promise<LlmRequestMessage[]> {
+    const resolutions = new Map<LlmAttachment, AttachmentResolution>();
+    let remainingBytes = MAX_MATERIALIZED_ATTACHMENT_BYTES;
+
+    const newestFirst = this.messages
+      .filter((message) => message.role === 'user')
+      .flatMap((message) => message.attachments)
+      .reverse();
+
+    for (const attachment of newestFirst) {
+      const resolution = await this.resolveAttachment(
+        attachment,
+        remainingBytes,
+      );
+      if (resolution.data !== null) {
+        remainingBytes -= resolution.materializedByteSize;
+      }
+      resolutions.set(attachment, resolution);
+    }
+
+    return this.messages.map((message): LlmRequestMessage => {
+      if (message.role !== 'user') return message;
+      const attachments = message.attachments.map(
+        (attachment): ResolvedLlmAttachment => ({
+          ...attachment,
+          // Deliberately last: a successful resolution's media type describes
+          // the bytes just read and overrides the persisted observation. Every
+          // attachment was visited above, so a miss is impossible; the fallback
+          // keeps this total without an assertion the type cannot see.
+          ...(resolutions.get(attachment) ?? {data: null, reason: 'missing'}),
+        }),
+      );
+      return {...message, attachments};
+    });
+  }
+
+  /**
    * Streams a completion from the LLM using the current message history.
    * Yields text deltas in real-time, then fully assembled tool calls.
    * Records the assistant message in history when done.
@@ -308,9 +416,10 @@ export class LlmSession {
   ): LlmSessionEventStream {
     const llmConfig = await this.getConfig();
     const inputMessageCount = this.messages.length;
+    const messages = await this.toRequestMessages();
     const eventStream = llmApi.streamCompletion({
       config: llmConfig,
-      messages: this.messages,
+      messages,
       systemPrompt: systemPrompt || undefined,
       tools,
       signal,

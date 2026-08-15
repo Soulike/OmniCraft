@@ -1,7 +1,13 @@
 import type {ThinkingLevel} from '@omnicraft/api-schema';
+import type {
+  DocumentMediaType,
+  ImageMediaType,
+  LlmAttachment,
+} from '@omnicraft/tool-schemas';
 import {
   documentMediaTypeSchema,
   imageMediaTypeSchema,
+  llmAttachmentSchema,
 } from '@omnicraft/tool-schemas';
 import {z} from 'zod';
 
@@ -39,6 +45,9 @@ const llmMessageBaseSchema = z.object({
 /** A message from the user. */
 export const llmUserMessageSchema = llmMessageBaseSchema.extend({
   role: z.literal('user'),
+  // Defaulted so snapshots written before attachments still validate, restoring
+  // as an empty list — same convention as `todos` in agentSnapshotSchema.
+  attachments: z.array(llmAttachmentSchema).default([]),
 });
 
 export type LlmUserMessage = z.infer<typeof llmUserMessageSchema>;
@@ -91,6 +100,52 @@ export const llmMessageSchema = z.discriminatedUnion('role', [
 ]);
 
 export type LlmMessage = z.infer<typeof llmMessageSchema>;
+
+// ---------------------------------------------------------------------------
+// Request-time types — not persisted, so no schema. Disk stores attachment
+// references; the wire carries bytes.
+// ---------------------------------------------------------------------------
+
+/**
+ * The outcome of materializing a single attachment's bytes for a provider
+ * call: either its base64 data, or a reason delivery failed. Failure reasons
+ * must not be conflated: `missing` means the file is gone, `too-large` means
+ * its bytes exceed the request budget, and `dimensions-too-large` means an
+ * image exceeds the product's per-edge pixel limit.
+ */
+export type AttachmentResolution =
+  /** Both `mediaType` and `materializedByteSize` describe the bytes actually
+   *  read. Persisted attachment metadata is only a prior observation and may
+   *  no longer describe a same-name replacement. A caller budgeting request
+   *  memory must accumulate this size and label these bytes with this type. */
+  | {
+      readonly data: string;
+      readonly mediaType: ImageMediaType | DocumentMediaType;
+      readonly materializedByteSize: number;
+    }
+  | {readonly data: null; readonly reason: 'missing' | 'too-large'}
+  | {
+      readonly data: null;
+      readonly reason: 'dimensions-too-large';
+      readonly maxDimensionPixels: number;
+    };
+
+/** An attachment with its bytes materialized for a provider call. */
+export type ResolvedLlmAttachment = LlmAttachment & AttachmentResolution;
+
+/** A user message whose attachments have been resolved to bytes. */
+export interface LlmRequestUserMessage extends Omit<
+  LlmUserMessage,
+  'attachments'
+> {
+  readonly attachments: readonly ResolvedLlmAttachment[];
+}
+
+/** A message as handed to a provider adapter. */
+export type LlmRequestMessage =
+  | LlmRequestUserMessage
+  | LlmAssistantMessage
+  | LlmToolResultMessage;
 
 /** Configuration needed to call an LLM API. */
 export interface LlmConfig {
@@ -184,7 +239,7 @@ export type LlmEventStream = AsyncGenerator<LlmEvent, void, undefined>;
 /** Options for a streaming LLM completion request. */
 export interface LlmCompletionOptions {
   readonly config: Readonly<LlmConfig>;
-  readonly messages: readonly LlmMessage[];
+  readonly messages: readonly LlmRequestMessage[];
   readonly systemPrompt?: string;
   readonly tools: readonly AnyToolDefinition[];
   readonly signal?: AbortSignal;

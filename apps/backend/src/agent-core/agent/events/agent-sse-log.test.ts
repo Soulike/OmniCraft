@@ -31,6 +31,7 @@ function messageStart(messageId = 'msg-1'): SseMessageStartEvent {
     messageId,
     createdAt: 0,
     content: '',
+    attachments: [],
   };
 }
 

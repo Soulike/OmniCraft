@@ -1,5 +1,12 @@
-import type {LlmMessage, LlmToolCall} from '../../llm-api/index.js';
-import {toolResultBlocksToText} from '../../llm-api/index.js';
+import type {
+  LlmMessage,
+  LlmToolCall,
+  LlmUserMessage,
+} from '../../llm-api/index.js';
+import {
+  formatAttachmentSize,
+  toolResultBlocksToText,
+} from '../../llm-api/index.js';
 import type {AnyToolDefinition} from '../../tool/types.js';
 import {
   RECENT_CONTEXT_ENTRY_TRUNCATE_HEAD_CHARS,
@@ -45,6 +52,15 @@ function truncateForCompaction(
   const omitted = content.length - head.length - tail.length;
 
   return `${head}\n\n[Content truncated for compaction only. Original length: ${content.length.toString()} chars. Omitted ${omitted.toString()} chars.]\n\n${tail}`;
+}
+
+function projectUserContent(message: LlmUserMessage): string {
+  if (message.attachments.length === 0) return message.content;
+  const placeholders = message.attachments.map(
+    (attachment) =>
+      `[attachment: ${attachment.fileName} (${attachment.mediaType}, ${formatAttachmentSize(attachment.lastKnownByteSize)})]`,
+  );
+  return [message.content, ...placeholders].join('\n');
 }
 
 function slimToolCallsForCompaction(
@@ -114,7 +130,7 @@ function slimMessages(
     result.push(
       JSON.stringify({
         role: 'user',
-        content: truncateForCompaction(message.content, truncation),
+        content: truncateForCompaction(projectUserContent(message), truncation),
       }),
     );
   }

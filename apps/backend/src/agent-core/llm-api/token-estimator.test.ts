@@ -4,7 +4,7 @@ import {estimatePromptTokens} from './token-estimator.js';
 import type {LlmMessage} from './types.js';
 
 function userMessage(content: string): LlmMessage {
-  return {id: 'u', createdAt: 0, role: 'user', content};
+  return {id: 'u', createdAt: 0, role: 'user', content, attachments: []};
 }
 
 function imageResult(data: string): LlmMessage {
@@ -123,5 +123,88 @@ describe('estimatePromptTokens', () => {
     });
 
     expect(withSystem).toBeGreaterThan(withoutSystem);
+  });
+});
+
+describe('user message attachments', () => {
+  it('charges a bounded per-image cost on top of the text', () => {
+    const withoutImage = estimatePromptTokens({
+      messages: [
+        {id: 'u', createdAt: 0, role: 'user', content: 'hi', attachments: []},
+      ],
+    });
+    const withImage = estimatePromptTokens({
+      messages: [
+        {
+          id: 'u',
+          createdAt: 0,
+          role: 'user',
+          content: 'hi',
+          attachments: [
+            {
+              fileName: 'a.png',
+              mediaType: 'image/png',
+              lastKnownByteSize: 4_000_000,
+            },
+          ],
+        },
+      ],
+    });
+
+    // Bounded and independent of lastKnownByteSize — matches the tool-result image cost.
+    expect(withImage - withoutImage).toBe(1600);
+  });
+
+  it('charges a larger bounded cost for a PDF', () => {
+    const base = estimatePromptTokens({
+      messages: [
+        {id: 'u', createdAt: 0, role: 'user', content: 'hi', attachments: []},
+      ],
+    });
+    const withPdf = estimatePromptTokens({
+      messages: [
+        {
+          id: 'u',
+          createdAt: 0,
+          role: 'user',
+          content: 'hi',
+          attachments: [
+            {
+              fileName: 'a.pdf',
+              mediaType: 'application/pdf',
+              lastKnownByteSize: 10,
+            },
+          ],
+        },
+      ],
+    });
+
+    expect(withPdf - base).toBe(3000);
+  });
+
+  it('accepts a resolved request message without counting the base64', () => {
+    const estimate = estimatePromptTokens({
+      messages: [
+        {
+          id: 'u',
+          createdAt: 0,
+          role: 'user',
+          content: 'hi',
+          attachments: [
+            {
+              fileName: 'a.png',
+              mediaType: 'image/png',
+              lastKnownByteSize: 3,
+              data: 'A'.repeat(100_000),
+              materializedByteSize: 3,
+            },
+          ],
+        },
+      ],
+    });
+
+    // 'hi' is 1 token; the image is the flat 1600. The base64 must not be
+    // counted as text — that would over-count by ~30,000 tokens.
+    expect(estimate).toBeLessThan(1700);
   });
 });

@@ -5,3 +5,6 @@ export const SESSION_COMPLETIONS = '/chat/session/:id/completions';
 export const SESSION_TOOL_RESPONSE = '/chat/session/:id/tool-response';
 export const SESSION_EVENTS = '/chat/session/:id/events';
 export const SESSION_ABORT = '/chat/session/:id/abort';
+export const SESSION_ATTACHMENTS = '/chat/session/:id/attachments';
+export const SESSION_ATTACHMENT_BY_NAME =
+  '/chat/session/:id/attachments/:fileName';

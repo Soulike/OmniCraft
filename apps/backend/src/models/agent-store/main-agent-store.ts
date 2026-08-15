@@ -11,7 +11,6 @@ import {
 import {MainAgent} from '@/agent/agents/index.js';
 import type {Agent} from '@/agent-core/agent/index.js';
 import {agentPersistence} from '@/agent-core/agent/index.js';
-import {agentEventBus} from '@/agent-core/events/index.js';
 import {isFileNotFoundError} from '@/helpers/fs.js';
 import {logger} from '@/logger.js';
 
@@ -19,12 +18,6 @@ import {AgentStore} from './agent-store.js';
 
 export class MainAgentStore extends AgentStore {
   private static instance: MainAgentStore | null = null;
-
-  private readonly onAgentCreated = (agent: Agent): void => {
-    if (agent instanceof MainAgent) {
-      this.set(agent);
-    }
-  };
 
   private constructor(sessionsDir: string) {
     super(sessionsDir);
@@ -39,7 +32,7 @@ export class MainAgentStore extends AgentStore {
     return MainAgentStore.instance;
   }
 
-  /** Creates the singleton instance and subscribes to agent events. */
+  /** Creates the singleton instance. */
   static create(sessionsDir: string): MainAgentStore {
     assert(
       MainAgentStore.instance === null,
@@ -47,18 +40,18 @@ export class MainAgentStore extends AgentStore {
     );
     const store = new MainAgentStore(sessionsDir);
     MainAgentStore.instance = store;
-    agentEventBus.on('agent-created', store.onAgentCreated);
     return store;
+  }
+
+  /** Creates a new main agent owned by this store. */
+  createAgent(): string {
+    const agent = new MainAgent(undefined, this.sessionsDir);
+    this.registerAgent(agent);
+    return agent.id;
   }
 
   /** Resets the singleton instance. Only for use in tests. */
   static resetInstance(): void {
-    if (MainAgentStore.instance) {
-      agentEventBus.off(
-        'agent-created',
-        MainAgentStore.instance.onAgentCreated,
-      );
-    }
     MainAgentStore.instance = null;
   }
 

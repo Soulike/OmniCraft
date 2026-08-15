@@ -1,6 +1,10 @@
 import {describe, expect, it} from 'vitest';
 
-import {toOpenAIToolResultOutput, toReasoning} from './helpers.js';
+import {
+  toInputItems,
+  toOpenAIToolResultOutput,
+  toReasoning,
+} from './helpers.js';
 
 describe('toReasoning', () => {
   it('returns undefined for none', () => {
@@ -72,5 +76,99 @@ describe('toOpenAIToolResultOutput', () => {
         file_data: 'data:application/pdf;base64,BBBB',
       },
     ]);
+  });
+});
+
+describe('toInputItems user attachments', () => {
+  const base = {id: 'u1', createdAt: 1, role: 'user' as const, content: 'look'};
+
+  it('keeps bare string content when there are no attachments', () => {
+    expect(toInputItems([{...base, attachments: []}])).toEqual([
+      {type: 'message', role: 'user', content: 'look'},
+    ]);
+  });
+
+  it('emits input_image before input_text', () => {
+    expect(
+      toInputItems([
+        {
+          ...base,
+          attachments: [
+            {
+              fileName: 'shot.png',
+              mediaType: 'image/png',
+              lastKnownByteSize: 3,
+              data: 'AAA=',
+              materializedByteSize: Buffer.from('AAA=', 'base64').byteLength,
+            },
+          ],
+        },
+      ]),
+    ).toEqual([
+      {
+        type: 'message',
+        role: 'user',
+        content: [
+          {
+            type: 'input_image',
+            detail: 'auto',
+            image_url: 'data:image/png;base64,AAA=',
+          },
+          {type: 'input_text', text: 'look'},
+        ],
+      },
+    ]);
+  });
+
+  it('emits input_file with the file name for a PDF', () => {
+    const items = toInputItems([
+      {
+        ...base,
+        attachments: [
+          {
+            fileName: 'invoice.pdf',
+            mediaType: 'application/pdf',
+            lastKnownByteSize: 3,
+            data: 'BBB=',
+            materializedByteSize: Buffer.from('BBB=', 'base64').byteLength,
+          },
+        ],
+      },
+    ]);
+
+    expect(items[0]).toMatchObject({
+      content: [
+        {
+          type: 'input_file',
+          filename: 'invoice.pdf',
+          file_data: 'data:application/pdf;base64,BBB=',
+        },
+        {type: 'input_text', text: 'look'},
+      ],
+    });
+  });
+
+  it('emits a text placeholder for a missing attachment', () => {
+    const items = toInputItems([
+      {
+        ...base,
+        attachments: [
+          {
+            fileName: 'gone.png',
+            mediaType: 'image/png',
+            lastKnownByteSize: 3,
+            data: null,
+            reason: 'missing',
+          },
+        ],
+      },
+    ]);
+
+    expect(items[0]).toMatchObject({
+      content: [
+        {type: 'input_text', text: '[attachment missing: gone.png]'},
+        {type: 'input_text', text: 'look'},
+      ],
+    });
   });
 });

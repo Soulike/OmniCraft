@@ -27,6 +27,7 @@ function createTestSnapshot(id: string): AgentSnapshot {
     llmSession: {
       id: 'llm-session-id',
       messages: [],
+      attachmentCatalog: [],
       compactions: [],
       latestUsageInputMessageCount: null,
       usage: emptyUsage(),
@@ -101,6 +102,36 @@ describe('agentPersistence', () => {
       expect(loaded.todos).toEqual([]);
     });
 
+    it('adds an empty attachment catalog to pre-attachment snapshots', async () => {
+      const snapshot = createTestSnapshot(agentId);
+      const {attachmentCatalog: _omit, ...legacyLlmSession} =
+        snapshot.llmSession;
+      const legacySnapshot = {...snapshot, llmSession: legacyLlmSession};
+      const filePath = path.join(tmpDir, agentId, 'snapshot.json');
+      await writeFile(filePath, JSON.stringify(legacySnapshot, null, 2) + '\n');
+
+      const loaded = await agentPersistence.loadSnapshot(tmpDir, agentId);
+
+      expect(loaded).toEqual(snapshot);
+    });
+
+    it('does not replace an invalid current attachment catalog', async () => {
+      const snapshot = createTestSnapshot(agentId);
+      const invalidSnapshot = {
+        ...snapshot,
+        llmSession: {...snapshot.llmSession, attachmentCatalog: null},
+      };
+      const filePath = path.join(tmpDir, agentId, 'snapshot.json');
+      await writeFile(
+        filePath,
+        JSON.stringify(invalidSnapshot, null, 2) + '\n',
+      );
+
+      await expect(
+        agentPersistence.loadSnapshot(tmpDir, agentId),
+      ).rejects.toThrow();
+    });
+
     it('throws when snapshot.json does not exist', async () => {
       await expect(
         agentPersistence.loadSnapshot(tmpDir, 'nonexistent-id'),
@@ -130,6 +161,14 @@ describe('agentPersistence', () => {
     it('returns the scratch subdirectory of the session directory', () => {
       expect(agentPersistence.scratchPath('/sessions', 'abc')).toBe(
         path.join('/sessions', 'abc', 'scratch'),
+      );
+    });
+  });
+
+  describe('attachmentsPath', () => {
+    it('nests the attachments directory inside the session scratch space', () => {
+      expect(agentPersistence.attachmentsPath('/data/sessions', 'abc')).toBe(
+        path.join('/data/sessions', 'abc', 'scratch', 'attachments'),
       );
     });
   });

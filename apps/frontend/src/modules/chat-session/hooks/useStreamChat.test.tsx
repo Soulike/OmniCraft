@@ -408,6 +408,7 @@ describe('useStreamChat', () => {
         messageId: 'user-1',
         createdAt: 1,
         content: 'run subagent',
+        attachments: [],
       },
       {
         type: 'message-start',
@@ -415,6 +416,7 @@ describe('useStreamChat', () => {
         messageId: 'assistant-1',
         createdAt: 2,
         content: '',
+        attachments: [],
       },
       {
         type: 'subagent-dispatch',
@@ -433,6 +435,7 @@ describe('useStreamChat', () => {
           messageId: 'subagent-user-1',
           createdAt: 3,
           content: 'Inspect the replay path',
+          attachments: [],
         },
       },
       {
@@ -444,6 +447,7 @@ describe('useStreamChat', () => {
           messageId: 'subagent-assistant-1',
           createdAt: 4,
           content: '',
+          attachments: [],
         },
       },
       {
@@ -496,6 +500,7 @@ describe('useStreamChat', () => {
         messageId: 'user-1',
         createdAt: 1,
         content: 'resume subagent',
+        attachments: [],
       },
       {
         type: 'message-start',
@@ -503,6 +508,7 @@ describe('useStreamChat', () => {
         messageId: 'assistant-1',
         createdAt: 2,
         content: '',
+        attachments: [],
       },
       {
         type: 'subagent-resume',
@@ -521,6 +527,7 @@ describe('useStreamChat', () => {
           messageId: 'subagent-user-1',
           createdAt: 3,
           content: 'Continue the replay path',
+          attachments: [],
         },
       },
       {
@@ -532,6 +539,7 @@ describe('useStreamChat', () => {
           messageId: 'subagent-assistant-1',
           createdAt: 4,
           content: '',
+          attachments: [],
         },
       },
       {
@@ -583,6 +591,7 @@ describe('useStreamChat', () => {
         messageId: 'user-1',
         createdAt: 1,
         content: 'hello there',
+        attachments: [],
       },
       {
         type: 'stop-check-reminder',

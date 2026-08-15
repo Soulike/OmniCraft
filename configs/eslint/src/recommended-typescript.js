@@ -27,6 +27,16 @@ export default [
         },
       ],
       '@typescript-eslint/restrict-template-expressions': 'off',
+      // `return somePromise` inside a `try`/`finally` or an `await using`
+      // scope is a use-after-close: the scope unwinds — running the `finally`,
+      // or disposing the resource — before the promise settles. Verified
+      // against a `FileHandle`: dropping the `await` makes the read reject
+      // because the handle is already closed. Reading for it is not a
+      // reasonable expectation, so the rule enforces it.
+      '@typescript-eslint/return-await': [
+        'error',
+        'error-handling-correctness-only',
+      ],
       '@typescript-eslint/switch-exhaustiveness-check': [
         'error',
         {allowDefaultCaseForExhaustiveSwitch: false},

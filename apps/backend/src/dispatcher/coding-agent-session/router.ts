@@ -12,12 +12,15 @@ import {ZodError} from 'zod';
 
 import {codingAgentSessionService} from '@/services/coding-agent-session/index.js';
 
+import {registerAttachmentRoutes} from '../helpers/attachment-routes.js';
 import {isCursorAheadOfLog, parseSseResumeCursor} from '../helpers/cursor.js';
 import {parseSessionId} from '../helpers/session-id.js';
 import {pumpSseEvents} from '../helpers/sse.js';
 import {
   SESSION,
   SESSION_ABORT,
+  SESSION_ATTACHMENT_BY_NAME,
+  SESSION_ATTACHMENTS,
   SESSION_BY_ID,
   SESSION_COMPLETIONS,
   SESSION_EVENTS,
@@ -85,9 +88,11 @@ router.post(SESSION_COMPLETIONS, async (ctx) => {
   }
 
   let message: string;
+  let attachmentFileNames: string[];
   try {
     const body = chatCompletionsRequestSchema.parse(ctx.request.body);
     message = body.message;
+    attachmentFileNames = body.attachmentFileNames;
   } catch (e) {
     if (e instanceof ZodError) {
       ctx.response.status = StatusCodes.BAD_REQUEST;
@@ -97,14 +102,37 @@ router.post(SESSION_COMPLETIONS, async (ctx) => {
     throw e;
   }
 
-  const found = await codingAgentSessionService.sendCompletion(id, message);
-  if (!found) {
-    ctx.response.status = StatusCodes.NOT_FOUND;
-    ctx.response.body = {error: `Session not found: ${id}`};
+  const result = await codingAgentSessionService.sendCompletion(
+    id,
+    message,
+    attachmentFileNames,
+  );
+  if (result.ok) {
+    ctx.response.status = StatusCodes.ACCEPTED;
     return;
   }
 
-  ctx.response.status = StatusCodes.ACCEPTED;
+  switch (result.reason) {
+    case 'session-not-found':
+      ctx.response.status = StatusCodes.NOT_FOUND;
+      ctx.response.body = {error: `Session not found: ${id}`};
+      return;
+    case 'unknown-attachments':
+      ctx.response.status = StatusCodes.BAD_REQUEST;
+      ctx.response.body = {
+        error: 'UNKNOWN_ATTACHMENTS',
+        missing: result.missing,
+      };
+      return;
+    case 'attachments-too-large':
+      ctx.response.status = StatusCodes.REQUEST_TOO_LONG;
+      ctx.response.body = {
+        error: 'ATTACHMENTS_TOO_LARGE',
+        limitBytes: result.limit,
+        totalBytes: result.totalBytes,
+      };
+      return;
+  }
 });
 
 /** GET /coding/session/:id/events — SSE stream of agent events. */
@@ -151,7 +179,9 @@ router.get(SESSION_EVENTS, async (ctx) => {
   }
 
   ctx.response.type = 'text/event-stream';
-  ctx.response.set('Cache-Control', 'no-cache');
+  // Explicit no-store: an SSE conversation stream must never be cached or
+  // stored, unlike no-cache which merely forces revalidation before reuse.
+  ctx.response.set('Cache-Control', 'no-store');
   ctx.response.set('Connection', 'keep-alive');
   ctx.response.set('X-Accel-Buffering', 'no');
 
@@ -236,5 +266,11 @@ router.delete(SESSION_BY_ID, async (ctx) => {
 
   ctx.response.status = StatusCodes.NO_CONTENT;
 });
+
+registerAttachmentRoutes(
+  router,
+  {collection: SESSION_ATTACHMENTS, byName: SESSION_ATTACHMENT_BY_NAME},
+  codingAgentSessionService,
+);
 
 export {router};

@@ -71,6 +71,8 @@ export class LlmSessionCompactor {
         config: input.config,
         messages: input.messages,
         tools: input.options.tools,
+        attachmentsDirectory: input.attachmentsDirectory,
+        attachments: input.attachments,
         ...(input.options.signal ? {signal: input.options.signal} : {}),
       });
       const afterTokens = this.tokenEstimator.estimateTokensFromMessages({

@@ -1,8 +1,9 @@
+import type {LlmAttachment} from '@omnicraft/tool-schemas';
 import {z} from 'zod';
 
 import type {AnyToolDefinition} from '../tool/types.js';
 import type {ToolResultBlock} from './types.js';
-import type {LlmMessage} from './types.js';
+import type {LlmMessage, LlmRequestMessage} from './types.js';
 
 const CHARS_PER_TOKEN = 3;
 
@@ -24,9 +25,14 @@ const IMAGE_TOKEN_ESTIMATE = 1600;
  */
 const DOCUMENT_TOKEN_ESTIMATE = 3000;
 
-/** The parts of a request that contribute to the prompt token count. */
+/**
+ * The parts of a request that contribute to the prompt token count. `messages`
+ * accepts either persisted history (compaction's view, attachments unresolved)
+ * or request-time messages (a provider's view, attachments resolved to bytes) —
+ * this estimator only reads fields common to both.
+ */
 export interface PromptTokenInput {
-  readonly messages: readonly LlmMessage[];
+  readonly messages: readonly (LlmMessage | LlmRequestMessage)[];
   readonly systemPrompt?: string;
   readonly tools?: readonly AnyToolDefinition[];
 }
@@ -53,9 +59,17 @@ function estimateText(text: string): number {
   return Math.ceil(text.length / CHARS_PER_TOKEN);
 }
 
-function estimateMessageTokens(message: LlmMessage): number {
+function estimateMessageTokens(
+  message: LlmMessage | LlmRequestMessage,
+): number {
   if (message.role === 'user') {
-    return estimateText(message.content);
+    return (
+      estimateText(message.content) +
+      message.attachments.reduce(
+        (sum, attachment) => sum + estimateAttachmentTokens(attachment),
+        0,
+      )
+    );
   }
   if (message.role === 'assistant') {
     let total = estimateText(message.content);
@@ -82,6 +96,12 @@ function estimateBlockTokens(block: ToolResultBlock): number {
     case 'document':
       return DOCUMENT_TOKEN_ESTIMATE;
   }
+}
+
+function estimateAttachmentTokens(attachment: LlmAttachment): number {
+  return attachment.mediaType === 'application/pdf'
+    ? DOCUMENT_TOKEN_ESTIMATE
+    : IMAGE_TOKEN_ESTIMATE;
 }
 
 function estimateToolTokens(tool: AnyToolDefinition): number {

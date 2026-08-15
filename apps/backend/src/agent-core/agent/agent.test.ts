@@ -2,6 +2,7 @@ import crypto from 'node:crypto';
 import {mkdtempSync, realpathSync, rmSync, statSync} from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import {Readable} from 'node:stream';
 
 import type {SseEvent} from '@omnicraft/sse-events';
 import {afterEach, describe, expect, it, vi} from 'vitest';
@@ -12,6 +13,10 @@ import {createMockTool} from '../tool/testing.js';
 import {ToolRegistry} from '../tool/tool-registry.js';
 import type {ToolDefinition} from '../tool/types.js';
 import {Agent} from './agent.js';
+import {
+  MAX_DOCUMENT_ATTACHMENT_BYTES,
+  MAX_MESSAGE_ATTACHMENT_BYTES,
+} from './attachments/index.js';
 import {agentPersistence} from './persistence/agent-persistence.js';
 import type {AgentSnapshot} from './types.js';
 
@@ -35,6 +40,26 @@ const LIGHT_CONFIG: LlmConfig = {
   model: 'light-model',
 };
 
+// Real PNG magic bytes plus padding — the store sniffs content, never the
+// declared name. Matches the fixture style in agent-attachment-store.test.ts.
+const PNG_HEADER = Buffer.from([
+  0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d, 0x49,
+  0x48, 0x44, 0x52,
+]);
+
+const PNG = Buffer.concat([PNG_HEADER, Buffer.alloc(48)]);
+
+const PDF_HEADER = Buffer.from('%PDF-1.7\n%\xE2\xE3\xCF\xD3\n', 'binary');
+
+/** A PDF sized exactly at the per-file cap — legal on its own, so a set of
+ *  them isolates the per-message cap from the per-file one. */
+function cappedPdf(): Buffer {
+  return Buffer.concat([
+    PDF_HEADER,
+    Buffer.alloc(MAX_DOCUMENT_ATTACHMENT_BYTES - PDF_HEADER.length),
+  ]);
+}
+
 function emptyUsage() {
   return {
     currentContextInputTokens: 0,
@@ -49,7 +74,7 @@ class TestAgent extends Agent {}
 
 class UsageTestAgent extends Agent {
   streamForTest(userMessage: string): AsyncIterable<SseEvent> {
-    return this.runAgentLoop(userMessage, new AbortController().signal);
+    return this.runAgentLoop(userMessage, [], new AbortController().signal);
   }
 }
 
@@ -83,6 +108,14 @@ function testAgentOptions() {
 function track<T extends Agent>(agent: T): T {
   tmpDirsToCleanup.add(path.dirname(agent.getScratchDirectory()));
   return agent;
+}
+
+/** A minimally-configured, disposable agent for tests that only need its
+ *  scratch-space operations, not the LLM plumbing. */
+function createTestAgent(): TestAgent {
+  return track(
+    new TestAgent(() => Promise.resolve(MAIN_CONFIG), testAgentOptions()),
+  );
 }
 
 const tmpDirsToCleanup = new Set<string>();
@@ -591,6 +624,7 @@ describe('Agent compaction lifecycle', () => {
         sseEventCount: 0,
         llmSession: {
           id: 'llm-session-1',
+          attachmentCatalog: [],
           compactions: [],
           latestUsageInputMessageCount: null,
           messages: Array.from({length: 12}, (_, index) => ({
@@ -598,6 +632,7 @@ describe('Agent compaction lifecycle', () => {
             createdAt: index,
             role: 'user' as const,
             content: `old message ${index.toString()} ${'x'.repeat(30_000)}`,
+            attachments: [],
           })),
           usage: emptyUsage(),
         },
@@ -796,6 +831,7 @@ describe('Agent abort flow', () => {
         sseEventCount: 0,
         llmSession: {
           id: 'llm-session-compaction-abort',
+          attachmentCatalog: [],
           compactions: [],
           latestUsageInputMessageCount: null,
           messages: Array.from({length: 12}, (_, index) => ({
@@ -803,6 +839,7 @@ describe('Agent abort flow', () => {
             createdAt: index,
             role: 'user' as const,
             content: `old message ${index.toString()} ${'x'.repeat(30_000)}`,
+            attachments: [],
           })),
           usage: emptyUsage(),
         },
@@ -915,6 +952,7 @@ describe('Agent snapshot restore', () => {
       llmSession: {
         id: 'llm-session-id',
         messages: [],
+        attachmentCatalog: [],
         compactions: [],
         latestUsageInputMessageCount: null,
         usage: emptyUsage(),
@@ -947,6 +985,7 @@ describe('Agent snapshot restore', () => {
       llmSession: {
         id: 'llm-session-id',
         messages: [],
+        attachmentCatalog: [],
         compactions: [],
         latestUsageInputMessageCount: null,
         usage: emptyUsage(),
@@ -1004,6 +1043,7 @@ describe('Agent scratch directory', () => {
       llmSession: {
         id: 'llm-session-id',
         messages: [],
+        attachmentCatalog: [],
         compactions: [],
         latestUsageInputMessageCount: null,
         usage: emptyUsage(),
@@ -1136,6 +1176,55 @@ describe('Agent turn scheduling', () => {
     expect(agent.isRunning).toBe(true);
   });
 
+  it('close aborts the active turn and drains queued work without starting it', async () => {
+    const turnStarted = Promise.withResolvers<undefined>();
+    const turnAborted = Promise.withResolvers<undefined>();
+
+    async function* blockingStream(
+      signal: AbortSignal | undefined,
+    ): LlmEventStream {
+      turnStarted.resolve(undefined);
+      yield {type: 'message-start', messageId: 'blocking-message'};
+      await new Promise<void>((resolve) => {
+        if (!signal || signal.aborted) {
+          resolve();
+          return;
+        }
+        signal.addEventListener(
+          'abort',
+          () => {
+            resolve();
+          },
+          {once: true},
+        );
+      });
+      turnAborted.resolve(undefined);
+      throw new Error('Request aborted');
+    }
+
+    vi.spyOn(llmApi, 'countToken').mockResolvedValue(1);
+    const streamCompletion = vi
+      .spyOn(llmApi, 'streamCompletion')
+      .mockImplementation((options) => blockingStream(options.signal));
+    const agent = track(
+      new TestAgent(() => Promise.resolve(MAIN_CONFIG), testAgentOptions()),
+    );
+    agent.title = 'Existing Title';
+
+    agent.enqueueUserTurn('active');
+    agent.enqueueUserTurn('queued');
+    await turnStarted.promise;
+
+    const closing = agent.close();
+    expect(agent.tryStartUserTurn('rejected')).toBe(false);
+    agent.enqueueUserTurn('also rejected');
+
+    await closing;
+    await turnAborted.promise;
+    expect(agent.isRunning).toBe(false);
+    expect(streamCompletion).toHaveBeenCalledTimes(1);
+  });
+
   it('tryStartUserTurn returns true again once the turn completes', async () => {
     vi.spyOn(llmApi, 'countToken').mockResolvedValue(1);
     vi.spyOn(llmApi, 'streamCompletion').mockImplementation(() =>
@@ -1196,5 +1285,226 @@ describe('Agent turn scheduling', () => {
     while (agent.isRunning) {
       await delay(0);
     }
+  });
+
+  it('close aborts in-flight title generation and drains it', async () => {
+    const titleStarted = Promise.withResolvers<undefined>();
+    const releaseTitle = Promise.withResolvers<undefined>();
+    let titleSignal: AbortSignal | undefined;
+
+    async function* blockingTitleStream(
+      signal: AbortSignal | undefined,
+    ): LlmEventStream {
+      titleStarted.resolve(undefined);
+      yield {type: 'message-start', messageId: 'title-message'};
+      await new Promise<void>((resolve) => {
+        void releaseTitle.promise.then(resolve);
+        if (signal?.aborted) {
+          resolve();
+          return;
+        }
+        signal?.addEventListener(
+          'abort',
+          () => {
+            resolve();
+          },
+          {once: true},
+        );
+      });
+      if (signal?.aborted) throw new Error('Request aborted');
+      yield {
+        type: 'message-end',
+        stopReason: 'end_turn',
+        usage: {inputTokens: 1, outputTokens: 1, cacheReadInputTokens: 0},
+      };
+    }
+
+    vi.spyOn(llmApi, 'countToken').mockResolvedValue(1);
+    vi.spyOn(llmApi, 'streamCompletion').mockImplementation((options) => {
+      if (options.config.model === LIGHT_CONFIG.model) {
+        titleSignal = options.signal;
+        return blockingTitleStream(options.signal);
+      }
+      return mainCompletionStream();
+    });
+    const agent = track(
+      new TestAgent(() => Promise.resolve(MAIN_CONFIG), testAgentOptions()),
+    );
+
+    const eventsPromise = collectUntilDone(agent);
+    agent.enqueueUserTurn('first');
+    await eventsPromise;
+    await titleStarted.promise;
+
+    const closing = agent.close();
+    try {
+      await Promise.resolve();
+      expect(titleSignal).toBeDefined();
+      expect(titleSignal?.aborted).toBe(true);
+    } finally {
+      releaseTitle.resolve(undefined);
+      await closing;
+    }
+    expect(agent.isRunning).toBe(false);
+  });
+});
+
+describe('Agent attachments', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('echoes attachment descriptors on the user message-start event', async () => {
+    vi.spyOn(llmApi, 'countToken').mockResolvedValue(1);
+    vi.spyOn(llmApi, 'streamCompletion').mockImplementation(() =>
+      mainCompletionStream(),
+    );
+    const agent = track(
+      new TestAgent(() => Promise.resolve(MAIN_CONFIG), testAgentOptions()),
+    );
+    const attachments = [
+      {
+        fileName: 'shot.png',
+        mediaType: 'image/png' as const,
+        lastKnownByteSize: 3,
+      },
+    ];
+
+    const eventsPromise = collectUntilDone(agent);
+    agent.enqueueUserTurn('look', attachments);
+    const events = await eventsPromise;
+
+    const start = events.find(
+      (event) => event.type === 'message-start' && event.role === 'user',
+    );
+    expect(start).toMatchObject({content: 'look', attachments});
+  });
+});
+
+describe('attachment operations', () => {
+  it('stores an attachment in its own scratch space', async () => {
+    const agent = createTestAgent();
+
+    const saved = await agent.saveAttachment('shot.png', Readable.from([PNG]));
+    expect(saved).toMatchObject({ok: true});
+
+    const found = await agent.describeAttachment('shot.png');
+    expect(found?.attachment).toEqual({
+      fileName: 'shot.png',
+      mediaType: 'image/png',
+      lastKnownByteSize: PNG.length,
+    });
+  });
+
+  it('removes an attachment and reports whether it existed', async () => {
+    const agent = createTestAgent();
+    await agent.saveAttachment('shot.png', Readable.from([PNG]));
+
+    expect(await agent.removeAttachment('shot.png')).toEqual({ok: true});
+    expect(await agent.removeAttachment('shot.png')).toEqual({
+      ok: false,
+      reason: 'not-found',
+    });
+  });
+
+  it('claims names to descriptors read from disk, in the requested order', async () => {
+    const agent = createTestAgent();
+    await agent.saveAttachment('a.png', Readable.from([PNG]));
+    await agent.saveAttachment('b.png', Readable.from([PNG]));
+
+    const result = await agent.claimAttachments(['b.png', 'a.png']);
+    expect(result.ok && result.attachments.map((a) => a.fileName)).toEqual([
+      'b.png',
+      'a.png',
+    ]);
+  });
+
+  it('reports every unknown name instead of failing on the first', async () => {
+    const agent = createTestAgent();
+
+    expect(await agent.claimAttachments(['gone.png', '../escape.png'])).toEqual(
+      {
+        ok: false,
+        reason: 'unknown-attachments',
+        missing: ['gone.png', '../escape.png'],
+      },
+    );
+  });
+
+  // The cap belongs to the Agent, not to each session service: it is what
+  // keeps a single message below COMPACTION_TRIGGER_ATTACHMENT_BYTES, and a
+  // compaction triggered by one over-sized message cannot relieve itself,
+  // because its only lever is dropping attachments from *older* messages.
+  it('refuses a claim whose attachments exceed the per-message cap', async () => {
+    const agent = createTestAgent();
+    // Three PDFs at the 10 MB per-file cap: each is individually legal, and
+    // together they are over the 12 MB per-message cap.
+    const names = ['a.pdf', 'b.pdf', 'c.pdf'];
+    for (const name of names) {
+      await agent.saveAttachment(name, Readable.from([cappedPdf()]));
+    }
+
+    expect(await agent.claimAttachments(names)).toEqual({
+      ok: false,
+      reason: 'attachments-too-large',
+      totalBytes: MAX_DOCUMENT_ATTACHMENT_BYTES * 3,
+      limit: MAX_MESSAGE_ATTACHMENT_BYTES,
+    });
+  });
+
+  // The ordering that makes a claim's descriptor describe the bytes it froze —
+  // and the release, the lock, and the races around them — are all properties
+  // of `agentAttachmentStore.claim` now, and are covered in its own tests. What
+  // matters here is only that the Agent forwards to it.
+
+  // The same bound, one layer down and with a different contract. Reaching
+  // enqueueUserTurn over the cap means a producer built descriptors without
+  // going through claimAttachments — a bug in this process, not something a
+  // client did, so it throws rather than returning a failure nobody asked for.
+  it('throws when a turn is enqueued over the per-message cap', () => {
+    const agent = createTestAgent();
+    const overCap = [
+      {
+        fileName: 'huge.pdf',
+        mediaType: 'application/pdf' as const,
+        lastKnownByteSize: MAX_MESSAGE_ATTACHMENT_BYTES + 1,
+      },
+    ];
+
+    expect(() => {
+      agent.enqueueUserTurn('hi', overCap);
+    }).toThrow(/per-message cap/);
+    expect(() => agent.tryStartUserTurn('hi', overCap)).toThrow(
+      /per-message cap/,
+    );
+  });
+
+  // The whole point of claiming: after this, the recorded lastKnownByteSize is a
+  // permanent fact about the file, because the name can no longer be freed
+  // and re-bound to different bytes.
+  it('freezes what it claims, so the file can no longer be deleted', async () => {
+    const agent = createTestAgent();
+    await agent.saveAttachment('shot.png', Readable.from([PNG]));
+
+    expect(await agent.removeAttachment('shot.png')).toEqual({ok: true});
+    await agent.saveAttachment('shot.png', Readable.from([PNG]));
+
+    expect(await agent.claimAttachments(['shot.png'])).toMatchObject({
+      ok: true,
+    });
+    expect(await agent.removeAttachment('shot.png')).toEqual({
+      ok: false,
+      reason: 'frozen',
+    });
+  });
+
+  it('leaves an unclaimed attachment deletable', async () => {
+    const agent = createTestAgent();
+    await agent.saveAttachment('claimed.png', Readable.from([PNG]));
+    await agent.saveAttachment('loose.png', Readable.from([PNG]));
+
+    await agent.claimAttachments(['claimed.png']);
+
+    expect(await agent.removeAttachment('loose.png')).toEqual({ok: true});
   });
 });

@@ -6,6 +6,7 @@ import {
   sseContextCompactionErrorEventSchema,
   sseContextCompactionStartEventSchema,
   sseEventSchema,
+  sseMessageStartEventSchema,
   sseSubagentCompleteEventSchema,
   sseSubagentDispatchEventSchema,
   sseSubagentOutputEventSchema,
@@ -285,5 +286,52 @@ describe('tool-execute-start schema', () => {
     expect(sseToolExecuteStartEventSchema.parse(event)).toEqual(event);
     expect(sseBaseEventSchema.parse(event)).toEqual(event);
     expect(sseEventSchema.parse(event)).toEqual(event);
+  });
+});
+
+describe('sseMessageStartEventSchema attachments', () => {
+  it('defaults attachments for event-log lines written before the field existed', () => {
+    const parsed = sseMessageStartEventSchema.parse({
+      type: 'message-start',
+      role: 'user',
+      messageId: 'm1',
+      createdAt: 1,
+      content: 'hello',
+    });
+    expect(parsed.attachments).toEqual([]);
+  });
+
+  it('carries attachment descriptors and no bytes', () => {
+    const parsed = sseMessageStartEventSchema.parse({
+      type: 'message-start',
+      role: 'user',
+      messageId: 'm1',
+      createdAt: 1,
+      content: 'look',
+      attachments: [
+        {
+          fileName: 'shot.png',
+          mediaType: 'image/png',
+          lastKnownByteSize: 812345,
+        },
+      ],
+    });
+    expect(parsed.attachments[0]?.fileName).toBe('shot.png');
+    expect(parsed.attachments[0]).not.toHaveProperty('data');
+  });
+
+  it('rejects an undeliverable media type', () => {
+    expect(() =>
+      sseMessageStartEventSchema.parse({
+        type: 'message-start',
+        role: 'user',
+        messageId: 'm1',
+        createdAt: 1,
+        content: 'look',
+        attachments: [
+          {fileName: 'a.svg', mediaType: 'image/svg+xml', lastKnownByteSize: 1},
+        ],
+      }),
+    ).toThrow();
   });
 });

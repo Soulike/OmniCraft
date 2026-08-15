@@ -1,7 +1,8 @@
 import {afterEach, describe, expect, it, vi} from 'vitest';
 
 import {llmApi, type LlmConfig, type LlmEventStream} from '../llm-api/index.js';
-import {LlmSession} from './llm-session.js';
+import {LlmSession, type LlmSessionOptions} from './llm-session.js';
+import type {AttachmentResolver} from './types.js';
 import {llmSessionSnapshotSchema} from './types.js';
 
 const TEST_CONFIG: LlmConfig = {
@@ -13,6 +14,19 @@ const TEST_CONFIG: LlmConfig = {
   maxContextTokens: 200_000,
   maxOutputTokens: 32_000,
 };
+
+const resolveAttachment: AttachmentResolver = () =>
+  Promise.resolve({data: null, reason: 'missing'});
+const attachmentsDirectory = '/scratch/attachments';
+
+function createSession(overrides: Partial<LlmSessionOptions> = {}): LlmSession {
+  return new LlmSession({
+    getConfig: () => Promise.resolve(TEST_CONFIG),
+    resolveAttachment,
+    attachmentsDirectory,
+    ...overrides,
+  });
+}
 
 function emptyUsage() {
   return {
@@ -49,6 +63,21 @@ describe('llmSessionSnapshotSchema', () => {
     const result = llmSessionSnapshotSchema.safeParse({
       id: 'session-1',
       messages: [],
+      attachmentCatalog: [],
+      latestUsageInputMessageCount: null,
+      usage: emptyUsage(),
+    });
+
+    expect(result.success).toBe(false);
+  });
+
+  it('requires an attachment catalog', () => {
+    const result = llmSessionSnapshotSchema.safeParse({
+      id: 'session-1',
+      messages: [],
+      compactions: [],
+      latestUsageInputMessageCount: null,
+      usage: emptyUsage(),
     });
 
     expect(result.success).toBe(false);
@@ -58,6 +87,7 @@ describe('llmSessionSnapshotSchema', () => {
     const result = llmSessionSnapshotSchema.safeParse({
       id: 'session-1',
       messages: [],
+      attachmentCatalog: [],
       compactions: [],
       latestUsageInputMessageCount: null,
       usage: emptyUsage(),
@@ -70,6 +100,7 @@ describe('llmSessionSnapshotSchema', () => {
     const result = llmSessionSnapshotSchema.safeParse({
       id: 'session-1',
       messages: [],
+      attachmentCatalog: [],
       compactions: [],
       usage: emptyUsage(),
     });
@@ -81,6 +112,7 @@ describe('llmSessionSnapshotSchema', () => {
     const result = llmSessionSnapshotSchema.safeParse({
       id: 'session-1',
       messages: [],
+      attachmentCatalog: [],
       compactions: [],
       latestUsageInputMessageCount: null,
     });
@@ -91,6 +123,7 @@ describe('llmSessionSnapshotSchema', () => {
   it('requires status on tool result messages', () => {
     const result = llmSessionSnapshotSchema.safeParse({
       id: 'session-1',
+      attachmentCatalog: [],
       compactions: [],
       latestUsageInputMessageCount: null,
       usage: emptyUsage(),
@@ -111,6 +144,7 @@ describe('llmSessionSnapshotSchema', () => {
   it('accepts status on tool result messages', () => {
     const result = llmSessionSnapshotSchema.safeParse({
       id: 'session-1',
+      attachmentCatalog: [],
       compactions: [],
       latestUsageInputMessageCount: null,
       usage: emptyUsage(),
@@ -135,6 +169,7 @@ describe('LlmSession snapshot metadata', () => {
     const snapshot = {
       id: 'session-1',
       messages: [],
+      attachmentCatalog: [],
       compactions: [
         {
           id: 'compaction-1',
@@ -155,36 +190,43 @@ describe('LlmSession snapshot metadata', () => {
       },
     };
 
-    const session = new LlmSession(
-      () => Promise.resolve(TEST_CONFIG),
-      snapshot,
-    );
+    const session = createSession({snapshot});
 
     expect(session.toSnapshot()).toEqual(snapshot);
     expect(session.getUsage()).toEqual(snapshot.usage);
   });
 
   it('clears compaction metadata', () => {
-    const session = new LlmSession(() => Promise.resolve(TEST_CONFIG), {
-      id: 'session-1',
-      messages: [],
-      compactions: [
-        {
-          id: 'compaction-1',
-          compactedAt: 123,
-          coveredMessageCount: 10,
-          recentContextMessageCount: 10,
-          beforeCharCount: 1000,
-          afterCharCount: 200,
-        },
-      ],
-      latestUsageInputMessageCount: null,
-      usage: emptyUsage(),
+    const session = createSession({
+      snapshot: {
+        id: 'session-1',
+        messages: [],
+        attachmentCatalog: [
+          {
+            fileName: 'earlier.png',
+            mediaType: 'image/png',
+            lastKnownByteSize: 64,
+          },
+        ],
+        compactions: [
+          {
+            id: 'compaction-1',
+            compactedAt: 123,
+            coveredMessageCount: 10,
+            recentContextMessageCount: 10,
+            beforeCharCount: 1000,
+            afterCharCount: 200,
+          },
+        ],
+        latestUsageInputMessageCount: null,
+        usage: emptyUsage(),
+      },
     });
 
     session.clear();
 
     expect(session.toSnapshot().compactions).toEqual([]);
+    expect(session.toSnapshot().attachmentCatalog).toEqual([]);
   });
 
   it('persists status into submitted tool result messages', async () => {
@@ -192,12 +234,15 @@ describe('LlmSession snapshot metadata', () => {
     vi.spyOn(llmApi, 'streamCompletion').mockReturnValue(
       emptyCompletionStream(),
     );
-    const session = new LlmSession(() => Promise.resolve(TEST_CONFIG), {
-      id: 'session-1',
-      messages: [],
-      compactions: [],
-      latestUsageInputMessageCount: null,
-      usage: emptyUsage(),
+    const session = createSession({
+      snapshot: {
+        id: 'session-1',
+        messages: [],
+        attachmentCatalog: [],
+        compactions: [],
+        latestUsageInputMessageCount: null,
+        usage: emptyUsage(),
+      },
     });
 
     await consume(

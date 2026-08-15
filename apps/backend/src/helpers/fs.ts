@@ -11,6 +11,21 @@ export function isFileNotFoundError(error: unknown): boolean {
   return error instanceof Error && 'code' in error && error.code === 'ENOENT';
 }
 
+/**
+ * Checks whether an error is the refusal `O_NOFOLLOW` raises when the final
+ * path component is a symbolic link. ELOOP on Linux and macOS; FreeBSD reports
+ * EMLINK for this case, so both are accepted rather than relying on one.
+ */
+export function isSymlinkRefusedError(error: unknown): boolean {
+  if (!(error instanceof Error) || !('code' in error)) return false;
+  return error.code === 'ELOOP' || error.code === 'EMLINK';
+}
+
+/** Checks whether an error is a file-already-exists (EEXIST) error. */
+export function isFileExistsError(error: unknown): boolean {
+  return error instanceof Error && 'code' in error && error.code === 'EEXIST';
+}
+
 /** Checks whether a file exists at the given path. */
 export async function fileExists(filePath: string): Promise<boolean> {
   try {

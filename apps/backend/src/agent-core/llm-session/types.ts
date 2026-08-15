@@ -2,9 +2,11 @@ import type {
   SseCompactionReason,
   SseContextCompactionEvent,
 } from '@omnicraft/sse-events';
+import type {LlmAttachment} from '@omnicraft/tool-schemas';
+import {llmAttachmentSchema} from '@omnicraft/tool-schemas';
 import {z} from 'zod';
 
-import type {ToolResultBlock} from '../llm-api/index.js';
+import type {AttachmentResolution, ToolResultBlock} from '../llm-api/index.js';
 import {llmMessageSchema, type LlmToolCall} from '../llm-api/index.js';
 import type {AnyToolDefinition} from '../tool/types.js';
 
@@ -34,6 +36,7 @@ export type LlmSessionUsage = z.infer<typeof llmSessionUsageSchema>;
 export const llmSessionSnapshotSchema = z.object({
   id: z.string(),
   messages: z.array(llmMessageSchema),
+  attachmentCatalog: z.array(llmAttachmentSchema),
   compactions: z.array(llmCompactionMetadataSchema),
   latestUsageInputMessageCount: z.number().nullable(),
   usage: llmSessionUsageSchema,
@@ -47,6 +50,19 @@ export interface ToolResult {
   content: ToolResultBlock[];
   status: 'success' | 'failure';
 }
+
+/**
+ * Materializes an attachment's bytes as base64 for a provider call, or a
+ * reason it could not be delivered. Injected so `agent-core` never reaches
+ * up into the service layer, and so tests can supply a fake.
+ */
+export type AttachmentResolver = (
+  attachment: LlmAttachment,
+  /** Bytes still available in the request's materialization budget. A resolver
+   *  must refuse — rather than read — anything larger, so the budget bounds
+   *  memory instead of merely reporting on it afterwards. */
+  remainingBytes: number,
+) => Promise<AttachmentResolution>;
 
 export interface LlmCompactionOptions {
   readonly reason: SseCompactionReason;
